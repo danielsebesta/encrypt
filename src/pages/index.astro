@@ -4,6 +4,7 @@ import CipherTool from '../components/CipherTool.svelte';
 import HashLab from '../components/HashLab.svelte';
 import PasswordEntropy from '../components/PasswordEntropy.svelte';
 import Steganography from '../components/Steganography.svelte';
+import SecurityShield from '../components/SecurityShield.svelte';
 ---
 
 <Layout>
@@ -85,6 +86,8 @@ import Steganography from '../components/Steganography.svelte';
 			<Steganography client:load />
 		</div>
 	</section>
+
+	<SecurityShield client:load />
 
 	<footer class="mt-16 pt-8 border-t border-zinc-900 flex justify-between items-center text-[10px] uppercase tracking-widest text-zinc-600 font-bold">
 		<span>Build: v0.0.1 ALPHA</span>
