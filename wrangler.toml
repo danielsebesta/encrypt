@@ -1,0 +1,9 @@
+name = "encrypt-click"
+pages_build_output_dir = "./dist"
+
+[vars]
+# No sensitive vars needed for this zero-knowledge client-app
+
+[[env.production.routes]]
+pattern = "encrypt.click/*"
+zone_name = "encrypt.click"
