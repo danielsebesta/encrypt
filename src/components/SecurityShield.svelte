@@ -1,6 +1,12 @@
 <script lang="ts">
   const badges = [
     {
+      label: "Mozilla",
+      value: "125/100",
+      color: "emerald",
+      url: "https://developer.mozilla.org/en-US/observatory/analyze?host=encrypt.click"
+    },
+    {
       label: "SSL Labs",
       value: "A+",
       color: "emerald",
