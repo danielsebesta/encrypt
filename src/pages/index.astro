@@ -1,0 +1,93 @@
+---
+import Layout from '../layouts/Layout.astro';
+import CipherTool from '../components/CipherTool.svelte';
+import HashLab from '../components/HashLab.svelte';
+import PasswordEntropy from '../components/PasswordEntropy.svelte';
+import Steganography from '../components/Steganography.svelte';
+---
+
+<Layout>
+	<header class="mb-12">
+		<div class="mb-4 flex items-center gap-4">
+			<img src="/encryptclick_icon.svg" alt="" class="h-10 md:h-12 w-auto" />
+			<h1 class="text-3xl md:text-5xl font-bold tracking-tighter">
+				<span class="text-emerald-500">encrypt.click</span>
+			</h1>
+		</div>
+		<p class="text-zinc-500 max-w-lg border-l-2 border-emerald-500/20 pl-4 py-1 italic">
+			Privacy-first, open-source, client-side-only security toolkit.
+			Zero-knowledge architecture. No data ever leaves your browser.
+		</p>
+	</header>
+
+	<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
+		<a href="#text-to-words" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
+			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Text-to-Words</h2>
+			<p class="text-zinc-400 text-sm">Convert encrypted data into human-readable Czech words. 14-bit entropy per word.</p>
+		</a>
+
+		<a href="#hash-lab" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
+			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Hash Lab</h2>
+			<p class="text-zinc-400 text-sm">Client-side file hashing (SHA-256, SHA-512) for integrity checks. Fully private.</p>
+		</a>
+
+		<a href="#password-entropy" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
+			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Password Entropy</h2>
+			<p class="text-zinc-400 text-sm">Visualizer and Diceware generator using our curated wordlist.</p>
+		</a>
+
+		<a href="#steganography" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
+			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Steganography</h2>
+			<p class="text-zinc-400 text-sm">Hide secret text within image pixels via Canvas API pixel manipulation.</p>
+		</a>
+	</section>
+
+	<section id="text-to-words" class="scroll-mt-8 py-8 border-t border-zinc-900">
+		<div class="mb-8 flex items-center justify-between">
+			<h2 class="text-2xl font-bold text-emerald-500">Text-to-Words</h2>
+			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
+		</div>
+		
+		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
+			<CipherTool client:load />
+		</div>
+	</section>
+
+	<section id="hash-lab" class="scroll-mt-8 py-8 border-t border-zinc-900">
+		<div class="mb-8 flex items-center justify-between">
+			<h2 class="text-2xl font-bold text-emerald-500">Hash Lab</h2>
+			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
+		</div>
+		
+		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
+			<HashLab client:load />
+		</div>
+	</section>
+
+	<section id="password-entropy" class="scroll-mt-8 py-8 border-t border-zinc-900">
+		<div class="mb-8 flex items-center justify-between">
+			<h2 class="text-2xl font-bold text-emerald-500">Password Entropy</h2>
+			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
+		</div>
+		
+		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
+			<PasswordEntropy client:load />
+		</div>
+	</section>
+
+	<section id="steganography" class="scroll-mt-8 py-8 border-t border-zinc-900">
+		<div class="mb-8 flex items-center justify-between">
+			<h2 class="text-2xl font-bold text-emerald-500">Steganography</h2>
+			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
+		</div>
+		
+		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
+			<Steganography client:load />
+		</div>
+	</section>
+
+	<footer class="mt-16 pt-8 border-t border-zinc-900 flex justify-between items-center text-[10px] uppercase tracking-widest text-zinc-600 font-bold">
+		<span>Build: v0.0.1 ALPHA</span>
+		<span>No Servers. No Logs. Just Math.</span>
+	</footer>
+</Layout>
