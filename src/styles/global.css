@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@font-face {
+    font-display: swap;
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 300;
+    src: url('/fonts/fira-300.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 400;
+    src: url('/fonts/fira-regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 500;
+    src: url('/fonts/fira-500.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 600;
+    src: url('/fonts/fira-600.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 700;
+    src: url('/fonts/fira-700.woff2') format('woff2');
+}
+
+@theme {
+    --font-mono: "Fira Code", "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
+
+    --color-brand: var(--color-emerald-500);
+    --color-bg: var(--color-zinc-950);
+    --color-text: var(--color-zinc-100);
+    --color-border: var(--color-zinc-800);
+}
+
+@layer base {
+    html {
+        @apply bg-zinc-950 text-zinc-100 font-mono antialiased selection:bg-emerald-500/30 selection:text-emerald-400;
+    }
+
+    body {
+        @apply min-h-screen flex flex-col;
+    }
+}
