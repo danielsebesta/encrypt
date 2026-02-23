@@ -1,0 +1,5 @@
+Contact: mailto:mail@encrypt.click
+Expires: 2027-02-23T12:00:00.000Z
+Preferred-Languages: cs, en
+Canonical: https://encrypt.click/.well-known/security.txt
+Policy: https://encrypt.click/privacy

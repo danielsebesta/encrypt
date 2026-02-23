@@ -2518,6 +2518,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"encrypt-click@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "encrypt-click@workspace:."
+  dependencies:
+    "@astrojs/svelte": "npm:^7.2.5"
+    "@tailwindcss/vite": "npm:^4.2.0"
+    astro: "npm:^5.17.1"
+    svelte: "npm:^5.53.2"
+    tailwind: "npm:^4.0.0"
+    tailwindcss: "npm:^4.2.0"
+    typescript: "npm:^5.9.3"
+    vite: "npm:^7.3.1"
+  languageName: unknown
+  linkType: soft
+
 "enhanced-resolve@npm:^5.19.0":
   version: 5.19.0
   resolution: "enhanced-resolve@npm:5.19.0"
@@ -6205,21 +6220,6 @@ __metadata:
   checksum: 10c0/2877ece71af9f8dcefe6cdf0cc0d96d3cab20cef33594991396346e683923d36add1b08312450e9f8dfb9f1e6718d9e57482157bb190f8ea4fc5c7bc441f3f25
   languageName: node
   linkType: hard
-
-"steadfast-star@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "steadfast-star@workspace:."
-  dependencies:
-    "@astrojs/svelte": "npm:^7.2.5"
-    "@tailwindcss/vite": "npm:^4.2.0"
-    astro: "npm:^5.17.1"
-    svelte: "npm:^5.53.2"
-    tailwind: "npm:^4.0.0"
-    tailwindcss: "npm:^4.2.0"
-    typescript: "npm:^5.9.3"
-    vite: "npm:^7.3.1"
-  languageName: unknown
-  linkType: soft
 
 "stethoskop@npm:1.0.0":
   version: 1.0.0
