@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.6",
+    "@astrojs/cloudflare": "^12.6.12",
     "@astrojs/svelte": "^7.2.5",
     "@tailwindcss/vite": "^4.2.0",
     "astro": "^5.17.1",
-    "basecoat-css": "^0.3.11",
     "bcryptjs": "^3.0.3",
     "bip39": "^3.1.0",
     "exifreader": "^4.36.2",
