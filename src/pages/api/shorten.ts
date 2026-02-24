@@ -249,7 +249,14 @@ export const POST: APIRoute = async ({ request, url }) => {
   clearTimeout(timeout);
 
   if (!shorturl) {
-    return new Response(JSON.stringify({ error: 'Shortener unavailable' }), {
+    let message = 'Shortening failed. The external shortener may be temporarily unavailable.';
+
+    if (provider === 'choto') {
+      message =
+        'choto.co could not shorten this link. Their service may reject URLs this long. Try a different shortener or, if this keeps happening, report the issue on the encrypt.click GitHub repository.';
+    }
+
+    return new Response(JSON.stringify({ error: message }), {
       status: 503,
       headers: { 'Content-Type': 'application/json' }
     });
