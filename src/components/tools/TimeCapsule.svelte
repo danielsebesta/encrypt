@@ -1,8 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { timelockEncrypt, timelockDecrypt, mainnetClient, defaultChainInfo, Buffer } from 'tlock-js';
+  import LZString from 'lz-string';
+  import { timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient, defaultChainInfo, Buffer } from 'tlock-js';
+  // @ts-ignore - drand-client re-exported by tlock-js
+  import { defaultChainOptions } from 'drand-client';
 
-  const client = mainnetClient();
+  const PROXY_CHAIN_URL = '/api/drand/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971';
+
+  const chainOpts = {
+    ...defaultChainOptions,
+    chainVerificationParams: {
+      chainHash: '52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971',
+      publicKey: '83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a'
+    }
+  };
+  const chain = new HttpCachingChain(PROXY_CHAIN_URL, chainOpts);
+  const client = new HttpChainClient(chain, chainOpts);
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
 
@@ -52,6 +65,21 @@
     targetLocal = nowIsoLocal();
     updateDerived();
   });
+
+  function tryDecodeCompact(input: string) {
+    const raw = input.trim();
+    if (!raw || raw.includes('\n') || raw.startsWith('timecapsule:v1')) return null;
+    try {
+      const b64 = raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(raw.length / 4) * 4, '=');
+      const json = LZString.decompressFromBase64(b64);
+      if (!json) return null;
+      const obj = JSON.parse(json) as { v: number; r?: number; t?: number; c: string };
+      if (obj.v !== 1 || !obj.c) return null;
+      return obj;
+    } catch {
+      return null;
+    }
+  }
 
   async function handleEncrypt() {
     error = '';
@@ -109,14 +137,21 @@
       const payload = Buffer.from(message, 'utf8');
       const armored = await timelockEncrypt(round, payload, client);
 
-      const meta = [
-        'timecapsule:v1',
-        `round=${round}`,
-        `not_before=${new Date(timeMs).toISOString()}`
-      ].join('\n');
+      const unix = Math.floor(timeMs / 1000);
+      const packed = {
+        v: 1,
+        r: round,
+        t: unix,
+        c: armored
+      };
+      const json = JSON.stringify(packed);
+      const compressed = LZString.compressToBase64(json);
+      const token = compressed.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
-      ciphertext = `${meta}\n\n${armored}`;
-      updateDerived();
+      ciphertext = token;
+      debugUtc = new Date(timeMs).toISOString();
+      debugUnix = String(unix);
+      debugRound = round > 0 ? round : null;
     } catch (e: any) {
       error = e?.message || 'Failed to encrypt.';
     } finally {
@@ -161,12 +196,25 @@
 
     decryptLoading = true;
     try {
+      const compact = tryDecodeCompact(input);
+      if (compact) {
+        const buf = await timelockDecrypt(compact.c, client);
+        decrypted = new TextDecoder().decode(buf);
+        return;
+      }
+
       const meta = parseMetadata(input);
       const buf = await timelockDecrypt(meta.armored, client);
       decrypted = new TextDecoder().decode(buf);
     } catch (e: any) {
-      const meta = parseMetadata(decryptInput);
-      const label = meta.notBefore || 'the unlock time (UTC)';
+      let label = 'the unlock time (UTC)';
+      const compactMeta = tryDecodeCompact(decryptInput);
+      if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t)) {
+        label = new Date(compactMeta.t * 1000).toISOString();
+      } else {
+        const meta = parseMetadata(decryptInput);
+        label = meta.notBefore || label;
+      }
       decryptError = `Too early or invalid ciphertext. This message is locked until ${label}.`;
     } finally {
       decryptLoading = false;
@@ -209,7 +257,7 @@
           class="input min-h-[140px] resize-vertical font-mono text-xs"
           bind:value={message}
           placeholder="Write something your future self (or someone else) can only read later..."
-        />
+        ></textarea>
       </div>
 
       <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end">
@@ -290,7 +338,7 @@
             class="input min-h-[180px] resize-vertical font-mono text-[11px]"
             readonly
             value={ciphertext}
-          />
+          ></textarea>
         </div>
       {/if}
     </div>
@@ -304,8 +352,8 @@
           id="tc-cipher"
           class="input min-h-[160px] resize-vertical font-mono text-[11px]"
           bind:value={decryptInput}
-          placeholder="Paste a Time Capsule ciphertext block here..."
-        />
+          placeholder="Paste a Time Capsule string here..."
+        ></textarea>
       </div>
 
       <button class="btn w-full md:w-auto" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
