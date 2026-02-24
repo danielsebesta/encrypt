@@ -75,9 +75,7 @@ const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.c
 					document.querySelectorAll('[data-aos]').forEach(function (el) {
 						el.classList.add('aos-fade');
 						var delay = el.getAttribute('data-aos-delay');
-						if (delay) {
-							el.style.transitionDelay = delay + 'ms';
-						}
+						if (delay) el.classList.add('delay-' + delay);
 						observer.observe(el);
 					});
 				} else {

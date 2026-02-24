@@ -29,5 +29,5 @@
 /encrypt_*.svg
   Cache-Control: public, max-age=31536000, immutable
 
-/encrpt_check.svg
+/encrypt_check.svg
   Cache-Control: public, max-age=31536000, immutable

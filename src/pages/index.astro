@@ -26,10 +26,9 @@ import SecurityShield from '../components/SecurityShield.svelte';
 			</div>
 			<div class="flex items-center justify-center">
 				<img 
-					src="/encrypt_reading.svg" 
+					src="/encrypt_lock.svg" 
 					alt="" 
-					class="w-full max-w-md h-auto drop-shadow-2xl"
-					data-illu="hero"
+					class="w-full max-w-[110px] md:max-w-sm h-auto drop-shadow-2xl"
 				/>
 			</div>
 		</div>
@@ -46,9 +45,9 @@ import SecurityShield from '../components/SecurityShield.svelte';
 			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
 				<div class="flex items-center justify-center" data-aos data-aos-delay="0">
 					<img 
-						src="/encrpt_check.svg" 
+						src="/encrypt_check.svg" 
 						alt="" 
-						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
 						loading="lazy"
 						data-illu="dev"
 					/>
@@ -79,7 +78,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
 					<img 
 						src="/encrypt_history.svg" 
 						alt="" 
-						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
 						loading="lazy"
 						data-illu="crypto"
 					/>
@@ -92,7 +91,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
 					<img 
 						src="/encrypt_chill.svg" 
 						alt="" 
-						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
 						loading="lazy"
 						data-illu="privacy"
 					/>
@@ -126,7 +125,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
 					<img 
 						src="/encrypt_treasure.svg" 
 						alt="" 
-						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
 						loading="lazy"
 						data-illu="aes"
 					/>
@@ -141,7 +140,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
     				<img 
     					src="/encrypt_learning.svg" 
     					alt="" 
-    					class="w-full max-w-md h-auto mx-auto md:mx-0 drop-shadow-2xl"
+    					class="w-full max-w-[140px] md:max-w-md h-auto mx-auto md:mx-0 drop-shadow-2xl"
 						loading="lazy"
 						data-illu="why"
     				/>
@@ -167,7 +166,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
 				<img
 					src="/encrypt_highfive.svg"
 					alt=""
-					class="w-full max-w-xs h-auto drop-shadow-2xl"
+					class="w-full max-w-[100px] md:max-w-xs h-auto drop-shadow-2xl"
 					loading="lazy"
 					data-illu="trust"
 				/>
@@ -190,7 +189,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
 				<img
 					src="/encrypt_e2e.svg"
 					alt=""
-					class="w-full max-w-md h-auto drop-shadow-2xl"
+					class="w-full max-w-[140px] md:max-w-md h-auto drop-shadow-2xl"
 					loading="lazy"
 					data-illu="cta"
 				/>
@@ -217,13 +216,8 @@ import SecurityShield from '../components/SecurityShield.svelte';
     if (typeof document === 'undefined') return;
 
     const groups = {
-      hero: [
-        '/encrypt_reading.svg',
-        '/encrypt_e2e.svg',
-        '/encrypt_chill.svg'
-      ],
       dev: [
-        '/encrpt_check.svg',
+        '/encrypt_check.svg',
         '/encrypt_lock.svg',
         '/encrypt_magnify.svg'
       ],
