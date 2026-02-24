@@ -1,0 +1,90 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout 
+  title="Security & Privacy — encrypt.click"
+  description="Learn how encrypt.click handles security and privacy: no logins, no cookies, no third-party trackers, and 100% client-side cryptography."
+>
+  <main class="max-w-3xl mx-auto px-5 py-16 md:py-24 space-y-10">
+    <header class="space-y-3 text-center md:text-left">
+      <h1 class="text-3xl md:text-4xl font-black tracking-tight">Security &amp; Privacy</h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
+        Plain-language overview of how encrypt.click treats your data. This is informational only and not legal advice.
+      </p>
+    </header>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">No accounts, no logins</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        encrypt.click does not have user accounts, logins, or profiles. You do not need to register or provide any
+        personal information to use the tools.
+      </p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">100% client-side tools</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        All cryptographic operations are performed in your browser using the Web Crypto API and other local APIs.
+        For the core tools, inputs (text, files, passwords, keys) are never sent to any backend controlled by
+        encrypt.click.
+      </p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        Some tools may fetch public data or randomness from third-party APIs that you explicitly invoke
+        (for example, the Drand randomness beacon for the Time Capsule). These calls never include your plaintext
+        secrets or passwords.
+      </p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">Cookies and local storage</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        The site does not set tracking or analytics cookies, and does not use third-party trackers or ad pixels.
+        Your browser may use <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">localStorage</code> 
+        only to remember your preferred light/dark theme. This value does not contain personal data.
+      </p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">Network and transport security</h2>
+      <ul class="space-y-2 text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed list-disc list-inside">
+        <li>All traffic is served over HTTPS with modern TLS configuration.</li>
+        <li>HTTP Strict Transport Security (HSTS) is enabled with <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">includeSubDomains; preload</code>.</li>
+        <li>Content Security Policy (CSP) restricts scripts, styles, fonts, and connections to trusted origins only.</li>
+        <li>Framing is disabled via <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">frame-ancestors 'none'</code> and <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">X-Frame-Options: DENY</code>.</li>
+      </ul>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">Third-party infrastructure</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        encrypt.click is hosted on Cloudflare Pages. Cloudflare, as a reverse proxy and CDN, may log standard
+        HTTP metadata (such as IP address and user agent) for security and operational purposes, according to
+        their own privacy policy.
+      </p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        The application itself does not maintain its own server-side logs of your inputs to the tools.
+      </p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">Responsible disclosure</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        If you believe you have found a security or privacy issue in encrypt.click, please contact 
+        <a href="mailto:security@encrypt.click" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-4 hover:decoration-2">
+          security@encrypt.click
+        </a>. Include enough detail to reproduce the issue and avoid testing that could impact other users.
+      </p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">Non-legal summary</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        This page is a human-readable summary of how encrypt.click is designed to handle your data. It is not a
+        contract and not a full legal terms-of-use document. By using the site, you accept that no guarantee of
+        perfect security can be made and that you use the tools at your own risk.
+      </p>
+    </section>
+  </main>
+</Layout>
+

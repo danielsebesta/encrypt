@@ -54,6 +54,31 @@
       label: "DNSSEC",
       value: "Verified",
       url: "https://dnsviz.net/d/encrypt.click/dnssec/"
+    },
+    {
+      label: "Yellow Lab Tools",
+      value: "A · 99/100",
+      url: "https://yellowlab.tools/result/hg3l6q8ai2"
+    },
+    {
+      label: "Webbkoll",
+      value: "0 cookies · 0 third-party",
+      url: "https://webbkoll.5july.net/en/results?url=http%3A%2F%2Fencrypt.click"
+    },
+    {
+      label: "ImmuniWeb",
+      value: "A · WebSec",
+      url: "https://www.immuniweb.com/websec/encrypt.click/h3AMt8Mv/"
+    },
+    {
+      label: "HTTP/3 Check",
+      value: "QUIC + HTTP/3",
+      url: "https://http3check.net/?host=encrypt.click"
+    },
+    {
+      label: "Zonemaster",
+      value: "DNSSEC OK",
+      url: "https://zonemaster.net/en/result/2a3c2789231a4695/"
     }
   ];
 </script>

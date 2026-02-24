@@ -46,7 +46,7 @@
 </script>
 
 <div class="form space-y-5">
-  <div class="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors relative group bg-white/50 dark:bg-zinc-900/30">
+  <div class="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors relative group bg-white dark:bg-zinc-900/40">
     <input
       type="file"
       on:change={handleFileChange}
