@@ -1,0 +1,22 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import MorseView from '../../components/tools/Morse.svelte';
+---
+
+<Layout 
+  title="Morse Code Codec — Signal Translation"
+  description="Translate text to Morse code and vice versa. Play resulting signals via your browser's audio engine for a fully interactive experience."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Morse <span class="text-emerald-500">Codec.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        Convert between alphanumeric characters and the universal dot-dash telegraphy standard.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <MorseView client:load />
+    </div>
+  </div>
+</Layout>

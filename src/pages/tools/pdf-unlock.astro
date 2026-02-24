@@ -1,0 +1,23 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PDFUnlockView from '../../components/tools/PDFUnlock.svelte';
+---
+
+<Layout 
+  title="PDF Unlocker — Remove Protection"
+  description="Strip passwords and restrictions from your PDF files locally. Regain full access to your documents in seconds."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">PDF <span class="text-emerald-500">Unlocker.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        If you have the key, we can unlock the door permanently. 
+        Saves an unencrypted copy of your protected PDF.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <PDFUnlockView client:load />
+    </div>
+  </div>
+</Layout>

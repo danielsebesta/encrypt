@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import RSAView from '../../components/tools/RSA.svelte';
+---
+
+<Layout 
+  title="RSA Key Generator — Asymmetric Cryptography"
+  description="Generate secure RSA public/private key pairs locally in your browser for asymmetric encryption and digital signatures."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">RSA <span class="text-emerald-500">Keys.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        Secure, offline generation of asymmetric key pairs. 
+        Your private key never leaves your memory.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <RSAView client:load />
+    </div>
+
+    <div class="mt-12 text-left space-y-4">
+        <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">Security Warning</h3>
+        <p class="text-[11px] text-zinc-500 leading-relaxed uppercase font-medium tracking-tighter italic">
+            Private keys are extremely sensitive. If someone obtains your private key, they can decrypt any data intended for you or forge your identity. 
+            Never store your keys in unencrypted cloud storage.
+        </p>
+    </div>
+  </div>
+</Layout>

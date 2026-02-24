@@ -1,96 +1,284 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import CipherTool from '../components/CipherTool.svelte';
-import HashLab from '../components/HashLab.svelte';
-import PasswordEntropy from '../components/PasswordEntropy.svelte';
-import Steganography from '../components/Steganography.svelte';
 import SecurityShield from '../components/SecurityShield.svelte';
 ---
 
 <Layout>
-	<header class="mb-12">
-		<div class="mb-4 flex items-center gap-4">
-			<img src="/encryptclick_icon.svg" alt="" class="h-10 md:h-12 w-auto" />
-			<h1 class="text-3xl md:text-5xl font-bold tracking-tighter">
-				<span class="text-emerald-500">encrypt.click</span>
-			</h1>
-		</div>
-		<p class="text-zinc-500 max-w-lg border-l-2 border-emerald-500/20 pl-4 py-1 italic">
-			Privacy-first, open-source, client-side-only security toolkit.
-			Zero-knowledge architecture. No data ever leaves your browser.
-		</p>
-	</header>
-
-	<section class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
-		<a href="#text-to-words" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
-			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Text-to-Words</h2>
-			<p class="text-zinc-400 text-sm">Convert encrypted data into human-readable Czech words. 14-bit entropy per word.</p>
-		</a>
-
-		<a href="#hash-lab" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
-			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Hash Lab</h2>
-			<p class="text-zinc-400 text-sm">Client-side file hashing (SHA-256, SHA-512) for integrity checks. Fully private.</p>
-		</a>
-
-		<a href="#password-entropy" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
-			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Password Entropy</h2>
-			<p class="text-zinc-400 text-sm">Visualizer and Diceware generator using our curated wordlist.</p>
-		</a>
-
-		<a href="#steganography" class="group p-6 border border-zinc-800 hover:border-emerald-500 transition-colors bg-zinc-900/50">
-			<h2 class="text-xl font-bold mb-2 group-hover:text-emerald-400">Steganography</h2>
-			<p class="text-zinc-400 text-sm">Hide secret text within image pixels via Canvas API pixel manipulation.</p>
-		</a>
-	</section>
-
-	<section id="text-to-words" class="scroll-mt-8 py-8 border-t border-zinc-900">
-		<div class="mb-8 flex items-center justify-between">
-			<h2 class="text-2xl font-bold text-emerald-500">Text-to-Words</h2>
-			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
-		</div>
-		
-		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
-			<CipherTool client:load />
+	<section class="max-w-5xl mx-auto px-5 pt-16 md:pt-28 pb-20 md:pb-32">
+		<div class="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+			<div data-aos data-aos-delay="0">
+				<span class="badge-secondary text-xs mb-4 inline-block uppercase tracking-widest font-bold">100% client-side · open source</span>
+				<h1 class="text-4xl md:text-6xl font-black tracking-tight leading-[1.1] mb-6">
+					Ultimate privacy<br />
+					<span class="text-emerald-500">at your fingertips.</span>
+				</h1>
+				<p class="text-zinc-500 dark:text-zinc-400 text-base md:text-lg leading-relaxed mb-8 max-w-md">
+					A comprehensive toolkit for digital self-defense. 
+					From classic mechanical ciphers to modern metadata scrubbing — everything runs 100% in your browser.
+				</p>
+				<div class="flex flex-wrap gap-4">
+					<a href="/tools/aes-words" class="btn px-8">Start Encrypting</a>
+					<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="btn-outline gap-2 px-6">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+						Source Code
+					</a>
+				</div>
+			</div>
+			<div class="flex items-center justify-center">
+				<img 
+					src="/encrypt_reading.svg" 
+					alt="" 
+					class="w-full max-w-md h-auto drop-shadow-2xl"
+					data-illu="hero"
+				/>
+			</div>
 		</div>
 	</section>
 
-	<section id="hash-lab" class="scroll-mt-8 py-8 border-t border-zinc-900">
-		<div class="mb-8 flex items-center justify-between">
-			<h2 class="text-2xl font-bold text-emerald-500">Hash Lab</h2>
-			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
-		</div>
-		
-		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
-			<HashLab client:load />
+	<section class="bg-white dark:bg-zinc-950/50 border-y border-zinc-200 dark:border-zinc-800">
+		<div class="max-w-5xl mx-auto px-5 py-16 md:py-32">
+			<div class="text-center mb-16 md:mb-24" data-aos data-aos-delay="0">
+				<h2 class="text-3xl md:text-5xl font-black tracking-tight mb-4">Precision <span class="text-emerald-500">Instruments.</span></h2>
+				<p class="text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto text-sm md:text-base font-medium">Categorized tools designed for specific privacy needs. Pick your focus and secure your life.</p>
+			</div>
+
+			<!-- Category 1: Developer -->
+			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
+				<div class="flex items-center justify-center" data-aos data-aos-delay="0">
+					<img 
+						src="/encrpt_check.svg" 
+						alt="" 
+						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						loading="lazy"
+						data-illu="dev"
+					/>
+				</div>
+				<div data-aos data-aos-delay="80">
+					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">SEC-LAB / DEV TOOLS</span>
+					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">The Developer's Shield.</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">
+						Advanced tools for hashing, JWT debugging, and secure identifier generation. 
+						Everything a modern engineer needs for production-ready security.
+					</p>
+					<a href="/tools/token" class="btn px-8">Secure Token Gen</a>
+				</div>
+			</div>
+
+			<!-- Category 2: Cryptography -->
+			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
+				<div class="order-last md:order-first" data-aos data-aos-delay="0">
+					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">SEC-LAB / CRYPTANALYSIS</span>
+					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">Old School Cool.</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">
+						Relive history with our Enigma M3 simulator. Explore Caesar, Vigenère, and the uncrackable ciphers of the past. 
+						Cryptographic history, interactive and visual.
+					</p>
+					<a href="/tools/enigma" class="btn px-8 text-xs font-black uppercase tracking-widest">Enigma Simulator</a>
+				</div>
+				<div class="flex items-center justify-center">
+					<img 
+						src="/encrypt_history.svg" 
+						alt="" 
+						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						loading="lazy"
+						data-illu="crypto"
+					/>
+				</div>
+			</div>
+
+			<!-- Category 3: Privacy -->
+			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
+				<div class="flex items-center justify-center" data-aos data-aos-delay="0">
+					<img 
+						src="/encrypt_chill.svg" 
+						alt="" 
+						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						loading="lazy"
+						data-illu="privacy"
+					/>
+				</div>
+				<div data-aos data-aos-delay="80">
+					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">SEC-LAB / IMAGE PRIVACY</span>
+					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">Everyday Defense.</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">
+						Scrub EXIF metadata from photos, watermark IDs for safe sharing, and generate tracker-free QR codes. 
+						Practical tools for protecting your personal images.
+					</p>
+					<a href="/tools/exif-scrub" class="btn px-8">Strip Map Metadata</a>
+				</div>
+			</div>
+
+			<!-- Category 4: AES Words -->
+			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center">
+				<div class="order-last md:order-first" data-aos data-aos-delay="0">
+					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">CORE / THE VAULT</span>
+					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">Human-Readable.</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">
+						Our original tool. Encrypt any text into a list of memorable dictionary words. 
+						Military-grade AES-256-GCM encryption meets lexical mapping.
+					</p>
+					<div class="flex gap-1.5 flex-wrap">
+                        <a href="/tools/aes-words" class="btn px-8 uppercase font-black text-xs tracking-widest">Start Encrypting</a>
+                        <a href="/tools/aes-words" class="btn-outline px-6 text-xs uppercase font-black">Decrypt Packets</a>
+                    </div>
+				</div>
+				<div class="flex items-center justify-center">
+					<img 
+						src="/encrypt_treasure.svg" 
+						alt="" 
+						class="w-full max-w-[280px] h-auto drop-shadow-2xl transition-transform duration-500 group-hover:-translate-y-2"
+						loading="lazy"
+						data-illu="aes"
+					/>
+				</div>
+			</div>
 		</div>
 	</section>
 
-	<section id="password-entropy" class="scroll-mt-8 py-8 border-t border-zinc-900">
-		<div class="mb-8 flex items-center justify-between">
-			<h2 class="text-2xl font-bold text-emerald-500">Password Entropy</h2>
-			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
-		</div>
-		
-		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
-			<PasswordEntropy client:load />
+	<section class="max-w-5xl mx-auto px-5 py-24 md:py-40">
+		<div class="grid md:grid-cols-2 gap-16 md:gap-24 items-center">
+			<div class="flex justify-center md:justify-start" data-aos data-aos-delay="0">
+    				<img 
+    					src="/encrypt_learning.svg" 
+    					alt="" 
+    					class="w-full max-w-md h-auto mx-auto md:mx-0 drop-shadow-2xl"
+						loading="lazy"
+						data-illu="why"
+    				/>
+			</div>
+			<div data-aos data-aos-delay="120">
+				<h2 class="text-3xl md:text-5xl font-black tracking-tighter mb-8">Why encrypt.click?</h2>
+				<div class="space-y-6 text-zinc-500 dark:text-zinc-400 text-base md:text-lg leading-relaxed font-medium">
+					<p>Online tools are often traps. When you use a "free" password checker or encoder, your data is likely being logged on a server you don't control.</p>
+					<p><strong class="text-zinc-900 dark:text-zinc-100 italic">We are different.</strong> Everything on this site runs exclusively in your browser memory. We have no backend database. We don't want your data.</p>
+					<p>It's <a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-emerald-500 underline underline-offset-4 hover:decoration-2">fully open source</a>. Verify it. Fork it. Run it locally.</p>
+				</div>
+			</div>
 		</div>
 	</section>
 
-	<section id="steganography" class="scroll-mt-8 py-8 border-t border-zinc-900">
-		<div class="mb-8 flex items-center justify-between">
-			<h2 class="text-2xl font-bold text-emerald-500">Steganography</h2>
-			<a href="#" class="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase transition-colors">↑ Home</a>
-		</div>
-		
-		<div class="bg-zinc-900/30 border border-zinc-800/50 p-6 md:p-8">
-			<Steganography client:load />
+	<section class="bg-zinc-50 dark:bg-zinc-900/50 border-y border-zinc-200 dark:border-zinc-800">
+		<div class="max-w-5xl mx-auto px-5 py-20 md:py-32">
+			<div class="text-center mb-16" data-aos data-aos-delay="0">
+				<h2 class="text-3xl md:text-4xl font-black tracking-tighter mb-4">Built on <span class="text-emerald-500">Trust.</span></h2>
+				<p class="text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto text-sm md:text-base font-medium uppercase tracking-widest opacity-60">Zero Logs · Zero Trackers · Pure Math</p>
+			</div>
+			<div class="flex justify-center mb-12" data-aos data-aos-delay="120">
+				<img
+					src="/encrypt_highfive.svg"
+					alt=""
+					class="w-full max-w-xs h-auto drop-shadow-2xl"
+					loading="lazy"
+					data-illu="trust"
+				/>
+			</div>
+			<SecurityShield client:load />
 		</div>
 	</section>
 
-	<SecurityShield client:load />
+	<section class="max-w-5xl mx-auto px-5 py-24 md:py-40">
+		<div class="grid md:grid-cols-2 gap-12 items-center">
+			<div class="text-center md:text-left" data-aos data-aos-delay="0">
+				<h2 class="text-4xl md:text-6xl font-black tracking-tighter mb-6">Start sharing <span class="text-emerald-500">safely.</span></h2>
+				<p class="text-zinc-500 dark:text-zinc-400 max-w-md mx-auto md:mx-0 mb-10 text-base md:text-xl font-medium">No accounts. No trackers. Just pure cryptographic peace of mind.</p>
+				<div class="flex flex-wrap gap-4 justify-center md:justify-start">
+					<a href="/tools/aes-words" class="btn px-10 text-base py-5">Encrypt local files</a>
+					<a href="/tools/token" class="btn-outline px-10 text-base py-5 font-black">Secure tokens</a>
+				</div>
+			</div>
+			<div class="flex justify-center" data-aos data-aos-delay="120">
+				<img
+					src="/encrypt_e2e.svg"
+					alt=""
+					class="w-full max-w-md h-auto drop-shadow-2xl"
+					loading="lazy"
+					data-illu="cta"
+				/>
+			</div>
+		</div>
+	</section>
 
-	<footer class="mt-16 pt-8 border-t border-zinc-900 flex justify-between items-center text-[10px] uppercase tracking-widest text-zinc-600 font-bold">
-		<span>Build: v0.0.1 ALPHA</span>
-		<span>No Servers. No Logs. Just Math.</span>
+	<footer class="border-t border-zinc-100 dark:border-zinc-900 relative bg-white dark:bg-zinc-950">
+		<div class="max-w-7xl mx-auto px-5 py-12 flex flex-col md:flex-row justify-between items-center gap-8 text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">
+			<div class="flex items-center gap-3">
+				<img src="/encryptclick_icon.svg" alt="" class="h-6 w-auto opacity-30 invert dark:invert-0" />
+				<span>encrypt.click · security suite</span>
+			</div>
+			<div class="flex items-center gap-8">
+				<span class="opacity-50">Local-first Cryptography</span>
+				<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-zinc-800 dark:text-zinc-100 hover:text-emerald-500 transition-colors">GitHub Repository</a>
+			</div>
+		</div>
 	</footer>
 </Layout>
+
+<style>
+    .animate-float {
+        animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-20px); }
+    }
+</style>
+
+<script>
+  (function () {
+    if (typeof document === 'undefined') return;
+
+    const groups = {
+      hero: [
+        '/encrypt_reading.svg',
+        '/encrypt_e2e.svg',
+        '/encrypt_chill.svg'
+      ],
+      dev: [
+        '/encrpt_check.svg',
+        '/encrypt_lock.svg',
+        '/encrypt_magnify.svg'
+      ],
+      crypto: [
+        '/encrypt_history.svg',
+        '/encrypt_reading.svg'
+      ],
+      privacy: [
+        '/encrypt_chill.svg',
+        '/encrypt_safe.svg',
+        '/encrypt_papers.svg'
+      ],
+      aes: [
+        '/encrypt_treasure.svg',
+        '/encrypt_papers.svg'
+      ],
+      why: [
+        '/encrypt_learning.svg',
+        '/encrypt_reading.svg'
+      ],
+      trust: [
+        '/encrypt_highfive.svg',
+        '/encrypt_shield.svg'
+      ],
+      cta: [
+        '/encrypt_e2e.svg',
+        '/encrypt_chill.svg'
+      ]
+    };
+
+    const used = new Set();
+
+    document.querySelectorAll('[data-illu]').forEach((el) => {
+      const key = el.getAttribute('data-illu');
+      if (!key || !(key in groups)) return;
+      // @ts-ignore - dynamic key access into illustration groups
+      const options = groups[key];
+      // @ts-ignore - src is a string from the options array
+      let pool = options.filter((src) => !used.has(src));
+      if (!pool.length) {
+        pool = options;
+      }
+      const choice = pool[Math.floor(Math.random() * pool.length)];
+      used.add(choice);
+      el.setAttribute('src', choice);
+    });
+  })();
+</script>
