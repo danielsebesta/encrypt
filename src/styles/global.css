@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "basecoat-css";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
     font-display: swap;
@@ -141,15 +141,19 @@
     }
 
     html:not(.dark) {
-        @apply bg-zinc-50 text-zinc-800 selection:bg-emerald-500/20 selection:text-emerald-700;
+        @apply bg-white text-zinc-900 selection:bg-emerald-400/30 selection:text-emerald-800;
     }
 
     html.dark {
-        @apply bg-zinc-950 text-zinc-100 selection:bg-emerald-500/30 selection:text-emerald-400;
+        @apply bg-zinc-950 text-zinc-100 selection:bg-emerald-500/30 selection:text-emerald-300;
     }
 
     body {
         @apply min-h-screen flex flex-col;
+    }
+
+    html.theme-init body {
+        visibility: hidden;
     }
 
     /* Invert and hue-rotate main illustrations in dark mode */
@@ -180,7 +184,7 @@
 
 @layer components {
     .card {
-        @apply rounded-3xl bg-white/80 dark:bg-zinc-900/70 border border-zinc-100/80 dark:border-zinc-800/80 shadow-lg shadow-emerald-500/5 backdrop-blur-sm;
+        @apply rounded-3xl bg-white border border-zinc-200/70 dark:bg-zinc-900/70 dark:border-zinc-800/80 shadow-lg shadow-emerald-500/5 backdrop-blur-sm;
     }
 
     .btn {
@@ -209,13 +213,19 @@
     }
 
     .input {
-        @apply w-full rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/70 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-100 shadow-sm shadow-zinc-900/5
+        @apply w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 shadow-sm shadow-zinc-900/5
             placeholder:text-zinc-400 dark:placeholder:text-zinc-500
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
     .badge-secondary {
         @apply inline-flex items-center gap-1 rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-3 py-1 border border-emerald-200/70 dark:border-emerald-800/60;
+    }
+
+    .badge-outline {
+        @apply inline-flex items-center gap-1 rounded-full border border-zinc-200/70 dark:border-zinc-800/80 bg-transparent text-xs px-3 py-1.5
+            text-zinc-700 dark:text-zinc-200
+            hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300;
     }
 }
 
