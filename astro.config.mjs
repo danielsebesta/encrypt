@@ -6,7 +6,7 @@ import cloudflare from '@astrojs/cloudflare';
 
 export default defineConfig({
   output: 'static',
-  adapter: cloudflare(),
+  adapter: cloudflare({ imageService: 'compile' }),
 
   vite: {
     // @ts-expect-error - Vite plugin type mismatch between Astro and @tailwindcss/vite
