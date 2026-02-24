@@ -52,7 +52,7 @@
 
         {#if url}
             <div class="flex flex-col items-center gap-8 py-8 animate-in zoom-in-95">
-                <div class="p-6 bg-white dark:bg-zinc-100 rounded-[2.5rem] shadow-2xl relative group">
+                <div class="p-6 bg-white dark:bg-zinc-200 rounded-[2.5rem] shadow-2xl relative group">
                     <img src={url} alt="QR Code" class="w-64 h-64 relative z-10" />
                     <div class="absolute inset-0 bg-emerald-500/10 blur-3xl rounded-full scale-75 group-hover:scale-110 transition-transform duration-700 pointer-events-none"></div>
                 </div>
