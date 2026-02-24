@@ -1,0 +1,30 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import EnigmaView from '../../components/tools/Enigma.svelte';
+---
+
+<Layout 
+  title="Enigma M3 Simulator — WWII Cryptanalysis"
+  description="Experience the history of cryptography with a functional simulation of the Wehrmacht Enigma M3 machine. Configure rotors and scramble messages locally."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Enigma <span class="text-emerald-500">M3.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        A precise digital reconstruction of the 1940s electro-mechanical rotor cipher machine.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <EnigmaView client:load />
+    </div>
+
+    <div class="mt-12 text-left bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+        <h3 class="text-sm font-bold mb-2">Technical Specs</h3>
+        <p class="text-xs text-zinc-500 leading-relaxed italic">
+            Configured as the Standard Army M3. Uses Rotor I, II, and III with Reflector B. 
+            Implements the "double stepping" rotor anomaly for historical accuracy.
+        </p>
+    </div>
+  </div>
+</Layout>

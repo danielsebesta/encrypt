@@ -1,60 +1,237 @@
 @import "tailwindcss";
+@import "basecoat-css";
 
 @font-face {
     font-display: swap;
-    font-family: 'Fira Code';
+    font-family: 'fira-code';
     font-style: normal;
     font-weight: 300;
-    src: url('/fonts/fira-300.woff2') format('woff2');
+    src: url('/fonts/fira-code-300.woff2') format('woff2');
 }
 
 @font-face {
     font-display: swap;
-    font-family: 'Fira Code';
+    font-family: 'fira-code';
     font-style: normal;
     font-weight: 400;
-    src: url('/fonts/fira-regular.woff2') format('woff2');
+    src: url('/fonts/fira-code-400.woff2') format('woff2');
 }
 
 @font-face {
     font-display: swap;
-    font-family: 'Fira Code';
+    font-family: 'fira-code';
     font-style: normal;
     font-weight: 500;
-    src: url('/fonts/fira-500.woff2') format('woff2');
+    src: url('/fonts/fira-code-500.woff2') format('woff2');
 }
 
 @font-face {
     font-display: swap;
-    font-family: 'Fira Code';
+    font-family: 'fira-code';
     font-style: normal;
     font-weight: 600;
-    src: url('/fonts/fira-600.woff2') format('woff2');
+    src: url('/fonts/fira-code-600.woff2') format('woff2');
 }
 
 @font-face {
     font-display: swap;
-    font-family: 'Fira Code';
+    font-family: 'fira-code';
     font-style: normal;
     font-weight: 700;
-    src: url('/fonts/fira-700.woff2') format('woff2');
+    src: url('/fonts/fira-code-700.woff2') format('woff2');
+}
+
+/* Nunito weights 300–900 */
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 300;
+    src: url('/fonts/nunito-v32-latin_latin-ext-300.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-300.ttf') format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 400;
+    src: url('/fonts/nunito-v32-latin_latin-ext-regular.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-regular.ttf') format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 500;
+    src: url('/fonts/nunito-v32-latin_latin-ext-500.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-500.ttf') format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 600;
+    src: url('/fonts/nunito-v32-latin_latin-ext-600.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-600.ttf') format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 700;
+    src: url('/fonts/nunito-v32-latin_latin-ext-700.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-700.ttf') format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 800;
+    src: url('/fonts/nunito-v32-latin_latin-ext-800.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-800.ttf') format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 900;
+    src: url('/fonts/nunito-v32-latin_latin-ext-900.woff2') format('woff2'),
+         url('/fonts/nunito-v32-latin_latin-ext-900.ttf') format('truetype');
 }
 
 @theme {
-    --font-mono: "Fira Code", "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
-
+    --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "fira-code", ui-monospace, monospace;
     --color-brand: var(--color-emerald-500);
-    --color-bg: var(--color-zinc-950);
-    --color-text: var(--color-zinc-100);
-    --color-border: var(--color-zinc-800);
+
+    --illu-dark: #27272a;
+    /* zinc-800 */
+    --illu-emerald: #10b981;
+    /* emerald-500 */
 }
 
 @layer base {
+    html:not(.dark) {
+        --illu-dark: #27272a;
+    }
+
+    html.dark {
+        --illu-dark: #f4f4f5;
+        /* zinc-100 */
+    }
+
     html {
-        @apply bg-zinc-950 text-zinc-100 font-mono antialiased selection:bg-emerald-500/30 selection:text-emerald-400;
+        @apply font-sans antialiased transition-colors duration-300;
+        scroll-behavior: smooth;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-sans font-bold tracking-tight;
+    }
+
+    html:not(.dark) {
+        @apply bg-zinc-50 text-zinc-800 selection:bg-emerald-500/20 selection:text-emerald-700;
+    }
+
+    html.dark {
+        @apply bg-zinc-950 text-zinc-100 selection:bg-emerald-500/30 selection:text-emerald-400;
     }
 
     body {
         @apply min-h-screen flex flex-col;
+    }
+
+    html.theme-init body {
+        visibility: hidden;
+    }
+
+    /* Invert and hue-rotate main illustrations in dark mode */
+    html.dark img[src*="encrypt_"] {
+        filter: invert(1) hue-rotate(180deg) !important;
+        transition: filter 200ms ease-out;
+    }
+
+    main {
+        transition: opacity 220ms ease-out, transform 220ms ease-out;
+    }
+
+    .page-enter {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    .page-enter-active {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .page-exit {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+
+@layer components {
+    .card {
+        @apply rounded-3xl bg-white/80 dark:bg-zinc-900/70 border border-zinc-100/80 dark:border-zinc-800/80 shadow-lg shadow-emerald-500/5 backdrop-blur-sm;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-emerald-500 text-white text-sm font-semibold shadow-sm shadow-emerald-500/20 px-4 py-2
+            transition-colors transition-transform duration-150 ease-out
+            hover:bg-emerald-400 active:bg-emerald-500/90 active:scale-[0.97]
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
+    }
+
+    .btn-outline {
+        @apply inline-flex items-center justify-center gap-2 rounded-full border border-emerald-500 bg-transparent text-emerald-600 dark:text-emerald-300 text-sm font-semibold px-4 py-2
+            transition-colors transition-transform duration-150 ease-out
+            hover:bg-emerald-500 hover:text-white active:scale-[0.97]
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
+    }
+
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-transparent text-zinc-700 dark:text-zinc-200 text-xs font-semibold px-3 py-1.5
+            transition-colors transition-transform duration-150 ease-out
+            hover:bg-zinc-100 dark:hover:bg-zinc-800/60 active:scale-[0.97]
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
+    }
+
+    .btn-icon {
+        @apply h-9 w-9 rounded-full flex items-center justify-center;
+    }
+
+    .input {
+        @apply w-full rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-900/70 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-100 shadow-sm shadow-zinc-900/5
+            placeholder:text-zinc-400 dark:placeholder:text-zinc-500
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
+    }
+
+    .badge-secondary {
+        @apply inline-flex items-center gap-1 rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-3 py-1 border border-emerald-200/70 dark:border-emerald-800/60;
+    }
+}
+
+@layer utilities {
+    .aos-fade {
+        opacity: 0;
+        transform: translateY(16px);
+        transition: opacity 300ms ease-out, transform 300ms ease-out;
+    }
+
+    .aos-visible {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

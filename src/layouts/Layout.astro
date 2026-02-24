@@ -1,32 +1,154 @@
 ---
 import '../styles/global.css'
+import Navbar from '../components/Navbar.svelte'
 
-interface Props {
-	title?: string;
-}
+type Props = {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  canonical?: string;
+};
 
-const { title = "encrypt.click | Privacy-First Security Toolkit" } = Astro.props;
+const {
+  title = "encrypt.click — Your privacy toolkit",
+  description = "Free, open-source security tools that run 100% in your browser. Encrypt text, hash files, test passwords, and hide messages in images — no data ever leaves your device.",
+  ogImage = "/encryptclick.svg",
+  canonical,
+} = Astro.props;
+
+const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.click").href;
 ---
 
 <!doctype html>
-<html lang="en" class="notranslate">
+<html lang="en" class="notranslate scroll-smooth dark theme-init">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="google" content="notranslate" />
 		<meta name="format-detection" content="telephone=no" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonicalUrl} />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:site_name" content="encrypt.click" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+		<meta name="theme-color" content="#10b981" />
+		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-		<meta name="apple-mobile-web-app-title" content="Encrypt.click" />
+		<meta name="apple-mobile-web-app-title" content="encrypt.click" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
+		<script>
+			(function () {
+				var root = document.documentElement;
+				var stored = null;
+				try {
+					stored = window.localStorage.getItem('theme');
+				} catch (_) {}
+				var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				if (theme === 'light') {
+					root.classList.remove('dark');
+				} else {
+					root.classList.add('dark');
+				}
+				root.classList.remove('theme-init');
+			})();
+		</script>
 	</head>
 	<body>
-		<div class="max-w-4xl mx-auto w-full px-4 py-8 md:py-16">
+		<Navbar client:load />
+		<main class="flex-1">
 			<slot />
-		</div>
+		</main>
+		<script>
+			// @ts-nocheck
+			(function () {
+				if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+				// Animate-on-scroll (content only)
+				if ('IntersectionObserver' in window) {
+					var observer = new IntersectionObserver(function (entries) {
+						entries.forEach(function (entry) {
+							if (entry.isIntersecting) {
+								entry.target.classList.add('aos-visible');
+								observer.unobserve(entry.target);
+							}
+						});
+					}, { threshold: 0.1 });
+
+					document.querySelectorAll('[data-aos]').forEach(function (el) {
+						el.classList.add('aos-fade');
+						var delay = el.getAttribute('data-aos-delay');
+						if (delay) {
+							el.style.transitionDelay = delay + 'ms';
+						}
+						observer.observe(el);
+					});
+				} else {
+					document.querySelectorAll('[data-aos]').forEach(function (el) {
+						el.classList.add('aos-visible');
+					});
+				}
+
+				// Page transitions (fade in/out) without touching theme
+				var main = document.querySelector('main');
+				if (main) {
+					main.classList.add('page-enter');
+					requestAnimationFrame(function () {
+						main.classList.add('page-enter-active');
+					});
+				}
+
+				document.addEventListener('click', function (event) {
+					var anchor = event.target.closest && event.target.closest('a');
+					if (!anchor) return;
+
+					var href = anchor.getAttribute('href');
+					var target = anchor.getAttribute('target');
+
+					// External, hash, or new-tab links: let browser handle normally
+					if (!href || href.indexOf('http') === 0 || href.indexOf('#') === 0 || target === '_blank') return;
+
+					// Modifier keys or non-left click: let browser handle
+					if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+
+					event.preventDefault();
+
+					var mainEl = document.querySelector('main');
+					if (!mainEl) {
+						window.location.href = href;
+						return;
+					}
+
+					mainEl.classList.add('page-exit');
+
+					var navigated = false;
+					var go = function () {
+						if (navigated) return;
+						navigated = true;
+						window.location.href = href;
+					};
+
+					mainEl.addEventListener('transitionend', function handle(e) {
+						if (e.target !== mainEl) return;
+						mainEl.removeEventListener('transitionend', handle);
+						go();
+					});
+
+					// Fallback in case transitionend doesn't fire
+					setTimeout(go, 400);
+				});
+			})();
+		</script>
 	</body>
 </html>

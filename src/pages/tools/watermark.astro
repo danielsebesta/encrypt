@@ -1,0 +1,23 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import WatermarkView from '../../components/tools/Watermark.svelte';
+---
+
+<Layout 
+  title="ID Watermarker — Protecting Your Documents"
+  description="Add protection overlays to your identity documents. Prevent the unauthorized reuse of your ID cards and passports when verifying identity online."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">ID <span class="text-emerald-500">Watermarker.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        When sending sensitive documents, always Specify the recipient and date. 
+        It makes the image useless for identity thieves.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <WatermarkView client:load />
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import BIP39View from '../../components/tools/BIP39.svelte';
+---
+
+<Layout 
+  title="BIP39 Mnemonics Generator — Crypto Seed Phrases"
+  description="Generate cryptographically secure 12-word recovery phrases for crypto wallets and encrypted containers following the BIP39 standard."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">BIP39 <span class="text-emerald-500">Mnemonic.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        Securely derive human-readable entropy for wallet restoration and secret storage.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <BIP39View client:load />
+    </div>
+
+    <div class="mt-12 text-left space-y-4 col-span-2">
+        <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">Standard Compatibility</h3>
+        <p class="text-xs text-zinc-500 leading-relaxed">
+            The Bitcoin Improvement Proposal 39 (BIP39) describes the implementation of a mnemonic sentence — 
+            a group of easy-to-remember words — for the generation of deterministic wallets. 
+            This generator is compatible with Ledger, Trezor, and major software wallets.
+        </p>
+    </div>
+  </div>
+</Layout>

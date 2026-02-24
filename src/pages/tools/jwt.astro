@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import JWTView from '../../components/tools/JWT.svelte';
+---
+
+<Layout 
+  title="JWT Debugger — Local Token Decoding"
+  description="Decode and analyze JSON Web Tokens (JWT) locally. Inspect headers and payloads without exposing tokens to external servers."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">JWT <span class="text-emerald-500">Debugger.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        Deep-dive into token headers and claims. 
+        Processed locally for zero-leak analysis.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <JWTView client:load />
+    </div>
+
+    <div class="mt-12 text-left space-y-4">
+        <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">Claims Inspection</h3>
+        <p class="text-xs text-zinc-500 leading-relaxed">
+            Verify expiration times (exp), issued-at times (iat), and custom claims instantly. 
+            Note: This tool decodes the Base64 chunks but does not verify the signature against a secret.
+        </p>
+    </div>
+  </div>
+</Layout>

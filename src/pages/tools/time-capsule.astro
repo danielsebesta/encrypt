@@ -1,0 +1,29 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import TimeCapsuleView from '../../components/tools/TimeCapsule.svelte';
+---
+
+<Layout 
+  title="Time Capsule — Timelock Encryption"
+  description="Encrypt messages that can only be opened after a chosen future time using drand timelock encryption."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center space-y-8">
+    <div class="space-y-3" data-aos data-aos-delay="0">
+      <h1 class="text-3xl md:text-4xl font-black tracking-tight">Time <span class="text-emerald-500">Capsule.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl mx-auto">
+        Lock a message to the future. Timelock encryption using public randomness from the drand network –
+        your secrets stay local and only unlock once the network reaches your chosen time.
+      </p>
+    </div>
+
+    <div class="card p-6 md:p-8" data-aos data-aos-delay="80">
+      <TimeCapsuleView client:load />
+    </div>
+
+    <p class="text-[11px] text-zinc-400 max-w-md mx-auto" data-aos data-aos-delay="120">
+      This tool contacts the public drand network to fetch randomness beacons only.
+      Your message and keys never leave your browser.
+    </p>
+  </div>
+</Layout>
+

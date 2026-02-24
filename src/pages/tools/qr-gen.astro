@@ -1,0 +1,23 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import QRGenView from '../../components/tools/QRGen.svelte';
+---
+
+<Layout 
+  title="Secure QR Generator — Tracker-Free Codes"
+  description="Generate clean, secure QR codes for URLs and text. Customize colors and resolution without any hidden tracking or data logging."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Secure <span class="text-emerald-500">QR.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        QR codes are often used for tracking. Ours are 100% static images generated locally. 
+        No mid-redirects. No tracking.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <QRGenView client:load />
+    </div>
+  </div>
+</Layout>

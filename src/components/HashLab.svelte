@@ -5,7 +5,6 @@
   let isLoading = false;
   let compareHash = '';
   let match: boolean | null = null;
-
   async function handleFileChange(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.files && target.files[0]) {
@@ -13,21 +12,17 @@
       await calculateHashes();
     }
   }
-
   async function calculateHashes() {
     if (!file) return;
     isLoading = true;
     hash256 = '';
     hash512 = '';
-    
     try {
       const buffer = await file.arrayBuffer();
-      
       const digest256 = await crypto.subtle.digest('SHA-256', buffer);
       hash256 = Array.from(new Uint8Array(digest256))
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
-
       const digest512 = await crypto.subtle.digest('SHA-512', buffer);
       hash512 = Array.from(new Uint8Array(digest512))
         .map(b => b.toString(16).padStart(2, '0'))
@@ -39,7 +34,6 @@
       checkMatch();
     }
   }
-
   function checkMatch() {
     if (!compareHash || (!hash256 && !hash512)) {
       match = null;
@@ -48,75 +42,68 @@
     const cleanCompare = compareHash.trim().toLowerCase();
     match = cleanCompare === hash256 || cleanCompare === hash512;
   }
-
   $: if (compareHash) checkMatch();
 </script>
 
-<div class="space-y-6">
-  <div class="grid grid-cols-1 gap-4">
-    <div class="border-2 border-dashed border-zinc-800 p-8 text-center bg-zinc-950/50 hover:border-emerald-500/50 transition-colors relative group">
-      <input 
-        type="file" 
-        on:change={handleFileChange}
-        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-      />
-      <div class="space-y-2 pointer-events-none">
-        <div class="text-zinc-500 group-hover:text-emerald-500 transition-colors">
-          {#if file}
-            <span class="text-emerald-500 font-bold">{file.name}</span>
-          {:else}
-            Drop a file here or <span class="text-emerald-500 underline">browse</span>
-          {/if}
-        </div>
-        <div class="text-[10px] text-zinc-600 uppercase font-bold tracking-widest">
-          No data leaves your device
-        </div>
+<div class="form space-y-5">
+  <div class="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors relative group bg-white/50 dark:bg-zinc-900/30">
+    <input
+      type="file"
+      on:change={handleFileChange}
+      class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+    />
+    <div class="space-y-1.5 pointer-events-none">
+      <div class="text-zinc-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors text-sm">
+        {#if file}
+          <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{file.name}</span>
+        {:else}
+          Drop a file here or <span class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">browse</span>
+        {/if}
+      </div>
+      <div class="text-xs text-zinc-400 dark:text-zinc-600">
+        No data leaves your device
       </div>
     </div>
   </div>
-
   {#if isLoading}
-    <div class="animate-pulse text-emerald-500 font-mono text-sm italic">
+    <div class="animate-pulse text-emerald-600 dark:text-emerald-400 text-sm italic">
       Calculating checksums...
     </div>
   {/if}
-
   {#if hash256}
-    <div class="space-y-4 font-mono text-[11px] md:text-xs">
-      <div class="space-y-1">
-        <label class="text-zinc-600 uppercase font-bold text-[10px]">SHA-256</label>
-        <div class="p-3 bg-zinc-950 border border-zinc-800 break-all text-zinc-300 select-all">
+    <div class="space-y-4 text-[11px] md:text-xs">
+      <div class="grid gap-1.5">
+        <label class="text-xs text-zinc-500 dark:text-zinc-400">SHA-256</label>
+        <div class="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg break-all text-zinc-700 dark:text-zinc-300 select-all font-mono">
           {hash256}
         </div>
       </div>
-
-      <div class="space-y-1">
-        <label class="text-zinc-600 uppercase font-bold text-[10px]">SHA-512</label>
-        <div class="p-3 bg-zinc-950 border border-zinc-800 break-all text-zinc-300 select-all">
+      <div class="grid gap-1.5">
+        <label class="text-xs text-zinc-500 dark:text-zinc-400">SHA-512</label>
+        <div class="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg break-all text-zinc-700 dark:text-zinc-300 select-all font-mono">
           {hash512}
         </div>
       </div>
-
-      <div class="pt-4 border-t border-zinc-900">
-        <label for="compare" class="text-zinc-600 uppercase font-bold text-[10px] block mb-2">Compare with expected hash</label>
+      <div class="pt-3 border-t border-zinc-200 dark:border-zinc-800">
+        <label for="compare" class="text-xs text-zinc-500 dark:text-zinc-400 block mb-1.5">Compare with expected hash</label>
         <div class="relative">
           <input
             id="compare"
             type="text"
             bind:value={compareHash}
             placeholder="Paste hash here to verify..."
-            class="w-full bg-zinc-950 border border-zinc-800 p-3 text-zinc-300 outline-none focus:border-emerald-500 transition-colors"
+            class="input"
             spellcheck="false"
             autocomplete="off"
             autocorrect="off"
             autocapitalize="off"
           />
           {#if match !== null}
-            <div class="absolute right-3 top-1/2 -translate-y-1/2 font-bold uppercase text-[10px]">
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-xs">
               {#if match}
-                <span class="text-emerald-500 tracking-widest">✓ MATCH</span>
+                <span class="text-emerald-600 dark:text-emerald-400">✓ Match</span>
               {:else}
-                <span class="text-red-500 tracking-widest">✗ MISMATCH</span>
+                <span class="text-red-500">✗ Mismatch</span>
               {/if}
             </div>
           {/if}

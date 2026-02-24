@@ -1,0 +1,30 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import BcryptView from '../../components/tools/Bcrypt.svelte';
+---
+
+<Layout 
+  title="Bcrypt Hash Generator & Verifier — Password Security"
+  description="Hash and verify passwords locally using the industry-standard Bcrypt algorithm. Totally private and secure."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Bcrypt <span class="text-emerald-500">Hash.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
+        Verify identity without storing cleartext. Local-first implementation.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <BcryptView client:load />
+    </div>
+
+    <div class="mt-12 text-left space-y-4">
+        <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">Security Standard</h3>
+        <p class="text-xs text-zinc-500 leading-relaxed">
+            Bcrypt is a robust hashing algorithm designed to be computationally expensive (slow) to prevent brute-force attacks. 
+            It includes a built-in salt to defend against rainbow table attacks.
+        </p>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,22 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Base64View from '../../components/tools/Base64.svelte';
+---
+
+<Layout 
+  title="Base64 Encoder & Decoder — Data Transformation"
+  description="Convert text to Base64 and vice versa instantly. Secure and local data transformation."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Base64 <span class="text-emerald-500">Coder.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
+        Essential utility for data transmission and encoding.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <Base64View client:load />
+    </div>
+  </div>
+</Layout>

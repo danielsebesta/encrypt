@@ -1,0 +1,30 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import HMACView from '../../components/tools/HMAC.svelte';
+---
+
+<Layout 
+  title="HMAC SHA-256 Signer — Message Authentication"
+  description="Generate hash-based message authentication codes (HMAC) locally to verify message integrity and authenticity."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">HMAC <span class="text-emerald-500">Signer.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
+        Verify data integrity and source authenticity with SHA-256 signatures.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <HMACView client:load />
+    </div>
+
+    <div class="mt-12 text-left space-y-4">
+        <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">Integrity Assurance</h3>
+        <p class="text-xs text-zinc-500 leading-relaxed">
+            HMAC combines a cryptographic hash function with a secret cryptographic key. It is used to verify both 
+            the data integrity and the authenticity of a message.
+        </p>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,37 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import UUIDULIDView from '../../components/tools/UUIDULID.svelte';
+---
+
+<Layout 
+  title="UUID & ULID Generator — Secure Unique Identifiers"
+  description="Generate cryptographically secure UUID v4 and lexicographically sortable ULIDs instantly in your browser."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Unique <span class="text-emerald-500">IDs.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
+        Fast, offline-ready generators for modern distributed systems.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <UUIDULIDView client:load />
+    </div>
+
+    <div class="mt-12 grid md:grid-cols-2 gap-6 text-left">
+        <div class="p-5 bg-white dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-xl">
+            <h4 class="text-xs font-bold uppercase mb-2">UUID v4</h4>
+            <p class="text-[11px] text-zinc-500 leading-relaxed">
+                Randomly generated 128-bit identifiers. Statistically unique enough for most global scale applications.
+            </p>
+        </div>
+        <div class="p-5 bg-white dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-xl">
+            <h4 class="text-xs font-bold uppercase mb-2">ULID</h4>
+            <p class="text-[11px] text-zinc-500 leading-relaxed">
+                Sortable identifiers that include a timestamp. Ideal for database primary keys where ordering matters.
+            </p>
+        </div>
+    </div>
+  </div>
+</Layout>

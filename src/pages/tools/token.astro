@@ -1,0 +1,30 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import TokenGenView from '../../components/tools/TokenGen.svelte';
+---
+
+<Layout 
+  title="Secure Token Generator — API Keys & Secrets"
+  description="Generate high-entropy cryptographically secure random tokens for API keys, passwords, and secrets."
+>
+  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
+    <div class="mb-12">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Secure <span class="text-emerald-500">Tokens.</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
+        Industrial-grade entropy for your infrastructure and application secrets.
+      </p>
+    </div>
+
+    <div class="card p-8">
+      <TokenGenView client:load />
+    </div>
+    
+    <div class="mt-12 p-6 bg-emerald-50/20 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl text-left">
+        <h3 class="text-sm font-bold text-emerald-800 dark:text-emerald-400 mb-2">Cryptographic Safety</h3>
+        <p class="text-[11px] text-emerald-700/70 dark:text-emerald-400/70 leading-relaxed uppercase font-medium tracking-wide">
+            Tokens are derived from the Web Crypto API's cryptographically secure random number generator (CSPRNG). 
+            They are suitable for session IDs, CSRF tokens, and permanent API keys.
+        </p>
+    </div>
+  </div>
+</Layout>

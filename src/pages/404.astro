@@ -1,0 +1,39 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout 
+  title="404 — Page Not Found"
+  description="The requested page could not be found in our secure registry."
+>
+  <div class="min-h-[70vh] flex flex-col items-center justify-center px-5 text-center">
+    <div class="relative mb-12">
+      <img 
+        src="/encrypt_confused.svg" 
+        alt="Page Not Found" 
+        class="w-full max-w-sm h-auto drop-shadow-2xl transition-all duration-700"
+      />
+    </div>
+
+    <div class="max-w-md mx-auto">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+        Missing in <span class="text-emerald-600 dark:text-emerald-400">cyberspace.</span>
+      </h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-base md:text-lg leading-relaxed mb-10">
+        The resource you are looking for has either been relocated, 
+        encrypted beyond reach, or never existed in this sector.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="/" class="btn">Return to Base</a>
+        <a href="https://github.com/danielsebesta/encrypt.click/issues" target="_blank" rel="noopener noreferrer" class="btn-outline">Report Breach</a>
+      </div>
+    </div>
+    
+    <div class="mt-20 flex gap-4 opacity-20 pointer-events-none font-mono text-[10px] tracking-widest uppercase">
+      <div>ERR_CODE: 404</div>
+      <div class="w-1 h-3 bg-zinc-400"></div>
+      <div>REGISTRY_MISS</div>
+    </div>
+  </div>
+</Layout>
