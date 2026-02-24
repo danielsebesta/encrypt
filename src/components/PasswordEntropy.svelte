@@ -37,6 +37,15 @@
     if (bits < 100) return 'Strong';
     return 'Very strong';
   }
+
+  function getBarWidthClass(bits: number) {
+    if (bits <= 0) return 'w-0';
+    if (bits < 20) return 'w-1/5';
+    if (bits < 40) return 'w-2/5';
+    if (bits < 60) return 'w-3/5';
+    if (bits < 80) return 'w-4/5';
+    return 'w-full';
+  }
 </script>
 
 <div class="form grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -63,8 +72,7 @@
           </div>
           <div class="h-1.5 bg-zinc-100 dark:bg-zinc-900 rounded-full overflow-hidden">
             <div
-              class={`h-full rounded-full transition-all duration-500 ${getStrengthColor(entropy)}`}
-              style={`width: ${Math.min(100, (entropy / 128) * 100)}%`}
+              class={`h-full rounded-full transition-all duration-500 ${getStrengthColor(entropy)} ${getBarWidthClass(entropy)}`}
             ></div>
           </div>
         </div>
@@ -77,7 +85,7 @@
   <div class="space-y-5">
     <div>
       <h3 class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Diceware generator</h3>
-      <div class="space-y-5 p-5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white/50 dark:bg-zinc-900/30">
+      <div class="space-y-5 p-5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900/40">
         <div class="flex items-center justify-between">
           <label class="text-xs text-zinc-500 dark:text-zinc-400">Word count: {wordCount}</label>
           <input type="range" min="3" max="10" bind:value={wordCount} class="accent-emerald-500 h-1" />

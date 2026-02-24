@@ -157,7 +157,7 @@ import SecurityShield from '../components/SecurityShield.svelte';
 		</div>
 	</section>
 
-	<section class="bg-zinc-50 dark:bg-zinc-900/50 border-y border-zinc-200 dark:border-zinc-800">
+	<section class="bg-white dark:bg-zinc-900/50 border-y border-zinc-200 dark:border-zinc-800">
 		<div class="max-w-5xl mx-auto px-5 py-20 md:py-32">
 			<div class="text-center mb-16" data-aos data-aos-delay="0">
 				<h2 class="text-3xl md:text-4xl font-black tracking-tighter mb-4">Built on <span class="text-emerald-500">Trust.</span></h2>
@@ -205,22 +205,12 @@ import SecurityShield from '../components/SecurityShield.svelte';
 				<span>encrypt.click · security suite</span>
 			</div>
 			<div class="flex items-center gap-8">
-				<span class="opacity-50">Local-first Cryptography</span>
+				<a href="/security" class="text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 transition-colors">Security &amp; Privacy</a>
 				<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-zinc-800 dark:text-zinc-100 hover:text-emerald-500 transition-colors">GitHub Repository</a>
 			</div>
 		</div>
 	</footer>
 </Layout>
-
-<style>
-    .animate-float {
-        animation: float 6s ease-in-out infinite;
-    }
-    @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-20px); }
-    }
-</style>
 
 <script>
   (function () {

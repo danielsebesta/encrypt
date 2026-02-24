@@ -46,7 +46,7 @@
   }
 </script>
 
-<nav class="border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-lg sticky top-0 z-50">
+<nav class="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/90 backdrop-blur-lg sticky top-0 z-50 shadow-sm dark:shadow-none">
   <div class="max-w-7xl mx-auto px-5 flex items-center justify-between h-14">
     <a href="/" class="flex items-center gap-2.5 shrink-0">
       <img src="/encryptclick_icon.svg" alt="" class="h-7 w-auto" />

@@ -162,7 +162,7 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
     <div class="space-y-4">
-      <div class="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white/50 dark:bg-zinc-900/30 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors relative group aspect-video flex flex-col items-center justify-center overflow-hidden">
+      <div class="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors relative group aspect-video flex flex-col items-center justify-center overflow-hidden">
         <input
           type="file"
           accept="image/*"
