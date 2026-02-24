@@ -3,14 +3,14 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout 
-  title="Security & Privacy — encrypt.click"
-  description="Learn how encrypt.click handles security and privacy: no logins, no cookies, no third-party trackers, and 100% client-side cryptography."
+  title="Security & Privacy (Privacy Policy) — encrypt.click"
+  description="Privacy policy for encrypt.click: how client-side crypto works, what data is (and isn't) sent to servers, and how optional URL shortening works."
 >
   <main class="max-w-3xl mx-auto px-5 py-16 md:py-24 space-y-10">
     <header class="space-y-3 text-center md:text-left">
       <h1 class="text-3xl md:text-4xl font-black tracking-tight">Security &amp; Privacy</h1>
       <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
-        Plain-language overview of how encrypt.click treats your data. This is informational only and not legal advice.
+        Plain-language privacy policy describing how encrypt.click treats your data. This is informational only and not legal advice.
       </p>
     </header>
 
@@ -30,9 +30,35 @@ import Layout from '../layouts/Layout.astro';
         encrypt.click.
       </p>
       <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        For the <span class="font-semibold">Dead Drop</span> tool specifically: the payload is compressed and encrypted locally and stored in the URL
+        fragment (the part after <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">#</code>). URL fragments are not
+        sent to encrypt.click servers during normal page requests.
+      </p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
         Some tools may fetch public data or randomness from third-party APIs that you explicitly invoke
         (for example, the Drand randomness beacon for the Time Capsule). These calls never include your plaintext
         secrets or passwords.
+      </p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">Optional URL shortening</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        If you choose to shorten a link (for example from the Dead Drop page), your browser calls
+        <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">/api/shorten</code> on encrypt.click.
+        The encrypt.click backend then makes a server-side request to the shortener you selected.
+      </p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        The shortener will receive the full URL you are shortening. For Dead Drop links, that includes the URL fragment containing the encrypted payload.
+        The payload is encrypted, but it can still be a unique identifier and may be considered sensitive metadata. If you want maximum privacy, do not use
+        third-party shorteners for Dead Drop links.
+      </p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        When you share a shortened link from encrypt.click, the URL you share is still on the <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">encrypt.click</code> domain.
+        When someone clicks it, their browser talks to encrypt.click first. encrypt.click then contacts the shortener on their behalf and follows the redirect
+        server-side before redirecting the visitor back to an <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">encrypt.click</code> URL. This design means the shortener sees
+        requests from encrypt.click infrastructure, not directly from the visitor&rsquo;s IP address, although the shortener can still log that a given encrypted link
+        was used.
       </p>
     </section>
 
@@ -42,6 +68,10 @@ import Layout from '../layouts/Layout.astro';
         The site does not set tracking or analytics cookies, and does not use third-party trackers or ad pixels.
         Your browser may use <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">localStorage</code> 
         only to remember your preferred light/dark theme. This value does not contain personal data.
+      </p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+        Cloudflare (our hosting provider) may set cookies for security and abuse prevention depending on traffic patterns and your browser settings, under
+        Cloudflare&rsquo;s own policies.
       </p>
     </section>
 
@@ -63,7 +93,9 @@ import Layout from '../layouts/Layout.astro';
         their own privacy policy.
       </p>
       <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        The application itself does not maintain its own server-side logs of your inputs to the tools.
+        The application itself does not maintain its own server-side logs of your tool inputs. For abuse prevention, encrypt.click applies rate limiting on
+        API endpoints (such as the Drand proxy and URL shortener). Rate limiting uses a one-way hash of your IP address (salted SHA-256, truncated) stored
+        only in memory for a short window (about 60 seconds) and is not written to a database by the application.
       </p>
     </section>
 
