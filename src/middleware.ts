@@ -21,14 +21,15 @@ const SECURITY_HEADERS: Record<string, string> = {
 
 export const onRequest: MiddlewareHandler = async (context, next) => {
   const response = await next();
+  const mutable = new Response(response.body, response);
   const isDev = import.meta.env.DEV;
   const headers = { ...SECURITY_HEADERS };
   if (isDev) {
     headers['Content-Security-Policy'] = CSP_DEV;
   }
   for (const [key, value] of Object.entries(headers)) {
-    response.headers.set(key, value);
+    mutable.headers.set(key, value);
   }
-  return response;
+  return mutable;
 };
 

@@ -236,21 +236,22 @@
   {#if !hasHash}
     <div class="space-y-6">
       <div class="space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500">
+        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-text">
           Text (optional)
         </label>
         <textarea
+          id="dd-text"
           class="input min-h-[140px] resize-vertical font-mono text-xs"
           bind:value={textInput}
           placeholder="Write something to share as a one-shot, URL-only message..."
-        />
+        ></textarea>
       </div>
 
       <div class="space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500">
+        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-file">
           Or small file (≤ 10KB)
         </label>
-        <input type="file" class="input cursor-pointer" on:change={handleFileChange} />
+        <input id="dd-file" type="file" class="input cursor-pointer" on:change={handleFileChange} />
       </div>
 
       <form class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end" on:submit|preventDefault={handleCreate}>
@@ -287,16 +288,17 @@
       {#if link}
         <div class="space-y-3">
           <div class="space-y-2">
-            <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500">
+            <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-link">
               Dead Drop Link
             </label>
-            <input class="input text-xs font-mono" type="text" readonly value={link} />
+            <input id="dd-link" class="input text-xs font-mono" type="text" readonly value={link} />
           </div>
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">
               <div class="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                <span class="uppercase font-bold tracking-widest">Shortener</span>
+                <label class="uppercase font-bold tracking-widest" for="dd-shortener">Shortener</label>
                 <select
+                  id="dd-shortener"
                   class="input !h-7 !py-0 !text-[11px] !px-2"
                   bind:value={shortMode}
                 >

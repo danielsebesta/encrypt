@@ -11,6 +11,10 @@ const SHORTEN_LIMIT = 30;
 
 type Provider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto';
 
+function encodeTarget(target: string): string {
+  return btoa(target).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
 export const prerender = false;
 
 async function shortenNolog(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
@@ -262,7 +266,10 @@ export const POST: APIRoute = async ({ request, url }) => {
     });
   }
 
-  return new Response(JSON.stringify({ shorturl }), {
+  const token = encodeTarget(shorturl);
+  const wrapped = `${url.origin}/s/${provider}/${token}`;
+
+  return new Response(JSON.stringify({ shorturl: wrapped }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'X-RateLimit-Remaining': String(remaining - 1) }
   });
