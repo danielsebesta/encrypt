@@ -63,7 +63,7 @@
             </button>
           </div>
           <pre
-            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-40 break-all select-all"
+            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] max-h-40 whitespace-pre-wrap break-all select-all"
           >{keyPair.publicKey}</pre>
         </div>
 
@@ -83,7 +83,7 @@
             </button>
           </div>
           <pre
-            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-40 break-all select-all text-amber-700 dark:text-amber-500"
+            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-x-auto overflow-y-auto max-h-40 whitespace-pre select-all text-amber-700 dark:text-amber-500"
           >{keyPair.privateKey}</pre>
         </div>
       </div>
