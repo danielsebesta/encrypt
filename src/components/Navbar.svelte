@@ -12,6 +12,8 @@
         { label: 'Bcrypt Hash', href: '/tools/bcrypt' },
         { label: 'HMAC Signer', href: '/tools/hmac' },
         { label: 'RSA Keys', href: '/tools/rsa' },
+        { label: 'SSH Keys', href: '/tools/ssh-keys' },
+        { label: 'PGP Keys', href: '/tools/pgp-keys' },
         { label: 'JWT Debug', href: '/tools/jwt' },
         { label: 'Base64', href: '/tools/base64' },
       ]

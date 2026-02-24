@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ulid } from 'ulid';
 import * as bip39 from 'bip39';
 import * as forge from 'node-forge';
+import * as openpgp from 'openpgp';
 import zxcvbn from 'zxcvbn';
 import { jwtDecode } from 'jwt-decode';
 
@@ -228,6 +229,43 @@ export async function generateRSAKeyPair(bits: number = 2048): Promise<{ publicK
             }
         });
     });
+}
+
+/**
+ * SSH Key Pair Generation (OpenSSH format)
+ */
+export async function generateSSHKeyPair(bits: number = 4096): Promise<{ publicKey: string; privateKey: string }> {
+    return new Promise((resolve, reject) => {
+        forge.pki.rsa.generateKeyPair({ bits, workers: 2 }, (err: Error | null, keypair: forge.pki.rsa.KeyPair) => {
+            if (err) reject(err);
+            else {
+                const publicKey = (forge as any).ssh.publicKeyToOpenSSH(keypair.publicKey);
+                const privateKey = (forge as any).ssh.privateKeyToOpenSSH(keypair.privateKey);
+                resolve({ publicKey, privateKey });
+            }
+        });
+    });
+}
+
+/**
+ * PGP (OpenPGP) RSA Key Pair Generation
+ */
+export async function generatePGPKeyPair(options: {
+    name: string;
+    email: string;
+    passphrase?: string;
+    rsaBits?: number;
+}): Promise<{ publicKey: string; privateKey: string }> {
+    const { name, email, passphrase, rsaBits = 4096 } = options;
+
+    const { privateKey, publicKey } = await openpgp.generateKey({
+        type: 'rsa',
+        rsaBits,
+        userIDs: [{ name, email }],
+        passphrase: passphrase && passphrase.length > 0 ? passphrase : undefined
+    } as any);
+
+    return { publicKey, privateKey };
 }
 
 /**

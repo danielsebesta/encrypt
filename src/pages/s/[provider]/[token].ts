@@ -1,55 +1,57 @@
 import type { APIRoute } from 'astro';
 
-function decodeTarget(token: string): string {
-  const b64 = token.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(token.length / 4) * 4, '=');
-  return atob(b64);
-}
-
 export const prerender = false;
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, url }) => {
   const provider = params.provider;
   const token = params.token;
 
+  const home = new URL('/', url).toString();
+
   if (!provider || !token) {
-    return new Response('Not found', { status: 404 });
+    return Response.redirect(home, 302);
   }
 
-  let shortUrl: string;
-  try {
-    shortUrl = decodeTarget(token);
-  } catch {
-    return new Response('Invalid short link.', { status: 400 });
+  const candidates: string[] = [];
+
+  if (provider === 'tini') {
+    candidates.push(`https://tini.fyi/${token}`);
+  } else if (provider === 'urlvanish') {
+    candidates.push(`https://urlvanish.com/${token}`);
+  } else if (provider === '1url') {
+    candidates.push(`https://1url.cz/${token}`);
+  } else if (provider === 'choto') {
+    candidates.push(`https://choto.co/${token}`);
+  } else if (provider === 'nolog') {
+    candidates.push(`https://nolog.link/${token}`);
+  } else if (provider === 'isgd') {
+    candidates.push(`https://is.gd/${token}`);
   }
 
-  if (!shortUrl.startsWith('http://') && !shortUrl.startsWith('https://')) {
-    return new Response('Invalid short link.', { status: 400 });
+  if (candidates.length === 0) {
+    return Response.redirect(home, 302);
   }
 
-  const upstream = await fetch(shortUrl, {
-    redirect: 'manual'
-  });
+  for (const shortUrl of candidates) {
+    try {
+      const upstream = await fetch(shortUrl, { redirect: 'manual' });
+      const location = upstream.headers.get('Location');
+      if (!location) continue;
 
-  const location = upstream.headers.get('Location');
-  if (!location) {
-    return new Response('Short link is invalid or expired.', { status: 502 });
+      const candidate = new URL(location, shortUrl);
+      const hostname = candidate.hostname.toLowerCase();
+      const isEncryptRoot = hostname === 'encrypt.click';
+      const isEncryptSub = hostname.endsWith('.encrypt.click');
+      if (!isEncryptRoot && !isEncryptSub) continue;
+
+      // Only ever redirect to encrypt.click URLs
+      return Response.redirect(candidate.toString(), 302);
+    } catch {
+      // try next candidate
+    }
   }
 
-  let finalUrl: URL;
-  try {
-    finalUrl = new URL(location, shortUrl);
-  } catch {
-    return new Response('Short link target is invalid.', { status: 502 });
-  }
-
-  const hostname = finalUrl.hostname.toLowerCase();
-  const isEncryptRoot = hostname === 'encrypt.click';
-  const isEncryptSub = hostname.endsWith('.encrypt.click');
-
-  if (!isEncryptRoot && !isEncryptSub) {
-    return new Response('Short link target is not on encrypt.click.', { status: 400 });
-  }
-
-  return Response.redirect(finalUrl.toString(), 302);
+  // On any failure, fall back to homepage
+  return Response.redirect(home, 302);
 };
 
