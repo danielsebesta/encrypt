@@ -5,18 +5,25 @@
   let password = '';
   let unlockedUrl: string | null = null;
   let processing = false;
+  let error = '';
+  const MAX_BYTES = 5 * 1024 * 1024;
 
   async function handleUnlock() {
     if (!file || !password) return;
+    if (file.size > MAX_BYTES) {
+      error = 'PDF too large. Please keep under 5 MB.';
+      return;
+    }
+    error = '';
     processing = true;
     try {
       const buffer = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(buffer, { password: password });
+      const pdfDoc = await PDFDocument.load(buffer, { password });
       const pdfBytes = await pdfDoc.save();
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       unlockedUrl = URL.createObjectURL(blob);
     } catch (e) {
-      alert('Failed to unlock. The password might be incorrect or the PDF is not encrypted.');
+      error = 'Failed to unlock PDF. Password might be incorrect or file is not encrypted.';
     } finally {
       processing = false;
     }
@@ -38,6 +45,10 @@
     <button on:click={handleUnlock} disabled={!file || !password || processing} class="btn w-full py-4 uppercase font-black tracking-widest text-xs">
         {processing ? 'Decrypting Document...' : 'Remove Protection'}
     </button>
+
+    {#if error}
+      <p class="text-xs text-red-500">{error}</p>
+    {/if}
 
     {#if unlockedUrl}
        <div class="space-y-4 animate-in zoom-in-95">

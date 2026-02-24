@@ -5,16 +5,23 @@
   let exifData: any = null;
   let scrubbedImageUrl: string | null = null;
   let processing = false;
+  let error = '';
+  const MAX_BYTES = 10 * 1024 * 1024;
 
   async function handleFile(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.files?.[0]) {
       processing = true;
       file = target.files[0];
+      if (file.size > MAX_BYTES) {
+        error = 'Image too large. Please keep under 10 MB.';
+        processing = false;
+        return;
+      }
+      error = '';
       try {
         const tags = await ExifReader.load(file);
         exifData = tags;
-        
         const img = new Image();
         img.src = URL.createObjectURL(file);
         img.onload = () => {
@@ -28,6 +35,7 @@
         };
       } catch (e) {
         console.error(e);
+        error = 'Failed to process image.';
         processing = false;
       }
     }
@@ -47,6 +55,10 @@
           </div>
       </div>
   </div>
+
+  {#if error}
+      <p class="text-xs text-red-500">{error}</p>
+  {/if}
 
   {#if processing}
       <div class="text-center py-4">
