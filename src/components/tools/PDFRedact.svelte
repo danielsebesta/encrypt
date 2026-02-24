@@ -4,9 +4,16 @@
   let pdfFile: File | null = null;
   let redactedPdfUrl: string | null = null;
   let processing = false;
+  let error = '';
+  const MAX_BYTES = 5 * 1024 * 1024;
 
   async function handleRedact() {
     if (!pdfFile) return;
+    if (pdfFile.size > MAX_BYTES) {
+      error = 'PDF too large. Please keep under 5 MB.';
+      return;
+    }
+    error = '';
     processing = true;
     try {
       const buffer = await pdfFile.arrayBuffer();
@@ -29,6 +36,7 @@
       redactedPdfUrl = URL.createObjectURL(blob);
     } catch (e) {
       console.error(e);
+      error = 'Failed to process PDF.';
     } finally {
       processing = false;
     }
@@ -53,6 +61,10 @@
     <button on:click={handleRedact} disabled={!pdfFile || processing} class="btn w-full py-4 uppercase font-black tracking-widest text-xs">
         {processing ? 'Processing Layers...' : 'Apply Redaction Protection'}
     </button>
+
+    {#if error}
+      <p class="text-xs text-red-500">{error}</p>
+    {/if}
 
     {#if redactedPdfUrl}
         <div class="space-y-4 animate-in zoom-in-95">

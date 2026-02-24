@@ -8,10 +8,18 @@
   let status = '';
   let mode: 'encode' | 'decode' = 'encode';
   let decodedMessage = '';
+  const MAX_BYTES = 10 * 1024 * 1024;
   async function handleImageFile(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.files && target.files[0]) {
       imageFile = target.files[0];
+      if (imageFile.size > MAX_BYTES) {
+        status = 'Image too large. Please keep under 10 MB.';
+        imageUrl = null;
+        encodedImageUrl = null;
+        decodedMessage = '';
+        return;
+      }
       imageUrl = URL.createObjectURL(imageFile);
       encodedImageUrl = null;
       status = 'Image loaded.';
