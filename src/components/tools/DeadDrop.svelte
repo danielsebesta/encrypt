@@ -4,7 +4,7 @@
   import { encrypt, decrypt } from '../../lib/crypto';
 
   type Mode = 'create' | 'open';
-  type ShortProvider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto';
+  type ShortProvider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd';
 
   let mode: Mode = 'create';
 
@@ -307,6 +307,7 @@
                   <option value="urlvanish">URLVanish.com</option>
                   <option value="choto">choto.co</option>
                   <option value="1url">1url.cz</option>
+                  <option value="isgd">is.gd</option>
                 </select>
               </div>
               <button
