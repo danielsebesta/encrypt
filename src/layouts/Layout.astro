@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css'
 import Navbar from '../components/Navbar.svelte'
+import themeInitUrl from '../scripts/theme-init.js?url'
 
 type Props = {
   title?: string;
@@ -20,7 +21,7 @@ const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.c
 ---
 
 <!doctype html>
-<html lang="en" class="notranslate scroll-smooth dark theme-init">
+<html lang="en" class="notranslate scroll-smooth dark">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -48,22 +49,7 @@ const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.c
 		<meta name="apple-mobile-web-app-title" content="encrypt.click" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
-		<script>
-			(function () {
-				var root = document.documentElement;
-				var stored = null;
-				try {
-					stored = window.localStorage.getItem('theme');
-				} catch (_) {}
-				var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-				if (theme === 'light') {
-					root.classList.remove('dark');
-				} else {
-					root.classList.add('dark');
-				}
-				root.classList.remove('theme-init');
-			})();
-		</script>
+		<script src={themeInitUrl}></script>
 	</head>
 	<body>
 		<Navbar client:load />

@@ -152,10 +152,6 @@
         @apply min-h-screen flex flex-col;
     }
 
-    html.theme-init body {
-        visibility: hidden;
-    }
-
     /* Invert and hue-rotate main illustrations in dark mode */
     html.dark img[src*="encrypt_"] {
         filter: invert(1) hue-rotate(180deg) !important;
