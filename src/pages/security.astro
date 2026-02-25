@@ -1,122 +1,72 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { getTranslations, t, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="Security & Privacy (Privacy Policy) — encrypt.click"
-  description="Privacy policy for encrypt.click: how client-side crypto works, what data is (and isn't) sent to servers, and how optional URL shortening works."
+  title={t(dict, 'security.meta.title')}
+  description={t(dict, 'security.meta.description')}
 >
   <main class="max-w-3xl mx-auto px-5 py-16 md:py-24 space-y-10">
     <header class="space-y-3 text-center md:text-left">
-      <h1 class="text-3xl md:text-4xl font-black tracking-tight">Security &amp; Privacy</h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
-        Plain-language privacy policy describing how encrypt.click treats your data. This is informational only and not legal advice.
-      </p>
+      <h1 class="text-3xl md:text-4xl font-black tracking-tight">{t(dict, 'security.h1')}</h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">{t(dict, 'security.subtitle')}</p>
     </header>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">No accounts, no logins</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        encrypt.click does not have user accounts, logins, or profiles. You do not need to register or provide any
-        personal information to use the tools.
-      </p>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.noAccounts.title')}</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.noAccounts.text')}</p>
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">100% client-side tools</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        All cryptographic operations are performed in your browser using the Web Crypto API and other local APIs.
-        For the core tools, inputs (text, files, passwords, keys) are never sent to any backend controlled by
-        encrypt.click.
-      </p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        For the <span class="font-semibold">Dead Drop</span> tool specifically: the payload is compressed and encrypted locally and stored in the URL
-        fragment (the part after <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">#</code>). URL fragments are not
-        sent to encrypt.click servers during normal page requests.
-      </p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        Some tools may fetch public data or randomness from third-party APIs that you explicitly invoke
-        (for example, the Drand randomness beacon for the Time Capsule). These calls never include your plaintext
-        secrets or passwords.
-      </p>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.clientSide.title')}</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.clientSide.p1')}</p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.clientSide.p2')}</p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.clientSide.p3')}</p>
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">Optional URL shortening</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        If you choose to shorten a link (for example from the Dead Drop page), your browser calls
-        <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">/api/shorten</code> on encrypt.click.
-        The encrypt.click backend then makes a server-side request to the shortener you selected.
-      </p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        The shortener will receive the full URL you are shortening. For Dead Drop links, that includes the URL fragment containing the encrypted payload.
-        The payload is encrypted, but it can still be a unique identifier and may be considered sensitive metadata. If you want maximum privacy, do not use
-        third-party shorteners for Dead Drop links.
-      </p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        When you share a shortened link from encrypt.click, the URL you share is still on the <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">encrypt.click</code> domain.
-        When someone clicks it, their browser talks to encrypt.click first. encrypt.click then contacts the shortener on their behalf and follows the redirect
-        server-side before redirecting the visitor back to an <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">encrypt.click</code> URL. This design means the shortener sees
-        requests from encrypt.click infrastructure, not directly from the visitor&rsquo;s IP address, although the shortener can still log that a given encrypted link
-        was used.
-      </p>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.shortening.title')}</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.shortening.p1')}</p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.shortening.p2')}</p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.shortening.p3')}</p>
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">Cookies and local storage</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        The site does not set tracking or analytics cookies, and does not use third-party trackers or ad pixels.
-        Your browser may use <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">localStorage</code> 
-        only to remember your preferred light/dark theme. This value does not contain personal data.
-      </p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        Cloudflare (our hosting provider) may set cookies for security and abuse prevention depending on traffic patterns and your browser settings, under
-        Cloudflare&rsquo;s own policies.
-      </p>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.cookies.title')}</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.cookies.p1')}</p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.cookies.p2')}</p>
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">Network and transport security</h2>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.network.title')}</h2>
       <ul class="space-y-2 text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed list-disc list-inside">
-        <li>All traffic is served over HTTPS with modern TLS configuration.</li>
-        <li>HTTP Strict Transport Security (HSTS) is enabled with <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">includeSubDomains; preload</code>.</li>
-        <li>Content Security Policy (CSP) restricts scripts, styles, fonts, and connections to trusted origins only.</li>
-        <li>Framing is disabled via <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">frame-ancestors 'none'</code> and <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">X-Frame-Options: DENY</code>.</li>
+        <li>{t(dict, 'security.network.li1')}</li>
+        <li>{t(dict, 'security.network.li2')}</li>
+        <li>{t(dict, 'security.network.li3')}</li>
+        <li>{t(dict, 'security.network.li4')}</li>
       </ul>
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">Third-party infrastructure</h2>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.thirdParty.title')}</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.thirdParty.p1')}</p>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.thirdParty.p2')}</p>
+    </section>
+
+    <section class="space-y-4">
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.disclosure.title')}</h2>
       <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        encrypt.click is hosted on Cloudflare Pages. Cloudflare, as a reverse proxy and CDN, may log standard
-        HTTP metadata (such as IP address and user agent) for security and operational purposes, according to
-        their own privacy policy.
-      </p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        The application itself does not maintain its own server-side logs of your tool inputs. For abuse prevention, encrypt.click applies rate limiting on
-        API endpoints (such as the Drand proxy and URL shortener). Rate limiting uses a one-way hash of your IP address (salted SHA-256, truncated) stored
-        only in memory for a short window (about 60 seconds) and is not written to a database by the application.
+        {t(dict, 'security.disclosure.text')}
       </p>
     </section>
 
     <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">Responsible disclosure</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        If you believe you have found a security or privacy issue in encrypt.click, please contact 
-        <a href="mailto:security@encrypt.click" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-4 hover:decoration-2">
-          security@encrypt.click
-        </a>. Include enough detail to reproduce the issue and avoid testing that could impact other users.
-      </p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">Non-legal summary</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        This page is a human-readable summary of how encrypt.click is designed to handle your data. It is not a
-        contract and not a full legal terms-of-use document. By using the site, you accept that no guarantee of
-        perfect security can be made and that you use the tools at your own risk.
-      </p>
+      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.nonLegal.title')}</h2>
+      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.nonLegal.text')}</p>
     </section>
   </main>
 </Layout>
-

@@ -1,25 +1,24 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import DeadDrop from '../components/tools/DeadDrop.svelte';
+import { getTranslations, t, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="Dead Drop Link — Data in the URL"
-  description="Encrypt text or small files directly into the URL fragment. Nothing ever touches a server."
+  title={t(dict, 'drop.meta.title')}
+  description={t(dict, 'drop.meta.description')}
   canonical="https://encrypt.click/drop"
 >
   <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center space-y-8">
     <div class="space-y-3" data-aos data-aos-delay="0">
-      <h1 class="text-3xl md:text-4xl font-black tracking-tight">Dead <span class="text-emerald-500">Drop.</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl mx-auto">
-        Create one-shot links where the entire encrypted payload lives in the URL hash.
-        No backend. No logs. Just math in your browser.
-      </p>
+      <h1 class="text-3xl md:text-4xl font-black tracking-tight">{t(dict, 'drop.h1')} <span class="text-emerald-500">{t(dict, 'drop.h1Highlight')}</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl mx-auto">{t(dict, 'drop.subtitle')}</p>
     </div>
-
     <div class="card p-6 md:p-8" data-aos data-aos-delay="80">
-      <DeadDrop client:load />
+      <DeadDrop client:load locale={locale} />
     </div>
   </div>
 </Layout>
-
