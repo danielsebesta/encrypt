@@ -1,6 +1,8 @@
 <script lang="ts">
   import { rot13 } from '../../lib/crypto';
-
+  import { getTranslations, t } from '../../lib/i18n';
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
   let shift = 13;
   let input = '';
   let output = '';
@@ -20,18 +22,18 @@
                     class="w-full accent-emerald-500"
                 />
             </div>
-            <div class="absolute -top-6 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Rotation Offset</div>
+            <div class="absolute -top-6 text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t(dict, 'tools.caesar.rotationOffset')}</div>
         </div>
     </div>
 
     <div class="grid gap-6">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Original Text</label>
-            <textarea bind:value={input} placeholder="Type message to shift..." class="input h-24"></textarea>
+            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.caesar.originalText')}</label>
+            <textarea bind:value={input} placeholder={t(dict, 'tools.caesar.placeholder')} class="input h-24"></textarea>
         </div>
         
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Ciphered Result</label>
+            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.caesar.cipheredResult')}</label>
             <div class="p-8 bg-zinc-50 dark:bg-zinc-900 rounded-3xl border-2 border-dashed border-zinc-100 dark:border-zinc-800 font-mono text-3xl text-center text-zinc-800 dark:text-zinc-100 break-all">
                 {output || '...'}
             </div>

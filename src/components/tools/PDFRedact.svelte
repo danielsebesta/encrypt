@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { PDFDocument } from 'pdf-lib';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   let pdfjsLib: any = null;
   let pdfReady = false;
@@ -49,7 +53,7 @@
   async function loadPdf() {
     if (!pdfFile || !pdfjsLib) return;
     if (pdfFile.size > MAX_BYTES) {
-      error = 'PDF too large. Please keep under 5 MB.';
+      error = t(dict, 'tools.pdfRedact.pdfTooLarge');
       return;
     }
     error = '';
@@ -95,7 +99,7 @@
       }
     } catch (e) {
       console.error(e);
-      error = 'Failed to load PDF preview.';
+      error = t(dict, 'tools.pdfRedact.failedToLoad');
       pageCount = 0;
     } finally {
       loadingPdf = false;
@@ -170,7 +174,7 @@
   async function handleRedact() {
     if (!pdfFile || pageCount === 0) return;
     if (redactions.length === 0) {
-      error = 'Draw at least one redaction box on a page.';
+      error = t(dict, 'tools.pdfRedact.drawAtLeast');
       return;
     }
     error = '';
@@ -230,7 +234,7 @@
       redactedPdfUrl = URL.createObjectURL(blob);
     } catch (e) {
       console.error('PDF redaction failed', e);
-      error = 'Failed to process PDF. Try a smaller document or fewer pages, and make sure the file is a valid PDF.';
+      error = t(dict, 'tools.pdfRedact.failedToProcess');
     } finally {
       processing = false;
     }
@@ -258,19 +262,17 @@
     class="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-xl text-xs text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 space-y-1"
   >
     <p class="font-semibold">
-      All redaction happens locally in your browser. The PDF is rasterized page-by-page and rebuilt with black boxes
-      burned into the pixels and metadata stripped.
+      {t(dict, 'tools.pdfRedact.infoP1')}
     </p>
     <p>
-      Upload a PDF, draw black rectangles over sensitive areas on each page, then download a new, fully rasterized
-      copy.
+      {t(dict, 'tools.pdfRedact.infoP2')}
     </p>
   </div>
 
   <div class="grid gap-6">
     <div class="grid gap-1.5">
       <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pdf-file">
-        Source PDF Document
+        {t(dict, 'tools.pdfRedact.sourcePdf')}
       </label>
       <input
         id="pdf-file"
@@ -280,33 +282,33 @@
         class="input"
       />
       <p class="text-[11px] text-zinc-400">
-        Processed in-memory · Max size {Math.round(MAX_BYTES / (1024 * 1024))} MB · Large PDFs may be slow.
+        {t(dict, 'tools.pdfRedact.processedInMemory').replace('{size}', String(Math.round(MAX_BYTES / (1024 * 1024))))}
       </p>
     </div>
 
     {#if loadingPdf}
-      <p class="text-xs text-zinc-500 dark:text-zinc-400">Rendering pages…</p>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.pdfRedact.renderingPages')}</p>
     {/if}
 
     {#if pageCount > 0}
       <div class="space-y-3">
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
-            Click and drag to draw black boxes. Repeat on any page that needs redaction.
+            {t(dict, 'tools.pdfRedact.drawInstructions')}
           </p>
           <button
             type="button"
             class="btn-outline text-[11px] px-3 py-1"
             on:click={clearRedactions}
           >
-            Clear all boxes
+            {t(dict, 'tools.pdfRedact.clearAllBoxes')}
           </button>
         </div>
         <div class="space-y-6 max-h-[420px] overflow-y-auto pr-1">
           {#each Array(pageCount) as _, pageIndex}
               <div class="space-y-1">
               <p class="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-                Page {pageIndex + 1}
+                {t(dict, 'tools.pdfRedact.page')} {pageIndex + 1}
               </p>
               <div class="relative inline-block rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900 max-w-full mx-auto">
                 <canvas data-pdf-canvas="true" class="block" />
@@ -344,7 +346,7 @@
       disabled={processing || !pdfFile || pageCount === 0}
       class="btn w-full py-4 uppercase font-black tracking-widest text-xs disabled:opacity-50"
     >
-      {processing ? 'Rasterizing & Redacting…' : 'Redact & Download PDF'}
+      {processing ? t(dict, 'tools.pdfRedact.rasterizing') : t(dict, 'tools.pdfRedact.redactBtn')}
     </button>
 
     {#if error}
@@ -363,7 +365,7 @@
           download="redacted-document.pdf"
           class="btn-secondary w-full py-4 text-center block uppercase font-black tracking-widest text-xs"
         >
-          Download Redacted PDF
+          {t(dict, 'tools.pdfRedact.downloadRedacted')}
         </a>
       </div>
     {/if}

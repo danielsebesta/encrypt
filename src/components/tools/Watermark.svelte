@@ -1,4 +1,9 @@
 <script lang="ts">
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
+
   let file: File | null = null;
   let text = 'FOR IDENTITY VERIFICATION ONLY';
   let resultUrl: string | null = null;
@@ -54,18 +59,18 @@
 <div class="space-y-8 animate-in fade-in duration-500">
   <div class="grid gap-6">
       <div class="grid gap-1.5">
-          <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Source Document / ID</label>
+          <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.watermark.sourceDocument')}</label>
           <div class="relative">
               <input type="file" accept="image/*" on:change={handleFile} class="input cursor-pointer" />
               {#if file}
-                  <div class="absolute right-3 top-2 text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded font-bold">LOADED</div>
+                  <div class="absolute right-3 top-2 text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded font-bold">{t(dict, 'tools.watermark.loaded')}</div>
               {/if}
           </div>
       </div>
 
       <div class="grid gap-1.5">
-          <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Protection Text</label>
-          <input bind:value={text} placeholder="e.g. For verify.com only - 2026-02-23" class="input" on:input={apply} />
+          <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.watermark.protectionText')}</label>
+          <input bind:value={text} placeholder={t(dict, 'tools.watermark.placeholder')} class="input" on:input={apply} />
       </div>
 
       {#if resultUrl}
@@ -76,11 +81,11 @@
             </div>
             
             <a href={resultUrl} download="protected-identity.jpg" class="btn w-full py-5 text-base font-black uppercase tracking-widest shadow-emerald-500/20 shadow-lg">
-                Save Secure Document
+                {t(dict, 'tools.watermark.saveSecure')}
             </a>
             
             <p class="text-[10px] text-zinc-400 text-center font-medium uppercase tracking-widest">
-                Verification companies often reject documents without clear intent. Protect your identity.
+                {t(dict, 'tools.watermark.verificationNote')}
             </p>
         </div>
       {/if}

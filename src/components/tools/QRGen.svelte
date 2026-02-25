@@ -1,5 +1,9 @@
 <script lang="ts">
   import QRCode from 'qrcode';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   let text = '';
   let url = '';
@@ -32,20 +36,20 @@
 <div class="space-y-8 animate-in fade-in duration-500">
     <div class="grid gap-6">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">QR Content (URL, Text, etc.)</label>
-            <textarea bind:value={text} placeholder="Enter destination data..." class="input min-h-[120px] font-mono"></textarea>
+            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.qrGen.qrContent')}</label>
+            <textarea bind:value={text} placeholder={t(dict, 'tools.qrGen.placeholder')} class="input min-h-[120px] font-mono"></textarea>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
             <div class="grid gap-1.5">
-                <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Dots Color</label>
+                <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.qrGen.dotsColor')}</label>
                 <div class="flex gap-2 items-center">
                     <input type="color" bind:value={color} class="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0 p-0" />
                     <input type="text" bind:value={color} class="input text-xs font-mono py-2" />
                 </div>
             </div>
             <div class="grid gap-1.5">
-                <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Resolution (PX)</label>
+                <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.qrGen.resolution')}</label>
                 <input type="number" bind:value={size} min="100" max="2000" class="input py-2" />
             </div>
         </div>
@@ -58,7 +62,7 @@
                 </div>
                 
                 <div class="flex gap-3 w-full max-w-sm">
-                    <button on:click={copy} class="btn flex-1 py-4 uppercase font-black tracking-widest text-xs">Download PNG</button>
+                    <button on:click={copy} class="btn flex-1 py-4 uppercase font-black tracking-widest text-xs">{t(dict, 'tools.qrGen.downloadPng')}</button>
                     <button on:click={() => { text = ''; }} class="btn-outline px-6">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                     </button>
