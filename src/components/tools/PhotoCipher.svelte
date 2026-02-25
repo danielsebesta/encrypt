@@ -13,6 +13,7 @@
   const CRYPTO_OVERHEAD = 44;
   const MAX_FILE = 10 * 1024 * 1024;
   const MIN_DIM = 800;
+  const MAX_DIM = 2048;
 
   let imageUrl: string | null = null;
   let message = '';
@@ -100,10 +101,17 @@
   function normalizeToCanvas(img: HTMLImageElement, forEncode: boolean): HTMLCanvasElement {
     let w = img.naturalWidth || img.width;
     let h = img.naturalHeight || img.height;
-    if (forEncode && (w < MIN_DIM || h < MIN_DIM)) {
-      const scale = Math.max(MIN_DIM / w, MIN_DIM / h);
-      w = Math.round(w * scale);
-      h = Math.round(h * scale);
+    if (forEncode) {
+      if (w < MIN_DIM || h < MIN_DIM) {
+        const scale = Math.max(MIN_DIM / w, MIN_DIM / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      if (w > MAX_DIM || h > MAX_DIM) {
+        const scale = Math.min(MAX_DIM / w, MAX_DIM / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
     }
     w = Math.floor(w / BLOCK) * BLOCK;
     h = Math.floor(h / BLOCK) * BLOCK;
@@ -144,7 +152,10 @@
       imgH = norm.height;
       imageUrl = norm.toDataURL('image/png');
       capacity = maxChars(imgW, imgH);
-      status = t(dict, 'tools.photoCipher.imageLoaded').replace('{chars}', String(capacity));
+      status = t(dict, 'tools.photoCipher.imageLoaded')
+        .replace('{w}', String(imgW))
+        .replace('{h}', String(imgH))
+        .replace('{chars}', String(capacity));
     } catch {
       status = t(dict, 'tools.photoCipher.imageLoadFailed');
       imageUrl = null; capacity = 0;

@@ -470,7 +470,7 @@
   "tools.photoCipher.foundMessage": "Nalezená zpráva",
   "tools.photoCipher.imageTooLarge": "Obrázek je příliš velký. Omezení je 10 MB.",
   "tools.photoCipher.imageLoadFailed": "Obrázek se nepodařilo načíst. Zkuste jiný soubor.",
-  "tools.photoCipher.imageLoaded": "Obrázek načten. Kapacita: ~{chars} znaků.",
+  "tools.photoCipher.imageLoaded": "Připraveno ({w}×{h}). Kapacita: ~{chars} znaků.",
   "tools.photoCipher.encrypting": "Šifruji zprávu...",
   "tools.photoCipher.encryptionFailed": "Šifrování selhalo.",
   "tools.photoCipher.messageTooLong": "Zpráva je příliš dlouhá pro tento obrázek. Použijte fotku s vyšším rozlišením.",
