@@ -1,32 +1,27 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import AESWordsView from '../../components/tools/AESWords.svelte';
+import { getTranslations, t, type Locale } from '../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="AES Words — Lexical Cryptography"
-  description="Convert your encrypted data into human-readable word sequences. High-security AES-256 encryption mapped to a 14-bit dictionary."
+  title={t(dict, 'tools.aesWords.meta.title')}
+  description={t(dict, 'tools.aesWords.meta.description')}
 >
   <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">AES <span class="text-emerald-500">Words.</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
-        Our proprietary format that turns encrypted payloads into easy-to-copy word buckets. 
-        AES-256-GCM core with salted key derivation.
-      </p>
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.aesWords.h1')} <span class="text-emerald-500">{t(dict, 'tools.aesWords.h1Highlight')}</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.aesWords.subtitle')}</p>
     </div>
-
     <div class="card p-8">
-      <AESWordsView client:load />
+      <AESWordsView client:load locale={locale} />
     </div>
-
-    <div class="mt-12 text-left bg-emerald-50/20 dark:bg-emerald-950/20 p-6 rounded-2xl border border-emerald-100 dark:border-emerald-900/50">
-        <h3 class="text-sm font-bold text-emerald-800 dark:text-emerald-400 mb-2">How it works</h3>
-        <p class="text-xs text-emerald-700/80 dark:text-emerald-400/80 leading-relaxed font-medium">
-            1. Your text is encrypted with AES-256 using your secret password. <br/>
-            2. The resulting binary data is split into 14-bit chunks. <br/>
-            3. Each chunk is mapped to one of 16,384 unique words in our dictionary.
-        </p>
+    <div class="mt-12 text-left space-y-4">
+      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.aesWords.info.title')}</h3>
+      <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.aesWords.info.text')}</p>
     </div>
   </div>
 </Layout>

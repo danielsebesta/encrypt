@@ -1,31 +1,27 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import JWTView from '../../components/tools/JWT.svelte';
+import { getTranslations, t, type Locale } from '../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="JWT Debugger — Local Token Decoding"
-  description="Decode and analyze JSON Web Tokens (JWT) locally. Inspect headers and payloads without exposing tokens to external servers."
+  title={t(dict, 'tools.jwt.meta.title')}
+  description={t(dict, 'tools.jwt.meta.description')}
 >
   <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">JWT <span class="text-emerald-500">Debugger.</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
-        Deep-dive into token headers and claims. 
-        Processed locally for zero-leak analysis.
-      </p>
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.jwt.h1')} <span class="text-emerald-500">{t(dict, 'tools.jwt.h1Highlight')}</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.jwt.subtitle')}</p>
     </div>
-
     <div class="card p-8">
-      <JWTView client:load />
+      <JWTView client:load locale={locale} />
     </div>
-
     <div class="mt-12 text-left space-y-4">
-        <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">Claims Inspection</h3>
-        <p class="text-xs text-zinc-500 leading-relaxed">
-            Verify expiration times (exp), issued-at times (iat), and custom claims instantly. 
-            Note: This tool decodes the Base64 chunks but does not verify the signature against a secret.
-        </p>
+      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.jwt.info.title')}</h3>
+      <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.jwt.info.text')}</p>
     </div>
   </div>
 </Layout>

@@ -1,5 +1,9 @@
 <script lang="ts">
   import { toMorse, fromMorse } from '../../lib/crypto';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   let input = '';
   let output = '';
@@ -50,25 +54,25 @@
 
 <div class="space-y-6 animate-in fade-in duration-500">
     <div class="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-lg">
-        <button on:click={() => textToMorse = true} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {textToMorse ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">TEXT TO MORSE</button>
-        <button on:click={() => textToMorse = false} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {!textToMorse ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">MORSE TO TEXT</button>
+        <button on:click={() => textToMorse = true} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {textToMorse ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">{t(dict, 'tools.morse.textToMorse')}</button>
+        <button on:click={() => textToMorse = false} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {!textToMorse ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">{t(dict, 'tools.morse.morseToText')}</button>
     </div>
     
     <div class="grid gap-6">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Source Input</label>
-            <textarea bind:value={input} placeholder={textToMorse ? "Type text to translate..." : "Type morse (... --- ...)"} class="input h-32 font-mono"></textarea>
+            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.morse.sourceInput')}</label>
+            <textarea bind:value={input} placeholder={textToMorse ? t(dict, 'tools.morse.textPlaceholder') : t(dict, 'tools.morse.morsePlaceholder')} class="input h-32 font-mono"></textarea>
         </div>
         
         <div class="grid gap-2">
             <div class="flex justify-between items-end">
-                <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Translated Output</label>
+                <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.morse.translatedOutput')}</label>
                 <div class="flex gap-4">
                     <button on:click={playMorse} class="text-[10px] text-emerald-600 font-bold hover:underline flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                        PLAY AUDIO
+                        {t(dict, 'tools.morse.playAudio')}
                     </button>
-                    <button on:click={copy} class="text-[10px] text-emerald-600 font-bold hover:underline">COPY</button>
+                    <button on:click={copy} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.morse.copy')}</button>
                 </div>
             </div>
             <div class="p-8 bg-emerald-50/20 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl min-h-[120px] text-2xl tracking-[0.3em] font-mono break-all text-emerald-800 dark:text-emerald-400 flex items-center justify-center text-center">
