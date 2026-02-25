@@ -5,11 +5,11 @@
   Referrer-Policy: no-referrer
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
-  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Embedder-Policy: credentialless
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
   Access-Control-Allow-Origin: https://encrypt.click
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;
 
 /*
   Server: encrypt.click
@@ -27,7 +27,4 @@
   Cache-Control: public, max-age=31536000, immutable
 
 /encrypt_*.svg
-  Cache-Control: public, max-age=31536000, immutable
-
-/encrypt_check.svg
   Cache-Control: public, max-age=31536000, immutable
