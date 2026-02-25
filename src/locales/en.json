@@ -469,6 +469,7 @@
   "tools.photoCipher.extractFromPixels": "Extract hidden message",
   "tools.photoCipher.foundMessage": "Found message",
   "tools.photoCipher.imageTooLarge": "Image too large. Please keep under 10 MB.",
+  "tools.photoCipher.imageLoadFailed": "Could not load image. Try a different file.",
   "tools.photoCipher.imageLoaded": "Image loaded. Capacity: ~{chars} characters.",
   "tools.photoCipher.encrypting": "Encrypting message...",
   "tools.photoCipher.encryptionFailed": "Encryption failed.",

@@ -12,11 +12,11 @@
   const HEADER_SIZE = 8;
   const CRYPTO_OVERHEAD = 44;
   const MAX_FILE = 10 * 1024 * 1024;
+  const MIN_DIM = 800;
 
   let imageUrl: string | null = null;
   let message = '';
   let password = '';
-  let canvas: HTMLCanvasElement;
   let fileInput: HTMLInputElement;
   let status = '';
   let mode: 'encode' | 'decode' = 'encode';
@@ -24,6 +24,8 @@
   let encodedImageUrl: string | null = null;
   let capacity = 0;
   let processing = false;
+  let imgW = 0;
+  let imgH = 0;
 
   function triggerFileSelect() { fileInput?.click(); }
 
@@ -95,6 +97,35 @@
     return Math.max(0, Math.floor(total / (8 * REP)) - HEADER_SIZE - CRYPTO_OVERHEAD);
   }
 
+  function normalizeToCanvas(img: HTMLImageElement, forEncode: boolean): HTMLCanvasElement {
+    let w = img.naturalWidth || img.width;
+    let h = img.naturalHeight || img.height;
+    if (forEncode && (w < MIN_DIM || h < MIN_DIM)) {
+      const scale = Math.max(MIN_DIM / w, MIN_DIM / h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+    w = Math.floor(w / BLOCK) * BLOCK;
+    h = Math.floor(h / BLOCK) * BLOCK;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    return c;
+  }
+
+  function loadImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Image failed to load'));
+      img.src = src;
+    });
+  }
+
   async function handleImageFile(e: Event) {
     const f = (e.target as HTMLInputElement).files?.[0];
     if (!f) return;
@@ -103,75 +134,76 @@
       imageUrl = null; encodedImageUrl = null; decodedMessage = ''; capacity = 0;
       return;
     }
-    imageUrl = URL.createObjectURL(f);
     encodedImageUrl = null; decodedMessage = '';
-    const img = new Image();
-    img.onload = () => {
-      capacity = maxChars(img.width, img.height);
+    try {
+      const blobUrl = URL.createObjectURL(f);
+      const img = await loadImage(blobUrl);
+      URL.revokeObjectURL(blobUrl);
+      const norm = normalizeToCanvas(img, mode === 'encode');
+      imgW = norm.width;
+      imgH = norm.height;
+      imageUrl = norm.toDataURL('image/png');
+      capacity = maxChars(imgW, imgH);
       status = t(dict, 'tools.photoCipher.imageLoaded').replace('{chars}', String(capacity));
-    };
-    img.src = imageUrl;
+    } catch {
+      status = t(dict, 'tools.photoCipher.imageLoadFailed');
+      imageUrl = null; capacity = 0;
+    }
   }
 
   async function encode() {
-    if (!canvas || !imageUrl || !message || !password) {
+    if (!imageUrl || !message || !password) {
       status = t(dict, 'tools.photoCipher.pleaseProvide'); return;
     }
     processing = true;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { processing = false; return; }
+    try {
+      const img = await loadImage(imageUrl);
+      const norm = normalizeToCanvas(img, true);
+      const ctx = norm.getContext('2d')!;
+      const imageData = ctx.getImageData(0, 0, norm.width, norm.height);
+      const px = imageData.data;
+      const bx = norm.width / BLOCK;
+      const by = norm.height / BLOCK;
+      const total = bx * by;
 
-    const img = new Image();
-    img.onload = async () => {
-      try {
-        canvas.width = img.width; canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const px = imageData.data;
-        const bx = Math.floor(canvas.width / BLOCK);
-        const by = Math.floor(canvas.height / BLOCK);
-        const total = bx * by;
+      status = t(dict, 'tools.photoCipher.encrypting');
+      let cipher: Uint8Array;
+      try { cipher = await encrypt(message, password); }
+      catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); processing = false; return; }
 
-        status = t(dict, 'tools.photoCipher.encrypting');
-        let cipher: Uint8Array;
-        try { cipher = await encrypt(message, password); }
-        catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); processing = false; return; }
+      const magic = new TextEncoder().encode(MAGIC);
+      const len = cipher.length;
+      const payload = new Uint8Array(HEADER_SIZE + len);
+      payload.set(magic, 0);
+      payload[4] = (len >> 24) & 0xff;
+      payload[5] = (len >> 16) & 0xff;
+      payload[6] = (len >> 8) & 0xff;
+      payload[7] = len & 0xff;
+      payload.set(cipher, HEADER_SIZE);
 
-        const magic = new TextEncoder().encode(MAGIC);
-        const len = cipher.length;
-        const payload = new Uint8Array(HEADER_SIZE + len);
-        payload.set(magic, 0);
-        payload[4] = (len >> 24) & 0xff;
-        payload[5] = (len >> 16) & 0xff;
-        payload[6] = (len >> 8) & 0xff;
-        payload[7] = len & 0xff;
-        payload.set(cipher, HEADER_SIZE);
+      const bits = bytesToBits(payload);
+      const expanded: number[] = [];
+      for (const b of bits) for (let r = 0; r < REP; r++) expanded.push(b);
 
-        const bits = bytesToBits(payload);
-        const expanded: number[] = [];
-        for (const b of bits) for (let r = 0; r < REP; r++) expanded.push(b);
+      if (expanded.length > total) {
+        status = t(dict, 'tools.photoCipher.messageTooLong'); processing = false; return;
+      }
 
-        if (expanded.length > total) {
-          status = t(dict, 'tools.photoCipher.messageTooLong'); processing = false; return;
-        }
+      status = t(dict, 'tools.photoCipher.embedding');
+      const seed = await getSeed(password);
+      const order = shuffledOrder(total, seed);
 
-        status = t(dict, 'tools.photoCipher.embedding');
-        const seed = await getSeed(password);
-        const order = shuffledOrder(total, seed);
+      await new Promise(r => setTimeout(r, 0));
+      for (let i = 0; i < expanded.length; i++) {
+        const idx = order[i];
+        qimEmbed(px, idx % bx, Math.floor(idx / bx), norm.width, expanded[i]);
+      }
 
-        await new Promise(r => setTimeout(r, 0));
-        for (let i = 0; i < expanded.length; i++) {
-          const idx = order[i];
-          qimEmbed(px, idx % bx, Math.floor(idx / bx), canvas.width, expanded[i]);
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        encodedImageUrl = canvas.toDataURL('image/png');
-        status = t(dict, 'tools.photoCipher.messageHidden');
-      } catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); }
-      processing = false;
-    };
-    img.src = imageUrl;
+      ctx.putImageData(imageData, 0, 0);
+      encodedImageUrl = norm.toDataURL('image/png');
+      status = t(dict, 'tools.photoCipher.messageHidden');
+    } catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); }
+    processing = false;
   }
 
   function downloadEncoded() {
@@ -183,71 +215,64 @@
   }
 
   async function decode() {
-    if (!canvas || !imageUrl || !password) {
+    if (!imageUrl || !password) {
       status = t(dict, 'tools.photoCipher.pleaseProvideImage'); return;
     }
     processing = true;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { processing = false; return; }
+    try {
+      const img = await loadImage(imageUrl);
+      const norm = normalizeToCanvas(img, false);
+      const ctx = norm.getContext('2d')!;
+      const imageData = ctx.getImageData(0, 0, norm.width, norm.height);
+      const px = imageData.data;
+      const bxCount = norm.width / BLOCK;
+      const byCount = norm.height / BLOCK;
+      const total = bxCount * byCount;
 
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = async () => {
-      try {
-        canvas.width = img.width; canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const px = imageData.data;
-        const bxCount = Math.floor(canvas.width / BLOCK);
-        const byCount = Math.floor(canvas.height / BLOCK);
-        const total = bxCount * byCount;
-
-        if (total < HEADER_SIZE * 8 * REP) {
-          status = t(dict, 'tools.photoCipher.imageTooSmall'); processing = false; return;
-        }
-
-        status = t(dict, 'tools.photoCipher.extracting');
-        const seed = await getSeed(password);
-        const order = shuffledOrder(total, seed);
-
-        await new Promise(r => setTimeout(r, 0));
-        const raw: number[] = new Array(total);
-        for (let i = 0; i < total; i++) {
-          const idx = order[i];
-          raw[i] = qimExtract(px, idx % bxCount, Math.floor(idx / bxCount), canvas.width);
-        }
-
-        const maxBits = Math.floor(total / REP);
-        const data: number[] = new Array(maxBits);
-        for (let i = 0; i < maxBits; i++) {
-          let ones = 0;
-          const base = i * REP;
-          for (let r = 0; r < REP; r++) ones += raw[base + r];
-          data[i] = ones > REP / 2 ? 1 : 0;
-        }
-
-        const magicBytes = bitsToBytes(data.slice(0, 32));
-        if (new TextDecoder().decode(magicBytes) !== MAGIC) {
-          status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
-        }
-
-        const lenBytes = bitsToBytes(data.slice(32, 64));
-        const payloadLen = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
-        if (payloadLen <= 0 || 64 + payloadLen * 8 > data.length) {
-          status = t(dict, 'tools.photoCipher.corrupted'); processing = false; return;
-        }
-
-        const cipherBytes = bitsToBytes(data.slice(64, 64 + payloadLen * 8));
-        status = t(dict, 'tools.photoCipher.decrypting');
-        decodedMessage = await decryptMsg(cipherBytes, password);
-        status = t(dict, 'tools.photoCipher.decryptSuccess');
-      } catch {
-        status = t(dict, 'tools.photoCipher.decryptFailed');
-        decodedMessage = '';
+      if (total < HEADER_SIZE * 8 * REP) {
+        status = t(dict, 'tools.photoCipher.imageTooSmall'); processing = false; return;
       }
-      processing = false;
-    };
-    img.src = imageUrl;
+
+      status = t(dict, 'tools.photoCipher.extracting');
+      const seed = await getSeed(password);
+      const order = shuffledOrder(total, seed);
+
+      await new Promise(r => setTimeout(r, 0));
+      const raw: number[] = new Array(total);
+      for (let i = 0; i < total; i++) {
+        const idx = order[i];
+        raw[i] = qimExtract(px, idx % bxCount, Math.floor(idx / bxCount), norm.width);
+      }
+
+      const maxBits = Math.floor(total / REP);
+      const data: number[] = new Array(maxBits);
+      for (let i = 0; i < maxBits; i++) {
+        let ones = 0;
+        const base = i * REP;
+        for (let r = 0; r < REP; r++) ones += raw[base + r];
+        data[i] = ones > REP / 2 ? 1 : 0;
+      }
+
+      const magicBytes = bitsToBytes(data.slice(0, 32));
+      if (new TextDecoder().decode(magicBytes) !== MAGIC) {
+        status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
+      }
+
+      const lenBytes = bitsToBytes(data.slice(32, 64));
+      const payloadLen = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
+      if (payloadLen <= 0 || 64 + payloadLen * 8 > data.length) {
+        status = t(dict, 'tools.photoCipher.corrupted'); processing = false; return;
+      }
+
+      const cipherBytes = bitsToBytes(data.slice(64, 64 + payloadLen * 8));
+      status = t(dict, 'tools.photoCipher.decrypting');
+      decodedMessage = await decryptMsg(cipherBytes, password);
+      status = t(dict, 'tools.photoCipher.decryptSuccess');
+    } catch {
+      status = t(dict, 'tools.photoCipher.decryptFailed');
+      decodedMessage = '';
+    }
+    processing = false;
   }
 </script>
 
@@ -386,5 +411,4 @@
     </div>
   </div>
 
-  <canvas bind:this={canvas} class="hidden"></canvas>
 </div>
