@@ -1,31 +1,27 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import ExifScrubView from '../../components/tools/ExifScrub.svelte';
+import { getTranslations, t, type Locale } from '../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="EXIF Scrubber — Metadata Eraser"
-  description="Strip hidden metadata from your photos. Remove GPS coordinates, camera specs, and timestamps before sharing online for maximum privacy."
+  title={t(dict, 'tools.exifScrub.meta.title')}
+  description={t(dict, 'tools.exifScrub.meta.description')}
 >
   <div class="max-w-3xl mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">EXIF <span class="text-emerald-500">Scrubber.</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
-        Photos leaks more than you think. Our tool redrafts the image to a clean canvas, 
-        leaving zero trace of the original metadata.
-      </p>
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.exifScrub.h1')} <span class="text-emerald-500">{t(dict, 'tools.exifScrub.h1Highlight')}</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.exifScrub.subtitle')}</p>
     </div>
-
     <div class="card p-8">
-      <ExifScrubView client:load />
+      <ExifScrubView client:load locale={locale} />
     </div>
-
-    <div class="mt-12 text-left bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-        <h3 class="text-sm font-bold mb-2 uppercase tracking-widest text-zinc-400 italic">Privacy Log</h3>
-        <p class="text-xs text-zinc-500 leading-relaxed font-medium">
-            Standard EXIF strippers just delete headers. We take it a step further by redrawing the raw pixel data 
-            onto a new canvas, ensuring even proprietary manufacturer tags are completely destroyed.
-        </p>
+    <div class="mt-12 text-left space-y-4">
+      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.exifScrub.info.title')}</h3>
+      <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.exifScrub.info.text')}</p>
     </div>
   </div>
 </Layout>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { getTranslations, t } from '../lib/i18n';
+  export let locale = 'en';
   let file: File | null = null;
   let hash256 = '';
   let hash512 = '';
@@ -43,6 +45,7 @@
     match = cleanCompare === hash256 || cleanCompare === hash512;
   }
   $: if (compareHash) checkMatch();
+  $: dict = getTranslations(locale);
 </script>
 
 <div class="form space-y-5">
@@ -57,17 +60,17 @@
         {#if file}
           <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{file.name}</span>
         {:else}
-          Drop a file here or <span class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">browse</span>
+          {t(dict, 'tools.hashLab.dropFile')}
         {/if}
       </div>
       <div class="text-xs text-zinc-400 dark:text-zinc-600">
-        No data leaves your device
+        {t(dict, 'tools.hashLab.noDataLeaves')}
       </div>
     </div>
   </div>
   {#if isLoading}
     <div class="animate-pulse text-emerald-600 dark:text-emerald-400 text-sm italic">
-      Calculating checksums...
+      {t(dict, 'tools.hashLab.calculating')}
     </div>
   {/if}
   {#if hash256}
@@ -85,13 +88,13 @@
         </div>
       </div>
       <div class="pt-3 border-t border-zinc-200 dark:border-zinc-800">
-        <label for="compare" class="text-xs text-zinc-500 dark:text-zinc-400 block mb-1.5">Compare with expected hash</label>
+        <label for="compare" class="text-xs text-zinc-500 dark:text-zinc-400 block mb-1.5">{t(dict, 'tools.hashLab.compareHash')}</label>
         <div class="relative">
           <input
             id="compare"
             type="text"
             bind:value={compareHash}
-            placeholder="Paste hash here to verify..."
+            placeholder={t(dict, 'tools.hashLab.pastePlaceholder')}
             class="input"
             spellcheck="false"
             autocomplete="off"
@@ -101,9 +104,9 @@
           {#if match !== null}
             <div class="absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-xs">
               {#if match}
-                <span class="text-emerald-600 dark:text-emerald-400">✓ Match</span>
+                <span class="text-emerald-600 dark:text-emerald-400">✓ {t(dict, 'tools.hashLab.match')}</span>
               {:else}
-                <span class="text-red-500">✗ Mismatch</span>
+                <span class="text-red-500">✗ {t(dict, 'tools.hashLab.mismatch')}</span>
               {/if}
             </div>
           {/if}

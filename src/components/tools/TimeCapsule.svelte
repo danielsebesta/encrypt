@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
   import { timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient, defaultChainInfo, Buffer } from 'tlock-js';
   // @ts-ignore - drand-client re-exported by tlock-js
   import { defaultChainOptions } from 'drand-client';
@@ -87,7 +91,7 @@
     decrypted = '';
 
     if (!message.trim()) {
-      error = 'Please enter a message.';
+      error = t(dict, 'tools.timeCapsule.errorMessage');
       return;
     }
 
@@ -96,26 +100,26 @@
     if (useManualUnix && manualUnix.trim()) {
       const unix = Number(manualUnix.trim());
       if (!Number.isFinite(unix) || unix <= 0) {
-        error = 'Invalid Unix timestamp.';
+        error = t(dict, 'tools.timeCapsule.errorInvalidUnix');
         return;
       }
       timeMs = unix * 1000;
     } else {
       if (!targetLocal) {
-        error = 'Please choose an unlock time.';
+        error = t(dict, 'tools.timeCapsule.errorUnlockTime');
         return;
       }
       const localDate = new Date(targetLocal);
       timeMs = localDate.getTime();
     }
     if (!Number.isFinite(timeMs)) {
-      error = 'Invalid date.';
+      error = t(dict, 'tools.timeCapsule.errorInvalidDate');
       return;
     }
 
     const now = Date.now();
     if (timeMs <= now) {
-      error = 'Unlock time must be in the future.';
+      error = t(dict, 'tools.timeCapsule.errorFuture');
       return;
     }
 
@@ -126,10 +130,10 @@
       const periodMs = chain.period * 1000;
 
       if (!Number.isFinite(timeMs)) {
-        throw new Error('Invalid beacon time.');
+        throw new Error(t(dict, 'tools.timeCapsule.errorInvalidBeacon'));
       }
       if (timeMs < genesisMs) {
-        throw new Error('Unlock time must be after the drand network genesis.');
+        throw new Error(t(dict, 'tools.timeCapsule.errorAfterGenesis'));
       }
 
       const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
@@ -190,7 +194,7 @@
 
     const input = decryptInput.trim();
     if (!input) {
-      decryptError = 'Paste a ciphertext to decrypt.';
+      decryptError = t(dict, 'tools.timeCapsule.errorPaste');
       return;
     }
 
@@ -215,7 +219,7 @@
         const meta = parseMetadata(decryptInput);
         label = meta.notBefore || label;
       }
-      decryptError = `Too early or invalid ciphertext. This message is locked until ${label}.`;
+      decryptError = t(dict, 'tools.timeCapsule.tooEarly').replace('{time}', label);
     } finally {
       decryptLoading = false;
     }
@@ -232,7 +236,7 @@
       class:text-zinc-500={mode !== 'encrypt'}
       on:click={() => (mode = 'encrypt')}
     >
-      Create capsule
+      {t(dict, 'tools.timeCapsule.createCapsule')}
     </button>
     <button
       type="button"
@@ -242,7 +246,7 @@
       class:text-zinc-500={mode !== 'decrypt'}
       on:click={() => (mode = 'decrypt')}
     >
-      Open capsule
+      {t(dict, 'tools.timeCapsule.openCapsule')}
     </button>
   </div>
 
@@ -250,20 +254,20 @@
     <div class="space-y-6">
       <div class="space-y-2">
         <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-message">
-          Message
+          {t(dict, 'tools.timeCapsule.message')}
         </label>
         <textarea
           id="tc-message"
           class="input min-h-[140px] resize-vertical font-mono text-xs"
           bind:value={message}
-          placeholder="Write something your future self (or someone else) can only read later..."
+          placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')}
         ></textarea>
       </div>
 
       <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end">
         <div class="space-y-2">
           <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-date">
-            Unlock after
+            {t(dict, 'tools.timeCapsule.unlockAfter')}
           </label>
           <input
             id="tc-date"
@@ -275,9 +279,9 @@
         </div>
         <button class="btn w-full md:w-auto" type="button" on:click={handleEncrypt} disabled={loading}>
           {#if loading}
-            Encrypting...
+            {t(dict, 'tools.timeCapsule.encrypting')}
           {:else}
-            Lock message
+            {t(dict, 'tools.timeCapsule.lockMessage')}
           {/if}
         </button>
       </div>
@@ -287,42 +291,42 @@
       {/if}
 
       <details class="text-xs text-zinc-500">
-        <summary class="cursor-pointer select-none">Advanced timing details</summary>
+        <summary class="cursor-pointer select-none">{t(dict, 'tools.timeCapsule.advancedTiming')}</summary>
         <div class="mt-2 space-y-1">
           <p>
-            <span class="font-semibold">Local time:</span>
+            <span class="font-semibold">{t(dict, 'tools.timeCapsule.localTime')}</span>
             <span class="ml-1">{targetLocal || '—'}</span>
           </p>
           {#if debugUtc}
             <p>
-              <span class="font-semibold">UTC:</span>
+              <span class="font-semibold">{t(dict, 'tools.timeCapsule.utc')}</span>
               <span class="ml-1">{debugUtc}</span>
             </p>
             <p>
-              <span class="font-semibold">Unix timestamp (s):</span>
+                <span class="font-semibold">{t(dict, 'tools.timeCapsule.unixTimestamp')}</span>
               <span class="ml-1">{debugUnix}</span>
             </p>
             {#if debugRound}
               <p>
-                <span class="font-semibold">Drand round:</span>
+                <span class="font-semibold">{t(dict, 'tools.timeCapsule.drandRound')}</span>
                 <span class="ml-1">{debugRound}</span>
               </p>
             {/if}
           {/if}
           <div class="mt-2 space-y-1">
             <label class="block font-semibold" for="tc-manual-unix">
-              Manual Unix timestamp (seconds, optional)
+              {t(dict, 'tools.timeCapsule.manualUnix')}
             </label>
             <input
               id="tc-manual-unix"
               type="number"
               class="input"
               bind:value={manualUnix}
-              placeholder="Override using a Unix timestamp"
+              placeholder={t(dict, 'tools.timeCapsule.manualUnixPlaceholder')}
             />
             <label class="inline-flex items-center gap-2 mt-1 text-[11px]">
               <input type="checkbox" bind:checked={useManualUnix} />
-              <span>Use manual Unix timestamp instead of the picker</span>
+              <span>{t(dict, 'tools.timeCapsule.useManualUnix')}</span>
             </label>
           </div>
         </div>
@@ -331,7 +335,7 @@
       {#if ciphertext}
         <div class="space-y-2">
           <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-output">
-            Ciphertext
+            {t(dict, 'tools.timeCapsule.ciphertext')}
           </label>
           <textarea
             id="tc-output"
@@ -346,21 +350,21 @@
     <div class="space-y-6">
       <div class="space-y-2">
         <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-cipher">
-          Ciphertext
+          {t(dict, 'tools.timeCapsule.ciphertext')}
         </label>
         <textarea
           id="tc-cipher"
           class="input min-h-[160px] resize-vertical font-mono text-[11px]"
           bind:value={decryptInput}
-          placeholder="Paste a Time Capsule string here..."
+          placeholder={t(dict, 'tools.timeCapsule.pastePlaceholder')}
         ></textarea>
       </div>
 
       <button class="btn w-full md:w-auto" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
         {#if decryptLoading}
-          Decrypting...
+          {t(dict, 'tools.timeCapsule.decrypting')}
         {:else}
-          Open capsule
+          {t(dict, 'tools.timeCapsule.openCapsule')}
         {/if}
       </button>
 
@@ -370,7 +374,7 @@
 
       {#if decrypted}
         <div class="space-y-2">
-          <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-500">Message</h3>
+          <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-500">{t(dict, 'tools.timeCapsule.decryptedMessage')}</h3>
           <div class="card p-4 text-left text-sm font-mono whitespace-pre-wrap break-words">
             {decrypted}
           </div>

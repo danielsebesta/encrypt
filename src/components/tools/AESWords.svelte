@@ -1,6 +1,9 @@
 <script lang="ts">
   import dictionary from '../../lib/dictionary.json';
   import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks } from '../../lib/crypto';
+  import { getTranslations, t } from '../../lib/i18n';
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
   let inputText = '';
   let password = '';
@@ -10,7 +13,7 @@
     error = '';
     result = '';
     if (!inputText || !password) {
-      error = 'Please enter both text and a password.';
+      error = t(dict, 'tools.aesWords.errorBoth');
       return;
     }
     try {
@@ -30,7 +33,7 @@
         result = await decryptMsg(encryptedData, password);
       }
     } catch (e: any) {
-      error = e.message || 'An error occurred during processing. Check your password or input.';
+      error = e.message || t(dict, 'tools.aesWords.errorGeneric');
     }
   }
   function toggleMode() {
@@ -47,23 +50,23 @@
       on:click={toggleMode}
       class="pb-2.5 px-4 text-sm font-medium transition-colors {mode === 'encrypt' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}"
     >
-      Encrypt
+      {t(dict, 'tools.aesWords.encrypt')}
     </button>
     <button
       on:click={toggleMode}
       class="pb-2.5 px-4 text-sm font-medium transition-colors {mode === 'decrypt' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}"
     >
-      Decrypt
+      {t(dict, 'tools.aesWords.decrypt')}
     </button>
   </div>
   <div class="grid gap-4">
     <div class="grid gap-1.5">
-      <label for="cipher-password" class="text-xs text-zinc-500 dark:text-zinc-400">Secret password</label>
+      <label for="cipher-password" class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.aesWords.secretPassword')}</label>
       <input
         id="cipher-password"
         type="password"
         bind:value={password}
-        placeholder="Enter your security password..."
+        placeholder={t(dict, 'tools.aesWords.passwordPlaceholder')}
         class="input"
         autocomplete="new-password"
         spellcheck="false"
@@ -75,12 +78,12 @@
     </div>
     <div class="grid gap-1.5">
       <label for="cipher-input" class="text-xs text-zinc-500 dark:text-zinc-400">
-        {mode === 'encrypt' ? 'Input text' : 'Words to decrypt'}
+        {mode === 'encrypt' ? t(dict, 'tools.aesWords.inputText') : t(dict, 'tools.aesWords.wordsToDecrypt')}
       </label>
       <textarea
         id="cipher-input"
         bind:value={inputText}
-        placeholder={mode === 'encrypt' ? 'Enter text to encrypt...' : 'Enter words to decrypt...'}
+        placeholder={mode === 'encrypt' ? t(dict, 'tools.aesWords.encryptPlaceholder') : t(dict, 'tools.aesWords.decryptPlaceholder')}
         class="input min-h-[140px] resize-none"
         spellcheck="false"
         autocomplete="off"
@@ -93,7 +96,7 @@
     on:click={handleProcess}
     class="btn w-full"
   >
-    {mode === 'encrypt' ? 'Generate words' : 'Recover text'}
+    {mode === 'encrypt' ? t(dict, 'tools.aesWords.generateWords') : t(dict, 'tools.aesWords.recoverText')}
   </button>
   {#if error}
     <div class="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm rounded-lg">
@@ -103,7 +106,7 @@
   {#if result}
     <div class="grid gap-1.5 pt-2">
       <label class="text-xs text-zinc-500 dark:text-zinc-400">
-        {mode === 'encrypt' ? 'Ciphertext words' : 'Decrypted output'}
+        {mode === 'encrypt' ? t(dict, 'tools.aesWords.ciphertextWords') : t(dict, 'tools.aesWords.decryptedOutput')}
       </label>
       <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg font-mono text-emerald-700 dark:text-emerald-400 break-words leading-relaxed select-all text-sm">
         {result}

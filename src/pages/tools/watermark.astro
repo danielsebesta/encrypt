@@ -1,23 +1,27 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import WatermarkView from '../../components/tools/Watermark.svelte';
+import { getTranslations, t, type Locale } from '../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="ID Watermarker — Protecting Your Documents"
-  description="Add protection overlays to your identity documents. Prevent the unauthorized reuse of your ID cards and passports when verifying identity online."
+  title={t(dict, 'tools.watermark.meta.title')}
+  description={t(dict, 'tools.watermark.meta.description')}
 >
   <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">ID <span class="text-emerald-500">Watermarker.</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
-        When sending sensitive documents, always Specify the recipient and date. 
-        It makes the image useless for identity thieves.
-      </p>
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.watermark.h1')} <span class="text-emerald-500">{t(dict, 'tools.watermark.h1Highlight')}</span></h1>
+      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.watermark.subtitle')}</p>
     </div>
-
     <div class="card p-8">
-      <WatermarkView client:load />
+      <WatermarkView client:load locale={locale} />
+    </div>
+    <div class="mt-12 text-left space-y-4">
+      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.watermark.info.title')}</h3>
+      <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.watermark.info.text')}</p>
     </div>
   </div>
 </Layout>

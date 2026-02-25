@@ -1,6 +1,10 @@
 <script lang="ts">
   import { generateUUID, generateULID } from '../../lib/crypto';
   import { onMount } from 'svelte';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   let uuidResult = '';
   let ulidResult = '';
@@ -22,7 +26,7 @@
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">UUID v4</label>
-        <button on:click={() => copy(uuidResult)} class="text-[10px] text-emerald-600 font-bold hover:underline">COPY</button>
+        <button on:click={() => copy(uuidResult)} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.uuidUlid.copy')}</button>
       </div>
       <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm md:text-base break-all flex justify-between items-center group">
         <span>{uuidResult}</span>
@@ -34,8 +38,8 @@
 
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">ULID (Universally Unique Lexicographically Sortable Identifier)</label>
-        <button on:click={() => copy(ulidResult)} class="text-[10px] text-emerald-600 font-bold hover:underline">COPY</button>
+        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.uuidUlid.ulidFull')}</label>
+        <button on:click={() => copy(ulidResult)} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.uuidUlid.copy')}</button>
       </div>
       <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm md:text-base break-all flex justify-between items-center group">
         <span>{ulidResult}</span>
@@ -45,6 +49,6 @@
       </div>
     </div>
 
-    <button on:click={refresh} class="btn w-full py-4 uppercase tracking-widest text-xs font-black">Generate New Set</button>
+    <button on:click={refresh} class="btn w-full py-4 uppercase tracking-widest text-xs font-black">{t(dict, 'tools.uuidUlid.generateNew')}</button>
   </div>
 </div>

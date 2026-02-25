@@ -1,5 +1,9 @@
 <script lang="ts">
   import { generatePGPKeyPair } from '../../lib/crypto';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   let name = '';
   let email = '';
@@ -13,7 +17,7 @@
     error = '';
     keyPair = null;
     if (!name.trim() || !email.trim()) {
-      error = 'Name and email are required.';
+      error = t(dict, 'tools.pgpKeys.nameEmailRequired');
       return;
     }
     isGenerating = true;
@@ -21,7 +25,7 @@
       keyPair = await generatePGPKeyPair({ name: name.trim(), email: email.trim(), passphrase, rsaBits });
     } catch (e: any) {
       console.error(e);
-      error = e?.message || 'Failed to generate PGP key pair.';
+      error = e?.message || t(dict, 'tools.pgpKeys.failedToGenerate');
     } finally {
       isGenerating = false;
     }
@@ -37,26 +41,26 @@
     <div class="grid md:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-name">
-          Name
+          {t(dict, 'tools.pgpKeys.name')}
         </label>
         <input
           id="pgp-name"
           class="input"
           bind:value={name}
-          placeholder="Alice Example"
+          placeholder={t(dict, 'tools.pgpKeys.namePlaceholder')}
           autocomplete="name"
         />
       </div>
       <div class="space-y-1.5">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-email">
-          Email
+          {t(dict, 'tools.pgpKeys.email')}
         </label>
         <input
           id="pgp-email"
           class="input"
           type="email"
           bind:value={email}
-          placeholder="alice@example.com"
+          placeholder={t(dict, 'tools.pgpKeys.emailPlaceholder')}
           autocomplete="email"
         />
       </div>
@@ -65,7 +69,7 @@
     <div class="grid md:grid-cols-2 gap-4">
       <div class="space-y-1.5">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-pass">
-          Key Passphrase (optional)
+          {t(dict, 'tools.pgpKeys.keyPassphrase')}
         </label>
         <input
           id="pgp-pass"
@@ -73,16 +77,16 @@
           type="password"
           bind:value={passphrase}
           autocomplete="new-password"
-          placeholder="Protects your private key at rest"
+          placeholder={t(dict, 'tools.pgpKeys.passphrasePlaceholder')}
         />
       </div>
       <div class="space-y-1.5">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-bits">
-          RSA Strength
+          {t(dict, 'tools.pgpKeys.rsaStrength')}
         </label>
         <select id="pgp-bits" bind:value={rsaBits} class="input">
-          <option value={2048}>2048-bit (Fast, OK)</option>
-          <option value={4096}>4096-bit (Strong, Recommended)</option>
+          <option value={2048}>{t(dict, 'tools.pgpKeys.bit2048')}</option>
+          <option value={4096}>{t(dict, 'tools.pgpKeys.bit4096')}</option>
         </select>
       </div>
     </div>
@@ -92,7 +96,7 @@
       disabled={isGenerating}
       class="btn w-full py-4 uppercase tracking-widest text-xs font-black"
     >
-      {isGenerating ? 'Generating PGP Keys...' : 'Generate PGP Key Pair'}
+      {isGenerating ? t(dict, 'tools.pgpKeys.generatingKeys') : t(dict, 'tools.pgpKeys.generateBtn')}
     </button>
 
     {#if error}
@@ -104,14 +108,14 @@
         <div class="space-y-2">
           <div class="flex justify-between items-end">
             <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
-              Public Key (ASCII-armored)
+              {t(dict, 'tools.pgpKeys.publicKey')}
             </label>
             <button
               type="button"
               on:click={() => copy(keyPair!.publicKey)}
               class="text-[10px] text-emerald-600 font-bold hover:underline"
             >
-              COPY
+              {t(dict, 'tools.pgpKeys.copy')}
             </button>
           </div>
           <pre
@@ -124,14 +128,14 @@
             <label
               class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest text-amber-600"
             >
-              Private Key (ASCII-armored - STORE SECURELY)
+              {t(dict, 'tools.pgpKeys.privateKey')}
             </label>
             <button
               type="button"
               on:click={() => copy(keyPair!.privateKey)}
               class="text-[10px] text-emerald-600 font-bold hover:underline"
             >
-              COPY
+              {t(dict, 'tools.pgpKeys.copy')}
             </button>
           </div>
           <pre

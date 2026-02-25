@@ -1,5 +1,7 @@
 <script lang="ts">
   import dictionary from '../lib/dictionary.json';
+  import { getTranslations, t } from '../lib/i18n';
+  export let locale = 'en';
   let password = '';
   let generatedPassword = '';
   let wordCount = 6;
@@ -24,6 +26,7 @@
     generatedPassword = words.join('-');
   }
   $: entropy = calculateEntropy(password);
+  $: dict = getTranslations(locale);
   function getStrengthColor(bits: number) {
     if (bits === 0) return 'bg-zinc-200 dark:bg-zinc-800';
     if (bits < 40) return 'bg-red-500';
@@ -31,11 +34,11 @@
     return 'bg-emerald-500';
   }
   function getStrengthLabel(bits: number) {
-    if (bits === 0) return 'Waiting...';
-    if (bits < 40) return 'Weak';
-    if (bits < 60) return 'Moderate';
-    if (bits < 100) return 'Strong';
-    return 'Very strong';
+    if (bits === 0) return t(dict, 'tools.passwordEntropy.waiting');
+    if (bits < 40) return t(dict, 'tools.passwordEntropy.weak');
+    if (bits < 60) return t(dict, 'tools.passwordEntropy.moderate');
+    if (bits < 100) return t(dict, 'tools.passwordEntropy.strong');
+    return t(dict, 'tools.passwordEntropy.veryStrong');
   }
 
   function getBarWidthClass(bits: number) {
@@ -51,12 +54,12 @@
 <div class="form grid grid-cols-1 md:grid-cols-2 gap-8">
   <div class="space-y-5">
     <div>
-      <h3 class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Entropy analyzer</h3>
+      <h3 class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">{t(dict, 'tools.passwordEntropy.entropyAnalyzer')}</h3>
       <div class="space-y-4">
         <input
           type="text"
           bind:value={password}
-          placeholder="Type a password to test..."
+          placeholder={t(dict, 'tools.passwordEntropy.testPlaceholder')}
           class="input"
           autocomplete="off"
           spellcheck="false"
@@ -77,24 +80,24 @@
           </div>
         </div>
         <p class="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed italic border-l-2 border-zinc-200 dark:border-zinc-800 pl-3">
-          Entropy measures randomness. A password with &gt;80 bits is generally safe against brute-force attacks.
+          {t(dict, 'tools.passwordEntropy.entropyNote')}
         </p>
       </div>
     </div>
   </div>
   <div class="space-y-5">
     <div>
-      <h3 class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Diceware generator</h3>
+      <h3 class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">{t(dict, 'tools.passwordEntropy.dicewareGenerator')}</h3>
       <div class="space-y-5 p-5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900/40">
         <div class="flex items-center justify-between">
-          <label class="text-xs text-zinc-500 dark:text-zinc-400">Word count: {wordCount}</label>
+          <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.passwordEntropy.wordCount')} {wordCount}</label>
           <input type="range" min="3" max="10" bind:value={wordCount} class="accent-emerald-500 h-1" />
         </div>
         <button
           on:click={generateDiceware}
           class="btn-outline w-full"
         >
-          Generate secret phrase
+          {t(dict, 'tools.passwordEntropy.generatePhrase')}
         </button>
         {#if generatedPassword}
           <div class="space-y-2">
@@ -102,7 +105,7 @@
               {generatedPassword}
             </div>
             <div class="text-xs text-zinc-400 dark:text-zinc-600 text-center">
-              Each word adds ~14 bits of entropy · Total: {wordCount * 14} bits
+              {t(dict, 'tools.passwordEntropy.entropyPerWord').replace('{total}', String(wordCount * 14))}
             </div>
           </div>
         {/if}

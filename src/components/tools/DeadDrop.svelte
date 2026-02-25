@@ -2,6 +2,10 @@
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
   import { encrypt, decrypt } from '../../lib/crypto';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   type Mode = 'create' | 'open';
   type ShortProvider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd';
@@ -31,6 +35,8 @@
 
   const MAX_BYTES = 10 * 1024;
 
+  $: providerName = shortProvider === '1url' ? '1url.cz' : shortProvider === 'urlvanish' ? 'URLVanish.com' : shortProvider === 'tini' ? 'tini.fyi' : shortProvider === 'choto' ? 'choto.co' : shortProvider === 'isgd' ? 'is.gd' : 'Nolog.cz';
+
   onMount(() => {
     if (typeof window === 'undefined') return;
     const hash = window.location.hash || '';
@@ -49,7 +55,7 @@
   async function serializePayload() {
     if (file) {
       if (file.size > MAX_BYTES) {
-        throw new Error('File too large for URL. Please keep under ~10KB.');
+        throw new Error(t(dict, 'tools.deadDrop.errorFileTooLarge'));
       }
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
@@ -64,10 +70,10 @@
 
     const trimmed = textInput.trim();
     if (!trimmed) {
-      throw new Error('Enter some text or select a file.');
+      throw new Error(t(dict, 'tools.deadDrop.errorEnterText'));
     }
     if (new TextEncoder().encode(trimmed).byteLength > MAX_BYTES) {
-      throw new Error('Text is too large for a URL. Please shorten it.');
+      throw new Error(t(dict, 'tools.deadDrop.errorTextTooLarge'));
     }
     return {
       kind: 'text',
@@ -112,7 +118,7 @@
     openedFileName = '';
 
     if (!password) {
-      createError = 'Password is required.';
+      createError = t(dict, 'tools.deadDrop.passwordRequired');
       return;
     }
 
@@ -177,11 +183,11 @@
     }
 
     if (!hashPayload) {
-      openError = 'No data found in URL hash.';
+      openError = t(dict, 'tools.deadDrop.errorNoData');
       return;
     }
     if (!openPassword) {
-      openError = 'Password is required.';
+      openError = t(dict, 'tools.deadDrop.passwordRequired');
       return;
     }
 
@@ -215,7 +221,7 @@
       }
     } catch (e: any) {
       console.error('DeadDrop open error', e);
-      openError = 'Could not open this drop. The password may be wrong or the link is corrupted.';
+      openError = t(dict, 'tools.deadDrop.errorOpen');
     } finally {
       openLoading = false;
     }
@@ -237,19 +243,19 @@
     <div class="space-y-6">
       <div class="space-y-2">
         <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-text">
-          Text (optional)
+          {t(dict, 'tools.deadDrop.textLabel')}
         </label>
         <textarea
           id="dd-text"
           class="input min-h-[140px] resize-vertical font-mono text-xs"
           bind:value={textInput}
-          placeholder="Write something to share as a one-shot, URL-only message..."
+          placeholder={t(dict, 'tools.deadDrop.textPlaceholder')}
         ></textarea>
       </div>
 
       <div class="space-y-2">
         <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-file">
-          Or small file (≤ 10KB)
+          {t(dict, 'tools.deadDrop.orSmallFile')}
         </label>
         <input id="dd-file" type="file" class="input cursor-pointer" on:change={handleFileChange} />
       </div>
@@ -257,7 +263,7 @@
       <form class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end" on:submit|preventDefault={handleCreate}>
         <div class="space-y-2">
           <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-pass">
-            Password
+            {t(dict, 'tools.deadDrop.password')}
           </label>
           <input
             id="dd-pass"
@@ -269,16 +275,15 @@
         </div>
         <button class="btn w-full md:w-auto" type="submit" disabled={loading}>
           {#if loading}
-            Creating link...
+            {t(dict, 'tools.deadDrop.creatingLink')}
           {:else}
-            Generate link
+            {t(dict, 'tools.deadDrop.generateLink')}
           {/if}
         </button>
       </form>
 
       <p class="text-[11px] text-zinc-400">
-        Payload is compressed, encrypted locally with AES‑GCM + PBKDF2, and stored entirely in the URL fragment.
-        Nothing is sent to any server.
+        {t(dict, 'tools.deadDrop.payloadNote')}
       </p>
 
       {#if createError}
@@ -289,14 +294,14 @@
         <div class="space-y-3">
           <div class="space-y-2">
             <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-link">
-              Dead Drop Link
+              {t(dict, 'tools.deadDrop.deadDropLink')}
             </label>
             <input id="dd-link" class="input text-xs font-mono" type="text" readonly value={link} />
           </div>
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">
               <div class="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                <label class="uppercase font-bold tracking-widest" for="dd-shortener">Shortener</label>
+                <label class="uppercase font-bold tracking-widest" for="dd-shortener">{t(dict, 'tools.deadDrop.shortener')}</label>
                 <select
                   id="dd-shortener"
                   class="input !h-7 !py-0 !text-[11px] !px-2"
@@ -317,9 +322,9 @@
                 disabled={shortLoading}
               >
                 {#if shortLoading}
-                  Shortening…
+                  {t(dict, 'tools.deadDrop.shortening')}
                 {:else}
-                  Shorten link
+                  {t(dict, 'tools.deadDrop.shortenLink')}
                 {/if}
               </button>
             </div>
@@ -329,17 +334,7 @@
             {#if shortLink}
               <div class="space-y-1">
                 <p class="text-[11px] text-amber-600 dark:text-amber-400">
-                  Privacy note: The short link is created by
-                  {shortProvider === '1url'
-                    ? '1url.cz'
-                    : shortProvider === 'urlvanish'
-                    ? 'URLVanish.com'
-                    : shortProvider === 'tini'
-                    ? 'tini.fyi'
-                    : shortProvider === 'choto'
-                    ? 'choto.co'
-                    : 'Nolog.cz'}
-                  . They see the full URL (including the fragment). Using a shortener reduces link-only privacy.
+                  {t(dict, 'tools.deadDrop.privacyNote').replace('{provider}', providerName)}
                 </p>
                 <input class="input text-xs font-mono" type="text" readonly value={shortLink} />
               </div>
@@ -351,13 +346,13 @@
   {:else}
     <div class="space-y-6">
       <p class="text-sm text-zinc-500 dark:text-zinc-400">
-        This link contains an encrypted payload. Enter the password to unlock it.
+        {t(dict, 'tools.deadDrop.encryptedPayload')}
       </p>
 
       <form class="space-y-4" on:submit|preventDefault={handleOpen}>
         <div class="space-y-2">
           <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-open-pass">
-            Password
+            {t(dict, 'tools.deadDrop.password')}
           </label>
           <input
             id="dd-open-pass"
@@ -370,9 +365,9 @@
 
         <button class="btn w-full md:w-auto" type="submit" disabled={openLoading}>
           {#if openLoading}
-            Decrypting...
+            {t(dict, 'tools.deadDrop.decrypting')}
           {:else}
-            Open drop
+            {t(dict, 'tools.deadDrop.openDrop')}
           {/if}
         </button>
       </form>
@@ -383,7 +378,7 @@
 
       {#if openedText}
         <div class="space-y-2">
-          <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-500">Decrypted text</h3>
+          <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-500">{t(dict, 'tools.deadDrop.decryptedText')}</h3>
           <div class="card p-4 text-left text-sm font-mono whitespace-pre-wrap break-words">
             {openedText}
           </div>
@@ -393,7 +388,7 @@
       {#if openedFileName && !openedText}
         <div class="space-y-2">
           <p class="text-xs text-emerald-500">
-            File decrypted: {openedFileName}
+            {t(dict, 'tools.deadDrop.fileDecrypted')} {openedFileName}
           </p>
           {#if openedFileUrl}
             <button
@@ -401,7 +396,7 @@
               class="btn-outline text-xs"
               on:click={downloadOpenedFile}
             >
-              Download file
+              {t(dict, 'tools.deadDrop.downloadFile')}
             </button>
           {/if}
         </div>
