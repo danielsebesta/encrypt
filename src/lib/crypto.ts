@@ -3,11 +3,10 @@
  * Zero-knowledge, browser-only cryptography.
  */
 
-import * as bcrypt from 'bcryptjs';
+import { bcrypt as bcryptWasm, bcryptVerify as bcryptVerifyWasm } from 'hash-wasm';
 import { v4 as uuidv4 } from 'uuid';
 import { ulid } from 'ulid';
 import * as bip39 from 'bip39';
-import * as forge from 'node-forge';
 import * as openpgp from 'openpgp';
 import zxcvbn from 'zxcvbn';
 import { jwtDecode } from 'jwt-decode';
@@ -145,24 +144,20 @@ export function from14BitChunks(chunks: number[]): Uint8Array {
 }
 
 /**
- * Bcrypt Hashing
+ * Bcrypt Hashing (Wasm-accelerated via hash-wasm)
  */
 export async function bcryptHash(text: string, rounds: number = 10): Promise<string> {
-    return new Promise((resolve, reject) => {
-        bcrypt.hash(text, rounds, (err: Error | null, hash: string | undefined) => {
-            if (err || !hash) reject(err || new Error('Bcrypt failed'));
-            else resolve(hash);
-        });
-    });
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    return bcryptWasm({
+        password: text,
+        salt,
+        costFactor: rounds,
+        outputType: 'encoded',
+    }) as Promise<string>;
 }
 
 export async function bcryptVerify(text: string, hash: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        bcrypt.compare(text, hash, (err: Error | null, res: boolean | undefined) => {
-            if (err) reject(err);
-            else resolve(res || false);
-        });
-    });
+    return bcryptVerifyWasm({ password: text, hash });
 }
 
 /**
@@ -214,37 +209,100 @@ export function generateMnemonic(strength: 128 | 256 = 128): string {
     return bip39.generateMnemonic(strength);
 }
 
-/**
- * RSA Key Pair Generation
- */
-export async function generateRSAKeyPair(bits: number = 2048): Promise<{ publicKey: string, privateKey: string }> {
-    return new Promise((resolve, reject) => {
-        forge.pki.rsa.generateKeyPair({ bits, workers: 2 }, (err: Error | null, keypair: forge.pki.rsa.KeyPair) => {
-            if (err) reject(err);
-            else {
-                resolve({
-                    publicKey: forge.pki.publicKeyToPem(keypair.publicKey),
-                    privateKey: forge.pki.privateKeyToPem(keypair.privateKey)
-                });
-            }
-        });
-    });
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+}
+
+function wrapPem(base64: string, label: string): string {
+    const lines = base64.match(/.{1,64}/g) || [];
+    return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----`;
+}
+
+function base64UrlToBytes(b64url: string): Uint8Array {
+    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = '='.repeat((4 - b64.length % 4) % 4);
+    const binary = atob(b64 + padding);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+}
+
+function sshString(data: Uint8Array): Uint8Array {
+    const out = new Uint8Array(4 + data.length);
+    new DataView(out.buffer).setUint32(0, data.length);
+    out.set(data, 4);
+    return out;
+}
+
+function sshMpint(value: Uint8Array): Uint8Array {
+    if (value[0] & 0x80) {
+        const padded = new Uint8Array(value.length + 1);
+        padded.set(value, 1);
+        return sshString(padded);
+    }
+    return sshString(value);
+}
+
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+    const total = arrays.reduce((s, a) => s + a.length, 0);
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for (const a of arrays) { result.set(a, offset); offset += a.length; }
+    return result;
+}
+
+async function generateRSACryptoKeyPair(bits: number) {
+    return crypto.subtle.generateKey(
+        {
+            name: 'RSASSA-PKCS1-v1_5',
+            modulusLength: bits,
+            publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+            hash: 'SHA-256',
+        },
+        true,
+        ['sign', 'verify']
+    );
 }
 
 /**
- * SSH Key Pair Generation (OpenSSH format)
+ * RSA Key Pair Generation (Web Crypto — 10-50x faster than forge)
+ */
+export async function generateRSAKeyPair(bits: number = 2048): Promise<{ publicKey: string, privateKey: string }> {
+    const keyPair = await generateRSACryptoKeyPair(bits);
+    const [spki, pkcs8] = await Promise.all([
+        crypto.subtle.exportKey('spki', keyPair.publicKey),
+        crypto.subtle.exportKey('pkcs8', keyPair.privateKey),
+    ]);
+
+    return {
+        publicKey: wrapPem(arrayBufferToBase64(spki), 'PUBLIC KEY'),
+        privateKey: wrapPem(arrayBufferToBase64(pkcs8), 'PRIVATE KEY'),
+    };
+}
+
+/**
+ * SSH Key Pair Generation (OpenSSH wire format public key, PKCS#8 private key)
  */
 export async function generateSSHKeyPair(bits: number = 4096): Promise<{ publicKey: string; privateKey: string }> {
-    return new Promise((resolve, reject) => {
-        forge.pki.rsa.generateKeyPair({ bits, workers: 2 }, (err: Error | null, keypair: forge.pki.rsa.KeyPair) => {
-            if (err) reject(err);
-            else {
-                const publicKey = (forge as any).ssh.publicKeyToOpenSSH(keypair.publicKey);
-                const privateKey = (forge as any).ssh.privateKeyToOpenSSH(keypair.privateKey);
-                resolve({ publicKey, privateKey });
-            }
-        });
-    });
+    const keyPair = await generateRSACryptoKeyPair(bits);
+
+    const [jwk, pkcs8] = await Promise.all([
+        crypto.subtle.exportKey('jwk', keyPair.publicKey),
+        crypto.subtle.exportKey('pkcs8', keyPair.privateKey),
+    ]);
+
+    const keyType = new TextEncoder().encode('ssh-rsa');
+    const e = base64UrlToBytes(jwk.e!);
+    const n = base64UrlToBytes(jwk.n!);
+    const wireFormat = concatBytes(sshString(keyType), sshMpint(e), sshMpint(n));
+
+    return {
+        publicKey: `ssh-rsa ${arrayBufferToBase64(wireFormat.buffer)}`,
+        privateKey: wrapPem(arrayBufferToBase64(pkcs8), 'PRIVATE KEY'),
+    };
 }
 
 /**
