@@ -1,6 +1,14 @@
 {
   "name": "Encrypt.click",
   "short_name": "Encrypt.click",
+  "description": "Privacy-first security toolkit. Encrypt, hash, sign, and hide — 100% in your browser.",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "theme_color": "#09090b",
+  "background_color": "#09090b",
+  "categories": ["utilities", "security"],
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -13,9 +21,18 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
-  ],
-  "theme_color": "#09090b",
-  "background_color": "#09090b",
-  "display": "standalone"
+  ]
 }

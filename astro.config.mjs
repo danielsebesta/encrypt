@@ -16,5 +16,17 @@ export default defineConfig({
     }
   },
 
-  integrations: [svelte()]
+  integrations: [svelte()],
+
+  i18n: {
+    locales: ['en', 'cs'],
+    defaultLocale: 'en',
+    routing: {
+      prefixDefaultLocale: false,
+      fallbackType: 'rewrite'
+    },
+    fallback: {
+      cs: 'en'
+    }
+  }
 });
