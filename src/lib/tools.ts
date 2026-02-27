@@ -32,6 +32,8 @@ export const tools: ToolDefinition[] = [
   { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy' },
   { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'privacy' },
   { slug: 'exif-scrub',     i18nPrefix: 'tools.exifScrub',      navLabelKey: 'nav.tool.exifScrub',      category: 'privacy' },
+  { slug: 'encrypt-tunnel', i18nPrefix: 'tools.encryptTunnel',  navLabelKey: 'nav.tool.encryptTunnel',  category: 'privacy' },
+  { slug: 'anon-upload',    i18nPrefix: 'tools.anonUpload',     navLabelKey: 'nav.tool.anonUpload',     category: 'privacy' },
   { slug: 'watermark',      i18nPrefix: 'tools.watermark',      navLabelKey: 'nav.tool.watermark',      category: 'privacy' },
   { slug: 'qr-gen',         i18nPrefix: 'tools.qrGen',          navLabelKey: 'nav.tool.qrGen',          category: 'privacy' },
   { slug: 'pdf-redact',     i18nPrefix: 'tools.pdfRedact',      navLabelKey: 'nav.tool.pdfRedact',      category: 'privacy' },
