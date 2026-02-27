@@ -1,5 +1,6 @@
 <script lang="ts">
   import QRCode from 'qrcode';
+  import { onMount } from 'svelte';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -9,6 +10,19 @@
   let url = '';
   let color = '#10b981';
   let size = 400;
+
+  onMount(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const u = new URL(window.location.href);
+      const initial = u.searchParams.get('text');
+      if (initial) {
+        text = initial;
+      }
+    } catch {
+      // ignore
+    }
+  });
 
   $: {
     if (text) {
