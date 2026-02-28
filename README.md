@@ -1,4 +1,4 @@
-# Encrypt
+# Encrypt.click
 
 A privacy-first, client-side security toolkit. Every tool runs 100% in your browser — no servers, no logs, no tracking.
 
