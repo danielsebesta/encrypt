@@ -201,6 +201,8 @@ Optimized for [Cloudflare Pages](https://pages.cloudflare.com/). Configuration f
 - No analytics, no tracking cookies, no third-party scripts.
 - See [Security & Privacy](/security) for the full policy.
 
+hehe
+
 ## License
 
 [MIT](LICENSE)
