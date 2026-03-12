@@ -42,6 +42,37 @@
   let manualUnix = '';
   let useManualUnix = false;
 
+  let countdownTarget: number | null = null;
+  let countdownDisplay = '';
+  let countdownInterval: ReturnType<typeof setInterval> | null = null;
+
+  function startCountdown(unlockUnix: number) {
+    countdownTarget = unlockUnix;
+    decryptError = '';
+    if (countdownInterval) clearInterval(countdownInterval);
+    function tick() {
+      const diff = unlockUnix - Math.floor(Date.now() / 1000);
+      if (diff <= 0) {
+        countdownDisplay = '';
+        countdownTarget = null;
+        if (countdownInterval) clearInterval(countdownInterval);
+        return;
+      }
+      const d = Math.floor(diff / 86400);
+      const h = Math.floor((diff % 86400) / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      const parts: string[] = [];
+      if (d > 0) parts.push(`${d}d`);
+      parts.push(`${String(h).padStart(2, '0')}h`);
+      parts.push(`${String(m).padStart(2, '0')}m`);
+      parts.push(`${String(s).padStart(2, '0')}s`);
+      countdownDisplay = parts.join(' ');
+    }
+    tick();
+    countdownInterval = setInterval(tick, 1000);
+  }
+
   const nowIsoLocal = () => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -75,14 +106,21 @@
     if (!raw || raw.includes('\n') || raw.startsWith('timecapsule:v1')) return null;
     try {
       const b64 = raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(raw.length / 4) * 4, '=');
+      // Try LZ-String first (primary website format)
       const json = LZString.decompressFromBase64(b64);
-      if (!json) return null;
-      const obj = JSON.parse(json) as { v: number; r?: number; t?: number; c: string };
-      if (obj.v !== 1 || !obj.c) return null;
-      return obj;
-    } catch {
-      return null;
-    }
+      if (json) {
+        const obj = JSON.parse(json) as { v: number; r?: number; t?: number; c: string };
+        if (obj.v === 1 && obj.c) return obj;
+      }
+    } catch {}
+    // Fall back to plain base64 (standalone/legacy format)
+    try {
+      const b64 = raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(raw.length / 4) * 4, '=');
+      const plain = decodeURIComponent(escape(atob(b64)));
+      const obj = JSON.parse(plain) as { v: number; r?: number; t?: number; c: string };
+      if (obj.v === 1 && obj.c) return obj;
+    } catch {}
+    return null;
   }
 
   async function handleEncrypt() {
@@ -211,15 +249,19 @@
       const buf = await timelockDecrypt(meta.armored, client);
       decrypted = new TextDecoder().decode(buf);
     } catch (e: any) {
-      let label = 'the unlock time (UTC)';
       const compactMeta = tryDecodeCompact(decryptInput);
-      if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t)) {
-        label = new Date(compactMeta.t * 1000).toISOString();
+      if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t) && compactMeta.t > Math.floor(Date.now() / 1000)) {
+        startCountdown(compactMeta.t);
       } else {
-        const meta = parseMetadata(decryptInput);
-        label = meta.notBefore || label;
+        let label = 'the unlock time (UTC)';
+        if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t)) {
+          label = new Date(compactMeta.t * 1000).toISOString();
+        } else {
+          const meta = parseMetadata(decryptInput);
+          label = meta.notBefore || label;
+        }
+        decryptError = t(dict, 'tools.timeCapsule.tooEarly').replace('{time}', label);
       }
-      decryptError = t(dict, 'tools.timeCapsule.tooEarly').replace('{time}', label);
     } finally {
       decryptLoading = false;
     }
@@ -370,6 +412,20 @@
 
       {#if decryptError}
         <p class="text-xs text-red-500">{decryptError}</p>
+      {/if}
+
+      {#if countdownTarget}
+        <div class="rounded-2xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-6 text-center">
+          <div class="text-[11px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2">
+            {t(dict, 'tools.timeCapsule.tooEarly').split('{time}')[0].replace(/\.?\s*$/, '')}
+          </div>
+          <div class="text-3xl font-extrabold font-mono tracking-wider text-zinc-900 dark:text-zinc-100">
+            {countdownDisplay}
+          </div>
+          <div class="text-[10px] text-zinc-400 mt-2">
+            {new Date(countdownTarget * 1000).toLocaleString()}
+          </div>
+        </div>
       {/if}
 
       {#if decrypted}
