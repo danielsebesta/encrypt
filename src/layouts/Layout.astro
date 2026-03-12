@@ -71,6 +71,24 @@ const languageOptions = locales.map(l => ({
 		<script is:inline>
 			(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})();
 			if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}
+			(function(){try{
+				var cur=document.documentElement.lang||'en';
+				var stored=localStorage.getItem('ec-lang');
+				var locales=['en','cs','de'];
+				if(stored&&locales.indexOf(stored)!==-1&&stored!==cur){
+					var p=location.pathname;
+					// Strip current locale prefix
+					for(var i=0;i<locales.length;i++){
+						if(locales[i]==='en')continue;
+						if(p.indexOf('/'+locales[i]+'/')===0){p=p.slice(locales[i].length+1)||'/';break;}
+						if(p==='/'+locales[i]){p='/';break;}
+					}
+					// Build new path with stored locale
+					var np=stored==='en'?p:(p==='/'?'/'+stored+'/':'/'+stored+p);
+					if(np!==location.pathname){location.replace(np);return;}
+				}
+				localStorage.setItem('ec-lang',cur);
+			}catch(e){}})();
 		</script>
 	</head>
 	<body>
