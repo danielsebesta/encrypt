@@ -4,7 +4,7 @@
   X-XSS-Protection: 0
   Referrer-Policy: no-referrer
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), browsing-topics=()
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
   Cross-Origin-Embedder-Policy: credentialless
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
