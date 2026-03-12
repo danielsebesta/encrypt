@@ -25,6 +25,10 @@ const dictionary = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'lib/dictionary
 const tlockBundlePath = path.join(SRC_DIR, 'lib/tlock-bundle.js');
 const tlockBundle = fs.existsSync(tlockBundlePath) ? fs.readFileSync(tlockBundlePath, 'utf8') : '';
 
+// Load LZ-String minified for Time Capsule cross-compatibility with website
+const lzStringMinPath = path.join(__dirname, 'node_modules/lz-string/libs/lz-string.min.js');
+const lzStringMin = fs.existsSync(lzStringMinPath) ? fs.readFileSync(lzStringMinPath, 'utf8') : '';
+
 // ── Shared CSS (minimal Tailwind-like styles matching encrypt.click) ──
 const SHARED_CSS = `
 *,::after,::before{box-sizing:border-box;margin:0;padding:0}
@@ -1687,6 +1691,7 @@ function generateTimeCapsule() {
         <div><label class="label" id="lCipher2"></label><textarea class="input" id="decInp" style="min-height:160px;resize:vertical;font-family:var(--mono);font-size:11px"></textarea></div>
         <button class="btn btn-w" onclick="handleDecrypt()" id="openBtn"></button>
         <div id="decErr" class="error hidden"></div>
+        <div id="decCountdown" class="hidden" style="padding:20px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:12px;text-align:center"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#b45309;margin-bottom:8px" id="cdLabel"></div><div style="font-size:28px;font-weight:800;font-family:var(--mono);color:var(--text);letter-spacing:2px" id="cdTimer"></div><div style="font-size:10px;color:var(--text3);margin-top:6px" id="cdDate"></div></div>
         <div id="decResult" class="hidden"><h3 class="label" style="color:var(--brand)" id="lDecMsg"></h3><div class="output-box" style="font-family:var(--mono);white-space:pre-wrap;text-align:left" id="decText"></div></div>
       </div>
     </div>
@@ -1694,7 +1699,9 @@ function generateTimeCapsule() {
   </div>
   <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
 </div>
+<script>${lzStringMin}<\/script>
 <script>${tlockBundle}<\/script>`;
+  // LZ-String for cross-compatible token encoding with the website
   // tlock-js IIFE bundle exposes TlockJS global with all exports
   // We talk directly to drand API (no proxy needed)
   const js = `<script>
@@ -1709,12 +1716,15 @@ function nowIsoLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimez
 function setMode(m){tcMode=m;$('tabCreate').classList.toggle('active',m==='encrypt');$('tabOpen').classList.toggle('active',m==='decrypt');$('encSection').classList.toggle('hidden',m!=='encrypt');$('decSection').classList.toggle('hidden',m!=='decrypt');}
 function computeRound(timeMs){return Math.floor((timeMs-GENESIS*1000)/(PERIOD*1000))+1;}
 function lzCompressB64(str){
-  // Simple base64-url encoding of the JSON (no LZString needed for basic functionality)
-  return btoa(unescape(encodeURIComponent(str))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/g,'');
+  return LZString.compressToBase64(str).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/g,'');
 }
 function lzDecompressB64(tok){
   const b64=tok.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(tok.length/4)*4,'=');
-  return decodeURIComponent(escape(atob(b64)));
+  // Try LZ-String first (website format), fall back to plain base64 (legacy)
+  const lz=LZString.decompressFromBase64(b64);
+  if(lz)try{JSON.parse(lz);return lz;}catch{}
+  try{return decodeURIComponent(escape(atob(b64)));}catch{}
+  return lz||'';
 }
 async function handleEncrypt(){
   $('encErr').classList.add('hidden');$('cipherWrap').classList.add('hidden');
@@ -1750,10 +1760,31 @@ async function handleDecrypt(){
     const text=typeof buf==='string'?buf:new TextDecoder().decode(buf);
     $('decText').textContent=text;$('decResult').classList.remove('hidden');
   }catch(e){
-    let label='the unlock time';
-    try{const json=lzDecompressB64(inp);const obj=JSON.parse(json);if(obj.t)label=new Date(obj.t*1000).toISOString();}catch{}
-    $('decErr').textContent=t('tools.timeCapsule.tooEarly').replace('{time}',label);$('decErr').classList.remove('hidden');
+    let unlockUnix=0;
+    try{const json=lzDecompressB64(inp);const obj=JSON.parse(json);if(obj.t)unlockUnix=obj.t;}catch{}
+    if(unlockUnix>0){
+      startCountdown(unlockUnix);
+    }else{
+      $('decErr').textContent=t('tools.timeCapsule.tooEarly').replace('{time}','unknown');$('decErr').classList.remove('hidden');
+    }
   }finally{$('openBtn').disabled=false;$('openBtn').textContent=t('tools.timeCapsule.openCapsule');}
+}
+let cdInterval=null;
+function startCountdown(unlockUnix){
+  $('decErr').classList.add('hidden');$('decResult').classList.add('hidden');
+  $('decCountdown').classList.remove('hidden');
+  $('cdDate').textContent=new Date(unlockUnix*1000).toLocaleString();
+  if(cdInterval)clearInterval(cdInterval);
+  function tick(){
+    const diff=unlockUnix-Math.floor(Date.now()/1000);
+    if(diff<=0){clearInterval(cdInterval);$('cdTimer').textContent='NOW';$('cdLabel').textContent='Ready to decrypt!';return;}
+    const d=Math.floor(diff/86400),h=Math.floor((diff%86400)/3600),m=Math.floor((diff%3600)/60),s=diff%60;
+    const parts=[];
+    if(d>0)parts.push(d+'d');parts.push(String(h).padStart(2,'0')+'h');parts.push(String(m).padStart(2,'0')+'m');parts.push(String(s).padStart(2,'0')+'s');
+    $('cdTimer').textContent=parts.join(' ');
+    $('cdLabel').textContent=lang==='de'?'Diese Nachricht wird entsperrt in':lang==='cs'?'Tato zpráva se odemkne za':'This message unlocks in';
+  }
+  tick();cdInterval=setInterval(tick,1000);
 }
 function updateUI(){
   $('h1').innerHTML=t('tools.timeCapsule.h1')+' <span>'+t('tools.timeCapsule.h1Highlight')+'</span>';
