@@ -2,8 +2,9 @@ import { languages, defaultLocale, locales, type Locale } from './languages';
 
 import en from '../locales/en.json';
 import cs from '../locales/cs.json';
+import de from '../locales/de.json';
 
-const dictionaries: Record<string, Record<string, string>> = { en, cs };
+const dictionaries: Record<string, Record<string, string>> = { en, cs, de };
 
 export { languages, defaultLocale, locales, type Locale };
 

@@ -1,6 +1,6 @@
 /**
  * Standalone HTML Generator for encrypt.click tools
- * Generates single-file HTML tools with full functionality and bilingual support (EN/CS)
+ * Generates single-file HTML tools with full functionality and trilingual support (EN/CS/DE)
  * 
  * Can be used in two ways:
  *   1. Directly: node generate-standalone.mjs         (outputs to ./standalone/)
@@ -18,7 +18,12 @@ const SRC_DIR = path.join(__dirname, 'src');
 // Load translations and dictionary from source
 const en = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'locales/en.json'), 'utf8'));
 const cs = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'locales/cs.json'), 'utf8'));
+const de = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'locales/de.json'), 'utf8'));
 const dictionary = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'lib/dictionary.json'), 'utf8'));
+
+// Load pre-bundled tlock-js for Time Capsule (esbuild IIFE bundle)
+const tlockBundlePath = path.join(SRC_DIR, 'lib/tlock-bundle.js');
+const tlockBundle = fs.existsSync(tlockBundlePath) ? fs.readFileSync(tlockBundlePath, 'utf8') : '';
 
 // ── Shared CSS (minimal Tailwind-like styles matching encrypt.click) ──
 const SHARED_CSS = `
@@ -137,27 +142,34 @@ function footerHTML() {
 
 // ── Shared JS for theme + i18n ──
 function sharedJS(toolTranslationKeys) {
-  // Extract only the keys needed for this tool from en/cs
+  // Extract only the keys needed for this tool from en/cs/de
   const enFiltered = {};
   const csFiltered = {};
+  const deFiltered = {};
   for (const key of toolTranslationKeys) {
     if (en[key]) enFiltered[key] = en[key];
     if (cs[key]) csFiltered[key] = cs[key];
+    if (de[key]) deFiltered[key] = de[key];
   }
   
   return `
 <script>
 const EN=${JSON.stringify(enFiltered)};
 const CS=${JSON.stringify(csFiltered)};
+const DE=${JSON.stringify(deFiltered)};
+const LANGS=['en','cs','de'];
+const LANG_LABELS={en:'EN',cs:'CS',de:'DE'};
 let lang=localStorage.getItem('ec-lang')||'en';
-let dict=lang==='cs'?CS:EN;
+if(!LANGS.includes(lang))lang='en';
+let dict=lang==='cs'?CS:lang==='de'?DE:EN;
 
 function t(k){return dict[k]||EN[k]||k}
 function toggleLang(){
-  lang=lang==='en'?'cs':'en';
-  dict=lang==='cs'?CS:EN;
+  const i=(LANGS.indexOf(lang)+1)%LANGS.length;
+  lang=LANGS[i];
+  dict=lang==='cs'?CS:lang==='de'?DE:EN;
   localStorage.setItem('ec-lang',lang);
-  document.getElementById('langBtn').textContent=lang==='en'?'CS':'EN';
+  document.getElementById('langBtn').textContent=LANG_LABELS[LANGS[(i+1)%LANGS.length]];
   updateUI();
 }
 function toggleTheme(){
@@ -168,9 +180,10 @@ function toggleTheme(){
   const th=localStorage.getItem('ec-theme');
   if(th==='dark'||(th==null&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark');
   const l=localStorage.getItem('ec-lang');
-  if(l){lang=l;dict=lang==='cs'?CS:EN;}
+  if(l&&LANGS.includes(l)){lang=l;dict=lang==='cs'?CS:lang==='de'?DE:EN;}
   document.addEventListener('DOMContentLoaded',()=>{
-    document.getElementById('langBtn').textContent=lang==='en'?'CS':'EN';
+    const nextIdx=(LANGS.indexOf(lang)+1)%LANGS.length;
+    document.getElementById('langBtn').textContent=LANG_LABELS[LANGS[nextIdx]];
     updateUI();
   });
 })();
@@ -1681,10 +1694,12 @@ function generateTimeCapsule() {
   </div>
   <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/tlock-js@0.5.1/dist/bundle.js"><\/script>`;
-  // tlock-js exposes timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient on window
+<script>${tlockBundle}<\/script>`;
+  // tlock-js IIFE bundle exposes TlockJS global with all exports
   // We talk directly to drand API (no proxy needed)
   const js = `<script>
+// Unpack tlock-js exports from the IIFE bundle
+const {timelockEncrypt,timelockDecrypt,HttpCachingChain,HttpChainClient,Buffer:TlockBuffer}=TlockJS;
 let tcMode='encrypt';
 const DRAND_URL='https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971';
 const CHAIN_HASH='52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971';
@@ -1713,7 +1728,7 @@ async function handleEncrypt(){
     const round=computeRound(timeMs);
     const chainOpts={chainVerificationParams:{chainHash:CHAIN_HASH,publicKey:CHAIN_PK}};
     const chain=new HttpCachingChain(DRAND_URL,chainOpts);const client=new HttpChainClient(chain,chainOpts);
-    const payload=typeof Buffer!=='undefined'?Buffer.from(msg,'utf8'):new TextEncoder().encode(msg);
+    const payload=TlockBuffer?TlockBuffer.from(msg,'utf8'):new TextEncoder().encode(msg);
     const armored=await timelockEncrypt(round,payload,client);
     const unix=Math.floor(timeMs/1000);const packed=JSON.stringify({v:1,r:round,t:unix,c:armored});
     $('cipherOut').value=lzCompressB64(packed);$('cipherWrap').classList.remove('hidden');

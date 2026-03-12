@@ -656,5 +656,7 @@
   "tools.passwordEntropy.dicewareGenerator": "Diceware generator",
   "tools.passwordEntropy.wordCount": "Word count:",
   "tools.passwordEntropy.generatePhrase": "Generate secret phrase",
-  "tools.passwordEntropy.entropyPerWord": "Each word adds ~14 bits of entropy · Total: {total} bits"
+  "tools.passwordEntropy.entropyPerWord": "Each word adds ~14 bits of entropy · Total: {total} bits",
+  "standalone.download": "Download as offline HTML",
+  "standalone.description": "Single-file, works offline in any browser"
 }

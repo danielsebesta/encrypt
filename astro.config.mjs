@@ -20,14 +20,15 @@ export default defineConfig({
   integrations: [svelte(), standaloneTools()],
 
   i18n: {
-    locales: ['en', 'cs'],
+    locales: ['en', 'cs', 'de'],
     defaultLocale: 'en',
     routing: {
       prefixDefaultLocale: false,
       fallbackType: 'rewrite'
     },
     fallback: {
-      cs: 'en'
+      cs: 'en',
+      de: 'en'
     }
   }
 });
