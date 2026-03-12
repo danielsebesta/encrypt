@@ -5,6 +5,7 @@ import { getTranslations, t, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+import DownloadStandalone from '../../components/DownloadStandalone.astro';
 ---
 
 <Layout 
@@ -29,5 +30,6 @@ const dict = getTranslations(locale);
         <p class="text-[11px] text-zinc-500 leading-relaxed">{t(dict, 'tools.uuidUlid.info2.text')}</p>
       </div>
     </div>
+    <DownloadStandalone slug="uuid-ulid" locale={locale} />
   </div>
 </Layout>
