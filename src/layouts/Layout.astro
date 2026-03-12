@@ -274,7 +274,7 @@ const languageOptions = locales.map(l => ({
 				if (!anchor) return;
 				var href = anchor.getAttribute('href');
 				var target = anchor.getAttribute('target');
-				if (!href || href.indexOf('http') === 0 || href.indexOf('#') === 0 || target === '_blank') return;
+				if (!href || href.indexOf('http') === 0 || href.indexOf('#') === 0 || href.indexOf('blob:') === 0 || target === '_blank' || anchor.hasAttribute('download')) return;
 				if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
 
 				// If this is a language switch link, update localStorage BEFORE navigating
