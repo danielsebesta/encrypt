@@ -1,6 +1,7 @@
 export const languages = {
   en: { name: 'English', flag: '🇬🇧' },
   cs: { name: 'Čeština', flag: '🇨🇿' },
+  de: { name: 'Deutsch', flag: '🇩🇪' },
 } as const;
 
 export type Locale = keyof typeof languages;

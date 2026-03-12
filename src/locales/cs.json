@@ -656,5 +656,7 @@
   "tools.passwordEntropy.dicewareGenerator": "Generátor Diceware",
   "tools.passwordEntropy.wordCount": "Počet slov:",
   "tools.passwordEntropy.generatePhrase": "Generovat tajnou frázi",
-  "tools.passwordEntropy.entropyPerWord": "Každé slovo přidává ~14 bitů entropie · Celkem: {total} bitů"
+  "tools.passwordEntropy.entropyPerWord": "Každé slovo přidává ~14 bitů entropie · Celkem: {total} bitů",
+  "standalone.download": "Stáhnout jako offline HTML",
+  "standalone.description": "Jeden soubor, funguje offline v libovolném prohlížeči"
 }
