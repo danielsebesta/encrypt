@@ -26,3 +26,6 @@
 
 /encrypt_*.svg
   Cache-Control: public, max-age=31536000, immutable
+
+/standalone/*.html
+  Content-Disposition: attachment
