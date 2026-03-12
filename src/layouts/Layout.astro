@@ -153,16 +153,16 @@ const languageOptions = locales.map(l => ({
 							</button>
 							<div class="absolute top-full right-0 pt-2 opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-[60]">
 								<div class="w-44 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl p-2 grid gap-0.5">
-									{languageOptions.map((lang) => (
-										<a
-											href={lang.href}
-											class={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-400/5'}`}
-										>
-											<span>{lang.flag}</span>
-											<span>{lang.name}</span>
-										</a>
-									))}
-								</div>
+								{languageOptions.map((lang) => (
+									<a
+										href={lang.href}
+										data-lang={lang.code}
+										class={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-400/5'}`}
+									>
+										<span>{lang.flag}</span>
+										<span>{lang.name}</span>
+									</a>
+								))}
 							</div>
 						</div>
 					</div>
@@ -192,6 +192,7 @@ const languageOptions = locales.map(l => ({
 								{languageOptions.map((lang) => (
 									<a
 										href={lang.href}
+										data-lang={lang.code}
 										class={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-400/5'}`}
 									>
 										<span>{lang.flag}</span>
@@ -268,22 +269,29 @@ const languageOptions = locales.map(l => ({
 					});
 				}
 
-				document.addEventListener('click', function (event) {
-					var anchor = event.target.closest && event.target.closest('a');
-					if (!anchor) return;
-					var href = anchor.getAttribute('href');
-					var target = anchor.getAttribute('target');
-					if (!href || href.indexOf('http') === 0 || href.indexOf('#') === 0 || target === '_blank') return;
-					if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-					event.preventDefault();
-					var mainEl = document.querySelector('main');
-					if (!mainEl) { window.location.href = href; return; }
-					mainEl.classList.add('page-exit');
-					var navigated = false;
-					var go = function () { if (navigated) return; navigated = true; window.location.href = href; };
-					mainEl.addEventListener('transitionend', function handle(e) { if (e.target !== mainEl) return; mainEl.removeEventListener('transitionend', handle); go(); });
-					setTimeout(go, 400);
-				});
+			document.addEventListener('click', function (event) {
+				var anchor = event.target.closest && event.target.closest('a');
+				if (!anchor) return;
+				var href = anchor.getAttribute('href');
+				var target = anchor.getAttribute('target');
+				if (!href || href.indexOf('http') === 0 || href.indexOf('#') === 0 || target === '_blank') return;
+				if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+
+				// If this is a language switch link, update localStorage BEFORE navigating
+				var lang = anchor.getAttribute('data-lang');
+				if (lang) {
+					try { localStorage.setItem('ec-lang', lang); } catch(e) {}
+				}
+
+				event.preventDefault();
+				var mainEl = document.querySelector('main');
+				if (!mainEl) { window.location.href = href; return; }
+				mainEl.classList.add('page-exit');
+				var navigated = false;
+				var go = function () { if (navigated) return; navigated = true; window.location.href = href; };
+				mainEl.addEventListener('transitionend', function handle(e) { if (e.target !== mainEl) return; mainEl.removeEventListener('transitionend', handle); go(); });
+				setTimeout(go, 400);
+			});
 
 				function bindThemeToggle(id) {
 					var btn = document.getElementById(id);
