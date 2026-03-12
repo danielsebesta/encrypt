@@ -3,7 +3,8 @@
  * Download button for the standalone offline HTML version of a tool.
  * Usage: <DownloadStandalone slug="caesar" locale={locale} />
  * 
- * The standalone file must exist at /standalone/{slug}.html (generated during build).
+ * Uses fetch + blob to force a real download (browsers may ignore the
+ * `download` attribute on .html files and open them in a new tab instead).
  */
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
@@ -17,13 +18,38 @@ const dict = getTranslations(locale);
 ---
 
 <div class="mt-8 flex justify-center">
-  <a
-    href={`/standalone/${slug}.html`}
-    download={`${slug}.html`}
-    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-emerald-400 group"
+  <button
+    type="button"
+    data-standalone-url={`/standalone/${slug}.html`}
+    data-standalone-name={`${slug}.html`}
+    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-emerald-700 dark:hover:text-emerald-400 group cursor-pointer"
   >
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-60 group-hover:opacity-100 transition-opacity"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     {t(dict, 'standalone.download')}
     <span class="text-[10px] font-normal opacity-60">— {t(dict, 'standalone.description')}</span>
-  </a>
+  </button>
 </div>
+
+<script>
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-standalone-url]') as HTMLElement | null;
+    if (!btn) return;
+    e.preventDefault();
+    const url = btn.dataset.standaloneUrl!;
+    const name = btn.dataset.standaloneName!;
+    fetch(url)
+      .then(r => r.blob())
+      .then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 100);
+      })
+      .catch(() => {
+        // Fallback: open in new tab if fetch fails
+        window.open(url, '_blank');
+      });
+  });
+</script>
