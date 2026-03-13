@@ -118,7 +118,8 @@ async function uploadGofile(file: Uint8Array, filename: string): Promise<string>
   const srvRes = await fetch('https://api.gofile.io/servers');
   if (!srvRes.ok) throw new Error(`Gofile servers: HTTP ${srvRes.status}`);
   const srvData = await srvRes.json() as any;
-  const server = srvData?.data?.servers?.[0]?.name;
+  const servers = srvData?.data?.servers;
+  const server = Array.isArray(servers) ? (typeof servers[0] === 'string' ? servers[0] : servers[0]?.name) : null;
   if (!server) throw new Error('Gofile: no server available');
   const form = new FormData();
   form.append('file', new Blob([toBlobPart(file)]), filename);
@@ -175,10 +176,8 @@ const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<s
   freeimage: uploadFreeImage,
   quax: uploadQuax,
   uguu: uploadUguu,
-  filehosts: uploadFileHosts,
   gofile: uploadGofile,
   tmpfile: uploadTmpfileLink,
-  filebin: uploadFilebin,
   tempsh: uploadTempSh,
 };
 
@@ -195,12 +194,10 @@ interface ServiceInfo {
 const SERVICE_INFO: ServiceInfo[] = [
   { id: 'quax', name: 'qu.ax', type: 'file', maxBytes: 256 * 1024 * 1024, retention: '30 days', tosUrl: 'https://qu.ax/tos', recommended: true },
   { id: 'tempsh', name: 'temp.sh', type: 'file', maxBytes: 4 * 1024 * 1024 * 1024, retention: '3 days', tosUrl: null },
-  { id: 'filehosts', name: 'FileHosts.net', type: 'file', maxBytes: 15 * 1024 * 1024 * 1024, retention: 'unknown', tosUrl: 'https://filehosts.net/' },
-  { id: 'filebin', name: 'Filebin.net', type: 'file', maxBytes: Infinity, retention: '6 days', tosUrl: 'https://filebin.net/terms' },
-  { id: 'gofile', name: 'Gofile.io', type: 'file', maxBytes: Infinity, retention: '10 days*', tosUrl: 'https://gofile.io/terms' },
+  { id: 'gofile', name: 'Gofile.io', type: 'file', maxBytes: Infinity, retention: '10 days', tosUrl: 'https://gofile.io/terms' },
   { id: 'tmpfile', name: 'tmpfile.link', type: 'file', maxBytes: 100 * 1024 * 1024, retention: '7 days', tosUrl: 'https://tmpfile.link/terms' },
   { id: 'uguu', name: 'Uguu.se', type: 'file', maxBytes: 128 * 1024 * 1024, retention: '3 hours', tosUrl: 'https://uguu.se/faq' },
-  { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: Infinity, retention: 'forever', tosUrl: 'https://sxcu.net/tos.html', recommended: true },
+  { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: 95 * 1024 * 1024, retention: 'forever', tosUrl: 'https://sxcu.net/tos.html', recommended: true },
   { id: 'freeimage', name: 'FreeImage.host', type: 'image', maxBytes: 64 * 1024 * 1024, retention: 'forever', tosUrl: 'https://freeimage.host/tos' },
   { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: '6 months', tosUrl: 'https://imgbb.com/tos' },
 ];
@@ -213,51 +210,58 @@ export const GET: APIRoute = async () => {
 };
 
 export const POST: APIRoute = async ({ request }) => {
-  const { ok, resetIn } = await checkRateLimit('ghost', request, GHOST_LIMIT);
-  if (!ok) {
-    return new Response(JSON.stringify({ error: 'Too many requests' }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json', 'Retry-After': String(resetIn) }
-    });
-  }
+  try {
+    const { ok, resetIn } = await checkRateLimit('ghost', request, GHOST_LIMIT);
+    if (!ok) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(resetIn) }
+      });
+    }
 
-  const contentType = request.headers.get('Content-Type') || '';
-  if (!contentType.includes('multipart/form-data')) {
-    return new Response(JSON.stringify({ error: 'Expected multipart/form-data' }), {
-      status: 400,
+    const contentType = request.headers.get('Content-Type') || '';
+    if (!contentType.includes('multipart/form-data')) {
+      return new Response(JSON.stringify({ error: 'Expected multipart/form-data' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const form = await request.formData();
+    const file = form.get('file') as File | null;
+    const servicesStr = form.get('services') as string | null;
+    const isStego = form.get('stego') === 'true';
+
+    if (!file || file.size > MAX_BYTES) {
+      return new Response(JSON.stringify({ error: `File missing or exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    const filename = file.name || (isStego ? 'ghost.png' : 'ghost.bin');
+
+    const results: ServiceResult[] = await Promise.all(
+      requestedServices.map(async (service) => {
+        try {
+          const url = await SERVICES[service](buffer, filename);
+          return { service, url };
+        } catch (e: any) {
+          return { service, url: null, error: e?.message || 'Upload failed' };
+        }
+      })
+    );
+
+    return new Response(JSON.stringify({ results }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message || 'Internal server error' }), {
+      status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
-
-  const form = await request.formData();
-  const file = form.get('file') as File | null;
-  const servicesStr = form.get('services') as string | null;
-  const isStego = form.get('stego') === 'true';
-
-  if (!file || file.size > MAX_BYTES) {
-    return new Response(JSON.stringify({ error: `File missing or exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit` }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
-  const buffer = new Uint8Array(await file.arrayBuffer());
-  const filename = file.name || (isStego ? 'ghost.png' : 'ghost.bin');
-
-  const results: ServiceResult[] = await Promise.all(
-    requestedServices.map(async (service) => {
-      try {
-        const url = await SERVICES[service](buffer, filename);
-        return { service, url };
-      } catch (e: any) {
-        return { service, url: null, error: e?.message || 'Upload failed' };
-      }
-    })
-  );
-
-  return new Response(JSON.stringify({ results }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
 };
