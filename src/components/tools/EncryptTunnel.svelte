@@ -4,7 +4,8 @@
   import { createStegoImage, extractStego } from '../../lib/ghost/steganography';
 
   const MAX_BYTES = 25 * 1024 * 1024;
-  const STEGO_THRESHOLD = 5 * 1024 * 1024;
+  const STEGO_THRESHOLD = 500 * 1024;
+  const STEGO_BLOWUP = 10;
 
   interface ServiceInfo {
     id: string;
@@ -74,17 +75,21 @@
     return n * 365;
   }
 
+  function estimateUploadSize(size: number, type: 'image' | 'file'): number {
+    if (type === 'image') return size * STEGO_BLOWUP;
+    return Math.ceil(size * 1.37) + 200;
+  }
+
   function rankProviders(days: number, size: number): ParsedService[] {
-    const est = size + 200;
     return services
       .filter(s => {
         if (s.retDays < days) return false;
-        if (s.maxBytes < est) return false;
+        if (s.maxBytes < estimateUploadSize(size, s.type)) return false;
         if (failedIds.includes(s.id)) return false;
         return true;
       })
       .sort((a, b) => {
-        if (est <= STEGO_THRESHOLD) {
+        if (size <= STEGO_THRESHOLD) {
           if (a.type === 'image' && b.type !== 'image') return -1;
           if (a.type !== 'image' && b.type === 'image') return 1;
         } else {
@@ -100,8 +105,7 @@
   }
 
   function findNearestRetention(size: number, dir: 'shorter' | 'longer'): number | null {
-    const est = size + 200;
-    const viable = services.filter(s => s.maxBytes >= est && !failedIds.includes(s.id));
+    const viable = services.filter(s => s.maxBytes >= estimateUploadSize(size, s.type) && !failedIds.includes(s.id));
     if (viable.length === 0) return null;
     if (dir === 'shorter') {
       for (let i = retIdx - 1; i >= 0; i--) {
