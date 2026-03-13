@@ -1597,81 +1597,6 @@ function updateUI(){initServices();}
   return buildHTML('Encrypt & Tunnel', '', body, js, keys);
 }
 
-function generateAnonUpload() {
-  const keys = ['tools.anonUpload.meta.title','tools.anonUpload.h1','tools.anonUpload.h1Highlight','tools.anonUpload.subtitle','tools.anonUpload.dropFile','tools.anonUpload.anonSteps','tools.anonUpload.processing','tools.anonUpload.fileTooLarge','tools.anonUpload.failedToProcess','tools.anonUpload.anonAs','tools.anonUpload.download','tools.anonUpload.uploadTo','tools.anonUpload.uploadAnonymous','tools.anonUpload.uploading','tools.anonUpload.uploadFailed','tools.anonUpload.uploadSuccess','tools.anonUpload.copy','tools.anonUpload.sendInstances','tools.anonUpload.sendManual','tools.anonUpload.moreInstances','tools.anonUpload.info.title','tools.anonUpload.info.text'];
-  const body = `<div class="main">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div class="drop-zone" style="padding:48px;text-align:center;border:4px dashed var(--border);border-radius:24px;position:relative;background:rgba(16,185,129,0.01)"><input type="file" id="fileInp" style="position:absolute;inset:0;opacity:0;cursor:pointer"><div style="display:flex;flex-direction:column;align-items:center;gap:16px"><div style="width:64px;height:64px;background:rgba(16,185,129,0.1);color:var(--brand);border-radius:50%;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><div><p style="font-weight:700;font-size:14px" id="dropText"></p><p style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em;margin-top:4px" id="dropSub"></p></div></div></div>
-    <div id="errBox" class="error hidden"></div>
-    <div id="processingBox" class="hidden" style="text-align:center;padding:16px"><span style="font-size:12px;font-weight:700;color:var(--brand)" id="procText"></span></div>
-    <div id="resultSection" class="hidden space-y">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="font-size:12px;font-family:var(--mono);color:var(--text2)" id="anonLabel"></div><button class="btn-outline" onclick="dlAnon()" style="font-size:11px" id="dlBtn"></button></div>
-      <div class="space-y-sm"><label class="label" id="lUpload"></label><button class="btn" onclick="handleUpload()" id="uploadBtn" style="font-size:12px"></button></div>
-      <div id="uploadResult" class="hidden space-y-sm">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3)" id="uploadLabel"></div>
-        <div style="display:flex;gap:8px;align-items:center"><input type="text" readonly class="input" id="uploadUrl" style="font-family:var(--mono);font-size:11px;flex:1" onclick="this.select()"><button class="btn-outline" onclick="copyText($('uploadUrl').value)" id="copyBtn" style="font-size:11px;padding:6px 16px"></button></div>
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px" class="space-y-sm">
-        <label class="label" id="lSend"></label>
-        <p style="font-size:11px;color:var(--text2)" id="sendDesc"></p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px" id="sendLinks"></div>
-      </div>
-    </div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>`;
-  const js = `<script>
-const MAX_BYTES=100*1024*1024;const IMAGE_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
-const SEND_INSTANCES=[{url:'https://send.codespace.cz',limit:'10 GB'},{url:'https://upload.nolog.cz',limit:'5 GB'},{url:'https://send.vis.ee',limit:'2.5 GB'},{url:'https://send.mni.li',limit:'8 GB'},{url:'https://send.adminforge.de',limit:'8 GB'},{url:'https://send.monks.tools',limit:'5 GB'}];
-let anonBlob=null,anonName='',uploading=false;
-function ulid(){const C='0123456789ABCDEFGHJKMNPQRSTVWXYZ';const t=Date.now();let r='';for(let i=9;i>=0;i--)r+=C[Math.floor(t/Math.pow(32,i))%32];for(let i=0;i<16;i++)r+=C[crypto.getRandomValues(new Uint8Array(1))[0]%32];return r}
-function getExt(n){const i=n.lastIndexOf('.');return i>0?n.slice(i):'';}
-function anonFilename(orig){return ulid()+(getExt(orig).toLowerCase()||'.bin');}
-function stripExif(file){return new Promise((res,rej)=>{const img=new Image();img.src=URL.createObjectURL(file);img.onload=()=>{URL.revokeObjectURL(img.src);const c=document.createElement('canvas');c.width=img.width;c.height=img.height;const ctx=c.getContext('2d');ctx.drawImage(img,0,0);c.toBlob(b=>b?res(b):rej(),'image/jpeg',0.92);};img.onerror=()=>rej();})}
-$('fileInp').addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
-  if(f.size>MAX_BYTES){$('errBox').textContent=t('tools.anonUpload.fileTooLarge');$('errBox').classList.remove('hidden');return;}
-  $('errBox').classList.add('hidden');$('resultSection').classList.add('hidden');$('uploadResult').classList.add('hidden');
-  $('processingBox').classList.remove('hidden');$('procText').textContent=t('tools.anonUpload.processing');
-  try{
-    const name=anonFilename(f.name);
-    let blob;
-    if(IMAGE_TYPES.includes(f.type)){blob=await stripExif(f);anonName=name.replace(/\\.[^.]+$/,'.jpg');}
-    else{blob=new Blob([await f.arrayBuffer()],{type:f.type||'application/octet-stream'});anonName=name;}
-    anonBlob=blob;
-    $('processingBox').classList.add('hidden');
-    $('anonLabel').innerHTML=t('tools.anonUpload.anonAs')+' <span style="color:var(--brand);font-weight:700">'+anonName+'</span>';
-    $('resultSection').classList.remove('hidden');
-  }catch{$('errBox').textContent=t('tools.anonUpload.failedToProcess');$('errBox').classList.remove('hidden');$('processingBox').classList.add('hidden');}
-});
-function dlAnon(){if(!anonBlob)return;const a=document.createElement('a');a.href=URL.createObjectURL(anonBlob);a.download=anonName;a.click();URL.revokeObjectURL(a.href);}
-async function handleUpload(){
-  if(!anonBlob||uploading)return;uploading=true;$('uploadBtn').textContent=t('tools.anonUpload.uploading');$('uploadResult').classList.add('hidden');$('errBox').classList.add('hidden');
-  try{
-    const fd=new FormData();fd.append('file',anonBlob,anonName);
-    let url,provider;
-    try{const res=await fetch('https://tmpfiles.org/api/v1/upload',{method:'POST',body:fd,mode:'cors'});if(!res.ok)throw 0;const d=await res.json();url=d?.data?.url||d?.url;if(url&&!url.startsWith('http'))url='https://tmpfiles.org'+url;provider='tmpfiles.org';}
-    catch{const fd2=new FormData();fd2.append('file',anonBlob,anonName);const res=await fetch('https://0x0.st',{method:'POST',body:fd2,mode:'cors'});if(!res.ok)throw new Error('Upload failed');url=(await res.text()).trim();provider='0x0.st';}
-    $('uploadUrl').value=url;$('uploadLabel').textContent=t('tools.anonUpload.uploadSuccess')+' ('+provider+')';$('uploadResult').classList.remove('hidden');
-  }catch{$('errBox').textContent=t('tools.anonUpload.uploadFailed');$('errBox').classList.remove('hidden');}
-  finally{uploading=false;$('uploadBtn').textContent=t('tools.anonUpload.uploadAnonymous');}
-}
-function updateUI(){
-  $('h1').innerHTML=t('tools.anonUpload.h1')+' <span>'+t('tools.anonUpload.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.anonUpload.subtitle');$('dropText').textContent=t('tools.anonUpload.dropFile');
-  $('dropSub').textContent=t('tools.anonUpload.anonSteps');$('dlBtn').textContent=t('tools.anonUpload.download');
-  $('lUpload').textContent=t('tools.anonUpload.uploadTo');$('uploadBtn').textContent=t('tools.anonUpload.uploadAnonymous');
-  $('copyBtn').textContent=t('tools.anonUpload.copy');$('lSend').textContent=t('tools.anonUpload.sendInstances');
-  $('sendDesc').textContent=t('tools.anonUpload.sendManual');
-  $('sendLinks').innerHTML=SEND_INSTANCES.map(s=>'<a href="'+s.url+'" target="_blank" rel="noopener" class="btn-outline" style="font-size:10px;padding:6px 10px">'+new URL(s.url).hostname+'</a>').join('');
-  $('iTitle').textContent=t('tools.anonUpload.info.title');$('iText').textContent=t('tools.anonUpload.info.text');
-  document.title=t('tools.anonUpload.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('Anonymous Upload', '', body, js, keys);
-}
-
 function generateTimeCapsule() {
   const keys = ['tools.timeCapsule.meta.title','tools.timeCapsule.h1','tools.timeCapsule.h1Highlight','tools.timeCapsule.subtitle','tools.timeCapsule.footnote','tools.timeCapsule.createCapsule','tools.timeCapsule.openCapsule','tools.timeCapsule.message','tools.timeCapsule.messagePlaceholder','tools.timeCapsule.unlockAfter','tools.timeCapsule.encrypting','tools.timeCapsule.lockMessage','tools.timeCapsule.ciphertext','tools.timeCapsule.pastePlaceholder','tools.timeCapsule.decrypting','tools.timeCapsule.decryptedMessage','tools.timeCapsule.advancedTiming','tools.timeCapsule.localTime','tools.timeCapsule.utc','tools.timeCapsule.unixTimestamp','tools.timeCapsule.drandRound','tools.timeCapsule.errorMessage','tools.timeCapsule.errorUnlockTime','tools.timeCapsule.errorInvalidDate','tools.timeCapsule.errorFuture','tools.timeCapsule.errorPaste','tools.timeCapsule.tooEarly','tools.timeCapsule.info.title','tools.timeCapsule.info.text'];
   const body = `<div class="main">
@@ -2007,8 +1932,7 @@ const tools = [
   { name: 'aes-words', fn: generateAESWords, title: 'AES Words', desc: 'Encrypt text into human-readable word sequences' },
   { name: 'photo-cipher', fn: generatePhotoCipher, title: 'Photo Cipher', desc: 'QIM steganography that survives JPEG compression' },
   { name: 'dead-drop', fn: generateDeadDrop, title: 'Dead Drop', desc: 'Encrypt messages into self-contained URL fragments' },
-  { name: 'encrypt-tunnel', fn: generateEncryptTunnel, title: 'Encrypt & Tunnel', desc: 'AES-256 encrypt files + upload to anonymous hosts' },
-  { name: 'anon-upload', fn: generateAnonUpload, title: 'Anonymous Upload', desc: 'Strip EXIF, randomize filename, upload anonymously' },
+  { name: 'ghost-drop', fn: generateEncryptTunnel, title: 'Ghost Drop', desc: 'AES-256 encrypt files + upload to anonymous hosts' },
   { name: 'time-capsule', fn: generateTimeCapsule, title: 'Time Capsule', desc: 'Timelock encryption via drand network (CDN: tlock-js)' },
   { name: 'pdf-redact', fn: generatePDFRedact, title: 'PDF Redactor', desc: 'Draw redaction boxes on PDF pages (CDN: pdfjs + pdf-lib)' },
 ];
