@@ -241,29 +241,16 @@ export const POST: APIRoute = async ({ request }) => {
 
     let buffer: Uint8Array;
     let filename: string;
-    const entryType = typeof fileEntry;
-    const entryProto = Object.prototype.toString.call(fileEntry);
-    const hasArrayBuffer = typeof (fileEntry as any).arrayBuffer === 'function';
-    const hasStream = typeof (fileEntry as any).stream === 'function';
-    const entrySize = (fileEntry as any).size;
-    const entryName = (fileEntry as any).name;
 
-    if (entryType !== 'string' && hasArrayBuffer) {
-      const arrayBuf = await (fileEntry as any).arrayBuffer();
-      buffer = new Uint8Array(arrayBuf);
-      filename = entryName || (isStego ? 'ghost.png' : 'ghost.bin');
-    } else if (entryType !== 'string' && hasStream) {
-      const arrayBuf = await new Response(fileEntry as any).arrayBuffer();
-      buffer = new Uint8Array(arrayBuf);
-      filename = entryName || (isStego ? 'ghost.png' : 'ghost.bin');
-    } else if (entryType === 'string') {
-      buffer = new TextEncoder().encode(fileEntry as string);
+    if (typeof fileEntry === 'string') {
+      buffer = new TextEncoder().encode(fileEntry);
       filename = isStego ? 'ghost.png' : 'ghost.bin';
     } else {
-      return new Response(JSON.stringify({
-        error: 'Unsupported file entry type',
-        debug: { entryType, entryProto, hasArrayBuffer, hasStream, entrySize, entryName }
-      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      const arrayBuf = typeof fileEntry.arrayBuffer === 'function'
+        ? await fileEntry.arrayBuffer()
+        : await new Response(fileEntry).arrayBuffer();
+      buffer = new Uint8Array(arrayBuf);
+      filename = (fileEntry as any).name || (isStego ? 'ghost.png' : 'ghost.bin');
     }
 
     if (buffer.byteLength > MAX_BYTES) {
