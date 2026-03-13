@@ -241,12 +241,12 @@
       addLog(`Upload blob: ${formatBytes(uploadBlob.size)}`);
 
       addLog(`Uploading to ${target.name}...`);
-      const form = new FormData();
-      form.append('file', uploadBlob, uploadName);
-      form.append('services', target.id);
-      form.append('stego', useStego ? 'true' : 'false');
-
-      const res = await fetch('/api/ghost/upload', { method: 'POST', body: form });
+      const params = new URLSearchParams({ services: target.id, stego: useStego ? 'true' : 'false', filename: uploadName });
+      const res = await fetch(`/api/ghost/upload?${params}`, {
+        method: 'POST',
+        body: uploadBlob,
+        headers: { 'Content-Type': uploadBlob.type || 'application/octet-stream' },
+      });
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
