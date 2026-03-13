@@ -232,20 +232,17 @@ export const POST: APIRoute = async ({ request }) => {
     const servicesStr = form.get('services') as string | null;
     const isStego = form.get('stego') === 'true';
 
-    if (!fileEntry) {
-      return new Response(JSON.stringify({ error: 'File missing' }), {
+    if (!fileEntry || typeof fileEntry === 'string') {
+      return new Response(JSON.stringify({ error: 'File missing or invalid' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const blob = fileEntry instanceof Blob ? fileEntry : new Blob([fileEntry]);
-    const arrayBuf = 'arrayBuffer' in blob && typeof blob.arrayBuffer === 'function'
-      ? await blob.arrayBuffer()
-      : await new Response(blob).arrayBuffer();
+    const arrayBuf = await new Response(fileEntry as Blob).arrayBuffer();
 
     if (arrayBuf.byteLength > MAX_BYTES) {
-      return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit` }), {
+      return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit (got ${(arrayBuf.byteLength / (1024 * 1024)).toFixed(1)} MB)` }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
