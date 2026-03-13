@@ -8,15 +8,6 @@ const GHOST_LIMIT = 10;
 
 type ServiceResult = { service: string; url: string | null; error?: string };
 
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-];
-
-function randomUA(): string {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-}
-
 function toBlobPart(buf: Uint8Array): BlobPart {
   return new Uint8Array(buf).buffer as ArrayBuffer;
 }
@@ -32,10 +23,11 @@ function getImgBBKeys(): string[] {
   return keys;
 }
 
-async function uploadImgBB(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadImgBB(file: Uint8Array, filename: string): Promise<string> {
   const keys = getImgBBKeys();
-  if (keys.length === 0) return null;
-  
+  if (keys.length === 0) throw new Error('No ImgBB API key configured');
+
+  let lastErr = '';
   for (const key of keys) {
     try {
       const form = new FormData();
@@ -44,140 +36,140 @@ async function uploadImgBB(file: Uint8Array, filename: string): Promise<string |
       const res = await fetch('https://api.imgbb.com/1/upload', {
         method: 'POST',
         body: form,
-        headers: { 'User-Agent': randomUA() }
       });
-      if (res.ok) {
-        const data = await res.json() as any;
-        if (data?.data?.url) return data.data.url;
-      }
-    } catch {}
+      if (!res.ok) { lastErr = `HTTP ${res.status}`; continue; }
+      const data = await res.json() as any;
+      if (data?.data?.url) return data.data.url;
+      lastErr = 'No URL in response';
+    } catch (e: any) { lastErr = e?.message || 'Network error'; }
   }
-  return null;
+  throw new Error(`ImgBB: ${lastErr}`);
 }
 
-async function uploadSxcu(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([toBlobPart(file)]), filename);
   form.append('noembed', 'true');
   const res = await fetch('https://sxcu.net/api/files/create', {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`sxcu.net: HTTP ${res.status}`);
   const data = await res.json() as any;
-  return data?.url || null;
+  if (!data?.url) throw new Error('sxcu.net: no URL in response');
+  return data.url;
 }
 
-async function uploadFreeImage(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadFreeImage(file: Uint8Array, filename: string): Promise<string> {
   const key = (import.meta as any).env?.FREEIMAGE_API_KEY || process.env.FREEIMAGE_API_KEY || '6d207e02198a847aa98d0a2a901485a5';
   const form = new FormData();
   form.append('source', new Blob([toBlobPart(file)]), filename);
   const res = await fetch(`https://freeimage.host/api/1/upload?key=${key}&format=json`, {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`FreeImage: HTTP ${res.status}`);
   const data = await res.json() as any;
-  return data?.image?.url || null;
+  if (!data?.image?.url) throw new Error('FreeImage: no URL in response');
+  return data.image.url;
 }
 
-async function uploadQuax(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('files[]', new Blob([toBlobPart(file)]), filename);
   const res = await fetch('https://qu.ax/upload', {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`qu.ax: HTTP ${res.status}`);
   const data = await res.json() as any;
-  return data?.files?.[0]?.url || null;
+  if (!data?.files?.[0]?.url) throw new Error('qu.ax: no URL in response');
+  return data.files[0].url;
 }
 
-async function uploadUguu(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadUguu(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('files[]', new Blob([toBlobPart(file)]), filename);
   const res = await fetch('https://uguu.se/upload?output=text', {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
-  return (await res.text()).trim() || null;
+  if (!res.ok) throw new Error(`Uguu: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('Uguu: invalid response');
+  return text;
 }
 
-async function uploadFileHosts(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadFileHosts(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([toBlobPart(file)]), filename);
   const res = await fetch('https://filehosts.net/api/upload', {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`FileHosts: HTTP ${res.status}`);
   const data = await res.json() as any;
-  return data?.file?.url || data?.url || null;
+  const url = data?.file?.url || data?.url;
+  if (!url) throw new Error('FileHosts: no URL in response');
+  return url;
 }
 
-async function uploadGofile(file: Uint8Array, filename: string): Promise<string | null> {
-  const srvRes = await fetch('https://api.gofile.io/servers', {
-    headers: { 'User-Agent': randomUA() }
-  });
-  if (!srvRes.ok) return null;
+async function uploadGofile(file: Uint8Array, filename: string): Promise<string> {
+  const srvRes = await fetch('https://api.gofile.io/servers');
+  if (!srvRes.ok) throw new Error(`Gofile servers: HTTP ${srvRes.status}`);
   const srvData = await srvRes.json() as any;
   const server = srvData?.data?.servers?.[0]?.name;
-  if (!server) return null;
+  if (!server) throw new Error('Gofile: no server available');
   const form = new FormData();
   form.append('file', new Blob([toBlobPart(file)]), filename);
   const res = await fetch(`https://${server}.gofile.io/uploadFile`, {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`Gofile: HTTP ${res.status}`);
   const data = await res.json() as any;
-  return data?.data?.downloadPage || null;
+  if (!data?.data?.downloadPage) throw new Error('Gofile: no download page in response');
+  return data.data.downloadPage;
 }
 
-async function uploadTmpfileLink(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadTmpfileLink(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([toBlobPart(file)]), filename);
   const res = await fetch('https://tmpfile.link/api/upload', {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`tmpfile.link: HTTP ${res.status}`);
   const data = await res.json() as any;
-  return data?.downloadLinkEncoded || null;
+  if (!data?.downloadLinkEncoded) throw new Error('tmpfile.link: no URL in response');
+  return data.downloadLinkEncoded;
 }
 
-async function uploadFilebin(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadFilebin(file: Uint8Array, filename: string): Promise<string> {
   const binId = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
   const url = `https://filebin.net/${binId}/${filename}`;
-  await fetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
     body: toBlobPart(file),
-    headers: { 'User-Agent': randomUA() }
   });
+  if (!res.ok) throw new Error(`Filebin: HTTP ${res.status}`);
   return url;
 }
 
-async function uploadTempSh(file: Uint8Array, filename: string): Promise<string | null> {
+async function uploadTempSh(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([toBlobPart(file)]), filename);
   const res = await fetch('https://temp.sh/upload', {
     method: 'POST',
     body: form,
-    headers: { 'User-Agent': randomUA() }
   });
-  if (!res.ok) return null;
-  return (await res.text()).trim() || null;
+  if (!res.ok) throw new Error(`temp.sh: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('temp.sh: invalid response');
+  return text;
 }
 
-const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string | null>> = {
+const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
   imgbb: uploadImgBB,
   sxcu: uploadSxcu,
   freeimage: uploadFreeImage,
