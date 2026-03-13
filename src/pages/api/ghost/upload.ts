@@ -228,20 +228,33 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const form = await request.formData();
-    const file = form.get('file') as File | null;
+    const fileEntry = form.get('file');
     const servicesStr = form.get('services') as string | null;
     const isStego = form.get('stego') === 'true';
 
-    if (!file || file.size > MAX_BYTES) {
-      return new Response(JSON.stringify({ error: `File missing or exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit` }), {
+    if (!fileEntry) {
+      return new Response(JSON.stringify({ error: 'File missing' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
+    const blob = fileEntry instanceof Blob ? fileEntry : new Blob([fileEntry]);
+    const arrayBuf = 'arrayBuffer' in blob && typeof blob.arrayBuffer === 'function'
+      ? await blob.arrayBuffer()
+      : await new Response(blob).arrayBuffer();
+
+    if (arrayBuf.byteLength > MAX_BYTES) {
+      return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const buffer = new Uint8Array(arrayBuf);
+    const filename = (fileEntry as any).name || (isStego ? 'ghost.png' : 'ghost.bin');
+
     const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
-    const buffer = new Uint8Array(await file.arrayBuffer());
-    const filename = file.name || (isStego ? 'ghost.png' : 'ghost.bin');
 
     const results: ServiceResult[] = await Promise.all(
       requestedServices.map(async (service) => {
