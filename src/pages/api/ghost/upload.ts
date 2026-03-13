@@ -209,7 +209,7 @@ export const GET: APIRoute = async () => {
   });
 };
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, url }) => {
   try {
     const { ok, resetIn } = await checkRateLimit('ghost', request, GHOST_LIMIT);
     if (!ok) {
@@ -219,39 +219,15 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const contentType = request.headers.get('Content-Type') || '';
-    if (!contentType.includes('multipart/form-data')) {
-      return new Response(JSON.stringify({ error: 'Expected multipart/form-data' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const form = await request.formData();
-    const fileEntry = form.get('file');
-    const servicesStr = form.get('services') as string | null;
-    const isStego = form.get('stego') === 'true';
-
-    if (!fileEntry) {
+    const arrayBuf = await request.arrayBuffer();
+    if (!arrayBuf || arrayBuf.byteLength === 0) {
       return new Response(JSON.stringify({ error: 'File missing' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    let buffer: Uint8Array;
-    let filename: string;
-
-    if (typeof fileEntry === 'string') {
-      buffer = new TextEncoder().encode(fileEntry);
-      filename = isStego ? 'ghost.png' : 'ghost.bin';
-    } else {
-      const arrayBuf = typeof fileEntry.arrayBuffer === 'function'
-        ? await fileEntry.arrayBuffer()
-        : await new Response(fileEntry).arrayBuffer();
-      buffer = new Uint8Array(arrayBuf);
-      filename = (fileEntry as any).name || (isStego ? 'ghost.png' : 'ghost.bin');
-    }
+    const buffer = new Uint8Array(arrayBuf);
 
     if (buffer.byteLength > MAX_BYTES) {
       return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit (got ${(buffer.byteLength / (1024 * 1024)).toFixed(1)} MB)` }), {
@@ -260,6 +236,10 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    const params = url.searchParams;
+    const servicesStr = params.get('services');
+    const isStego = params.get('stego') === 'true';
+    const filename = params.get('filename') || (isStego ? 'ghost.png' : 'ghost.bin');
     const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
 
     const results: ServiceResult[] = await Promise.all(
