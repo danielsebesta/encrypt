@@ -232,24 +232,46 @@ export const POST: APIRoute = async ({ request }) => {
     const servicesStr = form.get('services') as string | null;
     const isStego = form.get('stego') === 'true';
 
-    if (!fileEntry || typeof fileEntry === 'string') {
-      return new Response(JSON.stringify({ error: 'File missing or invalid' }), {
+    if (!fileEntry) {
+      return new Response(JSON.stringify({ error: 'File missing' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const arrayBuf = await new Response(fileEntry as Blob).arrayBuffer();
+    let buffer: Uint8Array;
+    let filename: string;
+    const entryType = typeof fileEntry;
+    const entryProto = Object.prototype.toString.call(fileEntry);
+    const hasArrayBuffer = typeof (fileEntry as any).arrayBuffer === 'function';
+    const hasStream = typeof (fileEntry as any).stream === 'function';
+    const entrySize = (fileEntry as any).size;
+    const entryName = (fileEntry as any).name;
 
-    if (arrayBuf.byteLength > MAX_BYTES) {
-      return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit (got ${(arrayBuf.byteLength / (1024 * 1024)).toFixed(1)} MB)` }), {
+    if (entryType !== 'string' && hasArrayBuffer) {
+      const arrayBuf = await (fileEntry as any).arrayBuffer();
+      buffer = new Uint8Array(arrayBuf);
+      filename = entryName || (isStego ? 'ghost.png' : 'ghost.bin');
+    } else if (entryType !== 'string' && hasStream) {
+      const arrayBuf = await new Response(fileEntry as any).arrayBuffer();
+      buffer = new Uint8Array(arrayBuf);
+      filename = entryName || (isStego ? 'ghost.png' : 'ghost.bin');
+    } else if (entryType === 'string') {
+      buffer = new TextEncoder().encode(fileEntry as string);
+      filename = isStego ? 'ghost.png' : 'ghost.bin';
+    } else {
+      return new Response(JSON.stringify({
+        error: 'Unsupported file entry type',
+        debug: { entryType, entryProto, hasArrayBuffer, hasStream, entrySize, entryName }
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (buffer.byteLength > MAX_BYTES) {
+      return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit (got ${(buffer.byteLength / (1024 * 1024)).toFixed(1)} MB)` }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-
-    const buffer = new Uint8Array(arrayBuf);
-    const filename = (fileEntry as any).name || (isStego ? 'ghost.png' : 'ghost.bin');
 
     const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
 
