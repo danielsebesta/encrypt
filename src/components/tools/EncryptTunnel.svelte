@@ -229,15 +229,16 @@
         addLog('Creating steganography image...');
         const stegoBuffer = await createStegoImage(encrypted);
         addLog(`Stego image: ${formatBytes(stegoBuffer.length)}`);
-        uploadBlob = new Blob([stegoBuffer.buffer as ArrayBuffer], { type: 'image/png' });
+        uploadBlob = new Blob([stegoBuffer], { type: 'image/png' });
         uploadName = `${randomId}.png`;
       } else {
         addLog('Encoding to base64...');
         const b64 = arrayToBase64(encrypted);
-        uploadBlob = new Blob([new TextEncoder().encode(b64)], { type: 'text/plain' });
+        uploadBlob = new Blob([b64], { type: 'text/plain' });
         uploadName = `${randomId}.txt`;
         addLog(`Encoded: ${formatBytes(uploadBlob.size)}`);
       }
+      addLog(`Upload blob: ${formatBytes(uploadBlob.size)}`);
 
       addLog(`Uploading to ${target.name}...`);
       const form = new FormData();
