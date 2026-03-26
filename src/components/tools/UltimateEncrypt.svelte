@@ -269,10 +269,13 @@
     log('Stego image created.');
   }
 
-  const SHORT_PROVIDERS: ShortProvider[] = ['nolog', 'isgd', 'tini', 'urlvanish', '1url', 'choto'];
+  // Ordered by privacy: nolog (no-log, open-source) → is.gd (honest about logging)
+  // → 1url (public stats, no false claims) → tini (claims private, no policy)
+  // → choto (commercial, no docs) → urlvanish (claims anonymous but runs GA)
+  const SHORT_PROVIDERS: ShortProvider[] = ['nolog', 'isgd', '1url', 'tini', 'choto', 'urlvanish'];
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    nolog: 'Nolog.link', isgd: 'is.gd', tini: 'tini.fyi',
-    urlvanish: 'URLVanish', '1url': '1url.cz', choto: 'choto.co'
+    nolog: 'Nolog.link', isgd: 'is.gd', '1url': '1url.cz',
+    tini: 'tini.fyi', choto: 'choto.co', urlvanish: 'URLVanish'
   };
 
   async function autoShorten(url: string): Promise<void> {
