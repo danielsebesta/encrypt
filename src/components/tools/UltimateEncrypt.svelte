@@ -32,7 +32,7 @@
   let error = '';
 
   const INLINE_LIMIT = 10 * 1024;
-  const MAX_FILE = 25 * 1024 * 1024;
+  const MAX_FILE = 50 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
 
   // BINARY chain: raw file hosts only (no re-encoding risk)
