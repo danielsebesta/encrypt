@@ -40,10 +40,8 @@
   interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
   const BINARY_HOSTS: HostInfo[] = [
     { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
-    { id: '0x0', name: '0x0.st', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
     { id: 'x0at', name: 'x0.at', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
     { id: 'catbox', name: 'Catbox.moe', retention: 'forever', maxBytes: 200 * 1024 * 1024 },
-    { id: 'transfersh', name: 'transfer.sh', retention: '14 days', maxBytes: 10 * 1024 * 1024 * 1024 },
     { id: 'tmpfile', name: 'tmpfile.link', retention: '7 days', maxBytes: 100 * 1024 * 1024 },
     { id: 'litterbox', name: 'Litterbox', retention: '3 days', maxBytes: 1024 * 1024 * 1024 },
     { id: 'tempsh', name: 'temp.sh', retention: '3 days', maxBytes: 4 * 1024 * 1024 * 1024 },
@@ -55,8 +53,6 @@
     { id: 'sxcu', name: 'sxcu.net', retention: 'forever', maxBytes: 95 * 1024 * 1024 },
     { id: 'freeimage', name: 'FreeImage.host', retention: 'forever', maxBytes: 64 * 1024 * 1024 },
     { id: 'imgbb', name: 'ImgBB', retention: 'forever', maxBytes: 32 * 1024 * 1024 },
-    { id: 'lightshot', name: 'Lightshot', retention: 'forever', maxBytes: 20 * 1024 * 1024 },
-    { id: 'imghippo', name: 'ImgHippo', retention: '72 hours', maxBytes: 20 * 1024 * 1024 },
   ];
 
   $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;

@@ -179,52 +179,6 @@ async function uploadTempSh(file: Uint8Array, filename: string): Promise<string>
   return text;
 }
 
-async function uploadImgHippo(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('image', toBlob(file, filename), filename);
-  const res = await fetch('https://api.imghippo.com/file', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-    },
-    body: form,
-  });
-  if (!res.ok) throw new Error(`ImgHippo: HTTP ${res.status}`);
-  const data = await res.json() as any;
-  if (!data?.success || !data?.data?.images) throw new Error('ImgHippo: no URL in response');
-  return data.data.images;
-}
-
-async function uploadLightshot(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('image', toBlob(file, filename), filename);
-  const res = await fetch('https://prntscr.com/upload.php', {
-    method: 'POST',
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0',
-      'Accept': 'application/json',
-      'Referer': 'https://prnt.sc/',
-    },
-    body: form,
-  });
-  if (!res.ok) throw new Error(`Lightshot: HTTP ${res.status}`);
-  const data = await res.json() as any;
-  if (data?.status !== 'success' || !data?.data) throw new Error('Lightshot: upload failed');
-  return data.data;
-}
-
-async function upload0x0(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
-  const res = await fetch('https://0x0.st', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`0x0.st: HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('0x0.st: invalid response');
-  return text;
-}
 
 async function uploadX0at(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
@@ -236,17 +190,6 @@ async function uploadX0at(file: Uint8Array, filename: string): Promise<string> {
   if (!res.ok) throw new Error(`x0.at: HTTP ${res.status}`);
   const text = (await res.text()).trim();
   if (!text || !text.startsWith('http')) throw new Error('x0.at: invalid response');
-  return text;
-}
-
-async function uploadTransferSh(file: Uint8Array, filename: string): Promise<string> {
-  const res = await fetch(`https://transfer.sh/${encodeURIComponent(filename)}`, {
-    method: 'PUT',
-    body: toBlob(file, filename),
-  });
-  if (!res.ok) throw new Error(`transfer.sh: HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('transfer.sh: invalid response');
   return text;
 }
 
@@ -288,11 +231,7 @@ const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<s
   gofile: uploadGofile,
   tmpfile: uploadTmpfileLink,
   tempsh: uploadTempSh,
-  lightshot: uploadLightshot,
-  imghippo: uploadImgHippo,
-  '0x0': upload0x0,
   x0at: uploadX0at,
-  transfersh: uploadTransferSh,
   catbox: uploadCatbox,
   litterbox: uploadLitterbox,
 };
@@ -316,11 +255,7 @@ const SERVICE_INFO: ServiceInfo[] = [
   { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: 95 * 1024 * 1024, retention: 'forever', tosUrl: 'https://sxcu.net/tos.html', recommended: true },
   { id: 'freeimage', name: 'FreeImage.host', type: 'image', maxBytes: 64 * 1024 * 1024, retention: 'forever', tosUrl: 'https://freeimage.host/tos' },
   { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: 'forever', tosUrl: 'https://imgbb.com/tos' },
-  { id: 'lightshot', name: 'Lightshot', type: 'image', maxBytes: 20 * 1024 * 1024, retention: 'forever', tosUrl: 'https://prnt.sc/terms' },
-  { id: 'imghippo', name: 'ImgHippo', type: 'image', maxBytes: 20 * 1024 * 1024, retention: '72 hours', tosUrl: 'https://imghippo.com/terms' },
-  { id: '0x0', name: '0x0.st', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '3-100 days', tosUrl: 'https://0x0.st', recommended: true },
   { id: 'x0at', name: 'x0.at', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '3-100 days', tosUrl: 'https://x0.at' },
-  { id: 'transfersh', name: 'transfer.sh', type: 'file', maxBytes: 10 * 1024 * 1024 * 1024, retention: '14 days', tosUrl: null },
   { id: 'catbox', name: 'Catbox.moe', type: 'file', maxBytes: 200 * 1024 * 1024, retention: 'forever', tosUrl: 'https://catbox.moe/faq.php' },
   { id: 'litterbox', name: 'Litterbox', type: 'file', maxBytes: 1024 * 1024 * 1024, retention: '3 days', tosUrl: 'https://catbox.moe/faq.php' },
 ];
