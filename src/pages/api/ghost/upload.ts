@@ -179,6 +179,40 @@ async function uploadTempSh(file: Uint8Array, filename: string): Promise<string>
   return text;
 }
 
+async function uploadImgHippo(file: Uint8Array, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append('image', toBlob(file, filename), filename);
+  const res = await fetch('https://api.imghippo.com/file', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+    },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`ImgHippo: HTTP ${res.status}`);
+  const data = await res.json() as any;
+  if (!data?.success || !data?.data?.images) throw new Error('ImgHippo: no URL in response');
+  return data.data.images;
+}
+
+async function uploadLightshot(file: Uint8Array, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append('image', toBlob(file, filename), filename);
+  const res = await fetch('https://prntscr.com/upload.php', {
+    method: 'POST',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0',
+      'Accept': 'application/json',
+      'Referer': 'https://prnt.sc/',
+    },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Lightshot: HTTP ${res.status}`);
+  const data = await res.json() as any;
+  if (data?.status !== 'success' || !data?.data) throw new Error('Lightshot: upload failed');
+  return data.data;
+}
+
 const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
   imgbb: uploadImgBB,
   sxcu: uploadSxcu,
@@ -188,6 +222,8 @@ const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<s
   gofile: uploadGofile,
   tmpfile: uploadTmpfileLink,
   tempsh: uploadTempSh,
+  lightshot: uploadLightshot,
+  imghippo: uploadImgHippo,
 };
 
 interface ServiceInfo {
@@ -208,7 +244,9 @@ const SERVICE_INFO: ServiceInfo[] = [
   { id: 'uguu', name: 'Uguu.se', type: 'file', maxBytes: 128 * 1024 * 1024, retention: '3 hours', tosUrl: 'https://uguu.se/faq' },
   { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: 95 * 1024 * 1024, retention: 'forever', tosUrl: 'https://sxcu.net/tos.html', recommended: true },
   { id: 'freeimage', name: 'FreeImage.host', type: 'image', maxBytes: 64 * 1024 * 1024, retention: 'forever', tosUrl: 'https://freeimage.host/tos' },
-  { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: '6 months', tosUrl: 'https://imgbb.com/tos' },
+  { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: 'forever', tosUrl: 'https://imgbb.com/tos' },
+  { id: 'lightshot', name: 'Lightshot', type: 'image', maxBytes: 20 * 1024 * 1024, retention: 'forever', tosUrl: 'https://prnt.sc/terms' },
+  { id: 'imghippo', name: 'ImgHippo', type: 'image', maxBytes: 20 * 1024 * 1024, retention: '72 hours', tosUrl: 'https://imghippo.com/terms' },
 ];
 
 export const GET: APIRoute = async () => {
