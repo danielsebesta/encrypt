@@ -8,8 +8,17 @@ const GHOST_LIMIT = 10;
 
 type ServiceResult = { service: string; url: string | null; error?: string };
 
-function toBlob(buf: Uint8Array, type?: string): Blob {
-  return new Blob([buf], type ? { type } : undefined);
+function mimeFromName(name: string): string {
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.gif')) return 'image/gif';
+  if (name.endsWith('.webp')) return 'image/webp';
+  return 'application/octet-stream';
+}
+
+function toBlob(buf: Uint8Array, filename?: string): Blob {
+  const type = filename ? mimeFromName(filename) : 'application/octet-stream';
+  return new Blob([buf], { type });
 }
 
 function getImgBBKeys(): string[] {
@@ -32,7 +41,7 @@ async function uploadImgBB(file: Uint8Array, filename: string): Promise<string> 
     try {
       const form = new FormData();
       form.append('key', key);
-      form.append('image', toBlob(file), filename);
+      form.append('image', toBlob(file, filename), filename);
       const res = await fetch('https://api.imgbb.com/1/upload', {
         method: 'POST',
         body: form,
@@ -48,7 +57,7 @@ async function uploadImgBB(file: Uint8Array, filename: string): Promise<string> 
 
 async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
-  form.append('file', toBlob(file), filename);
+  form.append('file', toBlob(file, filename), filename);
   form.append('noembed', 'true');
   const res = await fetch('https://sxcu.net/api/files/create', {
     method: 'POST',
@@ -63,7 +72,7 @@ async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
 async function uploadFreeImage(file: Uint8Array, filename: string): Promise<string> {
   const key = (import.meta as any).env?.FREEIMAGE_API_KEY || process.env.FREEIMAGE_API_KEY || '6d207e02198a847aa98d0a2a901485a5';
   const form = new FormData();
-  form.append('source', toBlob(file), filename);
+  form.append('source', toBlob(file, filename), filename);
   const res = await fetch(`https://freeimage.host/api/1/upload?key=${key}&format=json`, {
     method: 'POST',
     body: form,
@@ -76,7 +85,7 @@ async function uploadFreeImage(file: Uint8Array, filename: string): Promise<stri
 
 async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
-  form.append('files[]', toBlob(file), filename);
+  form.append('files[]', toBlob(file, filename), filename);
   const res = await fetch('https://qu.ax/upload', {
     method: 'POST',
     body: form,
@@ -89,7 +98,7 @@ async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
 
 async function uploadUguu(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
-  form.append('files[]', toBlob(file), filename);
+  form.append('files[]', toBlob(file, filename), filename);
   const res = await fetch('https://uguu.se/upload?output=text', {
     method: 'POST',
     body: form,
@@ -102,7 +111,7 @@ async function uploadUguu(file: Uint8Array, filename: string): Promise<string> {
 
 async function uploadFileHosts(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
-  form.append('file', toBlob(file), filename);
+  form.append('file', toBlob(file, filename), filename);
   const res = await fetch('https://filehosts.net/api/upload', {
     method: 'POST',
     body: form,
@@ -122,7 +131,7 @@ async function uploadGofile(file: Uint8Array, filename: string): Promise<string>
   const server = Array.isArray(servers) ? (typeof servers[0] === 'string' ? servers[0] : servers[0]?.name) : null;
   if (!server) throw new Error('Gofile: no server available');
   const form = new FormData();
-  form.append('file', toBlob(file), filename);
+  form.append('file', toBlob(file, filename), filename);
   const res = await fetch(`https://${server}.gofile.io/uploadFile`, {
     method: 'POST',
     body: form,
@@ -135,7 +144,7 @@ async function uploadGofile(file: Uint8Array, filename: string): Promise<string>
 
 async function uploadTmpfileLink(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
-  form.append('file', toBlob(file), filename);
+  form.append('file', toBlob(file, filename), filename);
   const res = await fetch('https://tmpfile.link/api/upload', {
     method: 'POST',
     body: form,
@@ -151,7 +160,7 @@ async function uploadFilebin(file: Uint8Array, filename: string): Promise<string
   const url = `https://filebin.net/${binId}/${filename}`;
   const res = await fetch(url, {
     method: 'POST',
-    body: toBlob(file),
+    body: toBlob(file, filename),
   });
   if (!res.ok) throw new Error(`Filebin: HTTP ${res.status}`);
   return url;
@@ -159,7 +168,7 @@ async function uploadFilebin(file: Uint8Array, filename: string): Promise<string
 
 async function uploadTempSh(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
-  form.append('file', toBlob(file), filename);
+  form.append('file', toBlob(file, filename), filename);
   const res = await fetch('https://temp.sh/upload', {
     method: 'POST',
     body: form,
