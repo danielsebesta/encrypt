@@ -235,6 +235,18 @@ const languageOptions = locales.map(l => ({
 		<main class="flex-1">
 			<slot />
 		</main>
+		<footer class="border-t border-zinc-100 dark:border-zinc-900 relative bg-white dark:bg-zinc-950">
+			<div class="max-w-7xl mx-auto px-5 py-12 flex flex-col md:flex-row justify-between items-center gap-8 text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">
+				<div class="flex items-center gap-3">
+					<img src="/encryptclick_icon.svg" alt="" class="h-6 w-auto opacity-30 invert dark:invert-0" />
+					<span>{t(dict, 'home.footer.tagline')}</span>
+				</div>
+				<div class="flex items-center gap-8">
+					<a href="/security" class="text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 transition-colors">{t(dict, 'home.footer.security')}</a>
+					<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-zinc-800 dark:text-zinc-100 hover:text-emerald-500 transition-colors">{t(dict, 'home.footer.github')}</a>
+				</div>
+			</div>
+		</footer>
 		<script is:inline>
 			(function () {
 				if (typeof window === 'undefined' || typeof document === 'undefined') return;

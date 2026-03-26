@@ -2,6 +2,7 @@
   import { generateToken } from '../../lib/crypto';
   import { onMount } from 'svelte';
   import { getTranslations, t } from '../../lib/i18n';
+  import CopyButton from '../CopyButton.svelte';
   export let locale = 'en';
   $: dict = getTranslations(locale);
   let length = 32;
@@ -14,9 +15,6 @@
 
   onMount(refresh);
 
-  function copy() {
-    navigator.clipboard.writeText(result);
-  }
 </script>
 
 <div class="space-y-6 animate-in fade-in duration-500">
@@ -39,7 +37,7 @@
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.token.generatedToken')}</label>
-        <button on:click={copy} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.token.copy')}</button>
+        <CopyButton text={result} label={t(dict, 'tools.token.copy')} />
       </div>
       <div class="p-6 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl font-mono text-lg break-all text-center text-emerald-700 dark:text-emerald-400">
         {result}

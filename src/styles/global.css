@@ -210,6 +210,13 @@
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
+    .btn-secondary {
+        @apply inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-sm font-semibold px-4 py-2
+            transition-colors transition-transform duration-150 ease-out
+            hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-[0.97]
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
+    }
+
     .btn-icon {
         @apply h-9 w-9 rounded-full flex items-center justify-center;
     }
@@ -243,6 +250,7 @@
         transform: translateY(0);
     }
     .aos-fade.delay-0 { transition-delay: 0ms; }
+    .aos-fade.delay-60 { transition-delay: 60ms; }
     .aos-fade.delay-80 { transition-delay: 80ms; }
     .aos-fade.delay-120 { transition-delay: 120ms; }
 }

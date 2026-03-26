@@ -44,7 +44,7 @@
   }
 </script>
 
-<div class="form space-y-5">
+<div class="space-y-5">
   <div class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
     <button
       on:click={toggleMode}

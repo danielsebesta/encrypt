@@ -2,6 +2,7 @@
   import { generateMnemonic } from '../../lib/crypto';
   import { onMount } from 'svelte';
   import { getTranslations, t } from '../../lib/i18n';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   $: dict = getTranslations(locale);
@@ -14,9 +15,6 @@
 
   onMount(refresh);
 
-  function copy() {
-    navigator.clipboard.writeText(mnemonic);
-  }
 </script>
 
 <div class="space-y-6 animate-in fade-in duration-500">
@@ -42,7 +40,7 @@
 
     <div class="flex gap-3">
         <button on:click={refresh} class="btn flex-1 py-4 uppercase tracking-widest text-xs font-black">{t(dict, 'tools.bip39.generateNew')}</button>
-        <button on:click={copy} class="btn-outline flex-1 py-4 uppercase tracking-widest text-xs font-black">{t(dict, 'tools.bip39.copyPhrase')}</button>
+        <CopyButton text={mnemonic} label={t(dict, 'tools.bip39.copyPhrase')} className="btn-outline flex-1 py-4 uppercase tracking-widest text-xs font-black" />
     </div>
   </div>
 </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { base64Encode, base64Decode } from '../../lib/crypto';
   import { getTranslations, t } from '../../lib/i18n';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   $: dict = getTranslations(locale);
@@ -23,9 +24,6 @@
 
   $: if (input || mode) handleProcess();
 
-  function copy() {
-    navigator.clipboard.writeText(output);
-  }
 </script>
 
 <div class="space-y-6 animate-in fade-in duration-500">
@@ -43,7 +41,7 @@
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.base64.outputResult')}</label>
-        <button on:click={copy} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.base64.copy')}</button>
+        <CopyButton text={output} label={t(dict, 'tools.base64.copy')} />
       </div>
       <div class="p-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl font-mono text-sm break-all min-h-[120px] text-zinc-800 dark:text-zinc-200">
         {output}

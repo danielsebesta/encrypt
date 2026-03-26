@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { createStegoImage, extractStego } from '../../lib/ghost/steganography';
+  import CopyButton from '../CopyButton.svelte';
 
   const MAX_BYTES = 25 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
@@ -371,10 +372,6 @@
     URL.revokeObjectURL(url);
   }
 
-  function copyText(text: string) {
-    navigator.clipboard.writeText(text).catch(() => {});
-  }
-
   function handleDecryptFileChange(e: Event) {
     const target = e.target as HTMLInputElement;
     decryptFile = target.files?.[0] || null;
@@ -572,7 +569,7 @@
         </h3>
         <div class="flex gap-2 items-center">
           <input type="text" readonly class="input font-mono text-xs flex-1" value={resultUrl} />
-          <button type="button" class="btn-outline text-xs" on:click={() => copyText(resultUrl)}>Copy</button>
+          <CopyButton text={resultUrl} label="Copy" className="btn-outline text-xs" />
         </div>
       </div>
 
@@ -582,7 +579,7 @@
         </h3>
         <div class="flex gap-2 items-center">
           <input type="text" readonly class="input font-mono text-xs flex-1 bg-white dark:bg-zinc-900" value={password} />
-          <button type="button" class="btn-outline text-xs" on:click={() => copyText(password)}>Copy</button>
+          <CopyButton text={password} label="Copy" className="btn-outline text-xs" />
         </div>
         <p class="text-[10px] text-amber-600 dark:text-amber-400/80">
           Save this password! Share it through a separate secure channel.
