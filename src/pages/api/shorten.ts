@@ -300,37 +300,7 @@ export const POST: APIRoute = async ({ request, url }) => {
     });
   }
 
-  let token: string | null = null;
-  try {
-    const u = new URL(shorturl);
-    const code = u.pathname.replace(/^\/+/, '');
-    if (provider === 'tini' && u.hostname === 'tini.fyi') {
-      token = code;
-    } else if (provider === 'urlvanish' && u.hostname.endsWith('urlvanish.com')) {
-      token = code;
-    } else if (provider === '1url' && u.hostname === '1url.cz') {
-      token = code;
-    } else if (provider === 'choto' && u.hostname === 'choto.co') {
-      token = code;
-    } else if (provider === 'isgd' && u.hostname === 'is.gd') {
-      token = code;
-    } else if (provider === 'nolog' && u.hostname.endsWith('nolog.link')) {
-      token = code;
-    }
-  } catch {
-    token = null;
-  }
-
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'Shortener returned an unexpected URL format.' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  const wrapped = `${url.origin}/s/${provider}/${token}`;
-
-  return new Response(JSON.stringify({ shorturl: wrapped }), {
+  return new Response(JSON.stringify({ shorturl: shorturl }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'X-RateLimit-Remaining': String(remaining - 1) }
   });
