@@ -8,9 +8,13 @@ const ISGD_API = 'https://is.gd/create.php';
 const TINI_API = 'https://tini.fyi/api/v1/url/create';
 const TINI_BASE = 'https://tini.fyi/';
 const CHOTO_API = 'https://backend.choto.co/api/v1/links';
+const VGD_API = 'https://v.gd/create.php';
+const DAGD_API = 'https://da.gd/s';
+const SPOOME_API = 'https://spoo.me/';
+const CLEANURI_API = 'https://cleanuri.com/api/v1/shorten';
 const SHORTEN_LIMIT = 30;
 
-type Provider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd';
+type Provider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd' | 'vgd' | 'dagd' | 'spoome' | 'cleanuri';
 
 export const prerender = false;
 
@@ -199,6 +203,70 @@ async function shortenIsgd(urlToShorten: string, signal: AbortSignal): Promise<s
   }
 }
 
+async function shortenVgd(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
+  const params = new URLSearchParams({ url: urlToShorten, format: 'json' }).toString();
+  const res = await fetch(`${VGD_API}?${params}`, {
+    method: 'GET',
+    headers: { 'Accept': 'application/json', 'User-Agent': 'encrypt.click/1' },
+    signal
+  });
+  const text = await res.text();
+  if (!res.ok) return null;
+  try {
+    const data = JSON.parse(text) as { shorturl?: string; errorcode?: number };
+    if (data.errorcode) return null;
+    return typeof data.shorturl === 'string' && data.shorturl.trim() ? data.shorturl.trim() : null;
+  } catch { return null; }
+}
+
+async function shortenDagd(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
+  const res = await fetch(`${DAGD_API}?url=${encodeURIComponent(urlToShorten)}`, {
+    method: 'GET',
+    headers: { 'User-Agent': 'encrypt.click/1' },
+    signal
+  });
+  const text = (await res.text()).trim();
+  if (!res.ok) return null;
+  return text && text.startsWith('http') ? text : null;
+}
+
+async function shortenSpoome(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
+  const res = await fetch(SPOOME_API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+      'User-Agent': 'encrypt.click/1'
+    },
+    body: new URLSearchParams({ url: urlToShorten }).toString(),
+    signal
+  });
+  const text = await res.text();
+  if (!res.ok) return null;
+  try {
+    const data = JSON.parse(text) as { short_url?: string };
+    return typeof data.short_url === 'string' && data.short_url.trim() ? data.short_url.trim() : null;
+  } catch { return null; }
+}
+
+async function shortenCleanuri(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
+  const res = await fetch(CLEANURI_API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'encrypt.click/1'
+    },
+    body: new URLSearchParams({ url: urlToShorten }).toString(),
+    signal
+  });
+  const text = await res.text();
+  if (!res.ok) return null;
+  try {
+    const data = JSON.parse(text) as { result_url?: string };
+    return typeof data.result_url === 'string' && data.result_url.trim() ? data.result_url.trim() : null;
+  } catch { return null; }
+}
+
 export const POST: APIRoute = async ({ request, url }) => {
   const { ok, remaining, resetIn } = await checkRateLimit('shorten', request, SHORTEN_LIMIT);
   if (!ok) {
@@ -258,29 +326,28 @@ export const POST: APIRoute = async ({ request, url }) => {
   const urlToShorten = isLocal ? `https://encrypt.click${parsed.pathname}${parsed.hash}` : targetUrl;
 
   const requested = body?.provider;
-  const provider: Provider =
-    requested === '1url' || requested === 'urlvanish' || requested === 'tini' || requested === 'choto' || requested === 'isgd'
-      ? requested
-      : 'nolog';
+  const VALID_PROVIDERS: Provider[] = ['nolog', '1url', 'urlvanish', 'tini', 'choto', 'isgd', 'vgd', 'dagd', 'spoome', 'cleanuri'];
+  const provider: Provider = VALID_PROVIDERS.includes(requested as Provider) ? requested as Provider : 'nolog';
+
+  const PROVIDER_FNS: Record<Provider, (url: string, signal: AbortSignal) => Promise<string | null>> = {
+    nolog: shortenNolog,
+    '1url': shorten1url,
+    urlvanish: shortenUrlVanish,
+    tini: shortenTini,
+    choto: shortenChoto,
+    isgd: shortenIsgd,
+    vgd: shortenVgd,
+    dagd: shortenDagd,
+    spoome: shortenSpoome,
+    cleanuri: shortenCleanuri,
+  };
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   let shorturl: string | null;
   try {
-    if (provider === '1url') {
-      shorturl = await shorten1url(urlToShorten, controller.signal);
-    } else if (provider === 'urlvanish') {
-      shorturl = await shortenUrlVanish(urlToShorten, controller.signal);
-    } else if (provider === 'tini') {
-      shorturl = await shortenTini(urlToShorten, controller.signal);
-    } else if (provider === 'choto') {
-      shorturl = await shortenChoto(urlToShorten, controller.signal);
-    } else if (provider === 'isgd') {
-      shorturl = await shortenIsgd(urlToShorten, controller.signal);
-    } else {
-      shorturl = await shortenNolog(urlToShorten, controller.signal);
-    }
+    shorturl = await PROVIDER_FNS[provider](urlToShorten, controller.signal);
   } catch {
     shorturl = null;
   }
