@@ -213,6 +213,44 @@ async function uploadLightshot(file: Uint8Array, filename: string): Promise<stri
   return data.data;
 }
 
+async function upload0x0(file: Uint8Array, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', toBlob(file, filename), filename);
+  const res = await fetch('https://0x0.st', {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error(`0x0.st: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('0x0.st: invalid response');
+  return text;
+}
+
+async function uploadTransferSh(file: Uint8Array, filename: string): Promise<string> {
+  const res = await fetch(`https://transfer.sh/${encodeURIComponent(filename)}`, {
+    method: 'PUT',
+    body: toBlob(file, filename),
+  });
+  if (!res.ok) throw new Error(`transfer.sh: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('transfer.sh: invalid response');
+  return text;
+}
+
+async function uploadCatbox(file: Uint8Array, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append('reqtype', 'fileupload');
+  form.append('fileToUpload', toBlob(file, filename), filename);
+  const res = await fetch('https://catbox.moe/user/api.php', {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error(`catbox.moe: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('catbox.moe: invalid response');
+  return text;
+}
+
 const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
   imgbb: uploadImgBB,
   sxcu: uploadSxcu,
@@ -224,6 +262,9 @@ const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<s
   tempsh: uploadTempSh,
   lightshot: uploadLightshot,
   imghippo: uploadImgHippo,
+  '0x0': upload0x0,
+  transfersh: uploadTransferSh,
+  catbox: uploadCatbox,
 };
 
 interface ServiceInfo {
@@ -247,6 +288,9 @@ const SERVICE_INFO: ServiceInfo[] = [
   { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: 'forever', tosUrl: 'https://imgbb.com/tos' },
   { id: 'lightshot', name: 'Lightshot', type: 'image', maxBytes: 20 * 1024 * 1024, retention: 'forever', tosUrl: 'https://prnt.sc/terms' },
   { id: 'imghippo', name: 'ImgHippo', type: 'image', maxBytes: 20 * 1024 * 1024, retention: '72 hours', tosUrl: 'https://imghippo.com/terms' },
+  { id: '0x0', name: '0x0.st', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '30 days', tosUrl: 'https://0x0.st', recommended: true },
+  { id: 'transfersh', name: 'transfer.sh', type: 'file', maxBytes: 10 * 1024 * 1024 * 1024, retention: '14 days', tosUrl: null },
+  { id: 'catbox', name: 'Catbox.moe', type: 'file', maxBytes: 200 * 1024 * 1024, retention: 'forever', tosUrl: 'https://catbox.moe/faq.php' },
 ];
 
 export const GET: APIRoute = async () => {
