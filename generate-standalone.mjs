@@ -348,55 +348,6 @@ function updateUI(){
   return buildHTML('Vigenere', '', body, js, keys);
 }
 
-function generateMorse() {
-  const keys = ['tools.morse.meta.title','tools.morse.h1','tools.morse.h1Highlight','tools.morse.subtitle','tools.morse.textToMorse','tools.morse.morseToText','tools.morse.sourceInput','tools.morse.textPlaceholder','tools.morse.morsePlaceholder','tools.morse.translatedOutput','tools.morse.playAudio','tools.morse.copy','tools.morse.info.title','tools.morse.info.text'];
-  const body = `<div class="main">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div class="tab-bar"><button class="tab-btn active" id="tabT2M" onclick="setDir(true)"></button><button class="tab-btn" id="tabM2T" onclick="setDir(false)"></button></div>
-    <div><label class="label" id="lSrc"></label><textarea class="input" id="inp" oninput="doMorse()" style="font-family:var(--mono)"></textarea></div>
-    <div><div class="row"><label class="label" id="lOut"></label><div style="display:flex;gap:16px"><button class="link-copy" onclick="playMorse()" id="playBtn" style="display:flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg><span></span></button><button class="link-copy" id="copyBtn" onclick="copyText($('out').textContent)"></button></div></div><div class="morse-output" id="out">...</div></div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>`;
-  const js = `<script>
-const MM={'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.','0':'-----',' ':'/'};
-const RM=Object.fromEntries(Object.entries(MM).map(([k,v])=>[v,k]));
-let t2m=true;
-function toMorse(s){return s.toUpperCase().split('').map(c=>MM[c]||c).join(' ')}
-function fromMorse(s){return s.split(' ').map(c=>RM[c]||c).join('')}
-function setDir(d){t2m=d;$('tabT2M').classList.toggle('active',d);$('tabM2T').classList.toggle('active',!d);$('inp').value='';$('out').textContent='...';updateUI();}
-function doMorse(){$('out').textContent=(t2m?toMorse($('inp').value):fromMorse($('inp').value))||'...';}
-function playMorse(){
-  const out=$('out').textContent;const ctx=new(window.AudioContext||window.webkitAudioContext)();
-  const osc=ctx.createOscillator();const gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);
-  osc.type='sine';osc.frequency.setValueAtTime(600,ctx.currentTime);
-  let time=ctx.currentTime;const dot=0.1,dash=0.3;
-  out.split('').forEach(c=>{
-    if(c==='.'){gain.gain.setValueAtTime(0.2,time);gain.gain.setValueAtTime(0,time+dot);time+=dot+dot;}
-    else if(c==='-'){gain.gain.setValueAtTime(0.2,time);gain.gain.setValueAtTime(0,time+dash);time+=dash+dot;}
-    else if(c===' '||c==='/'){time+=dot*2;}
-  });
-  osc.start();osc.stop(time+0.1);
-}
-function updateUI(){
-  $('h1').innerHTML=t('tools.morse.h1')+' <span>'+t('tools.morse.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.morse.subtitle');
-  $('tabT2M').textContent=t('tools.morse.textToMorse');
-  $('tabM2T').textContent=t('tools.morse.morseToText');
-  $('lSrc').textContent=t('tools.morse.sourceInput');
-  $('inp').placeholder=t2m?t('tools.morse.textPlaceholder'):t('tools.morse.morsePlaceholder');
-  $('lOut').textContent=t('tools.morse.translatedOutput');
-  $('playBtn').querySelector('span').textContent=t('tools.morse.playAudio');
-  $('copyBtn').textContent=t('tools.morse.copy');
-  $('iTitle').textContent=t('tools.morse.info.title');
-  $('iText').textContent=t('tools.morse.info.text');
-  document.title=t('tools.morse.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('Morse Code', '', body, js, keys);
-}
-
 function generateTokenGen() {
   const keys = ['tools.token.meta.title','tools.token.h1','tools.token.h1Highlight','tools.token.subtitle','tools.token.entropyLength','tools.token.encoding','tools.token.hex','tools.token.base64Enc','tools.token.urlSafe','tools.token.generatedToken','tools.token.copy','tools.token.refreshToken','tools.token.info.title','tools.token.info.text'];
   const body = `<div class="main">
@@ -696,93 +647,6 @@ function updateUI(){
   return buildHTML('Enigma M3', '', body, js, keys);
 }
 
-function generateWatermark() {
-  const keys = ['tools.watermark.meta.title','tools.watermark.h1','tools.watermark.h1Highlight','tools.watermark.subtitle','tools.watermark.sourceDocument','tools.watermark.loaded','tools.watermark.protectionText','tools.watermark.placeholder','tools.watermark.saveSecure','tools.watermark.verificationNote','tools.watermark.info.title','tools.watermark.info.text'];
-  const body = `<div class="main">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div><label class="label" id="lSrc"></label><div style="position:relative"><input type="file" accept="image/*" class="input" id="fileInp" style="cursor:pointer"><div id="loadedBadge" class="hidden" style="position:absolute;right:12px;top:8px;font-size:10px;background:var(--brand);color:#fff;padding:2px 8px;border-radius:4px;font-weight:700"></div></div></div>
-    <div><label class="label" id="lText"></label><input class="input" id="wmText" value="FOR IDENTITY VERIFICATION ONLY" oninput="apply()"></div>
-    <div id="preview" class="hidden space-y">
-      <div style="border-radius:24px;overflow:hidden;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.1)"><img id="result" style="width:100%;height:auto;max-height:500px;object-fit:contain"></div>
-      <a id="dlLink" download="protected-identity.jpg" class="btn btn-w" style="display:block;text-align:center;text-decoration:none"></a>
-      <p style="font-size:10px;color:var(--text3);text-align:center;font-weight:500" id="note"></p>
-    </div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>`;
-  const js = `<script>
-let file=null;
-$('fileInp').addEventListener('change',e=>{file=e.target.files[0]||null;if(file){$('loadedBadge').classList.remove('hidden');$('loadedBadge').textContent=t('tools.watermark.loaded');apply();}});
-function apply(){
-  if(!file)return;
-  const img=new Image();img.src=URL.createObjectURL(file);
-  img.onload=()=>{
-    const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
-    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-    const d=Math.sqrt(c.width**2+c.height**2);ctx.save();ctx.translate(c.width/2,c.height/2);ctx.rotate(-Math.PI/4);ctx.translate(-d/2,-d/2);
-    const fs=Math.floor(c.width/25);ctx.font='bold '+fs+'px system-ui,sans-serif';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.textAlign='center';
-    const sx=c.width/3,sy=c.height/8;
-    for(let x=-d;x<d*2;x+=sx)for(let y=-d;y<d*2;y+=sy)ctx.fillText($('wmText').value,x,y);
-    ctx.restore();
-    const url=c.toDataURL('image/jpeg',0.9);
-    $('result').src=url;$('dlLink').href=url;$('preview').classList.remove('hidden');
-  };
-}
-function updateUI(){
-  $('h1').innerHTML=t('tools.watermark.h1')+' <span>'+t('tools.watermark.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.watermark.subtitle');$('lSrc').textContent=t('tools.watermark.sourceDocument');
-  $('lText').textContent=t('tools.watermark.protectionText');$('wmText').placeholder=t('tools.watermark.placeholder');
-  $('dlLink').textContent=t('tools.watermark.saveSecure');$('note').textContent=t('tools.watermark.verificationNote');
-  $('iTitle').textContent=t('tools.watermark.info.title');$('iText').textContent=t('tools.watermark.info.text');
-  if($('loadedBadge').textContent)$('loadedBadge').textContent=t('tools.watermark.loaded');
-  document.title=t('tools.watermark.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('ID Watermarker', '', body, js, keys);
-}
-
-function generateExifScrub() {
-  const keys = ['tools.exifScrub.meta.title','tools.exifScrub.h1','tools.exifScrub.h1Highlight','tools.exifScrub.subtitle','tools.exifScrub.dropImage','tools.exifScrub.metadataRemoved','tools.exifScrub.imageTooLarge','tools.exifScrub.redrawing','tools.exifScrub.privacySafeResult','tools.exifScrub.downloadJpeg','tools.exifScrub.newFileGenerated','tools.exifScrub.info.title','tools.exifScrub.info.text'];
-  const body = `<div class="main">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div class="drop-zone"><input type="file" accept="image/*" id="fileInp"><div><p style="font-weight:700" id="dropText"></p><p style="font-size:12px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:0.05em" id="dropSub"></p></div></div>
-    <div id="status" class="hidden" style="text-align:center;padding:16px"><span style="font-size:12px;font-weight:700;color:var(--brand)" id="statusText"></span></div>
-    <div id="resultWrap" class="hidden space-y">
-      <div><label class="label" id="lResult" style="color:var(--brand)"></label><div style="border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.1);position:relative"><img id="result" style="width:100%;height:auto"><div style="position:absolute;inset:0;background:rgba(0,0,0,0.4);opacity:0;display:flex;align-items:center;justify-content:center;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><a id="dlLink" download="scrubbed.jpg" class="btn"></a></div></div></div>
-      <p style="font-size:9px;color:var(--text3);text-align:center;font-style:italic" id="note"></p>
-    </div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>`;
-  const js = `<script>
-$('fileInp').addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
-  if(f.size>10*1024*1024){alert(t('tools.exifScrub.imageTooLarge'));return;}
-  $('status').classList.remove('hidden');$('statusText').textContent=t('tools.exifScrub.redrawing');
-  $('resultWrap').classList.add('hidden');
-  const img=new Image();img.src=URL.createObjectURL(f);
-  img.onload=()=>{
-    const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
-    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-    const url=c.toDataURL('image/jpeg',0.9);
-    $('result').src=url;$('dlLink').href=url;
-    $('status').classList.add('hidden');$('resultWrap').classList.remove('hidden');
-  };
-});
-function updateUI(){
-  $('h1').innerHTML=t('tools.exifScrub.h1')+' <span>'+t('tools.exifScrub.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.exifScrub.subtitle');$('dropText').textContent=t('tools.exifScrub.dropImage');
-  $('dropSub').textContent=t('tools.exifScrub.metadataRemoved');
-  $('lResult').textContent=t('tools.exifScrub.privacySafeResult');
-  $('dlLink').textContent=t('tools.exifScrub.downloadJpeg');$('note').textContent=t('tools.exifScrub.newFileGenerated');
-  $('iTitle').textContent=t('tools.exifScrub.info.title');$('iText').textContent=t('tools.exifScrub.info.text');
-  document.title=t('tools.exifScrub.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('EXIF Scrubber', '', body, js, keys);
-}
 
 function generateSteganography() {
   const keys = ['tools.steganography.meta.title','tools.steganography.h1','tools.steganography.h1Highlight','tools.steganography.subtitle','tools.steganography.encode','tools.steganography.decode','tools.steganography.sourceImage','tools.steganography.pngRecommended','tools.steganography.secretMessage','tools.steganography.messagePlaceholder','tools.steganography.securityPassword','tools.steganography.encPasswordPlaceholder','tools.steganography.injectPixels','tools.steganography.downloadEncrypted','tools.steganography.decPasswordPlaceholder','tools.steganography.scanPixels','tools.steganography.foundMessage','tools.steganography.imageTooLarge','tools.steganography.imageLoaded','tools.steganography.encryptingMessage','tools.steganography.encryptionFailed','tools.steganography.messageTooLong','tools.steganography.messageHidden','tools.steganography.pleaseProvide','tools.steganography.pleaseProvideImage','tools.steganography.noHiddenMessage','tools.steganography.corrupted','tools.steganography.decryptingMessage','tools.steganography.decryptSuccess','tools.steganography.decryptFailed','tools.steganography.info.title','tools.steganography.info1.title','tools.steganography.info1.text','tools.steganography.info2.title','tools.steganography.info2.text'];
@@ -872,97 +736,6 @@ function updateUI(){
 }
 </script>`;
   return buildHTML('Steganography', '', body, js, keys);
-}
-
-function generatePDFUnlock() {
-  const keys = ['tools.pdfUnlock.meta.title','tools.pdfUnlock.h1','tools.pdfUnlock.h1Highlight','tools.pdfUnlock.subtitle','tools.pdfUnlock.lockedPdf','tools.pdfUnlock.ownerPassword','tools.pdfUnlock.decryptionPlaceholder','tools.pdfUnlock.decryptingDoc','tools.pdfUnlock.removeProtection','tools.pdfUnlock.failedToUnlock','tools.pdfUnlock.decryptionSuccessful','tools.pdfUnlock.docUnlocked','tools.pdfUnlock.downloadUnlocked','tools.pdfUnlock.pdfTooLarge','tools.pdfUnlock.info.title','tools.pdfUnlock.info.text'];
-  const body = `<div class="main">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div><label class="label" id="lFile"></label><input type="file" accept=".pdf" class="input" id="fileInp"></div>
-    <div><label class="label" id="lPw"></label><input type="password" class="input" id="pw"></div>
-    <button class="btn btn-w" onclick="unlock()" id="unlockBtn" disabled></button>
-    <div id="errBox" class="error hidden"></div>
-    <div id="successBox" class="hidden space-y">
-      <div class="success"><div class="big" id="sTitle"></div><div style="font-size:10px;opacity:0.6;text-transform:uppercase;font-weight:700;letter-spacing:0.1em;margin-top:4px" id="sSub"></div></div>
-      <a id="dlLink" download="unlocked-document.pdf" class="btn-outline btn-w" style="display:block;text-align:center;text-decoration:none"></a>
-    </div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>
-<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>`;
-  const js = `<script>
-let file=null;
-$('fileInp').addEventListener('change',e=>{file=e.target.files[0]||null;$('unlockBtn').disabled=!file;$('successBox').classList.add('hidden');$('errBox').classList.add('hidden')});
-async function unlock(){
-  if(!file||!$('pw').value)return;
-  if(file.size>5*1024*1024){$('errBox').textContent=t('tools.pdfUnlock.pdfTooLarge');$('errBox').classList.remove('hidden');return}
-  $('errBox').classList.add('hidden');$('unlockBtn').disabled=true;$('unlockBtn').textContent=t('tools.pdfUnlock.decryptingDoc');
-  try{
-    const buf=await file.arrayBuffer();
-    const pdf=await PDFLib.PDFDocument.load(buf,{password:$('pw').value});
-    const bytes=await pdf.save();
-    const blob=new Blob([bytes],{type:'application/pdf'});
-    $('dlLink').href=URL.createObjectURL(blob);
-    $('successBox').classList.remove('hidden');
-  }catch(e){$('errBox').textContent=t('tools.pdfUnlock.failedToUnlock');$('errBox').classList.remove('hidden')}
-  finally{$('unlockBtn').disabled=false;updateUI()}
-}
-function updateUI(){
-  $('h1').innerHTML=t('tools.pdfUnlock.h1')+' <span>'+t('tools.pdfUnlock.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.pdfUnlock.subtitle');$('lFile').textContent=t('tools.pdfUnlock.lockedPdf');
-  $('lPw').textContent=t('tools.pdfUnlock.ownerPassword');$('pw').placeholder=t('tools.pdfUnlock.decryptionPlaceholder');
-  $('unlockBtn').textContent=t('tools.pdfUnlock.removeProtection');
-  $('sTitle').textContent=t('tools.pdfUnlock.decryptionSuccessful');$('sSub').textContent=t('tools.pdfUnlock.docUnlocked');
-  $('dlLink').textContent=t('tools.pdfUnlock.downloadUnlocked');
-  $('iTitle').textContent=t('tools.pdfUnlock.info.title');$('iText').textContent=t('tools.pdfUnlock.info.text');
-  document.title=t('tools.pdfUnlock.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('PDF Unlock', '', body, js, keys);
-}
-
-function generateQRGen() {
-  const keys = ['tools.qrGen.meta.title','tools.qrGen.h1','tools.qrGen.h1Highlight','tools.qrGen.subtitle','tools.qrGen.qrContent','tools.qrGen.placeholder','tools.qrGen.dotsColor','tools.qrGen.resolution','tools.qrGen.downloadPng','tools.qrGen.info.title','tools.qrGen.info.text'];
-  const body = `<div class="main">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div><label class="label" id="lContent"></label><textarea class="input" id="inp" oninput="gen()" style="min-height:100px;font-family:var(--mono)"></textarea></div>
-    <div class="grid2">
-      <div><label class="label" id="lColor"></label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="color" value="#10b981" oninput="gen()" style="width:40px;height:40px;border-radius:8px;cursor:pointer;background:transparent;border:none;padding:0"><input class="input" id="colorText" value="#10b981" oninput="$('color').value=this.value;gen()" style="font-family:var(--mono);font-size:12px;padding:6px 10px"></div></div>
-      <div><label class="label" id="lRes"></label><input type="number" class="input" id="size" value="400" min="100" max="2000" oninput="gen()"></div>
-    </div>
-    <div id="qrWrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:24px;padding:24px 0">
-      <div style="padding:24px;background:#fff;border-radius:2rem;box-shadow:0 8px 32px rgba(0,0,0,0.1)"><canvas id="qrCanvas" style="width:256px;height:256px"></canvas></div>
-      <div style="display:flex;gap:12px;width:100%;max-width:320px"><button class="btn" style="flex:1" onclick="dlQR()" id="dlBtn"></button><button class="btn-outline" onclick="$('inp').value='';gen()" style="padding:10px 20px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button></div>
-    </div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"><\/script>`;
-  const js = `<script>
-function gen(){
-  const text=$('inp').value;
-  if(!text){$('qrWrap').classList.add('hidden');$('qrWrap').style.display='none';return;}
-  const size=parseInt($('size').value)||400;
-  const color=$('color').value||'#10b981';
-  QRCode.toCanvas($('qrCanvas'),text,{width:size,margin:2,color:{dark:color,light:'#00000000'}},function(err){
-    if(!err){$('qrWrap').classList.remove('hidden');$('qrWrap').style.display='flex';}
-  });
-}
-function dlQR(){
-  const a=document.createElement('a');a.download='qr-code.png';a.href=$('qrCanvas').toDataURL('image/png');a.click();
-}
-function updateUI(){
-  $('h1').innerHTML=t('tools.qrGen.h1')+' <span>'+t('tools.qrGen.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.qrGen.subtitle');$('lContent').textContent=t('tools.qrGen.qrContent');
-  $('inp').placeholder=t('tools.qrGen.placeholder');$('lColor').textContent=t('tools.qrGen.dotsColor');
-  $('lRes').textContent=t('tools.qrGen.resolution');$('dlBtn').textContent=t('tools.qrGen.downloadPng');
-  $('iTitle').textContent=t('tools.qrGen.info.title');$('iText').textContent=t('tools.qrGen.info.text');
-  document.title=t('tools.qrGen.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('QR Generator', '', body, js, keys);
 }
 
 function generateBIP39() {
@@ -1728,122 +1501,6 @@ function updateUI(){
   return buildHTML('Time Capsule', '', body, js, keys);
 }
 
-function generatePDFRedact() {
-  const keys = ['tools.pdfRedact.meta.title','tools.pdfRedact.h1','tools.pdfRedact.h1Highlight','tools.pdfRedact.subtitle','tools.pdfRedact.infoP1','tools.pdfRedact.infoP2','tools.pdfRedact.sourcePdf','tools.pdfRedact.processedInMemory','tools.pdfRedact.renderingPages','tools.pdfRedact.drawInstructions','tools.pdfRedact.clearAllBoxes','tools.pdfRedact.page','tools.pdfRedact.rasterizing','tools.pdfRedact.redactBtn','tools.pdfRedact.downloadRedacted','tools.pdfRedact.drawAtLeast','tools.pdfRedact.pdfTooLarge','tools.pdfRedact.failedToLoad','tools.pdfRedact.failedToProcess','tools.pdfRedact.info.title','tools.pdfRedact.info.text'];
-  const extraCSS = `
-.page-wrap{position:relative;display:inline-block;border-radius:12px;border:1px solid var(--border);overflow:hidden;background:#fff;max-width:100%}
-.page-wrap canvas{display:block;max-width:100%;height:auto}
-.page-overlay{position:absolute;inset:0;cursor:crosshair;z-index:10}
-.redact-box{position:absolute;background:rgba(0,0,0,0.9)}
-.drag-box{position:absolute;border:1px solid var(--brand);background:rgba(16,185,129,0.2);pointer-events:none}
-`;
-  const body = `<div class="main" style="max-width:900px">
-  <div style="margin-bottom:32px"><h1 id="h1"></h1><p class="subtitle" id="sub"></p></div>
-  <div class="card space-y">
-    <div style="padding:16px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.12);border-radius:12px;font-size:12px;color:#1d4ed8"><p style="font-weight:600" id="infoP1"></p><p id="infoP2" style="margin-top:4px"></p></div>
-    <div><label class="label" id="lSrc"></label><input type="file" accept=".pdf" class="input" id="fileInp"><p style="font-size:11px;color:var(--text3);margin-top:4px" id="maxNote"></p></div>
-    <div id="loadingBox" class="hidden" style="text-align:center;padding:16px;font-size:12px;color:var(--text2)" id="loadText"></div>
-    <div id="pagesWrap" class="hidden space-y">
-      <div style="display:flex;align-items:center;justify-content:space-between"><p style="font-size:12px;color:var(--text2)" id="drawInstr"></p><button class="btn-outline" onclick="clearAll()" style="font-size:11px;padding:4px 12px" id="clearBtn"></button></div>
-      <div id="pagesList" class="space-y" style="max-height:420px;overflow-y:auto;padding-right:4px"></div>
-    </div>
-    <button class="btn btn-w" onclick="handleRedact()" id="redactBtn" disabled></button>
-    <div id="errBox" class="error hidden"></div>
-    <div id="resultWrap" class="hidden space-y">
-      <div style="aspect-ratio:1/1.4;background:var(--bg2);border-radius:16px;border:1px solid var(--border);overflow:hidden"><embed id="pdfEmbed" type="application/pdf" style="width:100%;height:100%"></div>
-      <a id="dlLink" download="redacted-document.pdf" class="btn-outline btn-w" style="display:block;text-align:center;text-decoration:none"></a>
-    </div>
-  </div>
-  <div class="info-section"><h3 class="info-title" id="iTitle"></h3><p class="info-text" id="iText"></p></div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs" type="module"><\/script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs" type="module"><\/script>
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"><\/script>`;
-  const js = `<script type="module">
-// We need pdfjs-dist loaded as ES module
-const pdfjsLib=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
-window._pdfjsLib=pdfjsLib;
-window._pdfReady=true;
-</script>
-<script>
-const MAX_BYTES=5*1024*1024;let pageCount=0,redactions=[],isDragging=false,dragPage=-1,dragSX=0,dragSY=0,dragCX=0,dragCY=0;
-$('fileInp').addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
-  if(f.size>MAX_BYTES){$('errBox').textContent=t('tools.pdfRedact.pdfTooLarge');$('errBox').classList.remove('hidden');return;}
-  $('errBox').classList.add('hidden');$('resultWrap').classList.add('hidden');$('pagesWrap').classList.add('hidden');redactions=[];pageCount=0;
-  $('loadingBox').classList.remove('hidden');$('loadingBox').textContent=t('tools.pdfRedact.renderingPages');
-  // Wait for pdfjs to load
-  let tries=0;while(!window._pdfReady&&tries<50){await new Promise(r=>setTimeout(r,200));tries++;}
-  if(!window._pdfReady){$('errBox').textContent='PDF.js failed to load.';$('errBox').classList.remove('hidden');$('loadingBox').classList.add('hidden');return;}
-  try{
-    const buf=await f.arrayBuffer();const pdf=await window._pdfjsLib.getDocument({data:buf}).promise;
-    pageCount=pdf.numPages;const vw=Math.min(window.innerWidth-64,860);
-    let html='';for(let i=0;i<pageCount;i++)html+='<div style="margin-bottom:8px"><p style="font-size:11px;color:var(--text2);font-weight:500">'+t('tools.pdfRedact.page')+' '+(i+1)+'</p><div class="page-wrap" data-page="'+i+'"><canvas data-pc="'+i+'"></canvas><div class="page-overlay" data-po="'+i+'"></div></div></div>';
-    $('pagesList').innerHTML=html;
-    for(let i=0;i<pageCount;i++){
-      const page=await pdf.getPage(i+1);const vp=page.getViewport({scale:1});const baseScale=vw/vp.width;const scale=Math.min(baseScale*2,3);const v=page.getViewport({scale});
-      const canvas=document.querySelector('[data-pc="'+i+'"]');const ctx=canvas.getContext('2d');canvas.width=v.width;canvas.height=v.height;
-      canvas.style.width=vw+'px';canvas.style.height=(v.height/v.width*vw)+'px';
-      await page.render({canvasContext:ctx,viewport:v}).promise;
-    }
-    // Attach drag events
-    document.querySelectorAll('.page-overlay').forEach(el=>{
-      const pi=parseInt(el.dataset.po);
-      el.addEventListener('mousedown',e=>{const r=el.getBoundingClientRect();isDragging=true;dragPage=pi;dragSX=e.clientX-r.left;dragSY=e.clientY-r.top;dragCX=dragSX;dragCY=dragSY;});
-      el.addEventListener('mousemove',e=>{if(!isDragging||dragPage!==pi)return;const r=el.getBoundingClientRect();dragCX=e.clientX-r.left;dragCY=e.clientY-r.top;renderBoxes();});
-      el.addEventListener('mouseup',()=>{if(!isDragging||dragPage!==pi)return;finishDrag(el,pi);});
-      el.addEventListener('mouseleave',()=>{if(isDragging&&dragPage===pi)finishDrag(el,pi);});
-    });
-    $('pagesWrap').classList.remove('hidden');$('redactBtn').disabled=false;
-  }catch(e){$('errBox').textContent=t('tools.pdfRedact.failedToLoad');$('errBox').classList.remove('hidden');}
-  finally{$('loadingBox').classList.add('hidden');}
-});
-function finishDrag(el,pi){
-  isDragging=false;const w=Math.abs(dragCX-dragSX),h=Math.abs(dragCY-dragSY);
-  if(w<4||h<4){dragPage=-1;return;}
-  const{width:ow,height:oh}=el.getBoundingClientRect();
-  const x=Math.min(dragSX,dragCX),y=Math.min(dragSY,dragCY);
-  redactions.push({pageIndex:pi,nx:x/ow,ny:y/oh,nw:w/ow,nh:h/oh});dragPage=-1;renderBoxes();
-}
-function renderBoxes(){
-  document.querySelectorAll('.page-overlay').forEach(el=>{
-    const pi=parseInt(el.dataset.po);
-    let html=redactions.filter(r=>r.pageIndex===pi).map(r=>'<div class="redact-box" style="left:'+r.nx*100+'%;top:'+r.ny*100+'%;width:'+r.nw*100+'%;height:'+r.nh*100+'%"></div>').join('');
-    if(isDragging&&dragPage===pi){const x=Math.min(dragSX,dragCX),y=Math.min(dragSY,dragCY),w=Math.abs(dragCX-dragSX),h=Math.abs(dragCY-dragSY);html+='<div class="drag-box" style="left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+h+'px"></div>';}
-    el.innerHTML=html;
-  });
-}
-function clearAll(){redactions=[];renderBoxes();}
-async function handleRedact(){
-  if(!pageCount||redactions.length===0){$('errBox').textContent=t('tools.pdfRedact.drawAtLeast');$('errBox').classList.remove('hidden');return;}
-  $('errBox').classList.add('hidden');$('resultWrap').classList.add('hidden');$('redactBtn').disabled=true;$('redactBtn').textContent=t('tools.pdfRedact.rasterizing');
-  try{
-    const pdfDoc=await PDFLib.PDFDocument.create();
-    for(let i=0;i<pageCount;i++){
-      const baseC=document.querySelector('[data-pc="'+i+'"]');const tmp=document.createElement('canvas');tmp.width=baseC.width;tmp.height=baseC.height;const ctx=tmp.getContext('2d');ctx.drawImage(baseC,0,0);
-      ctx.fillStyle='#000';redactions.filter(r=>r.pageIndex===i).forEach(r=>{ctx.fillRect(r.nx*baseC.width,r.ny*baseC.height,r.nw*baseC.width,r.nh*baseC.height);});
-      const blob=await new Promise((res,rej)=>{tmp.toBlob(b=>b?res(b):rej(),'image/png');});
-      const png=await pdfDoc.embedPng(await blob.arrayBuffer());const{width,height}=png.size();const page=pdfDoc.addPage([width,height]);page.drawImage(png,{x:0,y:0,width,height});
-    }
-    const bytes=await pdfDoc.save();const blob=new Blob([bytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);
-    $('pdfEmbed').src=url;$('dlLink').href=url;$('resultWrap').classList.remove('hidden');
-  }catch(e){$('errBox').textContent=t('tools.pdfRedact.failedToProcess');$('errBox').classList.remove('hidden');}
-  finally{$('redactBtn').disabled=false;updateUI();}
-}
-function updateUI(){
-  $('h1').innerHTML=t('tools.pdfRedact.h1')+' <span>'+t('tools.pdfRedact.h1Highlight')+'</span>';
-  $('sub').textContent=t('tools.pdfRedact.subtitle');$('infoP1').textContent=t('tools.pdfRedact.infoP1');$('infoP2').textContent=t('tools.pdfRedact.infoP2');
-  $('lSrc').textContent=t('tools.pdfRedact.sourcePdf');$('maxNote').textContent=t('tools.pdfRedact.processedInMemory').replace('{size}','5');
-  $('drawInstr').textContent=t('tools.pdfRedact.drawInstructions');$('clearBtn').textContent=t('tools.pdfRedact.clearAllBoxes');
-  $('redactBtn').textContent=t('tools.pdfRedact.redactBtn');$('dlLink').textContent=t('tools.pdfRedact.downloadRedacted');
-  $('iTitle').textContent=t('tools.pdfRedact.info.title');$('iText').textContent=t('tools.pdfRedact.info.text');
-  document.title=t('tools.pdfRedact.meta.title')+' — encrypt.click (offline)';
-}
-</script>`;
-  return buildHTML('PDF Redact', extraCSS, body, js, keys);
-}
-
 // ═══════════════════════════════════════════════════════════
 // GENERATE INDEX PAGE
 // ═══════════════════════════════════════════════════════════
@@ -1913,7 +1570,6 @@ const tools = [
   { name: 'caesar', fn: generateCaesar, title: 'Caesar Cipher', desc: 'Classic rotation cipher with adjustable shift' },
   { name: 'base64', fn: generateBase64, title: 'Base64', desc: 'Encode and decode Base64 strings' },
   { name: 'vigenere', fn: generateVigenere, title: 'Vigenere Cipher', desc: 'Polyalphabetic encryption with keyword' },
-  { name: 'morse', fn: generateMorse, title: 'Morse Code', desc: 'Text to Morse and back, with audio playback' },
   { name: 'token', fn: generateTokenGen, title: 'Token Generator', desc: 'Cryptographic random tokens (hex, base64, url-safe)' },
   { name: 'uuid-ulid', fn: generateUUID, title: 'UUID & ULID', desc: 'Generate UUIDv4 and ULID identifiers' },
   { name: 'hmac', fn: generateHMAC, title: 'HMAC-SHA256', desc: 'Generate message authentication codes' },
@@ -1921,11 +1577,7 @@ const tools = [
   { name: 'ssh-keys', fn: generateSSHKeys, title: 'SSH Keys', desc: 'Generate OpenSSH-format RSA key pairs' },
   { name: 'jwt', fn: generateJWT, title: 'JWT Debugger', desc: 'Decode and inspect JSON Web Tokens' },
   { name: 'enigma', fn: generateEnigma, title: 'Enigma M3', desc: 'Simulate the WWII Enigma cipher machine' },
-  { name: 'watermark', fn: generateWatermark, title: 'ID Watermarker', desc: 'Apply visible watermark to identity documents' },
-  { name: 'exif-scrub', fn: generateExifScrub, title: 'EXIF Scrubber', desc: 'Remove metadata from photos by redrawing' },
   { name: 'steganography', fn: generateSteganography, title: 'Steganography', desc: 'Hide AES-encrypted messages in image pixels (LSB)' },
-  { name: 'pdf-unlock', fn: generatePDFUnlock, title: 'PDF Unlock', desc: 'Remove password protection from PDFs (CDN: pdf-lib)' },
-  { name: 'qr-gen', fn: generateQRGen, title: 'QR Generator', desc: 'Generate clean, tracker-free QR codes (CDN: qrcode)' },
   { name: 'bip39', fn: generateBIP39, title: 'BIP39 Mnemonic', desc: '12-word recovery phrases for crypto wallets' },
   { name: 'bcrypt', fn: generateBcrypt, title: 'Bcrypt Hash', desc: 'Hash and verify passwords with bcrypt (CDN: hash-wasm)' },
   { name: 'pgp-keys', fn: generatePGPKeys, title: 'PGP Keys', desc: 'Generate OpenPGP RSA key pairs (CDN: openpgp)' },
@@ -1934,7 +1586,6 @@ const tools = [
   { name: 'dead-drop', fn: generateDeadDrop, title: 'Dead Drop', desc: 'Encrypt messages into self-contained URL fragments' },
   { name: 'ghost-drop', fn: generateEncryptTunnel, title: 'Ghost Drop', desc: 'AES-256 encrypt files + upload to anonymous hosts' },
   { name: 'time-capsule', fn: generateTimeCapsule, title: 'Time Capsule', desc: 'Timelock encryption via drand network (CDN: tlock-js)' },
-  { name: 'pdf-redact', fn: generatePDFRedact, title: 'PDF Redactor', desc: 'Draw redaction boxes on PDF pages (CDN: pdfjs + pdf-lib)' },
 ];
 
 /**

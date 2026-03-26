@@ -40,31 +40,28 @@ const dict = getTranslations(locale);
 				<p class="text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto text-sm md:text-base font-medium">{t(dict, 'home.instruments.subtitle')}</p>
 			</div>
 
-			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
-				<div class="flex items-center justify-center" data-aos data-aos-delay="0">
-					<img src="/encrypt_check.svg" alt="" class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl" loading="lazy" />
-				</div>
-				<div data-aos data-aos-delay="80">
+			<div class="grid md:grid-cols-3 gap-8 mb-24 md:mb-40">
+				<div class="card p-8" data-aos data-aos-delay="0">
 					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.dev.tag')}</span>
-					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">{t(dict, 'home.dev.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">{t(dict, 'home.dev.text')}</p>
-					<a href="/tools/token" class="btn px-8">{t(dict, 'home.dev.cta')}</a>
+					<h3 class="text-xl font-black mb-3 tracking-tight">{t(dict, 'home.dev.title')}</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6 font-medium">{t(dict, 'home.dev.text')}</p>
+					<a href="/tools/token" class="btn px-6 text-sm">{t(dict, 'home.dev.cta')}</a>
 				</div>
-			</div>
-
-			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
-				<div class="order-last md:order-first" data-aos data-aos-delay="0">
+				<div class="card p-8" data-aos data-aos-delay="60">
 					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.crypto.tag')}</span>
-					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">{t(dict, 'home.crypto.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">{t(dict, 'home.crypto.text')}</p>
-					<a href="/tools/enigma" class="btn px-8 text-xs font-black uppercase tracking-widest">{t(dict, 'home.crypto.cta')}</a>
+					<h3 class="text-xl font-black mb-3 tracking-tight">{t(dict, 'home.crypto.title')}</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6 font-medium">{t(dict, 'home.crypto.text')}</p>
+					<a href="/tools/enigma" class="btn px-6 text-sm">{t(dict, 'home.crypto.cta')}</a>
 				</div>
-				<div class="flex items-center justify-center">
-					<img src="/encrypt_history.svg" alt="" class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl" loading="lazy" />
+				<div class="card p-8" data-aos data-aos-delay="120">
+					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.vault.tag')}</span>
+					<h3 class="text-xl font-black mb-3 tracking-tight">{t(dict, 'home.vault.title')}</h3>
+					<p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6 font-medium">{t(dict, 'home.vault.text')}</p>
+					<a href="/tools/aes-words" class="btn px-6 text-sm">{t(dict, 'home.vault.ctaPrimary')}</a>
 				</div>
 			</div>
 
-			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center mb-24 md:mb-40">
+			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center">
 				<div class="flex items-center justify-center" data-aos data-aos-delay="0">
 					<img src="/encrypt_chill.svg" alt="" class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl" loading="lazy" />
 				</div>
@@ -72,22 +69,7 @@ const dict = getTranslations(locale);
 					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.privacy.tag')}</span>
 					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">{t(dict, 'home.privacy.title')}</h3>
 					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">{t(dict, 'home.privacy.text')}</p>
-					<a href="/tools/exif-scrub" class="btn px-8">{t(dict, 'home.privacy.cta')}</a>
-				</div>
-			</div>
-
-			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center">
-				<div class="order-last md:order-first" data-aos data-aos-delay="0">
-					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.vault.tag')}</span>
-					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">{t(dict, 'home.vault.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">{t(dict, 'home.vault.text')}</p>
-					<div class="flex gap-1.5 flex-wrap">
-                        <a href="/tools/aes-words" class="btn px-8 uppercase font-black text-xs tracking-widest">{t(dict, 'home.vault.ctaPrimary')}</a>
-                        <a href="/tools/aes-words" class="btn-outline px-6 text-xs uppercase font-black">{t(dict, 'home.vault.ctaSecondary')}</a>
-                    </div>
-				</div>
-				<div class="flex items-center justify-center">
-					<img src="/encrypt_treasure.svg" alt="" class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl" loading="lazy" />
+					<a href="/tools/steganography" class="btn px-8">{t(dict, 'home.privacy.cta')}</a>
 				</div>
 			</div>
 		</div>
@@ -96,7 +78,7 @@ const dict = getTranslations(locale);
 	<section class="max-w-5xl mx-auto px-5 py-24 md:py-40">
 		<div class="grid md:grid-cols-2 gap-16 md:gap-24 items-center">
 			<div class="flex justify-center md:justify-start" data-aos data-aos-delay="0">
-				<img src="/encrypt_learning.svg" alt="" class="w-full max-w-[140px] md:max-w-md h-auto mx-auto md:mx-0 drop-shadow-2xl" loading="lazy" />
+				<img src="/encrypt_confused.svg" alt="" class="w-full max-w-[110px] md:max-w-sm h-auto mx-auto md:mx-0 drop-shadow-2xl" loading="lazy" />
 			</div>
 			<div data-aos data-aos-delay="120">
 				<h2 class="text-3xl md:text-5xl font-black tracking-tighter mb-8">{t(dict, 'home.why.title')}</h2>
@@ -114,9 +96,6 @@ const dict = getTranslations(locale);
 			<div class="text-center mb-16" data-aos data-aos-delay="0">
 				<h2 class="text-3xl md:text-4xl font-black tracking-tighter mb-4">{t(dict, 'home.trust.title')} <span class="text-emerald-500">{t(dict, 'home.trust.titleHighlight')}</span></h2>
 				<p class="text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto text-sm md:text-base font-medium uppercase tracking-widest opacity-60">{t(dict, 'home.trust.subtitle')}</p>
-			</div>
-			<div class="flex justify-center mb-12" data-aos data-aos-delay="120">
-				<img src="/encrypt_highfive.svg" alt="" class="w-full max-w-[100px] md:max-w-xs h-auto drop-shadow-2xl" loading="lazy" />
 			</div>
 			<SecurityShield client:load />
 		</div>
