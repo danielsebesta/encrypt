@@ -8,7 +8,7 @@
   $: dict = getTranslations(locale);
 
   type Mode = 'create' | 'open';
-  type ShortProvider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd';
+  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'isgd' | 'spoome' | 'cleanuri' | '1url' | 'tini' | 'choto' | 'urlvanish';
 
   let mode: Mode = 'create';
 
@@ -35,7 +35,12 @@
 
   const MAX_BYTES = 10 * 1024;
 
-  $: providerName = shortProvider === '1url' ? '1url.cz' : shortProvider === 'urlvanish' ? 'URLVanish.com' : shortProvider === 'tini' ? 'tini.fyi' : shortProvider === 'choto' ? 'choto.co' : shortProvider === 'isgd' ? 'is.gd' : 'Nolog.cz';
+  const PROVIDER_NAMES: Record<string, string> = {
+    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd', isgd: 'is.gd',
+    spoome: 'spoo.me', cleanuri: 'CleanURI', '1url': '1url.cz',
+    tini: 'tini.fyi', choto: 'choto.co', urlvanish: 'URLVanish'
+  };
+  $: providerName = PROVIDER_NAMES[shortProvider ?? ''] ?? 'Nolog.link';
 
   onMount(() => {
     if (typeof window === 'undefined') return;
@@ -308,11 +313,15 @@
                   bind:value={shortMode}
                 >
                   <option value="nolog">Nolog.link</option>
-                  <option value="tini">tini.fyi</option>
-                  <option value="urlvanish">URLVanish.com</option>
-                  <option value="choto">choto.co</option>
-                  <option value="1url">1url.cz</option>
+                  <option value="dagd">da.gd</option>
+                  <option value="vgd">v.gd</option>
                   <option value="isgd">is.gd</option>
+                  <option value="spoome">spoo.me</option>
+                  <option value="cleanuri">CleanURI</option>
+                  <option value="1url">1url.cz</option>
+                  <option value="tini">tini.fyi</option>
+                  <option value="choto">choto.co</option>
+                  <option value="urlvanish">URLVanish</option>
                 </select>
               </div>
               <button

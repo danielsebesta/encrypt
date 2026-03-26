@@ -11,7 +11,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | 'isgd' | 'tini' | 'urlvanish' | '1url' | 'choto';
+  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'isgd' | 'spoome' | 'cleanuri' | '1url' | 'tini' | 'choto' | 'urlvanish';
 
   let step: Step = 'input';
 
@@ -269,12 +269,22 @@
     log('Stego image created.');
   }
 
-  // Ordered by privacy: nolog (no-log, open-source) → is.gd (honest about logging)
-  // → 1url (public stats, no false claims) → tini (claims private, no policy)
-  // → choto (commercial, no docs) → urlvanish (claims anonymous but runs GA)
-  const SHORT_PROVIDERS: ShortProvider[] = ['nolog', 'isgd', '1url', 'tini', 'choto', 'urlvanish'];
+  // Ordered by privacy: best first, worst last
+  const SHORT_PROVIDERS: ShortProvider[] = [
+    'nolog',     // no-log, open-source, Czech privacy collective
+    'dagd',      // open source, no tracking
+    'vgd',       // is.gd sister, no logstats by default
+    'isgd',      // UK, logs IPs, public stats, but transparent
+    'spoome',    // open source, anonymized analytics
+    'cleanuri',  // minimal, no tracking found
+    '1url',      // CZ, public click stats
+    'tini',      // claims private, no policy
+    'choto',     // commercial, no docs
+    'urlvanish', // claims anonymous but runs Google Analytics
+  ];
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    nolog: 'Nolog.link', isgd: 'is.gd', '1url': '1url.cz',
+    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd', isgd: 'is.gd',
+    spoome: 'spoo.me', cleanuri: 'CleanURI', '1url': '1url.cz',
     tini: 'tini.fyi', choto: 'choto.co', urlvanish: 'URLVanish'
   };
 
