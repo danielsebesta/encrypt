@@ -8,7 +8,7 @@
   $: dict = getTranslations(locale);
 
   type Mode = 'create' | 'open';
-  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'isgd' | 'spoome' | 'cleanuri' | '1url' | 'tini' | 'choto' | 'urlvanish';
+  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
 
   let mode: Mode = 'create';
 
@@ -36,9 +36,8 @@
   const MAX_BYTES = 10 * 1024;
 
   const PROVIDER_NAMES: Record<string, string> = {
-    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd', isgd: 'is.gd',
-    spoome: 'spoo.me', cleanuri: 'CleanURI', '1url': '1url.cz',
-    tini: 'tini.fyi', choto: 'choto.co', urlvanish: 'URLVanish'
+    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd',
+    spoome: 'spoo.me', cleanuri: 'CleanURI', isgd: 'is.gd', '1url': '1url.cz',
   };
   $: providerName = PROVIDER_NAMES[shortProvider ?? ''] ?? 'Nolog.link';
 
@@ -315,13 +314,10 @@
                   <option value="nolog">Nolog.link</option>
                   <option value="dagd">da.gd</option>
                   <option value="vgd">v.gd</option>
-                  <option value="isgd">is.gd</option>
                   <option value="spoome">spoo.me</option>
                   <option value="cleanuri">CleanURI</option>
+                  <option value="isgd">is.gd</option>
                   <option value="1url">1url.cz</option>
-                  <option value="tini">tini.fyi</option>
-                  <option value="choto">choto.co</option>
-                  <option value="urlvanish">URLVanish</option>
                 </select>
               </div>
               <button
