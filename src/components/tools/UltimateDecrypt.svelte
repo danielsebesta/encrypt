@@ -164,7 +164,6 @@
 
     if (urls.length === 0) throw new Error('No download URLs in payload.');
 
-    let fileBytes: Uint8Array | null = null;
     let lastErr = '';
 
     for (const url of urls) {
@@ -173,45 +172,51 @@
         const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
         if (!res.ok) {
           lastErr = `HTTP ${res.status}`;
+          log(`Failed (HTTP ${res.status}), trying next...`);
           continue;
         }
-        fileBytes = new Uint8Array(await res.arrayBuffer());
+        const fileBytes = new Uint8Array(await res.arrayBuffer());
         log('Downloaded encrypted file.');
-        break;
-      } catch (e: any) {
-        lastErr = e?.message || 'Network error';
-      }
-    }
 
-    if (!fileBytes) throw new Error(`All download sources failed: ${lastErr}`);
+        let encrypted: Uint8Array;
+        if (isStego) {
+          log('Extracting from steganography...');
+          const extracted = await extractStego(fileBytes);
+          if (!extracted) {
+            lastErr = 'Stego extraction failed';
+            log('Stego extraction failed, trying next...');
+            continue;
+          }
+          encrypted = extracted;
+        } else {
+          encrypted = fileBytes;
+        }
 
-    let encrypted: Uint8Array;
-    if (isStego) {
-      log('Extracting from steganography...');
-      const extracted = await extractStego(fileBytes);
-      if (!extracted) throw new Error('Failed to extract stego data.');
-      encrypted = extracted;
-    } else {
-      encrypted = fileBytes;
-    }
+        log('Decrypting file...');
+        const { data: decryptedData, name } = await decryptData(encrypted, password);
 
-    log('Decrypting file...');
-    const { data: decryptedData, name } = await decryptData(encrypted, password);
+        if (name.endsWith('.txt') && decryptedData.length < 100_000) {
+          const text = new TextDecoder().decode(decryptedData);
+          const isPrintable = !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 200));
+          if (isPrintable) {
+            openedText = text;
+            log('Decrypted text content.');
+            return;
+          }
+        }
 
-    if (name.endsWith('.txt') && decryptedData.length < 100_000) {
-      const text = new TextDecoder().decode(decryptedData);
-      const isPrintable = !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 200));
-      if (isPrintable) {
-        openedText = text;
-        log('Decrypted text content.');
+        const blob = new Blob([decryptedData], { type: 'application/octet-stream' });
+        openedFileUrl = URL.createObjectURL(blob);
+        openedFileName = name;
+        log(`Decrypted file: ${name}`);
         return;
+      } catch (e: any) {
+        lastErr = e?.message || 'Decryption error';
+        log(`Failed: ${lastErr}, trying next...`);
       }
     }
 
-    const blob = new Blob([decryptedData], { type: 'application/octet-stream' });
-    openedFileUrl = URL.createObjectURL(blob);
-    openedFileName = name;
-    log(`Decrypted file: ${name}`);
+    throw new Error(`All sources failed. Last error: ${lastErr}`);
   }
 
   function downloadFile() {
