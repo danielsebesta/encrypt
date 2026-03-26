@@ -20,6 +20,31 @@
   let openedText = '';
   let openedFileName = '';
   let openedFileUrl = '';
+  let openedFileMime = '';
+
+  type PreviewType = 'none' | 'image' | 'video' | 'audio' | 'pdf';
+  let previewType: PreviewType = 'none';
+
+  function mimeFromName(name: string): string {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    const map: Record<string, string> = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+      webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+      mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mov: 'video/quicktime',
+      mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac',
+      m4a: 'audio/mp4', opus: 'audio/opus',
+      pdf: 'application/pdf',
+    };
+    return map[ext] || 'application/octet-stream';
+  }
+
+  function detectPreview(mime: string): PreviewType {
+    if (mime.startsWith('image/')) return 'image';
+    if (mime.startsWith('video/')) return 'video';
+    if (mime.startsWith('audio/')) return 'audio';
+    if (mime === 'application/pdf') return 'pdf';
+    return 'none';
+  }
 
   let stegoFile: File | null = null;
   let manualMode = false;
@@ -141,18 +166,25 @@
     }
   }
 
+  function presentFile(bytes: Uint8Array, name: string) {
+    const mime = mimeFromName(name);
+    openedFileMime = mime;
+    previewType = detectPreview(mime);
+    const blob = new Blob([bytes], { type: mime });
+    openedFileUrl = URL.createObjectURL(blob);
+    openedFileName = name;
+    log(`Decrypted file: ${name}`);
+  }
+
   async function handleInlinePayload(data: any) {
     if (data.kind === 'text') {
       log('Decrypted text message.');
       openedText = data.text || '';
     } else if (data.kind === 'file' && data.data) {
-      log(`Decrypted file: ${data.name}`);
       const binary = atob(data.data);
       const buf = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
-      const blob = new Blob([buf], { type: data.type || 'application/octet-stream' });
-      openedFileUrl = URL.createObjectURL(blob);
-      openedFileName = data.name || 'download';
+      presentFile(buf, data.name || 'download');
     } else {
       throw new Error('Unsupported inline payload.');
     }
@@ -205,10 +237,7 @@
           }
         }
 
-        const blob = new Blob([decryptedData], { type: 'application/octet-stream' });
-        openedFileUrl = URL.createObjectURL(blob);
-        openedFileName = name;
-        log(`Decrypted file: ${name}`);
+        presentFile(decryptedData, name);
         return;
       } catch (e: any) {
         lastErr = e?.message || 'Decryption error';
@@ -293,8 +322,21 @@
   {/if}
 
   {#if openedFileName && openedFileUrl}
-    <div class="space-y-2">
+    <div class="space-y-3">
       <p class="text-xs text-emerald-500">File decrypted: {openedFileName}</p>
+
+      {#if previewType === 'image'}
+        <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" />
+      {:else if previewType === 'video'}
+        <video src={openedFileUrl} controls class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <track kind="captions" />
+        </video>
+      {:else if previewType === 'audio'}
+        <audio src={openedFileUrl} controls class="w-full"></audio>
+      {:else if previewType === 'pdf'}
+        <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
+      {/if}
+
       <button type="button" class="btn-outline text-xs" on:click={downloadFile}>
         Download {openedFileName}
       </button>
