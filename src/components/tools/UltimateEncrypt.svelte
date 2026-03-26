@@ -11,7 +11,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd';
+  type ShortProvider = 'nolog' | 'isgd' | 'tini' | 'urlvanish' | '1url' | 'choto';
 
   let step: Step = 'input';
 
@@ -22,7 +22,6 @@
   let enableStego = false;
   let enableTimelock = false;
   let timelockDate = '';
-  let shortMode: ShortProvider = 'nolog';
   let showAdvanced = false;
 
   let logs: string[] = [];
@@ -31,8 +30,6 @@
   let stegoImageUrl = '';
   let stegoImageBlob: Blob | null = null;
   let error = '';
-  let shortError = '';
-  let shortLoading = false;
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = 25 * 1024 * 1024;
@@ -59,7 +56,7 @@
   $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: deliveryMode = isLarge ? 'ghost' : 'link';
-  $: providerName = shortMode === '1url' ? '1url.cz' : shortMode === 'urlvanish' ? 'URLVanish' : shortMode === 'tini' ? 'tini.fyi' : shortMode === 'choto' ? 'choto.co' : shortMode === 'isgd' ? 'is.gd' : 'Nolog.link';
+
 
   function generatePassword(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
@@ -103,7 +100,6 @@
     logs = [];
     resultUrl = '';
     shortUrl = '';
-    shortError = '';
     stegoImageUrl = '';
     stegoImageBlob = null;
 
@@ -163,9 +159,10 @@
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     resultUrl = `${origin}/u#${encoded}`;
     log('Link generated.');
+    await autoShorten(resultUrl);
 
     if (enableStego) {
-      await wrapInStego(resultUrl);
+      await wrapInStego(shortUrl || resultUrl);
     }
   }
 
@@ -256,9 +253,10 @@
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     resultUrl = `${origin}/u#${encoded}`;
     log('Link generated.');
+    await autoShorten(resultUrl);
 
     if (enableStego) {
-      await wrapInStego(resultUrl);
+      await wrapInStego(shortUrl || resultUrl);
     }
   }
 
@@ -271,28 +269,30 @@
     log('Stego image created.');
   }
 
-  async function handleShorten() {
-    if (!resultUrl) return;
-    shortError = '';
-    shortUrl = '';
-    shortLoading = true;
-    try {
-      const res = await fetch('/api/shorten', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: resultUrl, provider: shortMode })
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.shorturl) {
-        shortError = data?.error || 'Shortening failed.';
-        return;
-      }
-      shortUrl = data.shorturl;
-    } catch (e: any) {
-      shortError = e?.message || 'Shortening failed.';
-    } finally {
-      shortLoading = false;
+  const SHORT_PROVIDERS: ShortProvider[] = ['nolog', 'isgd', 'tini', 'urlvanish', '1url', 'choto'];
+  const SHORT_NAMES: Record<ShortProvider, string> = {
+    nolog: 'Nolog.link', isgd: 'is.gd', tini: 'tini.fyi',
+    urlvanish: 'URLVanish', '1url': '1url.cz', choto: 'choto.co'
+  };
+
+  async function autoShorten(url: string): Promise<void> {
+    for (const provider of SHORT_PROVIDERS) {
+      log(`Shortening via ${SHORT_NAMES[provider]}...`);
+      try {
+        const res = await fetch('/api/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, provider })
+        });
+        const data = await res.json();
+        if (res.ok && data?.shorturl) {
+          shortUrl = data.shorturl;
+          log(`Shortened via ${SHORT_NAMES[provider]}.`);
+          return;
+        }
+      } catch {}
     }
+    log('Shortening failed — using full link.');
   }
 
   function downloadStego() {
@@ -317,7 +317,6 @@
     logs = [];
     resultUrl = '';
     shortUrl = '';
-    shortError = '';
     error = '';
     showAdvanced = false;
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
@@ -440,10 +439,19 @@
 
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <label class="label block">Encrypted link</label>
-          <CopyButton text={resultUrl} label="COPY" />
+          <label class="label block">{shortUrl ? 'Share this link' : 'Encrypted link'}</label>
+          <CopyButton text={shortUrl || resultUrl} label="COPY" />
         </div>
-        <input class="input text-xs font-mono" type="text" readonly value={resultUrl} />
+        <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
+        {#if shortUrl}
+          <details class="text-[11px] text-zinc-400">
+            <summary class="cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300">Full link</summary>
+            <div class="mt-1 flex items-center gap-2">
+              <input class="input text-[10px] font-mono flex-1" type="text" readonly value={resultUrl} />
+              <CopyButton text={resultUrl} label="COPY" className="!text-[9px]" />
+            </div>
+          </details>
+        {/if}
       </div>
 
       <div class="space-y-2">
@@ -453,48 +461,6 @@
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={password} />
         <p class="text-[10px] text-amber-500">Share this password separately — never in the same channel as the link.</p>
-      </div>
-
-      <div class="space-y-2">
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <label class="uppercase font-bold tracking-widest" for="ue-shortener">Shortener</label>
-            <select
-              id="ue-shortener"
-              class="input !h-7 !py-0 !text-[11px] !px-2"
-              bind:value={shortMode}
-            >
-              <option value="nolog">Nolog.link</option>
-              <option value="tini">tini.fyi</option>
-              <option value="urlvanish">URLVanish</option>
-              <option value="choto">choto.co</option>
-              <option value="1url">1url.cz</option>
-              <option value="isgd">is.gd</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            class="btn-outline text-xs"
-            on:click={handleShorten}
-            disabled={shortLoading}
-          >
-            {shortLoading ? 'Shortening...' : 'Shorten'}
-          </button>
-        </div>
-        {#if shortError}
-          <p class="text-xs text-red-500">{shortError}</p>
-        {/if}
-        {#if shortUrl}
-          <div class="space-y-1">
-            <p class="text-[11px] text-amber-600 dark:text-amber-400">
-              Shortened via {providerName} — the shortener can see the link (not the content).
-            </p>
-            <div class="flex items-center gap-2">
-              <input class="input text-xs font-mono flex-1" type="text" readonly value={shortUrl} />
-              <CopyButton text={shortUrl} label="COPY" />
-            </div>
-          </div>
-        {/if}
       </div>
 
       {#if stegoImageUrl}
