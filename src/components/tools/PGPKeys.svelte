@@ -38,7 +38,7 @@
   <div class="grid gap-6">
     <div class="grid md:grid-cols-2 gap-4">
       <div class="space-y-1.5">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-name">
+        <label class="label" for="pgp-name">
           {t(dict, 'tools.pgpKeys.name')}
         </label>
         <input
@@ -50,7 +50,7 @@
         />
       </div>
       <div class="space-y-1.5">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-email">
+        <label class="label" for="pgp-email">
           {t(dict, 'tools.pgpKeys.email')}
         </label>
         <input
@@ -66,7 +66,7 @@
 
     <div class="grid md:grid-cols-2 gap-4">
       <div class="space-y-1.5">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-pass">
+        <label class="label" for="pgp-pass">
           {t(dict, 'tools.pgpKeys.keyPassphrase')}
         </label>
         <input
@@ -79,7 +79,7 @@
         />
       </div>
       <div class="space-y-1.5">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider" for="pgp-bits">
+        <label class="label" for="pgp-bits">
           {t(dict, 'tools.pgpKeys.rsaStrength')}
         </label>
         <select id="pgp-bits" bind:value={rsaBits} class="input">
@@ -105,13 +105,13 @@
       <div class="space-y-6 animate-in slide-in-from-bottom-2">
         <div class="space-y-2">
           <div class="flex justify-between items-end">
-            <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
+            <label class="label">
               {t(dict, 'tools.pgpKeys.publicKey')}
             </label>
             <CopyButton text={keyPair.publicKey} label={t(dict, 'tools.pgpKeys.copy')} />
           </div>
           <pre
-            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-52 break-all select-all"
+            class="result-box-neutral text-[10px] overflow-auto max-h-52 select-all"
           >{keyPair.publicKey}</pre>
         </div>
 

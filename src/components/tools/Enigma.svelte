@@ -42,7 +42,7 @@
 
   <div class="grid gap-6">
       <div class="grid gap-1.5">
-          <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.enigma.inputStream')}</label>
+          <label class="label">{t(dict, 'tools.enigma.inputStream')}</label>
           <textarea 
               bind:value={enigmaInput} 
               on:input={handleEnigma}
@@ -52,7 +52,7 @@
       </div>
       
       <div class="grid gap-1.5">
-          <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.enigma.scrambledOutput')}</label>
+          <label class="label">{t(dict, 'tools.enigma.scrambledOutput')}</label>
           <div class="p-6 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl min-h-[120px] break-all font-mono text-xl text-emerald-800 dark:text-emerald-400 flex items-center justify-center text-center">
               {enigmaOutput}
           </div>

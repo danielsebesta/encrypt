@@ -28,12 +28,12 @@
 
     <div class="grid gap-6">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.caesar.originalText')}</label>
+            <label class="label">{t(dict, 'tools.caesar.originalText')}</label>
             <textarea bind:value={input} placeholder={t(dict, 'tools.caesar.placeholder')} class="input h-24"></textarea>
         </div>
         
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.caesar.cipheredResult')}</label>
+            <label class="label">{t(dict, 'tools.caesar.cipheredResult')}</label>
             <div class="p-8 bg-zinc-50 dark:bg-zinc-900 rounded-3xl border-2 border-dashed border-zinc-100 dark:border-zinc-800 font-mono text-3xl text-center text-zinc-800 dark:text-zinc-100 break-all">
                 {output || '...'}
             </div>

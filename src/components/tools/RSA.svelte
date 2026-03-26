@@ -24,7 +24,7 @@
 <div class="space-y-6 animate-in fade-in duration-500">
   <div class="grid gap-6">
     <div class="grid gap-1.5">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.rsa.keyBitLength')}</label>
+        <label class="label">{t(dict, 'tools.rsa.keyBitLength')}</label>
         <select bind:value={bits} class="input">
             <option value={1024}>{t(dict, 'tools.rsa.bit1024')}</option>
             <option value={2048}>{t(dict, 'tools.rsa.bit2048')}</option>
@@ -40,10 +40,10 @@
         <div class="space-y-6 animate-in slide-in-from-bottom-2">
             <div class="space-y-2">
                 <div class="flex justify-between items-end">
-                    <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{t(dict, 'tools.rsa.publicKey')}</label>
+                    <label class="label">{t(dict, 'tools.rsa.publicKey')}</label>
                     <CopyButton text={keyPair.publicKey} label={t(dict, 'tools.rsa.copy')} />
                 </div>
-                <pre class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-40 break-all select-all">{keyPair.publicKey}</pre>
+                <pre class="result-box-neutral text-[10px] overflow-auto max-h-40 select-all">{keyPair.publicKey}</pre>
             </div>
             <div class="space-y-2">
                 <div class="flex justify-between items-end">

@@ -29,7 +29,7 @@
 <div class="space-y-8 animate-in fade-in duration-500">
   <div class="grid gap-4">
     <div class="grid gap-1.5">
-      <label for="pass-input" class="text-xs text-zinc-500 font-bold uppercase tracking-wider">Password / Passphrase</label>
+      <label for="pass-input" class="label">Password / Passphrase</label>
       <input 
         id="pass-input"
         type="text" 

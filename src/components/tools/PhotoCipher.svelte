@@ -288,16 +288,16 @@
 </script>
 
 <div class="space-y-6">
-  <div class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+  <div class="tab-bar">
     <button
       on:click={() => mode = 'encode'}
-      class={`pb-2.5 px-4 text-sm font-medium transition-colors ${mode === 'encode' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+      class="tab-btn {mode === 'encode' ? 'tab-btn-active' : ''}"
     >
       {t(dict, 'tools.photoCipher.encode')}
     </button>
     <button
       on:click={() => mode = 'decode'}
-      class={`pb-2.5 px-4 text-sm font-medium transition-colors ${mode === 'decode' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}`}
+      class="tab-btn {mode === 'decode' ? 'tab-btn-active' : ''}"
     >
       {t(dict, 'tools.photoCipher.decode')}
     </button>
@@ -354,7 +354,7 @@
       {#if mode === 'encode'}
         <div class="grid gap-4">
           <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.photoCipher.secretMessage')}</label>
+            <label class="label">{t(dict, 'tools.photoCipher.secretMessage')}</label>
             <textarea
               bind:value={message}
               placeholder={t(dict, 'tools.photoCipher.messagePlaceholder')}
@@ -366,7 +366,7 @@
             ></textarea>
           </div>
           <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.photoCipher.securityPassword')}</label>
+            <label class="label">{t(dict, 'tools.photoCipher.securityPassword')}</label>
             <input
               type="password"
               bind:value={password}
@@ -392,7 +392,7 @@
       {:else}
         <div class="grid gap-4">
           <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.photoCipher.securityPassword')}</label>
+            <label class="label">{t(dict, 'tools.photoCipher.securityPassword')}</label>
             <input
               type="password"
               bind:value={password}
@@ -411,8 +411,8 @@
           </button>
           {#if decodedMessage}
             <div class="grid gap-1.5">
-              <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.photoCipher.foundMessage')}</label>
-              <div class="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-lg text-emerald-700 dark:text-emerald-400 font-mono text-sm min-h-[120px] break-words">
+              <label class="label">{t(dict, 'tools.photoCipher.foundMessage')}</label>
+              <div class="result-box min-h-[120px]">
                 {decodedMessage}
               </div>
             </div>

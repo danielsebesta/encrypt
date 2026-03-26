@@ -136,7 +136,7 @@
       </div>
 
       <div class="space-y-2">
-        <label for="decrypt-password" class="block text-xs font-bold uppercase tracking-widest text-zinc-500">
+        <label for="decrypt-password" class="label block">
           Decryption password
         </label>
         <input
