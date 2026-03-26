@@ -11,7 +11,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'isgd' | 'spoome' | 'cleanuri' | '1url' | 'tini' | 'choto' | 'urlvanish';
+  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -269,43 +269,53 @@
     log('Stego image created.');
   }
 
-  // Ordered by privacy: best first, worst last
-  const SHORT_PROVIDERS: ShortProvider[] = [
-    'nolog',     // no-log, open-source, Czech privacy collective
-    'dagd',      // open source, no tracking
-    'vgd',       // is.gd sister, no logstats by default
-    'isgd',      // UK, logs IPs, public stats, but transparent
-    'spoome',    // open source, anonymized analytics
-    'cleanuri',  // minimal, no tracking found
-    '1url',      // CZ, public click stats
-    'tini',      // claims private, no policy
-    'choto',     // commercial, no docs
-    'urlvanish', // claims anonymous but runs Google Analytics
-  ];
+  // PRIMARY: privacy-first (no tracking, no logs)
+  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'vgd'];
+  // FALLBACK: when primary fails (some tracking, but stable)
+  const FALLBACK_SHORT: ShortProvider[] = ['spoome', 'cleanuri', 'isgd', '1url'];
+
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd', isgd: 'is.gd',
-    spoome: 'spoo.me', cleanuri: 'CleanURI', '1url': '1url.cz',
-    tini: 'tini.fyi', choto: 'choto.co', urlvanish: 'URLVanish'
+    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd',
+    spoome: 'spoo.me', cleanuri: 'CleanURI', isgd: 'is.gd', '1url': '1url.cz',
   };
 
-  async function autoShorten(url: string): Promise<void> {
-    for (const provider of SHORT_PROVIDERS) {
-      log(`Shortening via ${SHORT_NAMES[provider]}...`);
-      try {
-        const res = await fetch('/api/shorten', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, provider })
-        });
-        const data = await res.json();
-        if (res.ok && data?.shorturl) {
-          shortUrl = data.shorturl;
-          log(`Shortened via ${SHORT_NAMES[provider]}.`);
-          return;
-        }
-      } catch {}
+  const SHORTEN_TIMEOUT = 3000;
+
+  async function tryShorten(url: string, provider: ShortProvider): Promise<string | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SHORTEN_TIMEOUT);
+    try {
+      const res = await fetch('/api/shorten', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, provider }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (res.ok && data?.shorturl) return data.shorturl;
+    } catch {} finally {
+      clearTimeout(timer);
     }
-    log('Shortening failed — using full link.');
+    return null;
+  }
+
+  async function autoShorten(url: string): Promise<void> {
+    // Try primary providers (privacy-first)
+    for (const provider of PRIMARY_SHORT) {
+      log(`Shortening via ${SHORT_NAMES[provider]}...`);
+      const result = await tryShorten(url, provider);
+      if (result) { shortUrl = result; log(`Shortened via ${SHORT_NAMES[provider]}.`); return; }
+      // Retry once
+      const retry = await tryShorten(url, provider);
+      if (retry) { shortUrl = retry; log(`Shortened via ${SHORT_NAMES[provider]} (retry).`); return; }
+    }
+    // Fallback providers
+    log('Primary shorteners unavailable, trying fallbacks...');
+    for (const provider of FALLBACK_SHORT) {
+      const result = await tryShorten(url, provider);
+      if (result) { shortUrl = result; log(`Shortened via ${SHORT_NAMES[provider]}.`); return; }
+    }
+    log('All shorteners failed — using full link.');
   }
 
   function downloadStego() {
