@@ -226,6 +226,19 @@ async function upload0x0(file: Uint8Array, filename: string): Promise<string> {
   return text;
 }
 
+async function uploadX0at(file: Uint8Array, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', toBlob(file, filename), filename);
+  const res = await fetch('https://x0.at/', {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error(`x0.at: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('x0.at: invalid response');
+  return text;
+}
+
 async function uploadTransferSh(file: Uint8Array, filename: string): Promise<string> {
   const res = await fetch(`https://transfer.sh/${encodeURIComponent(filename)}`, {
     method: 'PUT',
@@ -251,6 +264,21 @@ async function uploadCatbox(file: Uint8Array, filename: string): Promise<string>
   return text;
 }
 
+async function uploadLitterbox(file: Uint8Array, filename: string): Promise<string> {
+  const form = new FormData();
+  form.append('reqtype', 'fileupload');
+  form.append('time', '72h');
+  form.append('fileToUpload', toBlob(file, filename), filename);
+  const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Litterbox: HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text || !text.startsWith('http')) throw new Error('Litterbox: invalid response');
+  return text;
+}
+
 const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
   imgbb: uploadImgBB,
   sxcu: uploadSxcu,
@@ -263,8 +291,10 @@ const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<s
   lightshot: uploadLightshot,
   imghippo: uploadImgHippo,
   '0x0': upload0x0,
+  x0at: uploadX0at,
   transfersh: uploadTransferSh,
   catbox: uploadCatbox,
+  litterbox: uploadLitterbox,
 };
 
 interface ServiceInfo {
@@ -288,9 +318,11 @@ const SERVICE_INFO: ServiceInfo[] = [
   { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: 'forever', tosUrl: 'https://imgbb.com/tos' },
   { id: 'lightshot', name: 'Lightshot', type: 'image', maxBytes: 20 * 1024 * 1024, retention: 'forever', tosUrl: 'https://prnt.sc/terms' },
   { id: 'imghippo', name: 'ImgHippo', type: 'image', maxBytes: 20 * 1024 * 1024, retention: '72 hours', tosUrl: 'https://imghippo.com/terms' },
-  { id: '0x0', name: '0x0.st', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '30 days', tosUrl: 'https://0x0.st', recommended: true },
+  { id: '0x0', name: '0x0.st', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '3-100 days', tosUrl: 'https://0x0.st', recommended: true },
+  { id: 'x0at', name: 'x0.at', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '3-100 days', tosUrl: 'https://x0.at' },
   { id: 'transfersh', name: 'transfer.sh', type: 'file', maxBytes: 10 * 1024 * 1024 * 1024, retention: '14 days', tosUrl: null },
   { id: 'catbox', name: 'Catbox.moe', type: 'file', maxBytes: 200 * 1024 * 1024, retention: 'forever', tosUrl: 'https://catbox.moe/faq.php' },
+  { id: 'litterbox', name: 'Litterbox', type: 'file', maxBytes: 1024 * 1024 * 1024, retention: '3 days', tosUrl: 'https://catbox.moe/faq.php' },
 ];
 
 export const GET: APIRoute = async () => {
