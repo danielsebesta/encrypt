@@ -38,6 +38,24 @@
   const MAX_FILE = 25 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
 
+  // Hosts that return direct download URLs (not download pages)
+  // Ordered by preference: long retention first, then reliability
+  const DIRECT_FILE_HOSTS = ['quax', 'tmpfile', 'tempsh', 'uguu'];
+  const DIRECT_IMAGE_HOSTS = ['sxcu', 'freeimage', 'imgbb', 'lightshot', 'imghippo'];
+
+  interface HostInfo { id: string; name: string; retention: string; }
+  const HOST_INFO: Record<string, HostInfo> = {
+    quax: { id: 'quax', name: 'qu.ax', retention: '30 days' },
+    tmpfile: { id: 'tmpfile', name: 'tmpfile.link', retention: '7 days' },
+    tempsh: { id: 'tempsh', name: 'temp.sh', retention: '3 days' },
+    uguu: { id: 'uguu', name: 'Uguu.se', retention: '3 hours' },
+    sxcu: { id: 'sxcu', name: 'sxcu.net', retention: 'forever' },
+    freeimage: { id: 'freeimage', name: 'FreeImage.host', retention: 'forever' },
+    imgbb: { id: 'imgbb', name: 'ImgBB', retention: 'forever' },
+    lightshot: { id: 'lightshot', name: 'Lightshot', retention: 'forever' },
+    imghippo: { id: 'imghippo', name: 'ImgHippo', retention: '72 hours' },
+  };
+
   $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: deliveryMode = isLarge ? 'ghost' : 'link';
@@ -181,36 +199,49 @@
       uploadFilename = 'ghost.bin';
     }
 
-    log(`Uploading ${(uploadBytes.length / 1024).toFixed(0)} KB to anonymous hosts...`);
-    const res = await fetch(`/api/ghost/upload?stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
-      method: 'POST',
-      body: uploadBytes,
-    });
+    // Try hosts one by one (not all at once) to avoid bans
+    const hostQueue = usedStego
+      ? [...DIRECT_IMAGE_HOSTS, ...DIRECT_FILE_HOSTS]
+      : [...DIRECT_FILE_HOSTS, ...DIRECT_IMAGE_HOSTS];
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error || `Upload failed: HTTP ${res.status}`);
+    let uploadUrl = '';
+    let uploadHost = '';
+
+    for (const hostId of hostQueue) {
+      const info = HOST_INFO[hostId];
+      if (!info) continue;
+      log(`Uploading to ${info.name} (${info.retention})...`);
+      try {
+        const res = await fetch(`/api/ghost/upload?services=${hostId}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
+          method: 'POST',
+          body: uploadBytes,
+        });
+        if (!res.ok) {
+          log(`${info.name}: HTTP ${res.status}, trying next...`);
+          continue;
+        }
+        const data = await res.json() as any;
+        const result = data?.results?.[0];
+        if (result?.url) {
+          uploadUrl = result.url;
+          uploadHost = info.name;
+          log(`Uploaded to ${info.name} (${info.retention}).`);
+          break;
+        }
+        log(`${info.name}: ${result?.error || 'no URL returned'}, trying next...`);
+      } catch (e: any) {
+        log(`${info.name}: ${e?.message || 'network error'}, trying next...`);
+      }
     }
 
-    const data = await res.json() as any;
-    const results = data?.results || [];
-    const successful = results.filter((r: any) => r.url);
-    const failed = results.filter((r: any) => !r.url);
-
-    if (failed.length > 0) {
-      log(`${failed.length} host(s) failed: ${failed.map((f: any) => f.service).join(', ')}`);
-    }
-
-    if (successful.length === 0) {
+    if (!uploadUrl) {
       throw new Error('All upload hosts failed.');
     }
-
-    log(`Uploaded to ${successful.length} host(s): ${successful.map((s: any) => s.service).join(', ')}`);
 
     const ghostPayload = {
       v: 1,
       mode: 'ghost',
-      urls: successful.map((s: any) => s.url),
+      url: uploadUrl,
       stego: usedStego,
     };
 
