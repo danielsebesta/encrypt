@@ -25,18 +25,12 @@ export const tools: ToolDefinition[] = [
   { slug: 'enigma',       i18nPrefix: 'tools.enigma',        navLabelKey: 'nav.tool.enigma',        category: 'cryptography' },
   { slug: 'caesar',       i18nPrefix: 'tools.caesar',        navLabelKey: 'nav.tool.caesar',        category: 'cryptography' },
   { slug: 'vigenere',     i18nPrefix: 'tools.vigenere',      navLabelKey: 'nav.tool.vigenere',      category: 'cryptography' },
-  { slug: 'morse',        i18nPrefix: 'tools.morse',         navLabelKey: 'nav.tool.morse',         category: 'cryptography' },
   { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'cryptography' },
 
   // ── Privacy ────────────────────────────────────────────
   { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy' },
   { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'privacy' },
-  { slug: 'exif-scrub',     i18nPrefix: 'tools.exifScrub',      navLabelKey: 'nav.tool.exifScrub',      category: 'privacy' },
   { slug: 'ghost-drop',     i18nPrefix: 'tools.ghostDrop',      navLabelKey: 'nav.tool.ghostDrop',      category: 'privacy' },
-  { slug: 'watermark',      i18nPrefix: 'tools.watermark',      navLabelKey: 'nav.tool.watermark',      category: 'privacy' },
-  { slug: 'qr-gen',         i18nPrefix: 'tools.qrGen',          navLabelKey: 'nav.tool.qrGen',          category: 'privacy' },
-  { slug: 'pdf-redact',     i18nPrefix: 'tools.pdfRedact',      navLabelKey: 'nav.tool.pdfRedact',      category: 'privacy' },
-  { slug: 'pdf-unlock',     i18nPrefix: 'tools.pdfUnlock',      navLabelKey: 'nav.tool.pdfUnlock',      category: 'privacy' },
 ];
 
 export const categoryI18nKeys: Record<ToolCategory, string> = {
