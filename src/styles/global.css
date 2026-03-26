@@ -227,6 +227,34 @@
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
+    .label {
+        @apply text-xs text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider;
+    }
+
+    .result-box {
+        @apply p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-xl font-mono text-sm text-emerald-700 dark:text-emerald-400 break-words select-all;
+    }
+
+    .result-box-neutral {
+        @apply p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm break-all;
+    }
+
+    .error-box {
+        @apply p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm rounded-xl;
+    }
+
+    .tab-bar {
+        @apply flex gap-1 border-b border-zinc-200 dark:border-zinc-800;
+    }
+
+    .tab-btn {
+        @apply pb-2.5 px-4 text-sm font-medium transition-colors text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300;
+    }
+
+    .tab-btn-active {
+        @apply text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500;
+    }
+
     .badge-secondary {
         @apply inline-flex items-center gap-1 rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-3 py-1 border border-emerald-200/70 dark:border-emerald-800/60;
     }

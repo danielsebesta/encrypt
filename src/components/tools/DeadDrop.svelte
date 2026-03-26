@@ -242,7 +242,7 @@
   {#if !hasHash}
     <div class="space-y-6">
       <div class="space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-text">
+        <label class="label block" for="dd-text">
           {t(dict, 'tools.deadDrop.textLabel')}
         </label>
         <textarea
@@ -254,7 +254,7 @@
       </div>
 
       <div class="space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-file">
+        <label class="label block" for="dd-file">
           {t(dict, 'tools.deadDrop.orSmallFile')}
         </label>
         <input id="dd-file" type="file" class="input cursor-pointer" on:change={handleFileChange} />
@@ -262,7 +262,7 @@
 
       <form class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end" on:submit|preventDefault={handleCreate}>
         <div class="space-y-2">
-          <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-pass">
+          <label class="label block" for="dd-pass">
             {t(dict, 'tools.deadDrop.password')}
           </label>
           <input
@@ -293,7 +293,7 @@
       {#if link}
         <div class="space-y-3">
           <div class="space-y-2">
-            <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-link">
+            <label class="label block" for="dd-link">
               {t(dict, 'tools.deadDrop.deadDropLink')}
             </label>
             <input id="dd-link" class="input text-xs font-mono" type="text" readonly value={link} />
@@ -351,7 +351,7 @@
 
       <form class="space-y-4" on:submit|preventDefault={handleOpen}>
         <div class="space-y-2">
-          <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="dd-open-pass">
+          <label class="label block" for="dd-open-pass">
             {t(dict, 'tools.deadDrop.password')}
           </label>
           <input

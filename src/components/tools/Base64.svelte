@@ -34,13 +34,13 @@
 
   <div class="grid gap-6">
     <div class="grid gap-1.5">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.base64.inputText')}</label>
+        <label class="label">{t(dict, 'tools.base64.inputText')}</label>
         <textarea bind:value={input} placeholder={mode === 'encode' ? t(dict, 'tools.base64.encodePlaceholder') : t(dict, 'tools.base64.decodePlaceholder')} class="input min-h-[120px] font-mono text-sm"></textarea>
     </div>
 
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.base64.outputResult')}</label>
+        <label class="label">{t(dict, 'tools.base64.outputResult')}</label>
         <CopyButton text={output} label={t(dict, 'tools.base64.copy')} />
       </div>
       <div class="p-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl font-mono text-sm break-all min-h-[120px] text-zinc-800 dark:text-zinc-200">

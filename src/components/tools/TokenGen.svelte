@@ -21,11 +21,11 @@
   <div class="grid gap-6">
     <div class="grid grid-cols-2 gap-4">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.token.entropyLength')}</label>
+            <label class="label">{t(dict, 'tools.token.entropyLength')}</label>
             <input type="number" bind:value={length} on:input={refresh} min="8" max="128" class="input" />
         </div>
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.token.encoding')}</label>
+            <label class="label">{t(dict, 'tools.token.encoding')}</label>
             <select bind:value={type} on:change={refresh} class="input">
                 <option value="hex">{t(dict, 'tools.token.hex')}</option>
                 <option value="base64">{t(dict, 'tools.token.base64Enc')}</option>
@@ -36,7 +36,7 @@
 
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.token.generatedToken')}</label>
+        <label class="label">{t(dict, 'tools.token.generatedToken')}</label>
         <CopyButton text={result} label={t(dict, 'tools.token.copy')} />
       </div>
       <div class="p-6 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl font-mono text-lg break-all text-center text-emerald-700 dark:text-emerald-400">

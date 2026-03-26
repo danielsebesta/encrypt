@@ -411,7 +411,7 @@
   {#if mode === 'encrypt'}
     <div class="card p-6 md:p-8 space-y-6">
       <div class="space-y-3">
-        <label for="ghost-file" class="block text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <label for="ghost-file" class="label block">
           File to encrypt (max 25 MB)
         </label>
         <input id="ghost-file" type="file" class="input cursor-pointer" on:change={handleFileChange} />
@@ -427,7 +427,7 @@
       </div>
 
       <div class="space-y-2">
-        <label for="ghost-password" class="block text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <label for="ghost-password" class="label block">
           Encryption password
         </label>
         <input
@@ -454,7 +454,7 @@
       </div>
 
       <div class="space-y-3">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <label class="label block">
           File retention: <span class="text-emerald-600 dark:text-emerald-400">{wantLabel}</span>
         </label>
         <input
@@ -629,7 +629,7 @@
 
       {#if decryptMode === 'url'}
         <div class="space-y-3">
-          <label for="decrypt-url" class="block text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+          <label for="decrypt-url" class="label block">
             URL to encrypted file
           </label>
           <input
@@ -645,7 +645,7 @@
         </div>
       {:else}
         <div class="space-y-3">
-          <label for="decrypt-file" class="block text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+          <label for="decrypt-file" class="label block">
             Select encrypted file
           </label>
           <input id="decrypt-file" type="file" class="input cursor-pointer" on:change={handleDecryptFileChange} />
@@ -661,7 +661,7 @@
       {/if}
 
       <div class="space-y-3">
-        <label for="decrypt-password" class="block text-xs font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <label for="decrypt-password" class="label block">
           Decryption password
         </label>
         <input
