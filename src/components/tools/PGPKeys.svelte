@@ -1,6 +1,7 @@
 <script lang="ts">
   import { generatePGPKeyPair } from '../../lib/crypto';
   import { getTranslations, t } from '../../lib/i18n';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   $: dict = getTranslations(locale);
@@ -31,9 +32,6 @@
     }
   }
 
-  function copy(text: string) {
-    navigator.clipboard.writeText(text);
-  }
 </script>
 
 <div class="space-y-6 animate-in fade-in duration-500">
@@ -110,13 +108,7 @@
             <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
               {t(dict, 'tools.pgpKeys.publicKey')}
             </label>
-            <button
-              type="button"
-              on:click={() => copy(keyPair!.publicKey)}
-              class="text-[10px] text-emerald-600 font-bold hover:underline"
-            >
-              {t(dict, 'tools.pgpKeys.copy')}
-            </button>
+            <CopyButton text={keyPair.publicKey} label={t(dict, 'tools.pgpKeys.copy')} />
           </div>
           <pre
             class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-52 break-all select-all"
@@ -130,13 +122,7 @@
             >
               {t(dict, 'tools.pgpKeys.privateKey')}
             </label>
-            <button
-              type="button"
-              on:click={() => copy(keyPair!.privateKey)}
-              class="text-[10px] text-emerald-600 font-bold hover:underline"
-            >
-              {t(dict, 'tools.pgpKeys.copy')}
-            </button>
+            <CopyButton text={keyPair.privateKey} label={t(dict, 'tools.pgpKeys.copy')} />
           </div>
           <pre
             class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-52 break-all select-all text-amber-700 dark:text-amber-500"

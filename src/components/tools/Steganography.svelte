@@ -155,7 +155,7 @@
   }
 </script>
 
-<div class="form space-y-6">
+<div class="space-y-6">
   <div class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
     <button
       on:click={() => mode = 'encode'}

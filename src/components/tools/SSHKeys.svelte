@@ -1,6 +1,7 @@
 <script lang="ts">
   import { generateSSHKeyPair } from '../../lib/crypto';
   import { getTranslations, t } from '../../lib/i18n';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   $: dict = getTranslations(locale);
@@ -21,9 +22,6 @@
     }
   }
 
-  function copy(text: string) {
-    navigator.clipboard.writeText(text);
-  }
 </script>
 
 <div class="space-y-6 animate-in fade-in duration-500">
@@ -58,13 +56,7 @@
             <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
               {t(dict, 'tools.sshKeys.publicKey')}
             </label>
-            <button
-              type="button"
-              on:click={() => copy(keyPair!.publicKey)}
-              class="text-[10px] text-emerald-600 font-bold hover:underline"
-            >
-              {t(dict, 'tools.sshKeys.copy')}
-            </button>
+            <CopyButton text={keyPair.publicKey} label={t(dict, 'tools.sshKeys.copy')} />
           </div>
           <pre
             class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] max-h-40 whitespace-pre-wrap break-all select-all"
@@ -78,13 +70,7 @@
             >
               {t(dict, 'tools.sshKeys.privateKey')}
             </label>
-            <button
-              type="button"
-              on:click={() => copy(keyPair!.privateKey)}
-              class="text-[10px] text-emerald-600 font-bold hover:underline"
-            >
-              {t(dict, 'tools.sshKeys.copy')}
-            </button>
+            <CopyButton text={keyPair.privateKey} label={t(dict, 'tools.sshKeys.copy')} />
           </div>
           <pre
             class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-x-auto overflow-y-auto max-h-40 whitespace-pre select-all text-amber-700 dark:text-amber-500"

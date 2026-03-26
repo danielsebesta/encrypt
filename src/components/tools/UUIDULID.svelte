@@ -2,6 +2,7 @@
   import { generateUUID, generateULID } from '../../lib/crypto';
   import { onMount } from 'svelte';
   import { getTranslations, t } from '../../lib/i18n';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   $: dict = getTranslations(locale);
@@ -16,9 +17,6 @@
 
   onMount(refresh);
 
-  function copy(text: string) {
-    navigator.clipboard.writeText(text);
-  }
 </script>
 
 <div class="space-y-6 animate-in fade-in duration-500">
@@ -26,7 +24,7 @@
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">UUID v4</label>
-        <button on:click={() => copy(uuidResult)} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.uuidUlid.copy')}</button>
+        <CopyButton text={uuidResult} label={t(dict, 'tools.uuidUlid.copy')} />
       </div>
       <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm md:text-base break-all flex justify-between items-center group">
         <span>{uuidResult}</span>
@@ -39,7 +37,7 @@
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
         <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.uuidUlid.ulidFull')}</label>
-        <button on:click={() => copy(ulidResult)} class="text-[10px] text-emerald-600 font-bold hover:underline">{t(dict, 'tools.uuidUlid.copy')}</button>
+        <CopyButton text={ulidResult} label={t(dict, 'tools.uuidUlid.copy')} />
       </div>
       <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm md:text-base break-all flex justify-between items-center group">
         <span>{ulidResult}</span>
