@@ -35,23 +35,27 @@
   const MAX_FILE = 25 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
 
-  // Hosts that return direct download URLs (not download pages)
-  // Ordered by preference: long retention first, then reliability
-  const DIRECT_FILE_HOSTS = ['quax', 'tmpfile', 'tempsh', 'uguu'];
-  const DIRECT_IMAGE_HOSTS = ['sxcu', 'freeimage', 'imgbb', 'lightshot', 'imghippo'];
+  // BINARY chain: raw file hosts only (no re-encoding risk)
+  // Ordered by reliability + retention
+  interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
+  const BINARY_HOSTS: HostInfo[] = [
+    { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
+    { id: '0x0', name: '0x0.st', retention: '30 days', maxBytes: 512 * 1024 * 1024 },
+    { id: 'catbox', name: 'Catbox.moe', retention: 'forever', maxBytes: 200 * 1024 * 1024 },
+    { id: 'transfersh', name: 'transfer.sh', retention: '14 days', maxBytes: 10 * 1024 * 1024 * 1024 },
+    { id: 'tmpfile', name: 'tmpfile.link', retention: '7 days', maxBytes: 100 * 1024 * 1024 },
+    { id: 'tempsh', name: 'temp.sh', retention: '3 days', maxBytes: 4 * 1024 * 1024 * 1024 },
+    { id: 'uguu', name: 'Uguu.se', retention: '3 hours', maxBytes: 128 * 1024 * 1024 },
+  ];
 
-  interface HostInfo { id: string; name: string; retention: string; }
-  const HOST_INFO: Record<string, HostInfo> = {
-    quax: { id: 'quax', name: 'qu.ax', retention: '30 days' },
-    tmpfile: { id: 'tmpfile', name: 'tmpfile.link', retention: '7 days' },
-    tempsh: { id: 'tempsh', name: 'temp.sh', retention: '3 days' },
-    uguu: { id: 'uguu', name: 'Uguu.se', retention: '3 hours' },
-    sxcu: { id: 'sxcu', name: 'sxcu.net', retention: 'forever' },
-    freeimage: { id: 'freeimage', name: 'FreeImage.host', retention: 'forever' },
-    imgbb: { id: 'imgbb', name: 'ImgBB', retention: 'forever' },
-    lightshot: { id: 'lightshot', name: 'Lightshot', retention: 'forever' },
-    imghippo: { id: 'imghippo', name: 'ImgHippo', retention: '72 hours' },
-  };
+  // IMAGE chain: for stego PNGs only (these hosts accept images natively)
+  const IMAGE_HOSTS: HostInfo[] = [
+    { id: 'sxcu', name: 'sxcu.net', retention: 'forever', maxBytes: 95 * 1024 * 1024 },
+    { id: 'freeimage', name: 'FreeImage.host', retention: 'forever', maxBytes: 64 * 1024 * 1024 },
+    { id: 'imgbb', name: 'ImgBB', retention: 'forever', maxBytes: 32 * 1024 * 1024 },
+    { id: 'lightshot', name: 'Lightshot', retention: 'forever', maxBytes: 20 * 1024 * 1024 },
+    { id: 'imghippo', name: 'ImgHippo', retention: '72 hours', maxBytes: 20 * 1024 * 1024 },
+  ];
 
   $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
@@ -196,38 +200,34 @@
       uploadFilename = 'ghost.bin';
     }
 
-    // Try hosts one by one (not all at once) to avoid bans
-    const hostQueue = usedStego
-      ? [...DIRECT_IMAGE_HOSTS, ...DIRECT_FILE_HOSTS]
-      : [...DIRECT_FILE_HOSTS, ...DIRECT_IMAGE_HOSTS];
+    // Use image hosts for stego PNGs, binary hosts for everything else
+    // Filter by file size, try one at a time
+    const chain = usedStego ? IMAGE_HOSTS : BINARY_HOSTS;
+    const eligible = chain.filter(h => uploadBytes.length <= h.maxBytes);
 
     let uploadUrl = '';
-    let uploadHost = '';
 
-    for (const hostId of hostQueue) {
-      const info = HOST_INFO[hostId];
-      if (!info) continue;
-      log(`Uploading to ${info.name} (${info.retention})...`);
+    for (const host of eligible) {
+      log(`Uploading to ${host.name} (${host.retention})...`);
       try {
-        const res = await fetch(`/api/ghost/upload?services=${hostId}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
+        const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
           method: 'POST',
           body: uploadBytes,
         });
         if (!res.ok) {
-          log(`${info.name}: HTTP ${res.status}, trying next...`);
+          log(`${host.name}: HTTP ${res.status}, trying next...`);
           continue;
         }
         const data = await res.json() as any;
         const result = data?.results?.[0];
         if (result?.url) {
           uploadUrl = result.url;
-          uploadHost = info.name;
-          log(`Uploaded to ${info.name} (${info.retention}).`);
+          log(`Uploaded to ${host.name} (${host.retention}).`);
           break;
         }
-        log(`${info.name}: ${result?.error || 'no URL returned'}, trying next...`);
+        log(`${host.name}: ${result?.error || 'no URL returned'}, trying next...`);
       } catch (e: any) {
-        log(`${info.name}: ${e?.message || 'network error'}, trying next...`);
+        log(`${host.name}: ${e?.message || 'network error'}, trying next...`);
       }
     }
 
