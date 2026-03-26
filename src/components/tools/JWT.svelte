@@ -23,7 +23,7 @@
 
 <div class="space-y-6 animate-in fade-in duration-500 text-left">
     <div class="grid gap-2">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.jwt.encodedToken')}</label>
+        <label class="label">{t(dict, 'tools.jwt.encodedToken')}</label>
         <textarea 
             bind:value={input} 
             on:input={handleInput} 

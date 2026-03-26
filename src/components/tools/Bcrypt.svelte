@@ -36,7 +36,7 @@
     </div>
     <div class="grid gap-4">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-medium">{t(dict, 'tools.bcrypt.cleartextInput')}</label>
+            <label class="label">{t(dict, 'tools.bcrypt.cleartextInput')}</label>
             <input bind:value={input} placeholder={t(dict, 'tools.bcrypt.hashPlaceholder')} class="input" />
         </div>
         <div class="flex gap-3">
@@ -61,7 +61,7 @@
     </div>
     <div class="grid gap-4">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-medium">{t(dict, 'tools.bcrypt.hashToCompare')}</label>
+            <label class="label">{t(dict, 'tools.bcrypt.hashToCompare')}</label>
             <input bind:value={verifyHash} placeholder={t(dict, 'tools.bcrypt.pasteHash')} class="input font-mono text-xs" />
         </div>
         <button on:click={handleVerify} class="btn-secondary w-full" disabled={isVerifying}>

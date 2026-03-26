@@ -20,7 +20,7 @@
 <div class="space-y-6 animate-in fade-in duration-500">
   <div class="grid gap-8">
     <div class="grid gap-3">
-        <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider text-center">{t(dict, 'tools.bip39.recoveryPhrase')}</label>
+        <label class="label text-center">{t(dict, 'tools.bip39.recoveryPhrase')}</label>
         <div class="grid grid-cols-3 md:grid-cols-4 gap-3">
             {#each mnemonic.split(' ') as word, i}
                 <div class="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-xl text-center">

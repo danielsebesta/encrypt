@@ -45,23 +45,23 @@
 </script>
 
 <div class="space-y-5">
-  <div class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+  <div class="tab-bar">
     <button
       on:click={toggleMode}
-      class="pb-2.5 px-4 text-sm font-medium transition-colors {mode === 'encrypt' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}"
+      class="tab-btn {mode === 'encrypt' ? 'tab-btn-active' : ''}"
     >
       {t(dict, 'tools.aesWords.encrypt')}
     </button>
     <button
       on:click={toggleMode}
-      class="pb-2.5 px-4 text-sm font-medium transition-colors {mode === 'decrypt' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300'}"
+      class="tab-btn {mode === 'decrypt' ? 'tab-btn-active' : ''}"
     >
       {t(dict, 'tools.aesWords.decrypt')}
     </button>
   </div>
   <div class="grid gap-4">
     <div class="grid gap-1.5">
-      <label for="cipher-password" class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.aesWords.secretPassword')}</label>
+      <label for="cipher-password" class="label">{t(dict, 'tools.aesWords.secretPassword')}</label>
       <input
         id="cipher-password"
         type="password"
@@ -77,7 +77,7 @@
       />
     </div>
     <div class="grid gap-1.5">
-      <label for="cipher-input" class="text-xs text-zinc-500 dark:text-zinc-400">
+      <label for="cipher-input" class="label">
         {mode === 'encrypt' ? t(dict, 'tools.aesWords.inputText') : t(dict, 'tools.aesWords.wordsToDecrypt')}
       </label>
       <textarea
@@ -99,16 +99,16 @@
     {mode === 'encrypt' ? t(dict, 'tools.aesWords.generateWords') : t(dict, 'tools.aesWords.recoverText')}
   </button>
   {#if error}
-    <div class="p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm rounded-lg">
+    <div class="error-box">
       {error}
     </div>
   {/if}
   {#if result}
     <div class="grid gap-1.5 pt-2">
-      <label class="text-xs text-zinc-500 dark:text-zinc-400">
+      <label class="label">
         {mode === 'encrypt' ? t(dict, 'tools.aesWords.ciphertextWords') : t(dict, 'tools.aesWords.decryptedOutput')}
       </label>
-      <div class="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-lg font-mono text-emerald-700 dark:text-emerald-400 break-words leading-relaxed select-all text-sm">
+      <div class="result-box leading-relaxed">
         {result}
       </div>
     </div>

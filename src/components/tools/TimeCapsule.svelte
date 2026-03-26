@@ -295,7 +295,7 @@
   {#if mode === 'encrypt'}
     <div class="space-y-6">
       <div class="space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-message">
+        <label class="label block" for="tc-message">
           {t(dict, 'tools.timeCapsule.message')}
         </label>
         <textarea
@@ -308,7 +308,7 @@
 
       <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end">
         <div class="space-y-2">
-          <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-date">
+          <label class="label block" for="tc-date">
             {t(dict, 'tools.timeCapsule.unlockAfter')}
           </label>
           <input
@@ -376,7 +376,7 @@
 
       {#if ciphertext}
         <div class="space-y-2">
-          <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-output">
+          <label class="label block" for="tc-output">
             {t(dict, 'tools.timeCapsule.ciphertext')}
           </label>
           <textarea
@@ -391,7 +391,7 @@
   {:else}
     <div class="space-y-6">
       <div class="space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-widest text-zinc-500" for="tc-cipher">
+        <label class="label block" for="tc-cipher">
           {t(dict, 'tools.timeCapsule.ciphertext')}
         </label>
         <textarea

@@ -15,7 +15,7 @@
 <div class="space-y-6 animate-in fade-in duration-500">
     <div class="grid gap-6">
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.vigenere.secretKeyphrase')}</label>
+            <label class="label">{t(dict, 'tools.vigenere.secretKeyphrase')}</label>
             <input bind:value={key} class="input font-bold tracking-widest text-emerald-600 dark:text-emerald-400" placeholder={t(dict, 'tools.vigenere.keyPlaceholder')} />
         </div>
 
@@ -25,12 +25,12 @@
         </div>
 
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.vigenere.inputText')}</label>
+            <label class="label">{t(dict, 'tools.vigenere.inputText')}</label>
             <textarea bind:value={input} placeholder={t(dict, 'tools.vigenere.messagePlaceholder')} class="input h-32"></textarea>
         </div>
 
         <div class="grid gap-1.5">
-            <label class="text-xs text-zinc-500 font-bold uppercase tracking-wider">{t(dict, 'tools.vigenere.result')}</label>
+            <label class="label">{t(dict, 'tools.vigenere.result')}</label>
             <div class="p-8 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-2xl text-2xl font-bold text-center text-zinc-800 dark:text-zinc-100 font-mono break-all shadow-inner">
                 {output || '...'}
             </div>
