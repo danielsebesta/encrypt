@@ -4,7 +4,7 @@
   import { createStegoImage, extractStego } from '../../lib/ghost/steganography';
   import CopyButton from '../CopyButton.svelte';
 
-  const MAX_BYTES = 25 * 1024 * 1024;
+  const MAX_BYTES = 50 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
   const STEGO_BLOWUP = 10;
 

@@ -3,7 +3,7 @@ import { checkRateLimit } from '../../../lib/rateLimit';
 
 export const prerender = false;
 
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = 50 * 1024 * 1024;
 const GHOST_LIMIT = 10;
 
 type ServiceResult = { service: string; url: string | null; error?: string };
