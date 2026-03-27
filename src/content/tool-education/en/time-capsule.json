@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Time Capsule Explained — Timelock Encryption with drand",
+  "metaDescription": "Understand how timelock encryption works, what the drand network does, and when future-unlock encryption makes sense.",
+  "hero": {
+    "category": "Timelock encryption",
+    "difficulty": "Intermediate",
+    "bestFor": ["Delayed reveals", "Future unlocks", "Public challenges"]
+  },
+  "quick": {
+    "what": "Locks a message so it can only be opened after a chosen future time.",
+    "use": "Creating a reveal that becomes decryptable later without trusting one person to guard the key.",
+    "notFor": "Offline storage where you cannot depend on outside network availability."
+  },
+  "learn": {
+    "intro": {
+      "title": "In plain English",
+      "text": "Time Capsule lets you encrypt now and unlock later. Instead of waiting for a person to reveal the key, the unlock depends on future public randomness that does not exist yet."
+    },
+    "how": {
+      "title": "How it works",
+      "text": "This tool uses the drand randomness network. Your message is locked to a future drand beacon round, and once that round arrives, the public beacon can be used to derive the decryption material."
+    },
+    "useCases": {
+      "title": "Where you'd use it",
+      "items": [
+        "Publishing a message or prediction that should become readable only later.",
+        "Building timed reveals for games, research, or public commitments.",
+        "Sharing a secret that should unlock at the same time for everyone."
+      ]
+    },
+    "mistake": {
+      "title": "Common mistake",
+      "text": "People sometimes think drand is storing their secret. It is not. drand only provides future public randomness; your encrypted message still needs to be preserved separately."
+    },
+    "history": {
+      "title": "History / fun fact",
+      "text": "The strange part of timelock encryption is that the unlock value does not exist when you press encrypt. You are binding your message to a future event that the network has not produced yet."
+    },
+    "security": {
+      "title": "Security note",
+      "text": "Timelock encryption depends on the availability and integrity of the public randomness network. It is best for delayed release, not for situations where fully offline recovery is required."
+    },
+    "deepDive": {
+      "title": "Deeper look",
+      "sections": [
+        {
+          "title": "What drand actually is",
+          "text": "drand is a distributed randomness network run by multiple independent participants. Together they generate public randomness beacons at regular intervals."
+        },
+        {
+          "title": "Why no single operator can unlock early",
+          "text": "The beacon is collectively generated. That means no one operator should be able to produce the future beacon value alone before the scheduled round arrives."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "time-capsule",
+    "title": "Encrypt now, unlock when the future beacon arrives",
+    "caption": "Your message is tied to a future public randomness round, not to a password handoff by another person."
+  }
+}

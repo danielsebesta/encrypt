@@ -1,0 +1,51 @@
+---
+import { t } from '../../lib/i18n';
+import type { ToolEducationEntry } from '../../lib/toolEducation';
+import ToolDiagramCard from './ToolDiagramCard.astro';
+import ToolLearnCard from './ToolLearnCard.astro';
+import ToolUseCases from './ToolUseCases.astro';
+import ToolHistoryCard from './ToolHistoryCard.astro';
+import ToolDeepDiveAccordion from './ToolDeepDiveAccordion.astro';
+
+type Props = {
+  dict: Record<string, string>;
+  entry: ToolEducationEntry;
+};
+
+const { dict, entry } = Astro.props;
+---
+
+<section class="tool-education-panel">
+  <div class="tool-education-panel__header">
+    <span class="tool-education-panel__kicker">{t(dict, 'toolEducation.sectionKicker')}</span>
+    <h2 class="tool-education-panel__title">{t(dict, 'toolEducation.sectionTitle')}</h2>
+    <p class="tool-education-panel__subtitle">{t(dict, 'toolEducation.sectionSubtitle')}</p>
+  </div>
+
+  <div class="tool-education-grid">
+    <ToolLearnCard title={entry.learn.intro.title} text={entry.learn.intro.text} />
+    <ToolLearnCard title={entry.learn.how.title} text={entry.learn.how.text} />
+    {entry.diagram && (
+      <ToolDiagramCard
+        variant={entry.diagram.variant}
+        title={entry.diagram.title}
+        caption={entry.diagram.caption}
+      />
+    )}
+    <ToolUseCases title={entry.learn.useCases.title} items={entry.learn.useCases.items} />
+    <ToolLearnCard title={entry.learn.mistake.title} text={entry.learn.mistake.text} tone="warning" />
+    <ToolHistoryCard title={entry.learn.history.title} text={entry.learn.history.text} />
+    {entry.learn.security && (
+      <ToolLearnCard title={entry.learn.security.title} text={entry.learn.security.text} tone="security" />
+    )}
+  </div>
+
+  {entry.learn.deepDive && (
+    <div class="mt-6 md:mt-8">
+      <ToolDeepDiveAccordion
+        title={entry.learn.deepDive.title}
+        sections={entry.learn.deepDive.sections}
+      />
+    </div>
+  )}
+</section>

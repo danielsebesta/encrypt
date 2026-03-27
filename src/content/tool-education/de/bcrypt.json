@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Bcrypt erklärt — langsames Hashing für Passwörter",
+  "metaDescription": "Lerne, warum bcrypt absichtlich langsam ist, wann man es verwendet und warum Passwort-Hashing nicht dasselbe wie Verschlüsselung ist.",
+  "hero": {
+    "category": "Passwort-Hashing",
+    "difficulty": "Einsteiger",
+    "bestFor": ["Login-Systeme", "Passwortspeicherung", "Verifikationsabläufe"]
+  },
+  "quick": {
+    "what": "Hasht Passwörter so, dass sie später geprüft werden können, ohne das Original zu speichern.",
+    "use": "Schutz von Passwortdatenbanken und Authentifizierungssystemen.",
+    "notFor": "Reversible Verschlüsselung, Dateischutz oder Token-Erzeugung."
+  },
+  "learn": {
+    "intro": {
+      "title": "Einfach erklärt",
+      "text": "Bcrypt ist ein speziell für Passwörter entwickelter Hash-Algorithmus. Er verwandelt ein Passwort in ein Einweg-Ergebnis, das später verglichen, aber nicht zurückübersetzt werden kann."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "text": "Bcrypt mischt das Passwort mit einem zufälligen Salt und wiederholt einen absichtlich teuren Rechenschritt viele Male. Das verlangsamt jeden Rateversuch eines Angreifers."
+    },
+    "useCases": {
+      "title": "Wofür man es nutzt",
+      "items": [
+        "Benutzerpasswörter in einer Web-Anwendungsdatenbank speichern.",
+        "Passwortverifikation während der Entwicklung testen.",
+        "Von unsicheren schnellen Hashes auf bessere Passwortspeicherung migrieren."
+      ]
+    },
+    "mistake": {
+      "title": "Typischer Irrtum",
+      "text": "Manche wollen mit bcrypt Daten schützen, die später wieder entschlüsselt werden sollen. Dafür ist bcrypt nicht gedacht. Es dient zur Passwortprüfung, nicht zum Wiederherstellen eines Geheimnisses."
+    },
+    "history": {
+      "title": "Geschichte / Fun Fact",
+      "text": "Bcrypt wurde so entworfen, dass Rechenaufwand ausdrücklich dazugehört. Bei Passwortschutz ist Langsamkeit ein Vorteil, weil Massengüsse für Angreifer teurer werden."
+    },
+    "security": {
+      "title": "Sicherheitshinweis",
+      "text": "Der Kostenfaktor muss hoch genug sein, um Angreifer zu bremsen, darf aber legitime Anmeldungen nicht unzumutbar verlangsamen."
+    },
+    "deepDive": {
+      "title": "Mehr Tiefe",
+      "sections": [
+        {
+          "title": "Warum Salts wichtig sind",
+          "text": "Ein Salt sorgt dafür, dass dasselbe Passwort bei verschiedenen Benutzern unterschiedliche Hashes ergibt. Das zerstört einfache vorberechnete Nachschlagetabellen."
+        },
+        {
+          "title": "Warum der Kostenfaktor zählt",
+          "text": "Der Kostenfaktor bestimmt, wie viel Arbeit bcrypt leistet. Höhere Werte erhöhen den Schutz vor Raten, verlängern aber auch reguläre Verifikation."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "bcrypt",
+    "title": "Passwort hinein, langsamer Hash hinaus",
+    "caption": "Bcrypt kombiniert Salt und Kostenfaktor, damit Prüfung alltagstauglich bleibt, großflächiges Raten aber teuer wird."
+  }
+}

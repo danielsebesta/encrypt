@@ -1,0 +1,62 @@
+{
+  "metaTitle": "JWT erklärt — Dekodieren ist nicht Verifizieren",
+  "metaDescription": "Verstehe, was ein JWT ist, warum Dekodieren keine Prüfung ersetzt und wie man Header und Claims sinnvoll liest.",
+  "hero": {
+    "category": "Token-Inspektion",
+    "difficulty": "Einsteiger",
+    "bestFor": ["Claims prüfen", "Header lesen", "Entwickler-Debugging"]
+  },
+  "quick": {
+    "what": "Zeigt, was in einem JSON Web Token steckt.",
+    "use": "Claims, Ablaufzeiten, Issuer und Token-Struktur beim Debugging prüfen.",
+    "notFor": "Zu entscheiden, dass ein Token vertrauenswürdig ist, nur weil du es lesen kannst."
+  },
+  "learn": {
+    "intro": {
+      "title": "Einfach erklärt",
+      "text": "Ein JWT ist ein kompaktes Tokenformat für strukturierte Daten wie Benutzer-ID, Rollen oder Ablaufzeiten. Dieses Tool hilft dir, diese Inhalte lokal zu lesen."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "text": "Ein JWT besteht meist aus drei Teilen: Header, Payload und Signatur. Die ersten beiden Teile sind Base64URL-kodiertes JSON und daher leicht lesbar. Vertrauen entsteht aber erst durch die Signatur."
+    },
+    "useCases": {
+      "title": "Wofür man es nutzt",
+      "items": [
+        "Beim Debugging prüfen, wann ein Token abläuft.",
+        "Claims wie Issuer, Subject, Audience oder Rollen ansehen.",
+        "Nachvollziehen, warum ein Backend ein Token akzeptiert oder ablehnt."
+      ]
+    },
+    "mistake": {
+      "title": "Typischer Irrtum",
+      "text": "Das Dekodieren eines JWT zeigt nur, was das Token behauptet, nicht ob es echt ist. Auch ein gefälschtes Token lässt sich oft problemlos dekodieren."
+    },
+    "history": {
+      "title": "Geschichte / Fun Fact",
+      "text": "JWT wurde beliebt, weil es klein und einfach zwischen Diensten transportierbar ist. Genau diese Bequemlichkeit führt aber oft dazu, dass Menschen den lesbaren Inhalt mit echter Vertrauenswürdigkeit verwechseln."
+    },
+    "security": {
+      "title": "Sicherheitshinweis",
+      "text": "Echte Verifikation bedeutet: Signatur mit dem richtigen Secret oder Public Key prüfen und Claims wie exp, aud und iss im passenden Anwendungskontext validieren."
+    },
+    "deepDive": {
+      "title": "Mehr Tiefe",
+      "sections": [
+        {
+          "title": "Header vs Payload",
+          "text": "Der Header beschreibt, wie das Token signiert ist. Die Payload enthält Claims. Beide Teile sind lesbar und keiner von beiden ist für sich allein vertrauenswürdig."
+        },
+        {
+          "title": "Was für echte Prüfung nötig ist",
+          "text": "Zur JWT-Verifikation brauchst du den erwarteten Algorithmus, das richtige Secret oder den passenden Public Key und Claim-Validierung passend zu deiner Anwendung."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "jwt",
+    "title": "Ein JWT besteht aus drei Teilen mit Punkten dazwischen",
+    "caption": "Lesbarer Inhalt steckt in Header und Payload. Vertrauen entsteht erst durch korrekte Signaturprüfung."
+  }
+}

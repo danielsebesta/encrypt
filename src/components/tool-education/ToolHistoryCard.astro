@@ -1,0 +1,14 @@
+---
+type Props = {
+  title: string;
+  text: string;
+};
+
+const { title, text } = Astro.props;
+---
+
+<article class="tool-history-card">
+  <span class="tool-history-card__kicker">Signal</span>
+  <h3 class="tool-history-card__title">{title}</h3>
+  <p class="tool-history-card__text">{text}</p>
+</article>
