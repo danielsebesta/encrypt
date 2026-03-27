@@ -3,7 +3,6 @@
   import { decrypt } from '../../lib/crypto';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
-  import { downloadFromNologSend, isNologSendUrl } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
@@ -491,20 +490,15 @@
         pushDebug(`Trying download source ${url}`);
         let fileBytes: Uint8Array;
 
-        if (isNologSendUrl(url)) {
-          pushDebug('Detected upload.nolog.cz Send URL');
-          fileBytes = await downloadFromNologSend(url, pushDebug);
-        } else {
-          const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
-          pushDebug(`Proxy fetch response HTTP ${res.status} for ${url}`);
-          if (!res.ok) {
-            lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
-            pushDebug(`Source failed before body read: ${lastErr}`);
-            continue;
-          }
-          fileBytes = new Uint8Array(await res.arrayBuffer());
-          pushDebug(`Downloaded encrypted blob (${fileBytes.byteLength} bytes)`);
+        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
+        pushDebug(`Proxy fetch response HTTP ${res.status} for ${url}`);
+        if (!res.ok) {
+          lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
+          pushDebug(`Source failed before body read: ${lastErr}`);
+          continue;
         }
+        fileBytes = new Uint8Array(await res.arrayBuffer());
+        pushDebug(`Downloaded encrypted blob (${fileBytes.byteLength} bytes)`);
 
         setProgress(t(dict, 'tools.ultimateDecrypt.progressDownloadedTitle'), t(dict, 'tools.ultimateDecrypt.progressDownloadedDetail'));
 
@@ -586,6 +580,12 @@
       bind:value={password}
       autocomplete="current-password"
       placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
+      on:keydown={(e) => {
+        if (e.key === 'Enter' && !loading && (hasHash || stegoFile)) {
+          e.preventDefault();
+          void handleDecrypt();
+        }
+      }}
     />
   </div>
 
@@ -641,11 +641,18 @@
       {#if previewType === 'image'}
         <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" />
       {:else if previewType === 'video'}
-        <video src={openedFileUrl} controls class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800">
-          <track kind="captions" />
-        </video>
+        {#key openedFileUrl}
+          <video controls preload="metadata" class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <source src={openedFileUrl} type={openedFileMime} />
+            <track kind="captions" />
+          </video>
+        {/key}
       {:else if previewType === 'audio'}
-        <audio src={openedFileUrl} controls class="w-full"></audio>
+        {#key openedFileUrl}
+          <audio controls preload="metadata" class="w-full">
+            <source src={openedFileUrl} type={openedFileMime} />
+          </audio>
+        {/key}
       {:else if previewType === 'pdf'}
         <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
       {:else if previewType === 'csv'}
