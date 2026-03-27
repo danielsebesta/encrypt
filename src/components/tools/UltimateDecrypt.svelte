@@ -634,18 +634,13 @@
 
       {#if previewType === 'image'}
         <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" />
-      {:else if previewType === 'video'}
+      {:else if previewType === 'video' && openedFileUrl}
         {#key openedFileUrl}
-          <video controls preload="metadata" class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800">
-            <source src={openedFileUrl} type={openedFileMime} />
-            <track kind="captions" />
-          </video>
+          <video controls preload="auto" src={openedFileUrl} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800"></video>
         {/key}
-      {:else if previewType === 'audio'}
+      {:else if previewType === 'audio' && openedFileUrl}
         {#key openedFileUrl}
-          <audio controls preload="metadata" class="w-full">
-            <source src={openedFileUrl} type={openedFileMime} />
-          </audio>
+          <audio controls preload="auto" src={openedFileUrl} class="w-full"></audio>
         {/key}
       {:else if previewType === 'pdf'}
         <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
