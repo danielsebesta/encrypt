@@ -141,12 +141,13 @@
     }
 
     html:not(.dark) {
-        @apply bg-white text-zinc-900 selection:bg-emerald-400/30 selection:text-emerald-800;
+        @apply text-zinc-900 selection:bg-emerald-400/30 selection:text-emerald-800;
     }
 
     html.dark {
-        @apply bg-zinc-950 text-zinc-200 selection:bg-emerald-500/30 selection:text-emerald-300;
+        @apply text-zinc-200 selection:bg-emerald-500/30 selection:text-emerald-300;
     }
+
 
     body {
         @apply min-h-screen flex flex-col;
@@ -322,18 +323,15 @@
             hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300;
     }
 
-    /* ── Page background (all pages) ── */
-    .page-bg {
+    /* ── Page background (all pages, on body so it shows behind transparent nav) ── */
+    body {
         position: relative;
     }
 
-    .page-bg::before {
+    body::before {
         content: "";
-        position: absolute;
-        top: -3.5rem;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        position: fixed;
+        inset: 0;
         pointer-events: none;
         z-index: 0;
         background-image:
@@ -343,16 +341,16 @@
         mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.15) 350px, transparent 700px);
     }
 
-    html.dark .page-bg::before {
+    html.dark body::before {
         background-image:
             linear-gradient(rgba(16, 185, 129, 0.08) 1px, transparent 1px),
             linear-gradient(90deg, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
         mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.12) 350px, transparent 700px);
     }
 
-    .page-bg::after {
+    body::after {
         content: "";
-        position: absolute;
+        position: fixed;
         top: -5rem;
         left: 50%;
         transform: translateX(-50%);
@@ -365,11 +363,11 @@
         filter: blur(40px);
     }
 
-    html.dark .page-bg::after {
+    html.dark body::after {
         background: radial-gradient(ellipse, rgba(16, 185, 129, 0.08), transparent 70%);
     }
 
-    .page-bg > * {
+    .page-bg {
         position: relative;
         z-index: 1;
     }
