@@ -297,6 +297,7 @@
   }
 
   let stegoFile: File | null = null;
+  let encryptedFile: File | null = null;
   let manualMode = false;
 
   function setProgress(title: string, detail = '') {
@@ -349,6 +350,13 @@
   function handleStegoFile(e: Event) {
     const target = e.target as HTMLInputElement;
     stegoFile = target.files?.[0] ?? null;
+    if (stegoFile) encryptedFile = null;
+  }
+
+  function handleEncryptedFile(e: Event) {
+    const target = e.target as HTMLInputElement;
+    encryptedFile = target.files?.[0] ?? null;
+    if (encryptedFile) stegoFile = null;
   }
 
   async function handleDecrypt() {
@@ -366,7 +374,10 @@
 
     loading = true;
     try {
-      if (stegoFile && !hasHash) {
+      if (encryptedFile && !hasHash) {
+        pushDebug('Using encrypted file as source');
+        await decryptFromEncryptedFile();
+      } else if (stegoFile && !hasHash) {
         pushDebug('Using stego image as source');
         await decryptFromStego();
       } else if (hashPayload) {
@@ -415,6 +426,50 @@
       pushDebug('Stego payload was not a supported URL');
       throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnexpectedStego'));
     }
+  }
+
+  async function decryptFromEncryptedFile() {
+    setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
+    const buffer = new Uint8Array(await encryptedFile!.arrayBuffer());
+    pushDebug(`Encrypted file loaded (${buffer.byteLength} bytes, name=${encryptedFile!.name})`);
+
+    // Try ghost/crypto decryptData first (has embedded filename metadata)
+    try {
+      const { data: decryptedData, name } = await decryptData(buffer, password);
+      pushDebug(`Decrypted successfully (${decryptedData.byteLength} bytes, original name=${name})`);
+      presentFile(decryptedData, name);
+      return;
+    } catch (e: any) {
+      pushDebug(`decryptData failed: ${e?.message || 'unknown'}, trying stego extraction...`);
+    }
+
+    // Try stego extraction (might be a stego PNG with encrypted data inside)
+    try {
+      const extracted = await extractStego(buffer);
+      if (extracted) {
+        pushDebug(`Stego extraction succeeded (${extracted.byteLength} bytes), decrypting inner payload...`);
+        const { data: decryptedData, name } = await decryptData(extracted, password);
+        pushDebug(`Inner payload decrypted (${decryptedData.byteLength} bytes, name=${name})`);
+        presentFile(decryptedData, name);
+        return;
+      }
+    } catch (e: any) {
+      pushDebug(`Stego+decrypt failed: ${e?.message || 'unknown'}`);
+    }
+
+    // Try as raw AES text (from crypto.ts encrypt/decrypt)
+    try {
+      const text = await decrypt(buffer, password);
+      pushDebug(`Decrypted as raw AES text (${text.length} chars)`);
+      openedText = text;
+      previewType = 'text';
+      setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyText'));
+      return;
+    } catch {
+      pushDebug('Raw AES text decrypt also failed');
+    }
+
+    throw new Error(t(dict, 'tools.ultimateDecrypt.errorDecryptFailed'));
   }
 
   async function decryptFromHash() {
@@ -584,9 +639,40 @@
       <p class="text-sm text-zinc-500 dark:text-zinc-400">
         {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="text-emerald-500">/u#...</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}
       </p>
-      <div class="space-y-2">
-        <label class="label block" for="ud-stego">{t(dict, 'tools.ultimateDecrypt.uploadStegoImage')}</label>
-        <input id="ud-stego" type="file" accept="image/*" class="input cursor-pointer text-xs" on:change={handleStegoFile} />
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="ue-input-pane ue-drop-zone" class:ue-input-pane--active={!!encryptedFile}>
+          {#if encryptedFile}
+            <div class="flex flex-col items-center gap-2 text-center py-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{encryptedFile.name}</span>
+              <span class="text-[10px] text-zinc-400">{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
+              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => encryptedFile = null}>Remove</button>
+            </div>
+          {:else}
+            <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ud-enc">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">Encrypted file</span>
+              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">.enc or any encrypted file</span>
+            </label>
+            <input id="ud-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
+          {/if}
+        </div>
+        <div class="ue-input-pane ue-drop-zone" class:ue-input-pane--active={!!stegoFile}>
+          {#if stegoFile}
+            <div class="flex flex-col items-center gap-2 text-center py-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{stegoFile.name}</span>
+              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => stegoFile = null}>Remove</button>
+            </div>
+          {:else}
+            <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ud-stego">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">Stego image</span>
+              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">Image with hidden data</span>
+            </label>
+            <input id="ud-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
+          {/if}
+        </div>
       </div>
     </div>
   {/if}
@@ -601,7 +687,7 @@
       autocomplete="current-password"
       placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
       on:keydown={(e) => {
-        if (e.key === 'Enter' && !loading && (hasHash || stegoFile)) {
+        if (e.key === 'Enter' && !loading && (hasHash || stegoFile || encryptedFile)) {
           e.preventDefault();
           void handleDecrypt();
         }
@@ -613,7 +699,7 @@
     class="btn w-full"
     type="button"
     on:click={handleDecrypt}
-    disabled={loading || (!hasHash && !stegoFile)}
+    disabled={loading || (!hasHash && !stegoFile && !encryptedFile)}
   >
     {loading ? t(dict, 'tools.ultimateDecrypt.decrypting') : t(dict, 'tools.ultimateDecrypt.decrypt')}
   </button>
