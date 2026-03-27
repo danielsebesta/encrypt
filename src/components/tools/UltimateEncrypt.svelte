@@ -76,7 +76,8 @@
     return a;
   }
 
-  $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;
+  $: totalFileSize = files.reduce((s, f) => s + f.size, 0);
+  $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: isHuge = payloadSize > MAX_FILE;
   $: deliveryMode = isHuge ? 'local' : isLarge ? 'ghost' : 'link';
@@ -120,23 +121,35 @@
   let dragging = false;
   let dropZoneEl: HTMLElement;
   let fileInputEl: HTMLInputElement;
+  let folderInputEl: HTMLInputElement;
+  let files: File[] = [];
+
+  $: file = files.length === 1 && !needsZip ? files[0] : null;
+  $: needsZip = files.length > 1;
+  $: zipName = needsZip ? (files[0]?.webkitRelativePath?.split('/')[0] || 'files') + '.zip' : '';
+
+  function addFiles(incoming: FileList | File[]) {
+    const arr = Array.from(incoming);
+    if (arr.length === 0) return;
+    files = arr;
+    textInput = '';
+  }
 
   function handleFileChange(e: Event) {
     const target = e.target as HTMLInputElement;
-    file = target.files?.[0] ?? null;
-    if (file) textInput = '';
+    if (target.files) addFiles(target.files);
   }
 
   function clearFile() {
-    file = null;
+    files = [];
     if (fileInputEl) fileInputEl.value = '';
+    if (folderInputEl) folderInputEl.value = '';
   }
 
   function handleDrop(e: DragEvent) {
     e.preventDefault();
     dragging = false;
-    const f = e.dataTransfer?.files?.[0];
-    if (f) { file = f; textInput = ''; }
+    if (e.dataTransfer?.files) addFiles(e.dataTransfer.files);
   }
 
   function handleDragOver(e: DragEvent) {
@@ -151,14 +164,88 @@
   function handlePaste(e: ClipboardEvent) {
     const items = e.clipboardData?.items;
     if (!items) return;
+    const pasted: File[] = [];
     for (const item of items) {
       if (item.kind === 'file') {
-        e.preventDefault();
         const f = item.getAsFile();
-        if (f) { file = f; textInput = ''; }
-        return;
+        if (f) pasted.push(f);
       }
     }
+    if (pasted.length > 0) {
+      e.preventDefault();
+      addFiles(pasted);
+    }
+  }
+
+  // Minimal ZIP creator (store only, no compression — we encrypt after anyway)
+  async function buildZip(entries: File[]): Promise<Uint8Array> {
+    const enc = new TextEncoder();
+    const centralHeaders: Uint8Array[] = [];
+    const localParts: Uint8Array[] = [];
+    let offset = 0;
+
+    for (const f of entries) {
+      const name = enc.encode(f.webkitRelativePath || f.name);
+      const data = new Uint8Array(await f.arrayBuffer());
+      // Local file header (30 + nameLen + data)
+      const local = new Uint8Array(30 + name.length + data.length);
+      const lv = new DataView(local.buffer);
+      lv.setUint32(0, 0x04034b50, true); // signature
+      lv.setUint16(4, 20, true); // version needed
+      lv.setUint16(8, 0, true); // method: store
+      lv.setUint32(14, 0, true); // crc32 (0 for store with data descriptor)
+      lv.setUint32(18, data.length, true); // compressed
+      lv.setUint32(22, data.length, true); // uncompressed
+      lv.setUint16(26, name.length, true);
+      local.set(name, 30);
+      local.set(data, 30 + name.length);
+      // CRC32
+      const crc = crc32(data);
+      lv.setUint32(14, crc, true);
+      localParts.push(local);
+
+      // Central directory header
+      const ch = new Uint8Array(46 + name.length);
+      const cv = new DataView(ch.buffer);
+      cv.setUint32(0, 0x02014b50, true);
+      cv.setUint16(4, 20, true);
+      cv.setUint16(6, 20, true);
+      cv.setUint32(16, crc, true);
+      cv.setUint32(20, data.length, true);
+      cv.setUint32(24, data.length, true);
+      cv.setUint16(28, name.length, true);
+      cv.setUint32(42, offset, true);
+      ch.set(name, 46);
+      centralHeaders.push(ch);
+
+      offset += local.length;
+    }
+
+    const cdSize = centralHeaders.reduce((s, h) => s + h.length, 0);
+    const eocd = new Uint8Array(22);
+    const ev = new DataView(eocd.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(8, entries.length, true);
+    ev.setUint16(10, entries.length, true);
+    ev.setUint32(12, cdSize, true);
+    ev.setUint32(16, offset, true);
+
+    const total = offset + cdSize + 22;
+    const zip = new Uint8Array(total);
+    let pos = 0;
+    for (const p of localParts) { zip.set(p, pos); pos += p.length; }
+    for (const h of centralHeaders) { zip.set(h, pos); pos += h.length; }
+    zip.set(eocd, pos);
+    return zip;
+  }
+
+  function crc32(data: Uint8Array): number {
+    let crc = ~0;
+    for (let i = 0; i < data.length; i++) {
+      crc ^= data[i];
+      for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+    }
+    return (~crc) >>> 0;
   }
 
   function setProgress(title: string, detail = '') {
@@ -225,7 +312,7 @@
 
     const trimmed = textInput.trim();
     pushDebug(`Start encrypt: mode=${deliveryMode}, file=${file ? file.name : 'none'}, payloadSize=${payloadSize} bytes`);
-    if (!file && !trimmed) {
+    if (files.length === 0 && !trimmed) {
       error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
       pushDebug('Validation failed: empty input');
       return;
@@ -258,18 +345,34 @@
     }
   }
 
-  async function encryptLocal() {
-    if (!file) throw new Error('No file selected');
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
-    pushDebug(`Local encrypt: reading ${file.name} (${file.size} bytes)`);
+  async function resolvePayload(): Promise<{ buffer: Uint8Array; filename: string }> {
+    if (needsZip) {
+      pushDebug(`Zipping ${files.length} files client-side...`);
+      setProgress(t(dict, 'tools.ultimateEncrypt.progressPreparingTitle'), 'Creating ZIP archive...');
+      const buffer = await buildZip(files);
+      const filename = zipName;
+      pushDebug(`ZIP created: ${filename} (${buffer.byteLength} bytes)`);
+      return { buffer, filename };
+    }
+    if (files.length === 1) {
+      const f = files[0];
+      const buffer = new Uint8Array(await f.arrayBuffer());
+      return { buffer, filename: f.name };
+    }
+    return { buffer: new TextEncoder().encode(textInput.trim()), filename: 'message.txt' };
+  }
 
-    const buffer = new Uint8Array(await file.arrayBuffer());
-    pushDebug(`Encrypting with AES-256-GCM...`);
-    const encrypted = await encryptData(buffer, password, file.name);
+  async function encryptLocal() {
+    if (files.length === 0) throw new Error('No file selected');
+    const { buffer, filename } = await resolvePayload();
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
+    pushDebug(`Local encrypt: ${filename} (${buffer.byteLength} bytes)`);
+
+    const encrypted = await encryptData(buffer, password, filename);
     pushDebug(`Encrypted to ${encrypted.byteLength} bytes`);
 
     const blob = new Blob([encrypted], { type: 'application/octet-stream' });
-    localFileName = `${file.name}.enc`;
+    localFileName = `${filename}.enc`;
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);
     localFileUrl = URL.createObjectURL(blob);
 
@@ -280,12 +383,11 @@
   async function encryptInline() {
     setProgress(t(dict, 'tools.ultimateEncrypt.progressPreparingTitle'), t(dict, 'tools.ultimateEncrypt.progressPreparingDetail'));
     let payload: any;
-    if (file) {
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
+    if (files.length > 0) {
+      const { buffer: bytes, filename } = await resolvePayload();
       const b64 = btoa(String.fromCharCode(...bytes));
-      payload = { v: 1, mode: 'inline', kind: 'file', name: file.name, type: file.type || 'application/octet-stream', data: b64 };
-      pushDebug(`Inline payload prepared for file ${file.name} (${bytes.byteLength} bytes)`);
+      payload = { v: 1, mode: 'inline', kind: 'file', name: filename, type: 'application/octet-stream', data: b64 };
+      pushDebug(`Inline payload prepared for ${filename} (${bytes.byteLength} bytes)`);
     } else {
       payload = { v: 1, mode: 'inline', kind: 'text', text: textInput.trim() };
       pushDebug(`Inline payload prepared for text (${textInput.trim().length} chars)`);
@@ -313,18 +415,10 @@
 
   async function encryptGhost() {
     setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
-    let buffer: Uint8Array;
-    let filename: string;
-
-    if (file) {
-      buffer = new Uint8Array(await file.arrayBuffer());
-      filename = file.name;
-      pushDebug(`Read file ${filename} (${buffer.byteLength} bytes)`);
-    } else {
-      buffer = new TextEncoder().encode(textInput.trim());
-      filename = 'message.txt';
-      pushDebug(`Prepared text payload as ${filename} (${buffer.byteLength} bytes)`);
-    }
+    const { buffer, filename } = files.length > 0
+      ? await resolvePayload()
+      : { buffer: new TextEncoder().encode(textInput.trim()), filename: 'message.txt' };
+    pushDebug(`Read payload ${filename} (${buffer.byteLength} bytes)`);
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
     const encrypted = await encryptData(buffer, password, filename);
@@ -525,7 +619,7 @@
   function reset() {
     step = 'input';
     textInput = '';
-    file = null;
+    files = [];
     password = '';
     autoPassword = true;
     enableStego = false;
@@ -555,9 +649,9 @@
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="space-y-4" on:paste={handlePaste}>
       <!-- Input area: expandable text + file drop -->
-      <div class="ue-input-grid" class:ue-input-grid--focused={textFocused && !file}>
+      <div class="ue-input-grid" class:ue-input-grid--focused={textFocused && files.length === 0}>
         <!-- Text input -->
-        <div class="ue-input-pane ue-input-pane--text" class:ue-input-pane--active={!file && textInput.trim().length > 0} class:ue-input-pane--disabled={!!file}>
+        <div class="ue-input-pane ue-input-pane--text" class:ue-input-pane--active={files.length === 0 && textInput.trim().length > 0} class:ue-input-pane--disabled={files.length > 0}>
           <label class="ue-input-pane__label" for="ue-text">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
             {t(dict, 'tools.ultimateEncrypt.messageLabel')}
@@ -567,7 +661,7 @@
             class="ue-textarea"
             bind:value={textInput}
             placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
-            disabled={!!file}
+            disabled={files.length > 0}
             on:focus={() => textFocused = true}
             on:blur={() => textFocused = false}
           ></textarea>
@@ -577,27 +671,38 @@
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div
           class="ue-input-pane ue-drop-zone"
-          class:ue-input-pane--active={!!file}
+          class:ue-input-pane--active={files.length > 0}
           class:ue-drop-zone--dragging={dragging}
           bind:this={dropZoneEl}
           on:drop={handleDrop}
           on:dragover={handleDragOver}
           on:dragleave={handleDragLeave}
         >
-          {#if file}
-            <div class="flex flex-col items-center gap-2 text-center py-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{file.name}</span>
-              <span class="text-[10px] text-zinc-400">{file.size < 1024 * 1024 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / (1024 * 1024)).toFixed(1)} MB`}</span>
-              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline mt-1" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
+          {#if files.length > 0}
+            <div class="flex flex-col items-center gap-1.5 text-center py-1 w-full">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              {#if files.length === 1}
+                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{files[0].name}</span>
+              {:else}
+                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{files.length} files</span>
+                <span class="text-[10px] text-emerald-600 dark:text-emerald-400">auto-zipped</span>
+              {/if}
+              <span class="text-[10px] text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
+              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
             </div>
           {:else}
-            <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ue-file">
+            <div class="flex flex-col items-center gap-2 text-center py-2 w-full h-full justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
               <span class="text-[9px] text-zinc-300 dark:text-zinc-600">Drop, paste, or click</span>
-            </label>
-            <input id="ue-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
+              <div class="flex gap-2 mt-1">
+                <label class="text-[9px] text-emerald-600 dark:text-emerald-500 cursor-pointer hover:underline" for="ue-file">Files</label>
+                <span class="text-[9px] text-zinc-300 dark:text-zinc-600">|</span>
+                <label class="text-[9px] text-emerald-600 dark:text-emerald-500 cursor-pointer hover:underline" for="ue-folder">Folder</label>
+              </div>
+            </div>
+            <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
+            <input id="ue-folder" type="file" class="sr-only" bind:this={folderInputEl} on:change={handleFileChange} webkitdirectory />
           {/if}
         </div>
       </div>
@@ -654,7 +759,7 @@
         class="btn w-full"
         type="button"
         on:click={handleEncrypt}
-        disabled={(!textInput.trim() && !file)}
+        disabled={(!textInput.trim() && files.length === 0)}
       >
         {t(dict, 'tools.ultimateEncrypt.encryptAndShare')}
       </button>
