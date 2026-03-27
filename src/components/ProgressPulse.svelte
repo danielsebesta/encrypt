@@ -4,102 +4,98 @@
   export let compact = false;
 </script>
 
-<div class={`progress-pulse ${compact ? 'progress-pulse-compact' : ''}`} aria-live="polite" aria-busy="true">
-  <div class="progress-pulse-grid" aria-hidden="true">
-    {#each Array(8) as _, index}
-      <span class="progress-pulse-pixel" style={`animation-delay: ${index * 90}ms`}></span>
+<div class={`pp ${compact ? 'pp--compact' : ''}`} aria-live="polite" aria-busy="true">
+  <div class="pp-grid" aria-hidden="true">
+    {#each Array(16) as _, i}
+      <span
+        class="pp-dot"
+        style={`animation-delay: ${(i % 4) * 120 + Math.floor(i / 4) * 80}ms`}
+      ></span>
     {/each}
   </div>
-  <div class="space-y-1">
-    <p class="progress-pulse-title">{title}</p>
+  <div class="pp-text">
+    <p class="pp-title">{title}</p>
     {#if detail}
-      <p class="progress-pulse-detail">{detail}</p>
+      <p class="pp-detail">{detail}</p>
     {/if}
   </div>
 </div>
 
 <style>
-  .progress-pulse {
+  .pp {
     display: flex;
     align-items: center;
-    gap: 0.9rem;
-    padding: 0.9rem 1rem;
-    border-radius: 1.25rem;
-    border: 1px solid rgba(16, 185, 129, 0.18);
-    background:
-      linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.88));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(255, 255, 255, 0.9));
   }
 
-  :global(.dark) .progress-pulse {
-    background:
-      linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(24, 24, 27, 0.82));
-    border-color: rgba(16, 185, 129, 0.24);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  :global(.dark) .pp {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(9, 9, 11, 0.85));
+    border-color: rgba(16, 185, 129, 0.2);
   }
 
-  .progress-pulse-compact {
-    padding: 0.8rem 0.9rem;
+  .pp--compact {
+    padding: 0.75rem 0.9rem;
+    gap: 0.8rem;
   }
 
-  .progress-pulse-grid {
+  .pp-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 0.45rem));
-    gap: 0.22rem;
+    grid-template-columns: repeat(4, 6px);
+    gap: 3px;
     flex: 0 0 auto;
   }
 
-  .progress-pulse-pixel {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 0.12rem;
-    background: rgba(16, 185, 129, 0.24);
-    animation: pixelPulse 900ms ease-in-out infinite;
+  .pp-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 1.5px;
+    background: rgba(16, 185, 129, 0.15);
+    animation: dotGlow 1.6s ease-in-out infinite;
   }
 
-  .progress-pulse-title {
-    font-size: 0.78rem;
-    line-height: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+  .pp-title {
+    font-size: 0.75rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: rgb(5 150 105);
+    color: rgb(5, 150, 105);
   }
 
-  :global(.dark) .progress-pulse-title {
-    color: rgb(52 211 153);
+  :global(.dark) .pp-title {
+    color: rgb(52, 211, 153);
   }
 
-  .progress-pulse-detail {
-    font-size: 0.78rem;
-    line-height: 1.25rem;
-    color: rgb(82 82 91);
+  .pp-detail {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: rgb(113, 113, 122);
   }
 
-  :global(.dark) .progress-pulse-detail {
-    color: rgb(161 161 170);
+  :global(.dark) .pp-detail {
+    color: rgb(161, 161, 170);
   }
 
-  @keyframes pixelPulse {
+  @keyframes dotGlow {
     0%, 100% {
-      opacity: 0.22;
-      transform: scale(0.88);
-      background: rgba(16, 185, 129, 0.24);
+      background: rgba(16, 185, 129, 0.12);
+      box-shadow: none;
     }
-
     50% {
-      opacity: 1;
-      transform: scale(1);
-      background: rgba(16, 185, 129, 0.95);
+      background: rgba(16, 185, 129, 0.9);
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.5), 0 0 12px rgba(16, 185, 129, 0.2);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .progress-pulse-pixel {
+    .pp-dot {
       animation: none;
-      opacity: 0.8;
-      transform: none;
-      background: rgba(16, 185, 129, 0.8);
+      background: rgba(16, 185, 129, 0.6);
     }
   }
 </style>
