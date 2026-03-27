@@ -108,7 +108,7 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 40%, transparent 75%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 45%, transparent 80%);
   }
 
   .perlin-grid {
@@ -116,22 +116,22 @@
     width: 100%;
     height: 100%;
     border: none;
-    opacity: 0.55;
+    opacity: 0.75;
   }
 
   :global(html.dark) .perlin-grid {
-    opacity: 0.4;
+    opacity: 0.45;
   }
 
   .perlin-grid :global(.perlin-cell) {
     aspect-ratio: 1;
-    border: 0.5px solid rgba(16, 185, 129, 0.06);
+    border: 0.5px solid rgba(16, 185, 129, 0.08);
     transition: background-color 1.6s linear;
     will-change: background-color;
   }
 
   :global(html.dark) .perlin-grid :global(.perlin-cell) {
-    border-color: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.1);
   }
 
   @media (prefers-reduced-motion: reduce) {
