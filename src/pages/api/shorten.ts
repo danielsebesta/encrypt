@@ -212,9 +212,11 @@ async function shortenShrink(urlToShorten: string, signal: AbortSignal): Promise
     body: JSON.stringify({ url: urlToShorten }),
     signal
   });
-  const text = (await res.text()).trim();
   if (!res.ok) return null;
-  return text && text.startsWith('http') ? text : null;
+  try {
+    const data = await res.json() as { short_url?: string };
+    return typeof data.short_url === 'string' && data.short_url.startsWith('http') ? data.short_url : null;
+  } catch { return null; }
 }
 
 async function shortenUlvis(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
