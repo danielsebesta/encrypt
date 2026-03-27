@@ -1,0 +1,88 @@
+---
+import type { ToolDiagramVariant } from '../../lib/toolEducation';
+
+type Props = {
+  variant: ToolDiagramVariant;
+  title: string;
+  caption: string;
+};
+
+const { variant, title, caption } = Astro.props;
+---
+
+<section class="tool-diagram-card">
+  <div class="tool-diagram-card__frame" aria-hidden="true">
+    {variant === 'base64' && (
+      <div class="tool-diagram tool-diagram-base64">
+        <div class="tool-diagram-base64__group">
+          <span class="tool-byte">01001101</span>
+          <span class="tool-byte">01100001</span>
+          <span class="tool-byte">01101110</span>
+        </div>
+        <div class="tool-diagram__arrow">→</div>
+        <div class="tool-diagram-base64__group">
+          <span class="tool-char">T</span>
+          <span class="tool-char">W</span>
+          <span class="tool-char">F</span>
+          <span class="tool-char">u</span>
+        </div>
+      </div>
+    )}
+
+    {variant === 'time-capsule' && (
+      <div class="tool-diagram tool-diagram-timeline">
+        <div class="tool-timeline-node">
+          <span class="tool-timeline-node__label">Now</span>
+          <span class="tool-timeline-node__text">Encrypt</span>
+        </div>
+        <div class="tool-diagram__line"></div>
+        <div class="tool-timeline-node">
+          <span class="tool-timeline-node__label">Future round</span>
+          <span class="tool-timeline-node__text">drand beacon</span>
+        </div>
+        <div class="tool-diagram__line"></div>
+        <div class="tool-timeline-node">
+          <span class="tool-timeline-node__label">Later</span>
+          <span class="tool-timeline-node__text">Unlock</span>
+        </div>
+      </div>
+    )}
+
+    {variant === 'jwt' && (
+      <div class="tool-diagram tool-diagram-jwt">
+        <span class="tool-token-segment">header</span>
+        <span class="tool-token-dot">.</span>
+        <span class="tool-token-segment">payload</span>
+        <span class="tool-token-dot">.</span>
+        <span class="tool-token-segment">signature</span>
+      </div>
+    )}
+
+    {variant === 'bcrypt' && (
+      <div class="tool-diagram tool-diagram-bcrypt">
+        <div class="tool-process-node">Password</div>
+        <div class="tool-diagram__arrow">→</div>
+        <div class="tool-process-node">Salt + cost</div>
+        <div class="tool-diagram__arrow">→</div>
+        <div class="tool-process-node">Stored hash</div>
+      </div>
+    )}
+
+    {variant === 'enigma' && (
+      <div class="tool-diagram tool-diagram-enigma">
+        <div class="tool-rotor">Keyboard</div>
+        <div class="tool-diagram__arrow">→</div>
+        <div class="tool-rotor">Rotors</div>
+        <div class="tool-diagram__arrow">→</div>
+        <div class="tool-rotor">Reflector</div>
+        <div class="tool-diagram__arrow">→</div>
+        <div class="tool-rotor">Lampboard</div>
+      </div>
+    )}
+  </div>
+
+  <div class="tool-diagram-card__body">
+    <h3 class="tool-diagram-card__title">{title}</h3>
+    <p class="tool-diagram-card__caption">{caption}</p>
+  </div>
+</section>

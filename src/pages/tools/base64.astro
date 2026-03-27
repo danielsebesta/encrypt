@@ -2,28 +2,47 @@
 import Layout from '../../layouts/Layout.astro';
 import Base64View from '../../components/tools/Base64.svelte';
 import { getTranslations, t, type Locale } from '../../lib/i18n';
+import { getToolEducation } from '../../lib/toolEducation';
+import ToolQuickFacts from '../../components/tool-education/ToolQuickFacts.astro';
+import ToolEducationPanel from '../../components/tool-education/ToolEducationPanel.astro';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+const education = getToolEducation(locale, 'base64');
 import DownloadStandalone from '../../components/DownloadStandalone.astro';
 ---
 
 <Layout 
-  title={t(dict, 'tools.base64.meta.title')}
-  description={t(dict, 'tools.base64.meta.description')}
+  title={education.metaTitle}
+  description={education.metaDescription}
 >
-  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
-    <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.base64.h1')} <span class="text-emerald-500">{t(dict, 'tools.base64.h1Highlight')}</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.base64.subtitle')}</p>
+  <div class="max-w-6xl mx-auto px-5 py-12 md:py-20">
+    <div class="tool-hero">
+      <div class="tool-hero__copy">
+        <div class="tool-hero__chips">
+          <span class="tool-chip">{t(dict, 'toolEducation.metaCategory')}: {education.hero.category}</span>
+          <span class="tool-chip">{t(dict, 'toolEducation.metaDifficulty')}: {education.hero.difficulty}</span>
+          {education.hero.bestFor.map((tag) => (
+            <span class="tool-chip tool-chip-soft">{tag}</span>
+          ))}
+        </div>
+        <h1 class="tool-hero__title">{t(dict, 'tools.base64.h1')} <span class="text-emerald-500">{t(dict, 'tools.base64.h1Highlight')}</span></h1>
+        <p class="tool-hero__subtitle">{t(dict, 'tools.base64.subtitle')}</p>
+      </div>
     </div>
+
     <div class="card p-8">
       <Base64View client:load locale={locale} />
     </div>
-    <div class="mt-12 text-left space-y-4">
-      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.base64.info.title')}</h3>
-      <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.base64.info.text')}</p>
+
+    <div class="mt-8 md:mt-10">
+      <ToolQuickFacts dict={dict} quick={education.quick} />
     </div>
+
+    <div class="mt-10 md:mt-14">
+      <ToolEducationPanel dict={dict} entry={education} />
+    </div>
+
     <DownloadStandalone slug="base64" locale={locale} />
   </div>
 </Layout>

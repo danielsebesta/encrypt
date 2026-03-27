@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Time Capsule erklärt — Timelock-Verschlüsselung mit drand",
+  "metaDescription": "Verstehe Timelock-Verschlüsselung, die Rolle des drand-Netzwerks und wann sich ein erst später entschlüsselbarer Inhalt lohnt.",
+  "hero": {
+    "category": "Timelock-Verschlüsselung",
+    "difficulty": "Fortgeschrittene Einsteiger",
+    "bestFor": ["Spätere Enthüllungen", "Zukünftige Freigaben", "Öffentliche Challenges"]
+  },
+  "quick": {
+    "what": "Sperrt eine Nachricht bis zu einem festgelegten Zeitpunkt in der Zukunft.",
+    "use": "Wenn etwas erst später lesbar werden soll, ohne einer einzelnen Person die Schlüsselkontrolle zu geben.",
+    "notFor": "Offline-Archivierung, wenn du nicht von externer Netzverfügbarkeit abhängen willst."
+  },
+  "learn": {
+    "intro": {
+      "title": "Einfach erklärt",
+      "text": "Mit Time Capsule verschlüsselst du jetzt und entschlüsselst später. Das Entsperren hängt nicht von einer Person ab, sondern von zukünftiger öffentlicher Zufälligkeit, die im Moment noch gar nicht existiert."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "text": "Das Tool nutzt das drand-Zufallsnetzwerk. Deine Nachricht wird an eine zukünftige drand-Beacon-Runde gebunden. Sobald diese Runde erreicht ist, kann der öffentliche Beacon zur Ableitung des Entschlüsselungsmaterials verwendet werden."
+    },
+    "useCases": {
+      "title": "Wofür man es nutzt",
+      "items": [
+        "Vorhersagen oder Aussagen veröffentlichen, die erst später lesbar sein sollen.",
+        "Zeitgesteuerte Enthüllungen für Spiele, Forschung oder öffentliche Commitments.",
+        "Ein Geheimnis so teilen, dass es für alle gleichzeitig freigeschaltet wird."
+      ]
+    },
+    "mistake": {
+      "title": "Typischer Irrtum",
+      "text": "Manche glauben, drand speichere das Geheimnis. Das stimmt nicht. drand liefert nur zukünftige öffentliche Zufälligkeit; die verschlüsselte Nachricht selbst muss separat erhalten bleiben."
+    },
+    "history": {
+      "title": "Geschichte / Fun Fact",
+      "text": "Das Faszinierende an Timelock-Verschlüsselung ist: Der Entsperrwert existiert beim Verschlüsseln noch gar nicht. Du bindest die Nachricht an ein zukünftiges Ereignis, das das Netzwerk erst noch erzeugen muss."
+    },
+    "security": {
+      "title": "Sicherheitshinweis",
+      "text": "Timelock-Verschlüsselung hängt von Verfügbarkeit und Integrität des öffentlichen Zufallsnetzwerks ab. Sie eignet sich für verzögerte Veröffentlichung, nicht für vollständig offline wiederherstellbare Aufbewahrung."
+    },
+    "deepDive": {
+      "title": "Mehr Tiefe",
+      "sections": [
+        {
+          "title": "Was drand eigentlich ist",
+          "text": "drand ist ein verteiltes Zufallsnetzwerk mit mehreren unabhängigen Teilnehmern. Gemeinsam erzeugen sie in festen Intervallen öffentliche Zufalls-Beacons."
+        },
+        {
+          "title": "Warum niemand allein früher entsperren kann",
+          "text": "Der Beacon wird gemeinschaftlich erzeugt. Dadurch sollte kein einzelner Betreiber den zukünftigen Beacon-Wert vorzeitig allein berechnen können."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "time-capsule",
+    "title": "Jetzt verschlüsseln, später mit dem zukünftigen Beacon öffnen",
+    "caption": "Die Nachricht ist an eine zukünftige öffentliche Zufallsrunde gebunden, nicht an eine manuelle Schlüsselweitergabe."
+  }
+}

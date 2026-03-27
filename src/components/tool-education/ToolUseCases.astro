@@ -1,0 +1,17 @@
+---
+type Props = {
+  title: string;
+  items: string[];
+};
+
+const { title, items } = Astro.props;
+---
+
+<section class="tool-learn-card">
+  <h3 class="tool-learn-card__title">{title}</h3>
+  <ul class="tool-use-cases">
+    {items.map((item) => (
+      <li class="tool-use-cases__item">{item}</li>
+    ))}
+  </ul>
+</section>
