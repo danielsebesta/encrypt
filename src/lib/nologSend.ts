@@ -613,6 +613,23 @@ async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKey
   return bytes;
 }
 
+export async function fetchSendEncryptedBlob(urlString: string, onDebug?: DebugFn): Promise<Uint8Array> {
+  const { baseUrl, id, secret } = parseSendDownloadUrl(urlString);
+  const keychain = new NologSendKeychain(secret);
+  onDebug?.(`Send ${baseUrl}: fetching encrypted blob ${id}`);
+  return fetchSendBlob(baseUrl, id, keychain, onDebug);
+}
+
+export async function decryptSendBlob(encryptedBytes: Uint8Array, urlString: string, onDebug?: DebugFn): Promise<Uint8Array> {
+  const { baseUrl, secret } = parseSendDownloadUrl(urlString);
+  const key = b64ToArray(secret);
+  onDebug?.(`Send ${baseUrl}: decrypting ECE blob client-side (${encryptedBytes.byteLength} bytes)`);
+  const decryptedStream = decryptStream(new Blob([encryptedBytes]).stream() as ReadableStream<Uint8Array>, key);
+  const decryptedBytes = await streamToUint8Array(decryptedStream);
+  onDebug?.(`Send ${baseUrl}: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
+  return decryptedBytes;
+}
+
 export async function downloadFromSendUrl(urlString: string, onDebug?: DebugFn) {
   const { baseUrl, id, secret } = parseSendDownloadUrl(urlString);
   const keychain = new NologSendKeychain(secret);
