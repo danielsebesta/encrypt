@@ -13,9 +13,10 @@ const SPOOME_API = 'https://spoo.me/';
 const CLEANURI_API = 'https://cleanuri.com/api/v1/shorten';
 const ULVIS_API = 'https://ulvis.net/api.php';
 const KRATKY_API = 'https://kratky.link/';
+const SHRINK_API = 'https://l.encrypt.click/api/shorten';
 const SHORTEN_LIMIT = 30;
 
-type Provider = 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd' | 'dagd' | 'spoome' | 'cleanuri' | 'ulvis' | 'kratky';
+type Provider = 'shrink' | 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd' | 'dagd' | 'spoome' | 'cleanuri' | 'ulvis' | 'kratky';
 
 export const prerender = false;
 
@@ -204,6 +205,18 @@ async function shortenIsgd(urlToShorten: string, signal: AbortSignal): Promise<s
   }
 }
 
+async function shortenShrink(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
+  const res = await fetch(SHRINK_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'encrypt.click/1' },
+    body: JSON.stringify({ url: urlToShorten }),
+    signal
+  });
+  const text = (await res.text()).trim();
+  if (!res.ok) return null;
+  return text && text.startsWith('http') ? text : null;
+}
+
 async function shortenUlvis(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
   const res = await fetch(`${ULVIS_API}?url=${encodeURIComponent(urlToShorten)}`, {
     method: 'GET',
@@ -343,10 +356,11 @@ export const POST: APIRoute = async ({ request, url }) => {
   const urlToShorten = isLocal ? `https://encrypt.click${parsed.pathname}${parsed.hash}` : targetUrl;
 
   const requested = body?.provider;
-  const VALID_PROVIDERS: Provider[] = ['nolog', '1url', 'urlvanish', 'tini', 'choto', 'isgd', 'dagd', 'spoome', 'cleanuri', 'ulvis', 'kratky'];
-  const provider: Provider = VALID_PROVIDERS.includes(requested as Provider) ? requested as Provider : 'nolog';
+  const VALID_PROVIDERS: Provider[] = ['shrink', 'nolog', '1url', 'urlvanish', 'tini', 'choto', 'isgd', 'dagd', 'spoome', 'cleanuri', 'ulvis', 'kratky'];
+  const provider: Provider = VALID_PROVIDERS.includes(requested as Provider) ? requested as Provider : 'shrink';
 
   const PROVIDER_FNS: Record<Provider, (url: string, signal: AbortSignal) => Promise<string | null>> = {
+    shrink: shortenShrink,
     nolog: shortenNolog,
     '1url': shorten1url,
     urlvanish: shortenUrlVanish,

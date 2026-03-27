@@ -8,7 +8,7 @@
   $: dict = getTranslations(locale);
 
   type Mode = 'create' | 'open';
-  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
+  type ShortProvider = 'shrink' | 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
 
   let mode: Mode = 'create';
 
@@ -36,10 +36,10 @@
   const MAX_BYTES = 10 * 1024;
 
   const PROVIDER_NAMES: Record<string, string> = {
-    nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
+    shrink: 'l.encrypt.click', nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
     spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
   };
-  $: providerName = PROVIDER_NAMES[shortProvider ?? ''] ?? 'Nolog.link';
+  $: providerName = PROVIDER_NAMES[shortProvider ?? ''] ?? 'l.encrypt.click';
 
   onMount(() => {
     if (typeof window === 'undefined') return;
