@@ -507,6 +507,52 @@ function parseSendDownloadUrl(urlString: string) {
   };
 }
 
+export interface PreparedSendUpload {
+  encryptedBytes: Uint8Array;
+  metadataB64: string;
+  authHeader: string;
+  secretB64: string;
+}
+
+export async function prepareSendUpload(data: Uint8Array, filename: string, fileType = 'application/octet-stream'): Promise<PreparedSendUpload> {
+  const keychain = new NologSendKeychain();
+  const metadata = await keychain.encryptMetadata({ name: filename, size: data.byteLength, type: fileType });
+  const verifierB64 = await keychain.authKeyB64();
+  const encryptedBytes = await encryptSendBytes(data, keychain.rawSecret);
+  return {
+    encryptedBytes,
+    metadataB64: arrayToB64(metadata),
+    authHeader: `send-v1 ${verifierB64}`,
+    secretB64: arrayToB64(keychain.rawSecret),
+  };
+}
+
+export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string, onDebug?: DebugFn): Promise<string> {
+  const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
+  onDebug?.(`Send ${normalizedBaseUrl}: proxying pre-encrypted upload (${encryptedBytes.byteLength} bytes)`);
+
+  const res = await fetch(`${normalizedBaseUrl}/api/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'X-File-Metadata': metadataB64,
+      'Content-Type': 'application/octet-stream',
+    },
+    body: encryptedBytes,
+  });
+  onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`Send upload failed: HTTP ${res.status}`);
+  }
+
+  const uploadInfo = await res.json() as any;
+  if (!uploadInfo?.url) {
+    throw new Error('Send upload failed: missing URL');
+  }
+  onDebug?.(`Send ${normalizedBaseUrl}: upload accepted (id=${uploadInfo.id}, url=${uploadInfo.url})`);
+  return `${uploadInfo.url}#${secretB64}`;
+}
+
 export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn) {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   const keychain = new NologSendKeychain();
