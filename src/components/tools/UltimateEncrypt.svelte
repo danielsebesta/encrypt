@@ -14,7 +14,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'shrink' | 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
+  type ShortProvider = 'shrink' | 'nolog' | 'spoome' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -468,10 +468,10 @@
   // Our own shortener — always try first
   const OWN_SHORT: ShortProvider = 'shrink';
   // Fallback if our shortener is down — shuffled
-  const FALLBACK_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky', 'spoome', '1url', 'isgd'];
+  const FALLBACK_SHORT: ShortProvider[] = ['nolog', 'spoome', '1url', 'isgd'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    shrink: 'l.encrypt.click', nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
+    shrink: 'l.encrypt.click', nolog: 'Nolog.link',
     spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
   };
 
