@@ -14,7 +14,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | 'dagd' | 'ulvis' | 'kratky' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
+  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -423,12 +423,12 @@
   }
 
   // PRIMARY: privacy-first (no tracking, no logs) — shuffled to spread load
-  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'ulvis', 'kratky'];
+  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky'];
   // FALLBACK: when primary fails (some tracking, but stable) — shuffled
   const FALLBACK_SHORT: ShortProvider[] = ['spoome', 'cleanuri', 'isgd', '1url'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    nolog: 'Nolog.link', dagd: 'da.gd', ulvis: 'ulvis.net', kratky: 'kratky.link',
+    nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
     spoome: 'spoo.me', cleanuri: 'CleanURI', isgd: 'is.gd', '1url': '1url.cz',
   };
 
