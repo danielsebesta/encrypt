@@ -22,10 +22,17 @@
       for (let c = 0; c < COLS; c++) {
         const cell = document.createElement('div');
         cell.className = 'perlin-cell';
+        cell.style.opacity = '0';
+        cell.style.transition = `background-color 1.6s linear, opacity 0.6s ease-out`;
+        cell.style.transitionDelay = `${r * 60 + Math.random() * 80}ms, ${r * 60 + Math.random() * 80}ms`;
         cells.push({ el: cell, r, c, prev: '' });
         grid.appendChild(cell);
       }
     }
+    // Staggered reveal from top
+    requestAnimationFrame(() => {
+      for (const c of cells) c.el.style.opacity = '1';
+    });
 
     const perm = new Uint8Array(512);
     const p = new Uint8Array(256);

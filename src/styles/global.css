@@ -141,11 +141,11 @@
     }
 
     html:not(.dark) {
-        @apply text-zinc-900 selection:bg-emerald-400/30 selection:text-emerald-800;
+        @apply bg-white text-zinc-900 selection:bg-emerald-400/30 selection:text-emerald-800;
     }
 
     html.dark {
-        @apply text-zinc-200 selection:bg-emerald-500/30 selection:text-emerald-300;
+        @apply bg-zinc-950 text-zinc-200 selection:bg-emerald-500/30 selection:text-emerald-300;
     }
 
 
@@ -323,51 +323,54 @@
             hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300;
     }
 
-    /* ── Page background (all pages, on body so it shows behind transparent nav) ── */
-    body {
+    /* ── Page background (subpages — homepage has its own via PixelGrid) ── */
+    .page-bg {
         position: relative;
     }
 
-    body::before {
+    .page-bg::before {
         content: "";
-        position: fixed;
-        inset: 0;
+        position: absolute;
+        top: -3.5rem;
+        left: 0;
+        right: 0;
+        bottom: 0;
         pointer-events: none;
         z-index: 0;
         background-image:
-            linear-gradient(rgba(16, 185, 129, 0.10) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16, 185, 129, 0.10) 1px, transparent 1px);
+            linear-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
         background-size: 48px 48px;
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.15) 350px, transparent 700px);
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 300px, transparent 600px);
     }
 
-    html.dark body::before {
+    html.dark .page-bg::before {
         background-image:
-            linear-gradient(rgba(16, 185, 129, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.12) 350px, transparent 700px);
+            linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.06) 300px, transparent 600px);
     }
 
-    body::after {
+    .page-bg::after {
         content: "";
-        position: fixed;
+        position: absolute;
         top: -5rem;
         left: 50%;
         transform: translateX(-50%);
         width: min(50rem, 80vw);
-        height: min(24rem, 35vh);
+        height: min(20rem, 30vh);
         border-radius: 9999px;
-        background: radial-gradient(ellipse, rgba(16, 185, 129, 0.14), transparent 70%);
+        background: radial-gradient(ellipse, rgba(16, 185, 129, 0.10), transparent 70%);
         pointer-events: none;
         z-index: 0;
         filter: blur(40px);
     }
 
-    html.dark body::after {
-        background: radial-gradient(ellipse, rgba(16, 185, 129, 0.08), transparent 70%);
+    html.dark .page-bg::after {
+        background: radial-gradient(ellipse, rgba(16, 185, 129, 0.05), transparent 70%);
     }
 
-    .page-bg {
+    .page-bg > * {
         position: relative;
         z-index: 1;
     }
