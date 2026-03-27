@@ -436,10 +436,30 @@
     }
 
     /* ── UltimateEncrypt input panes ── */
+    .ue-input-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+        transition: grid-template-columns 0.3s ease;
+    }
+
+    .ue-input-grid--focused {
+        grid-template-columns: 2.5fr 1fr;
+    }
+
+    @media (max-width: 639px) {
+        .ue-input-grid {
+            grid-template-columns: 1fr;
+        }
+        .ue-input-grid--focused {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .ue-input-pane {
         @apply rounded-xl border border-zinc-200/80 dark:border-zinc-800/70 bg-zinc-50/50 dark:bg-zinc-900/30 p-3;
         transition: border-color 0.2s, box-shadow 0.2s;
-        min-height: 140px;
+        min-height: 120px;
         display: flex;
         flex-direction: column;
     }
@@ -450,7 +470,7 @@
     }
 
     .ue-input-pane--disabled {
-        opacity: 0.45;
+        opacity: 0.35;
         pointer-events: none;
     }
 
@@ -459,9 +479,9 @@
     }
 
     .ue-textarea {
-        @apply w-full flex-1 bg-transparent text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-600 resize-none;
+        @apply w-full flex-1 bg-transparent text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700 resize-none;
         outline: none;
-        min-height: 80px;
+        min-height: 70px;
     }
 
     .ue-drop-zone {
@@ -473,6 +493,24 @@
         border-color: rgba(16, 185, 129, 0.6) !important;
         background: rgba(16, 185, 129, 0.04);
         box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .ue-passphrase-box {
+        @apply flex items-center gap-2 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-3 py-2;
+    }
+
+    .ue-passphrase-words {
+        @apply flex-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 select-all;
+        letter-spacing: 0.01em;
+    }
+
+    .ue-passphrase-refresh {
+        @apply flex-none p-1 rounded-md text-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 transition-colors;
+    }
+
+    .ue-passphrase-refresh:active svg {
+        transform: rotate(-180deg);
+        transition: transform 0.3s;
     }
 
     .home-closing-panel {
