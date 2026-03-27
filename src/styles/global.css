@@ -315,31 +315,8 @@
         pointer-events: none;
     }
 
-    .home-kicker {
-        @apply inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/80 dark:bg-zinc-950/70 dark:border-emerald-900/80 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300;
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(14px);
-    }
-
-    .home-kicker::after {
-        content: "01001110";
-        @apply font-mono text-[9px] tracking-[0.25em] text-emerald-500/60 dark:text-emerald-300/45;
-    }
-
-    .home-feature-chip {
-        @apply rounded-3xl border border-zinc-200/80 bg-white/75 dark:bg-zinc-950/50 dark:border-zinc-800/80 p-4 md:p-5 shadow-lg shadow-zinc-950/5;
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(18px);
-    }
-
-    .home-feature-chip::before,
-    .home-discovery-card::before,
     .home-tool-panel::before,
-    .home-proof-card::before,
-    .home-privacy-panel::before,
-    .home-cta-card::before {
+    .home-privacy-panel::before {
         content: "";
         position: absolute;
         inset: 0;
@@ -348,16 +325,26 @@
         opacity: 0.8;
     }
 
-    .home-feature-chip__label,
-    .home-proof-chip__title,
-    .home-tool-panel__eyebrow,
-    .home-discovery-card__tag {
-        @apply block text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400;
+    .home-hero-badge {
+        @apply text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300;
     }
 
-    .home-feature-chip__text,
-    .home-proof-chip__text {
-        @apply mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300;
+    .home-hero-points {
+        @apply space-y-2 text-sm md:text-base text-zinc-600 dark:text-zinc-300;
+    }
+
+    .home-hero-points p {
+        @apply flex items-start gap-3;
+    }
+
+    .home-hero-points p::before {
+        content: "";
+        width: 0.55rem;
+        height: 0.55rem;
+        margin-top: 0.45rem;
+        border-radius: 9999px;
+        flex: none;
+        background: rgba(16, 185, 129, 0.75);
     }
 
     .home-inline-note {
@@ -365,10 +352,10 @@
     }
 
     .home-tool-panel {
-        @apply rounded-[2rem] border border-zinc-200/80 bg-white/70 dark:bg-zinc-950/45 dark:border-zinc-800/80 p-4 md:p-5 shadow-[0_24px_80px_-40px_rgba(15,23,42,0.45)];
+        @apply border border-zinc-200/80 bg-white/70 dark:bg-zinc-950/45 dark:border-zinc-800/80 p-4 md:p-5;
         position: relative;
         overflow: hidden;
-        backdrop-filter: blur(20px);
+        backdrop-filter: blur(14px);
     }
 
     .home-tool-panel::after {
@@ -379,22 +366,14 @@
         @apply font-mono text-[10px] tracking-[0.28em] text-emerald-500/35 dark:text-emerald-300/30;
     }
 
-    .home-tool-panel__meta {
-        @apply flex items-start justify-between gap-4 mb-4 px-1;
+    .home-tool-panel__title {
+        @apply mb-4 text-sm md:text-base font-semibold text-zinc-800 dark:text-zinc-100;
         position: relative;
         z-index: 1;
     }
 
-    .home-tool-panel__title {
-        @apply mt-1 text-sm md:text-base font-semibold text-zinc-800 dark:text-zinc-100;
-    }
-
-    .home-tool-panel__status {
-        @apply inline-flex items-center rounded-full border border-emerald-200/90 dark:border-emerald-900/80 bg-emerald-50/85 dark:bg-emerald-950/40 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-300;
-    }
-
     .home-tool-panel__surface {
-        @apply rounded-[1.65rem] border border-white/70 bg-white/88 dark:bg-zinc-950/78 dark:border-zinc-900 p-5 md:p-6;
+        @apply border border-white/70 bg-white/88 dark:bg-zinc-950/78 dark:border-zinc-900 p-5 md:p-6;
         position: relative;
         z-index: 1;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
@@ -404,37 +383,27 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
-    .home-proof-card,
-    .home-privacy-panel,
-    .home-cta-card {
+    .home-privacy-panel {
         @apply rounded-[2rem] border border-zinc-200/80 bg-white/80 dark:bg-zinc-950/45 dark:border-zinc-800/80 p-6 md:p-8 shadow-[0_24px_80px_-46px_rgba(15,23,42,0.42)];
         position: relative;
         overflow: hidden;
         backdrop-filter: blur(16px);
     }
 
-    .home-proof-chip {
-        @apply rounded-2xl border border-zinc-200/80 bg-white/85 dark:bg-zinc-950/55 dark:border-zinc-800/80 p-4;
-        position: relative;
+    .home-proof-list {
+        @apply border-y border-zinc-200/80 dark:border-zinc-800/90 py-5 md:py-6;
     }
 
-    .home-discovery-card {
-        @apply rounded-[1.8rem] border border-zinc-200/80 bg-white/78 dark:bg-zinc-950/48 dark:border-zinc-800/80 p-6 shadow-[0_24px_70px_-48px_rgba(15,23,42,0.48)];
-        position: relative;
-        overflow: hidden;
-        transition: transform 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out;
-        backdrop-filter: blur(16px);
+    .home-proof-list__title {
+        @apply text-sm font-semibold text-zinc-900 dark:text-zinc-100;
     }
 
-    .home-discovery-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(16, 185, 129, 0.35);
-        box-shadow: 0 28px 80px -46px rgba(16, 185, 129, 0.22);
+    .home-proof-list__text {
+        @apply mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300;
     }
 
-    .home-discovery-card__icon {
-        @apply font-mono text-sm font-bold text-emerald-600/80 dark:text-emerald-300/75;
-        letter-spacing: 0.35em;
+    .home-discovery-item {
+        @apply border-t border-zinc-200/80 dark:border-zinc-800/80 pt-5 md:pt-6;
     }
 
     .home-inline-link {
@@ -559,18 +528,6 @@
 
     .tool-hero__copy {
         @apply max-w-4xl;
-    }
-
-    .tool-hero__chips {
-        @apply flex flex-wrap gap-2 mb-5;
-    }
-
-    .tool-chip {
-        @apply inline-flex items-center rounded-full border border-zinc-200/80 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/60 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-zinc-600 dark:text-zinc-300;
-    }
-
-    .tool-chip-soft {
-        @apply text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/80 dark:bg-emerald-950/25;
     }
 
     .tool-hero__title {
@@ -825,9 +782,6 @@
 
     main,
     .aos-fade,
-    .home-discovery-card,
-    .home-feature-chip,
-    .home-proof-chip,
     .home-tool-panel {
         transition: none !important;
         animation: none !important;
