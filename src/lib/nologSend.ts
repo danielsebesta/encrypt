@@ -9,6 +9,13 @@ const DEFAULT_DOWNLOAD_LIMIT = 50;
 const encoder = new TextEncoder();
 type DebugFn = (message: string) => void;
 
+export interface SendInstance {
+  baseUrl: string;
+  label: string;
+  region: 'eu' | 'other';
+  country?: string;
+}
+
 function arrayToB64(array: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < array.length; i++) binary += String.fromCharCode(array[i]);
@@ -316,6 +323,11 @@ function decryptStream(input: ReadableStream<Uint8Array>, key: Uint8Array, rs = 
   return transformStream(transformStream(input, new StreamSlicer(rs, 'decrypt')), new ECETransformer('decrypt', key, rs));
 }
 
+async function encryptSendBytes(data: Uint8Array, key: Uint8Array) {
+  const encryptedStream = encryptStream(new Blob([data]).stream() as ReadableStream<Uint8Array>, key);
+  return streamToUint8Array(encryptedStream);
+}
+
 class NologSendKeychain {
   rawSecret: Uint8Array;
   private nonceValue = DEFAULT_NONCE;
@@ -475,9 +487,62 @@ export async function uploadToNologSend(data: Uint8Array, filename: string, file
   }
 }
 
-async function fetchSendBlob(id: string, keychain: NologSendKeychain, onDebug?: DebugFn) {
+function normalizeSendBaseUrl(baseUrl: string) {
+  return baseUrl.replace(/\/+$/g, '');
+}
+
+function parseSendDownloadUrl(urlString: string) {
+  const url = new URL(urlString);
+  const match = url.pathname.match(/\/download\/([0-9a-fA-F]{10,16})\/?$/);
+  const secret = url.hash.slice(1);
+
+  if (!match || !secret) {
+    throw new Error('Invalid Send URL');
+  }
+
+  return {
+    baseUrl: `${url.protocol}//${url.host}`,
+    id: match[1],
+    secret,
+  };
+}
+
+export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn) {
+  const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
+  const keychain = new NologSendKeychain();
+  onDebug?.(`Send ${normalizedBaseUrl}: preparing ${filename} (${data.byteLength} bytes)`);
+  const metadata = await keychain.encryptMetadata({ name: filename, size: data.byteLength, type: fileType });
+  const verifierB64 = await keychain.authKeyB64();
+  onDebug?.(`Send ${normalizedBaseUrl}: metadata encrypted (${metadata.byteLength} bytes)`);
+  const encryptedBytes = await encryptSendBytes(data, keychain.rawSecret);
+  onDebug?.(`Send ${normalizedBaseUrl}: encrypted body prepared (${encryptedBytes.byteLength} bytes including envelope)`);
+
+  const res = await fetch(`${normalizedBaseUrl}/api/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `send-v1 ${verifierB64}`,
+      'X-File-Metadata': arrayToB64(metadata),
+      'Content-Type': 'application/octet-stream',
+    },
+    body: encryptedBytes,
+  });
+  onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`Send upload failed: HTTP ${res.status}`);
+  }
+
+  const uploadInfo = await res.json() as any;
+  if (!uploadInfo?.url) {
+    throw new Error('Send upload failed: missing URL');
+  }
+  onDebug?.(`Send ${normalizedBaseUrl}: upload accepted (id=${uploadInfo.id}, url=${uploadInfo.url})`);
+  return `${uploadInfo.url}#${arrayToB64(keychain.rawSecret)}`;
+}
+
+async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKeychain, onDebug?: DebugFn) {
+  const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   const doFetch = async () => {
-    const res = await fetch(`https://upload.nolog.cz/api/download/blob/${id}`, {
+    const res = await fetch(`${normalizedBaseUrl}/api/download/blob/${id}`, {
       headers: { Authorization: await keychain.authHeader() },
     });
     const nonce = parseNonce(res.headers.get('WWW-Authenticate'));
@@ -485,45 +550,42 @@ async function fetchSendBlob(id: string, keychain: NologSendKeychain, onDebug?: 
   };
 
   let { res, nonce } = await doFetch();
-  onDebug?.(`NoLog Send: blob fetch response ${res.status}`);
+  onDebug?.(`Send ${normalizedBaseUrl}: blob fetch response ${res.status}`);
   if (res.status === 401 && nonce && nonce !== keychain.nonce) {
     keychain.nonce = nonce;
-    onDebug?.('NoLog Send: received nonce challenge, retrying fetch');
+    onDebug?.(`Send ${normalizedBaseUrl}: received nonce challenge, retrying fetch`);
     ({ res } = await doFetch());
-    onDebug?.(`NoLog Send: retry response ${res.status}`);
+    onDebug?.(`Send ${normalizedBaseUrl}: retry response ${res.status}`);
   }
 
   if (!res.ok) {
-    throw new Error(`NoLog Send download failed: HTTP ${res.status}`);
+    throw new Error(`Send download failed: HTTP ${res.status}`);
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
-  onDebug?.(`NoLog Send: encrypted blob downloaded (${bytes.byteLength} bytes)`);
+  onDebug?.(`Send ${normalizedBaseUrl}: encrypted blob downloaded (${bytes.byteLength} bytes)`);
   return bytes;
 }
 
-export async function downloadFromNologSend(urlString: string, onDebug?: DebugFn) {
-  const url = new URL(urlString);
-  const match = url.pathname.match(/\/download\/([0-9a-fA-F]{10,16})\/?$/);
-  const secret = url.hash.slice(1);
-
-  if (!match || !secret) {
-    throw new Error('Invalid NoLog Send URL');
-  }
-
+export async function downloadFromSendUrl(urlString: string, onDebug?: DebugFn) {
+  const { baseUrl, id, secret } = parseSendDownloadUrl(urlString);
   const keychain = new NologSendKeychain(secret);
-  onDebug?.(`NoLog Send: resolving download ${match[1]}`);
-  const encryptedBytes = await fetchSendBlob(match[1], keychain, onDebug);
+  onDebug?.(`Send ${baseUrl}: resolving download ${id}`);
+  const encryptedBytes = await fetchSendBlob(baseUrl, id, keychain, onDebug);
   const decryptedStream = decryptStream(new Blob([encryptedBytes]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
   const decryptedBytes = await streamToUint8Array(decryptedStream);
-  onDebug?.(`NoLog Send: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
+  onDebug?.(`Send ${baseUrl}: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
   return decryptedBytes;
 }
 
-export function isNologSendUrl(urlString: string) {
+export async function downloadFromSendServer(urlString: string, onDebug?: DebugFn) {
+  return downloadFromSendUrl(urlString, onDebug);
+}
+
+export function isSendUrl(urlString: string) {
   try {
-    const url = new URL(urlString);
-    return url.hostname === 'upload.nolog.cz' && /\/download\/[0-9a-fA-F]{10,16}\/?$/.test(url.pathname);
+    parseSendDownloadUrl(urlString);
+    return true;
   } catch {
     return false;
   }
