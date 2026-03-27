@@ -5,7 +5,6 @@ import { getTranslations, t, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-import DownloadStandalone from '../../components/DownloadStandalone.astro';
 ---
 
 <Layout 
@@ -27,6 +26,5 @@ import DownloadStandalone from '../../components/DownloadStandalone.astro';
         <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info2.title')}</strong> {t(dict, 'tools.steganography.info2.text')}</p>
       </div>
     </div>
-    <DownloadStandalone slug="steganography" locale={locale} />
   </div>
 </Layout>

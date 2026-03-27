@@ -9,7 +9,6 @@ import ToolEducationPanel from '../../components/tool-education/ToolEducationPan
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const education = getToolEducation(locale, 'time-capsule');
-import DownloadStandalone from '../../components/DownloadStandalone.astro';
 ---
 
 <Layout 
@@ -36,6 +35,5 @@ import DownloadStandalone from '../../components/DownloadStandalone.astro';
     <div data-aos data-aos-delay="160">
       <ToolEducationPanel dict={dict} entry={education} />
     </div>
-    <DownloadStandalone slug="time-capsule" locale={locale} />
   </div>
 </Layout>
