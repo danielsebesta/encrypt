@@ -546,8 +546,6 @@
   "tools.ultimateEncrypt.steganographyImage": "PNG obálka",
   "tools.ultimateEncrypt.steganographyHelp": "Tento obrázek obsahuje zašifrovaný odkaz ukrytý v pixelech.",
   "tools.ultimateEncrypt.downloadImage": "Stáhnout obrázek",
-  "tools.ultimateEncrypt.qrTitle": "Naskenujte odkaz",
-  "tools.ultimateEncrypt.qrHint": "QR short linku",
   "tools.ultimateEncrypt.qrAlt": "QR kód pro zašifrovaný odkaz",
   "tools.ultimateEncrypt.encryptAnother": "Zašifrovat další zprávu",
   "tools.ultimateEncrypt.progressDefaultTitle": "Připravuji váš balíček",
