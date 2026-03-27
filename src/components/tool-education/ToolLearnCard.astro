@@ -1,0 +1,14 @@
+---
+type Props = {
+  title: string;
+  text: string;
+  tone?: 'default' | 'warning' | 'security';
+};
+
+const { title, text, tone = 'default' } = Astro.props;
+---
+
+<article class:list={['tool-learn-card', tone !== 'default' && `tool-learn-card-${tone}`]}>
+  <h3 class="tool-learn-card__title">{title}</h3>
+  <p class="tool-learn-card__text">{text}</p>
+</article>

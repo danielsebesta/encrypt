@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Enigma erklärt — Rotor-Chiffre und historische Simulation",
+  "metaDescription": "Verstehe, was die Enigma war, wie Rotorverschlüsselung funktionierte und warum sie historisch wichtig ist, obwohl sie keine moderne Sicherheit bietet.",
+  "hero": {
+    "category": "Historische Kryptographie",
+    "difficulty": "Einsteiger",
+    "bestFor": ["Geschichte lernen", "Chiffren verstehen", "Unterrichtsdemos"]
+  },
+  "quick": {
+    "what": "Simuliert die deutsche Rotor-Chiffriermaschine Enigma.",
+    "use": "Um zu verstehen, wie mechanische Verschlüsselung vor moderner digitaler Kryptographie funktionierte.",
+    "notFor": "Moderne Geheimkommunikation."
+  },
+  "learn": {
+    "intro": {
+      "title": "Einfach erklärt",
+      "text": "Die Enigma war eine elektromechanische Chiffriermaschine, die Buchstaben mithilfe rotierender Komponenten verwürfelte. Berühmt wurde sie im Zweiten Weltkrieg und ist heute ein hervorragendes Lehrbeispiel."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "text": "Beim Tastendruck läuft das Signal durch Steckbrett, rotierende Walzen und Reflektor und kehrt auf verändertem Weg zurück, bis ein anderes Zeichen aufleuchtet. Weil sich die Walzen ständig weiterdrehen, ändert sich die Substitution laufend."
+    },
+    "useCases": {
+      "title": "Wofür man es nutzt",
+      "items": [
+        "Verstehen, warum rotierende Substitution spannender ist als eine einfache Caesar-Verschiebung.",
+        "Die Verbindung zwischen Kryptographie, Krieg und früher Informatik nachvollziehen.",
+        "Mit Walzeneinstellungen experimentieren und die Auswirkungen kleiner Änderungen sehen."
+      ]
+    },
+    "mistake": {
+      "title": "Typischer Irrtum",
+      "text": "Weil Enigma so komplex wirkte, halten viele sie für praktisch unknackbar. Tatsächlich machten Bediengewohnheiten, erbeutete Unterlagen und analytische Arbeit sie angreifbar."
+    },
+    "history": {
+      "title": "Geschichte / Fun Fact",
+      "text": "Die Enigma ist nicht nur wegen ihrer Geheimschriften berühmt. Der Versuch, sie zu brechen, trug wesentlich zur Entwicklung moderner Kryptoanalyse und früher Rechenmaschinen bei."
+    },
+    "security": {
+      "title": "Sicherheitshinweis",
+      "text": "Behandle Enigma als historische Simulation und Lernwerkzeug, nicht als ernsthaften Schutzmechanismus."
+    },
+    "deepDive": {
+      "title": "Mehr Tiefe",
+      "sections": [
+        {
+          "title": "Warum das Walzenschalten so wichtig war",
+          "text": "Nach jedem Tastendruck änderten sich die Walzenpositionen. Dadurch konnte derselbe Buchstabe im Verlauf derselben Nachricht unterschiedliche Ausgaben erzeugen."
+        },
+        {
+          "title": "Warum sie am Ende dennoch gebrochen wurde",
+          "text": "Die Stärke der Enigma hing von Maschine und Disziplin ab. Wiederholte Formulierungen, Bedienfehler und mathematische Analyse halfen dabei, den möglichen Schlüsselraum stark einzugrenzen."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "enigma",
+    "title": "Signalweg durch eine Rotor-Maschine",
+    "caption": "Die beweglichen Walzen machen Enigma deutlich interessanter als eine starre Alphabet-Ersetzung."
+  }
+}

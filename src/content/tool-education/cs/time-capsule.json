@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Time Capsule vysvětleně — časově uzamčené šifrování s drand",
+  "metaDescription": "Pochopte, jak funguje timelock šifrování, co dělá síť drand a kdy dává smysl šifrování odemknutelné až v budoucnu.",
+  "hero": {
+    "category": "Časově uzamčené šifrování",
+    "difficulty": "Mírně pokročilý",
+    "bestFor": ["Odložené odhalení", "Budoucí odemčení", "Veřejné výzvy"]
+  },
+  "quick": {
+    "what": "Uzamkne zprávu tak, aby šla otevřít až po zvoleném čase.",
+    "use": "Vytváření odhalení do budoucna bez nutnosti věřit jednomu člověku, že podrží klíč.",
+    "notFor": "Offline archivaci v situaci, kde se nelze spoléhat na dostupnost externí sítě."
+  },
+  "learn": {
+    "intro": {
+      "title": "Jednoduše řečeno",
+      "text": "Time Capsule umožní zašifrovat zprávu teď a otevřít ji až později. Odemčení nezávisí na člověku, ale na budoucí veřejné náhodě, která ještě neexistuje."
+    },
+    "how": {
+      "title": "Jak to funguje",
+      "text": "Nástroj používá síť drand. Vaše zpráva se uzamkne na budoucí kolo veřejného beaconu a jakmile toto kolo nastane, lze z jeho veřejné hodnoty odvodit materiál pro dešifrování."
+    },
+    "useCases": {
+      "title": "Kde se hodí",
+      "items": [
+        "Zveřejnění zprávy nebo predikce, která má být čitelná až později.",
+        "Časovaná odhalení ve hrách, výzkumu nebo veřejných závazcích.",
+        "Sdílení tajemství, které se má odemknout všem ve stejný okamžik."
+      ]
+    },
+    "mistake": {
+      "title": "Častý omyl",
+      "text": "Někteří lidé si myslí, že drand jejich tajemství ukládá. Neukládá. drand pouze dodává budoucí veřejnou náhodu, samotná šifrovaná zpráva musí být uchována zvlášť."
+    },
+    "history": {
+      "title": "Historie / zajímavost",
+      "text": "Na timelock šifrování je zvláštní to, že odemykací hodnota při stisku tlačítka Encrypt ještě neexistuje. Zprávu vážete na budoucí událost, kterou síť teprve vytvoří."
+    },
+    "security": {
+      "title": "Bezpečnostní poznámka",
+      "text": "Timelock šifrování závisí na dostupnosti a integritě veřejné sítě náhody. Hodí se pro odložené zveřejnění, ne pro případy, kdy potřebujete plně offline obnovu."
+    },
+    "deepDive": {
+      "title": "Jít více do hloubky",
+      "sections": [
+        {
+          "title": "Co je vlastně drand",
+          "text": "drand je distribuovaná síť náhody provozovaná více nezávislými účastníky. Společně v pravidelných intervalech vytvářejí veřejné beacon hodnoty."
+        },
+        {
+          "title": "Proč nikdo nemá odemčení sám pod kontrolou",
+          "text": "Beacon vzniká kolektivně. To znamená, že jeden provozovatel by neměl být schopný budoucí hodnotu vyrobit sám dopředu před plánovaným kolem."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "time-capsule",
+    "title": "Zašifrovat teď, odemknout až s budoucím beaconem",
+    "caption": "Zpráva je navázaná na budoucí veřejné kolo náhody, ne na předání hesla od jiné osoby."
+  }
+}

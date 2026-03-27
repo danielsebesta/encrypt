@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Bcrypt vysvětleně — pomalé hashování pro hesla",
+  "metaDescription": "Zjistěte, proč je bcrypt záměrně pomalý, kdy se používá a proč je hashování hesel něco jiného než šifrování.",
+  "hero": {
+    "category": "Hashování hesel",
+    "difficulty": "Začátečník",
+    "bestFor": ["Přihlašování", "Ukládání hesel", "Ověřovací flow"]
+  },
+  "quick": {
+    "what": "Hashuje hesla tak, aby šla později ověřit bez ukládání původního hesla.",
+    "use": "Ochrana databází hesel a autentizačních systémů.",
+    "notFor": "Reverzibilní šifrování, ochranu souborů nebo generování tokenů."
+  },
+  "learn": {
+    "intro": {
+      "title": "Jednoduše řečeno",
+      "text": "Bcrypt je hashovací algoritmus zaměřený na hesla. Přemění heslo na jednosměrný výsledek, který lze později porovnat, ale ne vrátit zpátky do původní podoby."
+    },
+    "how": {
+      "title": "Jak to funguje",
+      "text": "Bcrypt kombinuje heslo s náhodnou solí a opakuje výpočetně drahou operaci mnohokrát. To zpomaluje každý pokus útočníka, což je přesně to, co při ochraně hesel chcete."
+    },
+    "useCases": {
+      "title": "Kde se hodí",
+      "items": [
+        "Ukládání uživatelských hesel v databázi webové aplikace.",
+        "Testování ověřování hesel během vývoje.",
+        "Migrace ze starých rychlých hashů na bezpečnější ukládání hesel."
+      ]
+    },
+    "mistake": {
+      "title": "Častý omyl",
+      "text": "Lidé někdy chtějí pomocí bcryptu chránit data, která pak chtějí znovu dešifrovat. To je špatný nástroj. Bcrypt je pro ověřování hesel, ne pro návrat k původnímu tajemství."
+    },
+    "history": {
+      "title": "Historie / zajímavost",
+      "text": "Bcrypt byl navržen tak, aby zůstával záměrně drahý na výpočet. U hesel je pomalost výhoda, protože útočníkům zdražuje hrubou sílu."
+    },
+    "security": {
+      "title": "Bezpečnostní poznámka",
+      "text": "Work factor je potřeba nastavit dostatečně vysoko, aby brzdil útočníky, ale zároveň nezpomalil legitimní přihlášení víc, než je přijatelné."
+    },
+    "deepDive": {
+      "title": "Jít více do hloubky",
+      "sections": [
+        {
+          "title": "Proč je důležitá sůl",
+          "text": "Sůl zajistí, že stejné heslo vytvoří u různých uživatelů jiný hash. Tím se rozbíjejí jednoduché předpočítané útoky jako rainbow tables."
+        },
+        {
+          "title": "Proč záleží na cost faktoru",
+          "text": "Cost faktor určuje, kolik práce bcrypt provede. Vyšší hodnota zvyšuje odolnost proti hádání, ale prodlužuje i legitimní ověřování."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "bcrypt",
+    "title": "Heslo dovnitř, pomalý hash ven",
+    "caption": "Bcrypt přidává sůl a výpočetní náročnost, aby bylo ověření použitelné pro vás, ale drahé pro útočníka."
+  }
+}
