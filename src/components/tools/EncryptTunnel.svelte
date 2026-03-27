@@ -28,13 +28,13 @@
   }
 
   const STOPS = [
-    { label: '3h', days: 0.125, full: '3 hours' },
-    { label: '1d', days: 1, full: '1 day' },
-    { label: '3d', days: 3, full: '3 days' },
-    { label: '1w', days: 7, full: '1 week' },
-    { label: '30d', days: 30, full: '30 days' },
-    { label: '6mo', days: 180, full: '6 months' },
-    { label: '∞', days: Infinity, full: 'Forever' },
+    { label: '3h', days: 0.125 },
+    { label: '1d', days: 1 },
+    { label: '3d', days: 3 },
+    { label: '1w', days: 7 },
+    { label: '30d', days: 30 },
+    { label: '6mo', days: 180 },
+    { label: '∞', days: Infinity },
   ];
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
@@ -67,7 +67,7 @@
   }
 
   $: wantDays = STOPS[retIdx].days;
-  $: wantLabel = STOPS[retIdx].full;
+  $: wantLabel = formatRetentionStop(STOPS[retIdx].label);
   $: candidates = file && !tooLarge && services.length > 0 ? rankProviders(wantDays, file.size) : [];
   $: provider = candidates[0] || null;
   $: isStego = provider?.type === 'image';
@@ -138,12 +138,25 @@
   }
 
   function formatDays(d: number): string {
-    if (d === Infinity) return 'Forever';
-    if (d < 1) return `${Math.round(d * 24)} hours`;
-    if (d === 1) return '1 day';
-    if (d < 30) return `${Math.round(d)} days`;
-    if (d < 365) return `${Math.round(d / 30)} months`;
-    return `${Math.round(d / 365)} years`;
+    if (d === Infinity) return t(dict, 'tools.encryptTunnel.durationForever');
+    if (d < 1) return t(dict, 'tools.encryptTunnel.durationHours').replace('{count}', String(Math.round(d * 24)));
+    if (d === 1) return t(dict, 'tools.encryptTunnel.durationDay');
+    if (d < 30) return t(dict, 'tools.encryptTunnel.durationDays').replace('{count}', String(Math.round(d)));
+    if (d < 365) return t(dict, 'tools.encryptTunnel.durationMonths').replace('{count}', String(Math.round(d / 30)));
+    return t(dict, 'tools.encryptTunnel.durationYears').replace('{count}', String(Math.round(d / 365)));
+  }
+
+  function formatRetentionStop(label: string): string {
+    const map: Record<string, string> = {
+      '3h': 'tools.encryptTunnel.retention3h',
+      '1d': 'tools.encryptTunnel.retention1d',
+      '3d': 'tools.encryptTunnel.retention3d',
+      '1w': 'tools.encryptTunnel.retention1w',
+      '30d': 'tools.encryptTunnel.retention30d',
+      '6mo': 'tools.encryptTunnel.retention6mo',
+      '∞': 'tools.encryptTunnel.retentionForever',
+    };
+    return t(dict, map[label] || 'tools.encryptTunnel.retentionForever');
   }
 
   onMount(async () => {
@@ -391,7 +404,7 @@
       class:dark:text-zinc-100={mode === 'encrypt'}
       on:click={() => { mode = 'encrypt'; setProgress('', ''); decryptError = ''; decryptedFile = null; }}
     >
-      Encrypt &amp; Upload
+      {t(dict, 'tools.encryptTunnel.encryptTab')}
     </button>
     <button
       type="button"
@@ -498,12 +511,12 @@
           <div class="flex gap-2 flex-wrap">
             {#if nearestShorter !== null}
               <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => (retIdx = nearestShorter)}>
-                {t(dict, 'tools.encryptTunnel.tryInstead')} {STOPS[nearestShorter].full}
+                {t(dict, 'tools.encryptTunnel.tryInstead')} {formatRetentionStop(STOPS[nearestShorter].label)}
               </button>
             {/if}
             {#if nearestLonger !== null}
               <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => (retIdx = nearestLonger)}>
-                {t(dict, 'tools.encryptTunnel.tryInstead')} {STOPS[nearestLonger].full}
+                {t(dict, 'tools.encryptTunnel.tryInstead')} {formatRetentionStop(STOPS[nearestLonger].label)}
               </button>
             {/if}
           </div>
@@ -551,12 +564,12 @@
             <div class="flex gap-2 flex-wrap">
               {#if nearestShorter !== null}
                 <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => { retIdx = nearestShorter; failedIds = []; error = ''; }}>
-                  {t(dict, 'tools.encryptTunnel.tryRetention')} {STOPS[nearestShorter].full}
+                  {t(dict, 'tools.encryptTunnel.tryRetention')} {formatRetentionStop(STOPS[nearestShorter].label)}
                 </button>
               {/if}
               {#if nearestLonger !== null}
                 <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => { retIdx = nearestLonger; failedIds = []; error = ''; }}>
-                  {t(dict, 'tools.encryptTunnel.tryRetention')} {STOPS[nearestLonger].full}
+                  {t(dict, 'tools.encryptTunnel.tryRetention')} {formatRetentionStop(STOPS[nearestLonger].label)}
                 </button>
               {/if}
             </div>

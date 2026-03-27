@@ -29,7 +29,9 @@
     <div class="grid gap-1.5">
       <label class="label">{t(dict, 'tools.sshKeys.keyType')}</label>
       <div class="text-xs text-zinc-500 dark:text-zinc-400">
-        RSA (OpenSSH <code class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">ssh-rsa</code> format)
+        {t(dict, 'tools.sshKeys.keyTypeValue1')}
+        <code class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">ssh-rsa</code>
+        {t(dict, 'tools.sshKeys.keyTypeValue2')}
       </div>
     </div>
 
@@ -80,4 +82,3 @@
     {/if}
   </div>
 </div>
-

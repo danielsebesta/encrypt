@@ -27,6 +27,7 @@ const { dict, entry } = Astro.props;
     <ToolLearnCard title={entry.learn.how.title} text={entry.learn.how.text} />
     {entry.diagram && (
       <ToolDiagramCard
+        dict={dict}
         variant={entry.diagram.variant}
         title={entry.diagram.title}
         caption={entry.diagram.caption}
@@ -34,7 +35,7 @@ const { dict, entry } = Astro.props;
     )}
     <ToolUseCases title={entry.learn.useCases.title} items={entry.learn.useCases.items} />
     <ToolLearnCard title={entry.learn.mistake.title} text={entry.learn.mistake.text} tone="warning" />
-    <ToolHistoryCard title={entry.learn.history.title} text={entry.learn.history.text} />
+    <ToolHistoryCard dict={dict} title={entry.learn.history.title} text={entry.learn.history.text} />
     {entry.learn.security && (
       <ToolLearnCard title={entry.learn.security.title} text={entry.learn.security.text} tone="security" />
     )}
