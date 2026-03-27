@@ -3,6 +3,11 @@
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { createStegoImage, extractStego } from '../../lib/ghost/steganography';
   import CopyButton from '../CopyButton.svelte';
+  import ProgressPulse from '../ProgressPulse.svelte';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   const MAX_BYTES = 50 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
@@ -43,7 +48,8 @@
   let tooLarge = false;
   let uploading = false;
   let error = '';
-  let logs: string[] = [];
+  let progressTitle = '';
+  let progressDetail = '';
   let resultUrl = '';
   let resultService = '';
   let failedIds: string[] = [];
@@ -54,6 +60,11 @@
   let decrypting = false;
   let decryptError = '';
   let decryptedFile: { name: string; data: Uint8Array } | null = null;
+
+  function setProgress(title: string, detail = '') {
+    progressTitle = title;
+    progressDetail = detail;
+  }
 
   $: wantDays = STOPS[retIdx].days;
   $: wantLabel = STOPS[retIdx].full;
@@ -149,10 +160,6 @@
     }
   });
 
-  function addLog(msg: string) {
-    logs = [...logs, `[${new Date().toLocaleTimeString()}] ${msg}`];
-  }
-
   function handleFileChange(e: Event) {
     const target = e.target as HTMLInputElement;
     file = target.files?.[0] || null;
@@ -160,7 +167,7 @@
     resultUrl = '';
     resultService = '';
     error = '';
-    logs = [];
+    setProgress('', '');
     failedIds = [];
   }
 
@@ -199,27 +206,25 @@
       ? services.find(s => s.id === specificId) || null
       : provider;
     if (!target) {
-      error = 'No service available for this file size and retention.';
+      error = t(dict, 'tools.encryptTunnel.errorNoService');
       return;
     }
 
     if (!password && autoPassword) password = generatePassword();
-    if (!password) { error = 'Password is required.'; return; }
+    if (!password) { error = t(dict, 'tools.encryptTunnel.errorPasswordRequired'); return; }
 
     uploading = true;
     error = '';
     resultUrl = '';
     resultService = '';
-    logs = [];
+    setProgress('', '');
 
     try {
-      addLog('Reading file...');
+      setProgress(t(dict, 'tools.encryptTunnel.progressReadingTitle'), t(dict, 'tools.encryptTunnel.progressReadingDetail'));
       const fileBuffer = new Uint8Array(await file.arrayBuffer());
-      addLog(`File size: ${formatBytes(fileBuffer.length)}`);
 
-      addLog('Encrypting with AES-256-GCM...');
+      setProgress(t(dict, 'tools.encryptTunnel.progressEncryptingTitle'), t(dict, 'tools.encryptTunnel.progressEncryptingDetail'));
       const encrypted = await encryptData(fileBuffer, password, file.name);
-      addLog(`Encrypted: ${formatBytes(encrypted.length)}`);
 
       const useStego = target.type === 'image';
       const randomId = randomFilename();
@@ -227,21 +232,18 @@
       let uploadName: string;
 
       if (useStego) {
-        addLog('Creating steganography image...');
+        setProgress(t(dict, 'tools.encryptTunnel.progressStegoTitle'), t(dict, 'tools.encryptTunnel.progressStegoDetail'));
         const stegoBuffer = await createStegoImage(encrypted);
-        addLog(`Stego image: ${formatBytes(stegoBuffer.length)}`);
         uploadBlob = new Blob([stegoBuffer], { type: 'image/png' });
         uploadName = `${randomId}.png`;
       } else {
-        addLog('Encoding to base64...');
+        setProgress(t(dict, 'tools.encryptTunnel.progressEncodingTitle'), t(dict, 'tools.encryptTunnel.progressEncodingDetail'));
         const b64 = arrayToBase64(encrypted);
         uploadBlob = new Blob([b64], { type: 'text/plain' });
         uploadName = `${randomId}.txt`;
-        addLog(`Encoded: ${formatBytes(uploadBlob.size)}`);
       }
-      addLog(`Upload blob: ${formatBytes(uploadBlob.size)}`);
 
-      addLog(`Uploading to ${target.name}...`);
+      setProgress(t(dict, 'tools.encryptTunnel.progressUploadingTitle'), t(dict, 'tools.encryptTunnel.progressUploadingDetail'));
       const params = new URLSearchParams({ services: target.id, stego: useStego ? 'true' : 'false', filename: uploadName });
       const res = await fetch(`/api/ghost/upload?${params}`, {
         method: 'POST',
@@ -251,35 +253,34 @@
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        throw new Error(`Server error (${res.status})${text ? ': ' + text.slice(0, 200) : ''}`);
+        throw new Error(t(dict, 'tools.encryptTunnel.errorServer'));
       }
 
       let data: { results?: { service: string; url: string | null; error?: string }[]; error?: string };
       try {
         data = await res.json();
       } catch {
-        throw new Error('Server returned an invalid response.');
+        throw new Error(t(dict, 'tools.encryptTunnel.errorInvalidResponse'));
       }
 
       if (data.error) throw new Error(data.error);
 
       const result = data.results?.[0];
       if (!result || !result.url) {
-        throw new Error(result?.error || 'Upload returned no URL');
+        throw new Error(result?.error || t(dict, 'tools.encryptTunnel.errorNoUrl'));
       }
 
       resultUrl = result.url;
       resultService = target.name;
-      addLog(`Uploaded to ${target.name}: ${result.url}`);
+      setProgress('', '');
     } catch (e: any) {
       failedIds = [...failedIds, target.id];
       const remaining = rankProviders(wantDays, file!.size);
       if (remaining.length > 0) {
-        error = `${target.name} failed. Choose an alternative below, or adjust retention.`;
+        error = t(dict, 'tools.encryptTunnel.errorProviderFailed');
       } else {
-        error = `${target.name} failed — no other providers match this retention. Try adjusting the slider.`;
+        error = t(dict, 'tools.encryptTunnel.errorNoAlternative');
       }
-      addLog(`ERROR: ${e?.message || 'Upload failed'}`);
     } finally {
       uploading = false;
     }
@@ -289,19 +290,19 @@
     decryptError = '';
     decryptedFile = null;
 
-    if (!decryptPassword.trim()) { decryptError = 'Password is required.'; return; }
-    if (decryptMode === 'url' && !decryptUrl.trim()) { decryptError = 'URL is required.'; return; }
-    if (decryptMode === 'file' && !decryptFile) { decryptError = 'File is required.'; return; }
+    if (!decryptPassword.trim()) { decryptError = t(dict, 'tools.encryptTunnel.errorPasswordRequired'); return; }
+    if (decryptMode === 'url' && !decryptUrl.trim()) { decryptError = t(dict, 'tools.encryptTunnel.errorUrlRequired'); return; }
+    if (decryptMode === 'file' && !decryptFile) { decryptError = t(dict, 'tools.encryptTunnel.errorFileRequired'); return; }
 
     decrypting = true;
-    logs = [];
+    setProgress('', '');
 
     try {
       let encryptedData: Uint8Array;
       let isImage = false;
 
       if (decryptMode === 'url') {
-        addLog('Fetching data...');
+        setProgress(t(dict, 'tools.encryptTunnel.progressFetchingTitle'), t(dict, 'tools.encryptTunnel.progressFetchingDetail'));
         isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(decryptUrl) ||
                   /ibb\.co|iili\.io|sxcu\.net|freeimage\.host/i.test(decryptUrl);
 
@@ -317,45 +318,43 @@
         }
 
         if (isImage) {
-          addLog('Extracting steganography data...');
+          setProgress(t(dict, 'tools.encryptTunnel.progressExtractingTitle'), t(dict, 'tools.encryptTunnel.progressExtractingDetail'));
           const imgBuffer = new Uint8Array(await res.arrayBuffer());
           const extracted = await extractStego(imgBuffer);
-          if (!extracted) throw new Error('No hidden data found in image');
+          if (!extracted) throw new Error(t(dict, 'tools.encryptTunnel.errorNoHiddenData'));
           encryptedData = extracted;
         } else {
           const text = await res.text();
           if (text.trim().toLowerCase().startsWith('<!doctype') || text.trim().toLowerCase().startsWith('<html')) {
-            throw new Error('URL returned an HTML page. Use a direct download link.');
+            throw new Error(t(dict, 'tools.encryptTunnel.errorHtmlPage'));
           }
-          addLog('Decoding base64...');
+          setProgress(t(dict, 'tools.encryptTunnel.progressDecodingTitle'), t(dict, 'tools.encryptTunnel.progressDecodingDetail'));
           encryptedData = base64ToArray(text);
         }
       } else {
-        if (!decryptFile) throw new Error('No file selected');
+        if (!decryptFile) throw new Error(t(dict, 'tools.encryptTunnel.errorFileRequired'));
         isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(decryptFile.name);
-        addLog(`Reading: ${decryptFile.name}`);
+        setProgress(t(dict, 'tools.encryptTunnel.progressReadingTitle'), t(dict, 'tools.encryptTunnel.progressReadingSelected'));
         const buffer = new Uint8Array(await decryptFile.arrayBuffer());
 
         if (isImage) {
-          addLog('Extracting steganography data...');
+          setProgress(t(dict, 'tools.encryptTunnel.progressExtractingTitle'), t(dict, 'tools.encryptTunnel.progressExtractingDetail'));
           const extracted = await extractStego(buffer);
-          if (!extracted) throw new Error('No hidden data found in image');
+          if (!extracted) throw new Error(t(dict, 'tools.encryptTunnel.errorNoHiddenData'));
           encryptedData = extracted;
         } else {
-          addLog('Decoding base64...');
+          setProgress(t(dict, 'tools.encryptTunnel.progressDecodingTitle'), t(dict, 'tools.encryptTunnel.progressDecodingDetail'));
           encryptedData = base64ToArray(new TextDecoder().decode(buffer));
         }
       }
 
-      addLog(`Encrypted data: ${formatBytes(encryptedData.length)}`);
-      addLog('Decrypting...');
+      setProgress(t(dict, 'tools.encryptTunnel.progressDecryptingTitle'), t(dict, 'tools.encryptTunnel.progressDecryptingDetail'));
       const decrypted = await decryptData(encryptedData, decryptPassword);
-      addLog(`Decrypted: ${decrypted.name} (${formatBytes(decrypted.data.length)})`);
 
       decryptedFile = { name: decrypted.name || 'decrypted-file', data: decrypted.data };
+      setProgress('', '');
     } catch (e: any) {
-      decryptError = e?.message || 'Decryption failed';
-      addLog(`ERROR: ${decryptError}`);
+      decryptError = e?.message || t(dict, 'tools.encryptTunnel.errorDecryptionFailed');
     } finally {
       decrypting = false;
     }
@@ -390,7 +389,7 @@
       class:text-zinc-500={mode !== 'encrypt'}
       class:dark:bg-zinc-800={mode === 'encrypt'}
       class:dark:text-zinc-100={mode === 'encrypt'}
-      on:click={() => { mode = 'encrypt'; logs = []; decryptError = ''; decryptedFile = null; }}
+      on:click={() => { mode = 'encrypt'; setProgress('', ''); decryptError = ''; decryptedFile = null; }}
     >
       Encrypt &amp; Upload
     </button>
@@ -402,9 +401,9 @@
       class:text-zinc-500={mode !== 'decrypt'}
       class:dark:bg-zinc-800={mode === 'decrypt'}
       class:dark:text-zinc-100={mode === 'decrypt'}
-      on:click={() => { mode = 'decrypt'; logs = []; error = ''; resultUrl = ''; }}
+      on:click={() => { mode = 'decrypt'; setProgress('', ''); error = ''; resultUrl = ''; }}
     >
-      Decrypt
+      {t(dict, 'tools.encryptTunnel.decryptTab')}
     </button>
   </div>
 
@@ -412,23 +411,23 @@
     <div class="card p-6 md:p-8 space-y-6">
       <div class="space-y-3">
         <label for="ghost-file" class="label block">
-          File to encrypt (max 25 MB)
+          {t(dict, 'tools.encryptTunnel.fileToEncrypt')}
         </label>
         <input id="ghost-file" type="file" class="input cursor-pointer" on:change={handleFileChange} />
         {#if file}
           <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
-            Selected: <span class="font-mono">{file.name}</span>
+            {t(dict, 'tools.encryptTunnel.selected')} <span class="font-mono">{file.name}</span>
             <span class="opacity-75">— {formatBytes(file.size)}</span>
           </p>
         {/if}
         {#if tooLarge}
-          <p class="text-xs text-red-500 font-semibold">File exceeds 25 MB limit.</p>
+          <p class="text-xs text-red-500 font-semibold">{t(dict, 'tools.encryptTunnel.fileTooLarge')}</p>
         {/if}
       </div>
 
       <div class="space-y-2">
         <label for="ghost-password" class="label block">
-          Encryption password
+          {t(dict, 'tools.encryptTunnel.encryptionPassword')}
         </label>
         <input
           id="ghost-password"
@@ -441,21 +440,21 @@
         <div class="flex items-center gap-2 flex-wrap">
           <label class="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
             <input type="checkbox" bind:checked={autoPassword} />
-            Auto-generate if empty
+            {t(dict, 'tools.encryptTunnel.autoGenerate')}
           </label>
           <button
             type="button"
             class="btn-outline text-[11px] px-3 py-1"
             on:click={() => (password = generatePassword())}
           >
-            Generate
+            {t(dict, 'tools.encryptTunnel.generate')}
           </button>
         </div>
       </div>
 
       <div class="space-y-3">
         <label class="label block">
-          File retention: <span class="text-emerald-600 dark:text-emerald-400">{wantLabel}</span>
+          {t(dict, 'tools.encryptTunnel.fileRetention')} <span class="text-emerald-600 dark:text-emerald-400">{wantLabel}</span>
         </label>
         <input
           type="range"
@@ -484,34 +483,34 @@
             {#if isStego}
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             {/if}
-            <span><span class="font-bold">{provider.name}</span>{#if isStego} — steganography mode{/if}</span>
+            <span><span class="font-bold">{provider.name}</span>{#if isStego} — {t(dict, 'tools.encryptTunnel.steganographyMode')}</span>{/if}
             {#if provider.tosUrl}
-              <a href={provider.tosUrl} target="_blank" rel="noopener noreferrer" class="ml-auto text-[10px] text-blue-500 hover:underline shrink-0">TOS</a>
+              <a href={provider.tosUrl} target="_blank" rel="noopener noreferrer" class="ml-auto text-[10px] text-blue-500 hover:underline shrink-0">{t(dict, 'tools.encryptTunnel.terms')}</a>
             {/if}
           </div>
           <div class="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
-            Keeps your file for {provider.retDays === Infinity ? 'unlimited time' : formatDays(provider.retDays)}{isStego ? ' · data hidden inside a PNG image' : ''}
+            {t(dict, 'tools.encryptTunnel.keepsYourFileFor')} {provider.retDays === Infinity ? t(dict, 'tools.encryptTunnel.unlimitedTime') : formatDays(provider.retDays)}{isStego ? ` · ${t(dict, 'tools.encryptTunnel.dataHiddenInImage')}` : ''}
           </div>
         </div>
       {:else if file && !tooLarge && services.length > 0}
         <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2">
-          <p class="text-xs text-amber-700 dark:text-amber-400">No provider available for this file size and retention.</p>
+          <p class="text-xs text-amber-700 dark:text-amber-400">{t(dict, 'tools.encryptTunnel.noProviderAvailable')}</p>
           <div class="flex gap-2 flex-wrap">
             {#if nearestShorter !== null}
               <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => (retIdx = nearestShorter)}>
-                Try {STOPS[nearestShorter].full} instead
+                {t(dict, 'tools.encryptTunnel.tryInstead')} {STOPS[nearestShorter].full}
               </button>
             {/if}
             {#if nearestLonger !== null}
               <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => (retIdx = nearestLonger)}>
-                Try {STOPS[nearestLonger].full} instead
+                {t(dict, 'tools.encryptTunnel.tryInstead')} {STOPS[nearestLonger].full}
               </button>
             {/if}
           </div>
         </div>
       {:else if file && !tooLarge && services.length === 0}
         <div class="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-700">
-          <p class="text-xs text-zinc-500 dark:text-zinc-400">Loading providers...</p>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.encryptTunnel.loadingProviders')}</p>
         </div>
       {/if}
 
@@ -522,11 +521,15 @@
         disabled={!file || tooLarge || uploading || !provider}
       >
         {#if uploading}
-          Processing...
+          {t(dict, 'tools.encryptTunnel.processing')}
         {:else}
-          Encrypt &amp; Upload
+          {t(dict, 'tools.encryptTunnel.encryptAndUpload')}
         {/if}
       </button>
+
+      {#if uploading}
+        <ProgressPulse title={progressTitle || t(dict, 'tools.encryptTunnel.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.encryptTunnel.progressDefaultDetail')} compact={true} />
+      {/if}
 
       {#if error}
         <div class="space-y-2">
@@ -539,7 +542,7 @@
                   class="btn-outline text-[10px] px-3 py-1.5"
                   on:click={() => handleUpload(alt.id)}
                 >
-                  Try {alt.name} ({alt.type === 'image' ? 'stego' : 'file'}, {alt.retDays === Infinity ? '∞' : formatDays(alt.retDays)})
+                  {t(dict, 'tools.encryptTunnel.tryAlternative')} {alt.name} ({alt.type === 'image' ? t(dict, 'tools.encryptTunnel.stegoShort') : t(dict, 'tools.encryptTunnel.fileShort')}, {alt.retDays === Infinity ? '∞' : formatDays(alt.retDays)})
                 </button>
               {/each}
             </div>
@@ -548,12 +551,12 @@
             <div class="flex gap-2 flex-wrap">
               {#if nearestShorter !== null}
                 <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => { retIdx = nearestShorter; failedIds = []; error = ''; }}>
-                  Try {STOPS[nearestShorter].full} retention
+                  {t(dict, 'tools.encryptTunnel.tryRetention')} {STOPS[nearestShorter].full}
                 </button>
               {/if}
               {#if nearestLonger !== null}
                 <button type="button" class="btn-outline text-[10px] px-3 py-1.5" on:click={() => { retIdx = nearestLonger; failedIds = []; error = ''; }}>
-                  Try {STOPS[nearestLonger].full} retention
+                  {t(dict, 'tools.encryptTunnel.tryRetention')} {STOPS[nearestLonger].full}
                 </button>
               {/if}
             </div>
@@ -565,36 +568,25 @@
     {#if resultUrl}
       <div class="card p-6 md:p-8 space-y-4">
         <h3 class="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-          Upload successful — {resultService}
+          {t(dict, 'tools.encryptTunnel.uploadSuccessful')} — {resultService}
         </h3>
         <div class="flex gap-2 items-center">
           <input type="text" readonly class="input font-mono text-xs flex-1" value={resultUrl} />
-          <CopyButton text={resultUrl} label="Copy" className="btn-outline text-xs" />
+          <CopyButton text={resultUrl} label={t(dict, 'tools.encryptTunnel.copy')} className="btn-outline text-xs" />
         </div>
       </div>
 
       <div class="card p-6 md:p-8 space-y-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50">
         <h3 class="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">
-          Your Encryption Password
+          {t(dict, 'tools.encryptTunnel.yourEncryptionPassword')}
         </h3>
         <div class="flex gap-2 items-center">
           <input type="text" readonly class="input font-mono text-xs flex-1 bg-white dark:bg-zinc-900" value={password} />
-          <CopyButton text={password} label="Copy" className="btn-outline text-xs" />
+          <CopyButton text={password} label={t(dict, 'tools.encryptTunnel.copy')} className="btn-outline text-xs" />
         </div>
         <p class="text-[10px] text-amber-600 dark:text-amber-400/80">
-          Save this password! Share it through a separate secure channel.
+          {t(dict, 'tools.encryptTunnel.savePassword')}
         </p>
-      </div>
-    {/if}
-
-    {#if logs.length > 0}
-      <div class="card p-4 space-y-2">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Log</div>
-        <div class="bg-zinc-900 dark:bg-zinc-950 rounded-lg p-3 font-mono text-[11px] text-zinc-300 dark:text-zinc-400 max-h-48 overflow-y-auto">
-          {#each logs as log}
-            <div>{log}</div>
-          {/each}
-        </div>
       </div>
     {/if}
 
@@ -611,7 +603,7 @@
           class:dark:text-zinc-100={decryptMode === 'url'}
           on:click={() => { decryptMode = 'url'; decryptError = ''; }}
         >
-          From URL
+          {t(dict, 'tools.encryptTunnel.fromUrl')}
         </button>
         <button
           type="button"
@@ -623,53 +615,53 @@
           class:dark:text-zinc-100={decryptMode === 'file'}
           on:click={() => { decryptMode = 'file'; decryptError = ''; }}
         >
-          From File
+          {t(dict, 'tools.encryptTunnel.fromFile')}
         </button>
       </div>
 
       {#if decryptMode === 'url'}
         <div class="space-y-3">
           <label for="decrypt-url" class="label block">
-            URL to encrypted file
+            {t(dict, 'tools.encryptTunnel.urlToEncryptedFile')}
           </label>
           <input
             id="decrypt-url"
             type="text"
             class="input font-mono text-sm"
             bind:value={decryptUrl}
-            placeholder="https://qu.ax/xxx.txt or https://sxcu.net/xxx.png"
+            placeholder={t(dict, 'tools.encryptTunnel.urlPlaceholder')}
           />
           <p class="text-[10px] text-zinc-400 dark:text-zinc-500">
-            Supports base64 text files and steganography images
+            {t(dict, 'tools.encryptTunnel.urlHelp')}
           </p>
         </div>
       {:else}
         <div class="space-y-3">
           <label for="decrypt-file" class="label block">
-            Select encrypted file
+            {t(dict, 'tools.encryptTunnel.selectEncryptedFile')}
           </label>
           <input id="decrypt-file" type="file" class="input cursor-pointer" on:change={handleDecryptFileChange} />
           {#if decryptFile}
             <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
-              Selected: <span class="font-mono">{decryptFile.name}</span>
+              {t(dict, 'tools.encryptTunnel.selected')} <span class="font-mono">{decryptFile.name}</span>
             </p>
           {/if}
           <p class="text-[10px] text-zinc-400 dark:text-zinc-500">
-            Supports .txt (base64) and .png/.jpg (steganography)
+            {t(dict, 'tools.encryptTunnel.fileHelp')}
           </p>
         </div>
       {/if}
 
       <div class="space-y-3">
         <label for="decrypt-password" class="label block">
-          Decryption password
+          {t(dict, 'tools.encryptTunnel.decryptionPassword')}
         </label>
         <input
           id="decrypt-password"
           type="text"
           class="input font-mono text-sm"
           bind:value={decryptPassword}
-          placeholder="Enter the password used for encryption"
+          placeholder={t(dict, 'tools.encryptTunnel.decryptionPlaceholder')}
         />
       </div>
 
@@ -680,11 +672,15 @@
         disabled={decrypting}
       >
         {#if decrypting}
-          Decrypting...
+          {t(dict, 'tools.encryptTunnel.decrypting')}
         {:else}
-          Decrypt File
+          {t(dict, 'tools.encryptTunnel.decryptFile')}
         {/if}
       </button>
+
+      {#if decrypting}
+        <ProgressPulse title={progressTitle || t(dict, 'tools.encryptTunnel.progressDecryptDefaultTitle')} detail={progressDetail || t(dict, 'tools.encryptTunnel.progressDecryptDefaultDetail')} compact={true} />
+      {/if}
 
       {#if decryptError}
         <p class="text-xs text-red-500">{decryptError}</p>
@@ -694,26 +690,15 @@
         <div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50">
           <div class="flex items-center gap-3">
             <div class="flex-1">
-              <div class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Decrypted successfully!</div>
+              <div class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">{t(dict, 'tools.encryptTunnel.decryptedSuccessfully')}</div>
               <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">{decryptedFile.name} — {formatBytes(decryptedFile.data.length)}</div>
             </div>
             <button type="button" class="btn text-xs" on:click={downloadDecrypted}>
-              Download
+              {t(dict, 'tools.encryptTunnel.download')}
             </button>
           </div>
         </div>
       {/if}
     </div>
-
-    {#if logs.length > 0}
-      <div class="card p-4 space-y-2">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Log</div>
-        <div class="bg-zinc-900 dark:bg-zinc-950 rounded-lg p-3 font-mono text-[11px] text-zinc-300 dark:text-zinc-400 max-h-48 overflow-y-auto">
-          {#each logs as log}
-            <div>{log}</div>
-          {/each}
-        </div>
-      </div>
-    {/if}
   {/if}
 </div>

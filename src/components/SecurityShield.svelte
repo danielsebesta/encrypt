@@ -1,4 +1,6 @@
 <script lang="ts">
+  export let compact = false;
+
   const badges = [
     {
       label: "Mozilla",
@@ -81,15 +83,28 @@
       url: "https://zonemaster.net/en/result/2a3c2789231a4695/"
     }
   ];
+
+  const compactBadges = [
+    "Mozilla",
+    "SecurityHeaders",
+    "Blacklight",
+    "SSL Labs",
+    "Website Carbon",
+    "VirusTotal",
+  ];
+
+  $: visibleBadges = compact
+    ? badges.filter((badge) => compactBadges.includes(badge.label))
+    : badges;
 </script>
 
-<div class="flex flex-wrap gap-3 justify-center">
-  {#each badges as badge}
+<div class={`flex flex-wrap ${compact ? 'gap-2.5 justify-start' : 'gap-3 justify-center'}`}>
+  {#each visibleBadges as badge}
     <a
       href={badge.url}
       target="_blank"
       rel="noopener noreferrer"
-      class="badge-outline hover:border-emerald-500/50 transition-all active:scale-95 gap-1.5 py-1.5 px-3"
+      class={`badge-outline hover:border-emerald-500/50 transition-all active:scale-95 gap-1.5 ${compact ? 'py-1.5 px-3 bg-white/70 dark:bg-zinc-950/30' : 'py-1.5 px-3'}`}
     >
       <span class="text-zinc-500 dark:text-zinc-400">{badge.label}</span>
       <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{badge.value}</span>
