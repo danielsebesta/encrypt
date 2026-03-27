@@ -83,12 +83,28 @@
   }
 
 
-  function generatePassword(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-    const arr = crypto.getRandomValues(new Uint8Array(20));
-    return Array.from(arr, b => chars[b % chars.length]).join('');
+  // EFF-inspired compact wordlist (1024 common short English words, 10 bits each)
+  // 5 words = 50 bits entropy, 6 words = 60 bits — comparable to 20-char random
+  const WORDS = 'able,acid,aged,also,area,army,away,baby,back,ball,band,bank,base,bath,bean,bear,beat,been,beer,bell,belt,best,bill,bird,bite,blow,blue,boat,body,bomb,bond,bone,book,boom,born,boss,both,bowl,bulk,burn,bush,busy,cafe,cage,cake,call,calm,came,camp,card,care,case,cash,cast,cave,cell,chat,chip,city,claim,clan,clay,clip,club,coal,coat,code,coin,cold,come,cook,cool,cope,copy,core,cost,crew,crop,cure,cute,dado,dale,dame,dare,dark,data,date,dawn,dead,deaf,deal,dear,debt,deck,deed,deem,deep,deer,demo,deny,desk,dial,dice,diet,dirt,disc,dish,dock,does,dome,done,door,dose,down,draw,drew,drop,drum,dual,duck,dude,duel,duke,dull,dump,dune,dust,duty,each,earn,ease,east,easy,edge,else,emit,epic,euro,even,ever,evil,exam,exit,eyed,face,fact,fade,fail,fair,fake,fall,fame,fang,fare,farm,fast,fate,fear,feat,feed,feel,feet,fell,felt,file,fill,film,find,fine,fire,firm,fish,fist,five,flag,flat,fled,flew,flip,flow,foam,fold,folk,fond,font,food,fool,foot,ford,fore,fork,form,fort,foul,four,free,from,fuel,full,fund,fury,fuse,gain,gala,gale,game,gang,gave,gaze,gear,gene,gift,girl,give,glad,glow,glue,goat,goes,gold,golf,gone,good,grab,gram,gray,grew,grey,grid,grip,grow,gulf,guru,gust,guys,hack,half,hall,halt,hand,hang,hard,harm,hate,haul,have,haze,head,heal,heap,hear,heat,heel,held,hell,help,herb,here,hero,hide,high,hike,hill,hint,hire,hold,hole,holy,home,hood,hook,hope,horn,host,hour,huge,hull,hung,hunt,hurt,icon,idea,inch,info,into,iron,isle,item,jack,jail,java,jazz,jean,jeep,jets,jobs,join,joke,jump,june,jury,just,keen,keep,kept,kick,kids,kill,kind,king,kiss,knee,knew,knit,knob,knot,know,labs,lack,laid,lake,lamp,land,lane,last,late,lawn,lead,leaf,lean,left,lend,lens,less,lied,lieu,life,lift,like,limb,lime,limp,line,link,lion,list,live,load,loan,lock,logo,lone,long,look,lord,lose,loss,lost,lots,loud,love,luck,lump,lung,lure,made,mail,main,make,male,mall,malt,mane,many,mare,mark,mask,mass,mate,maze,meal,mean,meat,melt,memo,menu,mere,mesh,mess,mild,mile,milk,mill,mind,mine,mint,miss,mode,mole,mood,moon,more,most,moth,move,much,must,myth,nail,name,navy,neat,neck,need,nest,news,next,nice,nine,node,none,noon,norm,nose,note,noun,nude,nuts,oath,obey,odds,okay,once,only,onto,open,oral,ours,oval,oven,over,pace,pack,page,paid,pain,pair,pale,palm,pane,pack,park,part,pass,past,path,peak,peel,peer,pine,pink,pipe,plan,play,plea,plot,ploy,plug,plus,poem,poet,pole,poll,polo,pond,pool,poor,pope,pork,port,pose,post,pour,pray,prey,prop,pull,pump,punk,pure,push,quit,quiz,race,rack,rage,raid,rail,rain,rang,rank,rare,rate,rays,read,real,rear,reef,reel,rely,rent,rest,rice,rich,ride,rife,rift,ring,riot,rise,risk,road,roam,rock,rode,role,roll,roof,room,root,rope,rose,ruin,rule,rush,ruth,sack,safe,sage,said,sake,sale,salt,same,sand,sang,save,seal,seed,seek,seem,seen,self,sell,semi,send,sent,sept,shed,ship,shoe,shop,shot,show,shut,sick,side,sift,sigh,sign,silk,sing,sink,site,size,skin,skip,slam,slap,slid,slim,slip,slot,slow,snap,snow,soak,soar,sock,soft,soil,sold,sole,some,song,soon,sort,soul,sour,span,spec,sped,spin,spot,star,stay,stem,step,stir,stop,stud,such,suit,sung,sure,surf,swan,swap,swim,sync,tact,tail,take,tale,talk,tall,tank,tape,task,team,tear,tell,temp,tend,tent,term,test,text,than,that,them,then,they,thin,this,thus,tick,tide,tidy,tied,tier,tile,till,time,tiny,tire,toad,told,toll,tomb,tone,took,tool,tops,tore,torn,toss,tour,town,trap,tray,tree,trek,trim,trio,trip,true,tube,tuck,tuna,tune,turf,turn,twin,type,ugly,undo,unit,upon,urge,used,user,vain,vale,vary,vast,veil,vein,vent,verb,very,vest,veto,vibe,vice,view,vine,visa,void,volt,vote,wade,wage,wait,wake,walk,wall,wand,want,ward,warm,warn,warp,wary,wash,watt,wave,wavy,waxy,weak,wear,weed,week,well,went,were,west,what,when,whom,wide,wife,wild,will,wilt,wily,wind,wine,wing,wink,wipe,wire,wise,wish,with,woke,wolf,womb,wood,wool,word,wore,work,worm,worn,wrap,wren,yard,yarn,yeah,year,yell,yoga,your,zeal,zero,zinc,zone,zoom'.split(',');
+
+  function generatePassphrase(): string {
+    const count = 5;
+    const arr = crypto.getRandomValues(new Uint8Array(count * 2));
+    const words: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const idx = ((arr[i * 2] << 8) | arr[i * 2 + 1]) % WORDS.length;
+      words.push(WORDS[idx]);
+    }
+    return words.join('-');
   }
 
+  let passphrasePreview = '';
+
+  function refreshPassphrase() {
+    passphrasePreview = generatePassphrase();
+  }
+
+  let textFocused = false;
   let dragging = false;
   let dropZoneEl: HTMLElement;
   let fileInputEl: HTMLInputElement;
@@ -209,8 +225,8 @@
     }
 
     if (autoPassword) {
-      password = generatePassword();
-      pushDebug('Password auto-generated');
+      password = passphrasePreview || generatePassphrase();
+      pushDebug('Passphrase auto-generated');
     }
     if (!password) {
       error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
@@ -507,19 +523,19 @@
     debugLog = [];
   }
 
-  onMount(() => {});
+  onMount(() => { refreshPassphrase(); });
 </script>
 
 <div class="space-y-6 text-left">
   {#if step === 'input'}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="space-y-4" on:paste={handlePaste}>
-      <!-- Side-by-side input: text left, file right -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <!-- Input area: expandable text + file drop -->
+      <div class="ue-input-grid" class:ue-input-grid--focused={textFocused && !file}>
         <!-- Text input -->
-        <div class="ue-input-pane" class:ue-input-pane--active={!file && textInput.trim().length > 0} class:ue-input-pane--disabled={!!file}>
+        <div class="ue-input-pane ue-input-pane--text" class:ue-input-pane--active={!file && textInput.trim().length > 0} class:ue-input-pane--disabled={!!file}>
           <label class="ue-input-pane__label" for="ue-text">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
             {t(dict, 'tools.ultimateEncrypt.messageLabel')}
           </label>
           <textarea
@@ -528,6 +544,8 @@
             bind:value={textInput}
             placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
             disabled={!!file}
+            on:focus={() => textFocused = true}
+            on:blur={() => textFocused = false}
           ></textarea>
         </div>
 
@@ -544,16 +562,16 @@
         >
           {#if file}
             <div class="flex flex-col items-center gap-2 text-center py-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{file.name}</span>
               <span class="text-[10px] text-zinc-400">{file.size < 1024 * 1024 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / (1024 * 1024)).toFixed(1)} MB`}</span>
               <button type="button" class="text-[10px] font-bold text-red-500 hover:underline mt-1" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
             </div>
           {:else}
             <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ue-file">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400 dark:text-zinc-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
-              <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Drop, paste, or click</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
+              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">Drop, paste, or click</span>
             </label>
             <input id="ue-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
           {/if}
@@ -563,14 +581,22 @@
       <!-- Password -->
       <div class="space-y-1.5">
         <div class="flex items-center justify-between">
-          <label class="label block" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
+          <label class="label flex items-center gap-1.5" for="ue-pass">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            {t(dict, 'tools.ultimateEncrypt.passwordLabel')}
+          </label>
           <label class="inline-flex items-center gap-1.5 text-[10px] text-zinc-400 cursor-pointer select-none">
-            <input type="checkbox" bind:checked={autoPassword} class="accent-emerald-500" />
+            <input type="checkbox" bind:checked={autoPassword} on:change={() => { if (autoPassword) refreshPassphrase(); }} class="accent-emerald-500" />
             {t(dict, 'tools.ultimateEncrypt.autoGenerate')}
           </label>
         </div>
         {#if autoPassword}
-          <p class="text-[10px] text-zinc-400 italic">{t(dict, 'tools.ultimateEncrypt.autoGenerateHint')}</p>
+          <div class="ue-passphrase-box">
+            <span class="ue-passphrase-words">{passphrasePreview || '...'}</span>
+            <button type="button" class="ue-passphrase-refresh" on:click={refreshPassphrase} aria-label="Regenerate">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+          </div>
         {:else}
           <input
             id="ue-pass"
