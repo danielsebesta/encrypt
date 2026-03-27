@@ -611,6 +611,8 @@
   "tools.ultimateDecrypt.progressReadyText": "Der entschlüsselte Text ist unten bereit.",
   "tools.ultimateDecrypt.progressReadyFile": "Die entschlüsselte Datei ist bereit zur Vorschau oder zum Download.",
   "tools.ultimateDecrypt.debugTitle": "Debug-Details",
+  "tools.ultimateDecrypt.previewCode": "Code-Vorschau",
+  "tools.ultimateDecrypt.previewTruncated": "Die Vorschau ist aus Geschwindigkeitsgründen gekürzt. Lade die Datei herunter, um den vollständigen Inhalt zu sehen.",
   "tools.encryptTunnel.encryptTab": "Verschlüsseln & hochladen",
   "tools.encryptTunnel.decryptTab": "Entschlüsseln",
   "tools.encryptTunnel.fileToEncrypt": "Zu verschlüsselnde Datei",

@@ -59,7 +59,12 @@
   }
 
   function extensionFromName(name: string): string {
-    return name.split('.').pop()?.toLowerCase() ?? '';
+    const lower = name.toLowerCase();
+    if (lower === 'dockerfile') return 'dockerfile';
+    if (lower === '.gitignore') return 'gitignore';
+    if (lower === '.env') return 'env';
+    if (lower.endsWith('.d.ts')) return 'ts';
+    return lower.split('.').pop() ?? '';
   }
 
   const codeLanguageMap: Record<string, string> = {
@@ -102,11 +107,19 @@
     go: 'go',
     rs: 'rust',
     rb: 'ruby',
+    ps1: 'powershell',
+    bat: 'batch',
+    cmd: 'batch',
+    dockerfile: 'dockerfile',
+    gitignore: 'text',
+    properties: 'ini',
+    cfg: 'ini',
+    tsv: 'csv',
     txt: 'text',
   };
 
   const codeExtensions = new Set(Object.keys(codeLanguageMap));
-  const plainTextExtensions = new Set(['txt', 'log', 'md', 'rst']);
+  const plainTextExtensions = new Set(['txt', 'log', 'md', 'rst', 'gitignore']);
 
   function isProbablyText(bytes: Uint8Array): boolean {
     const sample = bytes.slice(0, Math.min(bytes.length, 2000));
@@ -173,7 +186,7 @@
     return out;
   }
 
-  function parseCsv(text: string): string[][] {
+  function parseDelimited(text: string, delimiter: ',' | '\t'): string[][] {
     const rows: string[][] = [];
     let row: string[] = [];
     let cell = '';
@@ -190,7 +203,7 @@
         } else {
           inQuotes = !inQuotes;
         }
-      } else if (ch === ',' && !inQuotes) {
+      } else if (ch === delimiter && !inQuotes) {
         row.push(cell);
         cell = '';
       } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
@@ -237,10 +250,10 @@
     previewTruncated = normalized.length > TEXT_PREVIEW_LIMIT;
     const previewText = previewTruncated ? normalized.slice(0, TEXT_PREVIEW_LIMIT) : normalized;
 
-    if (ext === 'csv') {
-      openedCsvRows = parseCsv(previewText);
+    if (ext === 'csv' || ext === 'tsv') {
+      openedCsvRows = parseDelimited(previewText, ext === 'tsv' ? '\t' : ',');
       previewType = 'csv';
-      pushDebug(`Prepared CSV preview (${openedCsvRows.length} rows shown)`);
+      pushDebug(`Prepared ${ext.toUpperCase()} preview (${openedCsvRows.length} rows shown)`);
       return true;
     }
 
@@ -258,7 +271,7 @@
       }
     }
 
-    if (codeExtensions.has(ext) && ext !== 'txt') {
+    if (codeExtensions.has(ext) && ext !== 'txt' && ext !== 'log' && ext !== 'gitignore') {
       openedCodeLanguage = codeLanguageMap[ext] || 'text';
       openedCodeHtml = tokenizeAndHighlight(previewText, openedCodeLanguage);
       previewType = 'code';
