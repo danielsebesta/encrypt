@@ -2,7 +2,6 @@
 import Layout from '../../layouts/Layout.astro';
 import EncryptTunnelView from '../../components/tools/EncryptTunnel.svelte';
 import { getTranslations, t, type Locale } from '../../lib/i18n';
-import DownloadStandalone from '../../components/DownloadStandalone.astro';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
@@ -51,6 +50,5 @@ const dict = getTranslations(locale);
         </div>
       </div>
     </div>
-    <DownloadStandalone slug="ghost-drop" locale={locale} />
   </div>
 </Layout>

@@ -9,7 +9,6 @@ import ToolEducationPanel from '../../components/tool-education/ToolEducationPan
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const education = getToolEducation(locale, 'base64');
-import DownloadStandalone from '../../components/DownloadStandalone.astro';
 ---
 
 <Layout 
@@ -36,6 +35,5 @@ import DownloadStandalone from '../../components/DownloadStandalone.astro';
       <ToolEducationPanel dict={dict} entry={education} />
     </div>
 
-    <DownloadStandalone slug="base64" locale={locale} />
   </div>
 </Layout>

@@ -5,7 +5,6 @@ import { getTranslations, t, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-import DownloadStandalone from '../../components/DownloadStandalone.astro';
 ---
 
 <Layout 
@@ -24,6 +23,5 @@ import DownloadStandalone from '../../components/DownloadStandalone.astro';
       <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.hmac.info.title')}</h3>
       <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.hmac.info.text')}</p>
     </div>
-    <DownloadStandalone slug="hmac" locale={locale} />
   </div>
 </Layout>
