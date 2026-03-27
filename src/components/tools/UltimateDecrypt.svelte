@@ -29,6 +29,36 @@
   let openedCodeLanguage = '';
   let openedCsvRows: string[][] = [];
   let openedZipEntries: { name: string; size: number; compressed: number; isDir: boolean }[] = [];
+
+  type ZipTreeNode = { label: string; depth: number; isDir: boolean; size: number };
+  $: zipTree = buildZipTree(openedZipEntries);
+
+  function buildZipTree(entries: typeof openedZipEntries): ZipTreeNode[] {
+    const seenDirs = new Set<string>();
+    const nodes: ZipTreeNode[] = [];
+    const sorted = [...entries].sort((a, b) => a.name.localeCompare(b.name));
+    for (const e of sorted) {
+      const parts = e.name.replace(/\/$/, '').split('/');
+      // Insert implicit parent directories
+      for (let i = 1; i < parts.length; i++) {
+        const dir = parts.slice(0, i).join('/');
+        if (!seenDirs.has(dir)) {
+          seenDirs.add(dir);
+          nodes.push({ label: parts[i - 1], depth: i - 1, isDir: true, size: 0 });
+        }
+      }
+      if (!e.isDir) {
+        nodes.push({ label: parts[parts.length - 1], depth: parts.length - 1, isDir: false, size: e.size });
+      } else {
+        const dir = e.name.replace(/\/$/, '');
+        if (!seenDirs.has(dir)) {
+          seenDirs.add(dir);
+          nodes.push({ label: parts[parts.length - 1], depth: parts.length - 1, isDir: true, size: 0 });
+        }
+      }
+    }
+    return nodes;
+  }
   let previewTruncated = false;
 
   type PreviewType = 'none' | 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'code' | 'csv' | 'zip';
@@ -780,23 +810,22 @@
         {/key}
       {:else if previewType === 'pdf'}
         <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
-      {:else if previewType === 'zip' && openedZipEntries.length > 0}
+      {:else if previewType === 'zip' && zipTree.length > 0}
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
           <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{openedZipEntries.filter(e => !e.isDir).length} files</span>
           </div>
-          <div class="max-h-[50vh] overflow-auto">
-            {#each openedZipEntries as entry}
-              <div class="flex items-center gap-2 px-4 py-1.5 text-xs border-t border-zinc-100 dark:border-zinc-800/50 first:border-t-0">
-                {#if entry.isDir}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400 shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <div class="max-h-[50vh] overflow-auto font-mono">
+            {#each zipTree as node}
+              <div class="flex items-center gap-1.5 py-1 pr-3 text-[11px] border-t border-zinc-100/80 dark:border-zinc-800/40 first:border-t-0" style="padding-left: {12 + node.depth * 16}px">
+                {#if node.isDir}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" class="text-amber-400 dark:text-amber-500 shrink-0"><path d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/></svg>
+                  <span class="text-zinc-700 dark:text-zinc-300 font-medium">{node.label}</span>
                 {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                {/if}
-                <span class="truncate flex-1 text-zinc-700 dark:text-zinc-300" class:font-medium={entry.isDir}>{entry.name}</span>
-                {#if !entry.isDir}
-                  <span class="text-[10px] text-zinc-400 tabular-nums shrink-0">{entry.size < 1024 ? `${entry.size} B` : entry.size < 1048576 ? `${(entry.size / 1024).toFixed(1)} KB` : `${(entry.size / 1048576).toFixed(1)} MB`}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span class="truncate flex-1 text-zinc-600 dark:text-zinc-400">{node.label}</span>
+                  <span class="text-[10px] text-zinc-400 dark:text-zinc-600 tabular-nums shrink-0">{node.size < 1024 ? `${node.size} B` : node.size < 1048576 ? `${(node.size / 1024).toFixed(1)} KB` : `${(node.size / 1048576).toFixed(1)} MB`}</span>
                 {/if}
               </div>
             {/each}
