@@ -7,11 +7,12 @@
 
 <script>
   const CELL_SIZE = 48;
+  const MAX_COLS = 60;
+  const MAX_ROWS = 20;
   const grid = document.getElementById('perlin-grid');
   if (grid) {
-    const rect = grid.parentElement!.getBoundingClientRect();
-    const COLS = Math.ceil(rect.width / CELL_SIZE) + 1;
-    const ROWS = Math.ceil(rect.height / CELL_SIZE) + 1;
+    const COLS = Math.min(MAX_COLS, Math.ceil(screen.width / CELL_SIZE) + 2);
+    const ROWS = Math.min(MAX_ROWS, Math.ceil(screen.height / CELL_SIZE) + 2);
     const isDark = document.documentElement.classList.contains('dark');
     const cells: { el: HTMLDivElement; r: number; c: number; prev: string }[] = [];
 
