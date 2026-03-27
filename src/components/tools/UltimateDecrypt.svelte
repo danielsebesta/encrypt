@@ -285,6 +285,17 @@
     return true;
   }
 
+  function loadMedia(node: HTMLMediaElement, src: string) {
+    node.src = src;
+    node.load();
+    return {
+      update(newSrc: string) {
+        node.src = newSrc;
+        node.load();
+      }
+    };
+  }
+
   let stegoFile: File | null = null;
   let manualMode = false;
 
@@ -453,7 +464,8 @@
       return;
     }
 
-    const blob = new Blob([bytes], { type: mime });
+    const copy = new Uint8Array(bytes);
+    const blob = new Blob([copy], { type: mime });
     openedFileUrl = URL.createObjectURL(blob);
     pushDebug(`Prepared output file ${name} (${bytes.byteLength} bytes, mime=${mime}, preview=${previewType})`);
     setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyFile'));
@@ -636,11 +648,11 @@
         <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" />
       {:else if previewType === 'video' && openedFileUrl}
         {#key openedFileUrl}
-          <video controls preload="auto" src={openedFileUrl} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800"></video>
+          <video controls class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" use:loadMedia={openedFileUrl}></video>
         {/key}
       {:else if previewType === 'audio' && openedFileUrl}
         {#key openedFileUrl}
-          <audio controls preload="auto" src={openedFileUrl} class="w-full"></audio>
+          <audio controls class="w-full" use:loadMedia={openedFileUrl}></audio>
         {/key}
       {:else if previewType === 'pdf'}
         <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
