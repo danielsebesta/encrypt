@@ -713,16 +713,8 @@
                   <div class="block w-full [&>svg]:block [&>svg]:h-auto [&>svg]:w-full [&>svg]:rounded-[1rem]">
                     {@html qrSvg}
                   </div>
-                  <div class="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[0.95rem] border border-emerald-200 bg-white shadow-[0_10px_30px_rgba(6,95,70,0.16)]">
-                    <svg viewBox="0 0 24 24" class="h-5 w-5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M4 4h6v6H4z" />
-                      <path d="M14 4h6v6h-6z" />
-                      <path d="M4 14h6v6H4z" />
-                      <path d="M14 14h2" />
-                      <path d="M18 14h2v2" />
-                      <path d="M14 18h2v2h-2z" />
-                      <path d="M18 18h2v2h-2z" />
-                    </svg>
+                  <div class="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-emerald-200 bg-white shadow-[0_10px_30px_rgba(6,95,70,0.16)]">
+                    <img src="/encryptclick_icon.svg" alt="" class="h-6 w-6" />
                   </div>
                 </div>
               </div>
