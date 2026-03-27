@@ -19,13 +19,6 @@ import DownloadStandalone from '../../components/DownloadStandalone.astro';
   <div class="max-w-6xl mx-auto px-5 py-12 md:py-20">
     <div class="tool-hero">
       <div class="tool-hero__copy">
-        <div class="tool-hero__chips">
-          <span class="tool-chip">{t(dict, 'toolEducation.metaCategory')}: {education.hero.category}</span>
-          <span class="tool-chip">{t(dict, 'toolEducation.metaDifficulty')}: {education.hero.difficulty}</span>
-          {education.hero.bestFor.map((tag) => (
-            <span class="tool-chip tool-chip-soft">{tag}</span>
-          ))}
-        </div>
         <h1 class="tool-hero__title">{t(dict, 'tools.bcrypt.h1')} <span class="text-emerald-500">{t(dict, 'tools.bcrypt.h1Highlight')}</span></h1>
         <p class="tool-hero__subtitle">{t(dict, 'tools.bcrypt.subtitle')}</p>
       </div>
