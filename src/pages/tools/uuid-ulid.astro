@@ -16,7 +16,7 @@ const dict = getTranslations(locale);
       <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.uuidUlid.h1')} <span class="text-emerald-500">{t(dict, 'tools.uuidUlid.h1Highlight')}</span></h1>
       <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.uuidUlid.subtitle')}</p>
     </div>
-    <div class="card p-8">
+    <div class="mt-8">
       <UUIDULIDView client:load locale={locale} />
     </div>
     <div class="mt-12 grid md:grid-cols-2 gap-6 text-left">

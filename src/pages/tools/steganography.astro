@@ -19,8 +19,8 @@ const dict = getTranslations(locale);
     <div class="card p-4 md:p-10">
       <SteganographyView client:load locale={locale} />
     </div>
-    <div class="mt-12 text-left space-y-4">
-      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.steganography.info.title')}</h3>
+    <div class="mt-10 pt-8 border-t border-zinc-200/60 dark:border-zinc-800/40 text-left space-y-2">
+      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info.title')}</h3>
       <div class="grid md:grid-cols-2 gap-6 text-xs text-zinc-500 leading-relaxed">
         <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info1.title')}</strong> {t(dict, 'tools.steganography.info1.text')}</p>
         <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info2.title')}</strong> {t(dict, 'tools.steganography.info2.text')}</p>
