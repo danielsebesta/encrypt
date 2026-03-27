@@ -375,15 +375,15 @@
     }
 
     .home-tool-panel {
-        @apply rounded-2xl border border-zinc-200/70 bg-white/80 dark:bg-zinc-950/60 dark:border-zinc-800/70 p-4 md:p-5;
+        @apply rounded-2xl border border-zinc-200/50 bg-white/60 dark:bg-zinc-950/50 dark:border-zinc-800/50 p-4 md:p-5;
         position: relative;
         overflow: hidden;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 20px 60px -20px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(16px) saturate(1.3);
+        box-shadow: 0 20px 60px -20px rgba(15, 23, 42, 0.06);
     }
 
     html.dark .home-tool-panel {
-        box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.25);
     }
 
     .home-tool-panel__title {
@@ -393,7 +393,7 @@
     }
 
     .home-tool-panel__surface {
-        @apply rounded-xl border border-zinc-100/80 bg-white/90 dark:bg-zinc-950/80 dark:border-zinc-800/60 p-5 md:p-6;
+        @apply rounded-xl border border-zinc-100/60 bg-white/70 dark:bg-zinc-950/60 dark:border-zinc-800/50 p-5 md:p-6;
         position: relative;
         z-index: 1;
     }
@@ -421,7 +421,8 @@
     }
 
     .bento-card {
-        @apply rounded-2xl border border-zinc-200/70 bg-white dark:bg-zinc-950/60 dark:border-zinc-800/60 overflow-hidden;
+        @apply rounded-2xl border border-zinc-200/50 bg-white/60 dark:bg-zinc-950/50 dark:border-zinc-800/50 overflow-hidden;
+        backdrop-filter: blur(14px) saturate(1.2);
         transition: border-color 0.2s, box-shadow 0.2s;
     }
 
