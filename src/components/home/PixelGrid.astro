@@ -70,9 +70,8 @@
       300px 281px, 300px 281px, 300px 281px,
       300px 158px, 300px 158px, 300px 158px,
       300px 210px, 300px 210px;
-    animation: fallingRain 150s linear infinite;
+    animation: fadeInRain 0.8s ease-out 0.3s forwards, fallingRain 150s linear 0.3s infinite;
     opacity: 0;
-    animation-fill-mode: forwards;
   }
 
   .falling-pattern__overlay {
@@ -85,6 +84,11 @@
 
   :global(html.dark) .falling-pattern__overlay {
     --overlay-bg: rgba(9,9,11,0.7);
+  }
+
+  @keyframes fadeInRain {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   @keyframes fallingRain {
