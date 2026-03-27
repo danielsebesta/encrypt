@@ -1,5 +1,6 @@
 ---
 import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
+import PixelGrid from './PixelGrid.astro';
 import { t, type Locale } from '../../lib/i18n';
 
 type Props = {
@@ -10,53 +11,41 @@ type Props = {
 const { locale, dict } = Astro.props;
 ---
 
-<section class="home-shell home-hero-section">
-  <div class="home-backdrop" aria-hidden="true"></div>
-  <div class="max-w-7xl mx-auto px-5 pt-10 md:pt-16 pb-10 md:pb-14">
-    <div class="grid xl:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)] gap-8 md:gap-10 items-start">
-      <div class="space-y-6 md:space-y-8" data-aos data-aos-delay="0">
-        <div class="space-y-4">
-          <p class="home-hero-badge">{t(dict, 'home.hero.badge')}</p>
-          <div class="space-y-4">
-            <h1 class="text-4xl md:text-6xl leading-[1.02] tracking-[-0.04em] font-black max-w-2xl text-zinc-950 dark:text-zinc-50">
-              {t(dict, 'home.hero.title.line1')}
-              <br />
-              <span class="text-emerald-600 dark:text-emerald-400">{t(dict, 'home.hero.title.line2')}</span>
-            </h1>
-            <p class="max-w-xl text-base md:text-lg leading-7 text-zinc-600 dark:text-zinc-300">
-              {t(dict, 'home.hero.subtitle')}
-            </p>
-          </div>
-        </div>
+<section class="home-hero-section">
+  <PixelGrid />
+  <div class="home-hero-glow" aria-hidden="true"></div>
 
-        <div class="home-hero-points" data-aos data-aos-delay="80">
-          <p>{t(dict, 'home.hero.proof1')}</p>
-          <p>{t(dict, 'home.hero.proof2')}</p>
-        </div>
+  <div class="max-w-7xl mx-auto px-5 pt-12 md:pt-20 pb-12 md:pb-16 relative z-1">
+    <!-- Title block -->
+    <div class="max-w-3xl mb-10 md:mb-14" data-aos data-aos-delay="0">
+      <h1 class="text-4xl md:text-6xl lg:text-7xl leading-[1.02] tracking-[-0.04em] font-black text-zinc-950 dark:text-zinc-50">
+        {t(dict, 'home.hero.title.line1')}
+        <br />
+        <span class="text-emerald-600 dark:text-emerald-400">{t(dict, 'home.hero.title.line2')}</span>
+      </h1>
+      <p class="mt-5 max-w-xl text-base md:text-lg leading-7 text-zinc-500 dark:text-zinc-400">
+        {t(dict, 'home.hero.subtitle')}
+      </p>
+    </div>
 
-        <div class="flex flex-wrap gap-3 items-center" data-aos data-aos-delay="120">
-          <a href="#encrypt-tool" class="btn px-6 py-3.5 text-sm md:text-base">{t(dict, 'home.hero.primaryCta')}</a>
-          <a
-            href="https://github.com/danielsebesta/encrypt.click"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn-outline px-6 py-3.5 text-sm md:text-base"
-          >
-            {t(dict, 'home.hero.secondaryCta')}
-          </a>
-        </div>
-
-        <p class="home-inline-note" data-aos data-aos-delay="120">{t(dict, 'home.hero.note')}</p>
-      </div>
-
-      <div id="encrypt-tool" data-aos data-aos-delay="80">
+    <!-- Two-column: widget + illustration -->
+    <div class="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(14rem,22rem)] gap-8 lg:gap-12 items-start">
+      <div id="encrypt-tool" data-aos data-aos-delay="60">
         <div class="home-tool-panel">
           <p class="home-tool-panel__title">{t(dict, 'home.hero.panelTitle')}</p>
-
           <div class="home-tool-panel__surface">
             <UltimateEncrypt client:load locale={locale} />
           </div>
         </div>
+      </div>
+
+      <div class="hidden lg:flex flex-col items-center gap-6" data-aos data-aos-delay="120">
+        <div class="home-mascot">
+          <img src="/encrypt_lock.svg" alt="" class="home-mascot__img" loading="eager" />
+        </div>
+        <p class="text-sm text-zinc-400 dark:text-zinc-500 text-center max-w-[16rem] leading-relaxed">
+          {t(dict, 'home.hero.note')}
+        </p>
       </div>
     </div>
   </div>
