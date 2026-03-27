@@ -77,6 +77,12 @@ const languageOptions = locales.map(l => ({
 				var locales=['en','cs','de'];
 				if(stored&&locales.indexOf(stored)!==-1&&stored!==cur){
 					var p=location.pathname;
+					var hasPayload=!!location.hash||new URLSearchParams(location.search).has('p');
+					var isDecryptRoute=p==='/u'||p==='/u/'||p.indexOf('/cs/u')===0||p.indexOf('/de/u')===0;
+					if(isDecryptRoute&&hasPayload){
+						localStorage.setItem('ec-lang',cur);
+						return;
+					}
 					// Strip current locale prefix
 					for(var i=0;i<locales.length;i++){
 						if(locales[i]==='en')continue;
@@ -85,7 +91,7 @@ const languageOptions = locales.map(l => ({
 					}
 					// Build new path with stored locale
 					var np=stored==='en'?p:(p==='/'?'/'+stored+'/':'/'+stored+p);
-					if(np!==location.pathname){location.replace(np);return;}
+					if(np!==location.pathname){location.replace(np+location.search+location.hash);return;}
 				}
 				localStorage.setItem('ec-lang',cur);
 			}catch(e){}})();
