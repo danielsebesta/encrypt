@@ -42,11 +42,13 @@
   const MAX_FILE = 50 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
 
-  // BINARY chain: raw file hosts only (no re-encoding risk)
-  // Ordered by reliability + retention
   interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
+
+  // Send network is preferred — E2E encrypted, multiple instances
+  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network', retention: '7+ days', maxBytes: 5 * 1024 * 1024 * 1024 };
+
+  // Fallback binary hosts (shuffled at upload time)
   const BINARY_HOSTS: HostInfo[] = [
-    { id: 'nologsend', name: 'Send network', retention: '2+ days', maxBytes: 5 * 1024 * 1024 * 1024 },
     { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
     { id: 'x0at', name: 'x0.at', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
     { id: 'catbox', name: 'Catbox.moe', retention: 'forever', maxBytes: 200 * 1024 * 1024 },
@@ -56,12 +58,21 @@
     { id: 'uguu', name: 'Uguu.se', retention: '3 hours', maxBytes: 128 * 1024 * 1024 },
   ];
 
-  // IMAGE chain: for stego PNGs only (these hosts accept images natively)
+  // Image hosts for stego PNGs (shuffled at upload time)
   const IMAGE_HOSTS: HostInfo[] = [
     { id: 'sxcu', name: 'sxcu.net', retention: 'forever', maxBytes: 95 * 1024 * 1024 },
     { id: 'freeimage', name: 'FreeImage.host', retention: 'forever', maxBytes: 64 * 1024 * 1024 },
     { id: 'imgbb', name: 'ImgBB', retention: 'forever', maxBytes: 32 * 1024 * 1024 },
   ];
+
+  function shuffleArr<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
 
   $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
@@ -259,10 +270,15 @@
       pushDebug(`Using raw binary upload (${uploadBytes.byteLength} bytes)`);
     }
 
-    // Use image hosts for stego PNGs, binary hosts for everything else
-    // Filter by file size, try one at a time
-    const chain = usedStego ? IMAGE_HOSTS : BINARY_HOSTS;
-    const eligible = chain.filter(h => uploadBytes.length <= h.maxBytes);
+    // Build upload chain: stego → shuffled image hosts, binary → Send first + shuffled file hosts
+    let eligible: HostInfo[];
+    if (usedStego) {
+      eligible = shuffleArr(IMAGE_HOSTS).filter(h => uploadBytes.length <= h.maxBytes);
+    } else {
+      const sendEligible = uploadBytes.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
+      const fileEligible = shuffleArr(BINARY_HOSTS).filter(h => uploadBytes.length <= h.maxBytes);
+      eligible = [...sendEligible, ...fileEligible];
+    }
     pushDebug(`Eligible upload hosts: ${eligible.map(h => h.name).join(', ') || 'none'}`);
 
     let uploadUrl = '';
@@ -373,9 +389,9 @@
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
 
-  // PRIMARY: privacy-first (no tracking, no logs)
+  // PRIMARY: privacy-first (no tracking, no logs) — shuffled to spread load
   const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'vgd'];
-  // FALLBACK: when primary fails (some tracking, but stable)
+  // FALLBACK: when primary fails (some tracking, but stable) — shuffled
   const FALLBACK_SHORT: ShortProvider[] = ['spoome', 'cleanuri', 'isgd', '1url'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
@@ -412,17 +428,15 @@
   }
 
   async function autoShorten(url: string): Promise<void> {
-    // Try primary providers (privacy-first)
     setProgress(t(dict, 'tools.ultimateEncrypt.progressShortenTitle'), t(dict, 'tools.ultimateEncrypt.progressShortenDetail'));
-    for (const provider of PRIMARY_SHORT) {
+    // Shuffle within tiers to spread load across providers
+    for (const provider of shuffleArr(PRIMARY_SHORT)) {
       const result = await tryShorten(url, provider);
       if (result) { shortUrl = result; return; }
-      // Retry once
       const retry = await tryShorten(url, provider);
       if (retry) { shortUrl = retry; return; }
     }
-    // Fallback providers
-    for (const provider of FALLBACK_SHORT) {
+    for (const provider of shuffleArr(FALLBACK_SHORT)) {
       const result = await tryShorten(url, provider);
       if (result) { shortUrl = result; return; }
     }
