@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { checkRateLimit } from '../../../lib/rateLimit';
-import { downloadFromSendServer, isSendUrl } from '../../../lib/nologSend';
+import { fetchSendEncryptedBlob, isSendUrl } from '../../../lib/nologSend';
 
 export const prerender = false;
 
@@ -32,11 +32,12 @@ export const GET: APIRoute = async ({ url, request }) => {
 
   try {
     if (isSendUrl(targetUrl)) {
-      const data = await downloadFromSendServer(targetUrl);
+      const data = await fetchSendEncryptedBlob(targetUrl);
       return new Response(data, {
         status: 200,
         headers: {
           'Content-Type': 'application/octet-stream',
+          'X-Send-Encrypted': 'true',
           'Cache-Control': 'public, max-age=3600'
         }
       });

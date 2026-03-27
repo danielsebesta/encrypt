@@ -3,6 +3,7 @@
   import { decrypt } from '../../lib/crypto';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
+  import { decryptSendBlob, isSendUrl } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
@@ -497,8 +498,15 @@
           pushDebug(`Source failed before body read: ${lastErr}`);
           continue;
         }
-        fileBytes = new Uint8Array(await res.arrayBuffer());
-        pushDebug(`Downloaded encrypted blob (${fileBytes.byteLength} bytes)`);
+        const rawBytes = new Uint8Array(await res.arrayBuffer());
+        pushDebug(`Downloaded blob (${rawBytes.byteLength} bytes)`);
+
+        if (res.headers.get('X-Send-Encrypted') === 'true' && isSendUrl(url)) {
+          pushDebug('Decrypting Send ECE layer client-side...');
+          fileBytes = await decryptSendBlob(rawBytes, url, pushDebug);
+        } else {
+          fileBytes = rawBytes;
+        }
 
         setProgress(t(dict, 'tools.ultimateDecrypt.progressDownloadedTitle'), t(dict, 'tools.ultimateDecrypt.progressDownloadedDetail'));
 
