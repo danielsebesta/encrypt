@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Bcrypt Explained — Slow Hashing for Passwords",
+  "metaDescription": "Learn why bcrypt is intentionally slow, when to use it, and why password hashing is different from encryption.",
+  "hero": {
+    "category": "Password hashing",
+    "difficulty": "Beginner",
+    "bestFor": ["Login systems", "Password storage", "Verification flows"]
+  },
+  "quick": {
+    "what": "Hashes passwords so you can verify them later without storing the original password.",
+    "use": "Protecting password databases and authentication systems.",
+    "notFor": "Reversible encryption, file secrecy, or token generation."
+  },
+  "learn": {
+    "intro": {
+      "title": "In plain English",
+      "text": "Bcrypt is a password-specific hashing algorithm. It turns a password into a one-way result that can be checked later, but not turned back into the original password."
+    },
+    "how": {
+      "title": "How it works",
+      "text": "Bcrypt mixes the password with a random salt and repeats expensive work many times. That makes each guess slower for an attacker, which is exactly what you want for password protection."
+    },
+    "useCases": {
+      "title": "Where you'd use it",
+      "items": [
+        "Storing user passwords in a web application database.",
+        "Testing password verification logic during development.",
+        "Migrating away from unsafe fast hashes for login systems."
+      ]
+    },
+    "mistake": {
+      "title": "Common mistake",
+      "text": "People sometimes ask bcrypt to protect data they want to decrypt later. That is the wrong tool. Bcrypt is for checking passwords, not for getting the original secret back."
+    },
+    "history": {
+      "title": "History / fun fact",
+      "text": "Bcrypt was designed to stay expensive on purpose. In password security, slow is a feature because it makes brute-force guessing much harder."
+    },
+    "security": {
+      "title": "Security note",
+      "text": "The work factor must be tuned high enough to hurt attackers but still be acceptable for your own login performance."
+    },
+    "deepDive": {
+      "title": "Deeper look",
+      "sections": [
+        {
+          "title": "Why salts matter",
+          "text": "A salt makes the same password produce different hashes for different users. That breaks simple precomputed lookup attacks like rainbow tables."
+        },
+        {
+          "title": "Why cost factor matters",
+          "text": "The cost factor controls how much work bcrypt performs. Raising it increases defense against guessing, but also increases legitimate verification time."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "bcrypt",
+    "title": "Password in, slow hash out",
+    "caption": "Bcrypt adds salt and cost so password checking stays practical while mass guessing stays expensive."
+  }
+}

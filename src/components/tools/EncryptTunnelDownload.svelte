@@ -1,5 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   const SALT_SIZE = 16;
   const IV_SIZE = 12;
@@ -68,7 +72,7 @@
     try {
       const hash = window.location.hash || '';
       if (!hash || hash.length <= 1) {
-        parseError = 'Missing payload in URL hash.';
+        parseError = t(dict, 'downloadPage.errorMissingPayload');
         return;
       }
       const encoded = decodeURIComponent(hash.slice(1));
@@ -76,20 +80,20 @@
       const json = new TextDecoder().decode(bytes);
       const obj = JSON.parse(json) as Payload;
       if (!obj || !obj.id || !obj.name || !obj.secret) {
-        parseError = 'Invalid magic link payload.';
+        parseError = t(dict, 'downloadPage.errorInvalidPayload');
         return;
       }
       payload = obj;
       password = obj.secret || '';
     } catch (e: any) {
-      parseError = e?.message || 'Failed to parse magic link.';
+      parseError = e?.message || t(dict, 'downloadPage.errorParseFailed');
     }
   });
 
   async function handleDownload() {
     if (!payload) return;
     if (!password) {
-      error = 'Password is required to decrypt.';
+      error = t(dict, 'downloadPage.errorPasswordRequired');
       return;
     }
     error = '';
@@ -97,7 +101,7 @@
     try {
       const res = await fetch(`/api/tunnel/${encodeURIComponent(payload.id)}`);
       if (!res.ok) {
-        throw new Error(`Download failed with status ${res.status}`);
+        throw new Error(t(dict, 'downloadPage.errorDownloadFailed').replace('{status}', String(res.status)));
       }
       const buf = await res.arrayBuffer();
       const plaintext = await decryptFileBytes(new Uint8Array(buf), password);
@@ -105,13 +109,13 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = payload.name || 'download';
+      a.download = payload.name || t(dict, 'downloadPage.defaultFilename');
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      error = e?.message || 'Decryption failed. The password may be wrong or the file may be corrupted.';
+      error = e?.message || t(dict, 'downloadPage.errorDecryptFailed');
     } finally {
       downloading = false;
     }
@@ -122,11 +126,11 @@
   {#if parseError}
     <p class="text-sm text-red-500">{parseError}</p>
   {:else if !payload}
-    <p class="text-sm text-zinc-500">Waiting for magic link payload…</p>
+    <p class="text-sm text-zinc-500">{t(dict, 'downloadPage.waiting')}</p>
   {:else}
     <div class="card p-6 md:p-8 space-y-4">
       <div class="space-y-1 text-left">
-        <h2 class="text-sm font-bold uppercase tracking-widest text-zinc-500">Encrypted file</h2>
+        <h2 class="text-sm font-bold uppercase tracking-widest text-zinc-500">{t(dict, 'downloadPage.encryptedFile')}</h2>
         <p class="text-xs text-zinc-500">
           <span class="font-mono">{payload.name}</span>
           {#if payload.size}
@@ -137,7 +141,7 @@
 
       <div class="space-y-2">
         <label for="decrypt-password" class="label block">
-          Decryption password
+          {t(dict, 'downloadPage.passwordLabel')}
         </label>
         <input
           id="decrypt-password"
@@ -148,7 +152,7 @@
           spellcheck="false"
         />
         <p class="text-[11px] text-zinc-500">
-          This password never leaves your browser. It is used only to derive the AES-256-GCM key for decryption.
+          {t(dict, 'downloadPage.passwordNote')}
         </p>
       </div>
 
@@ -159,9 +163,9 @@
         disabled={downloading}
       >
         {#if downloading}
-          Downloading &amp; decrypting…
+          {t(dict, 'downloadPage.downloading')}
         {:else}
-          Download &amp; decrypt file
+          {t(dict, 'downloadPage.downloadButton')}
         {/if}
       </button>
 
@@ -171,4 +175,3 @@
     </div>
   {/if}
 </div>
-

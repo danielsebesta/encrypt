@@ -4,6 +4,7 @@
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
   import CopyButton from '../CopyButton.svelte';
+  import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -12,7 +13,8 @@
   let password = '';
   let error = '';
   let loading = false;
-  let logs: string[] = [];
+  let progressTitle = '';
+  let progressDetail = '';
 
   let hashPayload = '';
   let hasHash = false;
@@ -49,8 +51,9 @@
   let stegoFile: File | null = null;
   let manualMode = false;
 
-  function log(msg: string) {
-    logs = [...logs, `${new Date().toLocaleTimeString()} — ${msg}`];
+  function setProgress(title: string, detail = '') {
+    progressTitle = title;
+    progressDetail = detail;
   }
 
   function base64UrlDecode(input: string): Uint8Array {
@@ -84,14 +87,14 @@
     error = '';
     openedText = '';
     openedFileName = '';
-    logs = [];
+    setProgress('', '');
     if (openedFileUrl) {
       URL.revokeObjectURL(openedFileUrl);
       openedFileUrl = '';
     }
 
     if (!password) {
-      error = 'Password is required.';
+      error = t(dict, 'tools.ultimateDecrypt.errorPasswordRequired');
       return;
     }
 
@@ -102,43 +105,43 @@
       } else if (hashPayload) {
         await decryptFromHash();
       } else {
-        error = 'No encrypted data found. Open a valid /u#... link or upload a stego image.';
+        error = t(dict, 'tools.ultimateDecrypt.errorNoData');
       }
     } catch (e: any) {
       console.error('Decrypt error', e);
-      error = 'Decryption failed. Wrong password or corrupted data.';
+      error = t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
     } finally {
       loading = false;
     }
   }
 
   async function decryptFromStego() {
-    log('Reading steganography image...');
+    setProgress(t(dict, 'tools.ultimateDecrypt.progressReadingTitle'), t(dict, 'tools.ultimateDecrypt.progressReadingDetail'));
     const buffer = new Uint8Array(await stegoFile!.arrayBuffer());
     const extracted = await extractStego(buffer);
     if (!extracted) {
-      throw new Error('No hidden data found in image.');
+      throw new Error(t(dict, 'tools.ultimateDecrypt.errorNoHiddenData'));
     }
 
     const text = new TextDecoder().decode(extracted);
 
     if (text.startsWith('http')) {
-      log('Found hidden URL, following link...');
+      setProgress(t(dict, 'tools.ultimateDecrypt.progressFollowingTitle'), t(dict, 'tools.ultimateDecrypt.progressFollowingDetail'));
       const url = new URL(text);
       const innerHash = url.hash.slice(1);
       if (innerHash) {
         hashPayload = decodeURIComponent(innerHash);
         await decryptFromHash();
       } else {
-        throw new Error('Hidden URL has no encrypted payload.');
+        throw new Error(t(dict, 'tools.ultimateDecrypt.errorNoEncryptedPayload'));
       }
     } else {
-      throw new Error('Unexpected stego payload format.');
+      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnexpectedStego'));
     }
   }
 
   async function decryptFromHash() {
-    log('Decrypting payload...');
+    setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
     const bytes = base64UrlDecode(hashPayload);
     const compressedB64 = await decrypt(bytes, password);
     const compressed = Uint8Array.from(atob(compressedB64), c => c.charCodeAt(0));
@@ -154,7 +157,7 @@
     const data = JSON.parse(json) as any;
 
     if (data.v !== 1) {
-      throw new Error('Unsupported payload version.');
+      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
     }
 
     if (data.mode === 'inline') {
@@ -162,7 +165,7 @@
     } else if (data.mode === 'ghost') {
       await handleGhostPayload(data);
     } else {
-      throw new Error('Unknown payload mode.');
+      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnknownMode'));
     }
   }
 
@@ -173,12 +176,12 @@
     const blob = new Blob([bytes], { type: mime });
     openedFileUrl = URL.createObjectURL(blob);
     openedFileName = name;
-    log(`Decrypted file: ${name}`);
+    setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyFile'));
   }
 
   async function handleInlinePayload(data: any) {
     if (data.kind === 'text') {
-      log('Decrypted text message.');
+      setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyText'));
       openedText = data.text || '';
     } else if (data.kind === 'file' && data.data) {
       const binary = atob(data.data);
@@ -186,7 +189,7 @@
       for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
       presentFile(buf, data.name || 'download');
     } else {
-      throw new Error('Unsupported inline payload.');
+      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedInline'));
     }
   }
 
@@ -194,29 +197,27 @@
     const urls: string[] = data.urls || (data.url ? [data.url] : []);
     const isStego: boolean = data.stego ?? false;
 
-    if (urls.length === 0) throw new Error('No download URLs in payload.');
+    if (urls.length === 0) throw new Error(t(dict, 'tools.ultimateDecrypt.errorNoDownloadUrls'));
 
     let lastErr = '';
 
     for (const url of urls) {
       try {
-        log(`Fetching from ${new URL(url).hostname}...`);
+        setProgress(t(dict, 'tools.ultimateDecrypt.progressFetchingTitle'), t(dict, 'tools.ultimateDecrypt.progressFetchingDetail'));
         const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
         if (!res.ok) {
-          lastErr = `HTTP ${res.status}`;
-          log(`Failed (HTTP ${res.status}), trying next...`);
+          lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
           continue;
         }
         const fileBytes = new Uint8Array(await res.arrayBuffer());
-        log('Downloaded encrypted file.');
+        setProgress(t(dict, 'tools.ultimateDecrypt.progressDownloadedTitle'), t(dict, 'tools.ultimateDecrypt.progressDownloadedDetail'));
 
         let encrypted: Uint8Array;
         if (isStego) {
-          log('Extracting from steganography...');
+          setProgress(t(dict, 'tools.ultimateDecrypt.progressExtractingTitle'), t(dict, 'tools.ultimateDecrypt.progressExtractingDetail'));
           const extracted = await extractStego(fileBytes);
           if (!extracted) {
-            lastErr = 'Stego extraction failed';
-            log('Stego extraction failed, trying next...');
+            lastErr = t(dict, 'tools.ultimateDecrypt.errorNoHiddenData');
             continue;
           }
           encrypted = extracted;
@@ -224,7 +225,6 @@
           encrypted = fileBytes;
         }
 
-        log('Decrypting file...');
         const { data: decryptedData, name } = await decryptData(encrypted, password);
 
         if (name.endsWith('.txt') && decryptedData.length < 100_000) {
@@ -232,7 +232,7 @@
           const isPrintable = !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 200));
           if (isPrintable) {
             openedText = text;
-            log('Decrypted text content.');
+            setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyText'));
             return;
           }
         }
@@ -240,12 +240,11 @@
         presentFile(decryptedData, name);
         return;
       } catch (e: any) {
-        lastErr = e?.message || 'Decryption error';
-        log(`Failed: ${lastErr}, trying next...`);
+        lastErr = e?.message || t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
       }
     }
 
-    throw new Error(`All sources failed. Last error: ${lastErr}`);
+    throw new Error(lastErr || t(dict, 'tools.ultimateDecrypt.errorAllSourcesFailed'));
   }
 
   function downloadFile() {
@@ -262,29 +261,29 @@
 <div class="space-y-6 text-left">
   {#if hasHash}
     <p class="text-sm text-zinc-500 dark:text-zinc-400">
-      An encrypted payload was found. Enter the password to decrypt.
+      {t(dict, 'tools.ultimateDecrypt.payloadFound')}
     </p>
   {:else}
     <div class="space-y-4">
       <p class="text-sm text-zinc-500 dark:text-zinc-400">
-        Open a <code class="text-emerald-500">/u#...</code> link to decrypt automatically, or upload a steganography image below.
+        {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="text-emerald-500">/u#...</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}
       </p>
       <div class="space-y-2">
-        <label class="label block" for="ud-stego">Upload stego image</label>
+        <label class="label block" for="ud-stego">{t(dict, 'tools.ultimateDecrypt.uploadStegoImage')}</label>
         <input id="ud-stego" type="file" accept="image/*" class="input cursor-pointer text-xs" on:change={handleStegoFile} />
       </div>
     </div>
   {/if}
 
   <div class="space-y-2">
-    <label class="label block" for="ud-pass">Password</label>
+    <label class="label block" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}</label>
     <input
       id="ud-pass"
       type="password"
       class="input"
       bind:value={password}
       autocomplete="current-password"
-      placeholder="Enter the password"
+      placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
     />
   </div>
 
@@ -294,15 +293,11 @@
     on:click={handleDecrypt}
     disabled={loading || (!hasHash && !stegoFile)}
   >
-    {loading ? 'Decrypting...' : 'Decrypt'}
+    {loading ? t(dict, 'tools.ultimateDecrypt.decrypting') : t(dict, 'tools.ultimateDecrypt.decrypt')}
   </button>
 
-  {#if logs.length > 0}
-    <div class="space-y-1">
-      {#each logs as entry}
-        <p class="text-[11px] font-mono text-zinc-400">{entry}</p>
-      {/each}
-    </div>
+  {#if loading}
+    <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateDecrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateDecrypt.progressDefaultDetail')} compact={true} />
   {/if}
 
   {#if error}
@@ -312,8 +307,8 @@
   {#if openedText}
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <label class="label block">Decrypted message</label>
-        <CopyButton text={openedText} label="COPY" />
+        <label class="label block">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</label>
+        <CopyButton text={openedText} label={t(dict, 'tools.ultimateDecrypt.copy')} />
       </div>
       <div class="result-box min-h-[80px] whitespace-pre-wrap">
         {openedText}
@@ -323,7 +318,7 @@
 
   {#if openedFileName && openedFileUrl}
     <div class="space-y-3">
-      <p class="text-xs text-emerald-500">File decrypted: {openedFileName}</p>
+      <p class="text-xs text-emerald-500">{t(dict, 'tools.ultimateDecrypt.fileDecrypted')} {openedFileName}</p>
 
       {#if previewType === 'image'}
         <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" />
@@ -338,7 +333,7 @@
       {/if}
 
       <button type="button" class="btn-outline text-xs" on:click={downloadFile}>
-        Download {openedFileName}
+        {t(dict, 'tools.ultimateDecrypt.download')} {openedFileName}
       </button>
     </div>
   {/if}
