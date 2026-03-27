@@ -4,6 +4,7 @@
   import { encrypt, decrypt } from '../../lib/crypto';
   import { encryptData } from '../../lib/ghost/crypto';
   import { createStegoImage } from '../../lib/ghost/steganography';
+  import { prepareSendUpload } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
@@ -266,13 +267,32 @@
 
     let uploadUrl = '';
 
+    let sendPrepared: Awaited<ReturnType<typeof prepareSendUpload>> | null = null;
+
     for (const host of eligible) {
       setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
       try {
         pushDebug(`Trying host ${host.name} (${host.id})`);
+
+        let fetchBody: Uint8Array = uploadBytes;
+        const headers: Record<string, string> = {};
+
+        if (host.id === 'nologsend') {
+          if (!sendPrepared) {
+            pushDebug('Preparing Send ECE encryption client-side...');
+            sendPrepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
+            pushDebug(`Send ECE encrypted (${sendPrepared.encryptedBytes.byteLength} bytes)`);
+          }
+          fetchBody = sendPrepared.encryptedBytes;
+          headers['X-Send-Metadata'] = sendPrepared.metadataB64;
+          headers['X-Send-Auth'] = sendPrepared.authHeader;
+          headers['X-Send-Secret'] = sendPrepared.secretB64;
+        }
+
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
           method: 'POST',
-          body: uploadBytes,
+          body: fetchBody,
+          headers,
         });
         pushDebug(`Host ${host.name} responded with HTTP ${res.status}`);
         const rawBody = await res.text();
