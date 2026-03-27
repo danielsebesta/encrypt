@@ -346,94 +346,89 @@
       pushDebug(`Using raw binary upload (${uploadBytes.byteLength} bytes)`);
     }
 
-    // Build upload chain: stego → shuffled image hosts, binary → Send first + shuffled file hosts
-    let eligible: HostInfo[];
-    if (usedStego) {
-      eligible = shuffleArr(IMAGE_HOSTS).filter(h => uploadBytes.length <= h.maxBytes);
-    } else {
-      const sendEligible = uploadBytes.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
-      const fileEligible = shuffleArr(BINARY_HOSTS).filter(h => uploadBytes.length <= h.maxBytes);
-      eligible = [...sendEligible, ...fileEligible];
-    }
-    pushDebug(`Eligible upload hosts: ${eligible.map(h => h.name).join(', ') || 'none'}`);
+    // Upload to hosts — try to get 2 URLs for redundancy
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
+    const uploadUrls: string[] = [];
 
-    let uploadUrl = '';
-
-    let sendPrepared: Awaited<ReturnType<typeof prepareSendUpload>> | null = null;
-
-    for (const host of eligible) {
-      setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
+    async function tryUploadHost(host: HostInfo): Promise<string | null> {
       try {
         pushDebug(`Trying host ${host.name} (${host.id})`);
-
         let fetchBody: Uint8Array = uploadBytes;
         const headers: Record<string, string> = {};
 
         if (host.id === 'nologsend') {
-          if (!sendPrepared) {
-            pushDebug('Preparing Send ECE encryption client-side...');
-            sendPrepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
-            pushDebug(`Send ECE encrypted (${sendPrepared.encryptedBytes.byteLength} bytes)`);
-          }
-          fetchBody = sendPrepared.encryptedBytes;
-          headers['X-Send-Metadata'] = sendPrepared.metadataB64;
-          headers['X-Send-Auth'] = sendPrepared.authHeader;
-          headers['X-Send-Secret'] = sendPrepared.secretB64;
+          pushDebug('Preparing Send ECE encryption client-side...');
+          const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
+          pushDebug(`Send ECE encrypted (${prepared.encryptedBytes.byteLength} bytes)`);
+          fetchBody = prepared.encryptedBytes;
+          headers['X-Send-Metadata'] = prepared.metadataB64;
+          headers['X-Send-Auth'] = prepared.authHeader;
+          headers['X-Send-Secret'] = prepared.secretB64;
         }
 
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
-          method: 'POST',
-          body: fetchBody,
-          headers,
+          method: 'POST', body: fetchBody, headers,
         });
         pushDebug(`Host ${host.name} responded with HTTP ${res.status}`);
-        const rawBody = await res.text();
-        let data: any = null;
-        try {
-          data = rawBody ? JSON.parse(rawBody) : null;
-        } catch {
-          data = null;
-        }
-        if (!res.ok) {
-          const apiError = data?.error || data?.results?.[0]?.error;
-          if (apiError) pushDebug(`Host ${host.name} error: ${apiError}`);
-          if (Array.isArray(data?.results?.[0]?.details)) {
-            for (const detail of data.results[0].details) pushDebug(`Host ${host.name} detail: ${detail}`);
-          }
-          if (!apiError && rawBody) {
-            const snippet = rawBody.replace(/\s+/g, ' ').trim().slice(0, 220);
-            pushDebug(`Host ${host.name} raw response: ${snippet}`);
-          }
-          continue;
-        }
-        const result = data?.results?.[0];
-        if (result?.url) {
-          uploadUrl = result.url;
-          pushDebug(`Host ${host.name} returned URL ${uploadUrl}`);
-          break;
-        }
-        if (result?.error) pushDebug(`Host ${host.name} error: ${result.error}`);
-        if (Array.isArray(result?.details)) {
-          for (const detail of result.details) pushDebug(`Host ${host.name} detail: ${detail}`);
-        }
-        if (!result && rawBody) {
-          const snippet = rawBody.replace(/\s+/g, ' ').trim().slice(0, 220);
-          pushDebug(`Host ${host.name} raw response: ${snippet}`);
-        }
-        pushDebug(`Host ${host.name} returned no usable URL in response body`);
+        if (!res.ok) return null;
+        const data = await res.json().catch(() => null) as any;
+        const url = data?.results?.[0]?.url;
+        if (url) pushDebug(`Host ${host.name} returned URL ${url}`);
+        return url || null;
       } catch (e: any) {
         pushDebug(`Host ${host.name} failed: ${e?.message || 'unknown error'}`);
+        return null;
       }
     }
 
-    if (!uploadUrl) {
+    if (usedStego) {
+      // Stego: try image hosts sequentially
+      for (const host of shuffleArr(IMAGE_HOSTS).filter(h => uploadBytes.length <= h.maxBytes)) {
+        const url = await tryUploadHost(host);
+        if (url) { uploadUrls.push(url); break; }
+      }
+    } else {
+      // Binary: Send + file host in parallel for redundancy
+      const sendEligible = uploadBytes.length <= SEND_HOST.maxBytes ? SEND_HOST : null;
+      const fileHosts = shuffleArr(BINARY_HOSTS).filter(h => uploadBytes.length <= h.maxBytes);
+
+      if (sendEligible && fileHosts.length > 0) {
+        // Parallel: Send + first file host
+        pushDebug(`Parallel upload: ${sendEligible.name} + ${fileHosts[0].name}`);
+        const results = await Promise.allSettled([
+          tryUploadHost(sendEligible),
+          tryUploadHost(fileHosts[0]),
+        ]);
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value) uploadUrls.push(r.value);
+        }
+        // If both failed, try remaining file hosts sequentially
+        if (uploadUrls.length === 0) {
+          for (const host of fileHosts.slice(1)) {
+            const url = await tryUploadHost(host);
+            if (url) { uploadUrls.push(url); break; }
+          }
+        }
+      } else {
+        // No Send or no file hosts — try whatever is available
+        const all = sendEligible ? [sendEligible, ...fileHosts] : fileHosts;
+        for (const host of all) {
+          const url = await tryUploadHost(host);
+          if (url) { uploadUrls.push(url); break; }
+        }
+      }
+    }
+
+    pushDebug(`Upload complete: ${uploadUrls.length} URL(s) stored`);
+
+    if (uploadUrls.length === 0) {
       throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
     }
 
     const ghostPayload = {
       v: 1,
       mode: 'ghost',
-      url: uploadUrl,
+      urls: uploadUrls,
       stego: usedStego,
     };
 
