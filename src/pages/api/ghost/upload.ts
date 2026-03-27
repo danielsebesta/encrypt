@@ -8,7 +8,7 @@ export const prerender = false;
 const MAX_BYTES = 50 * 1024 * 1024;
 const GHOST_LIMIT = 10;
 
-type ServiceResult = { service: string; url: string | null; error?: string };
+type ServiceResult = { service: string; url: string | null; error?: string; details?: string[]; provider?: string };
 
 const SEND_INSTANCES: SendInstance[] = [
   { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ' },
@@ -337,7 +337,11 @@ export const POST: APIRoute = async ({ request, url }) => {
           const url = await SERVICES[service](buffer, filename);
           return { service, url };
         } catch (e: any) {
-          return { service, url: null, error: e?.message || 'Upload failed' };
+          const message = e?.message || 'Upload failed';
+          const details = typeof message === 'string' && message.startsWith('Send network failed (') && message.endsWith(')')
+            ? message.slice('Send network failed ('.length, -1).split(' | ').filter(Boolean)
+            : undefined;
+          return { service, url: null, error: message, details };
         }
       })
     );
