@@ -3,7 +3,6 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import svelte from '@astrojs/svelte';
 import cloudflare from '@astrojs/cloudflare';
-import standaloneTools from './standalone-integration.mjs';
 
 export default defineConfig({
   output: 'static',
@@ -17,7 +16,7 @@ export default defineConfig({
     }
   },
 
-  integrations: [svelte(), standaloneTools()],
+  integrations: [svelte()],
 
   i18n: {
     locales: ['en', 'cs', 'de'],
