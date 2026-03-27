@@ -4,7 +4,6 @@
   import { encrypt, decrypt } from '../../lib/crypto';
   import { encryptData } from '../../lib/ghost/crypto';
   import { createStegoImage } from '../../lib/ghost/steganography';
-  import { uploadToNologSend } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
@@ -46,7 +45,7 @@
   // Ordered by reliability + retention
   interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
   const BINARY_HOSTS: HostInfo[] = [
-    { id: 'nologsend', name: 'upload.nolog.cz', retention: '2 days', maxBytes: 5 * 1024 * 1024 * 1024 },
+    { id: 'nologsend', name: 'Send network', retention: '2+ days', maxBytes: 5 * 1024 * 1024 * 1024 },
     { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
     { id: 'x0at', name: 'x0.at', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
     { id: 'catbox', name: 'Catbox.moe', retention: 'forever', maxBytes: 200 * 1024 * 1024 },
@@ -271,10 +270,6 @@
       setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
       try {
         pushDebug(`Trying host ${host.name} (${host.id})`);
-        if (host.id === 'nologsend') {
-          uploadUrl = await uploadToNologSend(uploadBytes, uploadFilename, usedStego ? 'image/png' : 'application/octet-stream', pushDebug);
-          break;
-        }
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
           method: 'POST',
           body: uploadBytes,
