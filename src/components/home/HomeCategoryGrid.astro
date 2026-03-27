@@ -9,8 +9,6 @@ const { dict } = Astro.props;
 
 const categories = [
   {
-    icon: '01',
-    tag: t(dict, 'home.discovery.private.tag'),
     title: t(dict, 'home.discovery.private.title'),
     text: t(dict, 'home.discovery.private.text'),
     tools: [
@@ -22,8 +20,6 @@ const categories = [
     href: '/tools/aes-words',
   },
   {
-    icon: '10',
-    tag: t(dict, 'home.discovery.dev.tag'),
     title: t(dict, 'home.discovery.dev.title'),
     text: t(dict, 'home.discovery.dev.text'),
     tools: [
@@ -35,8 +31,6 @@ const categories = [
     href: '/tools/token',
   },
   {
-    icon: '11',
-    tag: t(dict, 'home.discovery.learn.tag'),
     title: t(dict, 'home.discovery.learn.title'),
     text: t(dict, 'home.discovery.learn.text'),
     tools: [
@@ -53,8 +47,7 @@ const categories = [
 <section class="home-shell">
   <div class="max-w-7xl mx-auto px-5 py-16 md:py-24">
     <div class="max-w-2xl mb-8 md:mb-12" data-aos data-aos-delay="0">
-      <span class="home-kicker">{t(dict, 'home.discovery.eyebrow')}</span>
-      <h2 class="mt-3 text-3xl md:text-5xl font-black tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
+      <h2 class="text-3xl md:text-5xl font-black tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
         {t(dict, 'home.discovery.title')}
       </h2>
       <p class="mt-4 text-sm md:text-base leading-7 text-zinc-600 dark:text-zinc-300">
@@ -64,16 +57,10 @@ const categories = [
 
     <div class="grid lg:grid-cols-3 gap-5 md:gap-6">
       {categories.map((category, index) => (
-        <article class="home-discovery-card" data-aos data-aos-delay={index === 0 ? 0 : index === 1 ? 60 : 120}>
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <span class="home-discovery-card__tag">{category.tag}</span>
-              <h3 class="mt-4 text-2xl font-black tracking-[-0.03em] text-zinc-950 dark:text-zinc-50">
-                {category.title}
-              </h3>
-            </div>
-            <span class="home-discovery-card__icon" aria-hidden="true">{category.icon}</span>
-          </div>
+        <article class="home-discovery-item" data-aos data-aos-delay={index === 0 ? 0 : index === 1 ? 60 : 120}>
+          <h3 class="text-2xl font-black tracking-[-0.03em] text-zinc-950 dark:text-zinc-50">
+            {category.title}
+          </h3>
 
           <p class="mt-4 text-sm leading-7 text-zinc-600 dark:text-zinc-300">
             {category.text}
