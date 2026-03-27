@@ -8,7 +8,7 @@
   $: dict = getTranslations(locale);
 
   type Mode = 'create' | 'open';
-  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
+  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
 
   let mode: Mode = 'create';
 
@@ -37,7 +37,7 @@
 
   const PROVIDER_NAMES: Record<string, string> = {
     nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
-    spoome: 'spoo.me', cleanuri: 'CleanURI', isgd: 'is.gd', '1url': '1url.cz',
+    spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
   };
   $: providerName = PROVIDER_NAMES[shortProvider ?? ''] ?? 'Nolog.link';
 
@@ -315,7 +315,7 @@
                   <option value="dagd">da.gd</option>
                   <option value="kratky">kratky.link</option>
                   <option value="spoome">spoo.me</option>
-                  <option value="cleanuri">CleanURI</option>
+
                   <option value="isgd">is.gd</option>
                   <option value="1url">1url.cz</option>
                 </select>

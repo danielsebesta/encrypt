@@ -14,7 +14,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
+  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -32,6 +32,8 @@
   let shortUrl = '';
   let stegoImageUrl = '';
   let stegoImageBlob: Blob | null = null;
+  let localFileUrl = '';
+  let localFileName = '';
   let error = '';
   let progressTitle = '';
   let progressDetail = '';
@@ -76,7 +78,8 @@
 
   $: payloadSize = file ? file.size : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
-  $: deliveryMode = isLarge ? 'ghost' : 'link';
+  $: isHuge = payloadSize > MAX_FILE;
+  $: deliveryMode = isHuge ? 'local' : isLarge ? 'ghost' : 'link';
   $: shareUrl = shortUrl || resultUrl;
   $: if (step === 'result' && shareUrl) {
     void generateQr(shareUrl);
@@ -227,12 +230,6 @@
       pushDebug('Validation failed: empty input');
       return;
     }
-    if (file && file.size > MAX_FILE) {
-      error = t(dict, 'tools.ultimateEncrypt.errorFileTooLarge').replace('{size}', String(Math.round(MAX_FILE / (1024 * 1024))));
-      pushDebug(`Validation failed: file too large (${file.size} bytes)`);
-      return;
-    }
-
     if (autoPassword) {
       password = passphrasePreview || generatePassphrase();
       pushDebug('Passphrase auto-generated');
@@ -246,7 +243,9 @@
     step = 'processing';
 
     try {
-      if (deliveryMode === 'link') {
+      if (deliveryMode === 'local') {
+        await encryptLocal();
+      } else if (deliveryMode === 'link') {
         await encryptInline();
       } else {
         await encryptGhost();
@@ -257,6 +256,25 @@
       pushDebug(`Encrypt failed: ${error}`);
       step = 'input';
     }
+  }
+
+  async function encryptLocal() {
+    if (!file) throw new Error('No file selected');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
+    pushDebug(`Local encrypt: reading ${file.name} (${file.size} bytes)`);
+
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    pushDebug(`Encrypting with AES-256-GCM...`);
+    const encrypted = await encryptData(buffer, password, file.name);
+    pushDebug(`Encrypted to ${encrypted.byteLength} bytes`);
+
+    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+    localFileName = `${file.name}.enc`;
+    if (localFileUrl) URL.revokeObjectURL(localFileUrl);
+    localFileUrl = URL.createObjectURL(blob);
+
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressReadyTitle') || 'Ready', '');
+    pushDebug(`Local encrypted file ready for download`);
   }
 
   async function encryptInline() {
@@ -448,13 +466,13 @@
   }
 
   // All good providers — shuffled to spread load
-  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky', 'spoome', 'cleanuri', '1url'];
+  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky', 'spoome', '1url'];
   // Emergency only — is.gd logs IPs, public stats, Google Analytics
   const FALLBACK_SHORT: ShortProvider[] = ['isgd'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
     nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
-    spoome: 'spoo.me', cleanuri: 'CleanURI', isgd: 'is.gd', '1url': '1url.cz',
+    spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
   };
 
   const SHORTEN_TIMEOUT = 3000;
@@ -528,6 +546,9 @@
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
     stegoImageBlob = null;
+    if (localFileUrl) URL.revokeObjectURL(localFileUrl);
+    localFileUrl = '';
+    localFileName = '';
     qrSvg = '';
     debugLog = [];
   }
@@ -655,6 +676,7 @@
 
   {:else if step === 'result'}
     <div class="space-y-5">
+      {#if resultUrl || shortUrl}
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <label class="label block">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
@@ -717,6 +739,7 @@
           </details>
         {/if}
       </div>
+      {/if}
 
       <div class="space-y-2">
         <div class="flex items-center justify-between">
@@ -726,6 +749,27 @@
         <input class="input text-xs font-mono" type="text" readonly value={password} />
         <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
+
+      {#if localFileUrl}
+        <div class="space-y-3">
+          <div class="ue-passphrase-box">
+            <div class="flex-1">
+              <p class="text-sm font-medium text-emerald-700 dark:text-emerald-400">{localFileName}</p>
+              <p class="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 mt-0.5">Encrypted with AES-256-GCM</p>
+            </div>
+            <a href={localFileUrl} download={localFileName} class="btn text-xs px-4 py-2">Download</a>
+          </div>
+          <div class="rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 space-y-2">
+            <p class="text-xs font-bold text-zinc-600 dark:text-zinc-300">Next steps:</p>
+            <ol class="text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1.5 list-decimal list-inside">
+              <li>Download the encrypted file above</li>
+              <li>Upload it to a <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">Send instance</a></li>
+              <li>Share the Send link + password with the recipient</li>
+              <li>Recipient decrypts using <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></li>
+            </ol>
+          </div>
+        </div>
+      {/if}
 
       {#if stegoImageUrl}
         <div class="space-y-2">
