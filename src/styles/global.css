@@ -298,6 +298,18 @@
         @apply text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500;
     }
 
+    /* ── Scroll-aware navbar ── */
+    .nav-scrolled {
+        background-color: rgba(255, 255, 255, 0.92);
+        border-bottom-color: rgba(228, 228, 231, 0.8);
+        backdrop-filter: blur(16px) saturate(1.4);
+    }
+
+    html.dark .nav-scrolled {
+        background-color: rgba(9, 9, 11, 0.92);
+        border-bottom-color: rgba(39, 39, 42, 0.6);
+    }
+
     .badge-secondary {
         @apply inline-flex items-center gap-1 rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-3 py-1 border border-emerald-200/70 dark:border-emerald-800/60;
     }
