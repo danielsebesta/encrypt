@@ -76,13 +76,13 @@
   {#if hash256}
     <div class="space-y-4 text-[11px] md:text-xs">
       <div class="grid gap-1.5">
-        <label class="text-xs text-zinc-500 dark:text-zinc-400">SHA-256</label>
+        <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.hashLab.sha256')}</label>
         <div class="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg break-all text-zinc-700 dark:text-zinc-300 select-all font-mono">
           {hash256}
         </div>
       </div>
       <div class="grid gap-1.5">
-        <label class="text-xs text-zinc-500 dark:text-zinc-400">SHA-512</label>
+        <label class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.hashLab.sha512')}</label>
         <div class="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg break-all text-zinc-700 dark:text-zinc-300 select-all font-mono">
           {hash512}
         </div>

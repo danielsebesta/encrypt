@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Base64 Explained — Encoding, Not Encryption",
+  "metaDescription": "Learn what Base64 does, where to use it, why it makes data bigger, and why it should never be mistaken for encryption.",
+  "hero": {
+    "category": "Encoding",
+    "difficulty": "Beginner",
+    "bestFor": ["JSON", "Data URLs", "Text-only transport"]
+  },
+  "quick": {
+    "what": "Turns binary data into text-safe characters.",
+    "use": "Sending files or bytes through systems that only handle plain text well.",
+    "notFor": "Protecting secrets. Anyone can decode Base64 in seconds."
+  },
+  "learn": {
+    "intro": {
+      "title": "In plain English",
+      "text": "Base64 is a packaging format. It takes raw bytes and rewrites them using letters, numbers, plus, slash, and equals so the result can travel safely through text-first systems."
+    },
+    "how": {
+      "title": "How it works",
+      "text": "Base64 groups data into chunks of 3 bytes, then remaps those 24 bits into 4 printable characters. That is why the output looks different but is still fully reversible."
+    },
+    "useCases": {
+      "title": "Where you'd use it",
+      "items": [
+        "Embedding images or files inside JSON or API payloads.",
+        "Sending binary data through email, form posts, or other text-only channels.",
+        "Creating data URLs for small assets in HTML or CSS."
+      ]
+    },
+    "mistake": {
+      "title": "Common mistake",
+      "text": "People often assume Base64 hides data because the output looks like gibberish. It does not. If someone can read the string, they can usually decode it immediately."
+    },
+    "history": {
+      "title": "History / fun fact",
+      "text": "Base64 became popular because older systems and protocols were much better at handling text than raw binary. The tradeoff is size: the output grows by roughly one third."
+    },
+    "security": {
+      "title": "Security note",
+      "text": "If you need confidentiality, encrypt first and only use Base64 afterward as a transport wrapper."
+    },
+    "deepDive": {
+      "title": "Deeper look",
+      "sections": [
+        {
+          "title": "Why the output gets larger",
+          "text": "Three original bytes become four Base64 characters. That extra character count makes the result around 33% larger than the original data."
+        },
+        {
+          "title": "Why padding appears",
+          "text": "When the input length is not divisible by 3, Base64 adds '=' padding so the output still fits the expected 4-character grouping."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "base64",
+    "title": "Three bytes become four characters",
+    "caption": "Base64 reshapes the same bits into a text-safe alphabet. It changes representation, not meaning."
+  }
+}

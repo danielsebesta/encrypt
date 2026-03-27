@@ -1,0 +1,62 @@
+{
+  "metaTitle": "JWT vysvětleně — dekódování není ověření",
+  "metaDescription": "Zjistěte, co je JWT, proč dekódování není totéž co ověření a jak bezpečně číst hlavičky a claimy tokenu.",
+  "hero": {
+    "category": "Inspekce tokenů",
+    "difficulty": "Začátečník",
+    "bestFor": ["Debugging claimů", "Čtení hlaviček", "Vývojářské řešení problémů"]
+  },
+  "quick": {
+    "what": "Ukáže, co je uvnitř JSON Web Tokenu.",
+    "use": "Kontrola claimů, expirace, issuera a struktury tokenu při debugování.",
+    "notFor": "Rozhodnutí, že token je důvěryhodný jen proto, že jde přečíst."
+  },
+  "learn": {
+    "intro": {
+      "title": "Jednoduše řečeno",
+      "text": "JWT je kompaktní formát tokenu pro přenos strukturovaných dat, jako je ID uživatele, role nebo čas expirace. Tento nástroj vám pomůže tato data lokálně přečíst."
+    },
+    "how": {
+      "title": "Jak to funguje",
+      "text": "JWT má obvykle tři části: header, payload a signature. První dvě části jsou Base64URL zakódované JSONy, takže je lze snadno rozbalit. Opravdovou důvěru ale dává až podpis."
+    },
+    "useCases": {
+      "title": "Kde se hodí",
+      "items": [
+        "Kontrola, kdy token expiruje při debugování aplikace.",
+        "Prohlížení claimů jako issuer, subject, audience nebo role.",
+        "Zjišťování, proč backend token přijal nebo odmítl."
+      ]
+    },
+    "mistake": {
+      "title": "Častý omyl",
+      "text": "Dekódování JWT ukáže jen to, co token tvrdí, ne zda je pravý. I podvržený token se může dekódovat úplně bez problému."
+    },
+    "history": {
+      "title": "Historie / zajímavost",
+      "text": "JWT se rozšířilo, protože je malé a snadno přenositelné mezi službami. Právě tato praktičnost ale často vede k přehnané důvěře: obsah je čitelný, a tak působí důvěryhodněji, než ve skutečnosti je."
+    },
+    "security": {
+      "title": "Bezpečnostní poznámka",
+      "text": "Skutečné ověření vyžaduje kontrolu podpisu správným tajemstvím nebo veřejným klíčem a také validaci claimů jako exp, aud a iss v kontextu vaší aplikace."
+    },
+    "deepDive": {
+      "title": "Jít více do hloubky",
+      "sections": [
+        {
+          "title": "Header vs payload",
+          "text": "Header říká, jak je token podepsaný. Payload nese claimy. Obě části jsou po dekódování čitelné a ani jedna sama o sobě neznamená důvěru."
+        },
+        {
+          "title": "Co je potřeba k ověření podpisu",
+          "text": "Pro ověření JWT potřebujete očekávaný algoritmus, správné tajemství nebo veřejný klíč a logiku validace claimů odpovídající vaší aplikaci."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "jwt",
+    "title": "JWT jsou tři části oddělené tečkami",
+    "caption": "Čitelný obsah je v headeru a payloadu. Důvěra vzniká až správným ověřením podpisu."
+  }
+}

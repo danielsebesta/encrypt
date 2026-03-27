@@ -27,7 +27,7 @@
         <textarea 
             bind:value={input} 
             on:input={handleInput} 
-            placeholder="eyJhbGciOiJIUzI1NiIsInR5..." 
+            placeholder={t(dict, 'tools.jwt.placeholder')}
             class="input min-h-[120px] font-mono text-xs leading-relaxed"
         ></textarea>
     </div>

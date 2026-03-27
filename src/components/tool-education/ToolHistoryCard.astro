@@ -1,0 +1,17 @@
+---
+import { t } from '../../lib/i18n';
+
+type Props = {
+  dict: Record<string, string>;
+  title: string;
+  text: string;
+};
+
+const { dict, title, text } = Astro.props;
+---
+
+<article class="tool-history-card">
+  <span class="tool-history-card__kicker">{t(dict, 'toolEducation.historyKicker')}</span>
+  <h3 class="tool-history-card__title">{title}</h3>
+  <p class="tool-history-card__text">{text}</p>
+</article>
