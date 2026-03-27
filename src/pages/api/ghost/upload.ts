@@ -11,17 +11,26 @@ const GHOST_LIMIT = 10;
 type ServiceResult = { service: string; url: string | null; error?: string; details?: string[]; provider?: string };
 
 const SEND_INSTANCES: SendInstance[] = [
-  { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ' },
-  { baseUrl: 'https://send.adminforge.de', label: 'send.adminforge.de', region: 'eu', country: 'DE' },
-  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'EE' },
-  { baseUrl: 'https://send.blablalinux.be', label: 'send.blablalinux.be', region: 'eu', country: 'BE' },
-  { baseUrl: 'https://send.artemislena.eu', label: 'send.artemislena.eu', region: 'eu', country: 'EU' },
-  { baseUrl: 'https://send.turingpoint.de', label: 'send.turingpoint.de', region: 'eu', country: 'DE' },
-  { baseUrl: 'https://send.monks.tools', label: 'send.monks.tools', region: 'other' },
-  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other' },
-  { baseUrl: 'https://send.canine.tools', label: 'send.canine.tools', region: 'other' },
-  { baseUrl: 'https://send.kokomo.cloud', label: 'send.kokomo.cloud', region: 'other' },
+  { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ', maxBytes: 5 * 1024 * 1024 * 1024, maxExpireSeconds: 1209600, maxDownloads: 500 },
+  { baseUrl: 'https://send.adminforge.de', label: 'send.adminforge.de', region: 'eu', country: 'DE', maxBytes: 8 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 1000 },
+  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'EE', maxBytes: 2684354560, maxExpireSeconds: 259200, maxDownloads: 20 },
+  { baseUrl: 'https://send.blablalinux.be', label: 'send.blablalinux.be', region: 'eu', country: 'BE', maxBytes: 1073741824, maxExpireSeconds: 604800, maxDownloads: 10 },
+  { baseUrl: 'https://send.artemislena.eu', label: 'send.artemislena.eu', region: 'eu', country: 'EU', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
+  { baseUrl: 'https://send.turingpoint.de', label: 'send.turingpoint.de', region: 'eu', country: 'DE', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 5 },
+  { baseUrl: 'https://send.monks.tools', label: 'send.monks.tools', region: 'other', maxBytes: 5 * 1024 * 1024 * 1024, maxExpireSeconds: 2678400, maxDownloads: 100 },
+  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 2592000, maxDownloads: 100 },
+  { baseUrl: 'https://send.canine.tools', label: 'send.canine.tools', region: 'other', maxBytes: 1073741824, maxExpireSeconds: 2592000, maxDownloads: 100 },
+  { baseUrl: 'https://send.kokomo.cloud', label: 'send.kokomo.cloud', region: 'other', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
 ];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 function mimeFromName(name: string): string {
   if (name.endsWith('.png')) return 'image/png';
@@ -237,12 +246,17 @@ async function uploadLitterbox(file: Uint8Array, filename: string): Promise<stri
   return text;
 }
 
+function eligibleSendInstances(fileSize: number): SendInstance[] {
+  return shuffle(SEND_INSTANCES.filter(i => fileSize <= i.maxBytes));
+}
+
 async function uploadNologSendLegacy(file: Uint8Array, filename: string): Promise<string> {
   const failures: string[] = [];
+  const instances = eligibleSendInstances(file.byteLength);
 
-  for (const instance of SEND_INSTANCES) {
+  for (const instance of instances) {
     try {
-      return await uploadToSendHttp(instance.baseUrl, file, filename, mimeFromName(filename));
+      return await uploadToSendHttp(instance.baseUrl, file, filename, mimeFromName(filename), undefined, instance.maxExpireSeconds, instance.maxDownloads);
     } catch (e: any) {
       failures.push(`${instance.label}: ${e?.message || 'upload failed'}`);
     }
@@ -253,8 +267,9 @@ async function uploadNologSendLegacy(file: Uint8Array, filename: string): Promis
 
 async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string): Promise<string> {
   const failures: string[] = [];
+  const instances = eligibleSendInstances(encryptedBytes.byteLength);
 
-  for (const instance of SEND_INSTANCES) {
+  for (const instance of instances) {
     try {
       return await proxySendUpload(instance.baseUrl, encryptedBytes, metadataB64, authHeader, secretB64);
     } catch (e: any) {
@@ -291,7 +306,7 @@ interface ServiceInfo {
 }
 
 const SERVICE_INFO: ServiceInfo[] = [
-  { id: 'nologsend', name: 'Send network (EU first)', type: 'file', maxBytes: 5 * 1024 * 1024 * 1024, retention: '2+ days', tosUrl: 'https://upload.nolog.cz/', recommended: true },
+  { id: 'nologsend', name: 'Send network', type: 'file', maxBytes: 5 * 1024 * 1024 * 1024, retention: '3-31 days', tosUrl: 'https://upload.nolog.cz/', recommended: true },
   { id: 'quax', name: 'qu.ax', type: 'file', maxBytes: 256 * 1024 * 1024, retention: '30 days', tosUrl: 'https://qu.ax/tos', recommended: true },
   { id: 'tempsh', name: 'temp.sh', type: 'file', maxBytes: 4 * 1024 * 1024 * 1024, retention: '3 days', tosUrl: null },
   { id: 'gofile', name: 'Gofile.io', type: 'file', maxBytes: Infinity, retention: '10 days', tosUrl: 'https://gofile.io/terms' },

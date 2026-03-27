@@ -296,7 +296,6 @@
   function pushDebug(message: string) {
     const line = `[${new Date().toLocaleTimeString('en-GB', { hour12: false })}] ${message}`;
     debugLog = [...debugLog, line];
-    console.info('[UltimateDecrypt]', message);
   }
 
   function base64UrlDecode(input: string): Uint8Array {
@@ -610,21 +609,8 @@
     <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateDecrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateDecrypt.progressDefaultDetail')} compact={true} />
   {/if}
 
-  {#if loading && debugLog.length}
-    <details class="text-[11px]">
-      <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateDecrypt.debugTitle')}</summary>
-      <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
-    </details>
-  {/if}
-
   {#if error}
     <p class="text-xs text-red-500">{error}</p>
-    {#if debugLog.length}
-      <details class="text-[11px]">
-        <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateDecrypt.debugTitle')}</summary>
-        <pre class="mt-2 whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
-      </details>
-    {/if}
   {/if}
 
   {#if openedText}
@@ -708,10 +694,4 @@
     </div>
   {/if}
 
-  {#if !loading && !error && debugLog.length}
-    <details class="text-[11px]">
-      <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateDecrypt.debugTitle')}</summary>
-      <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
-    </details>
-  {/if}
 </div>
