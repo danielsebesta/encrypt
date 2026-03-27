@@ -410,6 +410,20 @@
         box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15), 0 0 8px rgba(16, 185, 129, 0.2);
     }
 
+    .bento-card {
+        @apply rounded-2xl border border-zinc-200/70 bg-white dark:bg-zinc-950/60 dark:border-zinc-800/60 overflow-hidden;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .bento-card:hover {
+        border-color: rgba(16, 185, 129, 0.3);
+        box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.08);
+    }
+
+    html.dark .bento-card:hover {
+        border-color: rgba(16, 185, 129, 0.2);
+    }
+
     .home-closing-panel {
         @apply rounded-2xl border border-zinc-200/70 bg-white/60 dark:bg-zinc-950/40 dark:border-zinc-800/60 p-8 md:p-12;
         backdrop-filter: blur(10px);
