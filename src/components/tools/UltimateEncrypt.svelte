@@ -275,9 +275,10 @@
           body: uploadBytes,
         });
         pushDebug(`Host ${host.name} responded with HTTP ${res.status}`);
+        const rawBody = await res.text();
         let data: any = null;
         try {
-          data = await res.json();
+          data = rawBody ? JSON.parse(rawBody) : null;
         } catch {
           data = null;
         }
@@ -286,6 +287,10 @@
           if (apiError) pushDebug(`Host ${host.name} error: ${apiError}`);
           if (Array.isArray(data?.results?.[0]?.details)) {
             for (const detail of data.results[0].details) pushDebug(`Host ${host.name} detail: ${detail}`);
+          }
+          if (!apiError && rawBody) {
+            const snippet = rawBody.replace(/\s+/g, ' ').trim().slice(0, 220);
+            pushDebug(`Host ${host.name} raw response: ${snippet}`);
           }
           continue;
         }
@@ -298,6 +303,10 @@
         if (result?.error) pushDebug(`Host ${host.name} error: ${result.error}`);
         if (Array.isArray(result?.details)) {
           for (const detail of result.details) pushDebug(`Host ${host.name} detail: ${detail}`);
+        }
+        if (!result && rawBody) {
+          const snippet = rawBody.replace(/\s+/g, ' ').trim().slice(0, 220);
+          pushDebug(`Host ${host.name} raw response: ${snippet}`);
         }
         pushDebug(`Host ${host.name} returned no usable URL in response body`);
       } catch (e: any) {
