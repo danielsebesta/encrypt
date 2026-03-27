@@ -1,121 +1,22 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import SecurityShield from '../components/SecurityShield.svelte';
-import UltimateEncrypt from '../components/tools/UltimateEncrypt.svelte';
+import HomeHero from '../components/home/HomeHero.astro';
+import HomeProofRail from '../components/home/HomeProofRail.astro';
+import HomeCategoryGrid from '../components/home/HomeCategoryGrid.astro';
+import HomePrivacyExplainer from '../components/home/HomePrivacyExplainer.astro';
+import HomeClosingCta from '../components/home/HomeClosingCta.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 ---
 
-<Layout>
-	<section class="max-w-6xl mx-auto px-5 pt-16 md:pt-28 pb-20 md:pb-32">
-		<div class="grid md:grid-cols-2 gap-12 md:gap-16 items-start">
-			<div data-aos data-aos-delay="0" class="md:sticky md:top-28">
-				<span class="badge-secondary text-xs mb-4 inline-block uppercase tracking-widest font-bold">{t(dict, 'home.hero.badge')}</span>
-				<h1 class="text-4xl md:text-5xl font-black tracking-tight leading-[1.1] mb-6">
-					{t(dict, 'home.hero.title.line1')}<br />
-					<span class="text-emerald-500">{t(dict, 'home.hero.title.line2')}</span>
-				</h1>
-				<p class="text-zinc-500 dark:text-zinc-400 text-base md:text-lg leading-relaxed mb-8 max-w-md">
-					{t(dict, 'home.hero.subtitle')}
-				</p>
-				<div class="flex flex-wrap gap-4">
-					<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="btn-outline gap-2 px-6">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-						{t(dict, 'home.hero.secondaryCta')}
-					</a>
-				</div>
-			</div>
-			<div data-aos data-aos-delay="80">
-				<div class="card p-6 md:p-8">
-					<UltimateEncrypt client:load locale={locale} />
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="bg-white dark:bg-zinc-950/50 border-y border-zinc-200 dark:border-zinc-800">
-		<div class="max-w-5xl mx-auto px-5 py-16 md:py-32">
-			<div class="text-center mb-16 md:mb-24" data-aos data-aos-delay="0">
-				<h2 class="text-3xl md:text-5xl font-black tracking-tight mb-4">{t(dict, 'home.instruments.title')} <span class="text-emerald-500">{t(dict, 'home.instruments.titleHighlight')}</span></h2>
-				<p class="text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto text-sm md:text-base font-medium">{t(dict, 'home.instruments.subtitle')}</p>
-			</div>
-
-			<div class="grid md:grid-cols-3 gap-8 mb-24 md:mb-40">
-				<div class="card p-8" data-aos data-aos-delay="0">
-					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.dev.tag')}</span>
-					<h3 class="text-xl font-black mb-3 tracking-tight">{t(dict, 'home.dev.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6 font-medium">{t(dict, 'home.dev.text')}</p>
-					<a href="/tools/token" class="btn px-6 text-sm">{t(dict, 'home.dev.cta')}</a>
-				</div>
-				<div class="card p-8" data-aos data-aos-delay="60">
-					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.crypto.tag')}</span>
-					<h3 class="text-xl font-black mb-3 tracking-tight">{t(dict, 'home.crypto.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6 font-medium">{t(dict, 'home.crypto.text')}</p>
-					<a href="/tools/enigma" class="btn px-6 text-sm">{t(dict, 'home.crypto.cta')}</a>
-				</div>
-				<div class="card p-8" data-aos data-aos-delay="120">
-					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.vault.tag')}</span>
-					<h3 class="text-xl font-black mb-3 tracking-tight">{t(dict, 'home.vault.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed mb-6 font-medium">{t(dict, 'home.vault.text')}</p>
-					<a href="/tools/aes-words" class="btn px-6 text-sm">{t(dict, 'home.vault.ctaPrimary')}</a>
-				</div>
-			</div>
-
-			<div class="grid md:grid-cols-2 gap-12 md:gap-24 items-center">
-				<div class="flex items-center justify-center" data-aos data-aos-delay="0">
-					<img src="/encrypt_chill.svg" alt="" class="w-full max-w-[100px] md:max-w-[280px] h-auto drop-shadow-2xl" loading="lazy" />
-				</div>
-				<div data-aos data-aos-delay="80">
-					<span class="text-emerald-500 font-black text-[10px] mb-4 inline-block uppercase tracking-[0.3em]">{t(dict, 'home.privacy.tag')}</span>
-					<h3 class="text-3xl md:text-5xl font-black mb-6 tracking-tighter">{t(dict, 'home.privacy.title')}</h3>
-					<p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed mb-8 font-medium">{t(dict, 'home.privacy.text')}</p>
-					<a href="/tools/steganography" class="btn px-8">{t(dict, 'home.privacy.cta')}</a>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="max-w-5xl mx-auto px-5 py-24 md:py-40">
-		<div class="grid md:grid-cols-2 gap-16 md:gap-24 items-center">
-			<div class="flex justify-center md:justify-start" data-aos data-aos-delay="0">
-				<img src="/encrypt_confused.svg" alt="" class="w-full max-w-[110px] md:max-w-sm h-auto mx-auto md:mx-0 drop-shadow-2xl" loading="lazy" />
-			</div>
-			<div data-aos data-aos-delay="120">
-				<h2 class="text-3xl md:text-5xl font-black tracking-tighter mb-8">{t(dict, 'home.why.title')}</h2>
-				<div class="space-y-6 text-zinc-500 dark:text-zinc-400 text-base md:text-lg leading-relaxed font-medium">
-					<p>{t(dict, 'home.why.p1')}</p>
-					<p><strong class="text-zinc-900 dark:text-zinc-100 italic">{t(dict, 'home.why.p2Bold')}</strong> {t(dict, 'home.why.p2')}</p>
-					<p>{t(dict, 'home.why.p3Prefix')}<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-emerald-500 underline underline-offset-4 hover:decoration-2">{t(dict, 'home.why.p3')}</a>{t(dict, 'home.why.p3Rest')}</p>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="bg-white dark:bg-zinc-900/50 border-y border-zinc-200 dark:border-zinc-800">
-		<div class="max-w-5xl mx-auto px-5 py-20 md:py-32">
-			<div class="text-center mb-16" data-aos data-aos-delay="0">
-				<h2 class="text-3xl md:text-4xl font-black tracking-tighter mb-4">{t(dict, 'home.trust.title')} <span class="text-emerald-500">{t(dict, 'home.trust.titleHighlight')}</span></h2>
-				<p class="text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto text-sm md:text-base font-medium uppercase tracking-widest opacity-60">{t(dict, 'home.trust.subtitle')}</p>
-			</div>
-			<SecurityShield client:load />
-		</div>
-	</section>
-
-	<section class="max-w-5xl mx-auto px-5 py-24 md:py-40">
-		<div class="grid md:grid-cols-2 gap-12 items-center">
-			<div class="text-center md:text-left" data-aos data-aos-delay="0">
-				<h2 class="text-4xl md:text-6xl font-black tracking-tighter mb-6">{t(dict, 'home.cta.title')} <span class="text-emerald-500">{t(dict, 'home.cta.titleHighlight')}</span></h2>
-				<p class="text-zinc-500 dark:text-zinc-400 max-w-md mx-auto md:mx-0 mb-10 text-base md:text-xl font-medium">{t(dict, 'home.cta.subtitle')}</p>
-				<div class="flex flex-wrap gap-4 justify-center md:justify-start">
-					<a href="/tools/aes-words" class="btn px-10 text-base py-5">{t(dict, 'home.cta.primary')}</a>
-					<a href="/tools/token" class="btn-outline px-10 text-base py-5 font-black">{t(dict, 'home.cta.secondary')}</a>
-				</div>
-			</div>
-			<div class="flex justify-center" data-aos data-aos-delay="120">
-				<img src="/encrypt_e2e.svg" alt="" class="w-full max-w-[140px] md:max-w-md h-auto drop-shadow-2xl" loading="lazy" />
-			</div>
-		</div>
-	</section>
+<Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
+	<div class="home-page">
+		<HomeHero locale={locale} dict={dict} />
+		<HomeProofRail dict={dict} />
+		<HomeCategoryGrid dict={dict} />
+		<HomePrivacyExplainer dict={dict} />
+		<HomeClosingCta dict={dict} />
+	</div>
 </Layout>

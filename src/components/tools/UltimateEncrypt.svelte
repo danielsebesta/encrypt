@@ -4,6 +4,7 @@
   import { encryptData } from '../../lib/ghost/crypto';
   import { createStegoImage } from '../../lib/ghost/steganography';
   import CopyButton from '../CopyButton.svelte';
+  import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -24,12 +25,13 @@
   let timelockDate = '';
   let showAdvanced = false;
 
-  let logs: string[] = [];
   let resultUrl = '';
   let shortUrl = '';
   let stegoImageUrl = '';
   let stegoImageBlob: Blob | null = null;
   let error = '';
+  let progressTitle = '';
+  let progressDetail = '';
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = 50 * 1024 * 1024;
@@ -76,8 +78,9 @@
     file = null;
   }
 
-  function log(msg: string) {
-    logs = [...logs, `${new Date().toLocaleTimeString()} — ${msg}`];
+  function setProgress(title: string, detail = '') {
+    progressTitle = title;
+    progressDetail = detail;
   }
 
   function base64UrlEncode(bytes: Uint8Array): string {
@@ -99,15 +102,15 @@
 
   async function handleEncrypt() {
     error = '';
-    logs = [];
     resultUrl = '';
     shortUrl = '';
     stegoImageUrl = '';
     stegoImageBlob = null;
+    setProgress('', '');
 
     const trimmed = textInput.trim();
     if (!file && !trimmed) {
-      error = 'Enter a message or select a file.';
+      error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
       return;
     }
     if (file && file.size > MAX_FILE) {
@@ -119,7 +122,7 @@
       password = generatePassword();
     }
     if (!password) {
-      error = 'Password is required.';
+      error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
       return;
     }
 
@@ -133,13 +136,13 @@
       }
       step = 'result';
     } catch (e: any) {
-      error = e?.message || 'Encryption failed.';
+      error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       step = 'input';
     }
   }
 
   async function encryptInline() {
-    log('Preparing payload...');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressPreparingTitle'), t(dict, 'tools.ultimateEncrypt.progressPreparingDetail'));
     let payload: any;
     if (file) {
       const buffer = await file.arrayBuffer();
@@ -150,7 +153,7 @@
       payload = { v: 1, mode: 'inline', kind: 'text', text: textInput.trim() };
     }
 
-    log('Encrypting with AES-256-GCM...');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
     const json = JSON.stringify(payload);
     const jsonBytes = new TextEncoder().encode(json);
     const compressed = await gzipBytes(jsonBytes);
@@ -160,7 +163,7 @@
 
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     resultUrl = `${origin}/u#${encoded}`;
-    log('Link generated.');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
     await autoShorten(resultUrl);
 
     if (enableStego) {
@@ -169,7 +172,7 @@
   }
 
   async function encryptGhost() {
-    log('Reading file...');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
     let buffer: Uint8Array;
     let filename: string;
 
@@ -181,7 +184,7 @@
       filename = 'message.txt';
     }
 
-    log('Encrypting with AES-256-GCM...');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
     const encrypted = await encryptData(buffer, password, filename);
 
     let uploadBytes: Uint8Array;
@@ -189,7 +192,7 @@
     let usedStego = false;
 
     if (encrypted.length <= STEGO_THRESHOLD) {
-      log('Wrapping in steganography image...');
+      setProgress(t(dict, 'tools.ultimateEncrypt.progressHiddenPackageTitle'), t(dict, 'tools.ultimateEncrypt.progressHiddenPackageDetail'));
       uploadBytes = await createStegoImage(encrypted);
       uploadFilename = 'ghost.png';
       usedStego = true;
@@ -206,31 +209,27 @@
     let uploadUrl = '';
 
     for (const host of eligible) {
-      log(`Uploading to ${host.name} (${host.retention})...`);
+      setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
       try {
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
           method: 'POST',
           body: uploadBytes,
         });
         if (!res.ok) {
-          log(`${host.name}: HTTP ${res.status}, trying next...`);
           continue;
         }
         const data = await res.json() as any;
         const result = data?.results?.[0];
         if (result?.url) {
           uploadUrl = result.url;
-          log(`Uploaded to ${host.name} (${host.retention}).`);
           break;
         }
-        log(`${host.name}: ${result?.error || 'no URL returned'}, trying next...`);
       } catch (e: any) {
-        log(`${host.name}: ${e?.message || 'network error'}, trying next...`);
       }
     }
 
     if (!uploadUrl) {
-      throw new Error('All upload hosts failed.');
+      throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
     }
 
     const ghostPayload = {
@@ -240,7 +239,7 @@
       stego: usedStego,
     };
 
-    log('Encoding link...');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressFinalLinkDetail'));
     const payloadJson = JSON.stringify(ghostPayload);
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
@@ -250,7 +249,6 @@
 
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     resultUrl = `${origin}/u#${encoded}`;
-    log('Link generated.');
     await autoShorten(resultUrl);
 
     if (enableStego) {
@@ -259,12 +257,11 @@
   }
 
   async function wrapInStego(url: string) {
-    log('Hiding link in steganography image...');
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressCoverImageTitle'), t(dict, 'tools.ultimateEncrypt.progressCoverImageDetail'));
     const urlBytes = new TextEncoder().encode(url);
     const stegoBytes = await createStegoImage(urlBytes);
     stegoImageBlob = new Blob([stegoBytes], { type: 'image/png' });
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
-    log('Stego image created.');
   }
 
   // PRIMARY: privacy-first (no tracking, no logs)
@@ -299,21 +296,19 @@
 
   async function autoShorten(url: string): Promise<void> {
     // Try primary providers (privacy-first)
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressShortenTitle'), t(dict, 'tools.ultimateEncrypt.progressShortenDetail'));
     for (const provider of PRIMARY_SHORT) {
-      log(`Shortening via ${SHORT_NAMES[provider]}...`);
       const result = await tryShorten(url, provider);
-      if (result) { shortUrl = result; log(`Shortened via ${SHORT_NAMES[provider]}.`); return; }
+      if (result) { shortUrl = result; return; }
       // Retry once
       const retry = await tryShorten(url, provider);
-      if (retry) { shortUrl = retry; log(`Shortened via ${SHORT_NAMES[provider]} (retry).`); return; }
+      if (retry) { shortUrl = retry; return; }
     }
     // Fallback providers
-    log('Primary shorteners unavailable, trying fallbacks...');
     for (const provider of FALLBACK_SHORT) {
       const result = await tryShorten(url, provider);
-      if (result) { shortUrl = result; log(`Shortened via ${SHORT_NAMES[provider]}.`); return; }
+      if (result) { shortUrl = result; return; }
     }
-    log('All shorteners failed — using full link.');
   }
 
   function downloadStego() {
@@ -335,11 +330,11 @@
     enableStego = false;
     enableTimelock = false;
     timelockDate = '';
-    logs = [];
     resultUrl = '';
     shortUrl = '';
     error = '';
     showAdvanced = false;
+    setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
     stegoImageBlob = null;
@@ -352,22 +347,22 @@
   {#if step === 'input'}
     <div class="space-y-5">
       <div class="space-y-2">
-        <label class="label block" for="ue-text">Message</label>
+        <label class="label block" for="ue-text">{t(dict, 'tools.ultimateEncrypt.messageLabel')}</label>
         <textarea
           id="ue-text"
           class="input min-h-[100px] resize-vertical font-mono text-xs"
           bind:value={textInput}
-          placeholder="Type a secret message..."
+          placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
           disabled={!!file}
         ></textarea>
       </div>
 
       <div class="space-y-2">
-        <label class="label block" for="ue-file">Or attach a file</label>
+        <label class="label block" for="ue-file">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</label>
         {#if file}
           <div class="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
             <span class="text-xs font-mono truncate flex-1">{file.name} <span class="text-zinc-400">({(file.size / 1024).toFixed(1)} KB)</span></span>
-            <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={clearFile}>REMOVE</button>
+            <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
           </div>
         {:else}
           <input id="ue-file" type="file" class="input cursor-pointer text-xs" on:change={handleFileChange} />
@@ -376,14 +371,14 @@
 
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <label class="label block" for="ue-pass">Password</label>
+          <label class="label block" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
           <label class="inline-flex items-center gap-1.5 text-[10px] text-zinc-400 cursor-pointer select-none">
             <input type="checkbox" bind:checked={autoPassword} class="accent-emerald-500" />
-            Auto-generate
+            {t(dict, 'tools.ultimateEncrypt.autoGenerate')}
           </label>
         </div>
         {#if autoPassword}
-          <p class="text-[11px] text-zinc-400 italic">A strong password will be generated automatically.</p>
+          <p class="text-[11px] text-zinc-400 italic">{t(dict, 'tools.ultimateEncrypt.autoGenerateHint')}</p>
         {:else}
           <input
             id="ue-pass"
@@ -391,28 +386,28 @@
             class="input"
             bind:value={password}
             autocomplete="new-password"
-            placeholder="Enter a strong password"
+            placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
           />
         {/if}
       </div>
 
       {#if payloadSize > 0}
         <div class="flex items-center gap-2 text-[10px] text-zinc-400">
-          <span class="font-bold uppercase tracking-widest">Mode:</span>
+          <span class="font-bold uppercase tracking-widest">{t(dict, 'tools.ultimateEncrypt.modeLabel')}</span>
           {#if isLarge}
-            <span class="text-amber-500">Encrypted upload ({(payloadSize / 1024).toFixed(1)} KB)</span>
+            <span class="text-amber-500">{t(dict, 'tools.ultimateEncrypt.modeUpload')} ({(payloadSize / 1024).toFixed(1)} KB)</span>
           {:else}
-            <span class="text-emerald-500">Direct link ({payloadSize} bytes)</span>
+            <span class="text-emerald-500">{t(dict, 'tools.ultimateEncrypt.modeDirect')} ({payloadSize} bytes)</span>
           {/if}
         </div>
       {/if}
 
       <details class="text-xs" bind:open={showAdvanced}>
-        <summary class="cursor-pointer select-none text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-bold uppercase tracking-widest text-[10px]">Advanced options</summary>
+        <summary class="cursor-pointer select-none text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-bold uppercase tracking-widest text-[10px]">{t(dict, 'tools.ultimateEncrypt.advancedOptions')}</summary>
         <div class="mt-4 space-y-3 pl-1">
           <label class="flex items-center gap-2 cursor-pointer select-none text-zinc-500 dark:text-zinc-400">
             <input type="checkbox" bind:checked={enableStego} class="accent-emerald-500" />
-            <span>Hide link in a steganography image</span>
+            <span>{t(dict, 'tools.ultimateEncrypt.hideInImage')}</span>
           </label>
         </div>
       </details>
@@ -433,18 +428,7 @@
 
   {:else if step === 'processing'}
     <div class="space-y-4">
-      <div class="space-y-1">
-        {#each logs as entry}
-          <p class="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">{entry}</p>
-        {/each}
-      </div>
-      <div class="flex items-center gap-2 text-xs text-emerald-500">
-        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Processing...
-      </div>
+      <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')} />
       {#if error}
         <p class="text-xs text-red-500">{error}</p>
       {/if}
@@ -452,21 +436,15 @@
 
   {:else if step === 'result'}
     <div class="space-y-5">
-      <div class="space-y-1">
-        {#each logs as entry}
-          <p class="text-[11px] font-mono text-zinc-400">{entry}</p>
-        {/each}
-      </div>
-
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <label class="label block">{shortUrl ? 'Share this link' : 'Encrypted link'}</label>
+          <label class="label block">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
           <CopyButton text={shortUrl || resultUrl} label="COPY" />
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
         {#if shortUrl}
           <details class="text-[11px] text-zinc-400">
-            <summary class="cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300">Full link</summary>
+            <summary class="cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
             <div class="mt-1 flex items-center gap-2">
               <input class="input text-[10px] font-mono flex-1" type="text" readonly value={resultUrl} />
               <CopyButton text={resultUrl} label="COPY" className="!text-[9px]" />
@@ -477,25 +455,25 @@
 
       <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <label class="label block">Password</label>
+          <label class="label block">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
           <CopyButton text={password} label="COPY" />
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={password} />
-        <p class="text-[10px] text-amber-500">Share this password separately — never in the same channel as the link.</p>
+        <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
 
       {#if stegoImageUrl}
         <div class="space-y-2">
-          <label class="label block">Steganography image</label>
-          <p class="text-[11px] text-zinc-400">The encrypted link is hidden inside this image. Share it instead of the URL.</p>
+          <label class="label block">{t(dict, 'tools.ultimateEncrypt.steganographyImage')}</label>
+          <p class="text-[11px] text-zinc-400">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
           <div class="flex items-center gap-3">
-            <img src={stegoImageUrl} alt="Stego" class="w-16 h-16 rounded border border-zinc-200 dark:border-zinc-800 object-cover" />
-            <button type="button" class="btn-outline text-xs" on:click={downloadStego}>Download image</button>
+            <img src={stegoImageUrl} alt="" class="w-16 h-16 rounded border border-zinc-200 dark:border-zinc-800 object-cover" />
+            <button type="button" class="btn-outline text-xs" on:click={downloadStego}>{t(dict, 'tools.ultimateEncrypt.downloadImage')}</button>
           </div>
         </div>
       {/if}
 
-      <button type="button" class="btn-outline w-full text-xs" on:click={reset}>Encrypt another</button>
+      <button type="button" class="btn-outline w-full text-xs" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
     </div>
   {/if}
 </div>
