@@ -75,10 +75,9 @@
   .falling-pattern__overlay {
     position: absolute;
     inset: 0;
-    backdrop-filter: blur(1em);
-    background-image: radial-gradient(circle at 50% 50%, transparent 0, transparent 2px, var(--overlay-bg, white) 2px);
-    background-size: 8px 8px;
-    mask-image: linear-gradient(to bottom, black, black 50%, transparent 100%);
+    backdrop-filter: blur(0.8em);
+    background-image: radial-gradient(circle at 50% 50%, transparent 0, transparent 1.5px, var(--overlay-bg, white) 1.5px);
+    background-size: 6px 6px;
   }
 
   :global(html.dark) .falling-pattern__overlay {

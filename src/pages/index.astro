@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import HomeHero from '../components/home/HomeHero.astro';
 import HomeCategoryGrid from '../components/home/HomeCategoryGrid.astro';
 import HomeClosingCta from '../components/home/HomeClosingCta.astro';
+import PixelGrid from '../components/home/PixelGrid.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -11,6 +12,10 @@ const dict = getTranslations(locale);
 
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
 	<div class="home-page">
+		<PixelGrid />
+		<div class="home-grid-overlay" aria-hidden="true"></div>
+		<div class="home-glow home-glow--top" aria-hidden="true"></div>
+		<div class="home-glow home-glow--mid" aria-hidden="true"></div>
 		<HomeHero locale={locale} dict={dict} />
 		<HomeCategoryGrid dict={dict} />
 		<HomeClosingCta dict={dict} />

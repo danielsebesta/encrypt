@@ -327,22 +327,51 @@
         overflow: clip;
     }
 
-    .home-hero-section {
-        position: relative;
-        overflow: clip;
-    }
-
-    .home-hero-glow {
+    .home-grid-overlay {
         position: absolute;
-        top: -6rem;
-        right: -10rem;
-        width: min(40rem, 60vw);
-        height: min(40rem, 60vw);
-        border-radius: 9999px;
-        background: radial-gradient(circle, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.03) 50%, transparent 75%);
-        filter: blur(40px);
+        inset: 0;
         pointer-events: none;
         z-index: 0;
+        background-image:
+            linear-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.08) 40%, transparent 70%);
+    }
+
+    html.dark .home-grid-overlay {
+        background-image:
+            linear-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.1) 40%, transparent 70%);
+    }
+
+    .home-glow {
+        position: absolute;
+        border-radius: 9999px;
+        pointer-events: none;
+        z-index: 0;
+        filter: blur(60px);
+    }
+
+    .home-glow--top {
+        top: -8rem;
+        left: -6rem;
+        width: min(36rem, 50vw);
+        height: min(36rem, 50vw);
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.10), transparent 70%);
+    }
+
+    .home-glow--mid {
+        top: 20rem;
+        right: -10rem;
+        width: min(30rem, 40vw);
+        height: min(30rem, 40vw);
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.06), transparent 70%);
+    }
+
+    .home-hero-section {
+        position: relative;
     }
 
     .home-tool-panel {
@@ -367,25 +396,6 @@
         @apply rounded-xl border border-zinc-100/80 bg-white/90 dark:bg-zinc-950/80 dark:border-zinc-800/60 p-5 md:p-6;
         position: relative;
         z-index: 1;
-    }
-
-    .home-mascot {
-        @apply rounded-2xl p-6;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .home-mascot__img {
-        width: min(100%, 14rem);
-        height: auto;
-        filter: drop-shadow(0 16px 24px rgba(16, 185, 129, 0.10));
-        animation: mascot-float 6s ease-in-out infinite;
-    }
-
-    @keyframes mascot-float {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-8px); }
     }
 
     .home-tool-link {
