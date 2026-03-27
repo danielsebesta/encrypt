@@ -1,11 +1,11 @@
 # Contributing to encrypt.click
 
-Thanks for your interest in contributing! This guide walks you through the process.
+This repo is small, but it has a few systems that need to stay in sync: Astro pages, Svelte tool UIs, translations, standalone exports, and the new education-content pilot.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+
-- [Yarn](https://yarnpkg.com/) (classic or berry)
+- Node.js 18+
+- Yarn 4
 
 ## Setup
 
@@ -16,70 +16,87 @@ yarn install
 yarn dev
 ```
 
-The dev server starts at `http://localhost:4321`.
+Dev server: `http://localhost:4321`
 
-## Adding a New Tool
+Before opening a PR, run:
 
-This is the most common contribution. The system is modular — you only touch 4 files and 2 registries.
+```bash
+yarn build
+```
 
-### Step 1 — Create the Svelte component
+## Core rules
 
-Create `src/components/tools/MyTool.svelte`:
+- Do not hardcode user-facing English in components or pages.
+- Put normal UI strings in `src/locales/*.json`.
+- Keep crypto logic in `src/lib/crypto.ts` or the existing ghost helpers under `src/lib/ghost/`.
+- Prefer existing UI patterns and shared classes over inventing parallel systems.
+- If you change a public-facing flow, check all 3 locales: `en`, `cs`, `de`.
+
+## Important directories
+
+| Path | Purpose |
+| --- | --- |
+| `src/components/tools/` | Interactive Svelte tool UIs |
+| `src/pages/tools/` | Astro wrappers for tool pages |
+| `src/lib/tools.ts` | Tool registry for navbar/category wiring |
+| `src/locales/*.json` | Flat UI dictionaries |
+| `src/content/tool-education/` | Long-form education content for the 5-tool pilot |
+| `src/lib/toolEducation.ts` | Education content loader and types |
+| `generate-standalone.mjs` | Standalone single-file HTML generator |
+| `src/components/DownloadStandalone.astro` | Download button for standalone exports |
+
+## Adding a new tool
+
+Most new tools need these pieces:
+
+1. Create `src/components/tools/MyTool.svelte`
+2. Create `src/pages/tools/my-tool.astro`
+3. Add the tool to `src/lib/tools.ts`
+4. Add locale keys to all 3 locale files
+
+### Component example
 
 ```svelte
 <script lang="ts">
-  import { getTranslations, t } from '../../lib/i18n';
-  export let locale = 'en';
-  $: dict = getTranslations(locale);
+  import { getTranslations, t, type Locale } from '../../lib/i18n';
 
+  export let locale: Locale = 'en';
   let input = '';
   let output = '';
 
+  $: dict = getTranslations(locale);
+
   function run() {
-    output = input.toUpperCase(); // your logic here
+    output = input.toUpperCase();
   }
 </script>
 
 <div class="space-y-6 text-left">
   <div>
-    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-      {t(dict, 'tools.myTool.inputLabel')}
-    </label>
-    <textarea
-      bind:value={input}
-      placeholder={t(dict, 'tools.myTool.inputPlaceholder')}
-      class="input w-full h-28 font-mono text-sm"
-    />
+    <label class="label block">{t(dict, 'tools.myTool.inputLabel')}</label>
+    <textarea bind:value={input} class="input h-28 w-full" />
   </div>
 
-  <button on:click={run} class="btn-primary w-full">
-    {t(dict, 'tools.myTool.runBtn')}
+  <button type="button" class="btn w-full" on:click={run}>
+    {t(dict, 'tools.myTool.runButton')}
   </button>
 
   {#if output}
     <div>
-      <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">
-        {t(dict, 'tools.myTool.outputLabel')}
-      </label>
-      <textarea readonly value={output} class="input w-full h-28 font-mono text-sm" />
+      <label class="label block">{t(dict, 'tools.myTool.outputLabel')}</label>
+      <textarea readonly value={output} class="input h-28 w-full" />
     </div>
   {/if}
 </div>
 ```
 
-Key rules:
-- Every user-visible string uses `t(dict, 'key')`. No hardcoded English.
-- Accept `locale` as a prop. Derive `dict` reactively.
-- Use existing CSS classes: `input`, `btn-primary`, `card`.
-
-### Step 2 — Create the Astro page
-
-Create `src/pages/tools/my-tool.astro`:
+### Page example
 
 ```astro
 ---
 import Layout from '../../layouts/Layout.astro';
 import MyToolView from '../../components/tools/MyTool.svelte';
+import DownloadStandalone from '../../components/DownloadStandalone.astro';
 import { getTranslations, t, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -90,40 +107,48 @@ const dict = getTranslations(locale);
   title={t(dict, 'tools.myTool.meta.title')}
   description={t(dict, 'tools.myTool.meta.description')}
 >
-  <div class="max-w-2xl mx-auto px-5 py-12 md:py-20 text-center">
-    <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-        {t(dict, 'tools.myTool.h1')}
-        <span class="text-emerald-500">{t(dict, 'tools.myTool.h1Highlight')}</span>
-      </h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">
-        {t(dict, 'tools.myTool.subtitle')}
-      </p>
+  <div class="max-w-6xl mx-auto px-5 py-12 md:py-20">
+    <div class="tool-hero">
+      <div class="tool-hero__copy">
+        <h1 class="tool-hero__title">
+          {t(dict, 'tools.myTool.h1')}
+          <span class="text-emerald-500">{t(dict, 'tools.myTool.h1Highlight')}</span>
+        </h1>
+        <p class="tool-hero__subtitle">{t(dict, 'tools.myTool.subtitle')}</p>
+      </div>
     </div>
+
     <div class="card p-8">
       <MyToolView client:load locale={locale} />
     </div>
+
+    <DownloadStandalone slug="my-tool" locale={locale} />
   </div>
 </Layout>
 ```
 
-The `client:load` directive hydrates the Svelte component on the client side.
+### Tool registry
 
-### Step 3 — Register the tool
-
-Open `src/lib/tools.ts` and add one line to the `tools` array:
+Add one entry to `src/lib/tools.ts`:
 
 ```ts
-{ slug: 'my-tool', i18nPrefix: 'tools.myTool', navLabelKey: 'nav.tool.myTool', category: 'developer' },
+{ slug: 'my-tool', i18nPrefix: 'tools.myTool', navLabelKey: 'nav.tool.myTool', category: 'developer' }
 ```
 
-- `slug` must match the filename in `src/pages/tools/` (without `.astro`).
-- `category` is one of: `developer`, `cryptography`, `privacy`.
-- The tool auto-appears in the correct navbar category.
+Categories:
+- `developer`
+- `cryptography`
+- `privacy`
 
-### Step 4 — Add translations
+### Locale keys
 
-Add keys to **every** locale file (`src/locales/en.json`, `src/locales/cs.json`, etc.):
+Add keys to:
+
+- `src/locales/en.json`
+- `src/locales/cs.json`
+- `src/locales/de.json`
+
+Example:
 
 ```json
 "nav.tool.myTool": "My Tool",
@@ -131,98 +156,66 @@ Add keys to **every** locale file (`src/locales/en.json`, `src/locales/cs.json`,
 "tools.myTool.meta.description": "Short SEO description.",
 "tools.myTool.h1": "My",
 "tools.myTool.h1Highlight": "Tool.",
-"tools.myTool.subtitle": "One-liner about this tool.",
+"tools.myTool.subtitle": "One-line description.",
 "tools.myTool.inputLabel": "Input",
-"tools.myTool.inputPlaceholder": "Enter text...",
-"tools.myTool.runBtn": "Run",
+"tools.myTool.runButton": "Run",
 "tools.myTool.outputLabel": "Output"
 ```
 
-If you can't translate to Czech (or other languages), add the English values — maintainers will translate later.
+## If the tool should have a standalone HTML version
 
-### Done
+That requires an extra manual step.
 
-Run `yarn dev` and navigate to `/tools/my-tool`. The tool appears in the navbar and works in all languages.
+Update:
+- `generate-standalone.mjs`
 
----
+The standalone list is currently hardcoded there. Adding a normal tool page does not automatically create the downloadable standalone file.
 
-## Adding a New Language
+## If the tool should use the education layer
 
-1. Add the locale to `src/lib/languages.ts`:
-   ```ts
-   export const languages = {
-     en: { name: 'English', flag: '🇬🇧' },
-     cs: { name: 'Čeština', flag: '🇨🇿' },
-     de: { name: 'Deutsch', flag: '🇩🇪' },  // new
-   } as const;
-   ```
+The current pilot tools are:
 
-2. Copy `src/locales/en.json` to `src/locales/de.json` and translate all values.
+- `base64`
+- `bcrypt`
+- `jwt`
+- `time-capsule`
+- `enigma`
 
-3. Import and register in `src/lib/i18n.ts`:
-   ```ts
-   import de from '../locales/de.json';
-   const dictionaries: Record<string, Record<string, string>> = { en, cs, de };
-   ```
+To extend that system:
 
-4. Add to `astro.config.mjs`:
-   ```js
-   i18n: {
-     locales: ['en', 'cs', 'de'],
-     fallback: { cs: 'en', de: 'en' }
-   }
-   ```
+1. Add locale-specific content files in:
+   - `src/content/tool-education/en/`
+   - `src/content/tool-education/cs/`
+   - `src/content/tool-education/de/`
+2. Match the schema in `src/content.config.ts`
+3. Extend the slug union in `src/lib/toolEducation.ts`
+4. Render `ToolQuickFacts` and `ToolEducationPanel` on the page
 
-The language picker updates automatically.
+Use the existing pilot pages as the reference implementation.
 
----
+## Translations
 
-## Fixing / Improving an Existing Tool
+- `en.json` is the source of truth for UI strings.
+- `t()` falls back to English, but do not rely on that in finished work.
+- Keep the locale files in sync.
+- Long educational copy belongs in `src/content/tool-education/`, not in the flat locale dictionaries.
 
-- Component: `src/components/tools/<ToolName>.svelte`
-- Crypto logic: `src/lib/crypto.ts`
-- Page wrapper: `src/pages/tools/<slug>.astro`
-- Translations: `src/locales/*.json` — search for `tools.<toolName>.`
+## Common edit targets
 
----
+- Homepage sections: `src/components/home/`
+- Tool pages: `src/pages/tools/`
+- Tool components: `src/components/tools/`
+- Navigation / language UI: `src/components/`
+- Shared styles: `src/styles/global.css`
+- Security/privacy page: `src/pages/security.astro`
+- Dead Drop: `src/pages/drop.astro`
+- Receive/download flow: `src/pages/u.astro`, `src/pages/download.astro`
 
-## Translation Guidelines
+## Pull requests
 
-- `en.json` is the source of truth.
-- Every key in `en.json` must exist in every locale file.
-- The `t()` function silently falls back to English for missing keys.
-- Use flat dot-notation keys: `"tools.myTool.someLabel"`.
-- For dynamic values, use `{placeholder}` replaced at runtime.
-
----
-
-## Code Style
-
-- **No unnecessary comments** — don't narrate what the code does.
-- **Tailwind CSS** — prefer utility classes over custom CSS.
-- **TypeScript** — use types for props, function signatures, and exports.
-- **No external network calls** — all crypto must run client-side.
-
----
-
-## Pull Requests
-
-1. Fork the repo and create a feature branch.
-2. Make your changes following this guide.
-3. Run `yarn build` to ensure there are no build errors.
-4. Open a PR with a clear title and description.
-
----
-
-## File Reference
-
-| File | Purpose |
-| --- | --- |
-| `src/lib/tools.ts` | Tool registry — defines all tools, their slugs, categories, and i18n keys |
-| `src/lib/crypto.ts` | All cryptographic functions used by tool components |
-| `src/lib/i18n.ts` | Translation utilities: `getTranslations()`, `t()`, `getLocalePath()` |
-| `src/lib/languages.ts` | Language definitions (name, flag, locale code) |
-| `src/locales/*.json` | Flat key-value translation dictionaries |
-| `src/layouts/Layout.astro` | Shared page layout with navbar, footer, meta tags |
-| `astro.config.mjs` | Astro configuration including i18n locales and Cloudflare adapter |
-| `public/_headers` | Cloudflare Pages security headers |
+1. Create a branch.
+2. Make the change.
+3. Run `yarn build`.
+4. Check the affected page in all relevant locales.
+5. If you touched a standalone-capable tool, confirm the generated file still works.
+6. Open the PR with a clear summary of user-visible changes.
