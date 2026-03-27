@@ -422,10 +422,10 @@
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
 
-  // PRIMARY: privacy-first (no tracking, no logs) — shuffled to spread load
-  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky'];
-  // FALLBACK: when primary fails (some tracking, but stable) — shuffled
-  const FALLBACK_SHORT: ShortProvider[] = ['spoome', 'cleanuri', 'isgd', '1url'];
+  // All good providers — shuffled to spread load
+  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky', 'spoome', 'cleanuri', '1url'];
+  // Emergency only — is.gd logs IPs, public stats, Google Analytics
+  const FALLBACK_SHORT: ShortProvider[] = ['isgd'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
     nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
