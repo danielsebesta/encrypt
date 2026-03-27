@@ -459,14 +459,15 @@
     openedFileMime = mime;
     previewType = detectPreview(mime);
 
-    if (previewType === 'none' && prepareTextualPreview(bytes, name)) {
-      setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyFile'));
-      return;
-    }
-
+    // Always create blob URL for download button
     const copy = new Uint8Array(bytes);
     const blob = new Blob([copy], { type: mime });
     openedFileUrl = URL.createObjectURL(blob);
+
+    if (previewType === 'none') {
+      prepareTextualPreview(bytes, name);
+    }
+
     pushDebug(`Prepared output file ${name} (${bytes.byteLength} bytes, mime=${mime}, preview=${previewType})`);
     setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyFile'));
   }
