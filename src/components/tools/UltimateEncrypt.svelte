@@ -548,12 +548,6 @@
 
       {#if error}
         <p class="text-xs text-red-500">{error}</p>
-        {#if debugLog.length}
-          <details class="text-[11px]">
-            <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.debugTitle')}</summary>
-            <pre class="mt-2 whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
-          </details>
-        {/if}
       {/if}
 
       <button
@@ -569,12 +563,6 @@
   {:else if step === 'processing'}
     <div class="space-y-4">
       <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')} />
-      {#if debugLog.length}
-        <details class="text-[11px]">
-          <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.debugTitle')}</summary>
-          <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
-        </details>
-      {/if}
       {#if error}
         <p class="text-xs text-red-500">{error}</p>
       {/if}
@@ -666,13 +654,6 @@
       {/if}
 
       <button type="button" class="btn-outline w-full text-xs" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
-
-      {#if debugLog.length}
-        <details class="text-[11px]">
-          <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.debugTitle')}</summary>
-          <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
-        </details>
-      {/if}
     </div>
   {/if}
 </div>
