@@ -1,5 +1,7 @@
 import type { APIRoute } from 'astro';
 import { checkRateLimit } from '../../../lib/rateLimit';
+import type { SendInstance } from '../../../lib/nologSend';
+import { uploadToSendHttp } from '../../../lib/nologSend';
 
 export const prerender = false;
 
@@ -7,6 +9,19 @@ const MAX_BYTES = 50 * 1024 * 1024;
 const GHOST_LIMIT = 10;
 
 type ServiceResult = { service: string; url: string | null; error?: string };
+
+const SEND_INSTANCES: SendInstance[] = [
+  { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ' },
+  { baseUrl: 'https://send.adminforge.de', label: 'send.adminforge.de', region: 'eu', country: 'DE' },
+  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'EE' },
+  { baseUrl: 'https://send.blablalinux.be', label: 'send.blablalinux.be', region: 'eu', country: 'BE' },
+  { baseUrl: 'https://send.artemislena.eu', label: 'send.artemislena.eu', region: 'eu', country: 'EU' },
+  { baseUrl: 'https://send.turingpoint.de', label: 'send.turingpoint.de', region: 'eu', country: 'DE' },
+  { baseUrl: 'https://send.monks.tools', label: 'send.monks.tools', region: 'other' },
+  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other' },
+  { baseUrl: 'https://send.canine.tools', label: 'send.canine.tools', region: 'other' },
+  { baseUrl: 'https://send.kokomo.cloud', label: 'send.kokomo.cloud', region: 'other' },
+];
 
 function mimeFromName(name: string): string {
   if (name.endsWith('.png')) return 'image/png';
@@ -222,7 +237,22 @@ async function uploadLitterbox(file: Uint8Array, filename: string): Promise<stri
   return text;
 }
 
+async function uploadNologSend(file: Uint8Array, filename: string): Promise<string> {
+  const failures: string[] = [];
+
+  for (const instance of SEND_INSTANCES) {
+    try {
+      return await uploadToSendHttp(instance.baseUrl, file, filename, mimeFromName(filename));
+    } catch (e: any) {
+      failures.push(`${instance.label}: ${e?.message || 'upload failed'}`);
+    }
+  }
+
+  throw new Error(`Send network failed (${failures.join(' | ')})`);
+}
+
 const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
+  nologsend: uploadNologSend,
   imgbb: uploadImgBB,
   sxcu: uploadSxcu,
   freeimage: uploadFreeImage,
@@ -247,6 +277,7 @@ interface ServiceInfo {
 }
 
 const SERVICE_INFO: ServiceInfo[] = [
+  { id: 'nologsend', name: 'Send network (EU first)', type: 'file', maxBytes: 5 * 1024 * 1024 * 1024, retention: '2+ days', tosUrl: 'https://upload.nolog.cz/', recommended: true },
   { id: 'quax', name: 'qu.ax', type: 'file', maxBytes: 256 * 1024 * 1024, retention: '30 days', tosUrl: 'https://qu.ax/tos', recommended: true },
   { id: 'tempsh', name: 'temp.sh', type: 'file', maxBytes: 4 * 1024 * 1024 * 1024, retention: '3 days', tosUrl: null },
   { id: 'gofile', name: 'Gofile.io', type: 'file', maxBytes: Infinity, retention: '10 days', tosUrl: 'https://gofile.io/terms' },

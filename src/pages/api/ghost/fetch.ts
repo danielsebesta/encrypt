@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { checkRateLimit } from '../../../lib/rateLimit';
+import { downloadFromSendServer, isSendUrl } from '../../../lib/nologSend';
 
 export const prerender = false;
 
@@ -30,6 +31,17 @@ export const GET: APIRoute = async ({ url, request }) => {
   }
 
   try {
+    if (isSendUrl(targetUrl)) {
+      const data = await downloadFromSendServer(targetUrl);
+      return new Response(data, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Cache-Control': 'public, max-age=3600'
+        }
+      });
+    }
+
     const res = await fetch(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
