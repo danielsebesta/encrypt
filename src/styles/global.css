@@ -434,6 +434,46 @@
         border-color: rgba(16, 185, 129, 0.2);
     }
 
+    /* ── UltimateEncrypt input panes ── */
+    .ue-input-pane {
+        @apply rounded-xl border border-zinc-200/80 dark:border-zinc-800/70 bg-zinc-50/50 dark:bg-zinc-900/30 p-3;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .ue-input-pane--active {
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.08);
+    }
+
+    .ue-input-pane--disabled {
+        opacity: 0.45;
+        pointer-events: none;
+    }
+
+    .ue-input-pane__label {
+        @apply flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400 dark:text-zinc-500 mb-2;
+    }
+
+    .ue-textarea {
+        @apply w-full flex-1 bg-transparent text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-600 resize-none;
+        outline: none;
+        min-height: 80px;
+    }
+
+    .ue-drop-zone {
+        @apply flex items-center justify-center cursor-pointer;
+        border-style: dashed;
+    }
+
+    .ue-drop-zone--dragging {
+        border-color: rgba(16, 185, 129, 0.6) !important;
+        background: rgba(16, 185, 129, 0.04);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
     .home-closing-panel {
         @apply rounded-2xl border border-zinc-200/70 bg-white/60 dark:bg-zinc-950/40 dark:border-zinc-800/60 p-8 md:p-12;
         backdrop-filter: blur(10px);
