@@ -187,29 +187,33 @@
     for (const f of entries) {
       const name = enc.encode(f.webkitRelativePath || f.name);
       const data = new Uint8Array(await f.arrayBuffer());
-      // Local file header (30 + nameLen + data)
+      const d = new Date(f.lastModified);
+      const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+      const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+      const crc = crc32(data);
+      // Local file header
       const local = new Uint8Array(30 + name.length + data.length);
       const lv = new DataView(local.buffer);
-      lv.setUint32(0, 0x04034b50, true); // signature
-      lv.setUint16(4, 20, true); // version needed
-      lv.setUint16(8, 0, true); // method: store
-      lv.setUint32(14, 0, true); // crc32 (0 for store with data descriptor)
-      lv.setUint32(18, data.length, true); // compressed
-      lv.setUint32(22, data.length, true); // uncompressed
+      lv.setUint32(0, 0x04034b50, true);
+      lv.setUint16(4, 20, true);
+      lv.setUint16(8, 0, true);
+      lv.setUint16(10, dosTime, true);
+      lv.setUint16(12, dosDate, true);
+      lv.setUint32(14, crc, true);
+      lv.setUint32(18, data.length, true);
+      lv.setUint32(22, data.length, true);
       lv.setUint16(26, name.length, true);
       local.set(name, 30);
       local.set(data, 30 + name.length);
-      // CRC32
-      const crc = crc32(data);
-      lv.setUint32(14, crc, true);
       localParts.push(local);
-
       // Central directory header
       const ch = new Uint8Array(46 + name.length);
       const cv = new DataView(ch.buffer);
       cv.setUint32(0, 0x02014b50, true);
       cv.setUint16(4, 20, true);
       cv.setUint16(6, 20, true);
+      cv.setUint16(12, dosTime, true);
+      cv.setUint16(14, dosDate, true);
       cv.setUint32(16, crc, true);
       cv.setUint32(20, data.length, true);
       cv.setUint32(24, data.length, true);
