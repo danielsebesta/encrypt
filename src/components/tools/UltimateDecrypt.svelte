@@ -206,8 +206,7 @@
         setProgress(t(dict, 'tools.ultimateDecrypt.progressFetchingTitle'), t(dict, 'tools.ultimateDecrypt.progressFetchingDetail'));
         const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
         if (!res.ok) {
-          lastErr = `HTTP ${res.status}`;
-          log(`Failed (HTTP ${res.status}), trying next...`);
+          lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
           continue;
         }
         const fileBytes = new Uint8Array(await res.arrayBuffer());
@@ -218,7 +217,7 @@
           setProgress(t(dict, 'tools.ultimateDecrypt.progressExtractingTitle'), t(dict, 'tools.ultimateDecrypt.progressExtractingDetail'));
           const extracted = await extractStego(fileBytes);
           if (!extracted) {
-            lastErr = 'Stego extraction failed';
+            lastErr = t(dict, 'tools.ultimateDecrypt.errorNoHiddenData');
             continue;
           }
           encrypted = extracted;
@@ -226,7 +225,6 @@
           encrypted = fileBytes;
         }
 
-        log('Decrypting file...');
         const { data: decryptedData, name } = await decryptData(encrypted, password);
 
         if (name.endsWith('.txt') && decryptedData.length < 100_000) {
@@ -242,11 +240,11 @@
         presentFile(decryptedData, name);
         return;
       } catch (e: any) {
-        lastErr = e?.message || 'Decryption error';
+        lastErr = e?.message || t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
       }
     }
 
-    throw new Error(`All sources failed. Last error: ${lastErr}`);
+    throw new Error(lastErr || t(dict, 'tools.ultimateDecrypt.errorAllSourcesFailed'));
   }
 
   function downloadFile() {
@@ -310,7 +308,7 @@
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <label class="label block">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</label>
-        <CopyButton text={openedText} label="COPY" />
+        <CopyButton text={openedText} label={t(dict, 'tools.ultimateDecrypt.copy')} />
       </div>
       <div class="result-box min-h-[80px] whitespace-pre-wrap">
         {openedText}

@@ -1,13 +1,15 @@
 ---
+import { t } from '../../lib/i18n';
 import type { ToolDiagramVariant } from '../../lib/toolEducation';
 
 type Props = {
+  dict: Record<string, string>;
   variant: ToolDiagramVariant;
   title: string;
   caption: string;
 };
 
-const { variant, title, caption } = Astro.props;
+const { dict, variant, title, caption } = Astro.props;
 ---
 
 <section class="tool-diagram-card">
@@ -32,51 +34,51 @@ const { variant, title, caption } = Astro.props;
     {variant === 'time-capsule' && (
       <div class="tool-diagram tool-diagram-timeline">
         <div class="tool-timeline-node">
-          <span class="tool-timeline-node__label">Now</span>
-          <span class="tool-timeline-node__text">Encrypt</span>
+          <span class="tool-timeline-node__label">{t(dict, 'toolEducation.diagram.timeCapsule.now')}</span>
+          <span class="tool-timeline-node__text">{t(dict, 'toolEducation.diagram.timeCapsule.encrypt')}</span>
         </div>
         <div class="tool-diagram__line"></div>
         <div class="tool-timeline-node">
-          <span class="tool-timeline-node__label">Future round</span>
-          <span class="tool-timeline-node__text">drand beacon</span>
+          <span class="tool-timeline-node__label">{t(dict, 'toolEducation.diagram.timeCapsule.futureRound')}</span>
+          <span class="tool-timeline-node__text">{t(dict, 'toolEducation.diagram.timeCapsule.beacon')}</span>
         </div>
         <div class="tool-diagram__line"></div>
         <div class="tool-timeline-node">
-          <span class="tool-timeline-node__label">Later</span>
-          <span class="tool-timeline-node__text">Unlock</span>
+          <span class="tool-timeline-node__label">{t(dict, 'toolEducation.diagram.timeCapsule.later')}</span>
+          <span class="tool-timeline-node__text">{t(dict, 'toolEducation.diagram.timeCapsule.unlock')}</span>
         </div>
       </div>
     )}
 
     {variant === 'jwt' && (
       <div class="tool-diagram tool-diagram-jwt">
-        <span class="tool-token-segment">header</span>
+        <span class="tool-token-segment">{t(dict, 'toolEducation.diagram.jwt.header')}</span>
         <span class="tool-token-dot">.</span>
-        <span class="tool-token-segment">payload</span>
+        <span class="tool-token-segment">{t(dict, 'toolEducation.diagram.jwt.payload')}</span>
         <span class="tool-token-dot">.</span>
-        <span class="tool-token-segment">signature</span>
+        <span class="tool-token-segment">{t(dict, 'toolEducation.diagram.jwt.signature')}</span>
       </div>
     )}
 
     {variant === 'bcrypt' && (
       <div class="tool-diagram tool-diagram-bcrypt">
-        <div class="tool-process-node">Password</div>
+        <div class="tool-process-node">{t(dict, 'toolEducation.diagram.bcrypt.password')}</div>
         <div class="tool-diagram__arrow">→</div>
-        <div class="tool-process-node">Salt + cost</div>
+        <div class="tool-process-node">{t(dict, 'toolEducation.diagram.bcrypt.saltCost')}</div>
         <div class="tool-diagram__arrow">→</div>
-        <div class="tool-process-node">Stored hash</div>
+        <div class="tool-process-node">{t(dict, 'toolEducation.diagram.bcrypt.storedHash')}</div>
       </div>
     )}
 
     {variant === 'enigma' && (
       <div class="tool-diagram tool-diagram-enigma">
-        <div class="tool-rotor">Keyboard</div>
+        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.keyboard')}</div>
         <div class="tool-diagram__arrow">→</div>
-        <div class="tool-rotor">Rotors</div>
+        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.rotors')}</div>
         <div class="tool-diagram__arrow">→</div>
-        <div class="tool-rotor">Reflector</div>
+        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.reflector')}</div>
         <div class="tool-diagram__arrow">→</div>
-        <div class="tool-rotor">Lampboard</div>
+        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.lampboard')}</div>
       </div>
     )}
   </div>

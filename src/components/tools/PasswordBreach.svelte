@@ -1,5 +1,9 @@
 <script lang="ts">
   import { analyzePassword, checkLeak } from '../../lib/crypto';
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
 
   let passwordInput = '';
   let strengthResult: any = null;
@@ -29,12 +33,12 @@
 <div class="space-y-8 animate-in fade-in duration-500">
   <div class="grid gap-4">
     <div class="grid gap-1.5">
-      <label for="pass-input" class="label">Password / Passphrase</label>
+      <label for="pass-input" class="label">{t(dict, 'tools.passwordBreach.label')}</label>
       <input 
         id="pass-input"
         type="text" 
         bind:value={passwordInput} 
-        placeholder="Type a password to analyze..." 
+        placeholder={t(dict, 'tools.passwordBreach.placeholder')}
         class="input font-mono"
       />
     </div>
@@ -42,17 +46,17 @@
     {#if strengthResult}
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-8 border-y border-zinc-100 dark:border-zinc-800">
         <div class="text-center">
-          <div class="text-[10px] uppercase text-zinc-400 mb-1 font-bold">Score</div>
+          <div class="text-[10px] uppercase text-zinc-400 mb-1 font-bold">{t(dict, 'tools.passwordBreach.score')}</div>
           <div class="text-3xl font-bold {strengthResult.score > 2 ? 'text-emerald-500' : 'text-amber-500'}">
             {strengthResult.score}<span class="text-lg opacity-30">/4</span>
           </div>
         </div>
         <div class="text-center">
-          <div class="text-[10px] uppercase text-zinc-400 mb-1 font-bold">Entropy</div>
-          <div class="text-3xl font-bold text-zinc-800 dark:text-zinc-100">{Math.round(strengthResult.guesses_log10 * 3.32)}<span class="text-lg opacity-30"> bits</span></div>
+          <div class="text-[10px] uppercase text-zinc-400 mb-1 font-bold">{t(dict, 'tools.passwordBreach.entropy')}</div>
+          <div class="text-3xl font-bold text-zinc-800 dark:text-zinc-100">{Math.round(strengthResult.guesses_log10 * 3.32)}<span class="text-lg opacity-30"> {t(dict, 'tools.passwordBreach.bits')}</span></div>
         </div>
         <div class="text-center col-span-2">
-          <div class="text-[10px] uppercase text-zinc-400 mb-1 font-bold">Crack time (Off-line)</div>
+          <div class="text-[10px] uppercase text-zinc-400 mb-1 font-bold">{t(dict, 'tools.passwordBreach.crackTime')}</div>
           <div class="text-lg font-bold text-zinc-700 dark:text-zinc-300">{strengthResult.crack_times_display.offline_slow_hashing_1e4_per_second}</div>
         </div>
       </div>
@@ -75,20 +79,20 @@
       class="btn w-full py-4 text-base"
     >
       {#if checkingLeak}
-        <span class="animate-pulse">Checking global breach databases...</span>
+        <span class="animate-pulse">{t(dict, 'tools.passwordBreach.checking')}</span>
       {:else}
-        Check for Breaches (k-Anonymity)
+        {t(dict, 'tools.passwordBreach.checkButton')}
       {/if}
     </button>
 
     {#if leakCount !== null}
         <div class="p-6 rounded-2xl text-center border-2 {leakCount > 0 ? 'bg-red-50 border-red-100 text-red-600 dark:bg-red-950/20 dark:border-red-900/50' : 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/50'} transition-all animate-in zoom-in-95 duration-300">
             {#if leakCount > 0}
-                <div class="text-xl font-black mb-1">FOUND IN BREACHES</div>
-                <div class="text-sm opacity-80 font-medium">This password appeared in <span class="underline decoration-2">{leakCount.toLocaleString()}</span> known data leaks.</div>
+                <div class="text-xl font-black mb-1">{t(dict, 'tools.passwordBreach.foundTitle')}</div>
+                <div class="text-sm opacity-80 font-medium">{t(dict, 'tools.passwordBreach.foundText').replace('{count}', leakCount.toLocaleString())}</div>
             {:else}
-                <div class="text-xl font-black mb-1">NO BREACHES FOUND</div>
-                <div class="text-sm opacity-80 font-medium">Your password was not found in any known public data breaches.</div>
+                <div class="text-xl font-black mb-1">{t(dict, 'tools.passwordBreach.noneTitle')}</div>
+                <div class="text-sm opacity-80 font-medium">{t(dict, 'tools.passwordBreach.noneText')}</div>
             {/if}
         </div>
     {/if}

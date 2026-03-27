@@ -23,7 +23,7 @@
   <div class="grid gap-6">
     <div class="grid gap-2">
       <div class="flex justify-between items-end">
-        <label class="label">UUID v4</label>
+        <label class="label">{t(dict, 'tools.uuidUlid.uuidV4')}</label>
         <CopyButton text={uuidResult} label={t(dict, 'tools.uuidUlid.copy')} />
       </div>
       <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm md:text-base break-all flex justify-between items-center group">
