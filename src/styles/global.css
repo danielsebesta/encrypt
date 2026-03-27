@@ -239,6 +239,49 @@
         @apply p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-sm break-all;
     }
 
+    .ud-code-comment {
+        color: rgb(113 113 122);
+        font-style: italic;
+    }
+
+    .dark .ud-code-comment {
+        color: rgb(161 161 170);
+    }
+
+    .ud-code-string {
+        color: rgb(21 128 61);
+    }
+
+    .dark .ud-code-string {
+        color: rgb(74 222 128);
+    }
+
+    .ud-code-keyword {
+        color: rgb(30 64 175);
+        font-weight: 600;
+    }
+
+    .dark .ud-code-keyword {
+        color: rgb(96 165 250);
+    }
+
+    .ud-code-number {
+        color: rgb(180 83 9);
+    }
+
+    .dark .ud-code-number {
+        color: rgb(251 191 36);
+    }
+
+    .ud-code-tag {
+        color: rgb(190 24 93);
+        font-weight: 600;
+    }
+
+    .dark .ud-code-tag {
+        color: rgb(244 114 182);
+    }
+
     .error-box {
         @apply p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm rounded-xl;
     }

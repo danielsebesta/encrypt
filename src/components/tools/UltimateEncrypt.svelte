@@ -26,6 +26,7 @@
   let enableTimelock = false;
   let timelockDate = '';
   let showAdvanced = false;
+  let showQr = false;
 
   let resultUrl = '';
   let shortUrl = '';
@@ -35,7 +36,7 @@
   let progressTitle = '';
   let progressDetail = '';
   let debugLog: string[] = [];
-  let qrDataUrl = '';
+  let qrSvg = '';
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = 50 * 1024 * 1024;
@@ -125,18 +126,19 @@
 
   async function generateQr(url: string) {
     try {
-      qrDataUrl = await QRCode.toDataURL(url, {
+      qrSvg = await QRCode.toString(url, {
+        type: 'svg',
         errorCorrectionLevel: 'H',
         margin: 1,
-        width: 360,
+        width: 320,
         color: {
-          dark: '#0f172a',
-          light: '#f8fafc',
+          dark: '#065f46',
+          light: '#ffffff',
         },
       });
     } catch (e: any) {
       pushDebug(`QR generation failed: ${e?.message || 'unknown error'}`);
-      qrDataUrl = '';
+      qrSvg = '';
     }
   }
 
@@ -411,11 +413,12 @@
     shortUrl = '';
     error = '';
     showAdvanced = false;
+    showQr = false;
     setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
     stegoImageBlob = null;
-    qrDataUrl = '';
+    qrSvg = '';
     debugLog = [];
   }
 
@@ -530,9 +533,55 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <label class="label block">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
-          <CopyButton text={shortUrl || resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} />
+          <div class="flex items-center gap-2">
+            {#if qrSvg && shareUrl}
+              <button
+                type="button"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}
+                title={t(dict, 'tools.ultimateEncrypt.qrAlt')}
+                on:click={() => showQr = !showQr}
+              >
+                <svg viewBox="0 0 24 24" class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 4h6v6H4z" />
+                  <path d="M14 4h6v6h-6z" />
+                  <path d="M4 14h6v6H4z" />
+                  <path d="M14 14h2" />
+                  <path d="M18 14h2v2" />
+                  <path d="M14 18h2v2h-2z" />
+                  <path d="M18 18h2v2h-2z" />
+                </svg>
+              </button>
+            {/if}
+            <CopyButton text={shortUrl || resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} />
+          </div>
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
+        {#if showQr && qrSvg && shareUrl}
+          <div class="mt-3 flex justify-center">
+            <div class="w-full max-w-[248px] rounded-[1.8rem] border border-emerald-200/80 dark:border-emerald-900/70 bg-[linear-gradient(180deg,rgba(236,253,245,0.98),rgba(209,250,229,0.92))] dark:bg-[linear-gradient(180deg,rgba(2,44,34,0.96),rgba(4,28,24,0.98))] p-3 shadow-[0_18px_60px_rgba(6,95,70,0.18)]">
+              <div class="relative overflow-hidden rounded-[1.35rem] border border-white/70 dark:border-white/8 bg-white p-3">
+                <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.10),transparent_58%)]"></div>
+                <div class="relative mx-auto w-full max-w-[200px]" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>
+                  <div class="block w-full [&>svg]:block [&>svg]:h-auto [&>svg]:w-full [&>svg]:rounded-[1rem]">
+                    {@html qrSvg}
+                  </div>
+                  <div class="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[0.95rem] border border-emerald-200 bg-white shadow-[0_10px_30px_rgba(6,95,70,0.16)]">
+                    <svg viewBox="0 0 24 24" class="h-5 w-5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M4 4h6v6H4z" />
+                      <path d="M14 4h6v6h-6z" />
+                      <path d="M4 14h6v6H4z" />
+                      <path d="M14 14h2" />
+                      <path d="M18 14h2v2" />
+                      <path d="M14 18h2v2h-2z" />
+                      <path d="M18 18h2v2h-2z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
         {#if shortUrl}
           <details class="text-[11px] text-zinc-400">
             <summary class="cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
@@ -552,26 +601,6 @@
         <input class="input text-xs font-mono" type="text" readonly value={password} />
         <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
-
-      {#if qrDataUrl && shareUrl}
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="label block">{t(dict, 'tools.ultimateEncrypt.qrTitle')}</label>
-            <span class="text-[10px] uppercase tracking-widest text-zinc-400">{t(dict, 'tools.ultimateEncrypt.qrHint')}</span>
-          </div>
-          <div class="mx-auto max-w-[280px] rounded-[2rem] border border-emerald-200/70 dark:border-emerald-900/60 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_58%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(240,253,250,0.96))] dark:bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_58%),linear-gradient(180deg,rgba(9,24,23,0.96),rgba(10,18,18,0.98))] p-4 shadow-[0_20px_60px_rgba(16,185,129,0.12)]">
-            <div class="relative overflow-hidden rounded-[1.5rem] border border-white/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/90 p-4">
-              <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(16,185,129,0.08),transparent_38%,transparent_62%,rgba(15,23,42,0.05))] dark:bg-[linear-gradient(135deg,rgba(16,185,129,0.12),transparent_38%,transparent_62%,rgba(148,163,184,0.06))]"></div>
-              <div class="relative mx-auto w-full max-w-[220px]">
-                <img src={qrDataUrl} alt={t(dict, 'tools.ultimateEncrypt.qrAlt')} class="block w-full rounded-[1.25rem]" />
-                <div class="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[1rem] border border-emerald-200/80 dark:border-emerald-900/70 bg-white/98 dark:bg-zinc-950/98 shadow-lg shadow-emerald-500/15">
-                  <img src="/favicon.svg" alt="" class="h-7 w-7" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      {/if}
 
       {#if stegoImageUrl}
         <div class="space-y-2">
