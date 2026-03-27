@@ -114,7 +114,7 @@
       return;
     }
     if (file && file.size > MAX_FILE) {
-      error = `File exceeds ${Math.round(MAX_FILE / (1024 * 1024))} MB limit.`;
+      error = t(dict, 'tools.ultimateEncrypt.errorFileTooLarge').replace('{size}', String(Math.round(MAX_FILE / (1024 * 1024))));
       return;
     }
 
@@ -422,7 +422,7 @@
         on:click={handleEncrypt}
         disabled={(!textInput.trim() && !file)}
       >
-        Encrypt & Share
+        {t(dict, 'tools.ultimateEncrypt.encryptAndShare')}
       </button>
     </div>
 
@@ -439,7 +439,7 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <label class="label block">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
-          <CopyButton text={shortUrl || resultUrl} label="COPY" />
+          <CopyButton text={shortUrl || resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} />
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
         {#if shortUrl}
@@ -447,7 +447,7 @@
             <summary class="cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
             <div class="mt-1 flex items-center gap-2">
               <input class="input text-[10px] font-mono flex-1" type="text" readonly value={resultUrl} />
-              <CopyButton text={resultUrl} label="COPY" className="!text-[9px]" />
+              <CopyButton text={resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} className="!text-[9px]" />
             </div>
           </details>
         {/if}
@@ -456,7 +456,7 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <label class="label block">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-          <CopyButton text={password} label="COPY" />
+          <CopyButton text={password} label={t(dict, 'tools.ultimateEncrypt.copy')} />
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={password} />
         <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
