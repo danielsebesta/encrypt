@@ -14,7 +14,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
+  type ShortProvider = 'shrink' | 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -465,13 +465,13 @@
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
 
-  // All good providers — shuffled to spread load
-  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky', 'spoome', '1url'];
-  // Emergency only — is.gd logs IPs, public stats, Google Analytics
-  const FALLBACK_SHORT: ShortProvider[] = ['isgd'];
+  // Our own shortener — always try first
+  const OWN_SHORT: ShortProvider = 'shrink';
+  // Fallback if our shortener is down — shuffled
+  const FALLBACK_SHORT: ShortProvider[] = ['nolog', 'dagd', 'kratky', 'spoome', '1url', 'isgd'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
+    shrink: 'l.encrypt.click', nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
     spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
   };
 
@@ -505,13 +505,12 @@
 
   async function autoShorten(url: string): Promise<void> {
     setProgress(t(dict, 'tools.ultimateEncrypt.progressShortenTitle'), t(dict, 'tools.ultimateEncrypt.progressShortenDetail'));
-    // Shuffle within tiers to spread load across providers
-    for (const provider of shuffleArr(PRIMARY_SHORT)) {
-      const result = await tryShorten(url, provider);
-      if (result) { shortUrl = result; return; }
-      const retry = await tryShorten(url, provider);
-      if (retry) { shortUrl = retry; return; }
-    }
+    // Try our own shortener first (with retry)
+    const own = await tryShorten(url, OWN_SHORT);
+    if (own) { shortUrl = own; return; }
+    const ownRetry = await tryShorten(url, OWN_SHORT);
+    if (ownRetry) { shortUrl = ownRetry; return; }
+    // Fallback to external providers (shuffled)
     for (const provider of shuffleArr(FALLBACK_SHORT)) {
       const result = await tryShorten(url, provider);
       if (result) { shortUrl = result; return; }
