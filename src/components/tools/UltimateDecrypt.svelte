@@ -75,6 +75,15 @@
     if (hash.length > 1) {
       hasHash = true;
       hashPayload = decodeURIComponent(hash.slice(1));
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const queryPayload = params.get('p');
+    if (queryPayload) {
+      hasHash = true;
+      hashPayload = decodeURIComponent(queryPayload);
+      history.replaceState(null, '', `${window.location.pathname}#${encodeURIComponent(queryPayload)}`);
     }
   });
 

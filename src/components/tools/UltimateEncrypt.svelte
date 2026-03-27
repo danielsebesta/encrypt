@@ -95,6 +95,14 @@
     return btoa(binary);
   }
 
+  function buildReceiveUrls(encoded: string) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
+    return {
+      direct: `${origin}/u/#${encoded}`,
+      shortenable: `${origin}/u/?p=${encoded}`,
+    };
+  }
+
   async function gzipBytes(input: Uint8Array): Promise<Uint8Array> {
     const stream = new Blob([input]).stream().pipeThrough(new CompressionStream('gzip'));
     return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -161,10 +169,10 @@
     const encrypted = await encrypt(compressedB64, password);
     const encoded = base64UrlEncode(encrypted);
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
-    resultUrl = `${origin}/u#${encoded}`;
+    const urls = buildReceiveUrls(encoded);
+    resultUrl = urls.direct;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
-    await autoShorten(resultUrl);
+    await autoShorten(urls.shortenable);
 
     if (enableStego) {
       await wrapInStego(shortUrl || resultUrl);
@@ -247,9 +255,9 @@
     const encPayload = await encrypt(compressedB64, password);
     const encoded = base64UrlEncode(encPayload);
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
-    resultUrl = `${origin}/u#${encoded}`;
-    await autoShorten(resultUrl);
+    const urls = buildReceiveUrls(encoded);
+    resultUrl = urls.direct;
+    await autoShorten(urls.shortenable);
 
     if (enableStego) {
       await wrapInStego(shortUrl || resultUrl);
