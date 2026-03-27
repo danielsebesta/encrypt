@@ -3,6 +3,7 @@
   import { encrypt, decrypt } from '../../lib/crypto';
   import { encryptData } from '../../lib/ghost/crypto';
   import { createStegoImage } from '../../lib/ghost/steganography';
+  import { uploadToNologSend } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { getTranslations, t } from '../../lib/i18n';
@@ -32,6 +33,7 @@
   let error = '';
   let progressTitle = '';
   let progressDetail = '';
+  let debugLog: string[] = [];
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = 50 * 1024 * 1024;
@@ -41,6 +43,7 @@
   // Ordered by reliability + retention
   interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
   const BINARY_HOSTS: HostInfo[] = [
+    { id: 'nologsend', name: 'upload.nolog.cz', retention: '2 days', maxBytes: 5 * 1024 * 1024 * 1024 },
     { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
     { id: 'x0at', name: 'x0.at', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
     { id: 'catbox', name: 'Catbox.moe', retention: 'forever', maxBytes: 200 * 1024 * 1024 },
@@ -83,6 +86,12 @@
     progressDetail = detail;
   }
 
+  function pushDebug(message: string) {
+    const line = `[${new Date().toLocaleTimeString('en-GB', { hour12: false })}] ${message}`;
+    debugLog = [...debugLog, line];
+    console.info('[UltimateEncrypt]', message);
+  }
+
   function base64UrlEncode(bytes: Uint8Array): string {
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
@@ -115,22 +124,28 @@
     stegoImageUrl = '';
     stegoImageBlob = null;
     setProgress('', '');
+    debugLog = [];
 
     const trimmed = textInput.trim();
+    pushDebug(`Start encrypt: mode=${deliveryMode}, file=${file ? file.name : 'none'}, payloadSize=${payloadSize} bytes`);
     if (!file && !trimmed) {
       error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
+      pushDebug('Validation failed: empty input');
       return;
     }
     if (file && file.size > MAX_FILE) {
       error = t(dict, 'tools.ultimateEncrypt.errorFileTooLarge').replace('{size}', String(Math.round(MAX_FILE / (1024 * 1024))));
+      pushDebug(`Validation failed: file too large (${file.size} bytes)`);
       return;
     }
 
     if (autoPassword) {
       password = generatePassword();
+      pushDebug('Password auto-generated');
     }
     if (!password) {
       error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
+      pushDebug('Validation failed: missing password');
       return;
     }
 
@@ -145,6 +160,7 @@
       step = 'result';
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+      pushDebug(`Encrypt failed: ${error}`);
       step = 'input';
     }
   }
@@ -157,8 +173,10 @@
       const bytes = new Uint8Array(buffer);
       const b64 = btoa(String.fromCharCode(...bytes));
       payload = { v: 1, mode: 'inline', kind: 'file', name: file.name, type: file.type || 'application/octet-stream', data: b64 };
+      pushDebug(`Inline payload prepared for file ${file.name} (${bytes.byteLength} bytes)`);
     } else {
       payload = { v: 1, mode: 'inline', kind: 'text', text: textInput.trim() };
+      pushDebug(`Inline payload prepared for text (${textInput.trim().length} chars)`);
     }
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
@@ -166,8 +184,10 @@
     const jsonBytes = new TextEncoder().encode(json);
     const compressed = await gzipBytes(jsonBytes);
     const compressedB64 = bytesToBase64(compressed);
+    pushDebug(`Inline payload compressed from ${jsonBytes.byteLength} to ${compressed.byteLength} bytes`);
     const encrypted = await encrypt(compressedB64, password);
     const encoded = base64UrlEncode(encrypted);
+    pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
@@ -187,13 +207,16 @@
     if (file) {
       buffer = new Uint8Array(await file.arrayBuffer());
       filename = file.name;
+      pushDebug(`Read file ${filename} (${buffer.byteLength} bytes)`);
     } else {
       buffer = new TextEncoder().encode(textInput.trim());
       filename = 'message.txt';
+      pushDebug(`Prepared text payload as ${filename} (${buffer.byteLength} bytes)`);
     }
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
     const encrypted = await encryptData(buffer, password, filename);
+    pushDebug(`Inner ghost payload encrypted (${encrypted.byteLength} bytes)`);
 
     let uploadBytes: Uint8Array;
     let uploadFilename: string;
@@ -204,25 +227,34 @@
       uploadBytes = await createStegoImage(encrypted);
       uploadFilename = 'ghost.png';
       usedStego = true;
+      pushDebug(`Stego wrapper created (${uploadBytes.byteLength} bytes PNG)`);
     } else {
       uploadBytes = encrypted;
       uploadFilename = 'ghost.bin';
+      pushDebug(`Using raw binary upload (${uploadBytes.byteLength} bytes)`);
     }
 
     // Use image hosts for stego PNGs, binary hosts for everything else
     // Filter by file size, try one at a time
     const chain = usedStego ? IMAGE_HOSTS : BINARY_HOSTS;
     const eligible = chain.filter(h => uploadBytes.length <= h.maxBytes);
+    pushDebug(`Eligible upload hosts: ${eligible.map(h => h.name).join(', ') || 'none'}`);
 
     let uploadUrl = '';
 
     for (const host of eligible) {
       setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
       try {
+        pushDebug(`Trying host ${host.name} (${host.id})`);
+        if (host.id === 'nologsend') {
+          uploadUrl = await uploadToNologSend(uploadBytes, uploadFilename, usedStego ? 'image/png' : 'application/octet-stream', pushDebug);
+          break;
+        }
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
           method: 'POST',
           body: uploadBytes,
         });
+        pushDebug(`Host ${host.name} responded with HTTP ${res.status}`);
         if (!res.ok) {
           continue;
         }
@@ -230,9 +262,11 @@
         const result = data?.results?.[0];
         if (result?.url) {
           uploadUrl = result.url;
+          pushDebug(`Host ${host.name} returned URL ${uploadUrl}`);
           break;
         }
       } catch (e: any) {
+        pushDebug(`Host ${host.name} failed: ${e?.message || 'unknown error'}`);
       }
     }
 
@@ -252,8 +286,10 @@
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
     const compressedB64 = bytesToBase64(compressed);
+    pushDebug(`Outer ghost payload compressed from ${payloadBytes.byteLength} to ${compressed.byteLength} bytes`);
     const encPayload = await encrypt(compressedB64, password);
     const encoded = base64UrlEncode(encPayload);
+    pushDebug(`Final link payload encrypted (${encPayload.byteLength} bytes, encoded length ${encoded.length})`);
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
@@ -268,6 +304,7 @@
     setProgress(t(dict, 'tools.ultimateEncrypt.progressCoverImageTitle'), t(dict, 'tools.ultimateEncrypt.progressCoverImageDetail'));
     const urlBytes = new TextEncoder().encode(url);
     const stegoBytes = await createStegoImage(urlBytes);
+    pushDebug(`Generated downloadable PNG wrapper (${stegoBytes.byteLength} bytes)`);
     stegoImageBlob = new Blob([stegoBytes], { type: 'image/png' });
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
@@ -288,6 +325,7 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SHORTEN_TIMEOUT);
     try {
+      pushDebug(`Shortener ${SHORT_NAMES[provider]}: request start`);
       const res = await fetch('/api/shorten', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -295,8 +333,15 @@
         signal: controller.signal,
       });
       const data = await res.json();
-      if (res.ok && data?.shorturl) return data.shorturl;
-    } catch {} finally {
+      pushDebug(`Shortener ${SHORT_NAMES[provider]}: HTTP ${res.status}`);
+      if (res.ok && data?.shorturl) {
+        pushDebug(`Shortener ${SHORT_NAMES[provider]}: success -> ${data.shorturl}`);
+        return data.shorturl;
+      }
+      if (data?.error) pushDebug(`Shortener ${SHORT_NAMES[provider]}: ${data.error}`);
+    } catch (e: any) {
+      pushDebug(`Shortener ${SHORT_NAMES[provider]}: ${e?.name === 'AbortError' ? 'timeout' : e?.message || 'failed'}`);
+    } finally {
       clearTimeout(timer);
     }
     return null;
@@ -346,6 +391,7 @@
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
     stegoImageBlob = null;
+    debugLog = [];
   }
 
   onMount(() => {});
@@ -422,6 +468,12 @@
 
       {#if error}
         <p class="text-xs text-red-500">{error}</p>
+        {#if debugLog.length}
+          <details class="text-[11px]">
+            <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.debugTitle')}</summary>
+            <pre class="mt-2 whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
+          </details>
+        {/if}
       {/if}
 
       <button
@@ -437,6 +489,12 @@
   {:else if step === 'processing'}
     <div class="space-y-4">
       <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')} />
+      {#if debugLog.length}
+        <details class="text-[11px]">
+          <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.debugTitle')}</summary>
+          <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
+        </details>
+      {/if}
       {#if error}
         <p class="text-xs text-red-500">{error}</p>
       {/if}
@@ -482,6 +540,13 @@
       {/if}
 
       <button type="button" class="btn-outline w-full text-xs" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
+
+      {#if debugLog.length}
+        <details class="text-[11px]">
+          <summary class="cursor-pointer select-none text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.debugTitle')}</summary>
+          <pre class="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-3 text-[10px] font-mono text-zinc-600 dark:text-zinc-300">{debugLog.join('\n')}</pre>
+        </details>
+      {/if}
     </div>
   {/if}
 </div>
