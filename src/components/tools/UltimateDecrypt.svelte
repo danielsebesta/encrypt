@@ -28,9 +28,10 @@
   let openedCodeHtml = '';
   let openedCodeLanguage = '';
   let openedCsvRows: string[][] = [];
+  let openedZipEntries: { name: string; size: number; compressed: number; isDir: boolean }[] = [];
   let previewTruncated = false;
 
-  type PreviewType = 'none' | 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'code' | 'csv';
+  type PreviewType = 'none' | 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'code' | 'csv' | 'zip';
   let previewType: PreviewType = 'none';
 
   const TEXT_PREVIEW_LIMIT = 200_000;
@@ -50,12 +51,44 @@
     return map[ext] || 'application/octet-stream';
   }
 
-  function detectPreview(mime: string): PreviewType {
+  function detectPreview(mime: string, name: string): PreviewType {
     if (mime.startsWith('image/')) return 'image';
     if (mime.startsWith('video/')) return 'video';
     if (mime.startsWith('audio/')) return 'audio';
     if (mime === 'application/pdf') return 'pdf';
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (ext === 'zip' || ext === 'cbz' || mime === 'application/zip') return 'zip';
     return 'none';
+  }
+
+  function parseZipDirectory(bytes: Uint8Array): typeof openedZipEntries {
+    const entries: typeof openedZipEntries = [];
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    // Find End of Central Directory (scan last 64KB max)
+    let eocdOffset = -1;
+    const searchStart = Math.max(0, bytes.length - 65557);
+    for (let i = bytes.length - 22; i >= searchStart; i--) {
+      if (view.getUint32(i, true) === 0x06054b50) { eocdOffset = i; break; }
+    }
+    if (eocdOffset === -1) return entries;
+
+    const cdOffset = view.getUint32(eocdOffset + 16, true);
+    const cdCount = view.getUint16(eocdOffset + 10, true);
+    let pos = cdOffset;
+
+    for (let i = 0; i < cdCount && pos + 46 <= bytes.length; i++) {
+      if (view.getUint32(pos, true) !== 0x02014b50) break;
+      const compressed = view.getUint32(pos + 20, true);
+      const size = view.getUint32(pos + 24, true);
+      const nameLen = view.getUint16(pos + 28, true);
+      const extraLen = view.getUint16(pos + 30, true);
+      const commentLen = view.getUint16(pos + 32, true);
+      const name = new TextDecoder().decode(bytes.slice(pos + 46, pos + 46 + nameLen));
+      const isDir = name.endsWith('/');
+      entries.push({ name, size, compressed, isDir });
+      pos += 46 + nameLen + extraLen + commentLen;
+    }
+    return entries;
   }
 
   function extensionFromName(name: string): string {
@@ -232,6 +265,7 @@
     openedCodeHtml = '';
     openedCodeLanguage = '';
     openedCsvRows = [];
+    openedZipEntries = [];
     previewTruncated = false;
     previewType = 'none';
     if (openedFileUrl) {
@@ -512,14 +546,17 @@
     openedFileName = name;
     const mime = mimeFromName(name);
     openedFileMime = mime;
-    previewType = detectPreview(mime);
+    previewType = detectPreview(mime, name);
 
     // Always create blob URL for download button
     const copy = new Uint8Array(bytes);
     const blob = new Blob([copy], { type: mime });
     openedFileUrl = URL.createObjectURL(blob);
 
-    if (previewType === 'none') {
+    if (previewType === 'zip') {
+      openedZipEntries = parseZipDirectory(bytes);
+      pushDebug(`ZIP archive: ${openedZipEntries.length} entries parsed`);
+    } else if (previewType === 'none') {
       prepareTextualPreview(bytes, name);
     }
 
@@ -743,6 +780,28 @@
         {/key}
       {:else if previewType === 'pdf'}
         <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
+      {:else if previewType === 'zip' && openedZipEntries.length > 0}
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
+          <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{openedZipEntries.filter(e => !e.isDir).length} files</span>
+          </div>
+          <div class="max-h-[50vh] overflow-auto">
+            {#each openedZipEntries as entry}
+              <div class="flex items-center gap-2 px-4 py-1.5 text-xs border-t border-zinc-100 dark:border-zinc-800/50 first:border-t-0">
+                {#if entry.isDir}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400 shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                {/if}
+                <span class="truncate flex-1 text-zinc-700 dark:text-zinc-300" class:font-medium={entry.isDir}>{entry.name}</span>
+                {#if !entry.isDir}
+                  <span class="text-[10px] text-zinc-400 tabular-nums shrink-0">{entry.size < 1024 ? `${entry.size} B` : entry.size < 1048576 ? `${(entry.size / 1024).toFixed(1)} KB` : `${(entry.size / 1048576).toFixed(1)} MB`}</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </div>
       {:else if previewType === 'csv'}
         <div class="overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70">
           <table class="min-w-full text-xs">
