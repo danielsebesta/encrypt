@@ -8,22 +8,41 @@ type Props = {
 const { dict } = Astro.props;
 ---
 
-<section class="home-shell">
-  <div class="max-w-7xl mx-auto px-5 pt-6 pb-20 md:pt-10 md:pb-28">
-    <div data-aos data-aos-delay="0">
-      <div class="max-w-2xl">
-        <h2 class="text-3xl md:text-5xl font-black tracking-[-0.04em] text-zinc-950 dark:text-zinc-50">
-          {t(dict, 'home.cta.title')}
-          <span class="text-emerald-600 dark:text-emerald-400"> {t(dict, 'home.cta.titleHighlight')}</span>
-        </h2>
-        <p class="mt-4 text-sm md:text-base leading-7 text-zinc-600 dark:text-zinc-300">
-          {t(dict, 'home.cta.subtitle')}
-        </p>
-      </div>
+<section class="relative z-1">
+  <div class="max-w-7xl mx-auto px-5 pb-20 md:pb-28">
+    <div class="home-closing-panel">
+      <div class="grid md:grid-cols-[1fr_auto] gap-8 items-center">
+        <div data-aos data-aos-delay="0">
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 mb-3">
+            {t(dict, 'home.privacyExplainer.eyebrow')}
+          </p>
+          <h2 class="text-2xl md:text-4xl font-black tracking-[-0.03em] text-zinc-950 dark:text-zinc-50 max-w-xl">
+            {t(dict, 'home.privacyExplainer.title')}
+          </h2>
+          <p class="mt-4 text-sm md:text-base leading-7 text-zinc-500 dark:text-zinc-400 max-w-lg">
+            {t(dict, 'home.privacyExplainer.p1')}
+          </p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <a href="/tools/aes-words" class="btn px-6 py-3 text-sm">{t(dict, 'home.cta.primary')}</a>
+            <a
+              href="https://github.com/danielsebesta/encrypt.click"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn-outline px-6 py-3 text-sm"
+            >
+              {t(dict, 'home.privacyExplainer.cta')}
+            </a>
+          </div>
+        </div>
 
-      <div class="mt-8 flex flex-wrap gap-3">
-        <a href="/tools/aes-words" class="btn px-6 py-3.5 text-sm md:text-base">{t(dict, 'home.cta.primary')}</a>
-        <a href="/tools/token" class="btn-outline px-6 py-3.5 text-sm md:text-base">{t(dict, 'home.cta.secondary')}</a>
+        <div class="hidden md:block" data-aos data-aos-delay="120">
+          <img
+            src="/encrypt_lock.svg"
+            alt=""
+            class="w-32 lg:w-44 h-auto opacity-80 dark:opacity-60"
+            loading="lazy"
+          />
+        </div>
       </div>
     </div>
   </div>
