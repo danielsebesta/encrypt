@@ -620,12 +620,89 @@ export async function fetchSendEncryptedBlob(urlString: string, onDebug?: DebugF
   return fetchSendBlob(baseUrl, id, keychain, onDebug);
 }
 
+async function deriveEceKey(ikm: Uint8Array, salt: Uint8Array) {
+  const baseKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
+  const aesKey = await crypto.subtle.deriveKey(
+    { name: 'HKDF', salt, info: encoder.encode('Content-Encoding: aes128gcm\0'), hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 128 },
+    true,
+    ['decrypt'],
+  );
+  const nonceKey = await crypto.subtle.deriveKey(
+    { name: 'HKDF', salt, info: encoder.encode('Content-Encoding: nonce\0'), hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 128 },
+    true,
+    ['encrypt', 'decrypt'],
+  );
+  const nonceBase = new Uint8Array(await crypto.subtle.exportKey('raw', nonceKey)).slice(0, NONCE_LENGTH);
+  return { aesKey, nonceBase };
+}
+
+function eceNonce(nonceBase: Uint8Array, seq: number) {
+  const nonce = new Uint8Array(nonceBase);
+  const view = new DataView(nonce.buffer, nonce.byteOffset, nonce.byteLength);
+  const mixed = (view.getUint32(NONCE_LENGTH - 4) ^ seq) >>> 0;
+  view.setUint32(NONCE_LENGTH - 4, mixed);
+  return nonce;
+}
+
+function eceUnpad(data: Uint8Array, isLast: boolean) {
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (data[i]) {
+      if (isLast && data[i] !== 2) throw new Error('invalid final record delimiter');
+      if (!isLast && data[i] !== 1) throw new Error('invalid record delimiter');
+      return data.slice(0, i);
+    }
+  }
+  throw new Error('no delimiter found');
+}
+
+async function decryptEceBytes(encryptedBytes: Uint8Array, ikm: Uint8Array, onDebug?: DebugFn): Promise<Uint8Array> {
+  const headerView = new DataView(encryptedBytes.buffer, encryptedBytes.byteOffset, encryptedBytes.byteLength);
+  const salt = encryptedBytes.slice(0, KEY_LENGTH);
+  const rs = headerView.getUint32(KEY_LENGTH);
+  const idlen = headerView.getUint8(KEY_LENGTH + 4);
+  const headerLen = KEY_LENGTH + 5 + idlen;
+  onDebug?.(`ECE header: salt=${salt.length}B, rs=${rs}, idlen=${idlen}, headerLen=${headerLen}`);
+
+  const { aesKey, nonceBase } = await deriveEceKey(ikm, salt);
+
+  const body = encryptedBytes.slice(headerLen);
+  const parts: Uint8Array[] = [];
+  let offset = 0;
+  let seq = 0;
+
+  while (offset < body.length) {
+    const end = Math.min(offset + rs, body.length);
+    const record = body.slice(offset, end);
+    const isLast = end >= body.length;
+
+    const nonce = eceNonce(nonceBase, seq);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+      aesKey,
+      record,
+    );
+    parts.push(eceUnpad(new Uint8Array(decrypted), isLast));
+    offset = end;
+    seq++;
+  }
+
+  let totalLen = 0;
+  for (const p of parts) totalLen += p.length;
+  const result = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const p of parts) { result.set(p, pos); pos += p.length; }
+  return result;
+}
+
 export async function decryptSendBlob(encryptedBytes: Uint8Array, urlString: string, onDebug?: DebugFn): Promise<Uint8Array> {
   const { baseUrl, secret } = parseSendDownloadUrl(urlString);
   const key = b64ToArray(secret);
   onDebug?.(`Send ${baseUrl}: decrypting ECE blob client-side (${encryptedBytes.byteLength} bytes)`);
-  const decryptedStream = decryptStream(new Blob([encryptedBytes]).stream() as ReadableStream<Uint8Array>, key);
-  const decryptedBytes = await streamToUint8Array(decryptedStream);
+  const decryptedBytes = await decryptEceBytes(encryptedBytes, key, onDebug);
   onDebug?.(`Send ${baseUrl}: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
   return decryptedBytes;
 }
