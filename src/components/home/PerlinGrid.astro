@@ -6,14 +6,16 @@
 </div>
 
 <script>
-  const COLS = 24;
-  const ROWS = 12;
+  const CELL_SIZE = 48;
   const grid = document.getElementById('perlin-grid');
   if (grid) {
+    const rect = grid.parentElement!.getBoundingClientRect();
+    const COLS = Math.ceil(rect.width / CELL_SIZE) + 1;
+    const ROWS = Math.ceil(rect.height / CELL_SIZE) + 1;
     const isDark = document.documentElement.classList.contains('dark');
     const cells: { el: HTMLDivElement; r: number; c: number; prev: string }[] = [];
 
-    grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+    grid.style.setProperty('--perlin-cols', String(COLS));
 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -113,8 +115,8 @@
 
   .perlin-grid {
     display: grid;
-    width: 100%;
-    height: 100%;
+    grid-template-columns: repeat(var(--perlin-cols, 24), 48px);
+    grid-auto-rows: 48px;
     border: none;
     opacity: 0.75;
   }
@@ -124,7 +126,8 @@
   }
 
   .perlin-grid :global(.perlin-cell) {
-    aspect-ratio: 1;
+    width: 48px;
+    height: 48px;
     border: 0.5px solid rgba(16, 185, 129, 0.08);
     transition: background-color 1.6s linear;
     will-change: background-color;
