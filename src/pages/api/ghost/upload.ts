@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { checkRateLimit } from '../../../lib/rateLimit';
 import type { SendInstance } from '../../../lib/nologSend';
-import { uploadToSendHttp } from '../../../lib/nologSend';
+import { uploadToSendHttp, proxySendUpload } from '../../../lib/nologSend';
 
 export const prerender = false;
 
@@ -237,7 +237,7 @@ async function uploadLitterbox(file: Uint8Array, filename: string): Promise<stri
   return text;
 }
 
-async function uploadNologSend(file: Uint8Array, filename: string): Promise<string> {
+async function uploadNologSendLegacy(file: Uint8Array, filename: string): Promise<string> {
   const failures: string[] = [];
 
   for (const instance of SEND_INSTANCES) {
@@ -251,8 +251,22 @@ async function uploadNologSend(file: Uint8Array, filename: string): Promise<stri
   throw new Error(`Send network failed (${failures.join(' | ')})`);
 }
 
+async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string): Promise<string> {
+  const failures: string[] = [];
+
+  for (const instance of SEND_INSTANCES) {
+    try {
+      return await proxySendUpload(instance.baseUrl, encryptedBytes, metadataB64, authHeader, secretB64);
+    } catch (e: any) {
+      failures.push(`${instance.label}: ${e?.message || 'upload failed'}`);
+    }
+  }
+
+  throw new Error(`Send network failed (${failures.join(' | ')})`);
+}
+
 const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
-  nologsend: uploadNologSend,
+  nologsend: uploadNologSendLegacy,
   imgbb: uploadImgBB,
   sxcu: uploadSxcu,
   freeimage: uploadFreeImage,
@@ -331,11 +345,21 @@ export const POST: APIRoute = async ({ request, url }) => {
     const filename = params.get('filename') || (isStego ? 'ghost.png' : 'ghost.bin');
     const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
 
+    const sendMetadataB64 = request.headers.get('X-Send-Metadata');
+    const sendAuth = request.headers.get('X-Send-Auth');
+    const sendSecret = request.headers.get('X-Send-Secret');
+    const isSendProxy = !!(sendMetadataB64 && sendAuth && sendSecret);
+
     const results: ServiceResult[] = await Promise.all(
       requestedServices.map(async (service) => {
         try {
-          const url = await SERVICES[service](buffer, filename);
-          return { service, url };
+          let resultUrl: string;
+          if (service === 'nologsend' && isSendProxy) {
+            resultUrl = await uploadNologSendProxy(buffer, sendMetadataB64, sendAuth, sendSecret);
+          } else {
+            resultUrl = await SERVICES[service](buffer, filename);
+          }
+          return { service, url: resultUrl };
         } catch (e: any) {
           const message = e?.message || 'Upload failed';
           const details = typeof message === 'string' && message.startsWith('Send network failed (') && message.endsWith(')')
