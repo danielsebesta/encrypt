@@ -1,0 +1,75 @@
+---
+import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
+import { t, type Locale } from '../../lib/i18n';
+
+type Props = {
+  locale: Locale;
+  dict: Record<string, string>;
+};
+
+const { locale, dict } = Astro.props;
+---
+
+<section class="home-shell home-hero-section">
+  <div class="home-backdrop" aria-hidden="true"></div>
+  <div class="max-w-7xl mx-auto px-5 pt-10 md:pt-16 pb-10 md:pb-14">
+    <div class="grid xl:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)] gap-8 md:gap-10 items-start">
+      <div class="space-y-6 md:space-y-8" data-aos data-aos-delay="0">
+        <div class="space-y-4">
+          <span class="home-kicker">{t(dict, 'home.hero.badge')}</span>
+          <div class="space-y-4">
+            <h1 class="text-4xl md:text-6xl leading-[1.02] tracking-[-0.04em] font-black max-w-2xl text-zinc-950 dark:text-zinc-50">
+              {t(dict, 'home.hero.title.line1')}
+              <br />
+              <span class="text-emerald-600 dark:text-emerald-400">{t(dict, 'home.hero.title.line2')}</span>
+            </h1>
+            <p class="max-w-xl text-base md:text-lg leading-7 text-zinc-600 dark:text-zinc-300">
+              {t(dict, 'home.hero.subtitle')}
+            </p>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3 md:gap-4 max-w-2xl">
+          <div class="home-feature-chip" data-aos data-aos-delay="60">
+            <span class="home-feature-chip__label">{t(dict, 'home.hero.proof1.title')}</span>
+            <p class="home-feature-chip__text">{t(dict, 'home.hero.proof1.text')}</p>
+          </div>
+          <div class="home-feature-chip" data-aos data-aos-delay="120">
+            <span class="home-feature-chip__label">{t(dict, 'home.hero.proof2.title')}</span>
+            <p class="home-feature-chip__text">{t(dict, 'home.hero.proof2.text')}</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-center" data-aos data-aos-delay="120">
+          <a href="/tools/aes-words" class="btn px-6 py-3.5 text-sm md:text-base">{t(dict, 'home.hero.primaryCta')}</a>
+          <a
+            href="https://github.com/danielsebesta/encrypt.click"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-outline px-6 py-3.5 text-sm md:text-base"
+          >
+            {t(dict, 'home.hero.secondaryCta')}
+          </a>
+        </div>
+
+        <p class="home-inline-note" data-aos data-aos-delay="120">{t(dict, 'home.hero.note')}</p>
+      </div>
+
+      <div data-aos data-aos-delay="80">
+        <div class="home-tool-panel">
+          <div class="home-tool-panel__meta">
+            <div>
+              <span class="home-tool-panel__eyebrow">{t(dict, 'home.hero.panelLabel')}</span>
+              <p class="home-tool-panel__title">{t(dict, 'home.hero.panelTitle')}</p>
+            </div>
+            <span class="home-tool-panel__status">{t(dict, 'home.hero.panelStatus')}</span>
+          </div>
+
+          <div class="home-tool-panel__surface">
+            <UltimateEncrypt client:load locale={locale} />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

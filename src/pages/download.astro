@@ -8,19 +8,18 @@ const dict = getTranslations(locale);
 ---
 
 <Layout 
-  title="Decrypt & Download — Ghost Drop"
-  description="Use your magic link to fetch ciphertext via the encrypt.click tunnel and decrypt the file locally in your browser."
+  title={t(dict, 'downloadPage.meta.title')}
+  description={t(dict, 'downloadPage.meta.description')}
 >
   <div class="max-w-3xl mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-10">
       <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-        Decrypt &amp; <span class="text-emerald-500">Download.</span>
+        {t(dict, 'downloadPage.h1')} <span class="text-emerald-500">{t(dict, 'downloadPage.h1Highlight')}</span>
       </h1>
       <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">
-        This page takes the magic link payload from the URL hash, pulls the encrypted file through the Buzzheavier tunnel, and decrypts it locally with your password.
+        {t(dict, 'downloadPage.subtitle')}
       </p>
     </div>
-    <EncryptTunnelDownloadView client:load />
+    <EncryptTunnelDownloadView client:load locale={locale} />
   </div>
 </Layout>
-

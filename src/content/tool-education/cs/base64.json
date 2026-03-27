@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Base64 vysvětleně — kódování, ne šifrování",
+  "metaDescription": "Pochopte, co Base64 dělá, kde se používá, proč zvětšuje data a proč ho nelze považovat za šifrování.",
+  "hero": {
+    "category": "Kódování",
+    "difficulty": "Začátečník",
+    "bestFor": ["JSON", "Data URL", "Přenos v textu"]
+  },
+  "quick": {
+    "what": "Převádí binární data na znaky bezpečné pro text.",
+    "use": "Posílání souborů nebo bajtů přes systémy, které dobře zvládají hlavně text.",
+    "notFor": "Ochranu tajemství. Base64 dokáže kdokoli během chvíle dekódovat."
+  },
+  "learn": {
+    "intro": {
+      "title": "Jednoduše řečeno",
+      "text": "Base64 je formát pro zabalení dat. Vezme původní bajty a přepíše je pomocí písmen, čísel a několika dalších znaků tak, aby výsledek mohl bezpečně cestovat přes textové kanály."
+    },
+    "how": {
+      "title": "Jak to funguje",
+      "text": "Base64 seskupuje data po 3 bajtech a těchto 24 bitů pak přemapuje na 4 tisknutelné znaky. Proto výstup vypadá jinak, ale stále ho lze beze ztráty vrátit zpět."
+    },
+    "useCases": {
+      "title": "Kde se hodí",
+      "items": [
+        "Vkládání obrázků nebo souborů do JSON payloadů.",
+        "Přenos binárních dat přes e-mail nebo jiné textové kanály.",
+        "Tvorba data URL pro malé assety v HTML nebo CSS."
+      ]
+    },
+    "mistake": {
+      "title": "Častý omyl",
+      "text": "Lidé si často myslí, že Base64 něco skrývá, protože výstup vypadá jako změť znaků. Neschovává. Kdo řetězec vidí, ten ho obvykle umí hned dekódovat."
+    },
+    "history": {
+      "title": "Historie / zajímavost",
+      "text": "Base64 se rozšířilo proto, že starší systémy a protokoly mnohem lépe pracovaly s textem než se syrovými binárními daty. Nevýhodou je velikost: výstup bývá asi o třetinu větší."
+    },
+    "security": {
+      "title": "Bezpečnostní poznámka",
+      "text": "Pokud potřebujete utajení, nejdřív data zašifrujte a Base64 použijte až potom jen jako obal pro přenos."
+    },
+    "deepDive": {
+      "title": "Jít více do hloubky",
+      "sections": [
+        {
+          "title": "Proč je výstup větší",
+          "text": "Tři původní bajty se promění ve čtyři znaky Base64. Právě tento poměr způsobuje, že výsledná data narostou zhruba o 33 %."
+        },
+        {
+          "title": "Proč se objevuje padding",
+          "text": "Když délka vstupu není dělitelná třemi, Base64 doplní znak '=' aby výstup pořád odpovídal očekávaným čtyřznakovým skupinám."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "base64",
+    "title": "Tři bajty se změní na čtyři znaky",
+    "caption": "Base64 přepisuje stejné bity do textové abecedy vhodné pro přenos. Mění reprezentaci, ne význam."
+  }
+}

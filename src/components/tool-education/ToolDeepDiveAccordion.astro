@@ -1,0 +1,22 @@
+---
+import type { ToolEducationSection } from '../../lib/toolEducation';
+
+type Props = {
+  title: string;
+  sections: ToolEducationSection[];
+};
+
+const { title, sections } = Astro.props;
+---
+
+<section class="tool-accordion">
+  <h3 class="tool-accordion__title">{title}</h3>
+  <div class="tool-accordion__items">
+    {sections.map((section) => (
+      <details class="tool-accordion__item">
+        <summary class="tool-accordion__summary">{section.title}</summary>
+        <p class="tool-accordion__text">{section.text}</p>
+      </details>
+    ))}
+  </div>
+</section>

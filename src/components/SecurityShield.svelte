@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { getTranslations, t } from '../lib/i18n';
+
+  export let compact = false;
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
+
   const badges = [
     {
       label: "Mozilla",
@@ -22,12 +28,12 @@
     },
     {
       label: "IPv6",
-      value: "Enabled",
+      valueKey: "securityShield.value.enabled",
       url: "https://internet.nl/site/encrypt.click/"
     },
     {
       label: "HTTPS",
-      value: "Enforced + HSTS",
+      valueKey: "securityShield.value.https",
       url: "https://www.ssllabs.com/ssltest/analyze.html?d=encrypt.click"
     },
     {
@@ -37,22 +43,22 @@
     },
     {
       label: "Blacklight",
-      value: "0 trackers",
+      valueKey: "securityShield.value.trackers",
       url: "https://themarkup.org/blacklight?url=encrypt.click&device=desktop&location=eu"
     },
     {
       label: "VirusTotal",
-      value: "0/96 Clean",
+      valueKey: "securityShield.value.clean",
       url: "https://www.virustotal.com/gui/url/944f987ea48525e22521aafe660fe63203bc044507e3e323d64f1f602bc6b105"
     },
     {
       label: "HSTS",
-      value: "1 Year",
+      valueKey: "securityShield.value.oneYear",
       url: "https://hstspreload.org/?domain=encrypt.click"
     },
     {
       label: "DNSSEC",
-      value: "Verified",
+      valueKey: "securityShield.value.verified",
       url: "https://dnsviz.net/d/encrypt.click/dnssec/"
     },
     {
@@ -62,7 +68,7 @@
     },
     {
       label: "Webbkoll",
-      value: "0 cookies · 0 third-party",
+      valueKey: "securityShield.value.cookies",
       url: "https://webbkoll.5july.net/en/results?url=http%3A%2F%2Fencrypt.click"
     },
     {
@@ -81,18 +87,31 @@
       url: "https://zonemaster.net/en/result/2a3c2789231a4695/"
     }
   ];
+
+  const compactBadges = [
+    "Mozilla",
+    "SecurityHeaders",
+    "Blacklight",
+    "SSL Labs",
+    "Website Carbon",
+    "VirusTotal",
+  ];
+
+  $: visibleBadges = compact
+    ? badges.filter((badge) => compactBadges.includes(badge.label))
+    : badges;
 </script>
 
-<div class="flex flex-wrap gap-3 justify-center">
-  {#each badges as badge}
+<div class={`flex flex-wrap ${compact ? 'gap-2.5 justify-start' : 'gap-3 justify-center'}`}>
+  {#each visibleBadges as badge}
     <a
       href={badge.url}
       target="_blank"
       rel="noopener noreferrer"
-      class="badge-outline hover:border-emerald-500/50 transition-all active:scale-95 gap-1.5 py-1.5 px-3"
+      class={`badge-outline hover:border-emerald-500/50 transition-all active:scale-95 gap-1.5 ${compact ? 'py-1.5 px-3 bg-white/70 dark:bg-zinc-950/30' : 'py-1.5 px-3'}`}
     >
       <span class="text-zinc-500 dark:text-zinc-400">{badge.label}</span>
-      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{badge.value}</span>
+      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{badge.valueKey ? t(dict, badge.valueKey) : badge.value}</span>
     </a>
   {/each}
 </div>

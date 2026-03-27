@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Enigma Explained — Rotor Cipher History and Simulation",
+  "metaDescription": "Learn what the Enigma machine was, how rotor encryption worked, and why it matters historically even though it is not modern security.",
+  "hero": {
+    "category": "Historical cryptography",
+    "difficulty": "Beginner",
+    "bestFor": ["Learning history", "Cipher mechanics", "Classroom demos"]
+  },
+  "quick": {
+    "what": "Simulates the German Enigma rotor cipher machine.",
+    "use": "Learning how mechanical encryption worked before modern digital cryptography.",
+    "notFor": "Protecting modern secrets."
+  },
+  "learn": {
+    "intro": {
+      "title": "In plain English",
+      "text": "Enigma was an electro-mechanical cipher machine that scrambled letters using rotating components. It was famous during World War II and is now one of the best teaching tools in cryptography history."
+    },
+    "how": {
+      "title": "How it works",
+      "text": "When you press a key, the signal passes through a plugboard, rotating rotors, and a reflector, then returns along a different path to light up the encrypted letter. Because the rotors move after each keypress, the substitution keeps changing."
+    },
+    "useCases": {
+      "title": "Where you'd use it",
+      "items": [
+        "Understanding how changing substitution differs from simple ciphers like Caesar.",
+        "Teaching the historical link between cryptography, war, and computing.",
+        "Experimenting with rotor settings to see how tiny changes affect output."
+      ]
+    },
+    "mistake": {
+      "title": "Common mistake",
+      "text": "It is easy to assume Enigma was unbreakable because it looked incredibly complex. In practice, operator habits, captured materials, and deep analysis made it vulnerable."
+    },
+    "history": {
+      "title": "History / fun fact",
+      "text": "Enigma is historically important not just because it encrypted messages, but because the effort to break it helped push forward modern cryptanalysis and early computing."
+    },
+    "security": {
+      "title": "Security note",
+      "text": "Enigma is a historical system and should be treated as an educational simulation, not as a serious protection method."
+    },
+    "deepDive": {
+      "title": "Deeper look",
+      "sections": [
+        {
+          "title": "Why rotor stepping mattered",
+          "text": "The rotor positions changed after each keypress, so the same letter could encrypt to different outputs as the message progressed."
+        },
+        {
+          "title": "Why it was eventually broken",
+          "text": "Enigma's strength depended on both machine design and operator discipline. Repeated message habits, known phrases, and mathematical analysis all helped cryptanalysts reduce the search space."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "enigma",
+    "title": "Signal path through a rotor machine",
+    "caption": "The moving rotors are what make Enigma more interesting than a fixed alphabet substitution."
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "metaTitle": "JWT Explained — Decode vs Verify",
+  "metaDescription": "Learn what a JWT is, why decoding is not the same as verification, and how to safely inspect token headers and claims.",
+  "hero": {
+    "category": "Token inspection",
+    "difficulty": "Beginner",
+    "bestFor": ["Debugging claims", "Reading headers", "Developer troubleshooting"]
+  },
+  "quick": {
+    "what": "Shows what is inside a JSON Web Token.",
+    "use": "Inspecting claims, expiration times, issuers, and token structure during debugging.",
+    "notFor": "Deciding that a token is trustworthy just because you can read it."
+  },
+  "learn": {
+    "intro": {
+      "title": "In plain English",
+      "text": "A JWT is a compact token format used to carry structured data such as user IDs, roles, or expiration times. This tool helps you read that data locally."
+    },
+    "how": {
+      "title": "How it works",
+      "text": "A JWT usually has three parts: header, payload, and signature. The first two parts are Base64URL-encoded JSON, so they are easy to decode. The signature is what tells you whether the token was actually issued by someone you trust."
+    },
+    "useCases": {
+      "title": "Where you'd use it",
+      "items": [
+        "Checking when a token expires during app debugging.",
+        "Inspecting claims like issuer, subject, audience, or roles.",
+        "Understanding why a backend accepted or rejected a token."
+      ]
+    },
+    "mistake": {
+      "title": "Common mistake",
+      "text": "Decoding a JWT only tells you what the token says, not whether it is genuine. A forged token can still decode perfectly."
+    },
+    "history": {
+      "title": "History / fun fact",
+      "text": "JWT became popular because it is compact and easy to move between services. That convenience is also why people often over-trust it: the contents are readable, so it feels more trustworthy than it really is."
+    },
+    "security": {
+      "title": "Security note",
+      "text": "Real verification requires checking the signature with the correct secret or public key and validating claims like exp, aud, and iss in the right context."
+    },
+    "deepDive": {
+      "title": "Deeper look",
+      "sections": [
+        {
+          "title": "Header vs payload",
+          "text": "The header says how the token is signed. The payload carries claims. Both are readable after decoding and neither should be treated as trusted by themselves."
+        },
+        {
+          "title": "What signature verification requires",
+          "text": "To verify a JWT, you need the expected algorithm, the right secret or public key, and claim validation logic that matches your application."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "jwt",
+    "title": "A JWT is three parts joined by dots",
+    "caption": "Readable content lives in the header and payload. Trust comes from proper signature verification, not from decoding."
+  }
+}

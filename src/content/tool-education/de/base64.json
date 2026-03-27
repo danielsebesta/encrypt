@@ -1,0 +1,62 @@
+{
+  "metaTitle": "Base64 erklärt — Kodierung, nicht Verschlüsselung",
+  "metaDescription": "Verstehe, was Base64 macht, wo es eingesetzt wird, warum es Daten vergrößert und warum es nichts mit Geheimhaltung zu tun hat.",
+  "hero": {
+    "category": "Kodierung",
+    "difficulty": "Einsteiger",
+    "bestFor": ["JSON", "Data-URLs", "Textbasierter Transport"]
+  },
+  "quick": {
+    "what": "Wandelt Binärdaten in texttaugliche Zeichen um.",
+    "use": "Wenn Bytes durch Systeme müssen, die mit reinem Text besser umgehen können.",
+    "notFor": "Geheimhaltung. Base64 lässt sich in Sekunden zurückdekodieren."
+  },
+  "learn": {
+    "intro": {
+      "title": "Einfach erklärt",
+      "text": "Base64 ist ein Verpackungsformat. Es nimmt rohe Bytes und schreibt sie mit Buchstaben, Zahlen und wenigen Zusatzzeichen so um, dass das Ergebnis problemlos durch textorientierte Systeme reisen kann."
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "text": "Base64 fasst Daten in Gruppen von 3 Bytes zusammen und ordnet diese 24 Bits anschließend 4 druckbaren Zeichen zu. Deshalb sieht die Ausgabe anders aus, bleibt aber vollständig rückrechenbar."
+    },
+    "useCases": {
+      "title": "Wofür man es nutzt",
+      "items": [
+        "Bilder oder Dateien in JSON- oder API-Payloads einbetten.",
+        "Binärdaten durch E-Mail oder andere Textkanäle schicken.",
+        "Data-URLs für kleine Assets in HTML oder CSS erzeugen."
+      ]
+    },
+    "mistake": {
+      "title": "Typischer Irrtum",
+      "text": "Viele Menschen glauben, Base64 verstecke Daten, weil die Ausgabe wie Zufallszeichen aussieht. Das stimmt nicht. Wer die Zeichenkette sehen kann, kann sie meist sofort dekodieren."
+    },
+    "history": {
+      "title": "Geschichte / Fun Fact",
+      "text": "Base64 wurde populär, weil ältere Systeme und Protokolle mit Text viel robuster umgehen konnten als mit rohen Binärdaten. Der Preis dafür ist Größe: Die Ausgabe wird ungefähr ein Drittel länger."
+    },
+    "security": {
+      "title": "Sicherheitshinweis",
+      "text": "Wenn du Vertraulichkeit brauchst, verschlüssele zuerst und verwende Base64 erst danach als Transporthülle."
+    },
+    "deepDive": {
+      "title": "Mehr Tiefe",
+      "sections": [
+        {
+          "title": "Warum die Ausgabe größer wird",
+          "text": "Aus drei ursprünglichen Bytes werden vier Base64-Zeichen. Genau dieses Verhältnis führt dazu, dass das Ergebnis rund 33 % größer ist."
+        },
+        {
+          "title": "Warum Padding auftaucht",
+          "text": "Wenn die Eingabelänge nicht durch 3 teilbar ist, ergänzt Base64 '='-Padding, damit die Ausgabe weiterhin in 4er-Gruppen passt."
+        }
+      ]
+    }
+  },
+  "diagram": {
+    "variant": "base64",
+    "title": "Aus drei Bytes werden vier Zeichen",
+    "caption": "Base64 schreibt dieselben Bits in ein textfreundliches Alphabet um. Es ändert die Darstellung, nicht den Inhalt."
+  }
+}

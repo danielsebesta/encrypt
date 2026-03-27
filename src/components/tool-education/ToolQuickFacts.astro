@@ -1,0 +1,26 @@
+---
+import { t } from '../../lib/i18n';
+import type { ToolQuickFactsEntry } from '../../lib/toolEducation';
+
+type Props = {
+  dict: Record<string, string>;
+  quick: ToolQuickFactsEntry;
+};
+
+const { dict, quick } = Astro.props;
+
+const items = [
+  { title: t(dict, 'toolEducation.quickWhat'), text: quick.what },
+  { title: t(dict, 'toolEducation.quickUse'), text: quick.use },
+  { title: t(dict, 'toolEducation.quickNotFor'), text: quick.notFor },
+];
+---
+
+<section class="tool-quick-facts">
+  {items.map((item) => (
+    <article class="tool-quick-facts__card">
+      <span class="tool-quick-facts__label">{item.title}</span>
+      <p class="tool-quick-facts__text">{item.text}</p>
+    </article>
+  ))}
+</section>
