@@ -123,8 +123,9 @@
 
   .perlin-grid {
     display: grid;
-    grid-template-columns: repeat(var(--perlin-cols, 24), 48px);
-    grid-auto-rows: 48px;
+    grid-template-columns: repeat(var(--perlin-cols, 24), 1fr);
+    grid-auto-rows: auto;
+    width: 100%;
     border: none;
     opacity: 0.75;
   }
@@ -134,8 +135,7 @@
   }
 
   .perlin-grid :global(.perlin-cell) {
-    width: 48px;
-    height: 48px;
+    aspect-ratio: 1;
     border: 0.5px solid rgba(16, 185, 129, 0.08);
     transition: background-color 1.6s linear;
     will-change: background-color;
