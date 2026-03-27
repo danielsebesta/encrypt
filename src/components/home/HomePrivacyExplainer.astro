@@ -1,0 +1,57 @@
+---
+import { t } from '../../lib/i18n';
+
+type Props = {
+  dict: Record<string, string>;
+};
+
+const { dict } = Astro.props;
+---
+
+<section class="home-shell">
+  <div class="max-w-7xl mx-auto px-5 py-12 md:py-20">
+    <div class="home-privacy-panel">
+      <div class="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(16rem,22rem)] gap-8 md:gap-12 items-center">
+        <div data-aos data-aos-delay="0">
+          <span class="home-kicker">{t(dict, 'home.privacyExplainer.eyebrow')}</span>
+          <h2 class="mt-3 text-3xl md:text-5xl font-black tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 max-w-2xl">
+            {t(dict, 'home.privacyExplainer.title')}
+          </h2>
+          <div class="mt-5 space-y-4 text-sm md:text-base leading-7 text-zinc-600 dark:text-zinc-300 max-w-2xl">
+            <p>{t(dict, 'home.privacyExplainer.p1')}</p>
+            <p>{t(dict, 'home.privacyExplainer.p2')}</p>
+          </div>
+          <div class="mt-6">
+            <a
+              href="https://github.com/danielsebesta/encrypt.click"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn-outline px-6 py-3 text-sm"
+            >
+              {t(dict, 'home.privacyExplainer.cta')}
+            </a>
+          </div>
+        </div>
+
+        <div class="home-illustration-stack" data-aos data-aos-delay="120">
+          <div class="home-illustration-frame" aria-hidden="true">
+            <img src="/encrypt_lock.svg" alt="" class="home-illustration-image" loading="lazy" />
+          </div>
+
+          <div class="home-diagram" aria-hidden="true">
+            <div class="home-diagram__label">{t(dict, 'home.privacyExplainer.diagramTop')}</div>
+            <div class="home-diagram__frame">
+              <div class="home-diagram__line"></div>
+              <div class="home-diagram__node">{t(dict, 'home.privacyExplainer.diagramBrowser')}</div>
+              <div class="home-diagram__line"></div>
+            </div>
+            <div class="home-diagram__bottom">
+              <span>{t(dict, 'home.privacyExplainer.diagramInput')}</span>
+              <span>{t(dict, 'home.privacyExplainer.diagramOutput')}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
