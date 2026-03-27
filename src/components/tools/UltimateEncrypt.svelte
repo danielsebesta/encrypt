@@ -14,7 +14,7 @@
 
   type Step = 'input' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'nolog' | 'dagd' | 'vgd' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
+  type ShortProvider = 'nolog' | 'dagd' | 'ulvis' | 'kratky' | 'spoome' | 'cleanuri' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -89,6 +89,10 @@
     return Array.from(arr, b => chars[b % chars.length]).join('');
   }
 
+  let dragging = false;
+  let dropZoneEl: HTMLElement;
+  let fileInputEl: HTMLInputElement;
+
   function handleFileChange(e: Event) {
     const target = e.target as HTMLInputElement;
     file = target.files?.[0] ?? null;
@@ -97,6 +101,36 @@
 
   function clearFile() {
     file = null;
+    if (fileInputEl) fileInputEl.value = '';
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    dragging = false;
+    const f = e.dataTransfer?.files?.[0];
+    if (f) { file = f; textInput = ''; }
+  }
+
+  function handleDragOver(e: DragEvent) {
+    e.preventDefault();
+    dragging = true;
+  }
+
+  function handleDragLeave() {
+    dragging = false;
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind === 'file') {
+        e.preventDefault();
+        const f = item.getAsFile();
+        if (f) { file = f; textInput = ''; }
+        return;
+      }
+    }
   }
 
   function setProgress(title: string, detail = '') {
@@ -389,12 +423,12 @@
   }
 
   // PRIMARY: privacy-first (no tracking, no logs) — shuffled to spread load
-  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'vgd'];
+  const PRIMARY_SHORT: ShortProvider[] = ['nolog', 'dagd', 'ulvis', 'kratky'];
   // FALLBACK: when primary fails (some tracking, but stable) — shuffled
   const FALLBACK_SHORT: ShortProvider[] = ['spoome', 'cleanuri', 'isgd', '1url'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {
-    nolog: 'Nolog.link', dagd: 'da.gd', vgd: 'v.gd',
+    nolog: 'Nolog.link', dagd: 'da.gd', ulvis: 'ulvis.net', kratky: 'kratky.link',
     spoome: 'spoo.me', cleanuri: 'CleanURI', isgd: 'is.gd', '1url': '1url.cz',
   };
 
@@ -478,31 +512,56 @@
 
 <div class="space-y-6 text-left">
   {#if step === 'input'}
-    <div class="space-y-5">
-      <div class="space-y-2">
-        <label class="label block" for="ue-text">{t(dict, 'tools.ultimateEncrypt.messageLabel')}</label>
-        <textarea
-          id="ue-text"
-          class="input min-h-[100px] resize-vertical font-mono text-xs"
-          bind:value={textInput}
-          placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
-          disabled={!!file}
-        ></textarea>
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <div class="space-y-4" on:paste={handlePaste}>
+      <!-- Side-by-side input: text left, file right -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Text input -->
+        <div class="ue-input-pane" class:ue-input-pane--active={!file && textInput.trim().length > 0} class:ue-input-pane--disabled={!!file}>
+          <label class="ue-input-pane__label" for="ue-text">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            {t(dict, 'tools.ultimateEncrypt.messageLabel')}
+          </label>
+          <textarea
+            id="ue-text"
+            class="ue-textarea"
+            bind:value={textInput}
+            placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
+            disabled={!!file}
+          ></textarea>
+        </div>
+
+        <!-- File drop zone -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div
+          class="ue-input-pane ue-drop-zone"
+          class:ue-input-pane--active={!!file}
+          class:ue-drop-zone--dragging={dragging}
+          bind:this={dropZoneEl}
+          on:drop={handleDrop}
+          on:dragover={handleDragOver}
+          on:dragleave={handleDragLeave}
+        >
+          {#if file}
+            <div class="flex flex-col items-center gap-2 text-center py-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{file.name}</span>
+              <span class="text-[10px] text-zinc-400">{file.size < 1024 * 1024 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / (1024 * 1024)).toFixed(1)} MB`}</span>
+              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline mt-1" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
+            </div>
+          {:else}
+            <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ue-file">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400 dark:text-zinc-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
+              <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Drop, paste, or click</span>
+            </label>
+            <input id="ue-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
+          {/if}
+        </div>
       </div>
 
-      <div class="space-y-2">
-        <label class="label block" for="ue-file">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</label>
-        {#if file}
-          <div class="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800">
-            <span class="text-xs font-mono truncate flex-1">{file.name} <span class="text-zinc-400">({(file.size / 1024).toFixed(1)} KB)</span></span>
-            <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
-          </div>
-        {:else}
-          <input id="ue-file" type="file" class="input cursor-pointer text-xs" on:change={handleFileChange} />
-        {/if}
-      </div>
-
-      <div class="space-y-2">
+      <!-- Password -->
+      <div class="space-y-1.5">
         <div class="flex items-center justify-between">
           <label class="label block" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
           <label class="inline-flex items-center gap-1.5 text-[10px] text-zinc-400 cursor-pointer select-none">
@@ -511,7 +570,7 @@
           </label>
         </div>
         {#if autoPassword}
-          <p class="text-[11px] text-zinc-400 italic">{t(dict, 'tools.ultimateEncrypt.autoGenerateHint')}</p>
+          <p class="text-[10px] text-zinc-400 italic">{t(dict, 'tools.ultimateEncrypt.autoGenerateHint')}</p>
         {:else}
           <input
             id="ue-pass"
@@ -524,20 +583,10 @@
         {/if}
       </div>
 
-      {#if payloadSize > 0}
-        <div class="flex items-center gap-2 text-[10px] text-zinc-400">
-          <span class="font-bold uppercase tracking-widest">{t(dict, 'tools.ultimateEncrypt.modeLabel')}</span>
-          {#if isLarge}
-            <span class="text-amber-500">{t(dict, 'tools.ultimateEncrypt.modeUpload')} ({(payloadSize / 1024).toFixed(1)} KB)</span>
-          {:else}
-            <span class="text-emerald-500">{t(dict, 'tools.ultimateEncrypt.modeDirect')} ({payloadSize} bytes)</span>
-          {/if}
-        </div>
-      {/if}
-
+      <!-- Advanced -->
       <details class="text-xs" bind:open={showAdvanced}>
         <summary class="cursor-pointer select-none text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-bold uppercase tracking-widest text-[10px]">{t(dict, 'tools.ultimateEncrypt.advancedOptions')}</summary>
-        <div class="mt-4 space-y-3 pl-1">
+        <div class="mt-3 space-y-3 pl-1">
           <label class="flex items-center gap-2 cursor-pointer select-none text-zinc-500 dark:text-zinc-400">
             <input type="checkbox" bind:checked={enableStego} class="accent-emerald-500" />
             <span>{t(dict, 'tools.ultimateEncrypt.hideInImage')}</span>
