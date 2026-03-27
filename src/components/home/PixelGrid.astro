@@ -18,42 +18,45 @@
   .falling-pattern__rain {
     position: absolute;
     inset: 0;
+    --streak: rgba(16,185,129,0.8);
+    --streak-dim: rgba(16,185,129,0.6);
+    --dot: rgba(16,185,129,0.9);
     background-image:
-      radial-gradient(4px 100px at 0px 235px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(4px 100px at 300px 235px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(1.5px 1.5px at 150px 117.5px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 252px, rgba(16,185,129,0.4), transparent),
-      radial-gradient(4px 100px at 300px 252px, rgba(16,185,129,0.4), transparent),
-      radial-gradient(1.5px 1.5px at 150px 126px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 150px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(4px 100px at 300px 150px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(1.5px 1.5px at 150px 75px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 253px, rgba(16,185,129,0.35), transparent),
-      radial-gradient(4px 100px at 300px 253px, rgba(16,185,129,0.35), transparent),
-      radial-gradient(1.5px 1.5px at 150px 126.5px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 204px, rgba(16,185,129,0.45), transparent),
-      radial-gradient(4px 100px at 300px 204px, rgba(16,185,129,0.45), transparent),
-      radial-gradient(1.5px 1.5px at 150px 102px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 134px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(4px 100px at 300px 134px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(1.5px 1.5px at 150px 67px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 179px, rgba(16,185,129,0.4), transparent),
-      radial-gradient(4px 100px at 300px 179px, rgba(16,185,129,0.4), transparent),
-      radial-gradient(1.5px 1.5px at 150px 89.5px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 299px, rgba(16,185,129,0.35), transparent),
-      radial-gradient(4px 100px at 300px 299px, rgba(16,185,129,0.35), transparent),
-      radial-gradient(1.5px 1.5px at 150px 149.5px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 215px, rgba(16,185,129,0.45), transparent),
-      radial-gradient(4px 100px at 300px 215px, rgba(16,185,129,0.45), transparent),
-      radial-gradient(1.5px 1.5px at 150px 107.5px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 281px, rgba(16,185,129,0.4), transparent),
-      radial-gradient(4px 100px at 300px 281px, rgba(16,185,129,0.4), transparent),
-      radial-gradient(1.5px 1.5px at 150px 140.5px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 158px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(4px 100px at 300px 158px, rgba(16,185,129,0.5), transparent),
-      radial-gradient(1.5px 1.5px at 150px 79px, rgba(16,185,129,0.7) 100%, transparent 150%),
-      radial-gradient(4px 100px at 0px 210px, rgba(16,185,129,0.45), transparent),
-      radial-gradient(4px 100px at 300px 210px, rgba(16,185,129,0.45), transparent);
+      radial-gradient(4px 100px at 0px 235px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 235px, var(--streak), transparent),
+      radial-gradient(1.5px 1.5px at 150px 117.5px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 252px, var(--streak-dim), transparent),
+      radial-gradient(4px 100px at 300px 252px, var(--streak-dim), transparent),
+      radial-gradient(1.5px 1.5px at 150px 126px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 150px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 150px, var(--streak), transparent),
+      radial-gradient(1.5px 1.5px at 150px 75px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 253px, var(--streak-dim), transparent),
+      radial-gradient(4px 100px at 300px 253px, var(--streak-dim), transparent),
+      radial-gradient(1.5px 1.5px at 150px 126.5px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 204px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 204px, var(--streak), transparent),
+      radial-gradient(1.5px 1.5px at 150px 102px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 134px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 134px, var(--streak), transparent),
+      radial-gradient(1.5px 1.5px at 150px 67px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 179px, var(--streak-dim), transparent),
+      radial-gradient(4px 100px at 300px 179px, var(--streak-dim), transparent),
+      radial-gradient(1.5px 1.5px at 150px 89.5px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 299px, var(--streak-dim), transparent),
+      radial-gradient(4px 100px at 300px 299px, var(--streak-dim), transparent),
+      radial-gradient(1.5px 1.5px at 150px 149.5px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 215px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 215px, var(--streak), transparent),
+      radial-gradient(1.5px 1.5px at 150px 107.5px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 281px, var(--streak-dim), transparent),
+      radial-gradient(4px 100px at 300px 281px, var(--streak-dim), transparent),
+      radial-gradient(1.5px 1.5px at 150px 140.5px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 158px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 158px, var(--streak), transparent),
+      radial-gradient(1.5px 1.5px at 150px 79px, var(--dot) 100%, transparent 150%),
+      radial-gradient(4px 100px at 0px 210px, var(--streak), transparent),
+      radial-gradient(4px 100px at 300px 210px, var(--streak), transparent);
     background-size:
       300px 235px, 300px 235px, 300px 235px,
       300px 252px, 300px 252px, 300px 252px,
@@ -75,13 +78,13 @@
   .falling-pattern__overlay {
     position: absolute;
     inset: 0;
-    backdrop-filter: blur(0.8em);
-    background-image: radial-gradient(circle at 50% 50%, transparent 0, transparent 1.5px, var(--overlay-bg, white) 1.5px);
-    background-size: 6px 6px;
+    backdrop-filter: blur(0.6em);
+    background-image: radial-gradient(circle at 50% 50%, transparent 0, transparent 1px, var(--overlay-bg, rgba(255,255,255,0.7)) 1px);
+    background-size: 5px 5px;
   }
 
   :global(html.dark) .falling-pattern__overlay {
-    --overlay-bg: #09090b;
+    --overlay-bg: rgba(9,9,11,0.7);
   }
 
   @keyframes fallingRain {
