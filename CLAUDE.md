@@ -1,62 +1,121 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository.
 
-## Project Overview
+## Project overview
 
-**encrypt.click** — a privacy-first, client-side security toolkit. All crypto runs 100% in-browser via Web Crypto API. No servers, no logs, no tracking. Deployed on Cloudflare Pages.
+**encrypt.click** is a privacy-first security toolkit built with Astro + Svelte. Most user-facing crypto runs in the browser, while a smaller set of server routes handle supporting flows such as Ghost Drop relays, URL shortening, and drand proxying.
 
 ## Commands
 
 ```bash
-yarn install        # install dependencies (Yarn 4 / Berry)
-yarn dev            # dev server at http://localhost:4321
-yarn build          # production build (outputs to dist/)
-yarn preview        # preview production build locally
+yarn install
+yarn dev
+yarn build
+yarn preview
 ```
 
-No test runner or linter is configured. Validate changes with `yarn build`.
+Validate changes with `yarn build`.
 
 ## Architecture
 
-**Stack:** Astro (static output) + Svelte 5 (interactive components) + Tailwind CSS v4. Cloudflare Pages adapter.
+- **Astro 5** page shell
+- **Svelte 5** interactive tools
+- **Tailwind CSS v4**
+- **Cloudflare adapter**
+- **Astro i18n** with `en`, `cs`, `de`
 
-### Key patterns
+### Main systems
 
-- **Tool = 3 parts:** Svelte component (`src/components/tools/*.svelte`) + Astro page (`src/pages/tools/*.astro`) + registry entry (`src/lib/tools.ts`)
-- **All crypto logic** lives in `src/lib/crypto.ts` — tool components import functions from here
-- **i18n:** Flat JSON dictionaries in `src/locales/{en,cs,de}.json`. All user-facing strings use `t(dict, 'key')` — never hardcode English. `en.json` is source of truth; `t()` falls back to English for missing keys.
-- **Standalone builds:** `generate-standalone.mjs` produces self-contained single-file HTML versions of each tool (inlined CSS/JS, trilingual). Runs automatically during `yarn build` via the `standalone-integration.mjs` Astro integration.
-- **Security headers** applied via `src/middleware.ts` (strict CSP, HSTS, X-Frame-Options, etc.). Dev mode relaxes CSP for HMR websockets.
-- **Ghost subsystem** (`src/lib/ghost/`) — steganography + crypto for anonymous upload feature, with API routes in `src/pages/api/ghost/`.
-- **API routes** under `src/pages/api/` handle server-side features: tunnel endpoints, URL shortener, drand proxy, ghost upload/fetch.
+- `src/components/tools/*.svelte`
+  Interactive tool UIs.
 
-### Registries
+- `src/pages/tools/*.astro`
+  Tool pages.
 
-Two registries drive the app:
+- `src/lib/tools.ts`
+  Tool registry for navbar/category wiring.
 
-1. **`src/lib/tools.ts`** — tool definitions (slug, i18n prefix, category). Adding an entry here auto-populates the navbar.
-2. **`src/lib/languages.ts`** — language definitions. Adding a language here auto-populates the language picker.
+- `src/locales/{en,cs,de}.json`
+  Flat UI translation dictionaries.
 
-### Adding a new tool (4-step checklist)
+- `src/content/tool-education/*/*.json`
+  Long-form educational content for the current 5-tool pilot.
 
-1. Create Svelte component: `src/components/tools/MyTool.svelte` (accept `locale` prop, derive `dict` reactively)
-2. Create Astro page: `src/pages/tools/my-tool.astro` (use `Layout`, hydrate with `client:load`)
-3. Register in `src/lib/tools.ts`: `{ slug: 'my-tool', i18nPrefix: 'tools.myTool', navLabelKey: 'nav.tool.myTool', category: 'developer' }`
-4. Add translation keys to **all** locale files (`src/locales/*.json`)
+- `src/lib/toolEducation.ts`
+  Loader and runtime validation for education content.
 
-### Adding a new language
+- `generate-standalone.mjs`
+  Standalone single-file HTML generator.
 
-1. Add to `src/lib/languages.ts`
-2. Create `src/locales/{code}.json` (copy `en.json`, translate)
-3. Import and register in `src/lib/i18n.ts`
-4. Add to `astro.config.mjs` `i18n.locales` and `i18n.fallback`
+- `standalone-integration.mjs`
+  Hooks standalone generation into `yarn build`.
 
-## Code Conventions
+- `src/lib/ghost/` and `src/pages/api/ghost/`
+  Ghost Drop crypto, steganography, upload, fetch, and verification support.
 
-- No unnecessary comments — don't narrate what the code does
-- Prefer Tailwind utility classes; use existing CSS classes: `input`, `btn-primary`, `card`
-- TypeScript for props, function signatures, and exports
-- No external network calls from crypto operations — everything client-side
-- Tool categories: `developer`, `cryptography`, `privacy`
-- Tool slug must match the `.astro` filename in `src/pages/tools/`
+### Important distinction
+
+`src/lib/tools.ts` drives the site navigation and tool registry, but **standalone HTML exports are maintained separately** in `generate-standalone.mjs`.
+
+If you add a tool and expect a downloadable standalone file, you must update both places.
+
+## Current product shape
+
+### Main site routes
+
+- `/` homepage with `UltimateEncrypt`
+- `/drop` Dead Drop
+- `/u` decrypt / receive flow
+- `/download` handoff download flow
+- `/security` privacy and security summary
+- `/tools/*` tool pages
+
+### Tool categories in `src/lib/tools.ts`
+
+- `developer`
+- `cryptography`
+- `privacy`
+
+## Working rules
+
+- Never hardcode user-facing English in components or pages.
+- Put normal UI strings in `src/locales/*.json`.
+- For the education pilot, keep long-form explanatory content in `src/content/tool-education/`.
+- `en.json` is the source of truth for UI keys.
+- Keep `cs.json` and `de.json` in sync with English.
+- Keep crypto logic in `src/lib/crypto.ts` or the existing `src/lib/ghost/` helpers.
+- Do not add unnecessary comments.
+- Prefer existing classes/components/patterns over parallel abstractions.
+
+## Adding a new tool
+
+Baseline checklist:
+
+1. Create the Svelte tool component in `src/components/tools/`
+2. Create the Astro page in `src/pages/tools/`
+3. Register it in `src/lib/tools.ts`
+4. Add locale keys to all 3 locale files
+
+Optional follow-up depending on the tool:
+
+5. Add a standalone export in `generate-standalone.mjs`
+6. Add educational content in `src/content/tool-education/{en,cs,de}/` and wire it through `src/lib/toolEducation.ts`
+
+## Education content pilot
+
+The richer “Understand it” layer currently exists for:
+
+- `base64`
+- `bcrypt`
+- `jwt`
+- `time-capsule`
+- `enigma`
+
+Use those pages as the pattern if extending the system.
+
+## Validation
+
+- Run `yarn build`
+- Check affected pages in `en`, `cs`, and `de`
+- If you touched a standalone-capable tool, make sure the generated standalone HTML still works
