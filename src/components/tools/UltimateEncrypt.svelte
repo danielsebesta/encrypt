@@ -107,7 +107,6 @@
   function pushDebug(message: string) {
     const line = `[${new Date().toLocaleTimeString('en-GB', { hour12: false })}] ${message}`;
     debugLog = [...debugLog, line];
-    console.info('[UltimateEncrypt]', message);
   }
 
   function base64UrlEncode(bytes: Uint8Array): string {
