@@ -265,6 +265,7 @@
           pushDebug(`Host ${host.name} returned URL ${uploadUrl}`);
           break;
         }
+        pushDebug(`Host ${host.name} returned no usable URL in response body`);
       } catch (e: any) {
         pushDebug(`Host ${host.name} failed: ${e?.message || 'unknown error'}`);
       }

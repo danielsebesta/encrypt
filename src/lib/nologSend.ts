@@ -394,7 +394,8 @@ async function openWs(url: string) {
       const ws = new WebSocket(url);
       ws.binaryType = 'arraybuffer';
       ws.addEventListener('open', () => resolve(ws), { once: true });
-      ws.addEventListener('error', () => reject(new Error('WebSocket connection failed')), { once: true });
+      ws.addEventListener('error', () => reject(new Error(`WebSocket connection failed (readyState=${ws.readyState})`)), { once: true });
+      ws.addEventListener('close', (event) => reject(new Error(`WebSocket closed before open (code=${event.code}, reason=${event.reason || 'none'})`)), { once: true });
     } catch (error) {
       reject(error);
     }
@@ -403,9 +404,9 @@ async function openWs(url: string) {
 
 function listenForResponse(ws: WebSocket) {
   return new Promise<any>((resolve, reject) => {
-    function handleClose() {
+    function handleClose(event: CloseEvent) {
       ws.removeEventListener('message', handleMessage);
-      reject(new Error('NoLog Send connection closed'));
+      reject(new Error(`NoLog Send connection closed (code=${event.code}, reason=${event.reason || 'none'})`));
     }
     function handleMessage(event: MessageEvent) {
       ws.removeEventListener('close', handleClose);
