@@ -607,14 +607,16 @@
             </button>
           </div>
         {:else}
-          <input
-            id="ue-pass"
-            type="password"
-            class="input"
-            bind:value={password}
-            autocomplete="new-password"
-            placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
-          />
+          <div class="ue-passphrase-box">
+            <input
+              id="ue-pass"
+              type="password"
+              class="ue-passphrase-input"
+              bind:value={password}
+              autocomplete="new-password"
+              placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
+            />
+          </div>
         {/if}
       </div>
 

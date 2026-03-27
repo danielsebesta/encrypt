@@ -300,14 +300,16 @@
 
     /* ── Scroll-aware navbar ── */
     .nav-scrolled {
-        background-color: rgba(255, 255, 255, 0.92);
-        border-bottom-color: rgba(228, 228, 231, 0.8);
-        backdrop-filter: blur(16px) saturate(1.4);
+        background-color: rgba(255, 255, 255, 0.75);
+        border-bottom-color: rgba(228, 228, 231, 0.5);
+        backdrop-filter: blur(20px) saturate(1.6);
+        box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
     }
 
     html.dark .nav-scrolled {
-        background-color: rgba(9, 9, 11, 0.92);
-        border-bottom-color: rgba(39, 39, 42, 0.6);
+        background-color: rgba(9, 9, 11, 0.7);
+        border-bottom-color: rgba(39, 39, 42, 0.4);
+        box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
     }
 
     .badge-secondary {
@@ -511,6 +513,15 @@
     .ue-passphrase-refresh:active svg {
         transform: rotate(-180deg);
         transition: transform 0.3s;
+    }
+
+    .ue-passphrase-input {
+        @apply w-full bg-transparent text-sm font-medium text-emerald-700 dark:text-emerald-400;
+        outline: none;
+    }
+
+    .ue-passphrase-input::placeholder {
+        @apply text-emerald-400/50 dark:text-emerald-600/60;
     }
 
     .home-closing-panel {
