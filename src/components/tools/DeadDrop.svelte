@@ -8,7 +8,7 @@
   $: dict = getTranslations(locale);
 
   type Mode = 'create' | 'open';
-  type ShortProvider = 'shrink' | 'nolog' | 'dagd' | 'kratky' | 'spoome' | 'isgd' | '1url';
+  type ShortProvider = 'shrink' | 'nolog' | 'spoome' | 'isgd' | '1url';
 
   let mode: Mode = 'create';
 
@@ -36,7 +36,7 @@
   const MAX_BYTES = 10 * 1024;
 
   const PROVIDER_NAMES: Record<string, string> = {
-    shrink: 'l.encrypt.click', nolog: 'Nolog.link', dagd: 'da.gd', kratky: 'kratky.link',
+    shrink: 'l.encrypt.click', nolog: 'Nolog.link',
     spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
   };
   $: providerName = PROVIDER_NAMES[shortProvider ?? ''] ?? 'l.encrypt.click';
@@ -312,8 +312,6 @@
                   bind:value={shortMode}
                 >
                   <option value="nolog">Nolog.link</option>
-                  <option value="dagd">da.gd</option>
-                  <option value="kratky">kratky.link</option>
                   <option value="spoome">spoo.me</option>
 
                   <option value="isgd">is.gd</option>
