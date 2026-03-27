@@ -3,8 +3,8 @@ const KEY_LENGTH = 16;
 const NONCE_LENGTH = 12;
 const TAG_LENGTH = 16;
 const ECE_RECORD_SIZE = 1024 * 64;
-const DEFAULT_TIME_LIMIT = 172800;
-const DEFAULT_DOWNLOAD_LIMIT = 50;
+const DEFAULT_TIME_LIMIT = 604800;
+const DEFAULT_DOWNLOAD_LIMIT = 100;
 
 const encoder = new TextEncoder();
 type DebugFn = (message: string) => void;
@@ -14,6 +14,9 @@ export interface SendInstance {
   label: string;
   region: 'eu' | 'other';
   country?: string;
+  maxBytes: number;
+  maxExpireSeconds: number;
+  maxDownloads: number;
 }
 
 function arrayToB64(array: Uint8Array): string {
@@ -435,7 +438,7 @@ function listenForResponse(ws: WebSocket) {
   });
 }
 
-export async function uploadToNologSend(data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn) {
+export async function uploadToNologSend(data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT) {
   const keychain = new NologSendKeychain();
   onDebug?.(`NoLog Send: preparing ${filename} (${data.byteLength} bytes)`);
   const encryptedStream = encryptStream(new Blob([data]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
@@ -450,10 +453,10 @@ export async function uploadToNologSend(data: Uint8Array, filename: string, file
     ws.send(JSON.stringify({
       fileMetadata: arrayToB64(metadata),
       authorization: `send-v1 ${verifierB64}`,
-      timeLimit: DEFAULT_TIME_LIMIT,
-      dlimit: DEFAULT_DOWNLOAD_LIMIT,
+      timeLimit,
+      dlimit,
     }));
-    onDebug?.(`NoLog Send: upload handshake sent (timeLimit=${DEFAULT_TIME_LIMIT}s, dlimit=${DEFAULT_DOWNLOAD_LIMIT})`);
+    onDebug?.(`NoLog Send: upload handshake sent (timeLimit=${timeLimit}s, dlimit=${dlimit})`);
 
     const uploadInfo = await uploadInfoResponse;
     onDebug?.(`NoLog Send: upload accepted (id=${uploadInfo.id}, url=${uploadInfo.url})`);
@@ -553,7 +556,7 @@ export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Arra
   return `${uploadInfo.url}#${secretB64}`;
 }
 
-export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn) {
+export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT) {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   const keychain = new NologSendKeychain();
   onDebug?.(`Send ${normalizedBaseUrl}: preparing ${filename} (${data.byteLength} bytes)`);
@@ -568,11 +571,13 @@ export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filena
     headers: {
       'Authorization': `send-v1 ${verifierB64}`,
       'X-File-Metadata': arrayToB64(metadata),
+      'X-Time-Limit': String(timeLimit),
+      'X-Download-Limit': String(dlimit),
       'Content-Type': 'application/octet-stream',
     },
     body: encryptedBytes,
   });
-  onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status}`);
+  onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status} (timeLimit=${timeLimit}s, dlimit=${dlimit})`);
   if (!res.ok) {
     throw new Error(`Send upload failed: HTTP ${res.status}`);
   }
