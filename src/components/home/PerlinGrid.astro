@@ -1,0 +1,142 @@
+---
+---
+
+<div class="perlin-grid-wrap" aria-hidden="true">
+  <div class="perlin-grid" id="perlin-grid"></div>
+</div>
+
+<script>
+  const COLS = 24;
+  const ROWS = 12;
+  const grid = document.getElementById('perlin-grid');
+  if (grid) {
+    const isDark = document.documentElement.classList.contains('dark');
+    const cells: { el: HTMLDivElement; r: number; c: number; prev: string }[] = [];
+
+    grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'perlin-cell';
+        cells.push({ el: cell, r, c, prev: '' });
+        grid.appendChild(cell);
+      }
+    }
+
+    const perm = new Uint8Array(512);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+
+    function fade(t: number) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+    function grad(hash: number, x: number, y: number) {
+      const h = hash & 3;
+      return ((h & 1) ? -x : x) + ((h & 2) ? -y : y);
+    }
+
+    function perlin(x: number, y: number) {
+      const xi = Math.floor(x) & 255, yi = Math.floor(y) & 255;
+      const xf = x - Math.floor(x), yf = y - Math.floor(y);
+      const u = fade(xf), v = fade(yf);
+      const aa = perm[perm[xi] + yi], ab = perm[perm[xi] + yi + 1];
+      const ba = perm[perm[xi + 1] + yi], bb = perm[perm[xi + 1] + yi + 1];
+      return lerp(
+        lerp(grad(aa, xf, yf), grad(ba, xf - 1, yf), u),
+        lerp(grad(ab, xf, yf - 1), grad(bb, xf - 1, yf - 1), u), v
+      );
+    }
+
+    function fbm(x: number, y: number, octaves: number) {
+      let v = 0, amp = 1, freq = 1, max = 0;
+      for (let i = 0; i < octaves; i++) {
+        v += perlin(x * freq, y * freq) * amp;
+        max += amp; amp *= 0.45; freq *= 2;
+      }
+      return v / max;
+    }
+
+    const stepsLight = [
+      '#ffffff','#f7fbf8','#ecf5ee','#ddeee1',
+      '#c5e2cb','#a3d1ad','#7cbc8a','#50a264',
+      '#34884c','#1a6b34','#0d5429','#064020',
+    ];
+    const stepsDark = [
+      '#060e08','#0a1a0e','#0f2615','#15351e',
+      '#1d4a2a','#276038','#347a49','#43945c',
+      '#57ad72','#70c48a','#8fd8a3','#b0e8bf',
+    ];
+    const steps = isDark ? stepsDark : stepsLight;
+
+    function quantize(val: number) {
+      const clamped = Math.max(0, Math.min(0.999, val));
+      return steps[Math.floor(clamped * steps.length)];
+    }
+
+    function tick(t: number) {
+      const ts = t * 0.00018;
+      for (const c of cells) {
+        const x = c.c * 0.14;
+        const y = c.r * 0.14;
+        const warpX = fbm(x + ts * 0.7 + 10, y - ts * 0.4 + 10, 3);
+        const warpY = fbm(x - ts * 0.5 + 30, y + ts * 0.55 + 30, 3);
+        const n = fbm(x + warpX * 3.2 + ts * 0.3, y + warpY * 3.2 - ts * 0.2, 4);
+        const val = (n + 1) / 2;
+        const smoothed = val * val * (3 - 2 * val);
+        const color = quantize(smoothed);
+        if (color !== c.prev) {
+          c.el.style.backgroundColor = color;
+          c.prev = color;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    requestAnimationFrame(tick);
+  }
+</script>
+
+<style>
+  .perlin-grid-wrap {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 40%, transparent 75%);
+  }
+
+  .perlin-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    border: none;
+    opacity: 0.55;
+  }
+
+  :global(html.dark) .perlin-grid {
+    opacity: 0.4;
+  }
+
+  .perlin-grid :global(.perlin-cell) {
+    aspect-ratio: 1;
+    border: 0.5px solid rgba(16, 185, 129, 0.06);
+    transition: background-color 1.6s linear;
+    will-change: background-color;
+  }
+
+  :global(html.dark) .perlin-grid :global(.perlin-cell) {
+    border-color: rgba(16, 185, 129, 0.08);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .perlin-grid :global(.perlin-cell) {
+      transition: none;
+    }
+  }
+</style>

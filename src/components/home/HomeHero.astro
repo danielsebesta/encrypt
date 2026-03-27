@@ -1,5 +1,6 @@
 ---
 import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
+import PerlinGrid from './PerlinGrid.astro';
 import { t, type Locale } from '../../lib/i18n';
 
 type Props = {
@@ -11,6 +12,7 @@ const { locale, dict } = Astro.props;
 ---
 
 <section class="home-hero-section">
+  <PerlinGrid />
   <div class="max-w-6xl mx-auto px-5 pt-10 md:pt-16 pb-10 md:pb-14 relative z-1">
     <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)] gap-8 lg:gap-10 items-start">
       <!-- Left: hero text -->
