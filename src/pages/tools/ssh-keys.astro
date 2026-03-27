@@ -16,12 +16,12 @@ const dict = getTranslations(locale);
       <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">{t(dict, 'tools.sshKeys.h1')} <span class="text-emerald-500">{t(dict, 'tools.sshKeys.h1Highlight')}</span></h1>
       <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.sshKeys.subtitle')}</p>
     </div>
-    <div class="card p-8">
+    <div class="mt-8">
       <SSHKeys client:load locale={locale} />
     </div>
-    <div class="mt-12 text-left space-y-4">
-      <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-400">{t(dict, 'tools.sshKeys.info.title')}</h3>
-      <p class="text-xs text-zinc-500 leading-relaxed">{t(dict, 'tools.sshKeys.info.text')}</p>
+    <div class="mt-10 pt-8 border-t border-zinc-200/60 dark:border-zinc-800/40 text-left space-y-2">
+      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.sshKeys.info.title')}</h3>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">{t(dict, 'tools.sshKeys.info.text')}</p>
     </div>
   </div>
 </Layout>
