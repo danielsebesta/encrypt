@@ -29,6 +29,7 @@
   let openedCodeLanguage = '';
   let openedCsvRows: string[][] = [];
   let openedZipEntries: { name: string; size: number; compressed: number; isDir: boolean }[] = [];
+  let openedEnvEntries: { key: string; value: string; visible: boolean; isComment: boolean }[] = [];
 
   type ZipTreeNode = { label: string; depth: number; isDir: boolean; size: number };
   $: zipTree = buildZipTree(openedZipEntries);
@@ -61,7 +62,7 @@
   }
   let previewTruncated = false;
 
-  type PreviewType = 'none' | 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'code' | 'csv' | 'zip';
+  type PreviewType = 'none' | 'image' | 'video' | 'audio' | 'pdf' | 'text' | 'code' | 'csv' | 'zip' | 'env';
   let previewType: PreviewType = 'none';
 
   const TEXT_PREVIEW_LIMIT = 200_000;
@@ -296,6 +297,7 @@
     openedCodeLanguage = '';
     openedCsvRows = [];
     openedZipEntries = [];
+    openedEnvEntries = [];
     previewTruncated = false;
     previewType = 'none';
     if (openedFileUrl) {
@@ -343,10 +345,36 @@
       return true;
     }
 
+    if (ext === 'env' || name === '.env' || name.startsWith('.env.')) {
+      openedEnvEntries = parseEnvFile(previewText);
+      previewType = 'env';
+      pushDebug(`Prepared .env preview (${openedEnvEntries.length} entries)`);
+      return true;
+    }
+
     openedText = previewText;
     previewType = 'text';
     pushDebug(`Prepared text preview (${previewText.length} chars shown)`);
     return true;
+  }
+
+  function parseEnvFile(text: string): typeof openedEnvEntries {
+    return text.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return { key: trimmed, value: '', visible: true, isComment: true };
+      }
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) {
+        return { key: trimmed, value: '', visible: true, isComment: true };
+      }
+      const key = trimmed.slice(0, eqIdx).trim();
+      let value = trimmed.slice(eqIdx + 1).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      return { key, value, visible: false, isComment: false };
+    }).filter(e => e.key !== '' || e.isComment);
   }
 
   function loadMedia(node: HTMLMediaElement, src: string) {
@@ -828,6 +856,37 @@
                   <span class="text-[10px] text-zinc-400 dark:text-zinc-600 tabular-nums shrink-0">{node.size < 1024 ? `${node.size} B` : node.size < 1048576 ? `${(node.size / 1024).toFixed(1)} KB` : `${(node.size / 1048576).toFixed(1)} MB`}</span>
                 {/if}
               </div>
+            {/each}
+          </div>
+        </div>
+      {:else if previewType === 'env' && openedEnvEntries.length > 0}
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
+          <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">.env — secrets hidden by default</span>
+          </div>
+          <div class="max-h-[50vh] overflow-auto font-mono text-[11px]">
+            {#each openedEnvEntries as entry, i}
+              {#if entry.isComment}
+                <div class="px-4 py-1 text-zinc-400 dark:text-zinc-600">{entry.key}</div>
+              {:else}
+                <div class="flex items-center gap-0 border-t border-zinc-100/80 dark:border-zinc-800/40">
+                  <span class="px-4 py-1.5 text-emerald-700 dark:text-emerald-400 font-medium shrink-0">{entry.key}</span>
+                  <span class="text-zinc-300 dark:text-zinc-700">=</span>
+                  {#if entry.visible}
+                    <span class="px-2 py-1.5 text-zinc-700 dark:text-zinc-300 break-all flex-1">{entry.value}</span>
+                  {:else}
+                    <span class="px-2 py-1.5 text-zinc-400 dark:text-zinc-600 flex-1">••••••••</span>
+                  {/if}
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-[9px] font-bold text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 shrink-0"
+                    on:click={() => { openedEnvEntries[i].visible = !openedEnvEntries[i].visible; openedEnvEntries = openedEnvEntries; }}
+                  >
+                    {entry.visible ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+              {/if}
             {/each}
           </div>
         </div>
