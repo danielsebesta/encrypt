@@ -148,6 +148,9 @@
         @apply bg-zinc-950 text-zinc-200 selection:bg-emerald-500/30 selection:text-emerald-300;
     }
 
+    button, summary, select, [role="button"] {
+        cursor: pointer;
+    }
 
     body {
         @apply min-h-screen flex flex-col;
@@ -191,35 +194,35 @@
     }
 
     .btn {
-        @apply inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-emerald-500 text-white text-sm font-semibold shadow-sm shadow-emerald-500/20 px-4 py-2
+        @apply cursor-pointer inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-emerald-500 text-white text-sm font-semibold shadow-sm shadow-emerald-500/20 px-4 py-2
             transition-colors transition-transform duration-150 ease-out
             hover:bg-emerald-400 active:bg-emerald-500/90 active:scale-[0.97]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
     .btn-outline {
-        @apply inline-flex items-center justify-center gap-2 rounded-full border border-emerald-500 bg-transparent text-emerald-600 dark:text-emerald-300 text-sm font-semibold px-4 py-2
+        @apply cursor-pointer inline-flex items-center justify-center gap-2 rounded-full border border-emerald-500 bg-transparent text-emerald-600 dark:text-emerald-300 text-sm font-semibold px-4 py-2
             transition-colors transition-transform duration-150 ease-out
             hover:bg-emerald-500 hover:text-white active:scale-[0.97]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
     .btn-ghost {
-        @apply inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-transparent text-zinc-700 dark:text-zinc-200 text-xs font-semibold px-3 py-1.5
+        @apply cursor-pointer inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-transparent text-zinc-700 dark:text-zinc-200 text-xs font-semibold px-3 py-1.5
             transition-colors transition-transform duration-150 ease-out
             hover:bg-zinc-100 dark:hover:bg-zinc-800/60 active:scale-[0.97]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
     .btn-secondary {
-        @apply inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-sm font-semibold px-4 py-2
+        @apply cursor-pointer inline-flex items-center justify-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-sm font-semibold px-4 py-2
             transition-colors transition-transform duration-150 ease-out
             hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-[0.97]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
     .btn-icon {
-        @apply h-9 w-9 rounded-full flex items-center justify-center;
+        @apply cursor-pointer h-9 w-9 rounded-full flex items-center justify-center;
     }
 
     .input {
@@ -292,7 +295,7 @@
     }
 
     .tab-btn {
-        @apply pb-2.5 px-4 text-sm font-medium transition-colors text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300;
+        @apply cursor-pointer pb-2.5 px-4 text-sm font-medium transition-colors text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300;
     }
 
     .tab-btn-active {
@@ -454,7 +457,7 @@
     }
 
     .home-tool-link {
-        @apply inline-flex items-center gap-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-300 transition-colors;
+        @apply cursor-pointer inline-flex items-center gap-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-300 transition-colors;
     }
 
     .home-tool-link:hover {
@@ -560,7 +563,7 @@
     }
 
     .ue-passphrase-refresh {
-        @apply flex-none p-1 rounded-md text-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 transition-colors;
+        @apply cursor-pointer flex-none p-1 rounded-md text-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 transition-colors;
     }
 
     .ue-passphrase-refresh:active svg {
