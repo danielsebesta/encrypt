@@ -49,7 +49,8 @@
   interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
 
   // Send network is preferred — E2E encrypted, multiple instances
-  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network', retention: '7+ days', maxBytes: 5 * 1024 * 1024 * 1024 };
+  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', retention: '7-30 days', maxBytes: 5 * 1024 * 1024 * 1024 };
+  const SEND_INSTANCE_NAMES = ['upload.nolog.cz', 'send.adminforge.de', 'send.vis.ee', 'send.artemislena.eu', 'send.cyberjake.xyz', 'send.canine.tools', 'send.kokomo.cloud'];
 
   // Fallback binary hosts (shuffled at upload time)
   const BINARY_HOSTS: HostInfo[] = [
@@ -727,16 +728,25 @@
       </div>
 
       {#if pendingHosts.length > 0}
-        <div class="ue-passphrase-box">
-          <div class="flex-1 space-y-1.5">
-            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">Upload to secure hosts</p>
-            <p class="text-[10px] text-emerald-600/70 dark:text-emerald-500/60">
-              Your encrypted file will be sent to: {pendingHosts.map(h => h.name).join(' + ')}
-            </p>
-            <p class="text-[10px] text-zinc-400 dark:text-zinc-500">
-              {pendingHosts[0]?.retention ? `Retention: ${pendingHosts[0].retention}` : ''} — Only encrypted data is uploaded. Nobody can read it without the password.
-            </p>
-          </div>
+        <div class="rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 space-y-2.5">
+          <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Your encrypted file will be sent to:</p>
+          {#each pendingHosts as host}
+            <div class="flex items-start gap-2">
+              <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+              <div>
+                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{host.name}</span>
+                {#if host.id === 'nologsend'}
+                  <p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    One of: {SEND_INSTANCE_NAMES.join(', ')}
+                  </p>
+                {/if}
+                <p class="text-[10px] text-zinc-400 dark:text-zinc-500">Retention: {host.retention}</p>
+              </div>
+            </div>
+          {/each}
+          <p class="text-[10px] text-zinc-400 dark:text-zinc-500 pt-1 border-t border-zinc-200/40 dark:border-zinc-800/30">
+            Only encrypted data is uploaded. Nobody can read it without the password.
+          </p>
         </div>
         <button class="btn w-full" type="button" on:click={confirmUpload}>
           Upload & create share link
