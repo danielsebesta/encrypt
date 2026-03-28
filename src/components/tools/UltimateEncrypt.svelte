@@ -21,11 +21,7 @@
   let textInput = '';
   let file: File | null = null;
   let password = '';
-  let autoPassword = true;
-  let enableStego = false;
-  let enableTimelock = false;
   let timelockDate = '';
-  let showAdvanced = false;
   let showQr = false;
 
   let resultUrl = '';
@@ -111,17 +107,11 @@
     return words.join('-');
   }
 
-  let passphrasePreview = '';
-
-  function refreshPassphrase() {
-    passphrasePreview = generatePassphrase();
-  }
 
   let textFocused = false;
   let dragging = false;
   let dropZoneEl: HTMLElement;
   let fileInputEl: HTMLInputElement;
-  let folderInputEl: HTMLInputElement;
   let files: File[] = [];
 
   $: file = files.length === 1 && !needsZip ? files[0] : null;
@@ -143,7 +133,6 @@
   function clearFile() {
     files = [];
     if (fileInputEl) fileInputEl.value = '';
-    if (folderInputEl) folderInputEl.value = '';
   }
 
   function handleDrop(e: DragEvent) {
@@ -321,10 +310,6 @@
       pushDebug('Validation failed: empty input');
       return;
     }
-    if (autoPassword) {
-      password = passphrasePreview || generatePassphrase();
-      pushDebug('Passphrase auto-generated');
-    }
     if (!password) {
       error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
       pushDebug('Validation failed: missing password');
@@ -412,9 +397,6 @@
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
     await autoShorten(urls.shortenable);
 
-    if (enableStego) {
-      await wrapInStego(shortUrl || resultUrl);
-    }
   }
 
   async function encryptGhost() {
@@ -544,9 +526,6 @@
     resultUrl = urls.direct;
     await autoShorten(urls.shortenable);
 
-    if (enableStego) {
-      await wrapInStego(shortUrl || resultUrl);
-    }
   }
 
   async function wrapInStego(url: string) {
@@ -625,14 +604,11 @@
     textInput = '';
     files = [];
     password = '';
-    autoPassword = true;
-    enableStego = false;
-    enableTimelock = false;
+    password = generatePassphrase();
     timelockDate = '';
     resultUrl = '';
     shortUrl = '';
     error = '';
-    showAdvanced = false;
     showQr = false;
     setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
@@ -645,17 +621,17 @@
     debugLog = [];
   }
 
-  onMount(() => { refreshPassphrase(); });
+  onMount(() => { password = generatePassphrase(); });
 </script>
 
 <div class="space-y-6 text-left">
   {#if step === 'input'}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="space-y-4" on:paste={handlePaste}>
-      <!-- Input area: expandable text + file drop -->
+      <!-- Input area: text + file -->
       <div class="ue-input-grid" class:ue-input-grid--focused={textFocused && files.length === 0}>
         <!-- Text input -->
-        <div class="ue-input-pane ue-input-pane--text" class:ue-input-pane--active={files.length === 0 && textInput.trim().length > 0} class:ue-input-pane--disabled={files.length > 0}>
+        <div class="ue-input-pane" class:ue-input-pane--active={files.length === 0 && textInput.trim().length > 0} class:ue-input-pane--disabled={files.length > 0}>
           <label class="ue-input-pane__label" for="ue-text">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
             {t(dict, 'tools.ultimateEncrypt.messageLabel')}
@@ -683,77 +659,52 @@
           on:dragleave={handleDragLeave}
         >
           {#if files.length > 0}
-            <div class="flex flex-col items-center gap-1.5 text-center py-1 w-full">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              {#if files.length === 1}
-                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{files[0].name}</span>
-              {:else}
-                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{files.length} files</span>
-                <span class="text-[10px] text-emerald-600 dark:text-emerald-400">auto-zipped</span>
-              {/if}
-              <span class="text-[10px] text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
-              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
-            </div>
-          {:else}
-            <div class="flex flex-col items-center gap-2 text-center py-2 w-full h-full justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
-              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">Drop, paste, or click</span>
-              <div class="flex gap-2 mt-1">
-                <label class="text-[9px] text-emerald-600 dark:text-emerald-500 cursor-pointer hover:underline" for="ue-file">Files</label>
-                <span class="text-[9px] text-zinc-300 dark:text-zinc-600">|</span>
-                <label class="text-[9px] text-emerald-600 dark:text-emerald-500 cursor-pointer hover:underline" for="ue-folder">Folder</label>
+            <div class="flex flex-col w-full">
+              <span class="ue-input-pane__label">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                {files.length === 1 ? files[0].name : `${files.length} files`}
+              </span>
+              <div class="flex items-center gap-2 mt-1">
+                {#if files.length > 1}
+                  <span class="text-[10px] text-emerald-600 dark:text-emerald-400">auto-zipped</span>
+                {/if}
+                <span class="text-[10px] text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
+                <button type="button" class="text-[10px] font-bold text-red-500 hover:underline ml-auto" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
               </div>
             </div>
+          {:else}
+            <label class="flex flex-col items-center gap-1.5 cursor-pointer text-center py-2 w-full h-full justify-center" for="ue-file">
+              <span class="ue-input-pane__label">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                {t(dict, 'tools.ultimateEncrypt.fileLabel')}
+              </span>
+              <span class="text-[10px] text-zinc-300 dark:text-zinc-600">Drop, paste, or click</span>
+            </label>
             <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
-            <input id="ue-folder" type="file" class="sr-only" bind:this={folderInputEl} on:change={handleFileChange} webkitdirectory />
           {/if}
         </div>
       </div>
 
       <!-- Password -->
       <div class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <label class="label flex items-center gap-1.5" for="ue-pass">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            {t(dict, 'tools.ultimateEncrypt.passwordLabel')}
-          </label>
-          <label class="inline-flex items-center gap-1.5 text-[10px] text-zinc-400 cursor-pointer select-none">
-            <input type="checkbox" bind:checked={autoPassword} on:change={() => { if (autoPassword) refreshPassphrase(); }} class="accent-emerald-500" />
-            {t(dict, 'tools.ultimateEncrypt.autoGenerate')}
-          </label>
+        <label class="label flex items-center gap-1.5" for="ue-pass">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          {t(dict, 'tools.ultimateEncrypt.passwordLabel')}
+        </label>
+        <div class="ue-passphrase-box">
+          <input
+            id="ue-pass"
+            type="text"
+            class="ue-passphrase-input"
+            bind:value={password}
+            autocomplete="off"
+            placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
+          />
+          <button type="button" class="ue-passphrase-refresh" on:click={() => { password = generatePassphrase(); }} aria-label="Generate passphrase">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
         </div>
-        {#if autoPassword}
-          <div class="ue-passphrase-box">
-            <span class="ue-passphrase-words">{passphrasePreview || '...'}</span>
-            <button type="button" class="ue-passphrase-refresh" on:click={refreshPassphrase} aria-label="Regenerate">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            </button>
-          </div>
-        {:else}
-          <div class="ue-passphrase-box">
-            <input
-              id="ue-pass"
-              type="password"
-              class="ue-passphrase-input"
-              bind:value={password}
-              autocomplete="new-password"
-              placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
-            />
-          </div>
-        {/if}
       </div>
-
-      <!-- Advanced -->
-      <details class="text-xs" bind:open={showAdvanced}>
-        <summary class="cursor-pointer select-none text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-bold uppercase tracking-widest text-[10px]">{t(dict, 'tools.ultimateEncrypt.advancedOptions')}</summary>
-        <div class="mt-3 space-y-3 pl-1">
-          <label class="flex items-center gap-2 cursor-pointer select-none text-zinc-500 dark:text-zinc-400">
-            <input type="checkbox" bind:checked={enableStego} class="accent-emerald-500" />
-            <span>{t(dict, 'tools.ultimateEncrypt.hideInImage')}</span>
-          </label>
-        </div>
-      </details>
 
       {#if error}
         <p class="text-xs text-red-500">{error}</p>
