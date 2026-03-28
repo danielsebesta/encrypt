@@ -767,9 +767,18 @@
           </div>
           <a href={localFileUrl} download={localFileName} class="btn-outline text-xs px-3 py-1.5">Download</a>
         </div>
-        <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">
-          Upload it yourself to any file host or send it directly. Recipient decrypts at <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a>
-        </p>
+        <div class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed space-y-1.5">
+          <p>Upload it to any of these and share the link + password:</p>
+          <div class="flex flex-wrap gap-x-3 gap-y-1">
+            <a href="https://upload.nolog.cz" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">upload.nolog.cz</a>
+            <a href="https://wormhole.app" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">wormhole.app</a>
+            <a href="https://file.io" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">file.io</a>
+            <a href="https://gofile.io" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">gofile.io</a>
+            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">swisstransfer.com</a>
+            <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">more Send instances</a>
+          </div>
+          <p>Recipient decrypts at <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></p>
+        </div>
       {/if}
 
       {#if error}
