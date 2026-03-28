@@ -12,7 +12,7 @@
   export let locale = 'en';
   $: dict = getTranslations(locale);
 
-  type Step = 'input' | 'processing' | 'result';
+  type Step = 'input' | 'confirm' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
   type ShortProvider = 'shrink' | 'nolog' | 'spoome' | 'isgd' | '1url';
 
@@ -31,6 +31,12 @@
   let localFileUrl = '';
   let localFileName = '';
   let error = '';
+
+  // Confirm step state
+  let pendingUploadBytes: Uint8Array | null = null;
+  let pendingUploadFilename = '';
+  let pendingUsedStego = false;
+  let pendingHosts: HostInfo[] = [];
   let progressTitle = '';
   let progressDetail = '';
   let debugLog: string[] = [];
@@ -321,16 +327,31 @@
     try {
       if (deliveryMode === 'local') {
         await encryptLocal();
+        step = 'confirm';
       } else if (deliveryMode === 'link') {
         await encryptInline();
+        step = 'result';
       } else {
-        await encryptGhost();
+        await encryptGhostPrepare();
+        step = 'confirm';
       }
-      step = 'result';
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       pushDebug(`Encrypt failed: ${error}`);
       step = 'input';
+    }
+  }
+
+  async function confirmUpload() {
+    step = 'processing';
+    error = '';
+    try {
+      await encryptGhostUpload();
+      step = 'result';
+    } catch (e: any) {
+      error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+      pushDebug(`Upload failed: ${error}`);
+      step = 'confirm';
     }
   }
 
@@ -365,7 +386,8 @@
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);
     localFileUrl = URL.createObjectURL(blob);
 
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressReadyTitle') || 'Ready', '');
+    pendingHosts = [];
+    pendingUploadBytes = null;
     pushDebug(`Local encrypted file ready for download`);
   }
 
@@ -399,7 +421,7 @@
 
   }
 
-  async function encryptGhost() {
+  async function encryptGhostPrepare() {
     setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
     const { buffer, filename } = files.length > 0
       ? await resolvePayload()
@@ -408,38 +430,53 @@
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
     const encrypted = await encryptData(buffer, password, filename);
-    pushDebug(`Inner ghost payload encrypted (${encrypted.byteLength} bytes)`);
+    pushDebug(`Encrypted (${encrypted.byteLength} bytes)`);
 
-    let uploadBytes: Uint8Array;
-    let uploadFilename: string;
     let usedStego = false;
-
     if (encrypted.length <= STEGO_THRESHOLD) {
-      setProgress(t(dict, 'tools.ultimateEncrypt.progressHiddenPackageTitle'), t(dict, 'tools.ultimateEncrypt.progressHiddenPackageDetail'));
-      uploadBytes = await createStegoImage(encrypted);
-      uploadFilename = 'ghost.png';
+      pendingUploadBytes = await createStegoImage(encrypted);
+      pendingUploadFilename = 'ghost.png';
       usedStego = true;
-      pushDebug(`Stego wrapper created (${uploadBytes.byteLength} bytes PNG)`);
     } else {
-      uploadBytes = encrypted;
-      uploadFilename = 'ghost.bin';
-      pushDebug(`Using raw binary upload (${uploadBytes.byteLength} bytes)`);
+      pendingUploadBytes = encrypted;
+      pendingUploadFilename = 'ghost.bin';
     }
+    pendingUsedStego = usedStego;
 
-    // Upload to hosts — try to get 2 URLs for redundancy
+    // Also create downloadable .enc file
+    const encBlob = new Blob([encrypted], { type: 'application/octet-stream' });
+    localFileName = `${filename}.enc`;
+    if (localFileUrl) URL.revokeObjectURL(localFileUrl);
+    localFileUrl = URL.createObjectURL(encBlob);
+
+    // Determine which hosts will be used
+    if (usedStego) {
+      pendingHosts = shuffleArr(IMAGE_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes);
+    } else {
+      const sendEligible = pendingUploadBytes!.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
+      const fileEligible = shuffleArr(BINARY_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes);
+      pendingHosts = [...sendEligible, ...fileEligible.slice(0, 1)];
+    }
+    pushDebug(`Encrypted file ready. Hosts: ${pendingHosts.map(h => h.name).join(', ')}`);
+  }
+
+  async function encryptGhostUpload() {
+    if (!pendingUploadBytes) throw new Error('No encrypted data');
+    const uploadBytes = pendingUploadBytes;
+    const uploadFilename = pendingUploadFilename;
+    const usedStego = pendingUsedStego;
+
     setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
     const uploadUrls: string[] = [];
 
     async function tryUploadHost(host: HostInfo): Promise<string | null> {
       try {
-        pushDebug(`Trying host ${host.name} (${host.id})`);
+        pushDebug(`Uploading to ${host.name}`);
         let fetchBody: Uint8Array = uploadBytes;
         const headers: Record<string, string> = {};
 
         if (host.id === 'nologsend') {
-          pushDebug('Preparing Send ECE encryption client-side...');
           const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
-          pushDebug(`Send ECE encrypted (${prepared.encryptedBytes.byteLength} bytes)`);
           fetchBody = prepared.encryptedBytes;
           headers['X-Send-Metadata'] = prepared.metadataB64;
           headers['X-Send-Auth'] = prepared.authHeader;
@@ -449,83 +486,43 @@
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
           method: 'POST', body: fetchBody, headers,
         });
-        pushDebug(`Host ${host.name} responded with HTTP ${res.status}`);
         if (!res.ok) return null;
         const data = await res.json().catch(() => null) as any;
-        const url = data?.results?.[0]?.url;
-        if (url) pushDebug(`Host ${host.name} returned URL ${url}`);
-        return url || null;
-      } catch (e: any) {
-        pushDebug(`Host ${host.name} failed: ${e?.message || 'unknown error'}`);
-        return null;
-      }
+        return data?.results?.[0]?.url || null;
+      } catch { return null; }
     }
 
-    if (usedStego) {
-      // Stego: try image hosts sequentially
-      for (const host of shuffleArr(IMAGE_HOSTS).filter(h => uploadBytes.length <= h.maxBytes)) {
+    if (pendingHosts.length >= 2) {
+      const results = await Promise.allSettled(pendingHosts.map(h => tryUploadHost(h)));
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) uploadUrls.push(r.value);
+      }
+    } else {
+      for (const host of pendingHosts) {
         const url = await tryUploadHost(host);
         if (url) { uploadUrls.push(url); break; }
       }
-    } else {
-      // Binary: Send + file host in parallel for redundancy
-      const sendEligible = uploadBytes.length <= SEND_HOST.maxBytes ? SEND_HOST : null;
-      const fileHosts = shuffleArr(BINARY_HOSTS).filter(h => uploadBytes.length <= h.maxBytes);
-
-      if (sendEligible && fileHosts.length > 0) {
-        // Parallel: Send + first file host
-        pushDebug(`Parallel upload: ${sendEligible.name} + ${fileHosts[0].name}`);
-        const results = await Promise.allSettled([
-          tryUploadHost(sendEligible),
-          tryUploadHost(fileHosts[0]),
-        ]);
-        for (const r of results) {
-          if (r.status === 'fulfilled' && r.value) uploadUrls.push(r.value);
-        }
-        // If both failed, try remaining file hosts sequentially
-        if (uploadUrls.length === 0) {
-          for (const host of fileHosts.slice(1)) {
-            const url = await tryUploadHost(host);
-            if (url) { uploadUrls.push(url); break; }
-          }
-        }
-      } else {
-        // No Send or no file hosts — try whatever is available
-        const all = sendEligible ? [sendEligible, ...fileHosts] : fileHosts;
-        for (const host of all) {
-          const url = await tryUploadHost(host);
-          if (url) { uploadUrls.push(url); break; }
-        }
-      }
     }
-
-    pushDebug(`Upload complete: ${uploadUrls.length} URL(s) stored`);
 
     if (uploadUrls.length === 0) {
       throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
     }
 
-    const ghostPayload = {
-      v: 1,
-      mode: 'ghost',
-      urls: uploadUrls,
-      stego: usedStego,
-    };
+    const ghostPayload = { v: 1, mode: 'ghost', urls: uploadUrls, stego: usedStego };
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressFinalLinkDetail'));
     const payloadJson = JSON.stringify(ghostPayload);
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
     const compressedB64 = bytesToBase64(compressed);
-    pushDebug(`Outer ghost payload compressed from ${payloadBytes.byteLength} to ${compressed.byteLength} bytes`);
     const encPayload = await encrypt(compressedB64, password);
     const encoded = base64UrlEncode(encPayload);
-    pushDebug(`Final link payload encrypted (${encPayload.byteLength} bytes, encoded length ${encoded.length})`);
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
     await autoShorten(urls.shortenable);
 
+    pendingUploadBytes = null;
   }
 
   async function wrapInStego(url: string) {
@@ -717,6 +714,60 @@
         disabled={(!textInput.trim() && files.length === 0)}
       >
         {t(dict, 'tools.ultimateEncrypt.encryptAndShare')}
+      </button>
+    </div>
+
+  {:else if step === 'confirm'}
+    <div class="space-y-4">
+      <div class="space-y-2">
+        <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Your file is encrypted</p>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          The encrypted file never leaves your browser until you choose an option below.
+        </p>
+      </div>
+
+      {#if pendingHosts.length > 0}
+        <div class="ue-passphrase-box">
+          <div class="flex-1 space-y-1.5">
+            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">Upload to secure hosts</p>
+            <p class="text-[10px] text-emerald-600/70 dark:text-emerald-500/60">
+              Your encrypted file will be sent to: {pendingHosts.map(h => h.name).join(' + ')}
+            </p>
+            <p class="text-[10px] text-zinc-400 dark:text-zinc-500">
+              {pendingHosts[0]?.retention ? `Retention: ${pendingHosts[0].retention}` : ''} — Only encrypted data is uploaded. Nobody can read it without the password.
+            </p>
+          </div>
+        </div>
+        <button class="btn w-full" type="button" on:click={confirmUpload}>
+          Upload & create share link
+        </button>
+      {/if}
+
+      <div class="flex items-center gap-3 text-[10px] text-zinc-400">
+        <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+        <span>or</span>
+        <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
+      </div>
+
+      {#if localFileUrl}
+        <div class="ue-passphrase-box">
+          <div class="flex-1 space-y-1">
+            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">Download encrypted file</p>
+            <p class="text-[10px] text-emerald-600/70 dark:text-emerald-500/60">{localFileName}</p>
+          </div>
+          <a href={localFileUrl} download={localFileName} class="btn-outline text-xs px-3 py-1.5">Download</a>
+        </div>
+        <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">
+          Upload it yourself to any file host or send it directly. Recipient decrypts at <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a>
+        </p>
+      {/if}
+
+      {#if error}
+        <p class="text-xs text-red-500">{error}</p>
+      {/if}
+
+      <button type="button" class="text-[10px] font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" on:click={() => step = 'input'}>
+        ← Back
       </button>
     </div>
 
