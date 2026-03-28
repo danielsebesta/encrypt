@@ -337,18 +337,18 @@
       }
     }
 
+    if (ext === 'env' || name === '.env' || name.startsWith('.env.')) {
+      openedEnvEntries = parseEnvFile(previewText);
+      previewType = 'env';
+      pushDebug(`Prepared .env preview (${openedEnvEntries.length} entries)`);
+      return true;
+    }
+
     if (codeExtensions.has(ext) && ext !== 'txt' && ext !== 'log' && ext !== 'gitignore') {
       openedCodeLanguage = codeLanguageMap[ext] || 'text';
       openedCodeHtml = tokenizeAndHighlight(previewText, openedCodeLanguage);
       previewType = 'code';
       pushDebug(`Prepared code preview (${openedCodeLanguage}, ${previewText.length} chars shown)`);
-      return true;
-    }
-
-    if (ext === 'env' || name === '.env' || name.startsWith('.env.')) {
-      openedEnvEntries = parseEnvFile(previewText);
-      previewType = 'env';
-      pushDebug(`Prepared .env preview (${openedEnvEntries.length} entries)`);
       return true;
     }
 
