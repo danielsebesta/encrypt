@@ -7,7 +7,7 @@
   } from '../../lib/chatCrypto';
 
   export let roomId = '';
-  export let partyHost = 'encrypt-chat.{username}.partykit.dev'; // TODO: replace with actual
+  export let partyHost = 'encrypt-chat.danielsebesta.partykit.dev';
 
   type Message = {
     id: string;
