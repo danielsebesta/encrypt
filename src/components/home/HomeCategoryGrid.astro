@@ -19,11 +19,6 @@ const devTools = [
   { label: t(dict, 'home.discovery.dev.tool3'), href: '/tools/rsa' },
 ];
 
-const learnTools = [
-  { label: t(dict, 'home.discovery.learn.tool1'), href: '/tools/enigma' },
-  { label: t(dict, 'home.discovery.learn.tool2'), href: '/tools/caesar' },
-  { label: t(dict, 'home.discovery.learn.tool3'), href: '/tools/vigenere' },
-];
 ---
 
 <section class="relative z-1">
@@ -88,26 +83,8 @@ const learnTools = [
         </div>
       </div>
 
-      <!-- Learning tools — wide card -->
-      <div class="bento-card col-span-full lg:col-span-3" data-aos data-aos-delay="0">
-        <div class="p-6 md:p-8 grid sm:grid-cols-2 gap-6 items-center">
-          <div>
-            <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">{t(dict, 'home.discovery.learn.title')}</h3>
-            <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{t(dict, 'home.discovery.learn.text')}</p>
-            <ul class="mt-5 space-y-1.5">
-              {learnTools.map((tool) => (
-                <li><a href={tool.href} class="home-tool-link"><span class="home-tool-link__dot" aria-hidden="true"></span>{tool.label}</a></li>
-              ))}
-            </ul>
-          </div>
-          <div class="hidden sm:flex items-center justify-center">
-            <img src="/encrypt_lock.svg" alt="" class="w-28 lg:w-36 h-auto opacity-70 dark:opacity-50" loading="lazy" />
-          </div>
-        </div>
-      </div>
-
       <!-- Open source — wide card -->
-      <div class="bento-card col-span-full lg:col-span-3" data-aos data-aos-delay="60">
+      <div class="bento-card col-span-full" data-aos data-aos-delay="0">
         <div class="p-6 md:p-8 grid sm:grid-cols-2 gap-6 items-center">
           <div>
             <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">{t(dict, 'home.privacyExplainer.title')}</h3>
