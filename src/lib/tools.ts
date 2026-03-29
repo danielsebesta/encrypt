@@ -1,4 +1,4 @@
-export type ToolCategory = 'developer' | 'cryptography' | 'privacy';
+export type ToolCategory = 'developer' | 'privacy';
 
 export type ToolDefinition = {
   slug: string;
@@ -20,14 +20,9 @@ export const tools: ToolDefinition[] = [
   { slug: 'base64',       i18nPrefix: 'tools.base64',        navLabelKey: 'nav.tool.base64',        category: 'developer' },
   { slug: 'bip39',        i18nPrefix: 'tools.bip39',         navLabelKey: 'nav.tool.bip39',         category: 'developer' },
 
-  // ── Cryptography ───────────────────────────────────────
-  { slug: 'aes-words',    i18nPrefix: 'tools.aesWords',      navLabelKey: 'nav.tool.aesWords',      category: 'cryptography' },
-  { slug: 'enigma',       i18nPrefix: 'tools.enigma',        navLabelKey: 'nav.tool.enigma',        category: 'cryptography' },
-  { slug: 'caesar',       i18nPrefix: 'tools.caesar',        navLabelKey: 'nav.tool.caesar',        category: 'cryptography' },
-  { slug: 'vigenere',     i18nPrefix: 'tools.vigenere',      navLabelKey: 'nav.tool.vigenere',      category: 'cryptography' },
-  { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'cryptography' },
-
   // ── Privacy ────────────────────────────────────────────
+  { slug: 'aes-words',    i18nPrefix: 'tools.aesWords',      navLabelKey: 'nav.tool.aesWords',      category: 'privacy' },
+  { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'privacy' },
   { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy' },
   { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'privacy' },
   { slug: 'ghost-drop',     i18nPrefix: 'tools.ghostDrop',      navLabelKey: 'nav.tool.ghostDrop',      category: 'privacy' },
@@ -35,12 +30,11 @@ export const tools: ToolDefinition[] = [
 
 export const categoryI18nKeys: Record<ToolCategory, string> = {
   developer: 'nav.developer',
-  cryptography: 'nav.cryptography',
   privacy: 'nav.privacy',
 };
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>) {
-  const categories: ToolCategory[] = ['developer', 'cryptography', 'privacy'];
+  const categories: ToolCategory[] = ['developer', 'privacy'];
 
   return categories.map(cat => ({
     name: t(dict, categoryI18nKeys[cat]),

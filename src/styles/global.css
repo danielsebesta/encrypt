@@ -326,7 +326,7 @@
             hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300;
     }
 
-    /* ── Page background (subpages — homepage has its own via PixelGrid) ── */
+    /* ── Page background ── */
     .page-bg {
         position: relative;
     }
