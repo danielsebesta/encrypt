@@ -1,6 +1,6 @@
-export type ToolEducationSlug = 'base64' | 'time-capsule' | 'jwt' | 'bcrypt' | 'enigma';
+export type ToolEducationSlug = 'base64' | 'time-capsule' | 'jwt' | 'bcrypt';
 
-export type ToolDiagramVariant = 'base64' | 'time-capsule' | 'jwt' | 'bcrypt' | 'enigma';
+export type ToolDiagramVariant = 'base64' | 'time-capsule' | 'jwt' | 'bcrypt';
 
 export interface ToolEducationSection {
   title: string;
