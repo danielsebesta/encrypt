@@ -23,6 +23,6 @@ export const prerender = false;
         E2E encrypted. No logs. Messages disappear.
       </p>
     </div>
-    <ChatRoom client:load roomId={id || 'default'} />
+    <ChatRoom client:only="svelte" roomId={id || 'default'} />
   </div>
 </Layout>
