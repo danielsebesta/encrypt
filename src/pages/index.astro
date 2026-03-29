@@ -11,9 +11,6 @@ const dict = getTranslations(locale);
 
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
 	<div class="home-page">
-		<div class="home-grid-overlay" aria-hidden="true"></div>
-		<div class="home-glow home-glow--top" aria-hidden="true"></div>
-		<div class="home-glow home-glow--mid" aria-hidden="true"></div>
 		<HomeHero locale={locale} dict={dict} />
 		<HomeCategoryGrid dict={dict} />
 		<HomeClosingCta dict={dict} />

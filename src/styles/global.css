@@ -326,106 +326,11 @@
             hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300;
     }
 
-    /* ── Page background ── */
-    .page-bg {
-        position: relative;
-    }
-
-    .page-bg::before {
-        content: "";
-        position: absolute;
-        top: -3.5rem;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image:
-            linear-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
-        background-size: 48px 48px;
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 300px, transparent 600px);
-    }
-
-    html.dark .page-bg::before {
-        background-image:
-            linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.06) 300px, transparent 600px);
-    }
-
-    .page-bg::after {
-        content: "";
-        position: absolute;
-        top: -5rem;
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(50rem, 80vw);
-        height: min(20rem, 30vh);
-        border-radius: 9999px;
-        background: radial-gradient(ellipse, rgba(16, 185, 129, 0.10), transparent 70%);
-        pointer-events: none;
-        z-index: 0;
-        filter: blur(40px);
-    }
-
-    html.dark .page-bg::after {
-        background: radial-gradient(ellipse, rgba(16, 185, 129, 0.05), transparent 70%);
-    }
-
-    .page-bg > * {
-        position: relative;
-        z-index: 1;
-    }
-
     /* ── Homepage ── */
 
     .home-page {
         position: relative;
         overflow: clip;
-    }
-
-    .home-grid-overlay {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image:
-            linear-gradient(rgba(16, 185, 129, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
-        background-size: 48px 48px;
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.15) 45%, transparent 75%);
-    }
-
-    html.dark .home-grid-overlay {
-        background-image:
-            linear-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
-        mask-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.1) 40%, transparent 70%);
-    }
-
-    .home-glow {
-        position: absolute;
-        border-radius: 9999px;
-        pointer-events: none;
-        z-index: 0;
-        filter: blur(60px);
-    }
-
-    .home-glow--top {
-        top: -8rem;
-        left: -6rem;
-        width: min(36rem, 50vw);
-        height: min(36rem, 50vw);
-        background: radial-gradient(circle, rgba(16, 185, 129, 0.15), transparent 70%);
-    }
-
-    .home-glow--mid {
-        top: 20rem;
-        right: -10rem;
-        width: min(30rem, 40vw);
-        height: min(30rem, 40vw);
-        background: radial-gradient(circle, rgba(16, 185, 129, 0.10), transparent 70%);
     }
 
     .home-hero-section {
