@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
   import {
-    generateRoomKey, importRoomKey, deriveKeyFromPassword,
+    deriveKeyFromPassword,
     encryptMessage, decryptMessage, generateIdentity
   } from '../../lib/chatCrypto';
 
@@ -58,22 +58,8 @@
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  async function initFromHash() {
-    if (typeof window === 'undefined') return;
-    const hash = window.location.hash.slice(1);
-    if (hash && hash.length > 10) {
-      try {
-        cryptoKey = await importRoomKey(hash);
-        // Clear hash from URL bar for privacy
-        history.replaceState(null, '', window.location.pathname);
-        needsPassword = false;
-        connectWs();
-      } catch {
-        needsPassword = true;
-      }
-    } else {
-      needsPassword = true;
-    }
+  function init() {
+    needsPassword = true;
   }
 
   async function submitPassword() {
@@ -238,7 +224,7 @@
   }
 
   onMount(() => {
-    initFromHash();
+    init();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
   });

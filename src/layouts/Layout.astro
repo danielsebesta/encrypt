@@ -108,6 +108,9 @@ const languageOptions = locales.map(l => ({
 
 				<!-- Desktop nav -->
 				<div class="hidden md:flex items-center gap-1">
+					<a href="/chat" class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors">
+						Chat
+					</a>
 					{navCategories.map((cat) => (
 						<div class="relative group">
 							<button class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
@@ -212,6 +215,7 @@ const languageOptions = locales.map(l => ({
 			<div id="mobile-menu" class="md:hidden hidden overflow-hidden">
 				<div class="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl max-h-[calc(100vh-3.5rem)] overflow-y-auto">
 					<div class="p-5 space-y-5">
+						<a href="/chat" class="block py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">Encrypted Chat</a>
 						{navCategories.map((cat) => (
 							<div class="space-y-2">
 								<p class="text-[10px] font-bold uppercase text-zinc-400 tracking-[0.15em]">{cat.name}</p>
