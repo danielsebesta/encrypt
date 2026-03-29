@@ -38,6 +38,13 @@
   let ttlSeconds = 60;
   let replyingTo: Message | null = null;
   let tickInterval: ReturnType<typeof setInterval>;
+  let messagesEl: HTMLElement;
+
+  function scrollToBottom() {
+    requestAnimationFrame(() => {
+      if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+  }
 
   const TTL_OPTIONS = [
     { label: '30s', value: 30 },
@@ -138,6 +145,7 @@
           };
           messages = [...messages, msg];
           typing = null;
+          scrollToBottom();
 
           // Notification if blurred
           if (blurred) {
@@ -185,6 +193,7 @@
 
     inputText = '';
     replyingTo = null;
+    scrollToBottom();
   }
 
   let typingSent = 0;
@@ -293,7 +302,7 @@
     </div>
 
     <!-- Messages -->
-    <div class="chat-messages" class:chat-messages--blurred={blurred}>
+    <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
       {#if messages.length === 0}
         <div class="chat-center">
           <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center">
