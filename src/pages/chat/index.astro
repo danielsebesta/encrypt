@@ -10,18 +10,18 @@ export const prerender = true;
 ---
 
 <Layout
-  title="Create Encrypted Chat — encrypt.click"
-  description="Create a private, ephemeral encrypted chatroom. No signup, no logs."
+  title={t(dict, 'chat.meta.createTitle')}
+  description={t(dict, 'chat.meta.createDescription')}
 >
   <div class="max-w-lg mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-8 space-y-3">
       <h1 class="text-3xl md:text-4xl font-bold tracking-tight">
-        Encrypted <span class="text-emerald-500">Chat</span>
+        {t(dict, 'chat.pageTitle')} <span class="text-emerald-500">{t(dict, 'chat.pageTitleHighlight')}</span>
       </h1>
       <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm mx-auto">
-        End-to-end encrypted. No database. Messages disappear automatically. Share the link to invite others.
+        {t(dict, 'chat.pageSubtitle')}
       </p>
     </div>
-    <ChatCreate client:load />
+    <ChatCreate client:load locale={locale} />
   </div>
 </Layout>

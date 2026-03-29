@@ -660,11 +660,11 @@
             <div class="flex flex-col w-full">
               <span class="ue-input-pane__label">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                {files.length === 1 ? files[0].name : `${files.length} files`}
+                {files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}`}
               </span>
               <div class="flex items-center gap-2 mt-1">
                 {#if files.length > 1}
-                  <span class="text-[10px] text-emerald-600 dark:text-emerald-400">auto-zipped</span>
+                  <span class="text-[10px] text-emerald-600 dark:text-emerald-400">{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')}</span>
                 {/if}
                 <span class="text-[10px] text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
                 <button type="button" class="text-[10px] font-bold text-red-500 hover:underline ml-auto" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
@@ -676,7 +676,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 {t(dict, 'tools.ultimateEncrypt.fileLabel')}
               </span>
-              <span class="text-[10px] text-zinc-300 dark:text-zinc-600">Drop, paste, or click</span>
+              <span class="text-[10px] text-zinc-300 dark:text-zinc-600">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
             </label>
             <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
           {/if}
@@ -721,15 +721,15 @@
   {:else if step === 'confirm'}
     <div class="space-y-4">
       <div class="space-y-2">
-        <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Your file is encrypted</p>
+        <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.confirm.title')}</p>
         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          The encrypted file never leaves your browser until you choose an option below.
+          {t(dict, 'tools.ultimateEncrypt.confirm.subtitle')}
         </p>
       </div>
 
       {#if pendingHosts.length > 0}
         <div class="rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 space-y-2.5">
-          <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Your encrypted file will be sent to:</p>
+          <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.confirm.hostLabel')}</p>
           {#each pendingHosts as host}
             <div class="flex items-start gap-2">
               <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
@@ -737,38 +737,38 @@
                 <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{host.name}</span>
                 {#if host.id === 'nologsend'}
                   <p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                    One of: {SEND_INSTANCE_NAMES.join(', ')}
+                    {t(dict, 'tools.ultimateEncrypt.confirm.oneOf')} {SEND_INSTANCE_NAMES.join(', ')}
                   </p>
                 {/if}
-                <p class="text-[10px] text-zinc-400 dark:text-zinc-500">Retention: {host.retention}</p>
+                <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.confirm.retention')} {host.retention}</p>
               </div>
             </div>
           {/each}
           <p class="text-[10px] text-zinc-400 dark:text-zinc-500 pt-1 border-t border-zinc-200/40 dark:border-zinc-800/30">
-            Only encrypted data is uploaded. Nobody can read it without the password.
+            {t(dict, 'tools.ultimateEncrypt.confirm.privacyNote')}
           </p>
         </div>
         <button class="btn w-full" type="button" on:click={confirmUpload}>
-          Upload & create share link
+          {t(dict, 'tools.ultimateEncrypt.confirm.uploadBtn')}
         </button>
       {/if}
 
       <div class="flex items-center gap-3 text-[10px] text-zinc-400">
         <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
-        <span>or</span>
+        <span>{t(dict, 'tools.ultimateEncrypt.confirm.or')}</span>
         <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
       </div>
 
       {#if localFileUrl}
         <div class="ue-passphrase-box">
           <div class="flex-1 space-y-1">
-            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">Download encrypted file</p>
+            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">{t(dict, 'tools.ultimateEncrypt.confirm.downloadTitle')}</p>
             <p class="text-[10px] text-emerald-600/70 dark:text-emerald-500/60">{localFileName}</p>
           </div>
-          <a href={localFileUrl} download={localFileName} class="btn-outline text-xs px-3 py-1.5">Download</a>
+          <a href={localFileUrl} download={localFileName} class="btn-outline text-xs px-3 py-1.5">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')}</a>
         </div>
         <div class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed space-y-1.5">
-          <p>Upload it to any of these and share the link + password:</p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
           <div class="flex flex-wrap gap-x-3 gap-y-1">
             <a href="https://upload.nolog.cz" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">upload.nolog.cz</a>
             <a href="https://wormhole.app" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">wormhole.app</a>
@@ -777,7 +777,7 @@
             <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">swisstransfer.com</a>
             <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">more Send instances</a>
           </div>
-          <p>Recipient decrypts at <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></p>
         </div>
       {/if}
 
@@ -786,7 +786,7 @@
       {/if}
 
       <button type="button" class="text-[10px] font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" on:click={() => step = 'input'}>
-        ← Back
+        &larr; {t(dict, 'tools.ultimateEncrypt.confirm.back')}
       </button>
     </div>
 
@@ -871,17 +871,17 @@
           <div class="ue-passphrase-box">
             <div class="flex-1">
               <p class="text-sm font-medium text-emerald-700 dark:text-emerald-400">{localFileName}</p>
-              <p class="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 mt-0.5">Encrypted with AES-256-GCM</p>
+              <p class="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 mt-0.5">{t(dict, 'tools.ultimateEncrypt.confirm.encryptedWith')}</p>
             </div>
-            <a href={localFileUrl} download={localFileName} class="btn text-xs px-4 py-2">Download</a>
+            <a href={localFileUrl} download={localFileName} class="btn text-xs px-4 py-2">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')}</a>
           </div>
           <div class="rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 space-y-2">
-            <p class="text-xs font-bold text-zinc-600 dark:text-zinc-300">Next steps:</p>
+            <p class="text-xs font-bold text-zinc-600 dark:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.confirm.nextSteps')}</p>
             <ol class="text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1.5 list-decimal list-inside">
-              <li>Download the encrypted file above</li>
-              <li>Upload it to a <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">Send instance</a></li>
-              <li>Share the Send link + password with the recipient</li>
-              <li>Recipient decrypts using <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></li>
+              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step1')}</li>
+              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step2Prefix')} <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.step2SendInstance')}</a></li>
+              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step3')}</li>
+              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step4Prefix')} <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></li>
             </ol>
           </div>
         </div>

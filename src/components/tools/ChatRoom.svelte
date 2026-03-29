@@ -5,9 +5,13 @@
     deriveKeyFromPassword,
     encryptMessage, decryptMessage, generateIdentity
   } from '../../lib/chatCrypto';
+  import { getTranslations, t } from '../../lib/i18n';
 
+  export let locale = 'en';
   export let roomId = '';
   export let partyHost = 'encrypt-chat.danielsebesta.partykit.dev';
+
+  $: dict = getTranslations(locale);
 
   type Message = {
     id: string;
@@ -64,13 +68,13 @@
 
   async function submitPassword() {
     passwordError = '';
-    if (!passwordInput.trim()) { passwordError = 'Enter a password'; return; }
+    if (!passwordInput.trim()) { passwordError = t(dict, 'chat.errorEnterPassword'); return; }
     try {
       cryptoKey = await deriveKeyFromPassword(passwordInput, roomId);
       needsPassword = false;
       connectWs();
     } catch {
-      passwordError = 'Failed to derive key';
+      passwordError = t(dict, 'chat.errorDeriveKey');
     }
   }
 
@@ -245,19 +249,19 @@
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">This room requires a password</p>
+          <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t(dict, 'chat.roomRequiresPassword')}</p>
         </div>
         <input
           type="password"
           class="input w-full"
-          placeholder="Room password"
+          placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
           bind:value={passwordInput}
           on:keydown={(e) => e.key === 'Enter' && submitPassword()}
         />
         {#if passwordError}
           <p class="text-xs text-red-500">{passwordError}</p>
         {/if}
-        <button class="btn w-full" on:click={submitPassword}>Enter room</button>
+        <button class="btn w-full" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
       </div>
     </div>
 
@@ -267,7 +271,7 @@
       <div class="flex items-center gap-2">
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <span class="text-xs text-zinc-500 dark:text-zinc-400">
-          {connected ? `${presence} online` : 'Connecting...'}
+          {connected ? `${presence} ${t(dict, 'chat.online')}` : t(dict, 'chat.connecting')}
         </span>
       </div>
       <div class="flex items-center gap-2">
@@ -281,7 +285,7 @@
             class="text-[10px] font-bold px-2 py-1 rounded {roomLocked ? 'text-amber-500' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'}"
             on:click={() => roomLocked ? unlockRoom() : lockRoom()}
           >
-            {roomLocked ? '🔒 Locked' : '🔓 Lock'}
+            {roomLocked ? `🔒 ${t(dict, 'chat.locked')}` : `🔓 ${t(dict, 'chat.lock')}`}
           </button>
         {/if}
       </div>
@@ -292,8 +296,8 @@
       {#if messages.length === 0}
         <div class="chat-center">
           <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center">
-            End-to-end encrypted. Messages disappear after the set time.<br />
-            No one who joins later can see older messages.
+            {t(dict, 'chat.emptyRoomNotice')}<br />
+            {t(dict, 'chat.emptyRoomNotice2')}
           </p>
         </div>
       {/if}
@@ -319,7 +323,7 @@
 
       {#if typing}
         <div class="chat-typing">
-          <span style="color: {typing.color}">{typing.name}</span> is typing...
+          <span style="color: {typing.color}">{typing.name}</span> {t(dict, 'chat.isTyping')}
         </div>
       {/if}
     </div>
@@ -328,7 +332,7 @@
     {#if replyingTo}
       <div class="chat-reply-bar">
         <span class="text-[10px] text-zinc-500 truncate flex-1">
-          Replying to <strong>{replyingTo.sender}</strong>: {replyingTo.text.slice(0, 50)}
+          {t(dict, 'chat.replyingTo')} <strong>{replyingTo.sender}</strong>: {replyingTo.text.slice(0, 50)}
         </span>
         <button class="text-[10px] text-red-500 font-bold" on:click={() => { replyingTo = null; }}>✕</button>
       </div>
@@ -339,7 +343,7 @@
       <input
         type="text"
         class="chat-input-field"
-        placeholder="Type a message..."
+        placeholder={t(dict, 'chat.messagePlaceholder')}
         bind:value={inputText}
         on:input={handleTyping}
         on:keydown={(e) => e.key === 'Enter' && sendMessage()}

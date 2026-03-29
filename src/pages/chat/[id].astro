@@ -11,18 +11,18 @@ export const prerender = false;
 ---
 
 <Layout
-  title="Encrypted Chat — encrypt.click"
-  description="End-to-end encrypted ephemeral chat. No logs, no database, messages disappear."
+  title={t(dict, 'chat.meta.roomTitle')}
+  description={t(dict, 'chat.meta.roomDescription')}
 >
   <div class="max-w-2xl mx-auto px-5 py-8 md:py-12">
     <div class="mb-6 text-center">
       <h1 class="text-2xl md:text-3xl font-bold tracking-tight mb-2">
-        Encrypted <span class="text-emerald-500">Chat</span>
+        {t(dict, 'chat.pageTitle')} <span class="text-emerald-500">{t(dict, 'chat.pageTitleHighlight')}</span>
       </h1>
       <p class="text-xs text-zinc-400 dark:text-zinc-500">
-        E2E encrypted. No logs. Messages disappear.
+        {t(dict, 'chat.roomSubtitle')}
       </p>
     </div>
-    <ChatRoom client:only="svelte" roomId={id || 'default'} />
+    <ChatRoom client:only="svelte" roomId={id || 'default'} locale={locale} />
   </div>
 </Layout>
