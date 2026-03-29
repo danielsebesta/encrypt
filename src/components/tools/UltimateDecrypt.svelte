@@ -741,13 +741,13 @@
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{encryptedFile.name}</span>
               <span class="text-[10px] text-zinc-400">{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
-              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => encryptedFile = null}>Remove</button>
+              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => encryptedFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
             </div>
           {:else}
             <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ud-enc">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">Encrypted file</span>
-              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">.enc or any encrypted file</span>
+              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateDecrypt.upload.encryptedFile')}</span>
+              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">{t(dict, 'tools.ultimateDecrypt.upload.encFileHint')}</span>
             </label>
             <input id="ud-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
           {/if}
@@ -757,13 +757,13 @@
             <div class="flex flex-col items-center gap-2 text-center py-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{stegoFile.name}</span>
-              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => stegoFile = null}>Remove</button>
+              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => stegoFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
             </div>
           {:else}
             <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ud-stego">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">Stego image</span>
-              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">Image with hidden data</span>
+              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateDecrypt.upload.stegoImage')}</span>
+              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">{t(dict, 'tools.ultimateDecrypt.upload.stegoHint')}</span>
             </label>
             <input id="ud-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
           {/if}
@@ -842,7 +842,7 @@
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
           <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{openedZipEntries.filter(e => !e.isDir).length} files</span>
+            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.ultimateDecrypt.upload.files')}</span>
           </div>
           <div class="max-h-[50vh] overflow-auto font-mono">
             {#each zipTree as node}
@@ -863,7 +863,7 @@
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
           <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">.env — secrets hidden by default</span>
+            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{t(dict, 'tools.ultimateDecrypt.upload.envHeader')}</span>
           </div>
           <div class="max-h-[50vh] overflow-auto font-mono text-[11px]">
             {#each openedEnvEntries as entry, i}
