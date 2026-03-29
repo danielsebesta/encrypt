@@ -1,4 +1,9 @@
 <script lang="ts">
+  import { getTranslations, t } from '../../lib/i18n';
+
+  export let locale = 'en';
+  $: dict = getTranslations(locale);
+
   let generatedLink = '';
   let generatedPassword = '';
   let copied = false;
@@ -57,14 +62,14 @@
 <div class="space-y-5">
   {#if !generatedLink}
     <p class="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">
-      Create a private room. Share the link and password separately. Everyone who joins needs the password.
+      {t(dict, 'chat.createDescription')}
     </p>
-    <button class="btn w-full" on:click={createRoom}>Create room</button>
+    <button class="btn w-full" on:click={createRoom}>{t(dict, 'chat.createRoom')}</button>
 
   {:else}
     <div class="space-y-4">
       <div class="space-y-1.5">
-        <label class="label block">Room link</label>
+        <label class="label block">{t(dict, 'chat.roomLink')}</label>
         <div class="ue-passphrase-box">
           <input class="ue-passphrase-input flex-1" type="text" readonly value={generatedLink} />
           <button class="ue-passphrase-refresh" on:click={copyLink} aria-label="Copy link">
@@ -78,7 +83,7 @@
       </div>
 
       <div class="space-y-1.5">
-        <label class="label block">Password</label>
+        <label class="label block">{t(dict, 'chat.password')}</label>
         <div class="ue-passphrase-box">
           <input class="ue-passphrase-input flex-1" type="text" readonly value={generatedPassword} />
           <button class="ue-passphrase-refresh" on:click={copyPassword} aria-label="Copy password">
@@ -89,10 +94,10 @@
             {/if}
           </button>
         </div>
-        <p class="text-[10px] text-amber-500">Share the password separately from the link.</p>
+        <p class="text-[10px] text-amber-500">{t(dict, 'chat.sharePasswordWarning')}</p>
       </div>
 
-      <button class="btn w-full" on:click={openRoom}>Enter room</button>
+      <button class="btn w-full" on:click={openRoom}>{t(dict, 'chat.enterRoom')}</button>
     </div>
   {/if}
 </div>
