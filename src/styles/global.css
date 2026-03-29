@@ -580,11 +580,6 @@
         @apply text-emerald-400/50 dark:text-emerald-600/60;
     }
 
-    .home-closing-panel {
-        @apply rounded-2xl border border-zinc-200/70 bg-white/60 dark:bg-zinc-950/40 dark:border-zinc-800/60 p-8 md:p-12;
-        backdrop-filter: blur(10px);
-    }
-
     .tool-hero {
         @apply mb-8 md:mb-10;
     }
@@ -738,7 +733,6 @@
     .tool-char,
     .tool-token-segment,
     .tool-process-node,
-    .tool-rotor,
     .tool-timeline-node {
         @apply rounded-2xl border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/80 px-3 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-200;
     }
@@ -779,8 +773,7 @@
         @apply text-2xl font-black text-zinc-400 dark:text-zinc-500;
     }
 
-    .tool-diagram-bcrypt,
-    .tool-diagram-enigma {
+    .tool-diagram-bcrypt {
         @apply flex-col md:flex-row;
     }
 

@@ -70,17 +70,6 @@ const { dict, variant, title, caption } = Astro.props;
       </div>
     )}
 
-    {variant === 'enigma' && (
-      <div class="tool-diagram tool-diagram-enigma">
-        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.keyboard')}</div>
-        <div class="tool-diagram__arrow">→</div>
-        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.rotors')}</div>
-        <div class="tool-diagram__arrow">→</div>
-        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.reflector')}</div>
-        <div class="tool-diagram__arrow">→</div>
-        <div class="tool-rotor">{t(dict, 'toolEducation.diagram.enigma.lampboard')}</div>
-      </div>
-    )}
   </div>
 
   <div class="tool-diagram-card__body">
