@@ -1,0 +1,5 @@
+{
+  "name": "encrypt-chat",
+  "main": "party/chat.ts",
+  "compatibilityDate": "2024-12-01"
+}
