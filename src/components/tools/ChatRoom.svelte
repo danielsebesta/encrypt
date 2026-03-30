@@ -130,6 +130,8 @@
     }
   }
 
+  let serverPresence = 0;
+
   function connectWs() {
     verifying = true;
     wrongPassword = false;
@@ -139,8 +141,6 @@
       if (cryptoKey) {
         const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color }));
         ws!.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
-        // If alone in room, auto-verify (no one to respond)
-        setTimeout(() => { if (verifying && !verified) { verified = true; verifying = false; } }, 2000);
       }
     });
     ws.addEventListener('close', () => { connected = false; });
@@ -151,6 +151,28 @@
     let data: any;
     try { data = JSON.parse(event.data); } catch { return; }
 
+    // Handle server control messages
+    if (data.type === 'init') {
+      serverPresence = data.presence;
+      // If alone in room (presence=1 = just me), auto-verify — no one to validate against
+      if (verifying && serverPresence <= 1) {
+        // Alone — no one to verify against, just enter
+        verified = true;
+        verifying = false;
+      } else if (verifying && serverPresence > 1) {
+        // Others present — they'll send verify messages we need to decrypt
+        // If we can't decrypt any within 4s, wrong password
+        setTimeout(() => {
+          if (verifying && !verified) {
+            wrongPassword = true;
+            verifying = false;
+            ws?.close();
+          }
+        }, 4000);
+      }
+      return;
+    }
+    if (data.type === 'presence') { serverPresence = data.count; return; }
     if (data.type !== 'message') return;
     if (!cryptoKey) return;
 
