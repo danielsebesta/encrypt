@@ -70,6 +70,10 @@
           type="text"
           bind:value={password}
           placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
+          autocomplete="off"
+          data-lpignore="true"
+          data-1p-ignore
+          data-bwignore="true"
         />
         <button class="ue-passphrase-refresh" on:click={() => { password = genPassphrase(); }} aria-label="Generate">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -98,7 +102,7 @@
     <div class="space-y-1.5">
       <label class="label block">{t(dict, 'chat.password')}</label>
       <div class="ue-passphrase-box">
-        <input class="ue-passphrase-input flex-1" type="password" readonly value={password} />
+        <input class="ue-passphrase-input flex-1" type="password" readonly value={password} autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" />
         <button class="ue-passphrase-refresh" on:click={copyPassword}>
           {#if copiedPass}
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
