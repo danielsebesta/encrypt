@@ -752,5 +752,6 @@
   "tools.ultimateDecrypt.upload.remove": "Odebrat",
   "tools.ultimateDecrypt.upload.envHeader": ".env — tajné hodnoty ve výchozím stavu skryté",
   "tools.ultimateDecrypt.upload.files": "souborů",
-  "chat.connected": "Připojeno"
+  "chat.connected": "Připojeno",
+  "chat.wrongPassword": "Zprávy se nepodařilo dešifrovat. Špatné heslo?"
 }

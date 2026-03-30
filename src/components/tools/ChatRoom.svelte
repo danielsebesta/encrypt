@@ -23,7 +23,6 @@
     time: number;
     ttl: number;
     remaining: number;
-    replyTo?: { sender: string; text: string };
   };
 
   let ws: PartySocket | null = null;
@@ -40,7 +39,7 @@
   let typingTimeout: ReturnType<typeof setTimeout>;
   let blurred = false;
   let ttlSeconds = 60;
-  let replyingTo: Message | null = null;
+  let decryptFailCount = 0;
   let tickInterval: ReturnType<typeof setInterval>;
   let messagesEl: HTMLElement;
 
@@ -146,15 +145,15 @@
         time: Date.now(),
         ttl: parsed.ttl || 60,
         remaining: parsed.ttl || 60,
-        replyTo: parsed.replyTo,
       };
       messages = [...messages, msg];
       typing = null;
+      decryptFailCount = 0;
       scrollToBottom();
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
     } catch {
-      // Can't decrypt = wrong password = ignore silently
+      decryptFailCount++;
     }
   }
 
@@ -166,7 +165,6 @@
       sender: identity.name,
       color: identity.color,
       ttl: ttlSeconds,
-      replyTo: replyingTo ? { sender: replyingTo.sender, text: replyingTo.text.slice(0, 100) } : undefined,
     };
 
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
@@ -183,11 +181,9 @@
       time: Date.now(),
       ttl: ttlSeconds,
       remaining: ttlSeconds,
-      replyTo: replyingTo ? { sender: replyingTo.sender, text: replyingTo.text.slice(0, 100) } : undefined,
     }];
 
     inputText = '';
-    replyingTo = null;
     scrollToBottom();
   }
 
@@ -289,33 +285,25 @@
 
       {#each messages as msg (msg.id)}
         <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
-          {#if msg.replyTo}
-            <div class="chat-reply">
-              <span class="font-medium">{msg.replyTo.sender}:</span> {msg.replyTo.text}
-            </div>
-          {/if}
           <div class="flex items-start gap-2">
             {#if !msg.mine}
-              <div class="chat-avatar" style="background: {msg.color}">
-                {msg.initials}
-              </div>
+              <div class="chat-avatar" style="background: {msg.color}">{msg.initials}</div>
             {/if}
             <div class="flex-1 min-w-0">
-              {#if !msg.mine}
-                <span class="chat-sender" style="color: {msg.color}">{msg.sender}</span>
-              {/if}
+              <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
               <p class="chat-text">{msg.text}</p>
-              <div class="chat-meta">
-                <span class="chat-ttl-bar" style="width: {(msg.remaining / msg.ttl) * 100}%"></span>
-                <span class="text-[9px] text-zinc-400">{Math.ceil(msg.remaining)}s</span>
-                <button class="chat-reply-btn" on:click={() => { replyingTo = msg; }}>↩</button>
-              </div>
             </div>
-            {#if msg.mine}
-              <div class="chat-avatar" style="background: {msg.color}">
-                {msg.initials}
-              </div>
-            {/if}
+            <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
+              <svg class="chat-timer__ring" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.1" />
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-dasharray="62.83"
+                  stroke-dashoffset={62.83 * (1 - msg.remaining / msg.ttl)}
+                  stroke-linecap="round"
+                  transform="rotate(-90 12 12)" />
+              </svg>
+              <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
+            </div>
           </div>
         </div>
       {/each}
@@ -326,16 +314,14 @@
           <span style="color: {typing.color}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
         </div>
       {/if}
-    </div>
 
-    {#if replyingTo}
-      <div class="chat-reply-bar">
-        <span class="text-[10px] text-zinc-500 truncate flex-1">
-          {t(dict, 'chat.replyingTo')} <strong>{replyingTo.sender}</strong>: {replyingTo.text.slice(0, 50)}
-        </span>
-        <button class="text-[10px] text-red-500 font-bold" on:click={() => { replyingTo = null; }}>✕</button>
-      </div>
-    {/if}
+      {#if decryptFailCount >= 3}
+        <div class="chat-wrong-password">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          {t(dict, 'chat.wrongPassword')}
+        </div>
+      {/if}
+    </div>
 
     <div class="chat-input">
       <input
@@ -421,36 +407,31 @@
   :global(.dark) .chat-bubble--mine { background: rgba(16, 185, 129, 0.15); }
   .chat-sender { font-size: 10px; font-weight: 700; display: block; margin-bottom: 1px; }
   .chat-text {
-    font-size: 13px; line-height: 1.5; color: rgb(63, 63, 70); word-break: break-word;
+    font-size: 13px; line-height: 1.4; color: rgb(63, 63, 70); word-break: break-word;
   }
   :global(.dark) .chat-text { color: rgb(212, 212, 216); }
-  .chat-meta {
-    display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem; position: relative;
+  .chat-timer {
+    position: relative; width: 28px; height: 28px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
   }
-  .chat-ttl-bar {
-    position: absolute; bottom: -3px; left: 0; height: 2px; border-radius: 1px;
-    background: rgba(16, 185, 129, 0.4); transition: width 0.2s linear;
+  .chat-timer__ring {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    color: rgb(16, 185, 129);
   }
-  .chat-reply-btn { font-size: 10px; color: rgb(161, 161, 170); margin-left: auto; }
-  .chat-reply-btn:hover { color: rgb(16, 185, 129); }
-  .chat-reply {
-    font-size: 10px; color: rgb(113, 113, 122);
-    padding: 0.2rem 0.4rem; margin-bottom: 0.2rem;
-    border-left: 2px solid rgba(16, 185, 129, 0.4); border-radius: 2px;
+  .chat-timer__num {
+    font-size: 8px; font-weight: 700; color: rgb(161, 161, 170);
+    position: relative; z-index: 1;
   }
   .chat-typing {
     font-size: 11px; color: rgb(161, 161, 170); padding: 0.25rem 0;
     display: flex; align-items: center; gap: 0.4rem;
   }
-  .chat-reply-bar {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.4rem 1rem;
-    border-top: 1px solid rgba(228, 228, 231, 0.4);
-    background: rgba(244, 244, 245, 0.5);
-  }
-  :global(.dark) .chat-reply-bar {
-    border-color: rgba(39, 39, 42, 0.3);
-    background: rgba(24, 24, 27, 0.5);
+  .chat-wrong-password {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 11px; color: rgb(239, 68, 68);
+    padding: 0.5rem 0.75rem; margin-top: 0.25rem;
+    border-radius: 0.5rem;
+    background: rgba(239, 68, 68, 0.08);
   }
   .chat-input {
     display: flex; align-items: center; gap: 0.5rem;
