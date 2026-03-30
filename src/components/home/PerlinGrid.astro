@@ -17,6 +17,7 @@
     const cells: { el: HTMLDivElement; r: number; c: number; prev: string }[] = [];
 
     grid.style.setProperty('--perlin-cols', String(COLS));
+    grid.style.setProperty('--perlin-rows', String(ROWS));
 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -125,9 +126,8 @@
   .perlin-grid {
     display: grid;
     grid-template-columns: repeat(var(--perlin-cols, 24), 1fr);
-    grid-auto-rows: 1fr;
+    grid-template-rows: repeat(var(--perlin-rows, 20), calc(100vw / var(--perlin-cols, 24)));
     width: 100%;
-    height: 100%;
     border: none;
     opacity: 0.5;
     gap: 0;
