@@ -8,7 +8,7 @@
 <script>
   const CELL_SIZE = 48;
   const MAX_COLS = 60;
-  const MAX_ROWS = 20;
+  const MAX_ROWS = 40;
   const grid = document.getElementById('perlin-grid');
   if (grid) {
     const COLS = Math.min(MAX_COLS, Math.ceil(screen.width / CELL_SIZE) + 2);
@@ -124,10 +124,11 @@
     z-index: 0;
     overflow: hidden;
     mask-image:
+      linear-gradient(to bottom, black 0%, black 70%, transparent 100%),
       radial-gradient(ellipse 120% 80% at 30% 20%, rgba(0,0,0,0.7), transparent 70%),
       radial-gradient(ellipse 100% 60% at 80% 40%, rgba(0,0,0,0.5), transparent 60%),
       radial-gradient(ellipse 140% 90% at 50% 10%, rgba(0,0,0,0.4), transparent 80%);
-    mask-composite: add;
+    mask-composite: intersect, add, add;
   }
 
   .perlin-grid {
