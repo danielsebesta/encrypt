@@ -49,6 +49,37 @@
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   }
 
+  function esc(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function parseMarkdown(text: string): string {
+    let html = esc(text);
+    // Code blocks: ```lang\ncode\n``` → <pre><code>
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre class="chat-code-block"><code>${code.trim()}</code></pre>`);
+    // Inline code: `code`
+    html = html.replace(/`([^`]+)`/g, '<code class="chat-code-inline">$1</code>');
+    // Bold italic: ***text*** or ___text___
+    html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
+    // Bold: **text** or __text__
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    // Italic: *text* or _text_
+    html = html.replace(/(?<!\w)\*(.+?)\*(?!\w)/g, '<em>$1</em>');
+    html = html.replace(/(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>');
+    // Strikethrough: ~~text~~
+    html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+    // Spoiler: ||text|| → click to reveal
+    html = html.replace(/\|\|(.+?)\|\|/g, '<span class="chat-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+    // Blockquote: > text (at line start)
+    html = html.replace(/(^|\n)&gt; (.+)/g, '$1<blockquote class="chat-quote">$2</blockquote>');
+    // Newlines
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
+
   function scrollToBottom() {
     requestAnimationFrame(() => {
       if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -291,7 +322,7 @@
             {/if}
             <div class="flex-1 min-w-0">
               <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
-              <p class="chat-text">{msg.text}</p>
+              <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
             </div>
             <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
               <svg class="chat-timer__ring" viewBox="0 0 24 24">
@@ -421,6 +452,38 @@
   .chat-timer__num {
     font-size: 8px; font-weight: 700; color: rgb(161, 161, 170);
     position: relative; z-index: 1;
+  }
+  .chat-text :global(strong) { font-weight: 700; }
+  .chat-text :global(em) { font-style: italic; }
+  .chat-text :global(del) { text-decoration: line-through; opacity: 0.6; }
+  .chat-text :global(.chat-code-inline) {
+    font-family: 'fira-code', monospace; font-size: 11px;
+    background: rgba(16, 185, 129, 0.08); border-radius: 3px;
+    padding: 1px 4px;
+  }
+  :global(.dark) .chat-text :global(.chat-code-inline) {
+    background: rgba(16, 185, 129, 0.12);
+  }
+  .chat-text :global(.chat-code-block) {
+    font-family: 'fira-code', monospace; font-size: 11px;
+    background: rgba(0, 0, 0, 0.04); border-radius: 6px;
+    padding: 6px 8px; margin: 4px 0; overflow-x: auto;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  :global(.dark) .chat-text :global(.chat-code-block) {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .chat-text :global(.chat-spoiler) {
+    background: rgb(63, 63, 70); color: transparent; border-radius: 3px;
+    padding: 0 3px; cursor: pointer; transition: all 0.2s;
+  }
+  .chat-text :global(.chat-spoiler.revealed) {
+    background: rgba(16, 185, 129, 0.1); color: inherit;
+  }
+  .chat-text :global(.chat-quote) {
+    border-left: 3px solid rgba(16, 185, 129, 0.4);
+    padding-left: 8px; margin: 2px 0;
+    color: rgb(113, 113, 122);
   }
   .chat-typing {
     font-size: 11px; color: rgb(161, 161, 170); padding: 0.25rem 0;
