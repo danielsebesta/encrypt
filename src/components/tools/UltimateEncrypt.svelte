@@ -696,6 +696,9 @@
             class="ue-passphrase-input"
             bind:value={password}
             autocomplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore="true"
             placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
           />
           <button type="button" class="ue-passphrase-refresh" on:click={() => { password = generatePassphrase(); }} aria-label="Generate passphrase">
