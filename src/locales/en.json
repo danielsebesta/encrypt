@@ -739,5 +739,6 @@
   "tools.ultimateDecrypt.upload.stegoHint": "Image with hidden data",
   "tools.ultimateDecrypt.upload.remove": "Remove",
   "tools.ultimateDecrypt.upload.envHeader": ".env — secrets hidden by default",
-  "tools.ultimateDecrypt.upload.files": "files"
+  "tools.ultimateDecrypt.upload.files": "files",
+  "chat.connected": "Connected"
 }
