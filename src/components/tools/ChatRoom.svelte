@@ -197,20 +197,13 @@
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
     } catch {
-      // Failed to decrypt — if we're still verifying, it's wrong password
+      // Failed to decrypt — wrong password
       if (verifying) {
         wrongPassword = true;
         verifying = false;
         ws?.close();
       }
-      // If already verified, someone with wrong password tried to join — show notice
-      if (verified) {
-        messages = [...messages, {
-          id: genId(), text: t(dict, 'chat.someoneTriedJoin'), sender: '', initials: '!',
-          color: 'rgb(239,68,68)', mine: false, time: Date.now(), ttl: 10, remaining: 10,
-        }];
-        scrollToBottom();
-      }
+      // Already verified — silently ignore (someone with wrong key, not our problem)
     }
   }
 
