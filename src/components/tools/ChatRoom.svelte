@@ -49,6 +49,7 @@
   let ttlSeconds = 60;
   let decryptFailCount = 0;
   let onlineUsers: { name: string; initials: string; color: string }[] = [];
+  let lastWrongPasswordNotice = 0;
   let uploading = false;
   let fileInputEl: HTMLInputElement;
 
@@ -269,7 +270,15 @@
         verifying = false;
         ws?.close();
       }
-      // Already verified — silently ignore (someone with wrong key, not our problem)
+      // Already verified — someone tried with wrong password (debounced)
+      if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
+        lastWrongPasswordNotice = Date.now();
+        messages = [...messages, {
+          id: genId(), text: t(dict, 'chat.someoneTriedJoin'), sender: '', initials: '!',
+          color: 'rgb(239,68,68)', mine: false, time: Date.now(), ttl: 10, remaining: 10,
+        }];
+        scrollToBottom();
+      }
     }
   }
 
