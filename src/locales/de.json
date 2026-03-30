@@ -752,5 +752,6 @@
   "tools.ultimateDecrypt.upload.remove": "Entfernen",
   "tools.ultimateDecrypt.upload.envHeader": ".env — Geheimnisse standardmäßig verborgen",
   "tools.ultimateDecrypt.upload.files": "Dateien",
-  "chat.connected": "Verbunden"
+  "chat.connected": "Verbunden",
+  "chat.wrongPassword": "Nachrichten konnten nicht entschlüsselt werden. Falsches Passwort?"
 }
