@@ -13,7 +13,7 @@
   if (grid) {
     const COLS = Math.min(MAX_COLS, Math.ceil(screen.width / CELL_SIZE) + 2);
     const ROWS = Math.min(MAX_ROWS, Math.ceil(screen.height / CELL_SIZE) + 2);
-    const isDark = document.documentElement.classList.contains('dark');
+    let isDark = document.documentElement.classList.contains('dark');
     const cells: { el: HTMLDivElement; r: number; c: number; prev: string }[] = [];
 
     grid.style.setProperty('--perlin-cols', String(COLS));
@@ -83,15 +83,18 @@
       '#0d9668','#10b981','#2cc084','#34d399',
       '#4ade80','#6ee7b7','#a7f3d0','#d1fae5',
     ];
-    const steps = isDark ? stepsDark : stepsLight;
+    function getSteps() {
+      return document.documentElement.classList.contains('dark') ? stepsDark : stepsLight;
+    }
 
-    function quantize(val: number) {
+    function quantize(val: number, steps: string[]) {
       const clamped = Math.max(0, Math.min(0.999, val));
       return steps[Math.floor(clamped * steps.length)];
     }
 
     function tick(t: number) {
       const ts = t * 0.00018;
+      const steps = getSteps();
       for (const c of cells) {
         const x = c.c * 0.14;
         const y = c.r * 0.14;
@@ -100,7 +103,7 @@
         const n = fbm(x + warpX * 3.2 + ts * 0.3, y + warpY * 3.2 - ts * 0.2, 4);
         const val = (n + 1) / 2;
         const smoothed = val * val * (3 - 2 * val);
-        const color = quantize(smoothed);
+        const color = quantize(smoothed, steps);
         if (color !== c.prev) {
           c.el.style.backgroundColor = color;
           c.prev = color;
@@ -120,7 +123,11 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.08) 100%);
+    mask-image:
+      radial-gradient(ellipse 120% 80% at 30% 20%, rgba(0,0,0,0.7), transparent 70%),
+      radial-gradient(ellipse 100% 60% at 80% 40%, rgba(0,0,0,0.5), transparent 60%),
+      radial-gradient(ellipse 140% 90% at 50% 10%, rgba(0,0,0,0.4), transparent 80%);
+    mask-composite: add;
   }
 
   .perlin-grid {
