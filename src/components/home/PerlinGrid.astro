@@ -113,12 +113,12 @@
 
 <style>
   .perlin-grid-wrap {
-    position: absolute;
+    position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 45%, transparent 80%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.08) 100%);
   }
 
   .perlin-grid {
@@ -126,17 +126,23 @@
     grid-template-columns: repeat(var(--perlin-cols, 24), 1fr);
     grid-auto-rows: auto;
     width: 100%;
+    height: 100%;
     border: none;
-    opacity: 0.75;
+    opacity: 0.5;
   }
 
   :global(html.dark) .perlin-grid {
-    opacity: 0.45;
+    opacity: 0.3;
+  }
+
+  @media (max-width: 768px) {
+    .perlin-grid { opacity: 0.25; }
+    :global(html.dark) .perlin-grid { opacity: 0.15; }
   }
 
   .perlin-grid :global(.perlin-cell) {
     aspect-ratio: 1;
-    border: 0.5px solid rgba(16, 185, 129, 0.08);
+    border: 0.5px solid rgba(16, 185, 129, 0.06);
     transition: background-color 1.6s linear;
     will-change: background-color;
   }

@@ -330,11 +330,15 @@
 
     .home-page {
         position: relative;
-        overflow: clip;
+        min-height: calc(100vh - 3.5rem);
+        display: flex;
+        align-items: center;
     }
 
     .home-hero-section {
         position: relative;
+        width: 100%;
+        padding: 2rem 0;
     }
 
     .home-tool-panel {

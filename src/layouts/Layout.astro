@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css'
+import PerlinGrid from '../components/home/PerlinGrid.astro';
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
 import { getNavCategories } from '../lib/tools';
 
@@ -98,6 +99,7 @@ const languageOptions = locales.map(l => ({
 		</script>
 	</head>
 	<body>
+		<PerlinGrid />
 		<nav id="site-nav" class="sticky top-0 z-50 w-full border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300">
 			<div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
 				<!-- Logo -->
