@@ -143,7 +143,18 @@
         ws!.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
       }
     });
-    ws.addEventListener('close', () => { connected = false; });
+    ws.addEventListener('close', () => {
+      connected = false;
+      // If verified and connection lost, redirect to chat home
+      if (verified && typeof window !== 'undefined') {
+        setTimeout(() => {
+          if (!connected) window.location.href = '/chat';
+        }, 3000);
+      }
+    });
+    ws.addEventListener('error', () => {
+      if (verifying) { wrongPassword = true; verifying = false; }
+    });
     ws.addEventListener('message', handleServerMessage);
   }
 
