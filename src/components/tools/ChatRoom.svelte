@@ -28,7 +28,7 @@
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
-  let identity = generateIdentity();
+  let identity = generateIdentity(locale);
   let messages: Message[] = [];
   let inputText = '';
   let connected = false;
