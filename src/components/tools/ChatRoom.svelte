@@ -5,6 +5,8 @@
     deriveKeyFromPassword,
     encryptMessage, decryptMessage, generateIdentity
   } from '../../lib/chatCrypto';
+  import { encryptData, decryptData } from '../../lib/ghost/crypto';
+  import { prepareSendUpload } from '../../lib/nologSend';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -23,6 +25,7 @@
     time: number;
     ttl: number;
     remaining: number;
+    file?: { name: string; size: number; url: string };
   };
 
   let ws: PartySocket | null = null;
@@ -42,6 +45,11 @@
   let blurred = false;
   let ttlSeconds = 60;
   let decryptFailCount = 0;
+  let uploading = false;
+  let fileInputEl: HTMLInputElement;
+
+  const MAX_FILE = 50 * 1024 * 1024;
+  const TEXT_AS_FILE_LIMIT = 2000;
   let tickInterval: ReturnType<typeof setInterval>;
   let messagesEl: HTMLElement;
 
@@ -122,6 +130,7 @@
   async function enterWithPassword(pwd: string) {
     try {
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
+      passwordUsed = pwd;
       needsPassword = false;
       connectWs();
     } catch {
@@ -233,6 +242,7 @@
         time: Date.now(),
         ttl: parsed.ttl || 60,
         remaining: parsed.ttl || 60,
+        file: parsed.file,
       };
       messages = [...messages, msg];
       typing = null;
@@ -279,6 +289,135 @@
     inputText = '';
     scrollToBottom();
   }
+
+  async function handleSend() {
+    if (!cryptoKey || !ws || !connected) return;
+    const text = inputText.trim();
+    if (!text) return;
+
+    // Large text → auto-convert to file
+    if (text.length > TEXT_AS_FILE_LIMIT) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const file = new File([blob], 'message.txt', { type: 'text/plain' });
+      await sendFile(file);
+      inputText = '';
+      return;
+    }
+
+    await sendMessage();
+  }
+
+  function handleFileSelect(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE) return;
+    sendFile(file);
+    target.value = '';
+  }
+
+  async function sendFile(file: File) {
+    if (!cryptoKey || !ws || uploading) return;
+    uploading = true;
+
+    try {
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      const encrypted = await encryptData(buffer, passwordUsed, file.name);
+
+      // Upload to ghost hosts
+      let uploadUrl = '';
+
+      // Try Send network first
+      try {
+        const prepared = await prepareSendUpload(encrypted, 'ghost.bin', 'application/octet-stream');
+        const res = await fetch(`/api/ghost/upload?services=nologsend&stego=false&filename=ghost.bin`, {
+          method: 'POST',
+          body: prepared.encryptedBytes,
+          headers: {
+            'X-Send-Metadata': prepared.metadataB64,
+            'X-Send-Auth': prepared.authHeader,
+            'X-Send-Secret': prepared.secretB64,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          uploadUrl = data?.results?.[0]?.url || '';
+        }
+      } catch {}
+
+      // Fallback to file hosts
+      if (!uploadUrl) {
+        for (const svc of ['quax', 'x0at', 'catbox', 'tmpfile']) {
+          try {
+            const res = await fetch(`/api/ghost/upload?services=${svc}&stego=false&filename=ghost.bin`, {
+              method: 'POST', body: encrypted,
+            });
+            if (res.ok) {
+              const data = await res.json();
+              uploadUrl = data?.results?.[0]?.url || '';
+              if (uploadUrl) break;
+            }
+          } catch {}
+        }
+      }
+
+      if (!uploadUrl) return;
+
+      // Send file message
+      const payload = {
+        text: '',
+        sender: identity.name,
+        color: identity.color,
+        ttl: ttlSeconds,
+        file: { name: file.name, size: file.size, url: uploadUrl },
+      };
+
+      const encPayload = await encryptMessage(cryptoKey!, JSON.stringify(payload));
+      const msgId = genId();
+      ws!.send(JSON.stringify({ type: 'message', payload: encPayload, id: msgId }));
+
+      messages = [...messages, {
+        id: msgId, text: '', sender: identity.name, initials: myInitials,
+        color: identity.color, mine: true, time: Date.now(),
+        ttl: ttlSeconds, remaining: ttlSeconds,
+        file: { name: file.name, size: file.size, url: uploadUrl },
+      }];
+      scrollToBottom();
+    } finally {
+      uploading = false;
+    }
+  }
+
+  async function downloadChatFile(file: { name: string; size: number; url: string } | undefined) {
+    if (!file || !passwordUsed) return;
+    try {
+      // Fetch encrypted file
+      const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(file.url)}`);
+      if (!res.ok) return;
+      let bytes = new Uint8Array(await res.arrayBuffer());
+
+      // Check if Send ECE encrypted
+      const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
+      if (isSendUrl(file.url)) {
+        bytes = await decryptSendBlob(bytes, file.url);
+      }
+
+      // Decrypt with room password
+      const { data, name } = await decryptData(bytes, passwordUsed);
+
+      // Download
+      const blob = new Blob([data], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name || file.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Download failed
+    }
+  }
+
+  let passwordUsed = '';
 
   let typingSent = 0;
   async function handleTyping() {
@@ -401,7 +540,21 @@
             {/if}
             <div class="flex-1 min-w-0">
               <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
-              <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
+              {#if msg.file}
+                <div class="chat-file">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <div class="flex-1 min-w-0">
+                    <span class="chat-file__name">{msg.file.name}</span>
+                    <span class="chat-file__size">{msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`}</span>
+                  </div>
+                  <button class="chat-file__dl" on:click={() => downloadChatFile(msg.file)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </button>
+                </div>
+              {/if}
+              {#if msg.text}
+                <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
+              {/if}
             </div>
             <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
               <svg class="chat-timer__ring" viewBox="0 0 24 24">
@@ -428,16 +581,24 @@
     </div>
 
     <div class="chat-input">
+      <button class="chat-attach-btn" on:click={() => fileInputEl?.click()} disabled={!connected || uploading}>
+        {#if uploading}
+          <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+        {:else}
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        {/if}
+      </button>
+      <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
       <input
         type="text"
         class="chat-input-field"
-        placeholder={t(dict, 'chat.messagePlaceholder')}
+        placeholder={uploading ? 'Uploading...' : t(dict, 'chat.messagePlaceholder')}
         bind:value={inputText}
         on:input={handleTyping}
-        on:keydown={(e) => e.key === 'Enter' && sendMessage()}
-        disabled={!connected}
+        on:keydown={(e) => e.key === 'Enter' && handleSend()}
+        disabled={!connected || uploading}
       />
-      <button class="chat-send-btn" on:click={sendMessage} disabled={!connected || !inputText.trim()}>
+      <button class="chat-send-btn" on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
@@ -581,6 +742,31 @@
   }
   :global(.dark) .chat-input-field { color: rgb(228, 228, 231); }
   .chat-input-field::placeholder { color: rgb(161, 161, 170); }
+  .chat-attach-btn {
+    padding: 0.4rem; border-radius: 0.5rem;
+    color: rgb(161, 161, 170); transition: color 0.15s;
+  }
+  .chat-attach-btn:hover:not(:disabled) { color: rgb(16, 185, 129); }
+  .chat-attach-btn:disabled { opacity: 0.3; }
+  .chat-file {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.6rem; margin: 0.25rem 0;
+    border-radius: 0.5rem;
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.12);
+    color: rgb(16, 185, 129);
+  }
+  .chat-file__name {
+    font-size: 11px; font-weight: 600; display: block; truncate: true;
+    color: rgb(63, 63, 70);
+  }
+  :global(.dark) .chat-file__name { color: rgb(212, 212, 216); }
+  .chat-file__size { font-size: 9px; color: rgb(161, 161, 170); }
+  .chat-file__dl {
+    padding: 0.25rem; border-radius: 0.35rem;
+    color: rgb(16, 185, 129); transition: background 0.15s;
+  }
+  .chat-file__dl:hover { background: rgba(16, 185, 129, 0.1); }
   .chat-send-btn {
     padding: 0.4rem; border-radius: 0.5rem;
     color: rgb(16, 185, 129); transition: background 0.15s;
