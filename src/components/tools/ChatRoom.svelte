@@ -25,7 +25,8 @@
     time: number;
     ttl: number;
     remaining: number;
-    file?: { name: string; size: number; url: string };
+    file?: { name: string; size: number; urls: string[] };
+    fileError?: boolean;
     burnOnRead?: boolean;
     revealed?: boolean;
   };
@@ -47,6 +48,7 @@
   let blurred = false;
   let ttlSeconds = 60;
   let decryptFailCount = 0;
+  let onlineUsers: { name: string; initials: string; color: string }[] = [];
   let uploading = false;
   let fileInputEl: HTMLInputElement;
 
@@ -218,11 +220,11 @@
       // Verify message — someone joined with correct password
       if (parsed.type === 'verify') {
         if (verifying) { verified = true; verifying = false; }
-        // Respond with our own verify so they know we're here with correct password
         if (verified && cryptoKey && ws) {
           const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color }));
           ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
         }
+        addOnlineUser(parsed.sender, parsed.color);
         messages = [...messages, {
           id: genId(), text: `${parsed.sender} joined`, sender: '', initials: '→',
           color: 'rgb(16,185,129)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
@@ -234,6 +236,7 @@
       // Verify-ack — confirmation from existing member
       if (parsed.type === 'verify-ack') {
         if (verifying) { verified = true; verifying = false; }
+        addOnlineUser(parsed.sender, parsed.color);
         return;
       }
 
@@ -250,7 +253,7 @@
         time: isBurn ? 0 : Date.now(), // burn-on-read: timer starts on reveal
         ttl: parsed.ttl || 60,
         remaining: parsed.ttl || 60,
-        file: parsed.file,
+        file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []) } : undefined,
         burnOnRead: isBurn,
         revealed: false,
       };
@@ -343,44 +346,46 @@
       const buffer = new Uint8Array(await file.arrayBuffer());
       const encrypted = await encryptData(buffer, passwordUsed, file.name);
 
-      // Upload to ghost hosts
-      let uploadUrl = '';
+      // Dual upload: Send + file host in parallel
+      const uploadUrls: string[] = [];
 
-      // Try Send network first
+      async function tryHost(svc: string, body: Uint8Array, headers: Record<string, string> = {}): Promise<string | null> {
+        try {
+          const res = await fetch(`/api/ghost/upload?services=${svc}&stego=false&filename=ghost.bin`, {
+            method: 'POST', body, headers,
+          });
+          if (!res.ok) return null;
+          const data = await res.json();
+          return data?.results?.[0]?.url || null;
+        } catch { return null; }
+      }
+
+      const fileHosts = ['quax', 'x0at', 'catbox', 'tmpfile'];
+      const randomFileHost = fileHosts[Math.floor(Math.random() * fileHosts.length)];
+
       try {
         const prepared = await prepareSendUpload(encrypted, 'ghost.bin', 'application/octet-stream');
-        const res = await fetch(`/api/ghost/upload?services=nologsend&stego=false&filename=ghost.bin`, {
-          method: 'POST',
-          body: prepared.encryptedBytes,
-          headers: {
+        const [sendUrl, fileUrl] = await Promise.all([
+          tryHost('nologsend', prepared.encryptedBytes, {
             'X-Send-Metadata': prepared.metadataB64,
             'X-Send-Auth': prepared.authHeader,
             'X-Send-Secret': prepared.secretB64,
-          },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          uploadUrl = data?.results?.[0]?.url || '';
-        }
+          }),
+          tryHost(randomFileHost, encrypted),
+        ]);
+        if (sendUrl) uploadUrls.push(sendUrl);
+        if (fileUrl) uploadUrls.push(fileUrl);
       } catch {}
 
-      // Fallback to file hosts
-      if (!uploadUrl) {
-        for (const svc of ['quax', 'x0at', 'catbox', 'tmpfile']) {
-          try {
-            const res = await fetch(`/api/ghost/upload?services=${svc}&stego=false&filename=ghost.bin`, {
-              method: 'POST', body: encrypted,
-            });
-            if (res.ok) {
-              const data = await res.json();
-              uploadUrl = data?.results?.[0]?.url || '';
-              if (uploadUrl) break;
-            }
-          } catch {}
+      // Sequential fallback if both failed
+      if (uploadUrls.length === 0) {
+        for (const svc of fileHosts) {
+          const url = await tryHost(svc, encrypted);
+          if (url) { uploadUrls.push(url); break; }
         }
       }
 
-      if (!uploadUrl) return;
+      if (uploadUrls.length === 0) return;
 
       // Send file message
       const isBurn = ttlSeconds === -1;
@@ -391,7 +396,7 @@
         color: identity.color,
         ttl: fileTtl,
         burnOnRead: isBurn,
-        file: { name: file.name, size: file.size, url: uploadUrl },
+        file: { name: file.name, size: file.size, urls: uploadUrls },
       };
 
       const encPayload = await encryptMessage(cryptoKey!, JSON.stringify(payload));
@@ -402,7 +407,7 @@
         id: msgId, text: '', sender: identity.name, initials: myInitials,
         color: identity.color, mine: true, time: Date.now(),
         ttl: fileTtl, remaining: fileTtl,
-        file: { name: file.name, size: file.size, url: uploadUrl },
+        file: { name: file.name, size: file.size, urls: uploadUrls },
         burnOnRead: isBurn, revealed: true,
       }];
       scrollToBottom();
@@ -411,33 +416,33 @@
     }
   }
 
-  async function downloadChatFile(file: { name: string; size: number; url: string } | undefined) {
-    if (!file || !passwordUsed) return;
-    try {
-      // Fetch encrypted file
-      const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(file.url)}`);
-      if (!res.ok) return;
-      let bytes = new Uint8Array(await res.arrayBuffer());
+  async function downloadChatFile(msg: Message) {
+    if (!msg.file || !passwordUsed) return;
+    const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
 
-      // Check if Send ECE encrypted
-      const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
-      if (isSendUrl(file.url)) {
-        bytes = await decryptSendBlob(bytes, file.url);
-      }
+    for (const fileUrl of msg.file.urls) {
+      try {
+        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(fileUrl)}`);
+        if (!res.ok) continue;
+        let bytes = new Uint8Array(await res.arrayBuffer());
 
-      // Decrypt with room password
-      const { data, name } = await decryptData(bytes, passwordUsed);
+        if (isSendUrl(fileUrl)) {
+          bytes = await decryptSendBlob(bytes, fileUrl);
+        }
 
-      // Download
-      const blob = new Blob([data], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name || file.name;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      // Download failed
+        const { data, name } = await decryptData(bytes, passwordUsed);
+        const blob = new Blob([data], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name || msg.file!.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        return; // success
+      } catch { continue; }
     }
+    // All URLs failed
+    msg.fileError = true;
+    messages = messages;
   }
 
   let passwordUsed = '';
@@ -458,6 +463,12 @@
     if (typeof document === 'undefined') return;
     blurred = document.hidden;
     if (!blurred) document.title = 'encrypt.click/chat';
+  }
+
+  function addOnlineUser(name: string, color: string) {
+    if (!onlineUsers.find(u => u.name === name)) {
+      onlineUsers = [...onlineUsers, { name, initials: getInitials(name), color }];
+    }
   }
 
   function revealMessage(msg: Message) {
@@ -545,9 +556,12 @@
     <div class="chat-header">
       <div class="flex items-center gap-2">
         <span class="chat-status" class:chat-status--connected={connected}></span>
-        <span class="text-xs text-zinc-500 dark:text-zinc-400">
-          {connected ? t(dict, 'chat.connected') : t(dict, 'chat.connecting')}
-        </span>
+        <div class="flex items-center -space-x-1.5">
+          <div class="chat-avatar chat-avatar--sm" style="background: {identity.color}" title={identity.name}>{myInitials}</div>
+          {#each onlineUsers as user}
+            <div class="chat-avatar chat-avatar--sm" style="background: {user.color}" title={user.name}>{user.initials}</div>
+          {/each}
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <select class="text-[10px] bg-transparent text-zinc-400 border-none outline-none" bind:value={ttlSeconds}>
@@ -587,15 +601,23 @@
             <div class="flex-1 min-w-0">
               <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
               {#if msg.file}
-                <div class="chat-file">
+                <div class="chat-file" class:chat-file--error={msg.fileError}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   <div class="flex-1 min-w-0">
                     <span class="chat-file__name">{msg.file.name}</span>
-                    <span class="chat-file__size">{msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`}</span>
+                    <span class="chat-file__size">
+                      {#if msg.fileError}
+                        Expired
+                      {:else}
+                        {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`}
+                      {/if}
+                    </span>
                   </div>
-                  <button class="chat-file__dl" on:click={() => downloadChatFile(msg.file)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  </button>
+                  {#if !msg.fileError}
+                    <button class="chat-file__dl" on:click={() => downloadChatFile(msg)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                  {/if}
                 </div>
               {/if}
               {#if msg.text}
@@ -817,6 +839,12 @@
     background: rgba(16, 185, 129, 0.06);
     border: 1px solid rgba(16, 185, 129, 0.12);
     color: rgb(16, 185, 129);
+  }
+  .chat-file--error {
+    border-color: rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.06);
+    color: rgb(239, 68, 68);
+    opacity: 0.6;
   }
   .chat-file__name {
     font-size: 11px; font-weight: 600; display: block; truncate: true;
