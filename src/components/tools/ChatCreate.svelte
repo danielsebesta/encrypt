@@ -4,6 +4,8 @@
   export let locale = 'en';
   $: dict = getTranslations(locale);
 
+  type Step = 'password' | 'ready';
+  let step: Step = 'password';
   let generatedLink = '';
   let password = '';
   let copied = false;
@@ -31,11 +33,15 @@
     return words.join('-');
   }
 
-  function createRoom() {
+  // Pre-generate password on load
+  password = genPassphrase();
+
+  function confirmPassword() {
+    if (!password.trim()) { password = genPassphrase(); }
     const roomId = genRoomId();
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     generatedLink = `${origin}/chat/${roomId}`;
-    if (!password) password = genPassphrase();
+    step = 'ready';
   }
 
   async function copyLink() {
@@ -48,69 +54,62 @@
 
   function openRoom() {
     if (!generatedLink) return;
-    // Pass password via sessionStorage so ChatRoom picks it up automatically
-    if (password.trim()) {
-      sessionStorage.setItem('chat-password', password.trim());
-    }
+    if (password.trim()) sessionStorage.setItem('chat-password', password.trim());
     window.location.href = generatedLink;
   }
 </script>
 
-<div class="space-y-5">
-  {#if !generatedLink}
-    <div class="space-y-3">
-      <div class="space-y-1.5">
-        <label class="label block">{t(dict, 'chat.password')}</label>
-        <div class="ue-passphrase-box">
-          <input
-            class="ue-passphrase-input flex-1"
-            type="text"
-            bind:value={password}
-            placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
-          />
-          <button class="ue-passphrase-refresh" on:click={() => { password = genPassphrase(); }} aria-label="Generate">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
-        <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'chat.createDescription')}</p>
+<div class="space-y-4">
+  {#if step === 'password'}
+    <!-- Step 1: Set password (visible, editable) -->
+    <div class="space-y-1.5">
+      <label class="label block">{t(dict, 'chat.password')}</label>
+      <div class="ue-passphrase-box">
+        <input
+          class="ue-passphrase-input flex-1"
+          type="text"
+          bind:value={password}
+          placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
+        />
+        <button class="ue-passphrase-refresh" on:click={() => { password = genPassphrase(); }} aria-label="Generate">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
       </div>
+      <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'chat.createDescription')}</p>
     </div>
-    <button class="btn w-full" on:click={createRoom}>{t(dict, 'chat.createRoom')}</button>
+    <button class="btn w-full" on:click={confirmPassword}>{t(dict, 'chat.createRoom')}</button>
 
   {:else}
-    <div class="space-y-4">
-      <div class="space-y-1.5">
-        <label class="label block">{t(dict, 'chat.roomLink')}</label>
-        <div class="ue-passphrase-box">
-          <input class="ue-passphrase-input flex-1" type="text" readonly value={generatedLink} />
-          <button class="ue-passphrase-refresh" on:click={copyLink}>
-            {#if copied}
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
-          </button>
-        </div>
+    <!-- Step 2: Link + hidden password + enter -->
+    <div class="space-y-1.5">
+      <label class="label block">{t(dict, 'chat.roomLink')}</label>
+      <div class="ue-passphrase-box">
+        <input class="ue-passphrase-input flex-1" type="text" readonly value={generatedLink} />
+        <button class="ue-passphrase-refresh" on:click={copyLink}>
+          {#if copied}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          {/if}
+        </button>
       </div>
-
-      {#if password.trim()}
-        <div class="space-y-1.5">
-          <label class="label block">{t(dict, 'chat.password')}</label>
-          <div class="ue-passphrase-box">
-            <input class="ue-passphrase-input flex-1" type="text" bind:value={password} />
-            <button class="ue-passphrase-refresh" on:click={copyPassword}>
-              {#if copiedPass}
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-              {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              {/if}
-            </button>
-          </div>
-          <p class="text-[10px] text-amber-500">{t(dict, 'chat.sharePasswordWarning')}</p>
-        </div>
-      {/if}
-
-      <button class="btn w-full" on:click={openRoom}>{t(dict, 'chat.enterRoom')}</button>
     </div>
+
+    <div class="space-y-1.5">
+      <label class="label block">{t(dict, 'chat.password')}</label>
+      <div class="ue-passphrase-box">
+        <input class="ue-passphrase-input flex-1" type="password" readonly value={password} />
+        <button class="ue-passphrase-refresh" on:click={copyPassword}>
+          {#if copiedPass}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          {/if}
+        </button>
+      </div>
+      <p class="text-[10px] text-amber-500">{t(dict, 'chat.sharePasswordWarning')}</p>
+    </div>
+
+    <button class="btn w-full" on:click={openRoom}>{t(dict, 'chat.enterRoom')}</button>
   {/if}
 </div>
