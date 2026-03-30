@@ -753,5 +753,7 @@
   "tools.ultimateDecrypt.upload.envHeader": ".env — tajné hodnoty ve výchozím stavu skryté",
   "tools.ultimateDecrypt.upload.files": "souborů",
   "chat.connected": "Připojeno",
-  "chat.wrongPassword": "Zprávy se nepodařilo dešifrovat. Špatné heslo?"
+  "chat.wrongPassword": "Zprávy se nepodařilo dešifrovat. Špatné heslo?",
+  "chat.tryAgain": "Zkusit znovu",
+  "chat.someoneTriedJoin": "Někdo se pokusil připojit se špatným heslem"
 }

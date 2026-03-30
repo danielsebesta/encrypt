@@ -32,6 +32,8 @@
   let inputText = '';
   let connected = false;
   let verified = false;
+  let verifying = false;
+  let wrongPassword = false;
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
@@ -129,14 +131,16 @@
   }
 
   function connectWs() {
+    verifying = true;
+    wrongPassword = false;
     ws = new PartySocket({ host: partyHost, room: roomId });
     ws.addEventListener('open', async () => {
       connected = true;
-      // Send encrypted verification message so only matching passwords see each other
       if (cryptoKey) {
         const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color }));
         ws!.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
-        verified = true;
+        // If alone in room, auto-verify (no one to respond)
+        setTimeout(() => { if (verifying && !verified) { verified = true; verifying = false; } }, 2000);
       }
     });
     ws.addEventListener('close', () => { connected = false; });
@@ -147,7 +151,6 @@
     let data: any;
     try { data = JSON.parse(event.data); } catch { return; }
 
-    // Only process encrypted messages — ignore typing/presence from server (leaked info)
     if (data.type !== 'message') return;
     if (!cryptoKey) return;
 
@@ -155,7 +158,7 @@
       const plaintext = await decryptMessage(cryptoKey, data.payload);
       const parsed = JSON.parse(plaintext);
 
-      // Encrypted typing indicator
+      // Typing indicator
       if (parsed.type === 'typing') {
         typing = { sender: parsed.sender, initials: getInitials(parsed.sender), color: parsed.color };
         clearTimeout(typingTimeout);
@@ -163,8 +166,19 @@
         return;
       }
 
-      // Verification message — ignore (just proves they have the key)
-      if (parsed.type === 'verify') return;
+      // Verify message — someone joined with correct password
+      if (parsed.type === 'verify') {
+        if (verifying) { verified = true; verifying = false; }
+        // Show system message that someone joined
+        messages = [...messages, {
+          id: genId(), text: `${parsed.sender} joined`, sender: '', initials: '→',
+          color: 'rgb(16,185,129)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
+        }];
+        scrollToBottom();
+        return;
+      }
+
+      if (!verified) { verified = true; verifying = false; }
 
       const msg: Message = {
         id: data.id || genId(),
@@ -179,12 +193,24 @@
       };
       messages = [...messages, msg];
       typing = null;
-      decryptFailCount = 0;
       scrollToBottom();
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
     } catch {
-      decryptFailCount++;
+      // Failed to decrypt — if we're still verifying, it's wrong password
+      if (verifying) {
+        wrongPassword = true;
+        verifying = false;
+        ws?.close();
+      }
+      // If already verified, someone with wrong password tried to join — show notice
+      if (verified) {
+        messages = [...messages, {
+          id: genId(), text: t(dict, 'chat.someoneTriedJoin'), sender: '', initials: '!',
+          color: 'rgb(239,68,68)', mine: false, time: Date.now(), ttl: 10, remaining: 10,
+        }];
+        scrollToBottom();
+      }
     }
   }
 
@@ -266,7 +292,16 @@
 </script>
 
 <div class="chat-container">
-  {#if needsPassword}
+  {#if wrongPassword}
+    <div class="chat-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p class="text-sm font-medium text-red-500">{t(dict, 'chat.wrongPassword')}</p>
+        <button class="btn-outline w-full text-xs" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'chat.tryAgain')}</button>
+      </div>
+    </div>
+
+  {:else if needsPassword}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
@@ -284,6 +319,14 @@
           <p class="text-xs text-red-500">{passwordError}</p>
         {/if}
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
+      </div>
+    </div>
+
+  {:else if verifying}
+    <div class="chat-center">
+      <div class="text-center space-y-2">
+        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <p class="text-xs text-zinc-400">{t(dict, 'chat.connecting')}</p>
       </div>
     </div>
 
@@ -346,12 +389,6 @@
         </div>
       {/if}
 
-      {#if decryptFailCount >= 3}
-        <div class="chat-wrong-password">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          {t(dict, 'chat.wrongPassword')}
-        </div>
-      {/if}
     </div>
 
     <div class="chat-input">
