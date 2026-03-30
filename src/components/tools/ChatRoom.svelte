@@ -26,6 +26,8 @@
     ttl: number;
     remaining: number;
     file?: { name: string; size: number; url: string };
+    burnOnRead?: boolean;
+    revealed?: boolean;
   };
 
   let ws: PartySocket | null = null;
@@ -97,10 +99,15 @@
   }
 
   const TTL_OPTIONS = [
+    { label: '3s', value: 3 },
+    { label: '5s', value: 5 },
+    { label: '10s', value: 10 },
+    { label: '15s', value: 15 },
+    { label: '20s', value: 20 },
     { label: '30s', value: 30 },
     { label: '1m', value: 60 },
     { label: '5m', value: 300 },
-    { label: '15m', value: 900 },
+    { label: '👁', value: -1 },
   ];
 
   function genId(): string {
@@ -232,6 +239,7 @@
 
       if (!verified) { verified = true; verifying = false; }
 
+      const isBurn = parsed.burnOnRead === true;
       const msg: Message = {
         id: data.id || genId(),
         text: parsed.text,
@@ -239,10 +247,12 @@
         initials: getInitials(parsed.sender),
         color: parsed.color,
         mine: false,
-        time: Date.now(),
+        time: isBurn ? 0 : Date.now(), // burn-on-read: timer starts on reveal
         ttl: parsed.ttl || 60,
         remaining: parsed.ttl || 60,
         file: parsed.file,
+        burnOnRead: isBurn,
+        revealed: false,
       };
       messages = [...messages, msg];
       typing = null;
@@ -260,14 +270,28 @@
     }
   }
 
+  function parseTtlOverride(text: string): { cleanText: string; ttl: number } {
+    const match = text.match(/!(\d+)\s*$/);
+    if (match) {
+      return { cleanText: text.replace(/!(\d+)\s*$/, '').trim(), ttl: parseInt(match[1], 10) };
+    }
+    return { cleanText: text, ttl: 0 };
+  }
+
   async function sendMessage() {
     if (!inputText.trim() || !cryptoKey || !ws) return;
 
+    const { cleanText, ttl: overrideTtl } = parseTtlOverride(inputText.trim());
+    const isBurnOnRead = ttlSeconds === -1;
+    const finalTtl = overrideTtl > 0 ? overrideTtl : (isBurnOnRead ? 10 : ttlSeconds);
+    const text = cleanText || inputText.trim();
+
     const payload = {
-      text: inputText.trim(),
+      text,
       sender: identity.name,
       color: identity.color,
-      ttl: ttlSeconds,
+      ttl: finalTtl,
+      burnOnRead: isBurnOnRead,
     };
 
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
@@ -275,15 +299,10 @@
     ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
 
     messages = [...messages, {
-      id: msgId,
-      text: inputText.trim(),
-      sender: identity.name,
-      initials: myInitials,
-      color: identity.color,
-      mine: true,
-      time: Date.now(),
-      ttl: ttlSeconds,
-      remaining: ttlSeconds,
+      id: msgId, text, sender: identity.name, initials: myInitials,
+      color: identity.color, mine: true, time: Date.now(),
+      ttl: finalTtl, remaining: finalTtl,
+      burnOnRead: isBurnOnRead, revealed: true, // own messages are always revealed
     }];
 
     inputText = '';
@@ -437,11 +456,20 @@
     if (!blurred) document.title = 'encrypt.click/chat';
   }
 
+  function revealMessage(msg: Message) {
+    msg.revealed = true;
+    msg.time = Date.now();
+    messages = messages;
+  }
+
   function tick() {
     const now = Date.now();
     let changed = false;
     const alive: Message[] = [];
     for (const msg of messages) {
+      // Burn-on-read: don't countdown until revealed
+      if (msg.burnOnRead && !msg.revealed) { alive.push(msg); continue; }
+      if (msg.time === 0) { alive.push(msg); continue; }
       const elapsed = (now - msg.time) / 1000;
       const rem = Math.max(0, msg.ttl - elapsed);
       if (rem <= 0) { changed = true; continue; }
@@ -534,6 +562,16 @@
 
       {#each messages as msg (msg.id)}
         <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
+          {#if msg.burnOnRead && !msg.revealed && !msg.mine}
+            <!-- Burn on read: hidden until clicked -->
+            <div class="flex items-start gap-2">
+              <div class="chat-avatar" style="background: {msg.color}">{msg.initials}</div>
+              <button class="chat-burn-reveal" on:click={() => revealMessage(msg)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span>{msg.sender}</span>
+              </button>
+            </div>
+          {:else}
           <div class="flex items-start gap-2">
             {#if !msg.mine}
               <div class="chat-avatar" style="background: {msg.color}">{msg.initials}</div>
@@ -568,6 +606,7 @@
               <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
             </div>
           </div>
+          {/if}
         </div>
       {/each}
 
@@ -742,6 +781,18 @@
   }
   :global(.dark) .chat-input-field { color: rgb(228, 228, 231); }
   .chat-input-field::placeholder { color: rgb(161, 161, 170); }
+  .chat-burn-reveal {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.7rem; border-radius: 0.5rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px dashed rgba(239, 68, 68, 0.2);
+    color: rgb(239, 68, 68); font-size: 11px; font-weight: 600;
+    transition: all 0.15s;
+  }
+  .chat-burn-reveal:hover {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
   .chat-attach-btn {
     padding: 0.4rem; border-radius: 0.5rem;
     color: rgb(161, 161, 170); transition: color 0.15s;
