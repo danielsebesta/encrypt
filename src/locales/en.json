@@ -740,5 +740,6 @@
   "tools.ultimateDecrypt.upload.remove": "Remove",
   "tools.ultimateDecrypt.upload.envHeader": ".env — secrets hidden by default",
   "tools.ultimateDecrypt.upload.files": "files",
-  "chat.connected": "Connected"
+  "chat.connected": "Connected",
+  "chat.wrongPassword": "Messages could not be decrypted. Wrong password?"
 }
