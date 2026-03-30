@@ -383,11 +383,14 @@
       if (!uploadUrl) return;
 
       // Send file message
+      const isBurn = ttlSeconds === -1;
+      const fileTtl = isBurn ? 30 : ttlSeconds;
       const payload = {
         text: '',
         sender: identity.name,
         color: identity.color,
-        ttl: ttlSeconds,
+        ttl: fileTtl,
+        burnOnRead: isBurn,
         file: { name: file.name, size: file.size, url: uploadUrl },
       };
 
@@ -398,8 +401,9 @@
       messages = [...messages, {
         id: msgId, text: '', sender: identity.name, initials: myInitials,
         color: identity.color, mine: true, time: Date.now(),
-        ttl: ttlSeconds, remaining: ttlSeconds,
+        ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, url: uploadUrl },
+        burnOnRead: isBurn, revealed: true,
       }];
       scrollToBottom();
     } finally {
