@@ -751,5 +751,6 @@
   "tools.ultimateDecrypt.upload.stegoHint": "Obrázek se skrytými daty",
   "tools.ultimateDecrypt.upload.remove": "Odebrat",
   "tools.ultimateDecrypt.upload.envHeader": ".env — tajné hodnoty ve výchozím stavu skryté",
-  "tools.ultimateDecrypt.upload.files": "souborů"
+  "tools.ultimateDecrypt.upload.files": "souborů",
+  "chat.connected": "Připojeno"
 }

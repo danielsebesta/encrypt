@@ -71,15 +71,16 @@
       return v / max;
     }
 
+    // Emerald/mint palette: light goes from white → emerald
     const stepsLight = [
-      '#d4edda','#b8dcc4','#9acbab','#7cbc8a',
-      '#5faa6e','#4a9a5a','#34884c','#24763e',
-      '#1a6b34','#10572a','#0d5429','#064020',
+      '#ffffff','#f0fdf9','#e0faf1','#ccfbeb',
+      '#a7f3d0','#86efbc','#6ee7b7','#4ade80',
+      '#34d399','#2cc084','#10b981','#059669',
     ];
     const stepsDark = [
-      '#060e08','#0a1a0e','#0f2615','#15351e',
-      '#1d4a2a','#276038','#347a49','#43945c',
-      '#57ad72','#70c48a','#8fd8a3','#b0e8bf',
+      '#022c22','#064e3b','#065f46','#047857',
+      '#0d9668','#10b981','#2cc084','#34d399',
+      '#4ade80','#6ee7b7','#a7f3d0','#d1fae5',
     ];
     const steps = isDark ? stepsDark : stepsLight;
 
@@ -124,11 +125,14 @@
   .perlin-grid {
     display: grid;
     grid-template-columns: repeat(var(--perlin-cols, 24), 1fr);
-    grid-auto-rows: auto;
+    grid-auto-rows: 1fr;
     width: 100%;
     height: 100%;
     border: none;
     opacity: 0.5;
+    gap: 0;
+    line-height: 0;
+    font-size: 0;
   }
 
   :global(html.dark) .perlin-grid {
@@ -141,10 +145,12 @@
   }
 
   .perlin-grid :global(.perlin-cell) {
-    aspect-ratio: 1;
-    border: 0.5px solid rgba(16, 185, 129, 0.06);
+    display: block;
+    border: 0.5px solid rgba(16, 185, 129, 0.04);
     transition: background-color 1.6s linear;
     will-change: background-color;
+    margin: 0;
+    padding: 0;
   }
 
   :global(html.dark) .perlin-grid :global(.perlin-cell) {
