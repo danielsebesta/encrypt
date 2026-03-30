@@ -779,7 +779,10 @@
       type="password"
       class="input"
       bind:value={password}
-      autocomplete="current-password"
+      autocomplete="off"
+      data-lpignore="true"
+      data-1p-ignore
+      data-bwignore="true"
       placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
       on:keydown={(e) => {
         if (e.key === 'Enter' && !loading && (hasHash || stegoFile || encryptedFile)) {
