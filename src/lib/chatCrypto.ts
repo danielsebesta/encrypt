@@ -80,17 +80,30 @@ function b64urlToArray(str: string): Uint8Array {
   return bytes;
 }
 
-// Generate anonymous identity
-const ADJECTIVES = ['Swift','Calm','Bold','Keen','Warm','Cool','Wise','Fair','Free','True'];
-const ANIMALS = ['Fox','Owl','Bear','Wolf','Hawk','Deer','Lynx','Seal','Crow','Dove'];
+// Generate anonymous identity with locale-specific names
+const NAMES: Record<string, { adj: string[]; animals: string[] }> = {
+  en: {
+    adj: ['Swift','Calm','Bold','Keen','Warm','Cool','Wise','Fair','Brave','Bright','Quick','Proud','Noble','Sly','Wild','Gentle','Fierce','Silent','Lucky','Mystic'],
+    animals: ['Fox','Owl','Bear','Wolf','Hawk','Deer','Lynx','Seal','Crow','Dove','Panda','Tiger','Eagle','Otter','Raven','Falcon','Cobra','Whale','Heron','Gecko'],
+  },
+  cs: {
+    adj: ['Hbitý','Klidný','Smělý','Bystrý','Vřelý','Chladný','Moudrý','Čestný','Statečný','Jasný','Rychlý','Hrdý','Vznešený','Lstivý','Divoký','Jemný','Zuřivý','Tichý','Šťastný','Tajemný'],
+    animals: ['Liška','Sova','Medvěd','Vlk','Jestřáb','Jelen','Rys','Tuleň','Vrána','Holub','Panda','Tygr','Orel','Vydra','Havran','Sokol','Kobra','Velryba','Volavka','Gekon'],
+  },
+  de: {
+    adj: ['Flink','Ruhig','Kühn','Scharf','Warm','Kühl','Weise','Edel','Tapfer','Hell','Rasch','Stolz','Nobel','Listig','Wild','Sanft','Grimmig','Still','Glücklich','Mystisch'],
+    animals: ['Fuchs','Eule','Bär','Wolf','Habicht','Hirsch','Luchs','Robbe','Krähe','Taube','Panda','Tiger','Adler','Otter','Rabe','Falke','Kobra','Wal','Reiher','Gecko'],
+  },
+};
 
-export function generateIdentity(): { name: string; color: string } {
+export function generateIdentity(locale = 'en'): { name: string; color: string } {
+  const { adj, animals } = NAMES[locale] || NAMES.en;
   const arr = crypto.getRandomValues(new Uint8Array(4));
-  const adj = ADJECTIVES[arr[0] % ADJECTIVES.length];
-  const animal = ANIMALS[arr[1] % ANIMALS.length];
+  const a = adj[arr[0] % adj.length];
+  const animal = animals[arr[1] % animals.length];
   const hue = ((arr[2] << 8) | arr[3]) % 360;
   return {
-    name: `${adj} ${animal}`,
+    name: `${a} ${animal}`,
     color: `hsl(${hue}, 65%, 55%)`,
   };
 }
