@@ -202,12 +202,22 @@
       // Verify message — someone joined with correct password
       if (parsed.type === 'verify') {
         if (verifying) { verified = true; verifying = false; }
-        // Show system message that someone joined
+        // Respond with our own verify so they know we're here with correct password
+        if (verified && cryptoKey && ws) {
+          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color }));
+          ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
+        }
         messages = [...messages, {
           id: genId(), text: `${parsed.sender} joined`, sender: '', initials: '→',
           color: 'rgb(16,185,129)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
         }];
         scrollToBottom();
+        return;
+      }
+
+      // Verify-ack — confirmation from existing member
+      if (parsed.type === 'verify-ack') {
+        if (verifying) { verified = true; verifying = false; }
         return;
       }
 
@@ -377,8 +387,8 @@
       {#if messages.length === 0}
         <div class="chat-center">
           <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center">
-            {t(dict, 'chat.emptyRoom')}<br />
-            {t(dict, 'chat.noHistory')}
+            {t(dict, 'chat.emptyRoomNotice')}<br />
+            {t(dict, 'chat.emptyRoomNotice2')}
           </p>
         </div>
       {/if}
