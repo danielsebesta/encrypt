@@ -741,5 +741,7 @@
   "tools.ultimateDecrypt.upload.envHeader": ".env — secrets hidden by default",
   "tools.ultimateDecrypt.upload.files": "files",
   "chat.connected": "Connected",
-  "chat.wrongPassword": "Messages could not be decrypted. Wrong password?"
+  "chat.wrongPassword": "Messages could not be decrypted. Wrong password?",
+  "chat.tryAgain": "Try again",
+  "chat.someoneTriedJoin": "Someone tried to join with wrong password"
 }
