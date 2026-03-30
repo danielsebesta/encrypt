@@ -27,6 +27,7 @@
     remaining: number;
     file?: { name: string; size: number; urls: string[] };
     fileError?: boolean;
+    preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     burnOnRead?: boolean;
     revealed?: boolean;
   };
@@ -262,6 +263,9 @@
       typing = null;
       scrollToBottom();
 
+      // Auto-preview for images and text files
+      if (msg.file && !isBurn) autoPreview(msg);
+
       if (blurred) document.title = `(!) encrypt.click/chat`;
     } catch {
       // Failed to decrypt — wrong password
@@ -412,14 +416,16 @@
       const msgId = genId();
       ws!.send(JSON.stringify({ type: 'message', payload: encPayload, id: msgId }));
 
-      messages = [...messages, {
+      const ownMsg: Message = {
         id: msgId, text: '', sender: identity.name, initials: myInitials,
         color: identity.color, mine: true, time: Date.now(),
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls },
         burnOnRead: isBurn, revealed: true,
-      }];
+      };
+      messages = [...messages, ownMsg];
       scrollToBottom();
+      if (!isBurn) autoPreview(ownMsg);
     } finally {
       uploading = false;
     }
@@ -472,6 +478,44 @@
     if (typeof document === 'undefined') return;
     blurred = document.hidden;
     if (!blurred) document.title = 'encrypt.click/chat';
+  }
+
+  const IMAGE_EXTS = new Set(['png','jpg','jpeg','gif','webp','svg','bmp','ico']);
+  const TEXT_EXTS = new Set(['txt','md','json','csv','log','xml','yaml','yml','toml','ini','env','cfg','conf','html','css','js','ts','py','sh','sql','go','rs','c','h','cpp','java','rb','php','swift','kt']);
+  const PREVIEW_TEXT_LIMIT = 500;
+
+  function getFileExt(name: string): string {
+    return name.split('.').pop()?.toLowerCase() ?? '';
+  }
+
+  async function autoPreview(msg: Message) {
+    if (!msg.file || !passwordUsed) return;
+    const ext = getFileExt(msg.file.name);
+
+    if (!IMAGE_EXTS.has(ext) && !TEXT_EXTS.has(ext)) return;
+
+    const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
+
+    for (const fileUrl of msg.file.urls) {
+      try {
+        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(fileUrl)}`);
+        if (!res.ok) continue;
+        let bytes = new Uint8Array(await res.arrayBuffer());
+        if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
+        const { data } = await decryptData(bytes, passwordUsed);
+
+        if (IMAGE_EXTS.has(ext)) {
+          const mimeMap: Record<string, string> = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp', ico:'image/x-icon' };
+          const blob = new Blob([data], { type: mimeMap[ext] || 'image/png' });
+          msg.preview = { type: 'image', url: URL.createObjectURL(blob) };
+        } else {
+          const text = new TextDecoder().decode(data);
+          msg.preview = { type: 'text', text, expanded: false };
+        }
+        messages = messages;
+        return;
+      } catch { continue; }
+    }
   }
 
   function addOnlineUser(name: string, color: string) {
@@ -628,6 +672,20 @@
                     </button>
                   {/if}
                 </div>
+              {/if}
+              {#if msg.preview}
+                {#if msg.preview.type === 'image' && msg.preview.url}
+                  <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
+                {:else if msg.preview.type === 'text' && msg.preview.text}
+                  <div class="chat-preview-text">
+                    <pre class="chat-preview-code">{msg.preview.expanded ? msg.preview.text : msg.preview.text.slice(0, PREVIEW_TEXT_LIMIT)}{!msg.preview.expanded && msg.preview.text.length > PREVIEW_TEXT_LIMIT ? '…' : ''}</pre>
+                    {#if msg.preview.text.length > PREVIEW_TEXT_LIMIT}
+                      <button class="chat-preview-expand" on:click={() => { if (msg.preview) msg.preview.expanded = !msg.preview.expanded; messages = messages; }}>
+                        {msg.preview.expanded ? '▲' : '▼'} {msg.preview.expanded ? 'Less' : 'More'}
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
               {/if}
               {#if msg.text}
                 <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
@@ -823,6 +881,41 @@
   }
   :global(.dark) .chat-input-field { color: rgb(228, 228, 231); }
   .chat-input-field::placeholder { color: rgb(161, 161, 170); }
+  .chat-preview-img {
+    max-width: 100%; max-height: 240px;
+    border-radius: 0.5rem; margin-top: 0.25rem;
+    object-fit: contain;
+  }
+  .chat-preview-text {
+    margin-top: 0.25rem; border-radius: 0.4rem; overflow: hidden;
+    border: 1px solid rgba(228, 228, 231, 0.5);
+  }
+  :global(.dark) .chat-preview-text {
+    border-color: rgba(39, 39, 42, 0.4);
+  }
+  .chat-preview-code {
+    margin: 0; padding: 0.4rem 0.5rem;
+    font-family: 'fira-code', monospace; font-size: 10px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all;
+    color: rgb(82, 82, 91); background: rgba(244, 244, 245, 0.6);
+    max-height: 200px; overflow-y: auto;
+  }
+  :global(.dark) .chat-preview-code {
+    color: rgb(161, 161, 170);
+    background: rgba(24, 24, 27, 0.5);
+  }
+  .chat-preview-expand {
+    display: block; width: 100%; padding: 0.2rem;
+    font-size: 9px; font-weight: 600; text-align: center;
+    color: rgb(16, 185, 129);
+    background: rgba(244, 244, 245, 0.8);
+    border-top: 1px solid rgba(228, 228, 231, 0.5);
+  }
+  :global(.dark) .chat-preview-expand {
+    background: rgba(24, 24, 27, 0.6);
+    border-color: rgba(39, 39, 42, 0.4);
+  }
+  .chat-preview-expand:hover { background: rgba(16, 185, 129, 0.08); }
   .chat-burn-reveal {
     display: flex; align-items: center; gap: 0.4rem;
     padding: 0.4rem 0.7rem; border-radius: 0.5rem;
