@@ -1,5 +1,7 @@
 # encrypt.click
 
+**Your privacy is just a click away.**
+
 Privacy-first security tools that run primarily in the browser. The site is built with Astro + Svelte, ships localized English/Czech/German UI, and includes downloadable standalone HTML builds for the main tools.
 
 ## What ships

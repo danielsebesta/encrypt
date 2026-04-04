@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Project overview
 
-**encrypt.click** is a privacy-first security toolkit built with Astro + Svelte. Most user-facing crypto runs in the browser, while a smaller set of server routes handle supporting flows such as Ghost Drop relays, URL shortening, and drand proxying.
+**encrypt.click** — *Your privacy is just a click away.* A privacy-first security toolkit built with Astro + Svelte. Most user-facing crypto runs in the browser, while a smaller set of server routes handle supporting flows such as Ghost Drop relays, URL shortening, and drand proxying.
 
 ## Commands
 
