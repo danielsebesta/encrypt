@@ -180,8 +180,8 @@
           for (let row = 0; row < h; row++) {
             const bin = minBin + Math.round(row * usableBins / h);
             if (bin >= FFT_SIZE / 2) continue;
-            // Image row 0 = top = high frequency, row h-1 = bottom = low frequency
-            const amplitude = grayscale[row * w + col] / 255;
+            // Flip: image row 0 (top) maps to highest frequency bin
+            const amplitude = grayscale[(h - 1 - row) * w + col] / 255;
             const phase = Math.random() * 2 * Math.PI;
             re[bin] = amplitude * Math.cos(phase);
             im[bin] = amplitude * Math.sin(phase);
@@ -264,7 +264,8 @@
           const bin = minBin + Math.round(row * usableBins / imgH);
           if (bin >= FFT_SIZE / 2) continue;
           const mag = Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]);
-          pixels[row * imgW + col] = Math.min(255, Math.round(mag * 255 * 4));
+          // Flip back: lowest bin → bottom of image (high row index)
+          pixels[(imgH - 1 - row) * imgW + col] = Math.min(255, Math.round(mag * 255 * 4));
         }
 
         if (col % 64 === 0) await new Promise(r => setTimeout(r, 0));
