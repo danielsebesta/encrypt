@@ -8,13 +8,17 @@
   let mode: 'encode' | 'decode' = 'encode';
   let imageFile: File | null = null;
   let imageUrl: string | null = null;
+  let carrierFile: File | null = null;
+  let carrierFileName = '';
   let audioFile: File | null = null;
   let audioFileName = '';
   let password = '';
+  let imageStrength = 0.15;
   let status = '';
   let processing = false;
 
   let imageInput: HTMLInputElement;
+  let carrierInput: HTMLInputElement;
   let audioInput: HTMLInputElement;
   let offscreenCanvas: HTMLCanvasElement;
   let spectrogramCanvas: HTMLCanvasElement;
@@ -201,18 +205,55 @@
           if (col % 64 === 0) await new Promise(r => setTimeout(r, 0));
         }
 
-        // Normalize
+        // Normalize the image signal
         let maxAmp = 0;
         for (let i = 0; i < audio.length; i++) maxAmp = Math.max(maxAmp, Math.abs(audio[i]));
         if (maxAmp > 0) for (let i = 0; i < audio.length; i++) audio[i] /= maxAmp;
 
+        // Mix with carrier audio if provided
+        let finalAudio = audio;
+        let finalRate = SAMPLE_RATE;
+        if (carrierFile) {
+          const carrierBuf = await carrierFile.arrayBuffer();
+          const carrier = decodeWav(carrierBuf);
+          finalRate = carrier.sampleRate;
+
+          // Resample image audio if sample rates differ
+          let imageSignal = audio;
+          if (carrier.sampleRate !== SAMPLE_RATE) {
+            const ratio = carrier.sampleRate / SAMPLE_RATE;
+            const newLen = Math.round(audio.length * ratio);
+            imageSignal = new Float32Array(newLen);
+            for (let i = 0; i < newLen; i++) {
+              const srcIdx = i / ratio;
+              const lo = Math.floor(srcIdx);
+              const hi = Math.min(lo + 1, audio.length - 1);
+              const frac = srcIdx - lo;
+              imageSignal[i] = audio[lo] * (1 - frac) + audio[hi] * frac;
+            }
+          }
+
+          const outLen = Math.max(carrier.samples.length, imageSignal.length);
+          finalAudio = new Float32Array(outLen);
+          for (let i = 0; i < outLen; i++) {
+            const c = i < carrier.samples.length ? carrier.samples[i] : 0;
+            const s = i < imageSignal.length ? imageSignal[i] * imageStrength : 0;
+            finalAudio[i] = c + s;
+          }
+
+          // Normalize mixed output
+          let mixMax = 0;
+          for (let i = 0; i < finalAudio.length; i++) mixMax = Math.max(mixMax, Math.abs(finalAudio[i]));
+          if (mixMax > 1) for (let i = 0; i < finalAudio.length; i++) finalAudio[i] /= mixMax;
+        }
+
         // Generate WAV
-        const wavBlob = encodeWav(audio, SAMPLE_RATE);
+        const wavBlob = encodeWav(finalAudio, finalRate);
         if (wavBlobUrl) URL.revokeObjectURL(wavBlobUrl);
         wavBlobUrl = URL.createObjectURL(wavBlob);
 
         // Render spectrogram preview
-        renderSpectrogram(audio, SAMPLE_RATE);
+        renderSpectrogram(finalAudio, finalRate);
 
         status = t(dict, 'tools.spectralCipher.encoded');
         processing = false;
@@ -397,6 +438,16 @@
     }
   }
 
+  function handleCarrierFile(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.files?.[0]) {
+      carrierFile = target.files[0];
+      carrierFileName = carrierFile.name;
+      wavBlobUrl = null;
+      status = '';
+    }
+  }
+
   function handleAudioFile(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.files?.[0]) {
@@ -490,6 +541,24 @@
         </div>
 
         {#if mode === 'encode'}
+          <div class="grid gap-1.5">
+            <label class="label">{t(dict, 'tools.spectralCipher.carrierAudio')}</label>
+            <input bind:this={carrierInput} type="file" accept=".wav,audio/wav" on:change={handleCarrierFile} class="hidden" />
+            <button type="button" on:click={() => carrierInput?.click()}
+              class="w-full text-left px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors text-sm {carrierFileName ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}">
+              {carrierFileName || t(dict, 'tools.spectralCipher.carrierPlaceholder')}
+            </button>
+            <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.carrierHint')}</p>
+          </div>
+
+          {#if carrierFile}
+            <div class="grid gap-1.5">
+              <label class="label">{t(dict, 'tools.spectralCipher.imageStrength')} — {Math.round(imageStrength * 100)}%</label>
+              <input type="range" min="0.02" max="0.5" step="0.01" bind:value={imageStrength} class="w-full accent-emerald-500" />
+              <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
+            </div>
+          {/if}
+
           <button on:click={encodeImage} class="btn w-full" disabled={processing || !imageUrl}>
             {#if processing}
               <svg class="animate-spin inline-block mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
