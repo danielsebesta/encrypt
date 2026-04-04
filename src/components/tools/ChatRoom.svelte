@@ -500,7 +500,7 @@
 
   function handleVisibility() {
     if (typeof document === 'undefined') return;
-    blurred = document.hidden;
+    blurred = document.hidden || !document.hasFocus();
     if (!blurred) document.title = 'encrypt.click/chat';
   }
 
@@ -575,6 +575,8 @@
     initChat();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('blur', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
   });
 
   onDestroy(() => {
@@ -582,6 +584,8 @@
     clearInterval(tickInterval);
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('blur', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
     }
   });
 </script>
