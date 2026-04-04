@@ -11,22 +11,20 @@ const dict = getTranslations(locale);
   title={t(dict, 'tools.ghostDropPage.meta.title')}
   description={t(dict, 'tools.ghostDropPage.meta.description')}
 >
-  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20 text-center">
-    <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-        {t(dict, 'tools.ghostDropPage.h1')} <span class="text-emerald-500">{t(dict, 'tools.ghostDropPage.h1Highlight')}</span>
-      </h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed max-w-2xl mx-auto">
-        {t(dict, 'tools.ghostDropPage.subtitle')}
-      </p>
+  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
+    <div class="tool-hero">
+      <div class="tool-hero__copy">
+        <h1 class="tool-hero__title">{t(dict, 'tools.ghostDropPage.h1')} <span class="text-emerald-500">{t(dict, 'tools.ghostDropPage.h1Highlight')}</span></h1>
+        <p class="tool-hero__subtitle">{t(dict, 'tools.ghostDropPage.subtitle')}</p>
+      </div>
     </div>
     <div class="mt-8">
       <EncryptTunnelView client:load locale={locale} />
     </div>
 
-    <div class="mt-10 pt-8 border-t border-zinc-200/60 dark:border-zinc-800/40 text-left max-w-2xl mx-auto space-y-4">
+    <div class="mt-10 pt-8 border-t border-zinc-200/60 dark:border-zinc-800/40 text-left space-y-2">
       <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.ghostDropPage.howItWorks')}</h3>
-      <ol class="space-y-3 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed list-decimal list-inside">
+      <ol class="space-y-2 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed list-decimal list-inside">
         <li><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.ghostDropPage.step1Title')}</strong> — {t(dict, 'tools.ghostDropPage.step1Text')}</li>
         <li><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.ghostDropPage.step2Title')}</strong> — {t(dict, 'tools.ghostDropPage.step2Text')}</li>
         <li><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.ghostDropPage.step3Title')}</strong> — {t(dict, 'tools.ghostDropPage.step3Text')}</li>
