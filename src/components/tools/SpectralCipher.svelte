@@ -5,11 +5,14 @@
   export let locale = 'en';
   $: dict = getTranslations(locale);
 
+  import { onMount } from 'svelte';
+
   let mode: 'encode' | 'decode' = 'encode';
   let imageFile: File | null = null;
   let imageUrl: string | null = null;
-  let carrierFile: File | null = null;
-  let carrierFileName = '';
+  let carrierBuffer: ArrayBuffer | null = null;
+  let carrierName = 'encrypt-carrier.wav';
+  let carrierLoaded = false;
   let audioFile: File | null = null;
   let audioFileName = '';
   let password = '';
@@ -18,10 +21,19 @@
   let processing = false;
 
   let imageInput: HTMLInputElement;
-  let carrierInput: HTMLInputElement;
   let audioInput: HTMLInputElement;
   let offscreenCanvas: HTMLCanvasElement;
   let spectrogramCanvas: HTMLCanvasElement;
+
+  onMount(async () => {
+    try {
+      const res = await fetch('/encrypt-carrier.wav');
+      if (res.ok) {
+        carrierBuffer = await res.arrayBuffer();
+        carrierLoaded = true;
+      }
+    } catch {}
+  });
 
   let wavBlobUrl: string | null = null;
   let extractedImageUrl: string | null = null;
@@ -99,6 +111,7 @@
 
   function decodeWav(buffer: ArrayBuffer): { samples: Float32Array; sampleRate: number } {
     const view = new DataView(buffer);
+    const channels = view.getUint16(22, true);
     const sr = view.getUint32(24, true);
     const bitsPerSample = view.getUint16(34, true);
     let dataOffset = 36;
@@ -108,14 +121,23 @@
       if (chunkId === 'data') { dataOffset += 8; break; }
       dataOffset += 8 + chunkSize;
     }
-    const numSamples = (buffer.byteLength - dataOffset) / (bitsPerSample / 8);
-    const samples = new Float32Array(numSamples);
-    for (let i = 0; i < numSamples; i++) {
-      if (bitsPerSample === 16) {
-        samples[i] = view.getInt16(dataOffset + i * 2, true) / 32768;
-      } else {
-        samples[i] = (view.getUint8(dataOffset + i) - 128) / 128;
+    const bytesPerSample = bitsPerSample / 8;
+    const totalSamples = (buffer.byteLength - dataOffset) / bytesPerSample;
+    const framesCount = Math.floor(totalSamples / channels);
+
+    // Read all channels then mix to mono
+    const samples = new Float32Array(framesCount);
+    for (let f = 0; f < framesCount; f++) {
+      let sum = 0;
+      for (let ch = 0; ch < channels; ch++) {
+        const idx = dataOffset + (f * channels + ch) * bytesPerSample;
+        if (bitsPerSample === 16) {
+          sum += view.getInt16(idx, true) / 32768;
+        } else {
+          sum += (view.getUint8(idx) - 128) / 128;
+        }
       }
+      samples[f] = sum / channels;
     }
     return { samples, sampleRate: sr };
   }
@@ -210,12 +232,11 @@
         for (let i = 0; i < audio.length; i++) maxAmp = Math.max(maxAmp, Math.abs(audio[i]));
         if (maxAmp > 0) for (let i = 0; i < audio.length; i++) audio[i] /= maxAmp;
 
-        // Mix with carrier audio if provided
+        // Mix with carrier audio
         let finalAudio = audio;
         let finalRate = SAMPLE_RATE;
-        if (carrierFile) {
-          const carrierBuf = await carrierFile.arrayBuffer();
-          const carrier = decodeWav(carrierBuf);
+        if (carrierBuffer) {
+          const carrier = decodeWav(carrierBuffer.slice(0));
           finalRate = carrier.sampleRate;
 
           // Resample image audio if sample rates differ
@@ -438,15 +459,6 @@
     }
   }
 
-  function handleCarrierFile(e: Event) {
-    const target = e.target as HTMLInputElement;
-    if (target.files?.[0]) {
-      carrierFile = target.files[0];
-      carrierFileName = carrierFile.name;
-      wavBlobUrl = null;
-      status = '';
-    }
-  }
 
   function handleAudioFile(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -541,17 +553,7 @@
         </div>
 
         {#if mode === 'encode'}
-          <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.spectralCipher.carrierAudio')}</label>
-            <input bind:this={carrierInput} type="file" accept=".wav,audio/wav" on:change={handleCarrierFile} class="hidden" />
-            <button type="button" on:click={() => carrierInput?.click()}
-              class="w-full text-left px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors text-sm {carrierFileName ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}">
-              {carrierFileName || t(dict, 'tools.spectralCipher.carrierPlaceholder')}
-            </button>
-            <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.carrierHint')}</p>
-          </div>
-
-          {#if carrierFile}
+          {#if carrierLoaded}
             <div class="grid gap-1.5">
               <label class="label">{t(dict, 'tools.spectralCipher.imageStrength')} — {Math.round(imageStrength * 100)}%</label>
               <input type="range" min="0.02" max="0.5" step="0.01" bind:value={imageStrength} class="w-full accent-emerald-500" />
