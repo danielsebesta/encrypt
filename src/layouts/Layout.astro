@@ -253,15 +253,62 @@ const languageOptions = locales.map(l => ({
 		<main class="flex-1">
 			<slot />
 		</main>
-		<footer class="border-t border-zinc-100 dark:border-zinc-900 relative bg-white dark:bg-zinc-950">
-			<div class="max-w-7xl mx-auto px-5 py-12 flex flex-col md:flex-row justify-between items-center gap-8 text-xs font-bold text-zinc-400 uppercase tracking-[0.2em]">
-				<div class="flex items-center gap-3">
-					<img src="/encryptclick_icon.svg" alt="" class="h-6 w-auto opacity-30 invert dark:invert-0" />
-					<span>{t(dict, 'home.footer.tagline')}</span>
+		<footer class="border-t border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-950">
+			<div class="max-w-6xl mx-auto px-5 py-14 md:py-16">
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-8">
+
+					<!-- Brand -->
+					<div class="col-span-2 md:col-span-1">
+						<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 mb-4">
+							<img src="/encryptclick_icon.svg" alt="" class="h-7 w-auto" />
+							<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
+						</a>
+						<p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs">
+							{t(dict, 'home.hero.note')}
+						</p>
+					</div>
+
+					<!-- Privacy tools -->
+					<div>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">{t(dict, 'nav.privacy')}</p>
+						<ul class="space-y-2.5">
+							{navCategories.find(c => c.name === t(dict, 'nav.privacy'))?.tools.map((tool) => (
+								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
+							))}
+							<li><a href="/chat" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Chat</a></li>
+						</ul>
+					</div>
+
+					<!-- Developer tools -->
+					<div>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">{t(dict, 'nav.developer')}</p>
+						<ul class="space-y-2.5">
+							{navCategories.find(c => c.name === t(dict, 'nav.developer'))?.tools.map((tool) => (
+								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
+							))}
+						</ul>
+					</div>
+
+					<!-- Resources -->
+					<div>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">Resources</p>
+						<ul class="space-y-2.5">
+							<li><a href="/security" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'home.footer.security')}</a></li>
+							<li>
+								<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+									GitHub
+									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+								</a>
+							</li>
+						</ul>
+					</div>
+
 				</div>
-				<div class="flex items-center gap-8">
-					<a href="/security" class="text-zinc-500 dark:text-zinc-400 hover:text-emerald-500 transition-colors">{t(dict, 'home.footer.security')}</a>
-					<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-zinc-800 dark:text-zinc-100 hover:text-emerald-500 transition-colors">{t(dict, 'home.footer.github')}</a>
+
+				<!-- Bottom bar -->
+				<div class="mt-12 pt-6 border-t border-zinc-200/50 dark:border-zinc-800/40 flex flex-col sm:flex-row justify-between items-center gap-4">
+					<p class="text-xs text-zinc-400 dark:text-zinc-500">{t(dict, 'home.footer.tagline')}</p>
+					<p class="text-xs text-zinc-400 dark:text-zinc-500">100% client-side encryption</p>
 				</div>
 			</div>
 		</footer>
