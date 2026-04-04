@@ -168,24 +168,6 @@
         transition: filter 200ms ease-out;
     }
 
-    main {
-        transition: opacity 220ms ease-out, transform 220ms ease-out;
-    }
-
-    .page-enter {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-
-    .page-enter-active {
-        opacity: 1;
-        transform: translateY(0);
-    }
-
-    .page-exit {
-        opacity: 0;
-        transform: translateY(-4px);
-    }
 }
 
 @layer components {
@@ -302,21 +284,7 @@
         @apply text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500;
     }
 
-    /* ── Nav top gradient — helps navbar readability over perlin ── */
-    #site-nav::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.2) 60%, transparent);
-        pointer-events: none;
-        z-index: -1;
-    }
-
-    html.dark #site-nav::before {
-        background: linear-gradient(to bottom, rgba(9, 9, 11, 0.7), rgba(9, 9, 11, 0.2) 60%, transparent);
-    }
-
-    /* ── Scroll-aware navbar ── */
+/* ── Scroll-aware navbar ── */
     .nav-scrolled {
         background-color: rgba(255, 255, 255, 0.75);
         border-bottom-color: rgba(228, 228, 231, 0.5);

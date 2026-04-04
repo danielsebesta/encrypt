@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css'
-import PerlinGrid from '../components/home/PerlinGrid.astro';
+
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
 import { getNavCategories } from '../lib/tools';
 
@@ -99,8 +99,7 @@ const languageOptions = locales.map(l => ({
 		</script>
 	</head>
 	<body>
-		<PerlinGrid />
-		<nav id="site-nav" class="sticky top-0 z-50 w-full border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300">
+<nav id="site-nav" class="sticky top-0 z-50 w-full border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300">
 			<div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
 				<!-- Logo -->
 				<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 shrink-0 rounded-lg py-1.5 pr-2 -ml-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
@@ -280,14 +279,6 @@ const languageOptions = locales.map(l => ({
 					});
 				}
 
-				var main = document.querySelector('main');
-				if (main) {
-					main.classList.add('page-enter');
-					requestAnimationFrame(function () {
-						main.classList.add('page-enter-active');
-					});
-				}
-
 			document.addEventListener('click', function (event) {
 				var anchor = event.target.closest && event.target.closest('a');
 				if (!anchor) return;
@@ -301,15 +292,6 @@ const languageOptions = locales.map(l => ({
 				if (lang) {
 					try { localStorage.setItem('ec-lang', lang); } catch(e) {}
 				}
-
-				event.preventDefault();
-				var mainEl = document.querySelector('main');
-				if (!mainEl) { window.location.href = href; return; }
-				mainEl.classList.add('page-exit');
-				var navigated = false;
-				var go = function () { if (navigated) return; navigated = true; window.location.href = href; };
-				mainEl.addEventListener('transitionend', function handle(e) { if (e.target !== mainEl) return; mainEl.removeEventListener('transitionend', handle); go(); });
-				setTimeout(go, 400);
 			});
 
 				function bindThemeToggle(id) {
