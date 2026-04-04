@@ -568,6 +568,7 @@
       <div class="space-y-4 max-w-xs w-full text-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <p class="text-sm font-medium text-red-500">{t(dict, 'chat.wrongPassword')}</p>
+        <p class="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.wrongPasswordDetail')}</p>
         <button class="btn-outline w-full text-xs" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'chat.tryAgain')}</button>
       </div>
     </div>
@@ -578,6 +579,7 @@
         <div class="text-center space-y-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t(dict, 'chat.roomRequiresPassword')}</p>
+          <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
         <input
           type="password"
@@ -601,7 +603,7 @@
     <div class="chat-center">
       <div class="text-center space-y-2">
         <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="text-xs text-zinc-400">{t(dict, 'chat.connecting')}</p>
+        <p class="text-xs text-zinc-400">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
       </div>
     </div>
 
@@ -628,10 +630,11 @@
     <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
       {#if messages.length === 0}
         <div class="chat-center">
-          <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center">
-            {t(dict, 'chat.emptyRoomNotice')}<br />
-            {t(dict, 'chat.emptyRoomNotice2')}
-          </p>
+          <div class="text-center space-y-2 max-w-xs">
+            <p class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{t(dict, 'chat.emptyRoomNotice')}</p>
+            <p class="text-xs text-emerald-500 font-medium">{t(dict, 'chat.emptyRoomNotice2')}</p>
+            <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.emptyRoomNotice3')}</p>
+          </div>
         </div>
       {/if}
 
