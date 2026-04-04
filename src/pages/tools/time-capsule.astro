@@ -15,24 +15,25 @@ const education = getToolEducation(locale, 'time-capsule');
   title={education.metaTitle}
   description={education.metaDescription}
 >
-  <div class="max-w-6xl mx-auto px-5 py-12 md:py-20 space-y-8">
-    <div class="tool-hero" data-aos data-aos-delay="0">
+  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
+    <div class="tool-hero">
       <div class="tool-hero__copy">
         <h1 class="tool-hero__title">{t(dict, 'tools.timeCapsule.h1')} <span class="text-emerald-500">{t(dict, 'tools.timeCapsule.h1Highlight')}</span></h1>
-        <p class="tool-hero__subtitle max-w-3xl">{t(dict, 'tools.timeCapsule.subtitle')}</p>
+        <p class="tool-hero__subtitle">{t(dict, 'tools.timeCapsule.subtitle')}</p>
       </div>
     </div>
-    <div class="card p-6 md:p-8" data-aos data-aos-delay="80">
+
+    <div class="mt-8">
       <TimeCapsuleView client:load locale={locale} />
     </div>
 
-    <div data-aos data-aos-delay="120">
+    <div class="mt-8 md:mt-10">
       <ToolQuickFacts dict={dict} quick={education.quick} />
     </div>
 
-    <p class="text-[11px] text-zinc-400 max-w-xl" data-aos data-aos-delay="140">{t(dict, 'tools.timeCapsule.footnote')}</p>
+    <p class="text-[11px] text-zinc-400 max-w-xl mt-6">{t(dict, 'tools.timeCapsule.footnote')}</p>
 
-    <div data-aos data-aos-delay="160">
+    <div class="mt-10 md:mt-14">
       <ToolEducationPanel dict={dict} entry={education} />
     </div>
   </div>

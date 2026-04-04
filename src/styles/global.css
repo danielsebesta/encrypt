@@ -526,19 +526,19 @@
     }
 
     .tool-hero {
-        @apply mb-8 md:mb-10;
+        @apply mb-10 md:mb-12 text-center;
     }
 
     .tool-hero__copy {
-        @apply max-w-4xl;
+        @apply max-w-3xl mx-auto;
     }
 
     .tool-hero__title {
-        @apply text-3xl md:text-5xl font-black tracking-[-0.04em] leading-[1.04] text-zinc-950 dark:text-zinc-50 mb-4;
+        @apply text-3xl md:text-4xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 mb-4;
     }
 
     .tool-hero__subtitle {
-        @apply text-sm md:text-lg leading-7 text-zinc-600 dark:text-zinc-300 max-w-3xl;
+        @apply text-sm md:text-base leading-relaxed text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto;
     }
 
     .tool-quick-facts {
