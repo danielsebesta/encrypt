@@ -631,16 +631,6 @@
 
     .tool-history-card {
         @apply lg:col-span-2;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .tool-history-card::after {
-        content: "0100 1110";
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        @apply font-mono text-[10px] tracking-[0.28em] text-emerald-500/45 dark:text-emerald-300/35;
     }
 
     .tool-history-card__kicker {
