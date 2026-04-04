@@ -88,7 +88,7 @@ const NAMES: Record<string, { adj: string[]; animals: string[] }> = {
   },
   cs: {
     adj: ['Hbitý','Klidný','Smělý','Bystrý','Vřelý','Chladný','Moudrý','Čestný','Statečný','Jasný','Rychlý','Hrdý','Vznešený','Lstivý','Divoký','Jemný','Zuřivý','Tichý','Šťastný','Tajemný'],
-    animals: ['Liška','Sova','Medvěd','Vlk','Jestřáb','Jelen','Rys','Tuleň','Vrána','Holub','Panda','Tygr','Orel','Vydra','Havran','Sokol','Kobra','Velryba','Volavka','Gekon'],
+    animals: ['Lišák','Výr','Medvěd','Vlk','Jestřáb','Jelen','Rys','Tuleň','Drozd','Holub','Lev','Tygr','Orel','Bobr','Havran','Sokol','Had','Delfín','Čáp','Gekon'],
   },
   de: {
     adj: ['Flink','Ruhig','Kühn','Scharf','Warm','Kühl','Weise','Edel','Tapfer','Hell','Rasch','Stolz','Nobel','Listig','Wild','Sanft','Grimmig','Still','Glücklich','Mystisch'],
@@ -106,4 +106,15 @@ export function generateIdentity(locale = 'en'): { name: string; color: string }
     name: `${a} ${animal}`,
     color: `hsl(${hue}, 65%, 55%)`,
   };
+}
+
+export function nameToGradient(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+  }
+  const hue1 = ((h >>> 0) % 360);
+  const hue2 = (hue1 + 40 + ((h >>> 8) % 80)) % 360;
+  const angle = ((h >>> 16) % 360);
+  return `linear-gradient(${angle}deg, hsl(${hue1}, 70%, 55%), hsl(${hue2}, 65%, 45%))`;
 }
