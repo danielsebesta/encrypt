@@ -31,6 +31,7 @@ const icons = {
   camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
   ghost: '<path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>',
   drop: '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+  audioWaveform: '<path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/>',
 } as const;
 
 export const tools: ToolDefinition[] = [
@@ -52,6 +53,7 @@ export const tools: ToolDefinition[] = [
   { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy', icon: icons.image },
   { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'privacy', icon: icons.camera },
   { slug: 'ghost-drop',     i18nPrefix: 'tools.ghostDrop',      navLabelKey: 'nav.tool.ghostDrop',      category: 'privacy', icon: icons.ghost },
+  { slug: 'spectral-cipher', i18nPrefix: 'tools.spectralCipher', navLabelKey: 'nav.tool.spectralCipher', category: 'privacy', icon: icons.audioWaveform },
 ];
 
 export const categoryI18nKeys: Record<ToolCategory, string> = {
