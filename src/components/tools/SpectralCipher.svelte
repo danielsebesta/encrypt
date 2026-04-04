@@ -22,12 +22,12 @@
   let wavBlobUrl: string | null = null;
   let extractedImageUrl: string | null = null;
 
-  const FFT_SIZE = 1024;
-  const HOP_SIZE = 256;
-  const SAMPLE_RATE = 22050;
-  const MIN_FREQ = 200;
-  const MAX_FREQ = 8000;
-  const IMG_HEIGHT = FFT_SIZE / 2; // 512 frequency bins
+  const FFT_SIZE = 2048;
+  const HOP_SIZE = FFT_SIZE; // no overlap = each column is independent = sharper image
+  const SAMPLE_RATE = 44100;
+  const MIN_FREQ = 300;
+  const MAX_FREQ = 14000;
+  const IMG_HEIGHT = 512;
   const DEFAULT_WIDTH = 512;
 
   // ── FFT (radix-2 Cooley-Tukey) ──
@@ -180,15 +180,13 @@
           for (let row = 0; row < h; row++) {
             const bin = minBin + Math.round(row * usableBins / h);
             if (bin >= FFT_SIZE / 2) continue;
-            // Flip: image row 0 (top) maps to highest frequency bin
             const amplitude = grayscale[(h - 1 - row) * w + col] / 255;
-            const phase = Math.random() * 2 * Math.PI;
-            re[bin] = amplitude * Math.cos(phase);
-            im[bin] = amplitude * Math.sin(phase);
-            // Mirror for real signal
+            // Zero phase (pure cosine) — produces cleanest spectrogram
+            re[bin] = amplitude;
+            im[bin] = 0;
             if (bin > 0 && bin < FFT_SIZE / 2) {
-              re[FFT_SIZE - bin] = re[bin];
-              im[FFT_SIZE - bin] = -im[bin];
+              re[FFT_SIZE - bin] = amplitude;
+              im[FFT_SIZE - bin] = 0;
             }
           }
 
@@ -196,7 +194,7 @@
 
           const offset = col * HOP_SIZE;
           for (let i = 0; i < FFT_SIZE; i++) {
-            audio[offset + i] += re[i] * hann(i, FFT_SIZE);
+            audio[offset + i] += re[i];
           }
 
           // Yield every 64 columns
@@ -246,7 +244,9 @@
       const imgW = numFrames;
       const imgH = IMG_HEIGHT;
 
-      const pixels = new Uint8Array(imgW * imgH);
+      // First pass: compute all magnitudes and find max
+      const mags = new Float32Array(imgW * imgH);
+      let maxMag = 0;
 
       for (let col = 0; col < numFrames; col++) {
         const re = new Float64Array(FFT_SIZE);
@@ -254,7 +254,7 @@
 
         for (let i = 0; i < FFT_SIZE; i++) {
           const idx = col * HOP_SIZE + i;
-          re[i] = idx < samples.length ? samples[idx] * hann(i, FFT_SIZE) : 0;
+          re[i] = idx < samples.length ? samples[idx] : 0;
           im[i] = 0;
         }
 
@@ -264,11 +264,20 @@
           const bin = minBin + Math.round(row * usableBins / imgH);
           if (bin >= FFT_SIZE / 2) continue;
           const mag = Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]);
-          // Flip back: lowest bin → bottom of image (high row index)
-          pixels[(imgH - 1 - row) * imgW + col] = Math.min(255, Math.round(mag * 255 * 4));
+          const idx = (imgH - 1 - row) * imgW + col;
+          mags[idx] = mag;
+          if (mag > maxMag) maxMag = mag;
         }
 
         if (col % 64 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+
+      // Second pass: normalize to 0-255
+      const pixels = new Uint8Array(imgW * imgH);
+      if (maxMag > 0) {
+        for (let i = 0; i < mags.length; i++) {
+          pixels[i] = Math.min(255, Math.round((mags[i] / maxMag) * 255));
+        }
       }
 
       // Optional decryption
@@ -318,36 +327,43 @@
     const numFrames = Math.floor((samples.length - FFT_SIZE) / HOP_SIZE) + 1;
 
     spectrogramCanvas.width = Math.min(numFrames, 800);
-    spectrogramCanvas.height = 256;
+    spectrogramCanvas.height = 300;
     const scaleX = spectrogramCanvas.width / numFrames;
     const scaleY = spectrogramCanvas.height / usableBins;
 
-    const imgData = ctx.createImageData(spectrogramCanvas.width, spectrogramCanvas.height);
-
+    // Two-pass: collect magnitudes, then normalize
+    const magGrid: number[][] = [];
+    let maxMag = 0;
     for (let col = 0; col < numFrames; col++) {
       const re = new Float64Array(FFT_SIZE);
       const im = new Float64Array(FFT_SIZE);
       for (let i = 0; i < FFT_SIZE; i++) {
         const idx = col * HOP_SIZE + i;
-        re[i] = idx < samples.length ? samples[idx] * hann(i, FFT_SIZE) : 0;
+        re[i] = idx < samples.length ? samples[idx] : 0;
       }
       fft(re, im);
-
-      const px = Math.floor(col * scaleX);
-      if (px >= spectrogramCanvas.width) continue;
-
+      const colMags: number[] = [];
       for (let b = 0; b < usableBins; b++) {
         const bin = minBin + b;
         const mag = Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]);
-        const val = Math.min(255, Math.round(mag * 255 * 4));
-        // low freq at bottom
+        colMags.push(mag);
+        if (mag > maxMag) maxMag = mag;
+      }
+      magGrid.push(colMags);
+    }
+
+    const imgData = ctx.createImageData(spectrogramCanvas.width, spectrogramCanvas.height);
+    for (let col = 0; col < numFrames; col++) {
+      const px = Math.floor(col * scaleX);
+      if (px >= spectrogramCanvas.width) continue;
+      for (let b = 0; b < usableBins; b++) {
+        const val = maxMag > 0 ? Math.min(255, Math.round((magGrid[col][b] / maxMag) * 255)) : 0;
         const py = spectrogramCanvas.height - 1 - Math.floor(b * scaleY);
         if (py < 0 || py >= spectrogramCanvas.height) continue;
         const idx = (py * spectrogramCanvas.width + px) * 4;
-        // Green-tinted colormap
-        imgData.data[idx] = Math.round(val * 0.2);
+        imgData.data[idx] = Math.round(val * 0.15);
         imgData.data[idx + 1] = val;
-        imgData.data[idx + 2] = Math.round(val * 0.5);
+        imgData.data[idx + 2] = Math.round(val * 0.4);
         imgData.data[idx + 3] = 255;
       }
     }
