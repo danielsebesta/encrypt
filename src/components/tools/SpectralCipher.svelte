@@ -291,6 +291,27 @@
     img.src = imageUrl;
   }
 
+  // ── Compute STFT magnitudes for a sample array ──
+  function computeSTFT(samples: Float32Array, numFrames: number, minBin: number, usableBins: number, imgH: number, imgW: number): Float32Array {
+    const mags = new Float32Array(imgW * imgH);
+    for (let col = 0; col < numFrames; col++) {
+      const re = new Float64Array(FFT_SIZE);
+      const im = new Float64Array(FFT_SIZE);
+      for (let i = 0; i < FFT_SIZE; i++) {
+        const idx = col * HOP_SIZE + i;
+        re[i] = idx < samples.length ? samples[idx] : 0;
+        im[i] = 0;
+      }
+      fft(re, im);
+      for (let row = 0; row < imgH; row++) {
+        const bin = minBin + Math.round(row * usableBins / imgH);
+        if (bin >= FFT_SIZE / 2) continue;
+        mags[(imgH - 1 - row) * imgW + col] = Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]);
+      }
+    }
+    return mags;
+  }
+
   // ── Audio → Image (decode) ──
   async function decodeAudio() {
     if (!audioFile) { status = t(dict, 'tools.spectralCipher.pleaseProvideAudio'); return; }
@@ -303,7 +324,6 @@
       const buffer = await audioFile.arrayBuffer();
       const { samples, sampleRate } = decodeWav(buffer);
 
-      // STFT
       const minBin = freqToBin(MIN_FREQ);
       const maxBin = freqToBin(MAX_FREQ);
       const usableBins = maxBin - minBin;
@@ -311,35 +331,33 @@
       const imgW = numFrames;
       const imgH = IMG_HEIGHT;
 
-      // First pass: compute all magnitudes and find max
-      const mags = new Float32Array(imgW * imgH);
-      let maxMag = 0;
+      // Compute mixed signal magnitudes
+      const mixedMags = computeSTFT(samples, numFrames, minBin, usableBins, imgH, imgW);
 
-      for (let col = 0; col < numFrames; col++) {
-        const re = new Float64Array(FFT_SIZE);
-        const im = new Float64Array(FFT_SIZE);
+      // Subtract carrier spectrum if available
+      let mags = mixedMags;
+      if (carrierBuffer) {
+        const carrier = decodeWav(carrierBuffer.slice(0));
+        const carrierFrames = Math.floor((carrier.samples.length - FFT_SIZE) / HOP_SIZE) + 1;
+        const carrierW = Math.min(carrierFrames, imgW);
+        const carrierMags = computeSTFT(carrier.samples, carrierW, minBin, usableBins, imgH, carrierW);
 
-        for (let i = 0; i < FFT_SIZE; i++) {
-          const idx = col * HOP_SIZE + i;
-          re[i] = idx < samples.length ? samples[idx] : 0;
-          im[i] = 0;
+        // Spectral subtraction: remove carrier energy, keep image residual
+        mags = new Float32Array(imgW * imgH);
+        for (let col = 0; col < imgW; col++) {
+          for (let row = 0; row < imgH; row++) {
+            const idx = row * imgW + col;
+            const mixed = mixedMags[idx];
+            const carr = col < carrierW ? carrierMags[row * carrierW + col] : 0;
+            mags[idx] = Math.max(0, mixed - carr);
+          }
         }
-
-        fft(re, im);
-
-        for (let row = 0; row < imgH; row++) {
-          const bin = minBin + Math.round(row * usableBins / imgH);
-          if (bin >= FFT_SIZE / 2) continue;
-          const mag = Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]);
-          const idx = (imgH - 1 - row) * imgW + col;
-          mags[idx] = mag;
-          if (mag > maxMag) maxMag = mag;
-        }
-
-        if (col % 64 === 0) await new Promise(r => setTimeout(r, 0));
       }
 
-      // Second pass: normalize to 0-255
+      // Normalize to 0-255
+      let maxMag = 0;
+      for (let i = 0; i < mags.length; i++) if (mags[i] > maxMag) maxMag = mags[i];
+
       const pixels = new Uint8Array(imgW * imgH);
       if (maxMag > 0) {
         for (let i = 0; i < mags.length; i++) {
