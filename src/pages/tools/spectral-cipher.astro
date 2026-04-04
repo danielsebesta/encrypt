@@ -1,0 +1,32 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import SpectralCipherView from '../../components/tools/SpectralCipher.svelte';
+import { getTranslations, t, type Locale } from '../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+---
+
+<Layout
+  title={t(dict, 'tools.spectralCipher.meta.title')}
+  description={t(dict, 'tools.spectralCipher.meta.description')}
+>
+  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
+    <div class="tool-hero">
+      <div class="tool-hero__copy">
+        <h1 class="tool-hero__title">{t(dict, 'tools.spectralCipher.h1')} <span class="text-emerald-500">{t(dict, 'tools.spectralCipher.h1Highlight')}</span></h1>
+        <p class="tool-hero__subtitle">{t(dict, 'tools.spectralCipher.subtitle')}</p>
+      </div>
+    </div>
+    <div class="mt-8">
+      <SpectralCipherView client:load locale={locale} />
+    </div>
+    <div class="mt-10 pt-8 border-t border-zinc-200/60 dark:border-zinc-800/40 text-left space-y-2">
+      <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.spectralCipher.info.title')}</h3>
+      <div class="grid md:grid-cols-2 gap-6 text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+        <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.spectralCipher.info1.title')}</strong> {t(dict, 'tools.spectralCipher.info1.text')}</p>
+        <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.spectralCipher.info2.title')}</strong> {t(dict, 'tools.spectralCipher.info2.text')}</p>
+      </div>
+    </div>
+  </div>
+</Layout>
