@@ -8,6 +8,7 @@
   let step: Step = 'password';
   let generatedLink = '';
   let password = '';
+  let customRoomId = '';
   let copied = false;
   let copiedPass = false;
 
@@ -16,6 +17,41 @@
   function genRoomId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(6));
     return Array.from(arr, b => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+  }
+
+  const DIACRITICS: Record<string, string> = {
+    'á':'a','à':'a','â':'a','ä':'a','ã':'a','å':'a','ą':'a',
+    'č':'c','ć':'c','ç':'c',
+    'ď':'d','đ':'d',
+    'é':'e','è':'e','ê':'e','ë':'e','ě':'e','ę':'e',
+    'í':'i','ì':'i','î':'i','ï':'i',
+    'ľ':'l','ĺ':'l','ł':'l',
+    'ň':'n','ń':'n','ñ':'n',
+    'ó':'o','ò':'o','ô':'o','ö':'o','õ':'o','ø':'o',
+    'ř':'r','ŕ':'r',
+    'š':'s','ś':'s','ß':'ss',
+    'ť':'t','ţ':'t',
+    'ú':'u','ù':'u','û':'u','ü':'u','ů':'u',
+    'ý':'y','ÿ':'y',
+    'ž':'z','ź':'z','ż':'z',
+  };
+
+  function stripDiacritics(s: string): string {
+    return s.split('').map(c => DIACRITICS[c] || c).join('');
+  }
+
+  function sanitizeRoomId(input: string, final = false): string {
+    let s = stripDiacritics(input.toLowerCase())
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .slice(0, 48);
+    if (final) s = s.replace(/^-|-$/g, '');
+    return s;
+  }
+
+  function handleRoomIdInput() {
+    customRoomId = sanitizeRoomId(customRoomId);
   }
 
   function genPassphrase(): string {
@@ -38,7 +74,7 @@
 
   function confirmPassword() {
     if (!password.trim()) { password = genPassphrase(); }
-    const roomId = genRoomId();
+    const roomId = customRoomId.trim() ? sanitizeRoomId(customRoomId.trim(), true) : genRoomId();
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     generatedLink = `${origin}/chat/${roomId}`;
     step = 'ready';
@@ -61,7 +97,23 @@
 
 <div class="space-y-4">
   {#if step === 'password'}
-    <!-- Step 1: Set password (visible, editable) -->
+    <!-- Step 1: Room name + password -->
+    <div class="space-y-1.5">
+      <label class="label block">{t(dict, 'chat.customRoomId')}</label>
+      <input
+        class="input w-full"
+        type="text"
+        bind:value={customRoomId}
+        on:input={handleRoomIdInput}
+        placeholder={t(dict, 'chat.customRoomIdPlaceholder')}
+        autocomplete="off"
+        data-lpignore="true"
+        data-1p-ignore
+        data-bwignore="true"
+      />
+      <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'chat.customRoomIdHint')}</p>
+    </div>
+
     <div class="space-y-1.5">
       <label class="label block">{t(dict, 'chat.password')}</label>
       <div class="ue-passphrase-box">
@@ -82,6 +134,25 @@
       <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'chat.createDescription')}</p>
     </div>
     <button class="btn w-full" on:click={confirmPassword}>{t(dict, 'chat.createRoom')}</button>
+
+    <!-- How it works -->
+    <div class="chat-how-it-works">
+      <p class="chat-how-title">{t(dict, 'chat.howItWorks')}</p>
+      <div class="chat-how-steps">
+        <div class="chat-how-step">
+          <span class="chat-how-num">1</span>
+          <span>{t(dict, 'chat.howStep1')}</span>
+        </div>
+        <div class="chat-how-step">
+          <span class="chat-how-num">2</span>
+          <span>{t(dict, 'chat.howStep2')}</span>
+        </div>
+        <div class="chat-how-step">
+          <span class="chat-how-num">3</span>
+          <span>{t(dict, 'chat.howStep3')}</span>
+        </div>
+      </div>
+    </div>
 
   {:else}
     <!-- Step 2: Link + hidden password + enter -->
@@ -117,3 +188,52 @@
     <button class="btn w-full" on:click={openRoom}>{t(dict, 'chat.enterRoom')}</button>
   {/if}
 </div>
+
+<style>
+  .chat-how-it-works {
+    border-top: 1px solid rgba(228, 228, 231, 0.5);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+  }
+  :global(.dark) .chat-how-it-works {
+    border-color: rgba(39, 39, 42, 0.4);
+  }
+  .chat-how-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgb(113, 113, 122);
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .chat-how-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .chat-how-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-size: 12px;
+    color: rgb(113, 113, 122);
+    text-align: left;
+    line-height: 1.4;
+  }
+  :global(.dark) .chat-how-step {
+    color: rgb(161, 161, 170);
+  }
+  .chat-how-num {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(16, 185, 129);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
