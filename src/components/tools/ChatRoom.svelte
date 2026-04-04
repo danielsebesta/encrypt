@@ -3,7 +3,7 @@
   import PartySocket from 'partysocket';
   import {
     deriveKeyFromPassword,
-    encryptMessage, decryptMessage, generateIdentity
+    encryptMessage, decryptMessage, generateIdentity, nameToGradient
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
@@ -53,6 +53,10 @@
   let lastWrongPasswordNotice = 0;
   let uploading = false;
   let fileInputEl: HTMLInputElement;
+  let sharePassword = '';
+  let shareCopiedLink = false;
+  let shareCopiedPass = false;
+  let shareDismissed = false;
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -121,8 +125,12 @@
 
   async function initChat() {
     if (typeof window === 'undefined') return;
-    // Check sessionStorage for password from ChatCreate
     const stored = sessionStorage.getItem('chat-password');
+    const sharePass = sessionStorage.getItem('chat-share-password');
+    if (sharePass) {
+      sharePassword = sharePass;
+      sessionStorage.removeItem('chat-share-password');
+    }
     if (stored) {
       sessionStorage.removeItem('chat-password');
       passwordInput = stored;
@@ -130,6 +138,22 @@
     } else {
       needsPassword = true;
     }
+  }
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      shareCopiedLink = true;
+      setTimeout(() => { shareCopiedLink = false; }, 1500);
+    } catch {}
+  }
+
+  async function copySharePassword() {
+    try {
+      await navigator.clipboard.writeText(sharePassword);
+      shareCopiedPass = true;
+      setTimeout(() => { shareCopiedPass = false; }, 1500);
+    } catch {}
   }
 
   async function submitPassword() {
@@ -612,9 +636,9 @@
       <div class="flex items-center gap-2">
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
-          <div class="chat-avatar chat-avatar--sm" style="background: {identity.color}" title={identity.name}>{myInitials}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(identity.name)}" title={identity.name}>{myInitials}</div>
           {#each onlineUsers as user}
-            <div class="chat-avatar chat-avatar--sm" style="background: {user.color}" title={user.name}>{user.initials}</div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(user.name)}" title={user.name}>{user.initials}</div>
           {/each}
         </div>
       </div>
@@ -626,6 +650,39 @@
         </select>
       </div>
     </div>
+
+    {#if sharePassword && !shareDismissed}
+      <div class="chat-share-banner">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">{t(dict, 'chat.sharePasswordWarning')}</span>
+          <button class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" on:click={() => { shareDismissed = true; }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'chat.roomLink')}</span>
+          <code class="chat-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
+          <button class="chat-share-copy" on:click={copyShareLink}>
+            {#if shareCopiedLink}
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            {/if}
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'chat.password')}</span>
+          <code class="chat-share-value">{sharePassword}</code>
+          <button class="chat-share-copy" on:click={copySharePassword}>
+            {#if shareCopiedPass}
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            {/if}
+          </button>
+        </div>
+      </div>
+    {/if}
 
     <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
       {#if messages.length === 0}
@@ -643,7 +700,7 @@
           {#if msg.burnOnRead && !msg.revealed && !msg.mine}
             <!-- Burn on read: hidden until clicked -->
             <div class="flex items-start gap-2">
-              <div class="chat-avatar" style="background: {msg.color}">{msg.initials}</div>
+              <div class="chat-avatar" style="background: {nameToGradient(msg.sender)}">{msg.initials}</div>
               <button class="chat-burn-reveal" on:click={() => revealMessage(msg)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <span>{msg.sender}</span>
@@ -652,7 +709,7 @@
           {:else}
           <div class="flex items-start gap-2">
             {#if !msg.mine}
-              <div class="chat-avatar" style="background: {msg.color}">{msg.initials}</div>
+              <div class="chat-avatar" style="background: {nameToGradient(msg.sender)}">{msg.initials}</div>
             {/if}
             <div class="flex-1 min-w-0">
               <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
@@ -712,7 +769,7 @@
 
       {#if typing}
         <div class="chat-typing">
-          <div class="chat-avatar chat-avatar--sm" style="background: {typing.color}">{typing.initials}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(typing.sender)}">{typing.initials}</div>
           <span style="color: {typing.color}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
         </div>
       {/if}
@@ -778,6 +835,31 @@
     border-bottom: 1px solid rgba(228, 228, 231, 0.5);
   }
   :global(.dark) .chat-header { border-color: rgba(39, 39, 42, 0.4); }
+  .chat-share-banner {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.04);
+  }
+  :global(.dark) .chat-share-banner {
+    background: rgba(16, 185, 129, 0.06);
+    border-color: rgba(16, 185, 129, 0.1);
+  }
+  .chat-share-value {
+    flex: 1; min-width: 0;
+    font-size: 10px; font-family: 'fira-code', monospace;
+    color: rgb(63, 63, 70); background: rgba(244, 244, 245, 0.8);
+    padding: 2px 6px; border-radius: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  :global(.dark) .chat-share-value {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.6);
+  }
+  .chat-share-copy {
+    flex-shrink: 0; padding: 2px;
+    color: rgb(161, 161, 170); transition: color 0.15s;
+  }
+  .chat-share-copy:hover { color: rgb(16, 185, 129); }
   .chat-status {
     width: 6px; height: 6px; border-radius: 9999px;
     background: rgb(161, 161, 170);
@@ -793,14 +875,14 @@
   }
   .chat-messages--blurred { filter: blur(8px); }
   .chat-avatar {
-    width: 28px; height: 28px; border-radius: 8px;
+    width: 28px; height: 28px; border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
     font-size: 10px; font-weight: 800; color: white;
     flex-shrink: 0; letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
   .chat-avatar--sm {
-    width: 18px; height: 18px; border-radius: 5px; font-size: 7px;
+    width: 20px; height: 20px; border-radius: 9999px; font-size: 7px;
   }
   .chat-bubble {
     max-width: 85%; padding: 0.4rem 0.6rem; border-radius: 0.75rem;

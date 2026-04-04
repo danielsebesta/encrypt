@@ -72,16 +72,15 @@
       return v / max;
     }
 
-    // Emerald/mint palette: light goes from white → emerald
     const stepsLight = [
-      '#ffffff','#f0fdf9','#e0faf1','#ccfbeb',
-      '#a7f3d0','#86efbc','#6ee7b7','#4ade80',
-      '#34d399','#2cc084','#10b981','#059669',
+      '#ffffff','#ffffff','#fafffe','#f0fdf9',
+      '#e0faf1','#ccfbeb','#a7f3d0','#86efbc',
+      '#6ee7b7','#4ade80','#34d399','#10b981',
     ];
     const stepsDark = [
-      '#022c22','#064e3b','#065f46','#047857',
-      '#0d9668','#10b981','#2cc084','#34d399',
-      '#4ade80','#6ee7b7','#a7f3d0','#d1fae5',
+      '#022c22','#022c22','#032d23','#042f25',
+      '#064e3b','#065f46','#047857','#0d9668',
+      '#10b981','#2cc084','#34d399','#4ade80',
     ];
     function getSteps() {
       return document.documentElement.classList.contains('dark') ? stepsDark : stepsLight;
@@ -102,8 +101,8 @@
         const warpY = fbm(x - ts * 0.5 + 30, y + ts * 0.55 + 30, 3);
         const n = fbm(x + warpX * 3.2 + ts * 0.3, y + warpY * 3.2 - ts * 0.2, 4);
         const val = (n + 1) / 2;
-        const smoothed = val * val * (3 - 2 * val);
-        const color = quantize(smoothed, steps);
+        const biased = Math.pow(val, 2.2);
+        const color = quantize(biased, steps);
         if (color !== c.prev) {
           c.el.style.backgroundColor = color;
           c.prev = color;
