@@ -48,6 +48,25 @@ const { locale, dict } = Astro.props;
         <div class="home-tool-panel__surface">
           <UltimateEncrypt client:load locale={locale} />
         </div>
+
+        <!-- How it works -->
+        <div class="home-how-it-works">
+          <p class="home-how-title">{t(dict, 'encrypt.howItWorks')}</p>
+          <div class="home-how-steps">
+            <div class="home-how-step">
+              <span class="home-how-num">1</span>
+              <span>{t(dict, 'encrypt.howStep1')}</span>
+            </div>
+            <div class="home-how-step">
+              <span class="home-how-num">2</span>
+              <span>{t(dict, 'encrypt.howStep2')}</span>
+            </div>
+            <div class="home-how-step">
+              <span class="home-how-num">3</span>
+              <span>{t(dict, 'encrypt.howStep3')}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Chat widget -->
