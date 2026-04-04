@@ -11,20 +11,20 @@ const dict = getTranslations(locale);
   title={t(dict, 'tools.steganography.meta.title')}
   description={t(dict, 'tools.steganography.meta.description')}
 >
-  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20 text-center">
-    <div class="mb-12">
-      <h1 class="text-3xl md:text-4xl font-black italic tracking-tighter mb-4">{t(dict, 'tools.steganography.h1')} <span class="text-emerald-500">{t(dict, 'tools.steganography.h1Highlight')}</span></h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base leading-relaxed">{t(dict, 'tools.steganography.subtitle')}</p>
+  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
+    <div class="tool-hero">
+      <div class="tool-hero__copy">
+        <h1 class="tool-hero__title">{t(dict, 'tools.steganography.h1')} <span class="text-emerald-500">{t(dict, 'tools.steganography.h1Highlight')}</span></h1>
+        <p class="tool-hero__subtitle">{t(dict, 'tools.steganography.subtitle')}</p>
+      </div>
     </div>
-    <div class="card p-4 md:p-10">
+    <div class="mt-8">
       <SteganographyView client:load locale={locale} />
     </div>
     <div class="mt-10 pt-8 border-t border-zinc-200/60 dark:border-zinc-800/40 text-left space-y-2">
       <h3 class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info.title')}</h3>
-      <div class="grid md:grid-cols-2 gap-6 text-xs text-zinc-500 leading-relaxed">
-        <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info1.title')}</strong> {t(dict, 'tools.steganography.info1.text')}</p>
-        <p><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info2.title')}</strong> {t(dict, 'tools.steganography.info2.text')}</p>
-      </div>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed"><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info1.title')}</strong> {t(dict, 'tools.steganography.info1.text')}</p>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed"><strong class="text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.steganography.info2.title')}</strong> {t(dict, 'tools.steganography.info2.text')}</p>
     </div>
   </div>
 </Layout>
