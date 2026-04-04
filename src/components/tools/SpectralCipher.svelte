@@ -16,7 +16,7 @@
   let audioFile: File | null = null;
   let audioFileName = '';
   let password = '';
-  let imageStrength = 0.15;
+  let imageStrength = 1.0;
   let status = '';
   let processing = false;
 
@@ -254,15 +254,20 @@
             }
           }
 
+          // Mix: carrier at (1 - strength), image at strength
+          // This way at 100% image completely dominates, at 50% they're equal
+          const carrierGain = 1 - imageStrength * 0.7; // carrier fades but never fully gone
+          const imageGain = imageStrength * 3; // image signal boosted significantly
+
           const outLen = Math.max(carrier.samples.length, imageSignal.length);
           finalAudio = new Float32Array(outLen);
           for (let i = 0; i < outLen; i++) {
-            const c = i < carrier.samples.length ? carrier.samples[i] : 0;
-            const s = i < imageSignal.length ? imageSignal[i] * imageStrength : 0;
+            const c = i < carrier.samples.length ? carrier.samples[i] * carrierGain : 0;
+            const s = i < imageSignal.length ? imageSignal[i] * imageGain : 0;
             finalAudio[i] = c + s;
           }
 
-          // Normalize mixed output
+          // Normalize to prevent clipping
           let mixMax = 0;
           for (let i = 0; i < finalAudio.length; i++) mixMax = Math.max(mixMax, Math.abs(finalAudio[i]));
           if (mixMax > 1) for (let i = 0; i < finalAudio.length; i++) finalAudio[i] /= mixMax;
@@ -556,7 +561,7 @@
           {#if carrierLoaded}
             <div class="grid gap-1.5">
               <label class="label">{t(dict, 'tools.spectralCipher.imageStrength')} — {Math.round(imageStrength * 100)}%</label>
-              <input type="range" min="0.02" max="0.5" step="0.01" bind:value={imageStrength} class="w-full accent-emerald-500" />
+              <input type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} class="w-full accent-emerald-500" />
               <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
             </div>
           {/if}
