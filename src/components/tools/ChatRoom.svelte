@@ -647,7 +647,7 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <select class="text-[10px] bg-transparent text-zinc-400 border-none outline-none" bind:value={ttlSeconds}>
+        <select class="text-xs bg-transparent text-zinc-400 border-none outline-none" bind:value={ttlSeconds}>
           {#each TTL_OPTIONS as opt}
             <option value={opt.value}>{opt.label}</option>
           {/each}
@@ -812,8 +812,8 @@
   .chat-container {
     display: flex;
     flex-direction: column;
-    height: 70vh;
-    max-height: 600px;
+    height: 75vh;
+    max-height: 700px;
     border-radius: 1rem;
     overflow: hidden;
     border: 1px solid rgba(228, 228, 231, 0.6);
@@ -835,7 +835,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.6rem 1rem;
+    padding: 0.75rem 1.25rem;
     border-bottom: 1px solid rgba(228, 228, 231, 0.5);
   }
   :global(.dark) .chat-header { border-color: rgba(39, 39, 42, 0.4); }
@@ -850,9 +850,9 @@
   }
   .chat-share-value {
     flex: 1; min-width: 0;
-    font-size: 10px; font-family: 'fira-code', monospace;
+    font-size: 12px; font-family: 'fira-code', monospace;
     color: rgb(63, 63, 70); background: rgba(244, 244, 245, 0.8);
-    padding: 2px 6px; border-radius: 4px;
+    padding: 4px 8px; border-radius: 6px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   :global(.dark) .chat-share-value {
@@ -865,31 +865,31 @@
   }
   .chat-share-copy:hover { color: rgb(16, 185, 129); }
   .chat-status {
-    width: 6px; height: 6px; border-radius: 9999px;
+    width: 8px; height: 8px; border-radius: 9999px;
     background: rgb(161, 161, 170);
   }
   .chat-status--connected {
     background: rgb(16, 185, 129);
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
   }
   .chat-messages {
-    flex: 1; overflow-y: auto; padding: 1rem;
-    display: flex; flex-direction: column; gap: 0.5rem;
+    flex: 1; overflow-y: auto; padding: 1.25rem;
+    display: flex; flex-direction: column; gap: 0.6rem;
     transition: filter 0.3s;
   }
   .chat-messages--blurred { filter: blur(8px); }
   .chat-avatar {
-    width: 28px; height: 28px; border-radius: 9999px;
+    width: 34px; height: 34px; border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 800; color: white;
+    font-size: 12px; font-weight: 800; color: white;
     flex-shrink: 0; letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
   .chat-avatar--sm {
-    width: 20px; height: 20px; border-radius: 9999px; font-size: 7px;
+    width: 24px; height: 24px; border-radius: 9999px; font-size: 9px;
   }
   .chat-bubble {
-    max-width: 85%; padding: 0.4rem 0.6rem; border-radius: 0.75rem;
+    max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 0.875rem;
     background: rgba(244, 244, 245, 0.8); align-self: flex-start;
   }
   :global(.dark) .chat-bubble { background: rgba(39, 39, 42, 0.5); }
@@ -898,13 +898,13 @@
     background: rgba(16, 185, 129, 0.12);
   }
   :global(.dark) .chat-bubble--mine { background: rgba(16, 185, 129, 0.15); }
-  .chat-sender { font-size: 10px; font-weight: 700; display: block; margin-bottom: 1px; }
+  .chat-sender { font-size: 12px; font-weight: 700; display: block; margin-bottom: 2px; }
   .chat-text {
-    font-size: 13px; line-height: 1.4; color: rgb(63, 63, 70); word-break: break-word;
+    font-size: 15px; line-height: 1.5; color: rgb(63, 63, 70); word-break: break-word;
   }
   :global(.dark) .chat-text { color: rgb(212, 212, 216); }
   .chat-timer {
-    position: relative; width: 28px; height: 28px; flex-shrink: 0;
+    position: relative; width: 32px; height: 32px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
   }
   .chat-timer__ring {
@@ -912,24 +912,24 @@
     color: rgb(16, 185, 129);
   }
   .chat-timer__num {
-    font-size: 8px; font-weight: 700; color: rgb(161, 161, 170);
+    font-size: 10px; font-weight: 700; color: rgb(161, 161, 170);
     position: relative; z-index: 1;
   }
   .chat-text :global(strong) { font-weight: 700; }
   .chat-text :global(em) { font-style: italic; }
   .chat-text :global(del) { text-decoration: line-through; opacity: 0.6; }
   .chat-text :global(.chat-code-inline) {
-    font-family: 'fira-code', monospace; font-size: 11px;
-    background: rgba(16, 185, 129, 0.08); border-radius: 3px;
-    padding: 1px 4px;
+    font-family: 'fira-code', monospace; font-size: 13px;
+    background: rgba(16, 185, 129, 0.08); border-radius: 4px;
+    padding: 2px 5px;
   }
   :global(.dark) .chat-text :global(.chat-code-inline) {
     background: rgba(16, 185, 129, 0.12);
   }
   .chat-text :global(.chat-code-block) {
-    font-family: 'fira-code', monospace; font-size: 11px;
-    background: rgba(0, 0, 0, 0.04); border-radius: 6px;
-    padding: 6px 8px; margin: 4px 0; overflow-x: auto;
+    font-family: 'fira-code', monospace; font-size: 13px;
+    background: rgba(0, 0, 0, 0.04); border-radius: 8px;
+    padding: 8px 10px; margin: 6px 0; overflow-x: auto;
     white-space: pre-wrap; word-break: break-all;
   }
   :global(.dark) .chat-text :global(.chat-code-block) {
@@ -948,8 +948,8 @@
     color: rgb(113, 113, 122);
   }
   .chat-typing {
-    font-size: 11px; color: rgb(161, 161, 170); padding: 0.25rem 0;
-    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 13px; color: rgb(161, 161, 170); padding: 0.3rem 0;
+    display: flex; align-items: center; gap: 0.5rem;
   }
   .chat-wrong-password {
     display: flex; align-items: center; gap: 0.4rem;
@@ -959,14 +959,14 @@
     background: rgba(239, 68, 68, 0.08);
   }
   .chat-input {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.6rem 0.75rem;
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.75rem 1rem;
     border-top: 1px solid rgba(228, 228, 231, 0.5);
   }
   :global(.dark) .chat-input { border-color: rgba(39, 39, 42, 0.4); }
   .chat-input-field {
     flex: 1; background: transparent; border: none; outline: none;
-    font-size: 13px; color: rgb(24, 24, 27); padding: 0.4rem 0;
+    font-size: 15px; color: rgb(24, 24, 27); padding: 0.5rem 0;
   }
   :global(.dark) .chat-input-field { color: rgb(228, 228, 231); }
   .chat-input-field::placeholder { color: rgb(161, 161, 170); }
@@ -983,8 +983,8 @@
     border-color: rgba(39, 39, 42, 0.4);
   }
   .chat-preview-code {
-    margin: 0; padding: 0.4rem 0.5rem;
-    font-family: 'fira-code', monospace; font-size: 10px; line-height: 1.5;
+    margin: 0; padding: 0.5rem 0.6rem;
+    font-family: 'fira-code', monospace; font-size: 12px; line-height: 1.5;
     white-space: pre-wrap; word-break: break-all;
     color: rgb(82, 82, 91); background: rgba(244, 244, 245, 0.6);
     max-height: 200px; overflow-y: auto;
@@ -994,8 +994,8 @@
     background: rgba(24, 24, 27, 0.5);
   }
   .chat-preview-expand {
-    display: block; width: 100%; padding: 0.2rem;
-    font-size: 9px; font-weight: 600; text-align: center;
+    display: block; width: 100%; padding: 0.3rem;
+    font-size: 11px; font-weight: 600; text-align: center;
     color: rgb(16, 185, 129);
     background: rgba(244, 244, 245, 0.8);
     border-top: 1px solid rgba(228, 228, 231, 0.5);
@@ -1006,11 +1006,11 @@
   }
   .chat-preview-expand:hover { background: rgba(16, 185, 129, 0.08); }
   .chat-burn-reveal {
-    display: flex; align-items: center; gap: 0.4rem;
-    padding: 0.4rem 0.7rem; border-radius: 0.5rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.85rem; border-radius: 0.6rem;
     background: rgba(239, 68, 68, 0.08);
     border: 1px dashed rgba(239, 68, 68, 0.2);
-    color: rgb(239, 68, 68); font-size: 11px; font-weight: 600;
+    color: rgb(239, 68, 68); font-size: 13px; font-weight: 600;
     transition: all 0.15s;
   }
   .chat-burn-reveal:hover {
@@ -1038,11 +1038,11 @@
     opacity: 0.6;
   }
   .chat-file__name {
-    font-size: 11px; font-weight: 600; display: block; truncate: true;
+    font-size: 13px; font-weight: 600; display: block; truncate: true;
     color: rgb(63, 63, 70);
   }
   :global(.dark) .chat-file__name { color: rgb(212, 212, 216); }
-  .chat-file__size { font-size: 9px; color: rgb(161, 161, 170); }
+  .chat-file__size { font-size: 11px; color: rgb(161, 161, 170); }
   .chat-file__dl {
     padding: 0.25rem; border-radius: 0.35rem;
     color: rgb(16, 185, 129); transition: background 0.15s;
