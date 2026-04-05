@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { encrypt, decrypt as decryptBytes } from '../../lib/crypto';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -15,7 +14,6 @@
   let carrierLoaded = false;
   let audioFile: File | null = null;
   let audioFileName = '';
-  let password = '';
   let imageStrength = 1.0;
   let status = '';
   let processing = false;
@@ -172,24 +170,6 @@
         for (let i = 0; i < w * h; i++) {
           const r = imgData.data[i * 4], g = imgData.data[i * 4 + 1], b = imgData.data[i * 4 + 2];
           grayscale[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-        }
-
-        // Optional encryption
-        if (password.trim()) {
-          const header = new Uint8Array(8);
-          header[0] = 0x53; header[1] = 0x50; header[2] = 0x43; header[3] = 0x52; // 'SPCR'
-          header[4] = (w >> 8) & 0xff; header[5] = w & 0xff;
-          header[6] = (h >> 8) & 0xff; header[7] = h & 0xff;
-          const payload = new Uint8Array(8 + grayscale.length);
-          payload.set(header);
-          payload.set(grayscale, 8);
-          const plainStr = String.fromCharCode(...payload);
-          const encrypted = await encrypt(plainStr, password.trim());
-          // Reshape encrypted bytes to w*h, padding/truncating
-          grayscale = new Uint8Array(w * h);
-          for (let i = 0; i < w * h; i++) {
-            grayscale[i] = i < encrypted.length ? encrypted[i] : 0;
-          }
         }
 
         // Spectral encoding: for each column, build frequency frame and IFFT
@@ -365,34 +345,7 @@
         }
       }
 
-      // Optional decryption
-      if (password.trim()) {
-        try {
-          // Collect non-zero trailing length
-          let encLen = imgW * imgH;
-          while (encLen > 0 && pixels[encLen - 1] === 0) encLen--;
-          const encBytes = new Uint8Array(pixels.buffer, 0, encLen);
-          const decrypted = await decryptBytes(encBytes, password.trim());
-          const decStr = typeof decrypted === 'string' ? decrypted : new TextDecoder().decode(decrypted as any);
-          const decData = new Uint8Array(decStr.length);
-          for (let i = 0; i < decStr.length; i++) decData[i] = decStr.charCodeAt(i);
-
-          if (decData[0] === 0x53 && decData[1] === 0x50 && decData[2] === 0x43 && decData[3] === 0x52) {
-            const origW = (decData[4] << 8) | decData[5];
-            const origH = (decData[6] << 8) | decData[7];
-            renderExtractedImage(decData.slice(8), origW, origH);
-            status = t(dict, 'tools.spectralCipher.decoded');
-            processing = false;
-            return;
-          }
-        } catch {
-          status = t(dict, 'tools.spectralCipher.decryptFailed');
-          processing = false;
-          return;
-        }
-      }
-
-      // Render raw spectrogram as image
+      // Render extracted image
       renderExtractedImage(pixels, imgW, imgH);
       renderSpectrogram(samples instanceof Float32Array ? samples : new Float32Array(samples), sampleRate);
       status = t(dict, 'tools.spectralCipher.decoded');
@@ -567,14 +520,6 @@
 
     <div class="space-y-4">
       <div class="grid gap-4">
-        <div class="grid gap-1.5">
-          <label class="label">{t(dict, 'tools.spectralCipher.password')}</label>
-          <input type="password" bind:value={password}
-            placeholder={mode === 'encode' ? t(dict, 'tools.spectralCipher.encPasswordPlaceholder') : t(dict, 'tools.spectralCipher.decPasswordPlaceholder')}
-            class="input" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" />
-          <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.passwordHint')}</p>
-        </div>
-
         {#if mode === 'encode'}
           {#if carrierLoaded}
             <div class="grid gap-1.5">
