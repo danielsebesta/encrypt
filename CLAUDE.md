@@ -40,25 +40,13 @@ Validate changes with `yarn build`.
   Flat UI translation dictionaries.
 
 - `src/content/tool-education/*/*.json`
-  Long-form educational content for the current 5-tool pilot.
+  Long-form educational content for the education pilot.
 
 - `src/lib/toolEducation.ts`
   Loader and runtime validation for education content.
 
-- `generate-standalone.mjs`
-  Standalone single-file HTML generator.
-
-- `standalone-integration.mjs`
-  Hooks standalone generation into `yarn build`.
-
 - `src/lib/ghost/` and `src/pages/api/ghost/`
   Ghost Drop crypto, steganography, upload, fetch, and verification support.
-
-### Important distinction
-
-`src/lib/tools.ts` drives the site navigation and tool registry, but **standalone HTML exports are maintained separately** in `generate-standalone.mjs`.
-
-If you add a tool and expect a downloadable standalone file, you must update both places.
 
 ## Current product shape
 
@@ -69,12 +57,12 @@ If you add a tool and expect a downloadable standalone file, you must update bot
 - `/u` decrypt / receive flow
 - `/download` handoff download flow
 - `/security` privacy and security summary
+- `/chat` encrypted ephemeral chat
 - `/tools/*` tool pages
 
 ### Tool categories in `src/lib/tools.ts`
 
 - `developer`
-- `cryptography`
 - `privacy`
 
 ## Working rules
@@ -99,18 +87,16 @@ Baseline checklist:
 
 Optional follow-up depending on the tool:
 
-5. Add a standalone export in `generate-standalone.mjs`
-6. Add educational content in `src/content/tool-education/` per locale and wire it through `src/lib/toolEducation.ts`
+5. Add educational content in `src/content/tool-education/` per locale and wire it through `src/lib/toolEducation.ts`
 
 ## Education content pilot
 
-The richer “Understand it” layer currently exists for:
+The richer "Understand it" layer currently exists for:
 
 - `base64`
 - `bcrypt`
 - `jwt`
 - `time-capsule`
-- `enigma`
 
 Use those pages as the pattern if extending the system.
 
@@ -118,4 +104,3 @@ Use those pages as the pattern if extending the system.
 
 - Run `yarn build`
 - Check affected pages across all locales
-- If you touched a standalone-capable tool, make sure the generated standalone HTML still works

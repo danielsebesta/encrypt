@@ -1,6 +1,6 @@
 # Contributing to encrypt.click
 
-This repo is small, but it has a few systems that need to stay in sync: Astro pages, Svelte tool UIs, translations, standalone exports, and the new education-content pilot.
+This repo is small, but it has a few systems that need to stay in sync: Astro pages, Svelte tool UIs, translations, and the education-content pilot.
 
 ## Prerequisites
 
@@ -40,10 +40,8 @@ yarn build
 | `src/pages/tools/` | Astro wrappers for tool pages |
 | `src/lib/tools.ts` | Tool registry for navbar/category wiring |
 | `src/locales/*.json` | Flat UI dictionaries |
-| `src/content/tool-education/` | Long-form education content for the 5-tool pilot |
+| `src/content/tool-education/` | Long-form education content for the pilot tools |
 | `src/lib/toolEducation.ts` | Education content loader and types |
-| `generate-standalone.mjs` | Standalone single-file HTML generator |
-| `src/components/DownloadStandalone.astro` | Download button for standalone exports |
 
 ## Adding a new tool
 
@@ -96,7 +94,6 @@ Most new tools need these pieces:
 ---
 import Layout from '../../layouts/Layout.astro';
 import MyToolView from '../../components/tools/MyTool.svelte';
-import DownloadStandalone from '../../components/DownloadStandalone.astro';
 import { getTranslations, t, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -121,8 +118,6 @@ const dict = getTranslations(locale);
     <div class="card p-8">
       <MyToolView client:load locale={locale} />
     </div>
-
-    <DownloadStandalone slug="my-tool" locale={locale} />
   </div>
 </Layout>
 ```
@@ -137,20 +132,11 @@ Add one entry to `src/lib/tools.ts`:
 
 Categories:
 - `developer`
-- `cryptography`
 - `privacy`
 
 ### Locale keys
 
-Add keys to:
-
-- `src/locales/en.json`
-- `src/locales/cs.json`
-- `src/locales/de.json`
-- `src/locales/es.json`
-- `src/locales/fr.json`
-- `src/locales/sk.json`
-- `src/locales/pl.json`
+Add keys to all 7 locale files under `src/locales/`.
 
 Example:
 
@@ -166,15 +152,6 @@ Example:
 "tools.myTool.outputLabel": "Output"
 ```
 
-## If the tool should have a standalone HTML version
-
-That requires an extra manual step.
-
-Update:
-- `generate-standalone.mjs`
-
-The standalone list is currently hardcoded there. Adding a normal tool page does not automatically create the downloadable standalone file.
-
 ## If the tool should use the education layer
 
 The current pilot tools are:
@@ -183,14 +160,10 @@ The current pilot tools are:
 - `bcrypt`
 - `jwt`
 - `time-capsule`
-- `enigma`
 
 To extend that system:
 
-1. Add locale-specific content files in:
-   - `src/content/tool-education/en/`
-   - `src/content/tool-education/cs/`
-   - `src/content/tool-education/de/`
+1. Add locale-specific content files in `src/content/tool-education/`
 2. Match the schema in `src/content.config.ts`
 3. Extend the slug union in `src/lib/toolEducation.ts`
 4. Render `ToolQuickFacts` and `ToolEducationPanel` on the page
@@ -209,7 +182,7 @@ Use the existing pilot pages as the reference implementation.
 - Homepage sections: `src/components/home/`
 - Tool pages: `src/pages/tools/`
 - Tool components: `src/components/tools/`
-- Navigation / language UI: `src/components/`
+- Navigation / language UI: `src/layouts/Layout.astro`
 - Shared styles: `src/styles/global.css`
 - Security/privacy page: `src/pages/security.astro`
 - Dead Drop: `src/pages/drop.astro`
@@ -221,5 +194,4 @@ Use the existing pilot pages as the reference implementation.
 2. Make the change.
 3. Run `yarn build`.
 4. Check the affected page in all relevant locales.
-5. If you touched a standalone-capable tool, confirm the generated file still works.
-6. Open the PR with a clear summary of user-visible changes.
+5. Open the PR with a clear summary of user-visible changes.
