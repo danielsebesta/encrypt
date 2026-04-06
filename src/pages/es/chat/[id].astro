@@ -1,0 +1,28 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import ChatRoom from '../../../components/tools/ChatRoom.svelte';
+import { getTranslations, t, type Locale } from '../../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+const { id } = Astro.params;
+
+export const prerender = false;
+---
+
+<Layout
+  title={t(dict, 'chat.meta.roomTitle')}
+  description={t(dict, 'chat.meta.roomDescription')}
+>
+  <div class="max-w-2xl mx-auto px-5 py-8 md:py-12">
+    <div class="mb-6 text-center">
+      <h1 class="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+        {t(dict, 'chat.pageTitle')} <span class="text-emerald-500">{t(dict, 'chat.pageTitleHighlight')}</span>
+      </h1>
+      <p class="text-xs text-zinc-400 dark:text-zinc-500">
+        {t(dict, 'chat.roomSubtitle')}
+      </p>
+    </div>
+    <ChatRoom client:only="svelte" roomId={id || 'default'} locale={locale} />
+  </div>
+</Layout>
