@@ -69,7 +69,7 @@ export const categoryIcons: Record<ToolCategory, string> = {
 export const chatIcon = icons.chat;
 export const deadDropIcon = icons.drop;
 
-export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>) {
+export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {
   const categories: ToolCategory[] = ['developer', 'privacy'];
 
   return categories.map(cat => ({
@@ -79,7 +79,7 @@ export function getNavCategories(t: (dict: Record<string, string>, key: string) 
       .filter(tool => tool.category === cat)
       .map(tool => ({
         label: t(dict, tool.navLabelKey),
-        href: `/tools/${tool.slug}`,
+        href: `${localePrefix}/tools/${tool.slug}`,
         icon: tool.icon,
       })),
   }));
