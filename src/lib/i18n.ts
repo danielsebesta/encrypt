@@ -3,8 +3,12 @@ import { languages, defaultLocale, locales, type Locale } from './languages';
 import en from '../locales/en.json';
 import cs from '../locales/cs.json';
 import de from '../locales/de.json';
+import es from '../locales/es.json';
+import fr from '../locales/fr.json';
+import sk from '../locales/sk.json';
+import pl from '../locales/pl.json';
 
-const dictionaries: Record<string, Record<string, string>> = { en, cs, de };
+const dictionaries: Record<string, Record<string, string>> = { en, cs, de, es, fr, sk, pl };
 
 export { languages, defaultLocale, locales, type Locale };
 

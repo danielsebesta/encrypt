@@ -19,7 +19,7 @@ export default defineConfig({
   integrations: [svelte()],
 
   i18n: {
-    locales: ['en', 'cs', 'de'],
+    locales: ['en', 'cs', 'de', 'es', 'fr', 'sk', 'pl'],
     defaultLocale: 'en',
     routing: {
       prefixDefaultLocale: false,
@@ -27,7 +27,11 @@ export default defineConfig({
     },
     fallback: {
       cs: 'en',
-      de: 'en'
+      de: 'en',
+      es: 'en',
+      fr: 'en',
+      sk: 'en',
+      pl: 'en'
     }
   }
 });
