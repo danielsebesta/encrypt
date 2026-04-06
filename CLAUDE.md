@@ -23,7 +23,7 @@ Validate changes with `yarn build`.
 - **Svelte 5** interactive tools
 - **Tailwind CSS v4**
 - **Cloudflare adapter**
-- **Astro i18n** with `en`, `cs`, `de`
+- **Astro i18n** with `en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`
 
 ### Main systems
 
@@ -36,7 +36,7 @@ Validate changes with `yarn build`.
 - `src/lib/tools.ts`
   Tool registry for navbar/category wiring.
 
-- `src/locales/{en,cs,de}.json`
+- `src/locales/{en,cs,de,es,fr,sk,pl}.json`
   Flat UI translation dictionaries.
 
 - `src/content/tool-education/*/*.json`
@@ -83,7 +83,7 @@ If you add a tool and expect a downloadable standalone file, you must update bot
 - Put normal UI strings in `src/locales/*.json`.
 - For the education pilot, keep long-form explanatory content in `src/content/tool-education/`.
 - `en.json` is the source of truth for UI keys.
-- Keep `cs.json` and `de.json` in sync with English.
+- Keep all non-English locale files in sync with English.
 - Keep crypto logic in `src/lib/crypto.ts` or the existing `src/lib/ghost/` helpers.
 - Do not add unnecessary comments.
 - Prefer existing classes/components/patterns over parallel abstractions.
@@ -95,12 +95,12 @@ Baseline checklist:
 1. Create the Svelte tool component in `src/components/tools/`
 2. Create the Astro page in `src/pages/tools/`
 3. Register it in `src/lib/tools.ts`
-4. Add locale keys to all 3 locale files
+4. Add locale keys to all 7 locale files
 
 Optional follow-up depending on the tool:
 
 5. Add a standalone export in `generate-standalone.mjs`
-6. Add educational content in `src/content/tool-education/{en,cs,de}/` and wire it through `src/lib/toolEducation.ts`
+6. Add educational content in `src/content/tool-education/` per locale and wire it through `src/lib/toolEducation.ts`
 
 ## Education content pilot
 
@@ -117,5 +117,5 @@ Use those pages as the pattern if extending the system.
 ## Validation
 
 - Run `yarn build`
-- Check affected pages in `en`, `cs`, and `de`
+- Check affected pages across all locales
 - If you touched a standalone-capable tool, make sure the generated standalone HTML still works

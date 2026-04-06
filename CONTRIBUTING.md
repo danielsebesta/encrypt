@@ -30,7 +30,7 @@ yarn build
 - Put normal UI strings in `src/locales/*.json`.
 - Keep crypto logic in `src/lib/crypto.ts` or the existing ghost helpers under `src/lib/ghost/`.
 - Prefer existing UI patterns and shared classes over inventing parallel systems.
-- If you change a public-facing flow, check all 3 locales: `en`, `cs`, `de`.
+- If you change a public-facing flow, check all locales (`en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`).
 
 ## Important directories
 
@@ -52,7 +52,7 @@ Most new tools need these pieces:
 1. Create `src/components/tools/MyTool.svelte`
 2. Create `src/pages/tools/my-tool.astro`
 3. Add the tool to `src/lib/tools.ts`
-4. Add locale keys to all 3 locale files
+4. Add locale keys to all 7 locale files
 
 ### Component example
 
@@ -147,6 +147,10 @@ Add keys to:
 - `src/locales/en.json`
 - `src/locales/cs.json`
 - `src/locales/de.json`
+- `src/locales/es.json`
+- `src/locales/fr.json`
+- `src/locales/sk.json`
+- `src/locales/pl.json`
 
 Example:
 
