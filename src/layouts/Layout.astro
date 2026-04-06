@@ -25,10 +25,11 @@ const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.c
 const path = Astro.url.pathname;
 const currentLang = languages[locale];
 
-const navCategories = getNavCategories(t, dict);
+const localePrefix = locale === 'en' ? '' : `/${locale}`;
+const navCategories = getNavCategories(t, dict, localePrefix);
 const privacyCat = navCategories.find(c => c.name === t(dict, 'nav.privacy'));
 if (privacyCat) {
-  privacyCat.tools.push({ label: t(dict, 'nav.tool.deadDrop'), href: '/drop', icon: deadDropIcon });
+  privacyCat.tools.push({ label: t(dict, 'nav.tool.deadDrop'), href: `${localePrefix}/drop`, icon: deadDropIcon });
 }
 
 const languageOptions = locales.map(l => ({
@@ -75,11 +76,12 @@ const languageOptions = locales.map(l => ({
 			(function(){try{
 				var cur=document.documentElement.lang||'en';
 				var stored=localStorage.getItem('ec-lang');
-				var locales=['en','cs','de'];
+				var locales=['en','cs','de','es','fr','sk','pl'];
 				if(stored&&locales.indexOf(stored)!==-1&&stored!==cur){
 					var p=location.pathname;
 					var hasPayload=!!location.hash||new URLSearchParams(location.search).has('p');
-					var isDecryptRoute=p==='/u'||p==='/u/'||p.indexOf('/cs/u')===0||p.indexOf('/de/u')===0;
+					var isDecryptRoute=p==='/u'||p==='/u/';
+					for(var j=1;j<locales.length;j++){if(p.indexOf('/'+locales[j]+'/u')===0){isDecryptRoute=true;break;}}
 					if(isDecryptRoute&&hasPayload){
 						localStorage.setItem('ec-lang',cur);
 						return;
@@ -109,7 +111,7 @@ const languageOptions = locales.map(l => ({
 
 				<!-- Desktop nav -->
 				<div class="hidden md:flex items-center gap-1">
-					<a href="/chat" class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
+					<a href={`${localePrefix}/chat`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={chatIcon} /></svg>
 						Chat
 					</a>
@@ -219,7 +221,7 @@ const languageOptions = locales.map(l => ({
 			<div id="mobile-menu" class="md:hidden hidden overflow-hidden">
 				<div class="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl max-h-[calc(100vh-3.5rem)] overflow-y-auto">
 					<div class="p-5 space-y-5">
-						<a href="/chat" class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+						<a href={`${localePrefix}/chat`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={chatIcon} /></svg>
 							Encrypted Chat
 						</a>
@@ -275,7 +277,7 @@ const languageOptions = locales.map(l => ({
 							{navCategories.find(c => c.name === t(dict, 'nav.privacy'))?.tools.map((tool) => (
 								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
 							))}
-							<li><a href="/chat" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Chat</a></li>
+							<li><a href={`${localePrefix}/chat`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Chat</a></li>
 						</ul>
 					</div>
 
@@ -293,7 +295,7 @@ const languageOptions = locales.map(l => ({
 					<div>
 						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">Resources</p>
 						<ul class="space-y-2.5">
-							<li><a href="/security" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'home.footer.security')}</a></li>
+							<li><a href={`${localePrefix}/security`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'home.footer.security')}</a></li>
 							<li>
 								<a href="https://github.com/danielsebesta/encrypt.click" target="_blank" rel="noopener noreferrer" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5">
 									GitHub
