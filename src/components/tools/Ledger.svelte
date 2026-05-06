@@ -549,7 +549,15 @@
     position: relative;
   }
   :global(.dark) .ledger-sheet { background: rgb(24, 24, 27); }
-  :global(.x-spreadsheet) { font-family: ui-sans-serif, system-ui, sans-serif !important; }
+  /* Don't force a global font-family on .x-spreadsheet — that would override
+     the per-cell font-family the user picks from the toolbar dropdown, and
+     it also breaks the font-family preview list inside that dropdown.
+     Only restyle the toolbar chrome (buttons), where font choice is irrelevant. */
+  :global(.x-spreadsheet-toolbar),
+  :global(.x-spreadsheet-bottombar),
+  :global(.x-spreadsheet-contextmenu) {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
 
   /* x-spreadsheet dark theme overrides */
   :global(.dark) :global(.x-spreadsheet) { color: rgb(228, 228, 231); }
