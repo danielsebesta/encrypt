@@ -207,10 +207,11 @@
 
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (ws && ws.readyState === 1) {
         try { ws.send(JSON.stringify({ type: 'ping', t: Date.now() })); } catch {}
       }
-    }, 25000);
+    }, 30000);
   }
 
   async function handleServerMessage(event: MessageEvent) {
