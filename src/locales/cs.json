@@ -949,5 +949,11 @@
   "deck.toolEraser": "Guma (8)",
   "deck.headerHint": "Dokument se synchronizuje v reálném čase, end-to-end šifrovaně.",
   "studio.beta": "Beta",
-  "studio.viewPlan": "Zobrazit kompletní plán"
+  "studio.viewPlan": "Zobrazit kompletní plán",
+  "deck.addSlide": "+ Přidat snímek",
+  "deck.deleteSlide": "Smazat snímek",
+  "deck.emptySlide": "(prázdný)",
+  "deck.present": "Prezentovat",
+  "deck.exitPresent": "Odejít",
+  "ledger.exportXlsx": "Export .xlsx"
 }

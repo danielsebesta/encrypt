@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import PartySocket from 'partysocket';
   import * as Y from 'yjs';
   import { Editor } from '@tiptap/core';
@@ -41,20 +41,25 @@
   let shareDismissed = false;
 
   let ydoc: Y.Doc;
-  let yfragment: Y.XmlFragment;
+  let yslides: Y.Array<string>;
   let editor: Editor | null = null;
   let editorEl: HTMLDivElement;
   let pageHidden = false;
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+  let presentMode = false;
 
   let pendingUpdates: Uint8Array[] = [];
   let updateFlushTimer: ReturnType<typeof setTimeout> | null = null;
-  const UPDATE_BATCH_MS = 150;
+  const UPDATE_BATCH_MS = 200;
+
+  // local reactive view of slide ids (mirrors yslides)
+  let slideIds: string[] = [];
+  let activeSlideIndex = 0;
+  let slideVersion = 0;
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   }
-
   function genId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(8));
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
@@ -108,7 +113,7 @@
 
   function setupYjs() {
     ydoc = new Y.Doc();
-    yfragment = ydoc.getXmlFragment('deck');
+    yslides = ydoc.getArray('slides');
     ydoc.on('update', (update: Uint8Array, origin: any) => {
       if (origin === 'remote') return;
       if (!cryptoKey || !ws || !verified) return;
@@ -117,15 +122,72 @@
         updateFlushTimer = setTimeout(flushPendingUpdates, UPDATE_BATCH_MS);
       }
     });
+    yslides.observe(() => {
+      slideIds = yslides.toArray();
+      slideVersion++;
+      if (slideIds.length === 0 && verified) {
+        // first user → seed first slide
+        addSlide();
+      } else if (activeSlideIndex >= slideIds.length) {
+        activeSlideIndex = Math.max(0, slideIds.length - 1);
+        remountEditor();
+      }
+    });
+  }
+
+  function getSlideFragment(id: string): Y.XmlFragment {
+    return ydoc.getXmlFragment(`slide_${id}`);
+  }
+
+  function addSlide() {
+    if (!ydoc) return;
+    const id = genId();
+    yslides.push([id]);
+    activeSlideIndex = yslides.length - 1;
+    remountEditor();
+  }
+
+  function deleteSlide(idx: number) {
+    if (!ydoc || yslides.length <= 1) return; // keep at least one
+    yslides.delete(idx, 1);
+    if (activeSlideIndex >= yslides.length) activeSlideIndex = yslides.length - 1;
+    remountEditor();
+  }
+
+  function moveSlide(from: number, to: number) {
+    if (!ydoc || from === to || from < 0 || to < 0 || from >= yslides.length || to >= yslides.length) return;
+    const id = yslides.get(from);
+    ydoc.transact(() => {
+      yslides.delete(from, 1);
+      yslides.insert(to, [id]);
+    });
+    activeSlideIndex = to;
+    remountEditor();
+  }
+
+  function selectSlide(idx: number) {
+    if (idx === activeSlideIndex) return;
+    activeSlideIndex = idx;
+    remountEditor();
+  }
+
+  async function remountEditor() {
+    editor?.destroy();
+    editor = null;
+    await tick();
+    mountEditor();
   }
 
   function mountEditor() {
-    if (!editorEl || editor || !ydoc) return;
+    if (!editorEl || !ydoc || slideIds.length === 0) return;
+    const id = slideIds[activeSlideIndex];
+    if (!id) return;
+    const fragment = getSlideFragment(id);
     editor = new Editor({
       element: editorEl,
       extensions: [
         StarterKit.configure({ history: false }),
-        Collaboration.configure({ document: ydoc, field: 'deck' }),
+        Collaboration.configure({ document: ydoc, fragment }),
       ],
       editorProps: {
         attributes: {
@@ -137,7 +199,17 @@
     });
   }
 
-  $: if (verified && editorEl && !editor) mountEditor();
+  $: if (verified && editorEl && !editor && slideIds.length > 0) mountEditor();
+
+  // get a tiny preview of slide content for the sidebar (first text node)
+  function slidePreview(id: string): string {
+    if (!ydoc) return '';
+    try {
+      const fragment = getSlideFragment(id);
+      const text = fragment.toString().replace(/<[^>]*>/g, '').trim();
+      return text.length > 40 ? text.slice(0, 40) + '…' : text;
+    } catch { return ''; }
+  }
 
   async function sendDocUpdate(update: Uint8Array) {
     if (!cryptoKey || !ws) return;
@@ -160,7 +232,6 @@
       connectionTimeout: 8000,
       maxRetries: Infinity,
     });
-
     ws.addEventListener('open', async () => {
       connected = true;
       if (cryptoKey) {
@@ -169,7 +240,6 @@
         ws!.send(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }));
       }
     });
-
     ws.addEventListener('close', () => { connected = false; });
     ws.addEventListener('error', () => {
       if (verifying) { wrongPassword = true; verifying = false; }
@@ -191,8 +261,11 @@
 
     if (data.type === 'init') {
       serverPresence = data.presence;
-      if (verifying && serverPresence <= 1) { verified = true; verifying = false; }
-      else if (verifying && serverPresence > 1) {
+      if (verifying && serverPresence <= 1) {
+        verified = true; verifying = false;
+        // alone → make sure we have at least one slide
+        if (yslides && yslides.length === 0) addSlide();
+      } else if (verifying && serverPresence > 1) {
         setTimeout(() => {
           if (verifying && !verified) { wrongPassword = true; verifying = false; ws?.close(); }
         }, 4000);
@@ -211,10 +284,12 @@
       if (data.kind === 'doc') {
         const update = await decryptBytes(cryptoKey, data.payload);
         Y.applyUpdate(ydoc, update, 'remote');
-        if (verifying) { verified = true; verifying = false; }
+        if (verifying) {
+          verified = true; verifying = false;
+          if (yslides.length === 0) addSlide();
+        }
         return;
       }
-
       if (data.kind === 'verify') {
         const text = await decryptMessage(cryptoKey, data.payload);
         const parsed = JSON.parse(text);
@@ -229,7 +304,6 @@
         }
         return;
       }
-
       if (data.kind === 'verify-ack') {
         const text = await decryptMessage(cryptoKey, data.payload);
         const parsed = JSON.parse(text);
@@ -237,10 +311,7 @@
         addOnlineUser(data.from || parsed.sender, parsed.sender, parsed.color);
         return;
       }
-    } catch {
-      // single failed decrypt is ambiguous (mixed-password peers); only the
-      // 4 s init timeout is authoritative for "wrong password"
-    }
+    } catch {}
   }
 
   function addOnlineUser(id: string, name: string, color: string) {
@@ -250,52 +321,59 @@
   }
 
   async function copyShareLink() {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      shareCopiedLink = true;
-      setTimeout(() => { shareCopiedLink = false; }, 1500);
-    } catch {}
+    try { await navigator.clipboard.writeText(window.location.href); shareCopiedLink = true; setTimeout(() => { shareCopiedLink = false; }, 1500); } catch {}
   }
-
   async function copySharePassword() {
-    try {
-      await navigator.clipboard.writeText(sharePassword);
-      shareCopiedPass = true;
-      setTimeout(() => { shareCopiedPass = false; }, 1500);
-    } catch {}
+    try { await navigator.clipboard.writeText(sharePassword); shareCopiedPass = true; setTimeout(() => { shareCopiedPass = false; }, 1500); } catch {}
   }
 
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     pageHidden = document.hidden;
   }
-
   function beforeUnloadHandler(e: BeforeUnloadEvent) {
     e.preventDefault();
     e.returnValue = '';
   }
-
   $: if (typeof window !== 'undefined') {
     if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 
+  function handleKeydown(e: KeyboardEvent) {
+    if (!presentMode) return;
+    if (e.key === 'Escape') { presentMode = false; return; }
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault();
+      if (activeSlideIndex < slideIds.length - 1) selectSlide(activeSlideIndex + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      if (activeSlideIndex > 0) selectSlide(activeSlideIndex - 1);
+    }
+  }
+
+  function togglePresent() { presentMode = !presentMode; }
+
   onMount(() => {
     initRoom();
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', handleVisibility);
+    if (typeof window !== 'undefined') window.addEventListener('keydown', handleKeydown);
   });
 
   onDestroy(() => {
     editor?.destroy();
     ws?.close();
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibility);
-    if (typeof window !== 'undefined') window.removeEventListener('beforeunload', beforeUnloadHandler);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
+      window.removeEventListener('keydown', handleKeydown);
+    }
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     ydoc?.destroy();
   });
 </script>
 
-<div class="deck-container">
+<div class="deck-container" class:deck-container--present={presentMode}>
   {#if wrongPassword}
     <div class="deck-center">
       <div class="space-y-4 max-w-xs w-full text-center">
@@ -305,7 +383,6 @@
         <button class="btn-outline w-full text-xs" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'deck.tryAgain')}</button>
       </div>
     </div>
-
   {:else if needsPassword}
     <div class="deck-center">
       <div class="space-y-4 max-w-xs w-full">
@@ -329,7 +406,6 @@
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'deck.enterRoom')}</button>
       </div>
     </div>
-
   {:else if verifying}
     <div class="deck-center">
       <div class="text-center space-y-2">
@@ -337,7 +413,16 @@
         <p class="text-xs text-zinc-400">{serverPresence > 1 ? t(dict, 'deck.verifyingPassword') : t(dict, 'deck.verifyingAlone')}</p>
       </div>
     </div>
-
+  {:else if presentMode}
+    <div class="deck-present">
+      <div class="deck-present-slide">
+        <div class="deck-present-num">{activeSlideIndex + 1} / {slideIds.length}</div>
+        <div bind:this={editorEl} class="deck-present-content"></div>
+      </div>
+      <button class="deck-present-exit" on:click={togglePresent} aria-label={t(dict, 'deck.exitPresent')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
   {:else}
     <div class="deck-header">
       <div class="flex items-center gap-2">
@@ -349,7 +434,12 @@
           {/each}
         </div>
       </div>
-      <div class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'deck.headerHint')}</div>
+      <div class="flex items-center gap-2">
+        <button class="deck-btn-tiny" on:click={togglePresent} title={t(dict, 'deck.present')}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          {t(dict, 'deck.present')}
+        </button>
+      </div>
     </div>
 
     {#if sharePassword && !shareDismissed}
@@ -385,8 +475,47 @@
       </div>
     {/if}
 
-    <div class="deck-editor-wrap">
-      <div bind:this={editorEl} class="deck-editor"></div>
+    <div class="deck-body">
+      <aside class="deck-sidebar">
+        <div class="deck-sidebar-list">
+          {#each slideIds as id, i (id)}
+            {@const _ = slideVersion}
+            <button
+              class="deck-thumb"
+              class:deck-thumb--active={i === activeSlideIndex}
+              on:click={() => selectSlide(i)}
+              draggable="true"
+              on:dragstart={(e) => e.dataTransfer?.setData('text/plain', String(i))}
+              on:dragover={(e) => e.preventDefault()}
+              on:drop={(e) => { e.preventDefault(); const from = parseInt(e.dataTransfer?.getData('text/plain') ?? '-1', 10); if (!Number.isNaN(from)) moveSlide(from, i); }}
+              aria-label={`Slide ${i + 1}`}
+            >
+              <span class="deck-thumb-num">{i + 1}</span>
+              <span class="deck-thumb-preview">{slidePreview(id) || t(dict, 'deck.emptySlide')}</span>
+              {#if slideIds.length > 1}
+                <span
+                  class="deck-thumb-del"
+                  role="button"
+                  tabindex="0"
+                  on:click|stopPropagation={() => deleteSlide(i)}
+                  on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); deleteSlide(i); } }}
+                  aria-label={t(dict, 'deck.deleteSlide')}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+        <button class="deck-add" on:click={addSlide}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          {t(dict, 'deck.addSlide')}
+        </button>
+      </aside>
+
+      <div class="deck-stage">
+        <div class="deck-slide" bind:this={editorEl}></div>
+      </div>
     </div>
   {/if}
 </div>
@@ -395,12 +524,17 @@
   .deck-container {
     display: flex;
     flex-direction: column;
-    min-height: 70vh;
+    height: 80vh;
+    max-height: 820px;
     border-radius: 1rem;
     overflow: hidden;
     border: 1px solid rgba(228, 228, 231, 0.6);
     background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(12px);
+  }
+  .deck-container--present {
+    height: 100vh; max-height: none; border-radius: 0; border: 0;
+    background: rgb(15, 15, 20); position: fixed; inset: 0; z-index: 100;
   }
   :global(.dark) .deck-container {
     border-color: rgba(39, 39, 42, 0.5);
@@ -408,20 +542,17 @@
   }
   .deck-center {
     flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     padding: 2rem;
     min-height: 60vh;
   }
   .deck-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.6rem 1rem;
     border-bottom: 1px solid rgba(228, 228, 231, 0.5);
+    background: rgba(255,255,255,0.4);
   }
-  :global(.dark) .deck-header { border-color: rgba(39, 39, 42, 0.4); }
+  :global(.dark) .deck-header { border-color: rgba(39, 39, 42, 0.4); background: rgba(24,24,27,0.4); }
   .deck-status {
     width: 8px; height: 8px; border-radius: 9999px;
     background: rgb(245, 158, 11);
@@ -432,16 +563,26 @@
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
     animation: none;
   }
-  @keyframes deck-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
+  @keyframes deck-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
   .deck-avatar {
     width: 24px; height: 24px; border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
     font-size: 9px; font-weight: 800; color: white;
     flex-shrink: 0; letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .deck-btn-tiny {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 11px; font-weight: 600;
+    color: rgb(82, 82, 91);
+    border-radius: 0.4rem;
+    transition: background 0.15s, color 0.15s;
+  }
+  :global(.dark) .deck-btn-tiny { color: rgb(212, 212, 216); }
+  .deck-btn-tiny:hover {
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(16, 185, 129);
   }
   .deck-share-banner {
     padding: 0.5rem 0.75rem;
@@ -469,63 +610,196 @@
   }
   .deck-share-copy:hover { color: rgb(16, 185, 129); }
 
-  .deck-editor-wrap {
+  .deck-body {
     flex: 1;
-    padding: 1.5rem 2rem;
+    display: flex;
+    overflow: hidden;
+  }
+  .deck-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(228, 228, 231, 0.5);
+    background: rgba(244, 244, 245, 0.5);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  :global(.dark) .deck-sidebar {
+    border-right-color: rgba(39, 39, 42, 0.4);
+    background: rgba(24, 24, 27, 0.4);
+  }
+  .deck-sidebar-list {
+    flex: 1;
     overflow-y: auto;
-    background: #ffffff;
+    padding: 0.5rem;
+    display: flex; flex-direction: column; gap: 0.4rem;
   }
-  :global(.dark) .deck-editor-wrap {
+  .deck-thumb {
+    position: relative;
+    display: flex; align-items: flex-start; gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    background: white;
+    border: 1px solid rgba(228, 228, 231, 0.6);
+    border-radius: 0.45rem;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: pointer;
+    min-height: 50px;
+  }
+  :global(.dark) .deck-thumb {
+    background: rgba(39, 39, 42, 0.4);
+    border-color: rgba(63, 63, 70, 0.5);
+  }
+  .deck-thumb:hover {
+    border-color: rgba(16, 185, 129, 0.4);
+  }
+  .deck-thumb--active {
+    border-color: rgb(16, 185, 129);
+    background: rgba(16, 185, 129, 0.06);
+  }
+  :global(.dark) .deck-thumb--active {
+    background: rgba(16, 185, 129, 0.1);
+  }
+  .deck-thumb-num {
+    flex-shrink: 0;
+    font-size: 11px; font-weight: 700;
+    color: rgb(113, 113, 122);
+    width: 18px;
+  }
+  .deck-thumb--active .deck-thumb-num { color: rgb(16, 185, 129); }
+  .deck-thumb-preview {
+    flex: 1;
+    font-size: 11px;
+    color: rgb(82, 82, 91);
+    line-height: 1.35;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
+  :global(.dark) .deck-thumb-preview { color: rgb(212, 212, 216); }
+  .deck-thumb-del {
+    position: absolute;
+    top: 4px; right: 4px;
+    padding: 2px;
+    color: rgb(161, 161, 170);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+    cursor: pointer;
+    line-height: 0;
+    display: inline-flex;
+  }
+  .deck-thumb:hover .deck-thumb-del { opacity: 1; }
+  .deck-thumb-del:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: rgb(239, 68, 68);
+  }
+  .deck-add {
+    display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+    margin: 0.5rem;
+    padding: 0.6rem;
+    background: rgba(16, 185, 129, 0.08);
+    color: rgb(16, 185, 129);
+    border-radius: 0.45rem;
+    font-size: 12px; font-weight: 600;
+    transition: background 0.15s;
+  }
+  .deck-add:hover { background: rgba(16, 185, 129, 0.15); }
+
+  .deck-stage {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 2rem;
+    overflow: auto;
+    background: rgba(244, 244, 245, 0.3);
+  }
+  :global(.dark) .deck-stage { background: rgba(9, 9, 11, 0.3); }
+  .deck-slide {
+    width: 100%;
+    max-width: 800px;
+    aspect-ratio: 16 / 9;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 3rem 4rem;
+    overflow: auto;
+  }
+  :global(.dark) .deck-slide {
     background: rgb(24, 24, 27);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   }
-  .deck-editor {
-    max-width: 740px;
-    margin: 0 auto;
-    min-height: 50vh;
+
+  /* Present mode */
+  .deck-present {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    background: rgb(15, 15, 20);
+    color: white;
+    position: relative;
   }
+  .deck-present-slide {
+    width: 90%;
+    max-width: 1280px;
+    aspect-ratio: 16 / 9;
+    background: white;
+    color: rgb(24, 24, 27);
+    border-radius: 0.5rem;
+    padding: 4rem 5rem;
+    overflow: auto;
+    position: relative;
+  }
+  .deck-present-num {
+    position: absolute;
+    bottom: 1rem; right: 1.5rem;
+    font-size: 12px; font-weight: 700;
+    color: rgb(161, 161, 170);
+  }
+  .deck-present-content { height: 100%; }
+  .deck-present-exit {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    width: 36px; height: 36px;
+    border-radius: 9999px;
+    color: white;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .deck-present-exit:hover { background: rgba(255,255,255,0.2); }
+
+  /* Tiptap prose styles inside slide */
   :global(.deck-prose) {
     outline: none;
-    font-size: 16px;
-    line-height: 1.65;
+    font-size: 18px;
+    line-height: 1.55;
     color: rgb(24, 24, 27);
+    height: 100%;
   }
-  :global(.dark) :global(.deck-prose) {
-    color: rgb(228, 228, 231);
-  }
-  :global(.deck-prose h1) { font-size: 1.875rem; font-weight: 800; margin: 1.5rem 0 1rem; }
-  :global(.deck-prose h2) { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
-  :global(.deck-prose h3) { font-size: 1.25rem; font-weight: 700; margin: 1.25rem 0 0.5rem; }
+  :global(.dark) :global(.deck-prose) { color: rgb(228, 228, 231); }
+  :global(.deck-prose h1) { font-size: 2.5rem; font-weight: 800; margin: 0 0 1.25rem; line-height: 1.15; }
+  :global(.deck-prose h2) { font-size: 1.875rem; font-weight: 700; margin: 1rem 0 0.75rem; }
+  :global(.deck-prose h3) { font-size: 1.5rem; font-weight: 700; margin: 0.85rem 0 0.5rem; }
   :global(.deck-prose p) { margin: 0.5rem 0; }
   :global(.deck-prose ul), :global(.deck-prose ol) { margin: 0.5rem 0 0.5rem 1.5rem; }
   :global(.deck-prose ul) { list-style: disc; }
   :global(.deck-prose ol) { list-style: decimal; }
-  :global(.deck-prose li) { margin: 0.25rem 0; }
   :global(.deck-prose code) {
     font-family: 'fira-code', monospace; font-size: 0.875em;
     background: rgba(16, 185, 129, 0.08); border-radius: 4px;
     padding: 2px 5px;
   }
   :global(.dark) :global(.deck-prose code) { background: rgba(16, 185, 129, 0.12); }
-  :global(.deck-prose pre) {
-    font-family: 'fira-code', monospace; font-size: 0.875em;
-    background: rgba(0, 0, 0, 0.04); border-radius: 8px;
-    padding: 0.75rem 1rem; margin: 0.75rem 0;
-    overflow-x: auto;
-  }
-  :global(.dark) :global(.deck-prose pre) { background: rgba(255, 255, 255, 0.05); }
   :global(.deck-prose blockquote) {
-    border-left: 3px solid rgba(16, 185, 129, 0.4);
+    border-left: 3px solid rgba(16, 185, 129, 0.5);
     padding-left: 0.75rem;
     margin: 0.5rem 0;
     color: rgb(113, 113, 122);
   }
   :global(.deck-prose strong) { font-weight: 700; }
   :global(.deck-prose em) { font-style: italic; }
-  :global(.deck-prose s) { text-decoration: line-through; opacity: 0.6; }
   :global(.deck-prose hr) {
-    border: none;
-    border-top: 1px solid rgba(228, 228, 231, 0.7);
-    margin: 1.5rem 0;
+    border: none; border-top: 2px solid rgba(228, 228, 231, 0.7);
+    margin: 1.25rem 0;
   }
-  :global(.dark) :global(.deck-prose hr) { border-top-color: rgba(63, 63, 70, 0.5); }
 </style>
