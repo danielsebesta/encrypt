@@ -949,5 +949,11 @@
   "deck.toolEraser": "Radierer (8)",
   "deck.headerHint": "Dokument synchronisiert in Echtzeit, Ende-zu-Ende verschlüsselt.",
   "studio.beta": "Beta",
-  "studio.viewPlan": "Vollständigen Plan anzeigen"
+  "studio.viewPlan": "Vollständigen Plan anzeigen",
+  "deck.addSlide": "+ Folie hinzufügen",
+  "deck.deleteSlide": "Folie löschen",
+  "deck.emptySlide": "(leer)",
+  "deck.present": "Präsentieren",
+  "deck.exitPresent": "Verlassen",
+  "ledger.exportXlsx": "Export .xlsx"
 }

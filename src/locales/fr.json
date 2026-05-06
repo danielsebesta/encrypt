@@ -949,5 +949,11 @@
   "deck.toolEraser": "Gomme (8)",
   "deck.headerHint": "Le document se synchronise en temps reel, chiffre de bout en bout.",
   "studio.beta": "Beta",
-  "studio.viewPlan": "Voir le plan complet"
+  "studio.viewPlan": "Voir le plan complet",
+  "deck.addSlide": "+ Ajouter une diapo",
+  "deck.deleteSlide": "Supprimer la diapo",
+  "deck.emptySlide": "(vide)",
+  "deck.present": "Presenter",
+  "deck.exitPresent": "Quitter",
+  "ledger.exportXlsx": "Exporter .xlsx"
 }

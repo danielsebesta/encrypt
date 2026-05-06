@@ -949,5 +949,11 @@
   "deck.toolEraser": "Borrador (8)",
   "deck.headerHint": "El documento se sincroniza en tiempo real, cifrado de extremo a extremo.",
   "studio.beta": "Beta",
-  "studio.viewPlan": "Ver el plan completo"
+  "studio.viewPlan": "Ver el plan completo",
+  "deck.addSlide": "+ Añadir diapositiva",
+  "deck.deleteSlide": "Eliminar diapositiva",
+  "deck.emptySlide": "(vacía)",
+  "deck.present": "Presentar",
+  "deck.exitPresent": "Salir",
+  "ledger.exportXlsx": "Exportar .xlsx"
 }

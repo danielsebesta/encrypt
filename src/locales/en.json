@@ -949,5 +949,11 @@
   "deck.toolEraser": "Eraser (8)",
   "deck.headerHint": "Document syncs in real time, end-to-end encrypted.",
   "studio.beta": "Beta",
-  "studio.viewPlan": "View the full plan"
+  "studio.viewPlan": "View the full plan",
+  "deck.addSlide": "+ Add slide",
+  "deck.deleteSlide": "Delete slide",
+  "deck.emptySlide": "(empty)",
+  "deck.present": "Present",
+  "deck.exitPresent": "Exit",
+  "ledger.exportXlsx": "Export .xlsx"
 }

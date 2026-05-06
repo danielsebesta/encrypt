@@ -949,5 +949,11 @@
   "deck.toolEraser": "Gumka (8)",
   "deck.headerHint": "Dokument synchronizuje się w czasie rzeczywistym, szyfrowany end-to-end.",
   "studio.beta": "Beta",
-  "studio.viewPlan": "Zobacz cały plan"
+  "studio.viewPlan": "Zobacz cały plan",
+  "deck.addSlide": "+ Dodaj slajd",
+  "deck.deleteSlide": "Usuń slajd",
+  "deck.emptySlide": "(pusty)",
+  "deck.present": "Prezentuj",
+  "deck.exitPresent": "Wyjdź",
+  "ledger.exportXlsx": "Eksport .xlsx"
 }
