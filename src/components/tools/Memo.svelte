@@ -120,12 +120,12 @@
   }
 
   function mountEditor() {
-    if (!editorEl || editor || !ydoc) return;
+    if (!editorEl || editor || !ydoc || !yfragment) return;
     editor = new Editor({
       element: editorEl,
       extensions: [
         StarterKit.configure({ history: false }),
-        Collaboration.configure({ document: ydoc, field: 'memo' }),
+        Collaboration.configure({ document: ydoc, fragment: yfragment }),
       ],
       editorProps: {
         attributes: {
@@ -137,7 +137,7 @@
     });
   }
 
-  $: if (verified && editorEl && !editor) mountEditor();
+  $: if (verified && editorEl && !editor && yfragment) mountEditor();
 
   async function sendDocUpdate(update: Uint8Array) {
     if (!cryptoKey || !ws) return;
