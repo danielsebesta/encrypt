@@ -1,5 +1,8 @@
 {
   "name": "encrypt-chat",
   "main": "party/chat.ts",
+  "parties": {
+    "whiteboard": "party/whiteboard.ts"
+  },
   "compatibilityDate": "2024-12-01"
 }
