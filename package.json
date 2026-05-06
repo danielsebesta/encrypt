@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.9",
+    "@tiptap/core": "^3.22.5",
+    "@tiptap/extension-collaboration": "^3.22.5",
+    "@tiptap/starter-kit": "^3.22.5",
     "@astrojs/cloudflare": "^12.6.13",
     "@astrojs/svelte": "^7.2.5",
     "@tailwindcss/vite": "^4.2.4",

@@ -2,7 +2,10 @@
   "name": "encrypt-chat",
   "main": "party/chat.ts",
   "parties": {
-    "whiteboard": "party/whiteboard.ts"
+    "whiteboard": "party/whiteboard.ts",
+    "memo": "party/memo.ts",
+    "ledger": "party/ledger.ts",
+    "deck": "party/deck.ts"
   },
   "compatibilityDate": "2024-12-01"
 }
