@@ -72,7 +72,7 @@ const languageOptions = locales.map(l => ({
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
 		<script is:inline>
-			(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark');document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();
+			(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark');document.documentElement.style.colorScheme=d?'only dark':'only light';}catch(e){}})();
 			if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}
 			(function(){try{
 				var cur=document.documentElement.lang||'en';
@@ -361,7 +361,7 @@ const languageOptions = locales.map(l => ({
 					if (!btn) return;
 					btn.addEventListener('click', function () {
 						var isDark = document.documentElement.classList.toggle('dark');
-						document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+						document.documentElement.style.colorScheme = isDark ? 'only dark' : 'only light';
 						try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
 					});
 				}
