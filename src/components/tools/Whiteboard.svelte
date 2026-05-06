@@ -244,6 +244,7 @@
       if (data.kind === 'cursor') {
         const text = await decryptMessage(cryptoKey, data.payload);
         const c = JSON.parse(text);
+        if (verifying) { verified = true; verifying = false; }
         upsertCursor(c.id, c.x, c.y, c.name, c.color);
         return;
       }
@@ -280,14 +281,13 @@
         return;
       }
     } catch {
-      if (verifying) {
-        wrongPassword = true;
-        verifying = false;
-        ws?.close();
-      }
+      // A failed decrypt only means THIS message wasn't from someone with
+      // our password. Could be a peer in the same room with a different
+      // password — don't conclude wrongPassword from a single fail. The
+      // 4s init-handler timeout is the authoritative "no peer can hear me"
+      // signal, and the auto-verify-on-decrypt above handles the success path.
       if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
         lastWrongPasswordNotice = Date.now();
-        // Could show a toast - for whiteboard skip noise
       }
     }
   }
