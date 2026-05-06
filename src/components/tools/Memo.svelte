@@ -172,7 +172,9 @@
 
     ws.addEventListener('close', () => { connected = false; });
     ws.addEventListener('error', () => {
-      if (verifying) { wrongPassword = true; verifying = false; }
+      // WS error means TCP/upgrade/network problem — NOT a password issue.
+      // Let PartySocket retry; the 4 s init-handler timeout (after presence > 1)
+      // is the authoritative wrong-password signal.
     });
     ws.addEventListener('message', handleServerMessage);
 
