@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root { color-scheme: light; }
-:root.dark { color-scheme: dark; }
+:root { color-scheme: only light; }
+:root.dark { color-scheme: only dark; }
 
 @font-face {
     font-display: swap;
