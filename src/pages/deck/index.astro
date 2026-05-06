@@ -10,16 +10,16 @@ export const prerender = true;
 ---
 
 <Layout
-  title={t(dict, 'memo.meta.createTitle')}
-  description={t(dict, 'memo.meta.createDescription')}
+  title={t(dict, 'deck.meta.createTitle')}
+  description={t(dict, 'deck.meta.createDescription')}
 >
   <div class="max-w-lg mx-auto px-5 py-12 md:py-20 text-center">
     <div class="mb-8 space-y-3">
       <h1 class="text-3xl md:text-4xl font-bold tracking-tight">
-        {t(dict, 'memo.pageTitle')} <span class="text-emerald-500">{t(dict, 'memo.pageTitleHighlight')}</span>
+        {t(dict, 'deck.pageTitle')} <span class="text-emerald-500">{t(dict, 'deck.pageTitleHighlight')}</span>
       </h1>
       <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm mx-auto">
-        {t(dict, 'memo.pageSubtitle')}
+        {t(dict, 'deck.pageSubtitle')}
       </p>
     </div>
     <DeckCreate client:load locale={locale} />
