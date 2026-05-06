@@ -5,6 +5,12 @@
   import { Editor } from '@tiptap/core';
   import StarterKit from '@tiptap/starter-kit';
   import Collaboration from '@tiptap/extension-collaboration';
+  import { TextStyle, Color, FontFamily, FontSize } from '@tiptap/extension-text-style';
+  import Highlight from '@tiptap/extension-highlight';
+  import TextAlign from '@tiptap/extension-text-align';
+  import Underline from '@tiptap/extension-underline';
+  import Link from '@tiptap/extension-link';
+  import TiptapToolbar from './TiptapToolbar.svelte';
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
     encryptBytes, decryptBytes,
@@ -44,6 +50,8 @@
   let yslides: Y.Array<string>;
   let editor: Editor | null = null;
   let editorEl: HTMLDivElement;
+  let undoMgr: Y.UndoManager | null = null;
+  let selectionVersion = 0;
   let pageHidden = false;
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
   let presentMode = false;
@@ -183,19 +191,32 @@
     const id = slideIds[activeSlideIndex];
     if (!id) return;
     const fragment = getSlideFragment(id);
+    // recreate UndoManager so Ctrl+Z is scoped to the slide currently being edited
+    undoMgr?.destroy?.();
+    undoMgr = new Y.UndoManager(fragment);
     editor = new Editor({
       element: editorEl,
       extensions: [
         StarterKit.configure({ history: false }),
+        Underline,
+        TextStyle,
+        Color,
+        FontFamily,
+        FontSize,
+        Highlight.configure({ multicolor: true }),
+        TextAlign.configure({ types: ['heading', 'paragraph'] }),
+        Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { class: 'deck-link', rel: 'noopener noreferrer', target: '_blank' } }),
         Collaboration.configure({ document: ydoc, fragment }),
       ],
       editorProps: {
         attributes: {
           class: 'deck-prose',
-          spellcheck: 'false',
+          spellcheck: 'true',
           'data-1p-ignore': '',
         },
       },
+      onSelectionUpdate: () => { selectionVersion++; },
+      onTransaction: () => { selectionVersion++; },
     });
   }
 
@@ -343,7 +364,17 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (!presentMode) return;
+    // Edit-mode undo/redo via Yjs UndoManager (Tiptap history disabled for collab).
+    if (!presentMode) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault(); undoMgr?.undo();
+        return;
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault(); undoMgr?.redo();
+        return;
+      }
+      return;
+    }
     if (e.key === 'Escape') { presentMode = false; return; }
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
       e.preventDefault();
@@ -476,6 +507,8 @@
         </div>
       </div>
     {/if}
+
+    <TiptapToolbar editor={editor} undoMgr={undoMgr} dict={dict} {selectionVersion} />
 
     <div class="deck-body">
       <aside class="deck-sidebar">

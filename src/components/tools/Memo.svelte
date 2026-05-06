@@ -10,6 +10,7 @@
   import TextAlign from '@tiptap/extension-text-align';
   import Underline from '@tiptap/extension-underline';
   import Link from '@tiptap/extension-link';
+  import TiptapToolbar from './TiptapToolbar.svelte';
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
     encryptBytes, decryptBytes,
@@ -458,124 +459,7 @@
       </div>
     {/if}
 
-    <!-- Toolbar -->
-    <div class="memo-toolbar">
-      <button class="mt-btn" on:click={tbUndo} title={t(dict, 'memo.undo')} aria-label={t(dict, 'memo.undo')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-      </button>
-      <button class="mt-btn" on:click={tbRedo} title={t(dict, 'memo.redo')} aria-label={t(dict, 'memo.redo')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
-      </button>
-
-      <span class="mt-divider"></span>
-
-      <select class="mt-select" value={activeHeading()} on:change={(e) => tbHeading((e.currentTarget as HTMLSelectElement).value as any)} title={t(dict, 'memo.heading')}>
-        <option value="0">{t(dict, 'memo.normal')}</option>
-        <option value="1">H1</option>
-        <option value="2">H2</option>
-        <option value="3">H3</option>
-      </select>
-
-      <select class="mt-select mt-select--wide" value={getAttr('textStyle','fontFamily')} on:change={(e) => tbFontFamily((e.currentTarget as HTMLSelectElement).value)} title={t(dict, 'memo.font')}>
-        {#each FONT_FAMILIES as f}
-          <option value={f.value} style={f.value ? `font-family: ${f.value}` : ''}>{f.label}</option>
-        {/each}
-      </select>
-
-      <select class="mt-select" value={getAttr('textStyle','fontSize')} on:change={(e) => tbFontSize((e.currentTarget as HTMLSelectElement).value)} title={t(dict, 'memo.fontSize')}>
-        <option value="">--</option>
-        {#each FONT_SIZES as s}
-          <option value={s}>{s.replace('px','')}</option>
-        {/each}
-      </select>
-
-      <span class="mt-divider"></span>
-
-      <button class="mt-btn" class:mt-btn--active={isActive('bold')} on:click={tbToggleBold} title={t(dict, 'memo.bold')} aria-label={t(dict, 'memo.bold')}><b>B</b></button>
-      <button class="mt-btn" class:mt-btn--active={isActive('italic')} on:click={tbToggleItalic} title={t(dict, 'memo.italic')} aria-label={t(dict, 'memo.italic')}><i>I</i></button>
-      <button class="mt-btn" class:mt-btn--active={isActive('underline')} on:click={tbToggleUnderline} title={t(dict, 'memo.underline')} aria-label={t(dict, 'memo.underline')}><u>U</u></button>
-      <button class="mt-btn" class:mt-btn--active={isActive('strike')} on:click={tbToggleStrike} title={t(dict, 'memo.strike')} aria-label={t(dict, 'memo.strike')}><s>S</s></button>
-
-      <span class="mt-divider"></span>
-
-      <div class="mt-popover">
-        <button class="mt-btn" title={t(dict, 'memo.textColor')} aria-label={t(dict, 'memo.textColor')}>
-          <span class="mt-color-icon">A</span>
-          <span class="mt-color-bar" style="background: {getAttr('textStyle','color') || '#0a0a0a'}"></span>
-        </button>
-        <div class="mt-pop">
-          <div class="mt-pop-grid">
-            {#each TEXT_COLORS as c}
-              <button class="mt-color-cell" style="background: {c}" on:click={() => tbColor(c)} aria-label={c}></button>
-            {/each}
-          </div>
-          <button class="mt-pop-clear" on:click={() => tbColor('')}>{t(dict, 'memo.removeColor')}</button>
-        </div>
-      </div>
-
-      <div class="mt-popover">
-        <button class="mt-btn" title={t(dict, 'memo.highlight')} aria-label={t(dict, 'memo.highlight')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
-          <span class="mt-color-bar" style="background: {getAttr('highlight','color') || '#fef08a'}"></span>
-        </button>
-        <div class="mt-pop">
-          <div class="mt-pop-grid">
-            {#each HIGHLIGHT_COLORS as c}
-              <button class="mt-color-cell" style="background: {c}" on:click={() => tbHighlight(c)} aria-label={c}></button>
-            {/each}
-          </div>
-          <button class="mt-pop-clear" on:click={() => tbHighlight('')}>{t(dict, 'memo.removeHighlight')}</button>
-        </div>
-      </div>
-
-      <span class="mt-divider"></span>
-
-      <button class="mt-btn" class:mt-btn--active={isActive({ textAlign: 'left' } as any) || (editor && (editor.isActive({ textAlign: 'left' }) || (!editor.isActive({ textAlign: 'center' }) && !editor.isActive({ textAlign: 'right' }) && !editor.isActive({ textAlign: 'justify' }))))} on:click={() => tbAlign('left')} title={t(dict, 'memo.alignLeft')} aria-label={t(dict, 'memo.alignLeft')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={editor && editor.isActive({ textAlign: 'center' })} on:click={() => tbAlign('center')} title={t(dict, 'memo.alignCenter')} aria-label={t(dict, 'memo.alignCenter')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="10" x2="6" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="18" y1="18" x2="6" y2="18"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={editor && editor.isActive({ textAlign: 'right' })} on:click={() => tbAlign('right')} title={t(dict, 'memo.alignRight')} aria-label={t(dict, 'memo.alignRight')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={editor && editor.isActive({ textAlign: 'justify' })} on:click={() => tbAlign('justify')} title={t(dict, 'memo.alignJustify')} aria-label={t(dict, 'memo.alignJustify')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg>
-      </button>
-
-      <span class="mt-divider"></span>
-
-      <button class="mt-btn" class:mt-btn--active={isActive('bulletList')} on:click={tbToggleBulletList} title={t(dict, 'memo.bulletList')} aria-label={t(dict, 'memo.bulletList')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={isActive('orderedList')} on:click={tbToggleOrderedList} title={t(dict, 'memo.orderedList')} aria-label={t(dict, 'memo.orderedList')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={isActive('blockquote')} on:click={tbToggleQuote} title={t(dict, 'memo.quote')} aria-label={t(dict, 'memo.quote')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1-1-2-2-2H4c-1 0-2 1-2 2v6c0 1 1 2 2 2h3"/><path d="M14 21c3 0 7-1 7-8V5c0-1-1-2-2-2h-4c-1 0-2 1-2 2v6c0 1 1 2 2 2h3"/></svg>
-      </button>
-
-      <span class="mt-divider"></span>
-
-      <button class="mt-btn" class:mt-btn--active={isActive('code')} on:click={tbToggleCode} title={t(dict, 'memo.inlineCode')} aria-label={t(dict, 'memo.inlineCode')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={isActive('codeBlock')} on:click={tbToggleCodeBlock} title={t(dict, 'memo.codeBlock')} aria-label={t(dict, 'memo.codeBlock')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="14 4 4 14 14 14 4 24"/><rect x="2" y="2" width="20" height="20" rx="2"/></svg>
-      </button>
-      <button class="mt-btn" on:click={tbHr} title={t(dict, 'memo.hr')} aria-label={t(dict, 'memo.hr')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-      <button class="mt-btn" class:mt-btn--active={isActive('link')} on:click={tbLink} title={t(dict, 'memo.link')} aria-label={t(dict, 'memo.link')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </button>
-
-      <span class="mt-divider"></span>
-
-      <button class="mt-btn" on:click={tbClearFormatting} title={t(dict, 'memo.clearFormat')} aria-label={t(dict, 'memo.clearFormat')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4 8 20"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/></svg>
-      </button>
-    </div>
+    <TiptapToolbar editor={editor} undoMgr={undoMgr} dict={dict} {selectionVersion} />
 
     <div class="memo-editor-wrap">
       <div bind:this={editorEl} class="memo-editor"></div>
