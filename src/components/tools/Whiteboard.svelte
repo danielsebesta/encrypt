@@ -735,6 +735,20 @@
             aria-label={c}
           ></button>
         {/each}
+        <label
+          class="wb-color-btn wb-color-btn--custom"
+          class:wb-color-btn--active={!COLORS.includes(currentColor)}
+          style={!COLORS.includes(currentColor) ? `background: ${currentColor};` : ''}
+          aria-label={t(dict, 'whiteboard.customColor')}
+          title={t(dict, 'whiteboard.customColor')}
+        >
+          <input
+            type="color"
+            class="wb-color-input"
+            bind:value={currentColor}
+            aria-label={t(dict, 'whiteboard.customColor')}
+          />
+        </label>
       </div>
 
       <div class="wb-divider"></div>
@@ -997,6 +1011,26 @@
   .wb-color-btn--active {
     border-color: rgb(16, 185, 129);
     transform: scale(1.1);
+  }
+  .wb-color-btn--custom {
+    background: conic-gradient(
+      from 90deg,
+      #ef4444, #f97316, #f59e0b, #facc15, #84cc16,
+      #10b981, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444
+    );
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .wb-color-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
   }
 
   .wb-thick-btn {

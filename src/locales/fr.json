@@ -810,5 +810,6 @@
   "whiteboard.clearConfirm": "Supprimer toutes les formes ?",
   "whiteboard.shapes": "formes",
   "whiteboard.textPlaceholder": "Tapez et appuyez sur Entree…",
+  "whiteboard.customColor": "Couleur personnalisee",
   "nav.whiteboard": "Tableau blanc"
 }

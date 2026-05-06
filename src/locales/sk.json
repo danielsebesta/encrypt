@@ -810,5 +810,6 @@
   "whiteboard.clearConfirm": "Zmazať všetky tvary na plátne?",
   "whiteboard.shapes": "tvarov",
   "whiteboard.textPlaceholder": "Napíš a stlač Enter…",
+  "whiteboard.customColor": "Vlastná farba",
   "nav.whiteboard": "Tabuľa"
 }
