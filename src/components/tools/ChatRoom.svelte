@@ -248,6 +248,7 @@
 
       // Typing indicator
       if (parsed.type === 'typing') {
+        if (verifying) { verified = true; verifying = false; }
         typing = { sender: parsed.sender, initials: getInitials(parsed.sender), color: parsed.color };
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { typing = null; }, 3000);
@@ -303,13 +304,10 @@
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
     } catch {
-      // Failed to decrypt - wrong password
-      if (verifying) {
-        wrongPassword = true;
-        verifying = false;
-        ws?.close();
-      }
-      // Already verified - someone tried with wrong password (debounced)
+      // A single failed decrypt only proves THIS message wasn't from
+      // someone with our password — could be a peer in the same room
+      // with a different password. The 4s init-handler timeout below
+      // is the authoritative "no peer can hear me" signal.
       if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
         lastWrongPasswordNotice = Date.now();
         messages = [...messages, {
