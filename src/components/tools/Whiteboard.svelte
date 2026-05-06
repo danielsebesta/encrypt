@@ -33,8 +33,10 @@
 
   const COLORS = ['#0a0a0a','#ef4444','#f97316','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
   const THICKNESS = [1, 2, 4, 7, 12];
-  const DRAW_SYNC_INTERVAL_MS = 50;
-  const CURSOR_SYNC_INTERVAL_MS = 16;
+  const DRAW_SYNC_INTERVAL_MS = 100;
+  const CURSOR_SYNC_INTERVAL_MS = 50;
+  const CURSOR_MIN_MOVE_PX = 4;
+  const HEARTBEAT_INTERVAL_MS = 30000;
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
@@ -82,6 +84,9 @@
   type Cursor = { id: string; x: number; y: number; name: string; color: string; lastSeen: number };
   let cursors: Cursor[] = [];
   let lastCursorSent = 0;
+  let lastCursorX = -9999;
+  let lastCursorY = -9999;
+  let pageHidden = false;
 
   let passwordUsed = '';
 
@@ -200,12 +205,15 @@
 
     // Application-level keepalive: defeats idle timeouts on mobile/proxy paths.
     // Server ignores type:'ping' (no envelope), so this is a cheap noop.
+    // Skipped when tab is hidden — browser usually throttles timers anyway,
+    // and reconnect on visibility change handles return-from-background.
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
+      if (pageHidden) return;
       if (ws && ws.readyState === 1) {
         try { ws.send(JSON.stringify({ type: 'ping', t: Date.now() })); } catch {}
       }
-    }, 25000);
+    }, HEARTBEAT_INTERVAL_MS);
   }
 
   async function handleServerMessage(event: MessageEvent) {
@@ -385,8 +393,18 @@
     const p = getSvgPoint(e);
 
     const now = Date.now();
-    if (verified && cryptoKey && ws && connected && now - lastCursorSent > CURSOR_SYNC_INTERVAL_MS) {
+    // Cursor send: only when there's somebody to see it, only when we
+    // actually moved, only when tab is in foreground, throttled to 20 Hz.
+    if (
+      verified && cryptoKey && ws && connected
+      && serverPresence > 1
+      && !pageHidden
+      && now - lastCursorSent > CURSOR_SYNC_INTERVAL_MS
+      && Math.hypot(p.x - lastCursorX, p.y - lastCursorY) > CURSOR_MIN_MOVE_PX
+    ) {
       lastCursorSent = now;
+      lastCursorX = p.x;
+      lastCursorY = p.y;
       sendCursor(p.x, p.y);
     }
 
@@ -628,15 +646,21 @@
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 
+  function handleVisibility() {
+    if (typeof document === 'undefined') return;
+    pageHidden = document.hidden;
+  }
+
   onMount(() => {
     initRoom();
     window.addEventListener('keydown', handleKeydown);
+    document.addEventListener('visibilitychange', handleVisibility);
     cursorCleanInterval = setInterval(() => {
       const cutoff = Date.now() - 4000;
       const before = cursors.length;
       cursors = cursors.filter(c => c.lastSeen > cutoff);
       if (cursors.length !== before) cursors = cursors;
-    }, 1000);
+    }, 2000);
   });
 
   onDestroy(() => {
@@ -644,6 +668,9 @@
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', handleVisibility);
     }
     clearInterval(cursorCleanInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
