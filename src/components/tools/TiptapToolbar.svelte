@@ -23,7 +23,10 @@
     { label: 'Verdana', value: 'Verdana, sans-serif' },
   ];
   const FONT_SIZES = ['10px','11px','12px','13px','14px','16px','18px','20px','24px','28px','32px','36px','48px'];
-  const TEXT_COLORS = ['#0a0a0a','#404040','#737373','#dc2626','#ea580c','#ca8a04','#16a34a','#0891b2','#2563eb','#7c3aed','#db2777'];
+  // No literal black at the start of the palette — that becomes invisible in
+  // dark mode. The first swatch is an "Auto" entry that simply unsets the
+  // color attribute, so the editor inherits the theme-aware default color.
+  const TEXT_COLORS = ['#404040','#737373','#dc2626','#ea580c','#ca8a04','#16a34a','#0891b2','#2563eb','#7c3aed','#db2777','#a3a3a3'];
   const HIGHLIGHT_COLORS = ['#fef08a','#fed7aa','#fecaca','#bbf7d0','#bae6fd','#ddd6fe','#fbcfe8','#e7e5e4'];
 
   function isActive(name: string, attrs?: any): boolean {
@@ -144,10 +147,11 @@
   <div class="mt-popover">
     <button class="mt-btn" title={t(dict, 'memo.textColor')} aria-label={t(dict, 'memo.textColor')}>
       <span class="mt-color-icon">A</span>
-      <span class="mt-color-bar" style="background: {getAttr('textStyle','color') || '#0a0a0a'}"></span>
+      <span class="mt-color-bar" style={getAttr('textStyle','color') ? `background: ${getAttr('textStyle','color')}` : ''}></span>
     </button>
     <div class="mt-pop">
       <div class="mt-pop-grid">
+        <button class="mt-color-cell mt-color-cell--auto" on:click={() => tbColor('')} aria-label={t(dict, 'memo.autoColor')} title={t(dict, 'memo.autoColor')}></button>
         {#each TEXT_COLORS as c}
           <button class="mt-color-cell" style="background: {c}" on:click={() => tbColor(c)} aria-label={c}></button>
         {/each}
@@ -159,10 +163,11 @@
   <div class="mt-popover">
     <button class="mt-btn" title={t(dict, 'memo.highlight')} aria-label={t(dict, 'memo.highlight')}>
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
-      <span class="mt-color-bar" style="background: {getAttr('highlight','color') || '#fef08a'}"></span>
+      <span class="mt-color-bar" style={getAttr('highlight','color') ? `background: ${getAttr('highlight','color')}` : ''}></span>
     </button>
     <div class="mt-pop">
       <div class="mt-pop-grid">
+        <button class="mt-color-cell mt-color-cell--auto" on:click={() => tbHighlight('')} aria-label={t(dict, 'memo.autoColor')} title={t(dict, 'memo.autoColor')}></button>
         {#each HIGHLIGHT_COLORS as c}
           <button class="mt-color-cell" style="background: {c}" on:click={() => tbHighlight(c)} aria-label={c}></button>
         {/each}
@@ -268,7 +273,25 @@
     border-color: rgba(63, 63, 70, 0.6);
   }
   .mt-color-icon { font-weight: 800; line-height: 1; font-size: 13px; }
-  .mt-color-bar { display: block; width: 16px; height: 3px; border-radius: 1px; margin-left: 3px; }
+  .mt-color-bar {
+    display: block; width: 16px; height: 3px; border-radius: 1px; margin-left: 3px;
+    /* When no inline background is set (= no explicit color), use currentColor
+       which naturally tracks the toolbar's theme-aware text color. */
+    background: currentColor;
+  }
+  .mt-color-cell--auto {
+    background: linear-gradient(135deg, #0a0a0a 0%, #0a0a0a 49%, #fafafa 51%, #fafafa 100%) !important;
+    position: relative;
+  }
+  .mt-color-cell--auto::after {
+    content: 'A';
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: rgb(16, 185, 129);
+    font-weight: 800; font-size: 10px;
+    text-shadow: 0 0 2px rgba(255,255,255,0.7);
+  }
 
   .mt-popover { position: relative; }
   .mt-popover .mt-pop {

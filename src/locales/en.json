@@ -982,5 +982,6 @@
   "memo.hr": "Divider",
   "memo.link": "Link",
   "memo.clearFormat": "Clear formatting",
-  "memo.linkPrompt": "Enter URL (empty to remove):"
+  "memo.linkPrompt": "Enter URL (empty to remove):",
+  "memo.autoColor": "Auto (theme)"
 }
