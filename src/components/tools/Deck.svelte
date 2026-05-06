@@ -744,21 +744,23 @@
 
   .deck-stage {
     flex: 1;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: flex-start; justify-content: center;
     padding: 2rem;
-    overflow: auto;
+    overflow-y: auto;
     background: rgba(244, 244, 245, 0.3);
   }
   :global(.dark) .deck-stage { background: rgba(9, 9, 11, 0.3); }
   .deck-slide {
+    /* Edit mode: 16:9 aspect via min-height (computed against max-width 800 px ⇒ 450 px),
+       but allow content to grow taller than that without nesting scrollbars. The
+       outer .deck-stage is the only scroll container. */
     width: 100%;
     max-width: 800px;
-    aspect-ratio: 16 / 9;
+    min-height: 450px;
     background: white;
     border-radius: 0.5rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     padding: 3rem 4rem;
-    overflow: auto;
   }
   :global(.dark) .deck-slide {
     background: rgb(24, 24, 27);
@@ -803,13 +805,15 @@
   }
   .deck-present-exit:hover { background: rgba(255,255,255,0.2); }
 
-  /* Tiptap prose styles inside slide */
+  /* Tiptap prose styles inside slide. Don't fix height — let the
+     editor surface grow with its content; the .deck-stage above
+     handles scroll. */
   :global(.deck-prose) {
     outline: none;
     font-size: 18px;
     line-height: 1.55;
     color: rgb(24, 24, 27);
-    height: 100%;
+    min-height: 100%;
   }
   :global(.dark) :global(.deck-prose) { color: rgb(228, 228, 231); }
   :global(.deck-prose h1) { font-size: 2.5rem; font-weight: 800; margin: 0 0 1.25rem; line-height: 1.15; }
