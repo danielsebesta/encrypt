@@ -547,68 +547,12 @@
     overflow: hidden;
     background: white;
     position: relative;
-  }
-  :global(.dark) .ledger-sheet { background: rgb(24, 24, 27); }
-  /* Don't force a global font-family on .x-spreadsheet — that would override
-     the per-cell font-family the user picks from the toolbar dropdown, and
-     it also breaks the font-family preview list inside that dropdown.
-     Only restyle the toolbar chrome (buttons), where font choice is irrelevant. */
-  :global(.x-spreadsheet-toolbar),
-  :global(.x-spreadsheet-bottombar),
-  :global(.x-spreadsheet-contextmenu) {
-    font-family: ui-sans-serif, system-ui, sans-serif;
-  }
-
-  /* x-spreadsheet dark theme overrides */
-  :global(.dark) :global(.x-spreadsheet) { color: rgb(228, 228, 231); }
-  :global(.dark) :global(.x-spreadsheet-toolbar),
-  :global(.dark) :global(.x-spreadsheet-bottombar) {
-    background: rgb(39, 39, 42) !important;
-    color: rgb(228, 228, 231) !important;
-    border-color: rgba(63, 63, 70, 0.5) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-toolbar .x-spreadsheet-toolbar-btns) {
-    color: rgb(228, 228, 231) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-toolbar-btn:hover),
-  :global(.dark) :global(.x-spreadsheet-bottombar .x-spreadsheet-menu li:hover) {
-    background: rgba(63, 63, 70, 0.5) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-toolbar-divider) { background: rgba(63, 63, 70, 0.6) !important; }
-  :global(.dark) :global(.x-spreadsheet-bottombar .x-spreadsheet-menu li.active) {
-    background: rgba(16, 185, 129, 0.15) !important;
-    color: rgb(110, 231, 183) !important;
-  }
-  /* Canvas itself stays white-ish — text rendering inside canvas is hard to invert
-     without breaking the spreadsheet semantics. Frame the canvas container in dark. */
-  :global(.dark) :global(.x-spreadsheet) canvas { filter: invert(0.92) hue-rotate(180deg); }
-  :global(.dark) :global(.x-spreadsheet-overlayer-content),
-  :global(.dark) :global(.x-spreadsheet-editor),
-  :global(.dark) :global(.x-spreadsheet-editor-area) {
-    color: rgb(24, 24, 27);
-  }
-  :global(.dark) :global(.x-spreadsheet-editor-area textarea) {
-    background: white !important;
-    color: rgb(24, 24, 27) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-suggest),
-  :global(.dark) :global(.x-spreadsheet-contextmenu) {
-    background: rgb(39, 39, 42) !important;
-    color: rgb(228, 228, 231) !important;
-    border-color: rgba(63, 63, 70, 0.6) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-contextmenu .x-spreadsheet-item:hover) {
-    background: rgba(63, 63, 70, 0.5) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-color-palette) {
-    background: rgb(39, 39, 42) !important;
-    border-color: rgba(63, 63, 70, 0.6) !important;
-  }
-  :global(.dark) :global(.x-spreadsheet-modal),
-  :global(.dark) :global(.x-spreadsheet-modal .x-spreadsheet-form),
-  :global(.dark) :global(.x-spreadsheet-form-input input) {
-    background: rgb(39, 39, 42) !important;
-    color: rgb(228, 228, 231) !important;
-    border-color: rgba(63, 63, 70, 0.6) !important;
+    /* x-spreadsheet renders to <canvas> with sprite-based icons that don't
+       respect CSS color. Trying to dark-theme it produces broken contrast
+       (black icons on dark, light text on light overlay, etc.). Like Excel
+       and Apple Numbers, the spreadsheet surface stays light regardless of
+       the rest of the page theme. The light island is wrapped in our dark
+       container, so the boundary is intentional. */
+    color-scheme: light;
   }
 </style>
