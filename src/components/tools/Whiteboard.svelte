@@ -374,7 +374,9 @@
 
   function syncDraftToYjs() {
     if (!draftShape) return;
-    yshapes.set(draftShape.id, { ...draftShape, points: draftShape.points ? draftShape.points.map(p => [...p]) : undefined });
+    const n = normalizeShape(draftShape);
+    if (!n) return;
+    yshapes.set(n.id, { ...n, points: n.points ? n.points.map(p => [...p]) : undefined });
     draftSynced = true;
     lastDrawSyncMs = Date.now();
   }
@@ -826,9 +828,13 @@
               <path d={penPathD(s.points, s.thickness)} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'rect'}
-            <rect x={s.x} y={s.y} width={s.w} height={s.h} fill="none" stroke={s.color} stroke-width={s.thickness} stroke-linejoin="round"/>
+            {@const rx = (s.w ?? 0) < 0 ? (s.x ?? 0) + (s.w ?? 0) : (s.x ?? 0)}
+            {@const ry = (s.h ?? 0) < 0 ? (s.y ?? 0) + (s.h ?? 0) : (s.y ?? 0)}
+            {@const rw = Math.abs(s.w ?? 0)}
+            {@const rh = Math.abs(s.h ?? 0)}
+            <rect x={rx} y={ry} width={rw} height={rh} fill="none" stroke={s.color} stroke-width={s.thickness} stroke-linejoin="round"/>
             {#if isSel}
-              <rect x={(s.x ?? 0) - 4} y={(s.y ?? 0) - 4} width={(s.w ?? 0) + 8} height={(s.h ?? 0) + 8} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
+              <rect x={rx - 4} y={ry - 4} width={rw + 8} height={rh + 8} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'ellipse'}
             <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2)} ry={Math.abs((s.h ?? 0) / 2)} fill="none" stroke={s.color} stroke-width={s.thickness}/>
@@ -909,7 +915,7 @@
           {/each}
         </div>
       </div>
-      <span class="wb-counter">{(yshapes ? yshapes.size : 0)} {t(dict, 'whiteboard.shapes')}</span>
+      <span class="wb-counter">{allShapes.length} {t(dict, 'whiteboard.shapes')}</span>
     </div>
   {/if}
 </div>
