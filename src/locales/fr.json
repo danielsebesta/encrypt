@@ -982,5 +982,6 @@
   "memo.hr": "Separateur",
   "memo.link": "Lien",
   "memo.clearFormat": "Effacer la mise en forme",
-  "memo.linkPrompt": "URL (vide pour retirer) :"
+  "memo.linkPrompt": "URL (vide pour retirer) :",
+  "memo.autoColor": "Auto (theme)"
 }

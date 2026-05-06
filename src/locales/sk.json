@@ -982,5 +982,6 @@
   "memo.hr": "Oddeľovač",
   "memo.link": "Odkaz",
   "memo.clearFormat": "Vymazať formátovanie",
-  "memo.linkPrompt": "Zadaj URL (prázdne = zmazať):"
+  "memo.linkPrompt": "Zadaj URL (prázdne = zmazať):",
+  "memo.autoColor": "Auto (motív)"
 }

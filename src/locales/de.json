@@ -982,5 +982,6 @@
   "memo.hr": "Trenner",
   "memo.link": "Link",
   "memo.clearFormat": "Formatierung löschen",
-  "memo.linkPrompt": "URL eingeben (leer zum Entfernen):"
+  "memo.linkPrompt": "URL eingeben (leer zum Entfernen):",
+  "memo.autoColor": "Auto (Theme)"
 }

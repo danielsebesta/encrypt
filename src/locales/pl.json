@@ -982,5 +982,6 @@
   "memo.hr": "Separator",
   "memo.link": "Link",
   "memo.clearFormat": "Wyczyść formatowanie",
-  "memo.linkPrompt": "Wpisz URL (puste = usunąć):"
+  "memo.linkPrompt": "Wpisz URL (puste = usunąć):",
+  "memo.autoColor": "Auto (motyw)"
 }
