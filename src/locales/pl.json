@@ -810,5 +810,6 @@
   "whiteboard.clearConfirm": "Usunąć wszystkie kształty?",
   "whiteboard.shapes": "kształtów",
   "whiteboard.textPlaceholder": "Wpisz i naciśnij Enter…",
+  "whiteboard.customColor": "Własny kolor",
   "nav.whiteboard": "Tablica"
 }
