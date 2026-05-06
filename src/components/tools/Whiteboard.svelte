@@ -32,8 +32,9 @@
   };
 
   const COLORS = ['#0a0a0a','#ef4444','#f97316','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
-  const DARK_FALLBACK_FIRST = '#fafafa';
   const THICKNESS = [1, 2, 4, 7, 12];
+  const DRAW_SYNC_INTERVAL_MS = 50;
+  const CURSOR_SYNC_INTERVAL_MS = 16;
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
@@ -66,11 +67,12 @@
 
   // Tooling state
   let tool: Tool = 'pen';
-  let isDarkMode = false;
   let currentColor = COLORS[0];
   let currentThickness = THICKNESS[1];
   let isDrawing = false;
   let draftShape: Shape | null = null;
+  let draftSynced = false;
+  let lastDrawSyncMs = 0;
   let selectedId: string | null = null;
   let textInput: { x: number; y: number; value: string } | null = null;
   let svgEl: SVGSVGElement;
@@ -99,15 +101,6 @@
     const b = parseInt(hex.slice(5, 7), 16);
     return (r * 0.299 + g * 0.587 + b * 0.114) > 200;
   }
-
-  function detectDarkMode() {
-    if (typeof document === 'undefined') return;
-    isDarkMode = document.documentElement.classList.contains('dark');
-  }
-
-  $: visibleColors = isDarkMode
-    ? [DARK_FALLBACK_FIRST, ...COLORS.slice(1)]
-    : COLORS;
 
   async function initRoom() {
     if (typeof window === 'undefined') return;
@@ -346,6 +339,8 @@
     }
 
     isDrawing = true;
+    draftSynced = false;
+    lastDrawSyncMs = 0;
     const id = genId();
     const base: Shape = {
       id, type: tool as any,
@@ -362,12 +357,18 @@
     draftShape = base;
   }
 
+  function syncDraftToYjs() {
+    if (!draftShape) return;
+    yshapes.set(draftShape.id, { ...draftShape, points: draftShape.points ? draftShape.points.map(p => [...p]) : undefined });
+    draftSynced = true;
+    lastDrawSyncMs = Date.now();
+  }
+
   function pointerMove(e: PointerEvent) {
     const p = getSvgPoint(e);
 
-    // Send cursor (throttled ~30fps) when verified
     const now = Date.now();
-    if (verified && cryptoKey && ws && connected && now - lastCursorSent > 33) {
+    if (verified && cryptoKey && ws && connected && now - lastCursorSent > CURSOR_SYNC_INTERVAL_MS) {
       lastCursorSent = now;
       sendCursor(p.x, p.y);
     }
@@ -385,15 +386,31 @@
       draftShape.x2 = p.x; draftShape.y2 = p.y;
       draftShape = draftShape;
     }
+
+    if (verified && now - lastDrawSyncMs > DRAW_SYNC_INTERVAL_MS) {
+      const significant = draftShape.type === 'pen'
+        ? (draftShape.points?.length ?? 0) >= 2
+        : draftShape.type === 'rect' || draftShape.type === 'ellipse'
+          ? Math.abs(draftShape.w ?? 0) + Math.abs(draftShape.h ?? 0) > 6
+          : draftShape.type === 'line' || draftShape.type === 'arrow'
+            ? Math.hypot((draftShape.x2 ?? 0) - (draftShape.x1 ?? 0), (draftShape.y2 ?? 0) - (draftShape.y1 ?? 0)) > 6
+            : false;
+      if (significant) syncDraftToYjs();
+    }
   }
 
   function pointerUp(e: PointerEvent) {
     if (!isDrawing || !draftShape) { isDrawing = false; return; }
     isDrawing = false;
-    const final = normalizeShape(draftShape);
+    const local = draftShape;
+    const wasSynced = draftSynced;
     draftShape = null;
+    draftSynced = false;
+    const final = normalizeShape(local);
     if (final) {
       yshapes.set(final.id, final);
+    } else if (wasSynced && yshapes.has(local.id)) {
+      yshapes.delete(local.id);
     }
   }
 
@@ -565,7 +582,8 @@
     return `M ${x2} ${y2} L ${hx1} ${hy1} M ${x2} ${y2} L ${hx2} ${hy2}`;
   }
 
-  $: shapesArray = (shapesVersion, ydoc ? Array.from(yshapes.values()) : []);
+  $: allShapes = (shapesVersion, ydoc ? Array.from(yshapes.values()) : []);
+  $: shapesArray = draftShape ? allShapes.filter(s => s.id !== draftShape!.id) : allShapes;
 
   async function copyShareLink() {
     try {
@@ -583,18 +601,7 @@
     } catch {}
   }
 
-  function handleMutationObserver() {
-    if (typeof MutationObserver === 'undefined') return null;
-    const obs = new MutationObserver(() => detectDarkMode());
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return obs;
-  }
-
-  let mutObs: MutationObserver | null = null;
-
   onMount(() => {
-    detectDarkMode();
-    mutObs = handleMutationObserver();
     initRoom();
     window.addEventListener('keydown', handleKeydown);
     cursorCleanInterval = setInterval(() => {
@@ -607,15 +614,10 @@
 
   onDestroy(() => {
     ws?.close();
-    mutObs?.disconnect();
     if (typeof window !== 'undefined') window.removeEventListener('keydown', handleKeydown);
     clearInterval(cursorCleanInterval);
     ydoc?.destroy();
   });
-
-  // Color used for first slot needs to flip in dark mode for visibility
-  $: if (currentColor === '#0a0a0a' && isDarkMode) currentColor = DARK_FALLBACK_FIRST;
-  $: if (currentColor === DARK_FALLBACK_FIRST && !isDarkMode) currentColor = '#0a0a0a';
 </script>
 
 <div class="wb-container">
@@ -693,7 +695,7 @@
       <div class="wb-divider"></div>
 
       <div class="wb-colors">
-        {#each visibleColors as c}
+        {#each COLORS as c}
           <button
             class="wb-color-btn"
             class:wb-color-btn--active={currentColor === c}
@@ -984,13 +986,8 @@
     position: relative;
     overflow: hidden;
     background:
-      radial-gradient(circle at 20px 20px, rgba(0,0,0,0.05) 1.5px, transparent 1.5px) 0 0/40px 40px,
-      rgba(255,255,255,0.6);
-  }
-  :global(.dark) .wb-canvas-wrap {
-    background:
-      radial-gradient(circle at 20px 20px, rgba(255,255,255,0.05) 1.5px, transparent 1.5px) 0 0/40px 40px,
-      rgba(9,9,11,0.6);
+      radial-gradient(circle at 20px 20px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px) 0 0/40px 40px,
+      #ffffff;
   }
 
   .wb-canvas {
@@ -1020,9 +1017,6 @@
     min-height: 28px;
     resize: none;
     outline: none;
-  }
-  :global(.dark) .wb-text-input {
-    background: rgba(24, 24, 27, 0.95);
   }
 
   .wb-share-banner {
