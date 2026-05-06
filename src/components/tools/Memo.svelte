@@ -8,8 +8,6 @@
   import { TextStyle, Color, FontFamily, FontSize } from '@tiptap/extension-text-style';
   import Highlight from '@tiptap/extension-highlight';
   import TextAlign from '@tiptap/extension-text-align';
-  import Underline from '@tiptap/extension-underline';
-  import Link from '@tiptap/extension-link';
   import TiptapToolbar from './TiptapToolbar.svelte';
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
@@ -142,16 +140,20 @@
     if (!editorEl || editor || !ydoc || !yfragment) return;
     editor = new Editor({
       element: editorEl,
+      // StarterKit 3.22 already bundles Underline, Link and undoRedo —
+      // disable undoRedo (Collaboration owns history) and pass our Link
+      // config through StarterKit to avoid duplicate-extension warnings.
       extensions: [
-        StarterKit.configure({ history: false }),
-        Underline,
+        StarterKit.configure({
+          undoRedo: false,
+          link: { openOnClick: false, autolink: true, HTMLAttributes: { class: 'memo-link', rel: 'noopener noreferrer', target: '_blank' } },
+        }),
         TextStyle,
         Color,
         FontFamily,
         FontSize,
         Highlight.configure({ multicolor: true }),
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { class: 'memo-link', rel: 'noopener noreferrer', target: '_blank' } }),
         Collaboration.configure({ document: ydoc, fragment: yfragment }),
       ],
       editorProps: {
