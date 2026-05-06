@@ -176,10 +176,20 @@
 
   let serverPresence = 0;
 
+  let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+
   function connectWs() {
     verifying = true;
     wrongPassword = false;
-    ws = new PartySocket({ host: partyHost, room: roomId });
+    ws = new PartySocket({
+      host: partyHost,
+      room: roomId,
+      minReconnectionDelay: 500,
+      maxReconnectionDelay: 8000,
+      reconnectionDelayGrowFactor: 1.4,
+      connectionTimeout: 8000,
+      maxRetries: Infinity,
+    });
     ws.addEventListener('open', async () => {
       connected = true;
       if (cryptoKey) {
@@ -189,17 +199,18 @@
     });
     ws.addEventListener('close', () => {
       connected = false;
-      // If verified and connection lost, redirect to chat home
-      if (verified && typeof window !== 'undefined') {
-        setTimeout(() => {
-          if (!connected) window.location.href = '/chat';
-        }, 3000);
-      }
     });
     ws.addEventListener('error', () => {
       if (verifying) { wrongPassword = true; verifying = false; }
     });
     ws.addEventListener('message', handleServerMessage);
+
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+      if (ws && ws.readyState === 1) {
+        try { ws.send(JSON.stringify({ type: 'ping', t: Date.now() })); } catch {}
+      }
+    }, 25000);
   }
 
   async function handleServerMessage(event: MessageEvent) {
@@ -582,6 +593,7 @@
   onDestroy(() => {
     ws?.close();
     clearInterval(tickInterval);
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('blur', handleVisibility);
@@ -866,11 +878,17 @@
   .chat-share-copy:hover { color: rgb(16, 185, 129); }
   .chat-status {
     width: 8px; height: 8px; border-radius: 9999px;
-    background: rgb(161, 161, 170);
+    background: rgb(245, 158, 11);
+    animation: chat-pulse 1.2s ease-in-out infinite;
   }
   .chat-status--connected {
     background: rgb(16, 185, 129);
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    animation: none;
+  }
+  @keyframes chat-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
   }
   .chat-messages {
     flex: 1; overflow-y: auto; padding: 1.25rem;
