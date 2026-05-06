@@ -33,10 +33,10 @@
 
   const COLORS = ['#0a0a0a','#ef4444','#f97316','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
   const THICKNESS = [1, 2, 4, 7, 12];
-  const DRAW_SYNC_INTERVAL_MS = 100;
-  const CURSOR_SYNC_INTERVAL_MS = 50;
-  const CURSOR_MIN_MOVE_PX = 4;
-  const HEARTBEAT_INTERVAL_MS = 30000;
+  const DRAW_SYNC_INTERVAL_MS = 150;
+  const CURSOR_SYNC_INTERVAL_MS = 80;
+  const CURSOR_MIN_MOVE_PX = 8;
+  const HEARTBEAT_INTERVAL_MS = 45000;
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
@@ -145,7 +145,7 @@
 
   let pendingUpdates: Uint8Array[] = [];
   let updateFlushTimer: ReturnType<typeof setTimeout> | null = null;
-  const UPDATE_BATCH_MS = 50;
+  const UPDATE_BATCH_MS = 150;
 
   function flushPendingUpdates() {
     updateFlushTimer = null;
