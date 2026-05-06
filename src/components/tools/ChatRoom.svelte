@@ -499,8 +499,10 @@
   let typingSent = 0;
   async function handleTyping() {
     if (!ws || !connected || !cryptoKey) return;
+    // No one to show the indicator to — skip the send, save a request.
+    if (serverPresence <= 1) return;
     const now = Date.now();
-    if (now - typingSent > 2000) {
+    if (now - typingSent > 3000) {
       // Send typing indicator as encrypted message (no leaking to wrong-password users)
       const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', sender: identity.name, color: identity.color }));
       ws.send(JSON.stringify({ type: 'message', payload, id: 'typing-' + genId() }));
