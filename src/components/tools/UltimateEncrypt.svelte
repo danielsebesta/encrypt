@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import QRCode from 'qrcode';
   import { encrypt, decrypt } from '../../lib/crypto';
   import { encryptData } from '../../lib/ghost/crypto';
@@ -617,6 +617,20 @@
   }
 
   onMount(() => { password = generatePassphrase(); });
+
+  function ueBeforeUnload(e: BeforeUnloadEvent) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+
+  $: if (typeof window !== 'undefined') {
+    if (step === 'processing') window.addEventListener('beforeunload', ueBeforeUnload);
+    else window.removeEventListener('beforeunload', ueBeforeUnload);
+  }
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') window.removeEventListener('beforeunload', ueBeforeUnload);
+  });
 </script>
 
 <div class="space-y-6 text-left">

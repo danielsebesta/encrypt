@@ -616,6 +616,16 @@
     } catch {}
   }
 
+  function beforeUnloadHandler(e: BeforeUnloadEvent) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+
+  $: if (typeof window !== 'undefined') {
+    if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
+    else window.removeEventListener('beforeunload', beforeUnloadHandler);
+  }
+
   onMount(() => {
     initRoom();
     window.addEventListener('keydown', handleKeydown);
@@ -629,7 +639,10 @@
 
   onDestroy(() => {
     ws?.close();
-    if (typeof window !== 'undefined') window.removeEventListener('keydown', handleKeydown);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
+    }
     clearInterval(cursorCleanInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     ydoc?.destroy();
