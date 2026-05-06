@@ -143,6 +143,23 @@
     }
   }
 
+  let pendingUpdates: Uint8Array[] = [];
+  let updateFlushTimer: ReturnType<typeof setTimeout> | null = null;
+  const UPDATE_BATCH_MS = 50;
+
+  function flushPendingUpdates() {
+    updateFlushTimer = null;
+    if (pendingUpdates.length === 0 || !cryptoKey || !ws || !verified) {
+      pendingUpdates = [];
+      return;
+    }
+    const merged = pendingUpdates.length === 1
+      ? pendingUpdates[0]
+      : Y.mergeUpdates(pendingUpdates);
+    pendingUpdates = [];
+    sendDocUpdate(merged);
+  }
+
   function setupYjs() {
     ydoc = new Y.Doc();
     yshapes = ydoc.getMap('shapes');
@@ -152,11 +169,16 @@
       shapesVersion++;
     });
 
-    // Outgoing updates
+    // Outgoing updates — batched in 50 ms windows. Yjs fires update events
+    // many times per second during fast drawing; merging them into one
+    // payload before the network roundtrip cuts DO requests dramatically.
     ydoc.on('update', (update: Uint8Array, origin: any) => {
       if (origin === 'remote') return;
       if (!cryptoKey || !ws || !verified) return;
-      sendDocUpdate(update);
+      pendingUpdates.push(update);
+      if (!updateFlushTimer) {
+        updateFlushTimer = setTimeout(flushPendingUpdates, UPDATE_BATCH_MS);
+      }
     });
   }
 
@@ -394,11 +416,14 @@
 
     const now = Date.now();
     // Cursor send: only when there's somebody to see it, only when we
-    // actually moved, only when tab is in foreground, throttled to 20 Hz.
+    // actually moved, only when tab is in foreground, throttled to 20 Hz,
+    // and skipped while we're drawing — the doc updates already convey
+    // our position to peers as the stroke materializes.
     if (
       verified && cryptoKey && ws && connected
       && serverPresence > 1
       && !pageHidden
+      && !isDrawing
       && now - lastCursorSent > CURSOR_SYNC_INTERVAL_MS
       && Math.hypot(p.x - lastCursorX, p.y - lastCursorY) > CURSOR_MIN_MOVE_PX
     ) {
@@ -674,6 +699,7 @@
     }
     clearInterval(cursorCleanInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (updateFlushTimer) clearTimeout(updateFlushTimer);
     ydoc?.destroy();
   });
 </script>
