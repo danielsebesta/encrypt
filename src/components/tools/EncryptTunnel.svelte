@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { createStegoImage, extractStego } from '../../lib/ghost/steganography';
   import CopyButton from '../CopyButton.svelte';
@@ -158,6 +158,20 @@
     };
     return t(dict, map[label] || 'tools.encryptTunnel.retentionForever');
   }
+
+  function tunnelBeforeUnload(e: BeforeUnloadEvent) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+
+  $: if (typeof window !== 'undefined') {
+    if (uploading) window.addEventListener('beforeunload', tunnelBeforeUnload);
+    else window.removeEventListener('beforeunload', tunnelBeforeUnload);
+  }
+
+  onDestroy(() => {
+    if (typeof window !== 'undefined') window.removeEventListener('beforeunload', tunnelBeforeUnload);
+  });
 
   onMount(async () => {
     try {

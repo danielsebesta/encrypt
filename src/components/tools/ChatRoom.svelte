@@ -598,8 +598,19 @@
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('blur', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('beforeunload', chatBeforeUnload);
     }
   });
+
+  function chatBeforeUnload(e: BeforeUnloadEvent) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+
+  $: if (typeof window !== 'undefined') {
+    if (verified || uploading) window.addEventListener('beforeunload', chatBeforeUnload);
+    else window.removeEventListener('beforeunload', chatBeforeUnload);
+  }
 </script>
 
 <div class="chat-container">
