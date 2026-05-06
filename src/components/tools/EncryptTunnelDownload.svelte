@@ -134,7 +134,7 @@
         <p class="text-xs text-zinc-500">
           <span class="font-mono">{payload.name}</span>
           {#if payload.size}
-            <span class="opacity-75"> — {(payload.size / (1024 * 1024)).toFixed(1)} MB</span>
+            <span class="opacity-75"> - {(payload.size / (1024 * 1024)).toFixed(1)} MB</span>
           {/if}
         </p>
       </div>

@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
+
 @font-face {
     font-display: swap;
     font-family: 'fira-code';

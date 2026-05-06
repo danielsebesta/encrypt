@@ -62,6 +62,7 @@ const languageOptions = locales.map(l => ({
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#10b981" />
+		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -71,7 +72,7 @@ const languageOptions = locales.map(l => ({
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="generator" content={Astro.generator} />
 		<script is:inline>
-			(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('dark')}catch(e){}})();
+			(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark');document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();
 			if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}
 			(function(){try{
 				var cur=document.documentElement.lang||'en';
@@ -360,6 +361,7 @@ const languageOptions = locales.map(l => ({
 					if (!btn) return;
 					btn.addEventListener('click', function () {
 						var isDark = document.documentElement.classList.toggle('dark');
+						document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
 						try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
 					});
 				}

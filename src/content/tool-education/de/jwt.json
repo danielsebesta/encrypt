@@ -1,5 +1,5 @@
 {
-  "metaTitle": "JWT erklärt — Dekodieren ist nicht Verifizieren",
+  "metaTitle": "JWT erklärt - Dekodieren ist nicht Verifizieren",
   "metaDescription": "Verstehe, was ein JWT ist, warum Dekodieren keine Prüfung ersetzt und wie man Header und Claims sinnvoll liest.",
   "hero": {
     "category": "Token-Inspektion",

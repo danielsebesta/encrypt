@@ -337,7 +337,7 @@
         <div class="mt-2 space-y-1">
           <p>
             <span class="font-semibold">{t(dict, 'tools.timeCapsule.localTime')}</span>
-            <span class="ml-1">{targetLocal || '—'}</span>
+            <span class="ml-1">{targetLocal || '-'}</span>
           </p>
           {#if debugUtc}
             <p>

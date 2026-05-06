@@ -430,7 +430,7 @@
         {#if file}
           <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
             {t(dict, 'tools.encryptTunnel.selected')} <span class="font-mono">{file.name}</span>
-            <span class="opacity-75">— {formatBytes(file.size)}</span>
+            <span class="opacity-75">- {formatBytes(file.size)}</span>
           </p>
         {/if}
         {#if tooLarge}
@@ -496,7 +496,7 @@
             {#if isStego}
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
             {/if}
-            <span><span class="font-bold">{provider.name}</span>{#if isStego} — {t(dict, 'tools.encryptTunnel.steganographyMode')}{/if}</span>
+            <span><span class="font-bold">{provider.name}</span>{#if isStego} - {t(dict, 'tools.encryptTunnel.steganographyMode')}{/if}</span>
             {#if provider.tosUrl}
               <a href={provider.tosUrl} target="_blank" rel="noopener noreferrer" class="ml-auto text-[10px] text-blue-500 hover:underline shrink-0">{t(dict, 'tools.encryptTunnel.terms')}</a>
             {/if}
@@ -581,7 +581,7 @@
     {#if resultUrl}
       <div class="card p-6 md:p-8 space-y-4">
         <h3 class="text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-          {t(dict, 'tools.encryptTunnel.uploadSuccessful')} — {resultService}
+          {t(dict, 'tools.encryptTunnel.uploadSuccessful')} - {resultService}
         </h3>
         <div class="flex gap-2 items-center">
           <input type="text" readonly class="input font-mono text-xs flex-1" value={resultUrl} />
@@ -704,7 +704,7 @@
           <div class="flex items-center gap-3">
             <div class="flex-1">
               <div class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">{t(dict, 'tools.encryptTunnel.decryptedSuccessfully')}</div>
-              <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">{decryptedFile.name} — {formatBytes(decryptedFile.data.length)}</div>
+              <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">{decryptedFile.name} - {formatBytes(decryptedFile.data.length)}</div>
             </div>
             <button type="button" class="btn text-xs" on:click={downloadDecrypted}>
               {t(dict, 'tools.encryptTunnel.download')}
