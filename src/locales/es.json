@@ -811,5 +811,21 @@
   "whiteboard.shapes": "formas",
   "whiteboard.textPlaceholder": "Escribe y pulsa Enter…",
   "whiteboard.customColor": "Color personalizado",
-  "nav.whiteboard": "Pizarra"
+  "nav.whiteboard": "Pizarra",
+  "nav.studio": "Studio",
+  "studio.meta.title": "Studio - encrypt.click",
+  "studio.meta.description": "Memo, Ledger, Deck y Pizarra. Herramientas colaborativas con cifrado de extremo a extremo, todo en tu navegador.",
+  "studio.pageTitle": "Studio",
+  "studio.pageTitleHighlight": "cifrado",
+  "studio.pageSubtitle": "Un pequeño conjunto de herramientas colaborativas — dibuja, escribe, calcula, presenta — todo con cifrado de extremo a extremo, sin guardar nada en nuestros servidores.",
+  "studio.tool.whiteboard.title": "Pizarra",
+  "studio.tool.whiteboard.description": "Dibujen juntos en un lienzo compartido. Lápiz, formas, texto, cursores en vivo.",
+  "studio.tool.memo.title": "Memo",
+  "studio.tool.memo.description": "Escriban un documento juntos. Texto enriquecido, colaboración en tiempo real.",
+  "studio.tool.ledger.title": "Ledger",
+  "studio.tool.ledger.description": "Hoja de cálculo para cálculos y tablas compartidas.",
+  "studio.tool.deck.title": "Deck",
+  "studio.tool.deck.description": "Construyan una presentación juntos, diapositiva a diapositiva.",
+  "studio.comingSoon": "Próximamente",
+  "studio.footer": "Cada sala se cifra de extremo a extremo con una contraseña que acuerdan los colaboradores. El servidor solo retransmite texto cifrado opaco."
 }

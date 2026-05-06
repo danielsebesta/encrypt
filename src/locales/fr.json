@@ -811,5 +811,21 @@
   "whiteboard.shapes": "formes",
   "whiteboard.textPlaceholder": "Tapez et appuyez sur Entree…",
   "whiteboard.customColor": "Couleur personnalisee",
-  "nav.whiteboard": "Tableau blanc"
+  "nav.whiteboard": "Tableau blanc",
+  "nav.studio": "Studio",
+  "studio.meta.title": "Studio - encrypt.click",
+  "studio.meta.description": "Memo, Ledger, Deck et Tableau blanc. Outils collaboratifs chiffres de bout en bout, tout dans votre navigateur.",
+  "studio.pageTitle": "Studio",
+  "studio.pageTitleHighlight": "chiffre",
+  "studio.pageSubtitle": "Un petit ensemble d'outils collaboratifs — dessinez, ecrivez, calculez, presentez — tout chiffre de bout en bout, rien stocke sur nos serveurs.",
+  "studio.tool.whiteboard.title": "Tableau blanc",
+  "studio.tool.whiteboard.description": "Dessinez ensemble sur une toile partagee. Stylo, formes, texte, curseurs en direct.",
+  "studio.tool.memo.title": "Memo",
+  "studio.tool.memo.description": "Ecrivez un document ensemble. Texte riche, collaboration en temps reel.",
+  "studio.tool.ledger.title": "Ledger",
+  "studio.tool.ledger.description": "Tableur pour calculs et tableaux partages.",
+  "studio.tool.deck.title": "Deck",
+  "studio.tool.deck.description": "Construisez une presentation ensemble, diapositive par diapositive.",
+  "studio.comingSoon": "Bientot",
+  "studio.footer": "Chaque salon est chiffre de bout en bout avec un mot de passe convenu entre les collaborateurs. Le serveur ne fait que relayer le chiffre opaque."
 }

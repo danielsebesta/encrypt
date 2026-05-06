@@ -811,5 +811,21 @@
   "whiteboard.shapes": "tvarů",
   "whiteboard.textPlaceholder": "Napiš a stiskni Enter…",
   "whiteboard.customColor": "Vlastní barva",
-  "nav.whiteboard": "Tabule"
+  "nav.whiteboard": "Tabule",
+  "nav.studio": "Studio",
+  "studio.meta.title": "Studio - encrypt.click",
+  "studio.meta.description": "Memo, Ledger, Deck a Tabule. End-to-end šifrované kolaborativní nástroje, vše v tvém prohlížeči.",
+  "studio.pageTitle": "Šifrované",
+  "studio.pageTitleHighlight": "Studio",
+  "studio.pageSubtitle": "Malá sada kolaborativních nástrojů — kresli, piš, počítej, prezentuj — vše end-to-end šifrované, na našich serverech se nic neukládá.",
+  "studio.tool.whiteboard.title": "Tabule",
+  "studio.tool.whiteboard.description": "Kreslete spolu na sdílené plátno. Pero, tvary, text, živé kurzory.",
+  "studio.tool.memo.title": "Memo",
+  "studio.tool.memo.description": "Pište dokument společně. Bohaté formátování, realtime spolupráce.",
+  "studio.tool.ledger.title": "Ledger",
+  "studio.tool.ledger.description": "Tabulkový procesor pro sdílené výpočty a tabulky.",
+  "studio.tool.deck.title": "Deck",
+  "studio.tool.deck.description": "Vytvořte prezentaci společně, snímek po snímku.",
+  "studio.comingSoon": "Brzy",
+  "studio.footer": "Každá místnost je end-to-end šifrovaná heslem, na kterém se s kolaboranty domluvíte. Server jen relayuje neprůhledné šifrované zprávy."
 }

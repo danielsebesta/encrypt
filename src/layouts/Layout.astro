@@ -2,7 +2,7 @@
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
-import { getNavCategories, chatIcon, deadDropIcon } from '../lib/tools';
+import { getNavCategories, chatIcon, deadDropIcon, studioIcon } from '../lib/tools';
 
 type Props = {
   title?: string;
@@ -116,6 +116,10 @@ const languageOptions = locales.map(l => ({
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={chatIcon} /></svg>
 						Chat
 					</a>
+					<a href={`${localePrefix}/studio`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={studioIcon} /></svg>
+						Studio
+					</a>
 					{navCategories.map((cat) => (
 						<div class="relative group">
 							<button class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
@@ -225,6 +229,10 @@ const languageOptions = locales.map(l => ({
 						<a href={`${localePrefix}/chat`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={chatIcon} /></svg>
 							Encrypted Chat
+						</a>
+						<a href={`${localePrefix}/studio`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={studioIcon} /></svg>
+							Studio
 						</a>
 						{navCategories.map((cat) => (
 							<div class="space-y-2">

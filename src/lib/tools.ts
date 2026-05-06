@@ -68,6 +68,7 @@ export const categoryIcons: Record<ToolCategory, string> = {
 
 export const chatIcon = icons.chat;
 export const deadDropIcon = icons.drop;
+export const studioIcon = '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>';
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {
   const categories: ToolCategory[] = ['developer', 'privacy'];

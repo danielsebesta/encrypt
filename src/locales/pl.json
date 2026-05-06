@@ -811,5 +811,21 @@
   "whiteboard.shapes": "kształtów",
   "whiteboard.textPlaceholder": "Wpisz i naciśnij Enter…",
   "whiteboard.customColor": "Własny kolor",
-  "nav.whiteboard": "Tablica"
+  "nav.whiteboard": "Tablica",
+  "nav.studio": "Studio",
+  "studio.meta.title": "Studio - encrypt.click",
+  "studio.meta.description": "Memo, Ledger, Deck i Tablica. Narzędzia współpracy z szyfrowaniem end-to-end, wszystko w przeglądarce.",
+  "studio.pageTitle": "Zaszyfrowane",
+  "studio.pageTitleHighlight": "Studio",
+  "studio.pageSubtitle": "Mały zestaw narzędzi do współpracy — rysuj, pisz, licz, prezentuj — wszystko szyfrowane end-to-end, nic nie jest zapisywane na naszych serwerach.",
+  "studio.tool.whiteboard.title": "Tablica",
+  "studio.tool.whiteboard.description": "Rysujcie razem na współdzielonym płótnie. Pióro, kształty, tekst, kursory na żywo.",
+  "studio.tool.memo.title": "Memo",
+  "studio.tool.memo.description": "Napiszcie wspólnie dokument. Bogate formatowanie, współpraca w czasie rzeczywistym.",
+  "studio.tool.ledger.title": "Ledger",
+  "studio.tool.ledger.description": "Arkusz kalkulacyjny do współdzielonych obliczeń i tabel.",
+  "studio.tool.deck.title": "Deck",
+  "studio.tool.deck.description": "Zbudujcie prezentację razem, slajd po slajdzie.",
+  "studio.comingSoon": "Wkrótce",
+  "studio.footer": "Każdy pokój jest szyfrowany end-to-end hasłem, które uzgodnicie z współpracownikami. Serwer tylko przekazuje nieprzezroczyste zaszyfrowane wiadomości."
 }
