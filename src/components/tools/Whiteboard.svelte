@@ -163,10 +163,21 @@
     } catch {}
   }
 
+  let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+
   function connectWs() {
     verifying = true;
     wrongPassword = false;
-    ws = new PartySocket({ host: partyHost, room: roomId, party: 'whiteboard' });
+    ws = new PartySocket({
+      host: partyHost,
+      room: roomId,
+      party: 'whiteboard',
+      minReconnectionDelay: 500,
+      maxReconnectionDelay: 8000,
+      reconnectionDelayGrowFactor: 1.4,
+      connectionTimeout: 8000,
+      maxRetries: Infinity,
+    });
 
     ws.addEventListener('open', async () => {
       connected = true;
@@ -179,11 +190,6 @@
 
     ws.addEventListener('close', () => {
       connected = false;
-      if (verified && typeof window !== 'undefined') {
-        setTimeout(() => {
-          if (!connected) window.location.href = '/whiteboard';
-        }, 3000);
-      }
     });
 
     ws.addEventListener('error', () => {
@@ -191,6 +197,15 @@
     });
 
     ws.addEventListener('message', handleServerMessage);
+
+    // Application-level keepalive: defeats idle timeouts on mobile/proxy paths.
+    // Server ignores type:'ping' (no envelope), so this is a cheap noop.
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+      if (ws && ws.readyState === 1) {
+        try { ws.send(JSON.stringify({ type: 'ping', t: Date.now() })); } catch {}
+      }
+    }, 25000);
   }
 
   async function handleServerMessage(event: MessageEvent) {
@@ -616,6 +631,7 @@
     ws?.close();
     if (typeof window !== 'undefined') window.removeEventListener('keydown', handleKeydown);
     clearInterval(cursorCleanInterval);
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     ydoc?.destroy();
   });
 </script>
@@ -1058,11 +1074,17 @@
 
   .wb-status {
     width: 8px; height: 8px; border-radius: 9999px;
-    background: rgb(161, 161, 170);
+    background: rgb(245, 158, 11);
+    animation: wb-pulse 1.2s ease-in-out infinite;
   }
   .wb-status--connected {
     background: rgb(16, 185, 129);
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    animation: none;
+  }
+  @keyframes wb-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
   }
 
   .wb-avatar {
