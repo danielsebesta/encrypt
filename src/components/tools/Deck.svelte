@@ -8,8 +8,6 @@
   import { TextStyle, Color, FontFamily, FontSize } from '@tiptap/extension-text-style';
   import Highlight from '@tiptap/extension-highlight';
   import TextAlign from '@tiptap/extension-text-align';
-  import Underline from '@tiptap/extension-underline';
-  import Link from '@tiptap/extension-link';
   import TiptapToolbar from './TiptapToolbar.svelte';
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
@@ -187,25 +185,33 @@
   }
 
   function mountEditor() {
+    // Guard: if an editor already exists, do nothing. The reactive trigger
+    // can fire concurrently with remountEditor, and without this we'd end up
+    // mounting two Tiptap instances on the same element — visible as a
+    // mirrored / duplicated slide content.
+    if (editor) return;
     if (!editorEl || !ydoc || slideIds.length === 0) return;
     const id = slideIds[activeSlideIndex];
     if (!id) return;
     const fragment = getSlideFragment(id);
-    // recreate UndoManager so Ctrl+Z is scoped to the slide currently being edited
     undoMgr?.destroy?.();
     undoMgr = new Y.UndoManager(fragment);
     editor = new Editor({
       element: editorEl,
+      // StarterKit 3.22 already bundles Underline, Link and undoRedo —
+      // disable undoRedo (Collaboration owns history) and pass our Link
+      // config through StarterKit to avoid duplicate-extension warnings.
       extensions: [
-        StarterKit.configure({ history: false }),
-        Underline,
+        StarterKit.configure({
+          undoRedo: false,
+          link: { openOnClick: false, autolink: true, HTMLAttributes: { class: 'deck-link', rel: 'noopener noreferrer', target: '_blank' } },
+        }),
         TextStyle,
         Color,
         FontFamily,
         FontSize,
         Highlight.configure({ multicolor: true }),
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { class: 'deck-link', rel: 'noopener noreferrer', target: '_blank' } }),
         Collaboration.configure({ document: ydoc, fragment }),
       ],
       editorProps: {
@@ -385,7 +391,14 @@
     }
   }
 
-  function togglePresent() { presentMode = !presentMode; }
+  async function togglePresent() {
+    presentMode = !presentMode;
+    // The bind:this={editorEl} target lives in either the present-mode
+    // branch or the edit-mode branch but not both. Toggling unmounts the
+    // old DOM node, which orphans the Tiptap instance — text disappears.
+    // Destroy and re-mount on the new element after Svelte rebuilds.
+    await remountEditor();
+  }
 
   onMount(() => {
     initRoom();
