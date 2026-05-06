@@ -811,5 +811,21 @@
   "whiteboard.shapes": "Formen",
   "whiteboard.textPlaceholder": "Tippen und Enter drücken…",
   "whiteboard.customColor": "Eigene Farbe",
-  "nav.whiteboard": "Whiteboard"
+  "nav.whiteboard": "Whiteboard",
+  "nav.studio": "Studio",
+  "studio.meta.title": "Studio - encrypt.click",
+  "studio.meta.description": "Memo, Ledger, Deck und Whiteboard. Ende-zu-Ende verschlüsselte Kollaborations-Tools, alles im Browser.",
+  "studio.pageTitle": "Verschlüsseltes",
+  "studio.pageTitleHighlight": "Studio",
+  "studio.pageSubtitle": "Eine kleine Sammlung kollaborativer Tools — skizzieren, schreiben, rechnen, präsentieren — alles Ende-zu-Ende verschlüsselt, nichts auf unseren Servern gespeichert.",
+  "studio.tool.whiteboard.title": "Whiteboard",
+  "studio.tool.whiteboard.description": "Skizziert gemeinsam auf einer geteilten Leinwand. Stift, Formen, Text, Live-Cursor.",
+  "studio.tool.memo.title": "Memo",
+  "studio.tool.memo.description": "Schreibt zusammen ein Dokument. Rich Text, Echtzeit-Zusammenarbeit.",
+  "studio.tool.ledger.title": "Ledger",
+  "studio.tool.ledger.description": "Tabellenkalkulation für gemeinsame Berechnungen.",
+  "studio.tool.deck.title": "Deck",
+  "studio.tool.deck.description": "Baut eine Präsentation gemeinsam, Folie für Folie.",
+  "studio.comingSoon": "Bald verfügbar",
+  "studio.footer": "Jeder Raum ist Ende-zu-Ende verschlüsselt mit einem Passwort, das ihr untereinander vereinbart. Der Server leitet nur undurchsichtigen Chiffretext weiter."
 }
