@@ -187,7 +187,7 @@
             const bin = minBin + Math.round(row * usableBins / h);
             if (bin >= FFT_SIZE / 2) continue;
             const amplitude = grayscale[(h - 1 - row) * w + col] / 255;
-            // Zero phase (pure cosine) — produces cleanest spectrogram
+            // Zero phase (pure cosine) - produces cleanest spectrogram
             re[bin] = amplitude;
             im[bin] = 0;
             if (bin > 0 && bin < FFT_SIZE / 2) {
@@ -523,7 +523,7 @@
         {#if mode === 'encode'}
           {#if carrierLoaded}
             <div class="grid gap-1.5">
-              <label class="label">{t(dict, 'tools.spectralCipher.imageStrength')} — {Math.round(imageStrength * 100)}%</label>
+              <label class="label">{t(dict, 'tools.spectralCipher.imageStrength')} - {Math.round(imageStrength * 100)}%</label>
               <input type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} class="w-full accent-emerald-500" />
               <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
             </div>

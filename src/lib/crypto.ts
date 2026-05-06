@@ -268,7 +268,7 @@ async function generateRSACryptoKeyPair(bits: number) {
 }
 
 /**
- * RSA Key Pair Generation (Web Crypto — 10-50x faster than forge)
+ * RSA Key Pair Generation (Web Crypto - 10-50x faster than forge)
  */
 export async function generateRSAKeyPair(bits: number = 2048): Promise<{ publicKey: string, privateKey: string }> {
     const keyPair = await generateRSACryptoKeyPair(bits);

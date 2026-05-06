@@ -1,7 +1,7 @@
 {
   "name": "Encrypt.click",
   "short_name": "Encrypt.click",
-  "description": "Privacy-first security toolkit. Encrypt, hash, sign, and hide — 100% in your browser.",
+  "description": "Privacy-first security toolkit. Encrypt, hash, sign, and hide - 100% in your browser.",
   "start_url": "/",
   "scope": "/",
   "id": "/",

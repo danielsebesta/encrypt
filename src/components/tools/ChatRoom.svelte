@@ -209,13 +209,13 @@
     // Handle server control messages
     if (data.type === 'init') {
       serverPresence = data.presence;
-      // If alone in room (presence=1 = just me), auto-verify — no one to validate against
+      // If alone in room (presence=1 = just me), auto-verify - no one to validate against
       if (verifying && serverPresence <= 1) {
-        // Alone — no one to verify against, just enter
+        // Alone - no one to verify against, just enter
         verified = true;
         verifying = false;
       } else if (verifying && serverPresence > 1) {
-        // Others present — they'll send verify messages we need to decrypt
+        // Others present - they'll send verify messages we need to decrypt
         // If we can't decrypt any within 4s, wrong password
         setTimeout(() => {
           if (verifying && !verified) {
@@ -243,7 +243,7 @@
         return;
       }
 
-      // Verify message — someone joined with correct password
+      // Verify message - someone joined with correct password
       if (parsed.type === 'verify') {
         if (verifying) { verified = true; verifying = false; }
         if (verified && cryptoKey && ws) {
@@ -259,7 +259,7 @@
         return;
       }
 
-      // Verify-ack — confirmation from existing member
+      // Verify-ack - confirmation from existing member
       if (parsed.type === 'verify-ack') {
         if (verifying) { verified = true; verifying = false; }
         addOnlineUser(parsed.sender, parsed.color);
@@ -292,13 +292,13 @@
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
     } catch {
-      // Failed to decrypt — wrong password
+      // Failed to decrypt - wrong password
       if (verifying) {
         wrongPassword = true;
         verifying = false;
         ws?.close();
       }
-      // Already verified — someone tried with wrong password (debounced)
+      // Already verified - someone tried with wrong password (debounced)
       if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
         lastWrongPasswordNotice = Date.now();
         messages = [...messages, {
@@ -397,7 +397,7 @@
         } catch { return null; }
       }
 
-      const fileHosts = ['quax', 'x0at', 'catbox', 'tmpfile'];
+      const fileHosts = ['quax', 'x0at', 'tmpfile'];
       const randomFileHost = fileHosts[Math.floor(Math.random() * fileHosts.length)];
 
       try {

@@ -1,5 +1,5 @@
 {
-  "metaTitle": "Bcrypt erklärt — langsames Hashing für Passwörter",
+  "metaTitle": "Bcrypt erklärt - langsames Hashing für Passwörter",
   "metaDescription": "Lerne, warum bcrypt absichtlich langsam ist, wann man es verwendet und warum Passwort-Hashing nicht dasselbe wie Verschlüsselung ist.",
   "hero": {
     "category": "Passwort-Hashing",

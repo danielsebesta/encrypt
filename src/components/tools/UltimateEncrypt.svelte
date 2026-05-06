@@ -48,7 +48,7 @@
 
   interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
 
-  // Send network is preferred — E2E encrypted, multiple instances
+  // Send network is preferred - E2E encrypted, multiple instances
   const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', retention: '7-30 days', maxBytes: 5 * 1024 * 1024 * 1024 };
   const SEND_INSTANCE_NAMES = ['upload.nolog.cz', 'send.adminforge.de', 'send.vis.ee', 'send.artemislena.eu', 'send.cyberjake.xyz', 'send.canine.tools', 'send.kokomo.cloud'];
 
@@ -56,18 +56,15 @@
   const BINARY_HOSTS: HostInfo[] = [
     { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
     { id: 'x0at', name: 'x0.at', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
-    { id: 'catbox', name: 'Catbox.moe', retention: 'forever', maxBytes: 200 * 1024 * 1024 },
     { id: 'tmpfile', name: 'tmpfile.link', retention: '7 days', maxBytes: 100 * 1024 * 1024 },
     { id: 'litterbox', name: 'Litterbox', retention: '3 days', maxBytes: 1024 * 1024 * 1024 },
     { id: 'tempsh', name: 'temp.sh', retention: '3 days', maxBytes: 4 * 1024 * 1024 * 1024 },
-    { id: 'uguu', name: 'Uguu.se', retention: '3 hours', maxBytes: 128 * 1024 * 1024 },
   ];
 
   // Image hosts for stego PNGs (shuffled at upload time)
   const IMAGE_HOSTS: HostInfo[] = [
     { id: 'sxcu', name: 'sxcu.net', retention: 'forever', maxBytes: 95 * 1024 * 1024 },
     { id: 'freeimage', name: 'FreeImage.host', retention: 'forever', maxBytes: 64 * 1024 * 1024 },
-    { id: 'imgbb', name: 'ImgBB', retention: 'forever', maxBytes: 32 * 1024 * 1024 },
   ];
 
   function shuffleArr<T>(arr: T[]): T[] {
@@ -91,7 +88,7 @@
 
 
   // EFF-inspired compact wordlist (1024 common short English words, 10 bits each)
-  // 5 words = 50 bits entropy, 6 words = 60 bits — comparable to 20-char random
+  // 5 words = 50 bits entropy, 6 words = 60 bits - comparable to 20-char random
   const WORDS = 'able,acid,aged,also,area,army,away,baby,back,ball,band,bank,base,bath,bean,bear,beat,been,beer,bell,belt,best,bill,bird,bite,blow,blue,boat,body,bomb,bond,bone,book,boom,born,boss,both,bowl,bulk,burn,bush,busy,cafe,cage,cake,call,calm,came,camp,card,care,case,cash,cast,cave,cell,chat,chip,city,claim,clan,clay,clip,club,coal,coat,code,coin,cold,come,cook,cool,cope,copy,core,cost,crew,crop,cure,cute,dado,dale,dame,dare,dark,data,date,dawn,dead,deaf,deal,dear,debt,deck,deed,deem,deep,deer,demo,deny,desk,dial,dice,diet,dirt,disc,dish,dock,does,dome,done,door,dose,down,draw,drew,drop,drum,dual,duck,dude,duel,duke,dull,dump,dune,dust,duty,each,earn,ease,east,easy,edge,else,emit,epic,euro,even,ever,evil,exam,exit,eyed,face,fact,fade,fail,fair,fake,fall,fame,fang,fare,farm,fast,fate,fear,feat,feed,feel,feet,fell,felt,file,fill,film,find,fine,fire,firm,fish,fist,five,flag,flat,fled,flew,flip,flow,foam,fold,folk,fond,font,food,fool,foot,ford,fore,fork,form,fort,foul,four,free,from,fuel,full,fund,fury,fuse,gain,gala,gale,game,gang,gave,gaze,gear,gene,gift,girl,give,glad,glow,glue,goat,goes,gold,golf,gone,good,grab,gram,gray,grew,grey,grid,grip,grow,gulf,guru,gust,guys,hack,half,hall,halt,hand,hang,hard,harm,hate,haul,have,haze,head,heal,heap,hear,heat,heel,held,hell,help,herb,here,hero,hide,high,hike,hill,hint,hire,hold,hole,holy,home,hood,hook,hope,horn,host,hour,huge,hull,hung,hunt,hurt,icon,idea,inch,info,into,iron,isle,item,jack,jail,java,jazz,jean,jeep,jets,jobs,join,joke,jump,june,jury,just,keen,keep,kept,kick,kids,kill,kind,king,kiss,knee,knew,knit,knob,knot,know,labs,lack,laid,lake,lamp,land,lane,last,late,lawn,lead,leaf,lean,left,lend,lens,less,lied,lieu,life,lift,like,limb,lime,limp,line,link,lion,list,live,load,loan,lock,logo,lone,long,look,lord,lose,loss,lost,lots,loud,love,luck,lump,lung,lure,made,mail,main,make,male,mall,malt,mane,many,mare,mark,mask,mass,mate,maze,meal,mean,meat,melt,memo,menu,mere,mesh,mess,mild,mile,milk,mill,mind,mine,mint,miss,mode,mole,mood,moon,more,most,moth,move,much,must,myth,nail,name,navy,neat,neck,need,nest,news,next,nice,nine,node,none,noon,norm,nose,note,noun,nude,nuts,oath,obey,odds,okay,once,only,onto,open,oral,ours,oval,oven,over,pace,pack,page,paid,pain,pair,pale,palm,pane,pack,park,part,pass,past,path,peak,peel,peer,pine,pink,pipe,plan,play,plea,plot,ploy,plug,plus,poem,poet,pole,poll,polo,pond,pool,poor,pope,pork,port,pose,post,pour,pray,prey,prop,pull,pump,punk,pure,push,quit,quiz,race,rack,rage,raid,rail,rain,rang,rank,rare,rate,rays,read,real,rear,reef,reel,rely,rent,rest,rice,rich,ride,rife,rift,ring,riot,rise,risk,road,roam,rock,rode,role,roll,roof,room,root,rope,rose,ruin,rule,rush,ruth,sack,safe,sage,said,sake,sale,salt,same,sand,sang,save,seal,seed,seek,seem,seen,self,sell,semi,send,sent,sept,shed,ship,shoe,shop,shot,show,shut,sick,side,sift,sigh,sign,silk,sing,sink,site,size,skin,skip,slam,slap,slid,slim,slip,slot,slow,snap,snow,soak,soar,sock,soft,soil,sold,sole,some,song,soon,sort,soul,sour,span,spec,sped,spin,spot,star,stay,stem,step,stir,stop,stud,such,suit,sung,sure,surf,swan,swap,swim,sync,tact,tail,take,tale,talk,tall,tank,tape,task,team,tear,tell,temp,tend,tent,term,test,text,than,that,them,then,they,thin,this,thus,tick,tide,tidy,tied,tier,tile,till,time,tiny,tire,toad,told,toll,tomb,tone,took,tool,tops,tore,torn,toss,tour,town,trap,tray,tree,trek,trim,trio,trip,true,tube,tuck,tuna,tune,turf,turn,twin,type,ugly,undo,unit,upon,urge,used,user,vain,vale,vary,vast,veil,vein,vent,verb,very,vest,veto,vibe,vice,view,vine,visa,void,volt,vote,wade,wage,wait,wake,walk,wall,wand,want,ward,warm,warn,warp,wary,wash,watt,wave,wavy,waxy,weak,wear,weed,week,well,went,were,west,what,when,whom,wide,wife,wild,will,wilt,wily,wind,wine,wing,wink,wipe,wire,wise,wish,with,woke,wolf,womb,wood,wool,word,wore,work,worm,worn,wrap,wren,yard,yarn,yeah,year,yell,yoga,your,zeal,zero,zinc,zone,zoom'.split(',');
 
   function capitalize(s: string): string {
@@ -173,7 +170,7 @@
     }
   }
 
-  // Minimal ZIP creator (store only, no compression — we encrypt after anyway)
+  // Minimal ZIP creator (store only, no compression - we encrypt after anyway)
   async function buildZip(entries: File[]): Promise<Uint8Array> {
     const enc = new TextEncoder();
     const centralHeaders: Uint8Array[] = [];
@@ -535,9 +532,9 @@
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
 
-  // Our own shortener — always try first
+  // Our own shortener - always try first
   const OWN_SHORT: ShortProvider = 'shrink';
-  // Fallback if our shortener is down — shuffled
+  // Fallback if our shortener is down - shuffled
   const FALLBACK_SHORT: ShortProvider[] = ['nolog', 'spoome', '1url', 'isgd'];
 
   const SHORT_NAMES: Record<ShortProvider, string> = {

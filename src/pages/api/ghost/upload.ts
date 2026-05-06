@@ -12,10 +12,18 @@ type ServiceResult = { service: string; url: string | null; error?: string; deta
 
 const SEND_INSTANCES: SendInstance[] = [
   { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ', maxBytes: 5 * 1024 * 1024 * 1024, maxExpireSeconds: 1209600, maxDownloads: 500 },
+  { baseUrl: 'https://uploa.cdsp.cz', label: 'send.codespace.cz', region: 'eu', country: 'CZ', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 100 },
   { baseUrl: 'https://send.adminforge.de', label: 'send.adminforge.de', region: 'eu', country: 'DE', maxBytes: 8 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 1000 },
-  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'EE', maxBytes: 2684354560, maxExpireSeconds: 259200, maxDownloads: 20 },
+  { baseUrl: 'https://send.turingpoint.de', label: 'send.turingpoint.de', region: 'eu', country: 'DE', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 10 },
+  { baseUrl: 'https://send.hostnetwork.xyz', label: 'send.hostnetwork.xyz', region: 'eu', country: 'DE', maxBytes: 2684354560, maxExpireSeconds: 700000, maxDownloads: 999999 },
+  { baseUrl: 'https://fileupload.ggc-project.de', label: 'fileupload.ggc-project.de', region: 'eu', country: 'DE', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
+  { baseUrl: 'https://drop.chapril.org', label: 'drop.chapril.org', region: 'eu', country: 'DE', maxBytes: 1073741824, maxExpireSeconds: 432000, maxDownloads: 100 },
+  { baseUrl: 'https://send.mni.li', label: 'send.mni.li', region: 'eu', country: 'NL', maxBytes: 8 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 25 },
+  { baseUrl: 'https://send.boblorange.net', label: 'send.boblorange.net', region: 'eu', country: 'PT', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
+  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'NL', maxBytes: 2684354560, maxExpireSeconds: 259200, maxDownloads: 20 },
   { baseUrl: 'https://send.artemislena.eu', label: 'send.artemislena.eu', region: 'eu', country: 'EU', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
-  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 2592000, maxDownloads: 100 },
+  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other', country: 'US', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 2592000, maxDownloads: 100 },
+  { baseUrl: 'https://send.monks.tools', label: 'send.monks.tools', region: 'other', country: 'US', maxBytes: 5 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 50 },
   { baseUrl: 'https://send.canine.tools', label: 'send.canine.tools', region: 'other', maxBytes: 1073741824, maxExpireSeconds: 2592000, maxDownloads: 100 },
   { baseUrl: 'https://send.kokomo.cloud', label: 'send.kokomo.cloud', region: 'other', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
 ];
@@ -40,40 +48,6 @@ function mimeFromName(name: string): string {
 function toBlob(buf: Uint8Array, filename?: string): Blob {
   const type = filename ? mimeFromName(filename) : 'application/octet-stream';
   return new Blob([buf], { type });
-}
-
-function getImgBBKeys(): string[] {
-  const keys: string[] = [];
-  const envKeys = (import.meta as any).env?.IMGBB_API_KEYS || process.env.IMGBB_API_KEYS;
-  if (envKeys) {
-    keys.push(...envKeys.split(',').map((k: string) => k.trim()).filter(Boolean));
-  }
-  const singleKey = (import.meta as any).env?.IMGBB_API_KEY || process.env.IMGBB_API_KEY;
-  if (singleKey) keys.push(singleKey);
-  return keys;
-}
-
-async function uploadImgBB(file: Uint8Array, filename: string): Promise<string> {
-  const keys = getImgBBKeys();
-  if (keys.length === 0) throw new Error('No ImgBB API key configured');
-
-  let lastErr = '';
-  for (const key of keys) {
-    try {
-      const form = new FormData();
-      form.append('key', key);
-      form.append('image', toBlob(file, filename), filename);
-      const res = await fetch('https://api.imgbb.com/1/upload', {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) { lastErr = `HTTP ${res.status}`; continue; }
-      const data = await res.json() as any;
-      if (data?.data?.url) return data.data.url;
-      lastErr = 'No URL in response';
-    } catch (e: any) { lastErr = e?.message || 'Network error'; }
-  }
-  throw new Error(`ImgBB: ${lastErr}`);
 }
 
 async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
@@ -115,19 +89,6 @@ async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
   const data = await res.json() as any;
   if (!data?.files?.[0]?.url) throw new Error('qu.ax: no URL in response');
   return data.files[0].url;
-}
-
-async function uploadUguu(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('files[]', toBlob(file, filename), filename);
-  const res = await fetch('https://uguu.se/upload?output=text', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`Uguu: HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('Uguu: invalid response');
-  return text;
 }
 
 async function uploadFileHosts(file: Uint8Array, filename: string): Promise<string> {
@@ -214,20 +175,6 @@ async function uploadX0at(file: Uint8Array, filename: string): Promise<string> {
   return text;
 }
 
-async function uploadCatbox(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('reqtype', 'fileupload');
-  form.append('fileToUpload', toBlob(file, filename), filename);
-  const res = await fetch('https://catbox.moe/user/api.php', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`catbox.moe: HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('catbox.moe: invalid response');
-  return text;
-}
-
 async function uploadLitterbox(file: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('reqtype', 'fileupload');
@@ -268,7 +215,7 @@ async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: str
 
   for (const instance of instances) {
     try {
-      return await proxySendUpload(instance.baseUrl, encryptedBytes, metadataB64, authHeader, secretB64);
+      return await proxySendUpload(instance.baseUrl, encryptedBytes, metadataB64, authHeader, secretB64, undefined, instance.maxExpireSeconds, instance.maxDownloads);
     } catch (e: any) {
       failures.push(`${instance.label}: ${e?.message || 'upload failed'}`);
     }
@@ -279,16 +226,13 @@ async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: str
 
 const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
   nologsend: uploadNologSendLegacy,
-  imgbb: uploadImgBB,
   sxcu: uploadSxcu,
   freeimage: uploadFreeImage,
   quax: uploadQuax,
-  uguu: uploadUguu,
   gofile: uploadGofile,
   tmpfile: uploadTmpfileLink,
   tempsh: uploadTempSh,
   x0at: uploadX0at,
-  catbox: uploadCatbox,
   litterbox: uploadLitterbox,
 };
 
@@ -308,12 +252,9 @@ const SERVICE_INFO: ServiceInfo[] = [
   { id: 'tempsh', name: 'temp.sh', type: 'file', maxBytes: 4 * 1024 * 1024 * 1024, retention: '3 days', tosUrl: null },
   { id: 'gofile', name: 'Gofile.io', type: 'file', maxBytes: Infinity, retention: '10 days', tosUrl: 'https://gofile.io/terms' },
   { id: 'tmpfile', name: 'tmpfile.link', type: 'file', maxBytes: 100 * 1024 * 1024, retention: '7 days', tosUrl: 'https://tmpfile.link/terms' },
-  { id: 'uguu', name: 'Uguu.se', type: 'file', maxBytes: 128 * 1024 * 1024, retention: '3 hours', tosUrl: 'https://uguu.se/faq' },
   { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: 95 * 1024 * 1024, retention: 'forever', tosUrl: 'https://sxcu.net/tos.html', recommended: true },
   { id: 'freeimage', name: 'FreeImage.host', type: 'image', maxBytes: 64 * 1024 * 1024, retention: 'forever', tosUrl: 'https://freeimage.host/tos' },
-  { id: 'imgbb', name: 'ImgBB', type: 'image', maxBytes: 32 * 1024 * 1024, retention: 'forever', tosUrl: 'https://imgbb.com/tos' },
   { id: 'x0at', name: 'x0.at', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '3-100 days', tosUrl: 'https://x0.at' },
-  { id: 'catbox', name: 'Catbox.moe', type: 'file', maxBytes: 200 * 1024 * 1024, retention: 'forever', tosUrl: 'https://catbox.moe/faq.php' },
   { id: 'litterbox', name: 'Litterbox', type: 'file', maxBytes: 1024 * 1024 * 1024, retention: '3 days', tosUrl: 'https://catbox.moe/faq.php' },
 ];
 

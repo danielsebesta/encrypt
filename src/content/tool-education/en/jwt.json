@@ -1,5 +1,5 @@
 {
-  "metaTitle": "JWT Explained — Decode vs Verify",
+  "metaTitle": "JWT Explained - Decode vs Verify",
   "metaDescription": "Learn what a JWT is, why decoding is not the same as verification, and how to safely inspect token headers and claims.",
   "hero": {
     "category": "Token inspection",

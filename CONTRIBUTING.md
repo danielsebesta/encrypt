@@ -142,7 +142,7 @@ Example:
 
 ```json
 "nav.tool.myTool": "My Tool",
-"tools.myTool.meta.title": "My Tool — encrypt.click",
+"tools.myTool.meta.title": "My Tool - encrypt.click",
 "tools.myTool.meta.description": "Short SEO description.",
 "tools.myTool.h1": "My",
 "tools.myTool.h1Highlight": "Tool.",

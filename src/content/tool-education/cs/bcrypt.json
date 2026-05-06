@@ -1,5 +1,5 @@
 {
-  "metaTitle": "Bcrypt vysvětleně — pomalé hashování pro hesla",
+  "metaTitle": "Bcrypt vysvětleně - pomalé hashování pro hesla",
   "metaDescription": "Zjistěte, proč je bcrypt záměrně pomalý, kdy se používá a proč je hashování hesel něco jiného než šifrování.",
   "hero": {
     "category": "Hashování hesel",

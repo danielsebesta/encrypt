@@ -1,5 +1,5 @@
 {
-  "metaTitle": "JWT vysvětleně — dekódování není ověření",
+  "metaTitle": "JWT vysvětleně - dekódování není ověření",
   "metaDescription": "Zjistěte, co je JWT, proč dekódování není totéž co ověření a jak bezpečně číst hlavičky a claimy tokenu.",
   "hero": {
     "category": "Inspekce tokenů",

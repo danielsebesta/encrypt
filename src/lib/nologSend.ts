@@ -530,15 +530,17 @@ export async function prepareSendUpload(data: Uint8Array, filename: string, file
   };
 }
 
-export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string, onDebug?: DebugFn): Promise<string> {
+export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string, onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT): Promise<string> {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
-  onDebug?.(`Send ${normalizedBaseUrl}: proxying pre-encrypted upload (${encryptedBytes.byteLength} bytes)`);
+  onDebug?.(`Send ${normalizedBaseUrl}: proxying pre-encrypted upload (${encryptedBytes.byteLength} bytes, timeLimit=${timeLimit}s, dlimit=${dlimit})`);
 
   const res = await fetch(`${normalizedBaseUrl}/api/upload`, {
     method: 'POST',
     headers: {
       'Authorization': authHeader,
       'X-File-Metadata': metadataB64,
+      'X-Time-Limit': String(timeLimit),
+      'X-Download-Limit': String(dlimit),
       'Content-Type': 'application/octet-stream',
     },
     body: encryptedBytes,
