@@ -2,9 +2,6 @@
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
   import * as Y from 'yjs';
-  import { Editor } from '@tiptap/core';
-  import StarterKit from '@tiptap/starter-kit';
-  import Collaboration from '@tiptap/extension-collaboration';
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
     encryptBytes, decryptBytes,
@@ -41,20 +38,24 @@
   let shareDismissed = false;
 
   let ydoc: Y.Doc;
-  let yfragment: Y.XmlFragment;
-  let editor: Editor | null = null;
-  let editorEl: HTMLDivElement;
+  let yworkbook: Y.Map<string>;
+  let spreadsheet: any = null;
+  let sheetEl: HTMLDivElement;
   let pageHidden = false;
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
 
+  let lastSerialized = '';
+  let applyingRemote = false;
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  const SAVE_DEBOUNCE_MS = 400;
+
   let pendingUpdates: Uint8Array[] = [];
   let updateFlushTimer: ReturnType<typeof setTimeout> | null = null;
-  const UPDATE_BATCH_MS = 150;
+  const UPDATE_BATCH_MS = 200;
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   }
-
   function genId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(8));
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
@@ -108,7 +109,7 @@
 
   function setupYjs() {
     ydoc = new Y.Doc();
-    yfragment = ydoc.getXmlFragment('ledger');
+    yworkbook = ydoc.getMap('workbook');
     ydoc.on('update', (update: Uint8Array, origin: any) => {
       if (origin === 'remote') return;
       if (!cryptoKey || !ws || !verified) return;
@@ -117,27 +118,65 @@
         updateFlushTimer = setTimeout(flushPendingUpdates, UPDATE_BATCH_MS);
       }
     });
-  }
-
-  function mountEditor() {
-    if (!editorEl || editor || !ydoc) return;
-    editor = new Editor({
-      element: editorEl,
-      extensions: [
-        StarterKit.configure({ history: false }),
-        Collaboration.configure({ document: ydoc, field: 'ledger' }),
-      ],
-      editorProps: {
-        attributes: {
-          class: 'ledger-prose',
-          spellcheck: 'false',
-          'data-1p-ignore': '',
-        },
-      },
+    yworkbook.observe(() => {
+      if (!spreadsheet) return;
+      const incoming = yworkbook.get('data');
+      if (!incoming || incoming === lastSerialized) return;
+      try {
+        applyingRemote = true;
+        const parsed = JSON.parse(incoming);
+        spreadsheet.loadData(parsed);
+        lastSerialized = incoming;
+      } catch {} finally {
+        applyingRemote = false;
+      }
     });
   }
 
-  $: if (verified && editorEl && !editor) mountEditor();
+  async function mountSpreadsheet() {
+    if (!sheetEl || spreadsheet) return;
+    const mod = await import('x-data-spreadsheet');
+    await import('x-data-spreadsheet/dist/xspreadsheet.css');
+    const Spreadsheet = (mod as any).default || (mod as any);
+
+    spreadsheet = new Spreadsheet(sheetEl, {
+      mode: 'edit',
+      showToolbar: true,
+      showGrid: true,
+      showContextmenu: true,
+      view: { height: () => sheetEl.clientHeight, width: () => sheetEl.clientWidth },
+      row: { len: 100, height: 25 },
+      col: { len: 26, width: 100, indexWidth: 60, minWidth: 60 },
+    });
+
+    const initial = yworkbook.get('data');
+    if (initial) {
+      try {
+        applyingRemote = true;
+        spreadsheet.loadData(JSON.parse(initial));
+        lastSerialized = initial;
+      } catch {} finally {
+        applyingRemote = false;
+      }
+    }
+
+    spreadsheet.change((data: any) => {
+      if (applyingRemote) return;
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        const json = JSON.stringify(data);
+        if (json === lastSerialized) return;
+        lastSerialized = json;
+        yworkbook.set('data', json);
+      }, SAVE_DEBOUNCE_MS);
+    });
+
+    window.addEventListener('resize', () => {
+      try { (spreadsheet as any).reRender(); } catch {}
+    });
+  }
+
+  $: if (verified && sheetEl && !spreadsheet) mountSpreadsheet();
 
   async function sendDocUpdate(update: Uint8Array) {
     if (!cryptoKey || !ws) return;
@@ -160,7 +199,6 @@
       connectionTimeout: 8000,
       maxRetries: Infinity,
     });
-
     ws.addEventListener('open', async () => {
       connected = true;
       if (cryptoKey) {
@@ -169,7 +207,6 @@
         ws!.send(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }));
       }
     });
-
     ws.addEventListener('close', () => { connected = false; });
     ws.addEventListener('error', () => {
       if (verifying) { wrongPassword = true; verifying = false; }
@@ -214,7 +251,6 @@
         if (verifying) { verified = true; verifying = false; }
         return;
       }
-
       if (data.kind === 'verify') {
         const text = await decryptMessage(cryptoKey, data.payload);
         const parsed = JSON.parse(text);
@@ -229,7 +265,6 @@
         }
         return;
       }
-
       if (data.kind === 'verify-ack') {
         const text = await decryptMessage(cryptoKey, data.payload);
         const parsed = JSON.parse(text);
@@ -237,10 +272,7 @@
         addOnlineUser(data.from || parsed.sender, parsed.sender, parsed.color);
         return;
       }
-    } catch {
-      // single failed decrypt is ambiguous (mixed-password peers); only the
-      // 4 s init timeout is authoritative for "wrong password"
-    }
+    } catch {}
   }
 
   function addOnlineUser(id: string, name: string, color: string) {
@@ -256,7 +288,6 @@
       setTimeout(() => { shareCopiedLink = false; }, 1500);
     } catch {}
   }
-
   async function copySharePassword() {
     try {
       await navigator.clipboard.writeText(sharePassword);
@@ -269,15 +300,40 @@
     if (typeof document === 'undefined') return;
     pageHidden = document.hidden;
   }
-
   function beforeUnloadHandler(e: BeforeUnloadEvent) {
     e.preventDefault();
     e.returnValue = '';
   }
-
   $: if (typeof window !== 'undefined') {
     if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
+  }
+
+  async function exportXlsx() {
+    if (!spreadsheet) return;
+    try {
+      const XLSX: any = await import('xlsx');
+      const data = spreadsheet.getData();
+      const wb = XLSX.utils.book_new();
+      const sheets = Array.isArray(data) ? data : [data];
+      for (const sheet of sheets) {
+        const rows: any[][] = [];
+        const cells = sheet?.rows ?? {};
+        for (const ri in cells) {
+          const row: any[] = [];
+          const rowCells = cells[ri]?.cells ?? {};
+          for (const ci in rowCells) {
+            row[+ci] = rowCells[ci]?.text ?? '';
+          }
+          rows[+ri] = row;
+        }
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, sheet?.name || 'Sheet');
+      }
+      XLSX.writeFile(wb, `ledger-${roomId}.xlsx`);
+    } catch (e) {
+      console.error('xlsx export failed', e);
+    }
   }
 
   onMount(() => {
@@ -286,10 +342,11 @@
   });
 
   onDestroy(() => {
-    editor?.destroy();
+    try { (spreadsheet as any)?.destroy?.(); } catch {}
     ws?.close();
     if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibility);
     if (typeof window !== 'undefined') window.removeEventListener('beforeunload', beforeUnloadHandler);
+    if (saveTimer) clearTimeout(saveTimer);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     ydoc?.destroy();
   });
@@ -305,7 +362,6 @@
         <button class="btn-outline w-full text-xs" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'ledger.tryAgain')}</button>
       </div>
     </div>
-
   {:else if needsPassword}
     <div class="ledger-center">
       <div class="space-y-4 max-w-xs w-full">
@@ -329,7 +385,6 @@
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'ledger.enterRoom')}</button>
       </div>
     </div>
-
   {:else if verifying}
     <div class="ledger-center">
       <div class="text-center space-y-2">
@@ -337,7 +392,6 @@
         <p class="text-xs text-zinc-400">{serverPresence > 1 ? t(dict, 'ledger.verifyingPassword') : t(dict, 'ledger.verifyingAlone')}</p>
       </div>
     </div>
-
   {:else}
     <div class="ledger-header">
       <div class="flex items-center gap-2">
@@ -349,7 +403,12 @@
           {/each}
         </div>
       </div>
-      <div class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'ledger.headerHint')}</div>
+      <div class="flex items-center gap-2">
+        <button class="ledger-btn-tiny" on:click={exportXlsx} title={t(dict, 'ledger.exportXlsx')}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          .xlsx
+        </button>
+      </div>
     </div>
 
     {#if sharePassword && !shareDismissed}
@@ -385,9 +444,7 @@
       </div>
     {/if}
 
-    <div class="ledger-editor-wrap">
-      <div bind:this={editorEl} class="ledger-editor"></div>
-    </div>
+    <div class="ledger-sheet" bind:this={sheetEl}></div>
   {/if}
 </div>
 
@@ -395,7 +452,8 @@
   .ledger-container {
     display: flex;
     flex-direction: column;
-    min-height: 70vh;
+    height: 80vh;
+    max-height: 820px;
     border-radius: 1rem;
     overflow: hidden;
     border: 1px solid rgba(228, 228, 231, 0.6);
@@ -418,10 +476,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1.25rem;
+    padding: 0.6rem 1rem;
     border-bottom: 1px solid rgba(228, 228, 231, 0.5);
+    background: rgba(255,255,255,0.4);
   }
-  :global(.dark) .ledger-header { border-color: rgba(39, 39, 42, 0.4); }
+  :global(.dark) .ledger-header { border-color: rgba(39, 39, 42, 0.4); background: rgba(24,24,27,0.4); }
   .ledger-status {
     width: 8px; height: 8px; border-radius: 9999px;
     background: rgb(245, 158, 11);
@@ -442,6 +501,19 @@
     font-size: 9px; font-weight: 800; color: white;
     flex-shrink: 0; letter-spacing: 0.02em;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .ledger-btn-tiny {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.25rem 0.55rem;
+    font-size: 11px; font-weight: 600;
+    color: rgb(82, 82, 91);
+    border-radius: 0.4rem;
+    transition: background 0.15s, color 0.15s;
+  }
+  :global(.dark) .ledger-btn-tiny { color: rgb(212, 212, 216); }
+  .ledger-btn-tiny:hover {
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(16, 185, 129);
   }
   .ledger-share-banner {
     padding: 0.5rem 0.75rem;
@@ -468,64 +540,11 @@
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
   .ledger-share-copy:hover { color: rgb(16, 185, 129); }
-
-  .ledger-editor-wrap {
+  .ledger-sheet {
     flex: 1;
-    padding: 1.5rem 2rem;
-    overflow-y: auto;
-    background: #ffffff;
+    overflow: hidden;
+    background: white;
+    position: relative;
   }
-  :global(.dark) .ledger-editor-wrap {
-    background: rgb(24, 24, 27);
-  }
-  .ledger-editor {
-    max-width: 740px;
-    margin: 0 auto;
-    min-height: 50vh;
-  }
-  :global(.ledger-prose) {
-    outline: none;
-    font-size: 16px;
-    line-height: 1.65;
-    color: rgb(24, 24, 27);
-  }
-  :global(.dark) :global(.ledger-prose) {
-    color: rgb(228, 228, 231);
-  }
-  :global(.ledger-prose h1) { font-size: 1.875rem; font-weight: 800; margin: 1.5rem 0 1rem; }
-  :global(.ledger-prose h2) { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
-  :global(.ledger-prose h3) { font-size: 1.25rem; font-weight: 700; margin: 1.25rem 0 0.5rem; }
-  :global(.ledger-prose p) { margin: 0.5rem 0; }
-  :global(.ledger-prose ul), :global(.ledger-prose ol) { margin: 0.5rem 0 0.5rem 1.5rem; }
-  :global(.ledger-prose ul) { list-style: disc; }
-  :global(.ledger-prose ol) { list-style: decimal; }
-  :global(.ledger-prose li) { margin: 0.25rem 0; }
-  :global(.ledger-prose code) {
-    font-family: 'fira-code', monospace; font-size: 0.875em;
-    background: rgba(16, 185, 129, 0.08); border-radius: 4px;
-    padding: 2px 5px;
-  }
-  :global(.dark) :global(.ledger-prose code) { background: rgba(16, 185, 129, 0.12); }
-  :global(.ledger-prose pre) {
-    font-family: 'fira-code', monospace; font-size: 0.875em;
-    background: rgba(0, 0, 0, 0.04); border-radius: 8px;
-    padding: 0.75rem 1rem; margin: 0.75rem 0;
-    overflow-x: auto;
-  }
-  :global(.dark) :global(.ledger-prose pre) { background: rgba(255, 255, 255, 0.05); }
-  :global(.ledger-prose blockquote) {
-    border-left: 3px solid rgba(16, 185, 129, 0.4);
-    padding-left: 0.75rem;
-    margin: 0.5rem 0;
-    color: rgb(113, 113, 122);
-  }
-  :global(.ledger-prose strong) { font-weight: 700; }
-  :global(.ledger-prose em) { font-style: italic; }
-  :global(.ledger-prose s) { text-decoration: line-through; opacity: 0.6; }
-  :global(.ledger-prose hr) {
-    border: none;
-    border-top: 1px solid rgba(228, 228, 231, 0.7);
-    margin: 1.5rem 0;
-  }
-  :global(.dark) :global(.ledger-prose hr) { border-top-color: rgba(63, 63, 70, 0.5); }
+  :global(.x-spreadsheet) { font-family: ui-sans-serif, system-ui, sans-serif !important; }
 </style>
