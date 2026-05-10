@@ -147,8 +147,9 @@
   }
 
   function genRoomId(): string {
-    const arr = crypto.getRandomValues(new Uint8Array(6));
-    return Array.from(arr, b => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+    const arr = crypto.getRandomValues(new Uint8Array(3));
+    const num = ((arr[0] << 16) | (arr[1] << 8) | arr[2]) % 1000000;
+    return String(num).padStart(6, '0');
   }
 
   function genHostToken(): string {
@@ -245,8 +246,8 @@
 
   function joinGame() {
     joinError = '';
-    const code = joinCode.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (code.length < 4 || code.length > 12) {
+    const code = joinCode.replace(/\D/g, '');
+    if (code.length !== 6) {
       joinError = t(dict, 'quiz.errorBadCode');
       return;
     }
@@ -315,14 +316,16 @@
     <div class="space-y-1.5">
       <label class="label block">{t(dict, 'quiz.joinCode')}</label>
       <input
-        class="input w-full text-center text-lg tracking-widest font-mono uppercase"
+        class="input w-full text-center text-2xl tracking-[0.3em] font-mono"
         type="text"
+        inputmode="numeric"
+        pattern="[0-9]*"
         bind:value={joinCode}
-        placeholder="ABCD1234"
-        maxlength="12"
+        placeholder="123 456"
+        maxlength="6"
         autocomplete="off"
         on:keydown={(e) => e.key === 'Enter' && joinGame()}
-        autocapitalize="characters"
+        on:input={() => { joinCode = joinCode.replace(/\D/g, '').slice(0, 6); }}
         spellcheck="false"
       />
       {#if joinError}
