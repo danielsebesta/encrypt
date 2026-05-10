@@ -994,7 +994,7 @@
   "quiz.pageTitleHighlight": "Quiz",
   "quiz.pageSubtitle": "Quiz multijoueur en direct. Sans compte, sans limite, rien n'est stocke. Cree, partage le code, joue.",
   "quiz.menuNew": "Nouveau quiz",
-  "quiz.menuImport": "Importer .json",
+  "quiz.menuImport": "Importer un quiz",
   "quiz.menuJoin": "Rejoindre",
   "quiz.savedDrafts": "Brouillons enregistres",
   "quiz.questionsShort": "questions",

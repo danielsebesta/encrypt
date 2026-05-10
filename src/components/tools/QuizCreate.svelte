@@ -236,57 +236,183 @@
     URL.revokeObjectURL(url);
   }
 
-  function handleImport(e: Event) {
+  function clampDuration(d: any, fallback = 20): number {
+    const n = parseInt(String(d), 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(5, Math.min(120, n));
+  }
+
+  function clampQuestion(text: string, rawChoices: string[], correctIdx: number, duration: number): Question | null {
+    const cleaned = rawChoices.map(c => String(c || '').trim().slice(0, CHOICE_MAX));
+    const filled = cleaned.filter(c => c).length;
+    if (!text || filled < 2) return null;
+    for (let j = 0; j < 4; j++) if (!cleaned[j]) cleaned[j] = `Option ${j + 1}`;
+    const ci = (correctIdx >= 0 && correctIdx <= 3 ? correctIdx : 0) as 0 | 1 | 2 | 3;
+    return {
+      text: text.trim().slice(0, TEXT_MAX),
+      choices: [cleaned[0], cleaned[1], cleaned[2], cleaned[3]],
+      correctIndex: ci,
+      duration: clampDuration(duration),
+    };
+  }
+
+  function parseJsonImport(raw: string): { title: string; questions: Question[] } {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.title !== 'string' || !Array.isArray(parsed.questions)) {
+      throw new Error('not our format');
+    }
+    const questions: Question[] = [];
+    for (const q of parsed.questions.slice(0, MAX_QUESTIONS)) {
+      if (
+        typeof q.text === 'string' &&
+        Array.isArray(q.choices) && q.choices.length === 4 &&
+        q.choices.every((c: any) => typeof c === 'string') &&
+        [0, 1, 2, 3].includes(q.correctIndex)
+      ) {
+        const cleaned = clampQuestion(q.text, q.choices, q.correctIndex, q.duration);
+        if (cleaned) questions.push(cleaned);
+      }
+    }
+    return { title: String(parsed.title).slice(0, TITLE_MAX), questions };
+  }
+
+  // Kahoot's bulk-add XLSX template:
+  //  rows 1-7 = instructions, row 8 = headers, rows 9+ = data
+  //  cols: Question | Answer 1 | Answer 2 | Answer 3 | Answer 4 | Time | Correct
+  async function parseXlsxImport(buffer: ArrayBuffer, fallbackTitle: string): Promise<{ title: string; questions: Question[] }> {
+    const XLSX: any = await import('xlsx');
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(20, rows.length); i++) {
+      const r = (rows[i] || []).map(c => String(c).toLowerCase().trim());
+      if (r[0] === 'question' && r[1]?.startsWith('answer')) { headerIdx = i; break; }
+    }
+    if (headerIdx === -1) {
+      // Fallback: assume first row is data, no header
+      headerIdx = -1;
+    }
+
+    const questions: Question[] = [];
+    const start = headerIdx >= 0 ? headerIdx + 1 : 0;
+    for (let i = start; i < rows.length; i++) {
+      const row = rows[i] || [];
+      const text = String(row[0] || '').trim();
+      if (!text) continue;
+      const choices = [String(row[1] || ''), String(row[2] || ''), String(row[3] || ''), String(row[4] || '')];
+      const correctRaw = String(row[6] ?? row[5] ?? '1').trim();
+      const correctNum = parseInt(correctRaw.split(/[,\s]/)[0], 10);
+      const correctIndex = (correctNum >= 1 && correctNum <= 4 ? correctNum - 1 : 0);
+      const duration = clampDuration(row[5], 20);
+      const q = clampQuestion(text, choices, correctIndex, duration);
+      if (q) questions.push(q);
+      if (questions.length >= MAX_QUESTIONS) break;
+    }
+    return { title: fallbackTitle, questions };
+  }
+
+  function parseCsvLine(line: string): string[] {
+    const out: string[] = [];
+    let cur = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQuote) {
+        if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (c === '"') { inQuote = false; }
+        else { cur += c; }
+      } else {
+        if (c === '"') { inQuote = true; }
+        else if (c === ',' || c === ';' || c === '\t') { out.push(cur); cur = ''; }
+        else { cur += c; }
+      }
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  }
+
+  function parseCsvImport(text: string, fallbackTitle: string): { title: string; questions: Question[] } {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim());
+    if (!lines.length) return { title: fallbackTitle, questions: [] };
+
+    let start = 0;
+    const first = parseCsvLine(lines[0]).map(s => s.toLowerCase());
+    if (first[0]?.includes('question') || first[0] === 'q') start = 1;
+
+    const questions: Question[] = [];
+    for (let i = start; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+      if (!cols[0]) continue;
+      const text = cols[0];
+      const choices = [cols[1] || '', cols[2] || '', cols[3] || '', cols[4] || ''];
+      // correct can be column 5 (1-based) or 6 (with time at col 5)
+      // try col 6 first (Kahoot order: text, A1-4, time, correct)
+      let correctRaw = cols[6];
+      let durationRaw = cols[5];
+      if (!correctRaw) {
+        // fallback: col 5 is correct, col 6 is time
+        correctRaw = cols[5] || '1';
+        durationRaw = cols[6] || '20';
+      }
+      let correctNum = parseInt(String(correctRaw).split(/[,\s]/)[0], 10);
+      if (!Number.isFinite(correctNum)) {
+        // letters A/B/C/D
+        const letter = String(correctRaw).trim().toUpperCase().charCodeAt(0);
+        if (letter >= 65 && letter <= 68) correctNum = letter - 64;
+      }
+      const correctIndex = (correctNum >= 1 && correctNum <= 4 ? correctNum - 1 : 0);
+      const q = clampQuestion(text, choices, correctIndex, clampDuration(durationRaw, 20));
+      if (q) questions.push(q);
+      if (questions.length >= MAX_QUESTIONS) break;
+    }
+    return { title: fallbackTitle, questions };
+  }
+
+  async function handleImport(e: Event) {
     importError = '';
     const target = e.target as HTMLInputElement;
     const file = target.files?.[0];
     if (!file) return;
-    if (file.size > 1_000_000) {
+    if (file.size > 5_000_000) {
       importError = t(dict, 'quiz.errorImportTooLarge');
+      target.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(String(reader.result));
-        if (typeof parsed.title !== 'string' || !Array.isArray(parsed.questions)) {
-          importError = t(dict, 'quiz.errorImportInvalid');
-          return;
-        }
-        const imported: Question[] = [];
-        for (const q of parsed.questions.slice(0, MAX_QUESTIONS)) {
-          if (
-            typeof q.text !== 'string' ||
-            !Array.isArray(q.choices) || q.choices.length !== 4 ||
-            !q.choices.every((c: any) => typeof c === 'string') ||
-            ![0, 1, 2, 3].includes(q.correctIndex)
-          ) continue;
-          imported.push({
-            text: String(q.text).slice(0, TEXT_MAX),
-            choices: [
-              String(q.choices[0]).slice(0, CHOICE_MAX),
-              String(q.choices[1]).slice(0, CHOICE_MAX),
-              String(q.choices[2]).slice(0, CHOICE_MAX),
-              String(q.choices[3]).slice(0, CHOICE_MAX),
-            ],
-            correctIndex: q.correctIndex,
-            duration: typeof q.duration === 'number' ? Math.max(5, Math.min(120, q.duration | 0)) : 20,
-          });
-        }
-        if (imported.length === 0) {
-          importError = t(dict, 'quiz.errorImportEmpty');
-          return;
-        }
-        title = String(parsed.title).slice(0, TITLE_MAX);
-        questions = imported;
-        mode = 'edit';
-      } catch {
+    const name = file.name.toLowerCase();
+    const baseName = file.name.replace(/\.(json|xlsx|xls|csv)$/i, '').replace(/[_-]/g, ' ');
+
+    try {
+      let result: { title: string; questions: Question[] };
+      if (name.endsWith('.json')) {
+        const text = await file.text();
+        result = parseJsonImport(text);
+      } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+        const buf = await file.arrayBuffer();
+        result = await parseXlsxImport(buf, baseName.slice(0, TITLE_MAX) || 'Imported quiz');
+      } else if (name.endsWith('.csv')) {
+        const text = await file.text();
+        result = parseCsvImport(text, baseName.slice(0, TITLE_MAX) || 'Imported quiz');
+      } else {
         importError = t(dict, 'quiz.errorImportInvalid');
-      } finally {
         target.value = '';
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      if (result.questions.length === 0) {
+        importError = t(dict, 'quiz.errorImportEmpty');
+        target.value = '';
+        return;
+      }
+      title = result.title;
+      questions = result.questions;
+      mode = 'edit';
+    } catch {
+      importError = t(dict, 'quiz.errorImportInvalid');
+    } finally {
+      target.value = '';
+    }
   }
 
   function joinGame() {
@@ -349,7 +475,7 @@
         <span>{t(dict, 'quiz.menuJoin')}</span>
       </button>
     </div>
-    <input type="file" accept="application/json,.json" bind:this={fileInputEl} on:change={handleImport} class="sr-only" />
+    <input type="file" accept=".json,.xlsx,.xls,.csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" bind:this={fileInputEl} on:change={handleImport} class="sr-only" />
     {#if importError}
       <p class="text-xs text-red-500 text-center">{importError}</p>
     {/if}
