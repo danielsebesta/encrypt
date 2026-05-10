@@ -1048,5 +1048,8 @@
   "quiz.waitingForOthers": "Čekám na ostatní...",
   "quiz.correct": "Správně!",
   "quiz.wrong": "Vedle",
-  "quiz.totalScore": "Celkem"
+  "quiz.totalScore": "Celkem",
+  "quiz.skip": "Přeskočit",
+  "quiz.nextQuestion": "Další otázka",
+  "quiz.correctAnswer": "Správná odpověď"
 }

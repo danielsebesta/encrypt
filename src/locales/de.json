@@ -1048,5 +1048,8 @@
   "quiz.waitingForOthers": "Warte auf andere...",
   "quiz.correct": "Richtig!",
   "quiz.wrong": "Daneben",
-  "quiz.totalScore": "Gesamt"
+  "quiz.totalScore": "Gesamt",
+  "quiz.skip": "Überspringen",
+  "quiz.nextQuestion": "Nächste Frage",
+  "quiz.correctAnswer": "Richtige Antwort"
 }

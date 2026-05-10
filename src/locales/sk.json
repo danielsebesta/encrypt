@@ -1048,5 +1048,8 @@
   "quiz.waitingForOthers": "Čakám na ostatných...",
   "quiz.correct": "Správne!",
   "quiz.wrong": "Mimo",
-  "quiz.totalScore": "Spolu"
+  "quiz.totalScore": "Spolu",
+  "quiz.skip": "Preskočiť",
+  "quiz.nextQuestion": "Ďalšia otázka",
+  "quiz.correctAnswer": "Správna odpoveď"
 }

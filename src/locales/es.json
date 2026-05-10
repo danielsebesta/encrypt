@@ -1048,5 +1048,8 @@
   "quiz.waitingForOthers": "Esperando a los demás...",
   "quiz.correct": "¡Correcto!",
   "quiz.wrong": "Casi",
-  "quiz.totalScore": "Total"
+  "quiz.totalScore": "Total",
+  "quiz.skip": "Saltar",
+  "quiz.nextQuestion": "Siguiente pregunta",
+  "quiz.correctAnswer": "Respuesta correcta"
 }

@@ -89,8 +89,8 @@
     '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
     // 2: shield
     '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
-    // 3: venetian-mask (simplified silhouette)
-    '<path d="M18 11c-1.5 0-2.5.5-3.5 1.5C13.5 13.5 12.5 14 12 14s-1.5-.5-2.5-1.5C8.5 11.5 7.5 11 6 11a4 4 0 0 0-4 4 7 7 0 0 0 7 7 6 6 0 0 0 5-3 6 6 0 0 0 5 3 7 7 0 0 0 7-7 4 4 0 0 0-4-4z"/><path d="M2 15a3 3 0 0 0 2.5 2.95"/><path d="M22 15a3 3 0 0 1-2.5 2.95"/>',
+    // 3: anonymous / Guy Fawkes-style mask (within 24x24 bounds)
+    '<path d="M12 3.5c-3.5 0-6 2.5-6 6 0 2 .8 3.5 2 5l-1 5 5-1 5 1-1-5c1.2-1.5 2-3 2-5 0-3.5-2.5-6-6-6z"/><ellipse cx="9.5" cy="10.5" rx="1.1" ry="0.7"/><ellipse cx="14.5" cy="10.5" rx="1.1" ry="0.7"/><path d="M9.5 13.5c-1.5.5-2 1.5-1 2.5"/><path d="M14.5 13.5c1.5.5 2 1.5 1 2.5"/><path d="M11.5 16.5l.5 1.5.5-1.5"/>',
   ];
 
   function ensureAudio() {
@@ -324,9 +324,7 @@
         myAnswer = null;
         myLastResult = null;
         answersThisQuestion = 0;
-        if (currentQuestion) {
-          currentQuestion = { ...currentQuestion, startedAt: data.startedAt, duration: data.duration, index: data.index };
-        } else if (role === 'host' && hostQuiz) {
+        if (role === 'host' && hostQuiz) {
           const q = hostQuiz.questions[data.index];
           if (q) {
             currentQuestion = {
@@ -337,6 +335,8 @@
               duration: data.duration,
             };
           }
+        } else if (currentQuestion) {
+          currentQuestion = { ...currentQuestion, startedAt: data.startedAt, duration: data.duration, index: data.index };
         }
         phase = 'question';
         startTimer();
@@ -455,19 +455,29 @@
     ws.send(JSON.stringify({ type: 'host-reveal' }));
   }
 
-  function nextStep() {
-    if (!ws) return;
-    if (phase === 'reveal') {
-      ws.send(JSON.stringify({ type: 'host-next' }));
-    } else if (phase === 'leaderboard') {
-      startQuestionAt(currentIndex + 1);
-    }
-  }
-
   function endGame() {
     if (!ws) return;
     ws.send(JSON.stringify({ type: 'host-end' }));
   }
+
+  function skipOrAdvance() {
+    if (!ws) return;
+    if (phase === 'question') {
+      reveal();
+    } else if (phase === 'reveal') {
+      if (currentIndex + 1 < questionTotal) {
+        startQuestionAt(currentIndex + 1);
+      } else {
+        endGame();
+      }
+    }
+  }
+
+  $: skipLabel =
+    phase === 'question' ? t(dict, 'quiz.skip') :
+    phase === 'reveal'
+      ? (currentIndex + 1 < questionTotal ? t(dict, 'quiz.nextQuestion') : t(dict, 'quiz.showPodium'))
+      : '';
 
   function submitAnswer(choice: 0 | 1 | 2 | 3) {
     if (!ws || phase !== 'question' || myAnswer !== null) return;
@@ -650,98 +660,68 @@
           </button>
         </div>
 
-      {:else if phase === 'question'}
+      {:else if phase === 'question' || phase === 'reveal'}
         <div class="space-y-4">
-          <div class="quiz-progress-bar">
-            <div class="quiz-progress-fill" style="width: {timePercent}%" class:quiz-progress-fill--warn={timerWarn}></div>
-          </div>
-          <div class="flex items-center justify-between text-xs text-zinc-400">
-            <span>{progressLabel}</span>
-            <span class="quiz-timer-num" class:quiz-timer-num--warn={timerWarn}>{timeLeftCeil}s</span>
-          </div>
-
-          <div class="quiz-card text-center">
-            <h2 class="text-xl md:text-2xl font-semibold leading-snug">{currentQuestion?.text}</h2>
-          </div>
-
-          <div class="quiz-host-choices">
-            {#each currentQuestion?.choices || [] as choice, ci}
-              <div class="quiz-host-choice" style="--c: {COLORS[ci].bg}; --cd: {COLORS[ci].dim}" class:quiz-host-choice--correct={hostQuiz && hostQuiz.questions[currentIndex]?.correctIndex === ci}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
-                <span>{choice}</span>
-              </div>
-            {/each}
+          <div class="quiz-stage-header">
+            <div class="quiz-stage-progress">
+              <span class="quiz-stage-num">{progressLabel}</span>
+              {#if phase === 'question'}
+                <span class="quiz-timer-num" class:quiz-timer-num--warn={timerWarn}>{timeLeftCeil}s</span>
+              {/if}
+            </div>
+            <button class="quiz-skip-btn" on:click={skipOrAdvance}>
+              <span>{skipLabel}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+            </button>
           </div>
 
-          <button class="btn w-full" on:click={reveal}>{t(dict, 'quiz.reveal')} →</button>
-        </div>
+          {#if phase === 'question'}
+            <div class="quiz-progress-bar">
+              <div class="quiz-progress-fill" style="width: {timePercent}%" class:quiz-progress-fill--warn={timerWarn}></div>
+            </div>
 
-      {:else if phase === 'reveal'}
-        <div class="space-y-4">
-          <div class="text-center">
-            <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{progressLabel}</p>
-            <h2 class="text-lg font-semibold">{currentQuestion?.text}</h2>
-          </div>
+            <div class="quiz-card text-center">
+              <h2 class="text-xl md:text-2xl font-semibold leading-snug">{currentQuestion?.text}</h2>
+            </div>
 
-          <div class="quiz-host-choices">
-            {#each currentQuestion?.choices || [] as choice, ci}
-              <div
-                class="quiz-host-choice quiz-host-choice--reveal"
-                class:quiz-host-choice--correct={lastReveal?.correctIndex === ci}
-                class:quiz-host-choice--wrong={lastReveal && lastReveal.correctIndex !== ci}
-                style="--c: {COLORS[ci].bg}; --cd: {COLORS[ci].dim}"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
-                <span>{choice}</span>
-                <span class="quiz-reveal-bar">
-                  <span class="quiz-reveal-fill" style="width: {(revealCounts[ci] / revealMax) * 100}%; background: {COLORS[ci].bg}"></span>
-                  <span class="quiz-reveal-count">{revealCounts[ci]}</span>
-                </span>
-              </div>
-            {/each}
-          </div>
-
-          <div class="quiz-card">
-            <h3 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">{t(dict, 'quiz.leaderboard')}</h3>
-            <div class="quiz-leaderboard">
-              {#each leaderboard.slice(0, 5) as p}
-                <div class="quiz-lb-row">
-                  <span class="quiz-lb-rank">{p.rank}</span>
-                  <span class="quiz-lb-nick">{p.nick}</span>
-                  <span class="quiz-lb-score">{p.score}</span>
+            <div class="quiz-host-choices">
+              {#each currentQuestion?.choices || [] as choice, ci}
+                <div class="quiz-host-choice" style="--c: {COLORS[ci].bg}; --cd: {COLORS[ci].dim}">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
+                  <span>{choice}</span>
                 </div>
               {/each}
             </div>
-          </div>
 
-          <button class="btn w-full" on:click={nextStep}>
-            {currentIndex + 1 >= questionTotal ? t(dict, 'quiz.showPodium') : t(dict, 'quiz.next')} →
-          </button>
-        </div>
-
-      {:else if phase === 'leaderboard'}
-        <div class="space-y-4">
-          <div class="text-center">
-            <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.afterQuestion')} {currentIndex + 1}</p>
-            <h2 class="text-lg font-semibold">{t(dict, 'quiz.leaderboard')}</h2>
-          </div>
-
-          <div class="quiz-card">
-            <div class="quiz-leaderboard">
-              {#each leaderboard.slice(0, 10) as p}
-                <div class="quiz-lb-row">
-                  <span class="quiz-lb-rank">{p.rank}</span>
-                  <span class="quiz-lb-nick">{p.nick}</span>
-                  <span class="quiz-lb-score">{p.score}</span>
-                </div>
-              {/each}
+            <div class="quiz-answer-count">
+              {#if currentQuestion}
+                <span>{leaderboard.filter(p => p.alive).length > 0 ? `${players.filter(p => p.alive).length}` : '0'} {t(dict, 'quiz.players')}</span>
+              {/if}
             </div>
-          </div>
+          {:else}
+            <div class="quiz-card text-center py-3">
+              <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.correctAnswer')}</p>
+              {#if lastReveal && currentQuestion}
+                <div class="quiz-correct-pill" style="--c: {COLORS[lastReveal.correctIndex].bg}; --cd: {COLORS[lastReveal.correctIndex].dim}">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[lastReveal.correctIndex]}</svg>
+                  <span>{currentQuestion.choices[lastReveal.correctIndex]}</span>
+                </div>
+              {/if}
+            </div>
 
-          <button class="btn w-full" on:click={nextStep}>
-            {t(dict, 'quiz.startQuestion')} {currentIndex + 2} →
-          </button>
-          <button class="btn-outline w-full text-xs" on:click={endGame}>{t(dict, 'quiz.endEarly')}</button>
+            <div class="quiz-card">
+              <h3 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">{t(dict, 'quiz.leaderboard')}</h3>
+              <div class="quiz-leaderboard">
+                {#each leaderboard.slice(0, 10) as p}
+                  <div class="quiz-lb-row">
+                    <span class="quiz-lb-rank">{p.rank}</span>
+                    <span class="quiz-lb-nick">{p.nick}</span>
+                    <span class="quiz-lb-score">{p.score}</span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
         </div>
 
       {:else if phase === 'finished'}
@@ -799,26 +779,25 @@
         </div>
 
       {:else if phase === 'question'}
-        <div class="space-y-3">
-          <div class="quiz-progress-bar">
-            <div class="quiz-progress-fill" style="width: {timePercent}%" class:quiz-progress-fill--warn={timerWarn}></div>
-          </div>
+        <div class="space-y-3 quiz-player-stage">
           <div class="flex items-center justify-between text-xs">
             <span class="text-zinc-400">{progressLabel}</span>
             <span class="quiz-timer-num" class:quiz-timer-num--warn={timerWarn}>{timeLeftCeil}s</span>
           </div>
+          <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" style="width: {timePercent}%" class:quiz-progress-fill--warn={timerWarn}></div>
+          </div>
 
           {#if myAnswer === null}
-            <div class="quiz-question-text">{currentQuestion?.text}</div>
             <div class="quiz-player-grid">
               {#each [0, 1, 2, 3] as ci}
                 <button
                   class="quiz-player-btn"
                   style="--c: {COLORS[ci].bg}"
                   on:click={() => submitAnswer(ci)}
+                  aria-label={`Answer ${ci + 1}`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
-                  <span class="quiz-player-btn-text">{currentQuestion?.choices[ci] || ''}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
                 </button>
               {/each}
             </div>
@@ -850,25 +829,6 @@
 
           <div class="quiz-card">
             <h3 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">{t(dict, 'quiz.leaderboard')}</h3>
-            <div class="quiz-leaderboard">
-              {#each leaderboard.slice(0, 5) as p}
-                <div class="quiz-lb-row" class:quiz-lb-row--me={p.nick === playerNick}>
-                  <span class="quiz-lb-rank">{p.rank}</span>
-                  <span class="quiz-lb-nick">{p.nick}</span>
-                  <span class="quiz-lb-score">{p.score}</span>
-                </div>
-              {/each}
-            </div>
-          </div>
-        </div>
-
-      {:else if phase === 'leaderboard'}
-        <div class="space-y-4">
-          <div class="text-center">
-            <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.afterQuestion')} {currentIndex + 1}</p>
-            <h2 class="text-lg font-semibold">{t(dict, 'quiz.leaderboard')}</h2>
-          </div>
-          <div class="quiz-card">
             <div class="quiz-leaderboard">
               {#each leaderboard.slice(0, 10) as p}
                 <div class="quiz-lb-row" class:quiz-lb-row--me={p.nick === playerNick}>
@@ -1040,6 +1000,49 @@
     background: rgba(161, 161, 170, 0.15);
     color: rgb(113, 113, 122);
   }
+  .quiz-stage-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .quiz-stage-progress {
+    display: flex; align-items: center; gap: 0.7rem;
+    font-size: 12px;
+  }
+  .quiz-stage-num {
+    color: rgb(113, 113, 122); font-weight: 600;
+    font-family: 'fira-code', monospace;
+  }
+  .quiz-skip-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.85rem; border-radius: 0.5rem;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: rgb(5, 150, 105);
+    font-size: 12px; font-weight: 700;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  :global(.dark) .quiz-skip-btn {
+    background: rgba(16, 185, 129, 0.14);
+    color: rgb(52, 211, 153);
+  }
+  .quiz-skip-btn:hover {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.35);
+  }
+  .quiz-answer-count {
+    text-align: center; font-size: 11px; color: rgb(113, 113, 122);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .quiz-correct-pill {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    border-radius: 9999px;
+    background: var(--cd);
+    color: var(--c);
+    font-weight: 700; font-size: 15px;
+    border: 2px solid var(--c);
+    box-shadow: 0 0 16px -2px var(--c);
+  }
   .quiz-progress-bar {
     height: 6px;
     border-radius: 9999px;
@@ -1116,33 +1119,31 @@
   .quiz-host-choice--correct {
     border-color: rgb(16, 185, 129);
   }
-  .quiz-question-text {
-    font-size: 18px; font-weight: 600;
-    text-align: center; padding: 1rem 0.75rem;
-    line-height: 1.4;
+  .quiz-player-stage {
+    min-height: calc(100vh - 9rem);
+    display: flex; flex-direction: column;
   }
   .quiz-player-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
-    min-height: 60vh;
+    flex: 1; min-height: 60vh;
   }
   .quiz-player-btn {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
     padding: 1rem;
     border-radius: 0.85rem;
     background: var(--c);
     color: white;
-    font-weight: 700;
     transition: transform 0.1s ease-out;
     box-shadow: 0 6px 20px -8px var(--c);
+    aspect-ratio: 1;
   }
   .quiz-player-btn:active {
     transform: scale(0.96);
   }
-  .quiz-player-btn-text {
-    font-size: 13px; font-weight: 600;
-    text-align: center;
-    line-height: 1.2;
-    word-break: break-word;
+  .quiz-player-btn svg {
+    width: 50%;
+    height: 50%;
+    max-width: 80px; max-height: 80px;
   }
   .quiz-answered-icon {
     width: 80px; height: 80px;
