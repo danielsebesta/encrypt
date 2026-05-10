@@ -1052,5 +1052,10 @@
   "quiz.skip": "Skip",
   "quiz.nextQuestion": "Next question",
   "quiz.correctAnswer": "Correct answer",
-  "quiz.getReady": "Get ready"
+  "quiz.getReady": "Get ready",
+  "quiz.resumeAvailable": "Resume in-progress game",
+  "quiz.resumeRoomCode": "Room",
+  "quiz.resume": "Resume",
+  "quiz.errorHandshakeFailed": "Encryption handshake failed. Refresh and try again.",
+  "quiz.errorNickTaken": "Nickname is taken"
 }
