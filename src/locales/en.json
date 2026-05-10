@@ -994,7 +994,7 @@
   "quiz.pageTitleHighlight": "Quiz",
   "quiz.pageSubtitle": "Live multiplayer quiz. No accounts, no limits, nothing stored. Build a quiz, share the room code, play.",
   "quiz.menuNew": "New quiz",
-  "quiz.menuImport": "Import .json",
+  "quiz.menuImport": "Import quiz",
   "quiz.menuJoin": "Join game",
   "quiz.savedDrafts": "Saved drafts",
   "quiz.questionsShort": "questions",

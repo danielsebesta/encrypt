@@ -994,7 +994,7 @@
   "quiz.pageTitleHighlight": "Quiz",
   "quiz.pageSubtitle": "Quiz multijugador en vivo. Sin cuentas, sin límites, nada se guarda. Crea un quiz, comparte el código, juega.",
   "quiz.menuNew": "Nuevo quiz",
-  "quiz.menuImport": "Importar .json",
+  "quiz.menuImport": "Importar quiz",
   "quiz.menuJoin": "Unirse",
   "quiz.savedDrafts": "Borradores guardados",
   "quiz.questionsShort": "preguntas",

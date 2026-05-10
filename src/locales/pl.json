@@ -994,7 +994,7 @@
   "quiz.pageTitleHighlight": "Quiz",
   "quiz.pageSubtitle": "Quiz wieloosobowy na żywo. Bez kont, bez limitów, nic się nie zapisuje. Stwórz, udostępnij kod, graj.",
   "quiz.menuNew": "Nowy quiz",
-  "quiz.menuImport": "Importuj .json",
+  "quiz.menuImport": "Importuj quiz",
   "quiz.menuJoin": "Dołącz",
   "quiz.savedDrafts": "Zapisane szkice",
   "quiz.questionsShort": "pytań",

@@ -994,7 +994,7 @@
   "quiz.pageTitleHighlight": "Quiz",
   "quiz.pageSubtitle": "Live-Multiplayer-Quiz. Keine Konten, kein Limit, nichts wird gespeichert. Quiz erstellen, Code teilen, spielen.",
   "quiz.menuNew": "Neues Quiz",
-  "quiz.menuImport": ".json importieren",
+  "quiz.menuImport": "Quiz importieren",
   "quiz.menuJoin": "Beitreten",
   "quiz.savedDrafts": "Gespeicherte Entwürfe",
   "quiz.questionsShort": "Fragen",

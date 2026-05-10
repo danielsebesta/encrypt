@@ -994,7 +994,7 @@
   "quiz.pageTitleHighlight": "Kvíz",
   "quiz.pageSubtitle": "Živý kvíz pre skupiny. Bez účtov, bez limitu hráčov, nič sa neukladá. Vytvor kvíz, zdieľaj kód, hraj.",
   "quiz.menuNew": "Nový kvíz",
-  "quiz.menuImport": "Importovať .json",
+  "quiz.menuImport": "Importovať kvíz",
   "quiz.menuJoin": "Pripojiť sa",
   "quiz.savedDrafts": "Uložené koncepty",
   "quiz.questionsShort": "otázok",
