@@ -31,7 +31,7 @@
   type ServerQuestion = { index: number; text: string; choices: [string, string, string, string]; startedAt: number; duration: number };
   type ServerReveal = { index: number; correctIndex: 0 | 1 | 2 | 3; perChoiceCounts: [number, number, number, number] };
 
-  type Phase = 'lobby' | 'question' | 'reveal' | 'finished';
+  type Phase = 'lobby' | 'question' | 'reveal' | 'leaderboard' | 'finished';
 
   const PLAYER_TOKEN_KEY = `quiz-player-${roomId}`;
   const HOST_KEY = `quiz-host-${roomId}`;
@@ -660,12 +660,21 @@
     if (phase === 'question') {
       hostReveal();
     } else if (phase === 'reveal') {
+      hostShowLeaderboard();
+    } else if (phase === 'leaderboard') {
       if (currentIndex + 1 < questionTotal) {
         hostStartQuestionAt(currentIndex + 1);
       } else {
         endGame();
       }
     }
+  }
+
+  function hostShowLeaderboard() {
+    if (phase !== 'reveal') return;
+    phase = 'leaderboard';
+    hostBroadcastState();
+    persistGameState();
   }
 
   // ── Host: broadcast helpers ─────────────────────────────────────────────────
@@ -722,7 +731,10 @@
     }
     if (phase === 'reveal' && lastReveal) {
       p.reveal = lastReveal;
+    }
+    if (phase === 'leaderboard') {
       p.leaderboard = leaderboard;
+      if (lastReveal) p.reveal = lastReveal;
     }
     if (phase === 'finished') {
       p.podium = podium;
@@ -934,7 +946,8 @@
 
   $: skipLabel =
     phase === 'question' ? t(dict, 'quiz.skip') :
-    phase === 'reveal'
+    phase === 'reveal' ? t(dict, 'quiz.showLeaderboard') :
+    phase === 'leaderboard'
       ? (currentIndex + 1 < questionTotal ? t(dict, 'quiz.nextQuestion') : t(dict, 'quiz.showPodium'))
       : '';
 
@@ -980,6 +993,7 @@
   $: timePercent = currentQuestion ? Math.max(0, Math.min(100, (timeLeft * 1000 / currentQuestion.duration) * 100)) : 0;
   $: revealCounts = lastReveal?.perChoiceCounts || [0, 0, 0, 0];
   $: revealMax = Math.max(1, ...revealCounts);
+  $: revealTotal = revealCounts.reduce((a, b) => a + b, 0);
   $: progressLabel = questionTotal > 0 ? `${currentIndex + 1} / ${questionTotal}` : '';
   $: timerWarn = timeLeft <= 5 && timeLeft > 0 && phase === 'question';
   $: formattedRoomCode = roomId.length === 6 && /^\d+$/.test(roomId) ? `${roomId.slice(0, 3)} ${roomId.slice(3)}` : roomId.toUpperCase();
@@ -1120,7 +1134,7 @@
           </button>
         </div>
 
-      {:else if phase === 'question' || phase === 'reveal'}
+      {:else if phase === 'question' || phase === 'reveal' || phase === 'leaderboard'}
         <div class="space-y-4">
           <div class="quiz-stage-header">
             <div class="quiz-stage-progress">
@@ -1158,19 +1172,44 @@
                 <span>{leaderboard.filter(p => p.alive).length > 0 ? `${players.filter(p => p.alive).length}` : '0'} {t(dict, 'quiz.players')}</span>
               {/if}
             </div>
-          {:else}
-            <div class="quiz-card text-center py-3">
-              <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.correctAnswer')}</p>
-              {#if lastReveal && currentQuestion}
-                <div class="quiz-correct-pill" style="--c: {COLORS[lastReveal.correctIndex].bg}; --cd: {COLORS[lastReveal.correctIndex].dim}">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[lastReveal.correctIndex]}</svg>
-                  <span>{currentQuestion.choices[lastReveal.correctIndex]}</span>
+
+          {:else if phase === 'reveal'}
+            <div class="quiz-card text-center py-2">
+              <h2 class="text-base md:text-lg font-semibold leading-snug">{currentQuestion?.text}</h2>
+            </div>
+
+            <div class="quiz-host-choices">
+              {#each currentQuestion?.choices || [] as choice, ci}
+                <div
+                  class="quiz-host-choice quiz-host-choice--reveal"
+                  class:quiz-host-choice--correct={lastReveal?.correctIndex === ci}
+                  class:quiz-host-choice--wrong={lastReveal && lastReveal.correctIndex !== ci}
+                  style="--c: {COLORS[ci].bg}; --cd: {COLORS[ci].dim}"
+                >
+                  <div class="quiz-reveal-head">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
+                    <span class="quiz-reveal-text">{choice}</span>
+                    {#if lastReveal?.correctIndex === ci}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="quiz-reveal-check"><polyline points="20 6 9 17 4 12"/></svg>
+                    {/if}
+                  </div>
+                  <div class="quiz-reveal-bar">
+                    <div class="quiz-reveal-fill" style="width: {revealTotal > 0 ? (revealCounts[ci] / revealMax) * 100 : 0}%; background: {COLORS[ci].bg}"></div>
+                    <span class="quiz-reveal-count">
+                      {revealCounts[ci]}{revealTotal > 0 ? ` · ${Math.round((revealCounts[ci] / revealTotal) * 100)}%` : ''}
+                    </span>
+                  </div>
                 </div>
-              {/if}
+              {/each}
+            </div>
+
+          {:else}
+            <div class="text-center">
+              <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.afterQuestion')} {currentIndex + 1}</p>
+              <h2 class="text-lg font-semibold">{t(dict, 'quiz.leaderboard')}</h2>
             </div>
 
             <div class="quiz-card">
-              <h3 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">{t(dict, 'quiz.leaderboard')}</h3>
               <div class="quiz-leaderboard">
                 {#each leaderboard.slice(0, 10) as p}
                   <div class="quiz-lb-row">
@@ -1274,20 +1313,26 @@
       {:else if phase === 'reveal'}
         <div class="space-y-4">
           {#if myLastResult}
-            <div class="quiz-card text-center space-y-2 py-6" class:quiz-result-correct={myLastResult.correct} class:quiz-result-wrong={!myLastResult.correct}>
-              <div class="text-4xl mb-1">{myLastResult.correct ? '✓' : '✗'}</div>
-              <p class="text-lg font-semibold">
+            <div class="quiz-card text-center space-y-2 py-8" class:quiz-result-correct={myLastResult.correct} class:quiz-result-wrong={!myLastResult.correct}>
+              <div class="text-5xl mb-2">{myLastResult.correct ? '✓' : '✗'}</div>
+              <p class="text-xl font-semibold">
                 {myLastResult.correct ? t(dict, 'quiz.correct') : t(dict, 'quiz.wrong')}
               </p>
               {#if myLastResult.gained > 0}
-                <p class="text-sm text-emerald-500">+{myLastResult.gained}</p>
+                <p class="text-lg text-emerald-500 font-semibold">+{myLastResult.gained}</p>
               {/if}
               <p class="text-xs text-zinc-400">{t(dict, 'quiz.totalScore')}: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{myScore}</span></p>
             </div>
           {/if}
+        </div>
 
+      {:else if phase === 'leaderboard'}
+        <div class="space-y-4">
+          <div class="text-center">
+            <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.afterQuestion')} {currentIndex + 1}</p>
+            <h2 class="text-lg font-semibold">{t(dict, 'quiz.leaderboard')}</h2>
+          </div>
           <div class="quiz-card">
-            <h3 class="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-2">{t(dict, 'quiz.leaderboard')}</h3>
             <div class="quiz-leaderboard">
               {#each leaderboard.slice(0, 10) as p}
                 <div class="quiz-lb-row" class:quiz-lb-row--me={p.nick === playerNick}>
@@ -1543,16 +1588,32 @@
   }
   .quiz-host-choice--reveal {
     flex-direction: column; align-items: stretch;
-    gap: 0.4rem;
+    gap: 0.45rem;
+    padding: 0.7rem 0.85rem;
   }
-  .quiz-host-choice--reveal > svg { align-self: center; }
-  .quiz-host-choice--reveal > span:first-of-type { font-size: 12px; }
+  .quiz-reveal-head {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .quiz-reveal-text {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 14px; font-weight: 700;
+  }
+  .quiz-reveal-check {
+    color: rgb(16, 185, 129);
+    flex-shrink: 0;
+  }
   .quiz-host-choice--reveal.quiz-host-choice--correct {
     border-color: rgb(16, 185, 129);
-    box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.4);
+    animation: quiz-correct-pulse 1.4s ease-in-out 1;
   }
   .quiz-host-choice--reveal.quiz-host-choice--wrong {
-    opacity: 0.45;
+    opacity: 0.4;
+  }
+  @keyframes quiz-correct-pulse {
+    0%, 100% { transform: scale(1); }
+    30% { transform: scale(1.04); }
   }
   .quiz-reveal-bar {
     position: relative;

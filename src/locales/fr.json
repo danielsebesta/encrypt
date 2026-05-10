@@ -1057,5 +1057,6 @@
   "quiz.resumeRoomCode": "Salle",
   "quiz.resume": "Reprendre",
   "quiz.errorHandshakeFailed": "Echec du handshake de chiffrement. Recharge et reessaie.",
-  "quiz.errorNickTaken": "Pseudo deja pris"
+  "quiz.errorNickTaken": "Pseudo deja pris",
+  "quiz.showLeaderboard": "Afficher le classement"
 }

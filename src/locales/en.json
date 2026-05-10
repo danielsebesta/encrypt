@@ -1057,5 +1057,6 @@
   "quiz.resumeRoomCode": "Room",
   "quiz.resume": "Resume",
   "quiz.errorHandshakeFailed": "Encryption handshake failed. Refresh and try again.",
-  "quiz.errorNickTaken": "Nickname is taken"
+  "quiz.errorNickTaken": "Nickname is taken",
+  "quiz.showLeaderboard": "Show leaderboard"
 }
