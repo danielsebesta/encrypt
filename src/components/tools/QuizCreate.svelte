@@ -34,6 +34,51 @@
   let importError = '';
   let fileInputEl: HTMLInputElement;
 
+  type ActiveGameStub = { roomId: string; title: string; questionCount: number; updatedAt: number };
+  const ACTIVE_TTL_MS = 60 * 60 * 1000;
+  let activeGames: ActiveGameStub[] = [];
+
+  function loadActiveGames() {
+    if (typeof localStorage === 'undefined') return;
+    const out: ActiveGameStub[] = [];
+    const stale: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('quiz-active-')) continue;
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - (parsed.updatedAt || 0) > ACTIVE_TTL_MS) {
+          stale.push(key);
+          continue;
+        }
+        if (!parsed.roomId || !parsed.title || !Array.isArray(parsed.questions)) continue;
+        out.push({
+          roomId: parsed.roomId,
+          title: parsed.title,
+          questionCount: parsed.questions.length,
+          updatedAt: parsed.updatedAt || 0,
+        });
+      } catch {}
+    }
+    for (const key of stale) {
+      try { localStorage.removeItem(key); } catch {}
+    }
+    activeGames = out.sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  function resumeActiveGame(roomId: string) {
+    const localePrefix = locale === 'en' ? '' : `/${locale}`;
+    window.location.href = `${localePrefix}/quiz/${roomId}`;
+  }
+
+  function dismissActiveGame(roomId: string) {
+    if (typeof localStorage === 'undefined') return;
+    try { localStorage.removeItem(`quiz-active-${roomId}`); } catch {}
+    activeGames = activeGames.filter(g => g.roomId !== roomId);
+  }
+
   function blankQuestion(): Question {
     return {
       text: '',
@@ -262,11 +307,34 @@
 
   onMount(() => {
     loadDrafts();
+    loadActiveGames();
   });
 </script>
 
 {#if mode === 'menu'}
   <div class="space-y-6">
+    {#if activeGames.length > 0}
+      <div>
+        <h2 class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-3">{t(dict, 'quiz.resumeAvailable')}</h2>
+        <div class="space-y-2">
+          {#each activeGames as game}
+            <div class="qc-resume">
+              <div class="flex-1 min-w-0">
+                <div class="qc-resume-title">{game.title}</div>
+                <div class="qc-resume-meta">{t(dict, 'quiz.resumeRoomCode')}: <code>{game.roomId}</code> · {game.questionCount} {t(dict, 'quiz.questionsShort')}</div>
+              </div>
+              <button class="qc-resume-go" on:click={() => resumeActiveGame(game.roomId)}>
+                {t(dict, 'quiz.resume')} →
+              </button>
+              <button class="qc-resume-del" on:click={() => dismissActiveGame(game.roomId)} aria-label={t(dict, 'quiz.delete')}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     <div class="grid gap-3 sm:grid-cols-3">
       <button class="qc-action qc-action--primary" on:click={newQuiz}>
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -484,6 +552,45 @@
   .qc-draft-meta {
     font-size: 11px; color: rgb(161, 161, 170);
   }
+  .qc-resume {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.6rem;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  :global(.dark) .qc-resume {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+  .qc-resume-title {
+    font-size: 13px; font-weight: 700;
+    color: rgb(5, 150, 105);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  :global(.dark) .qc-resume-title { color: rgb(52, 211, 153); }
+  .qc-resume-meta {
+    font-size: 11px; color: rgb(113, 113, 122);
+  }
+  .qc-resume-meta code {
+    font-family: 'fira-code', monospace; font-size: 11px;
+    background: rgba(255,255,255,0.6);
+    padding: 1px 4px; border-radius: 3px;
+  }
+  :global(.dark) .qc-resume-meta code {
+    background: rgba(0,0,0,0.3);
+  }
+  .qc-resume-go {
+    padding: 0.4rem 0.7rem; border-radius: 0.4rem;
+    background: rgb(16, 185, 129); color: white;
+    font-size: 12px; font-weight: 700;
+  }
+  .qc-resume-go:hover { background: rgb(5, 150, 105); }
+  .qc-resume-del {
+    padding: 0.4rem; color: rgb(161, 161, 170);
+    transition: color 0.15s;
+  }
+  .qc-resume-del:hover { color: rgb(239, 68, 68); }
   .qc-draft-del {
     padding: 0.6rem 0.7rem; color: rgb(161, 161, 170);
     transition: color 0.15s, background 0.15s;

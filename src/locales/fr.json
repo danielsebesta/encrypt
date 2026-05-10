@@ -1052,5 +1052,10 @@
   "quiz.skip": "Passer",
   "quiz.nextQuestion": "Question suivante",
   "quiz.correctAnswer": "Bonne reponse",
-  "quiz.getReady": "Prepare-toi"
+  "quiz.getReady": "Prepare-toi",
+  "quiz.resumeAvailable": "Reprendre la partie en cours",
+  "quiz.resumeRoomCode": "Salle",
+  "quiz.resume": "Reprendre",
+  "quiz.errorHandshakeFailed": "Echec du handshake de chiffrement. Recharge et reessaie.",
+  "quiz.errorNickTaken": "Pseudo deja pris"
 }

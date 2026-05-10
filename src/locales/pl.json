@@ -1052,5 +1052,10 @@
   "quiz.skip": "Pomiń",
   "quiz.nextQuestion": "Następne pytanie",
   "quiz.correctAnswer": "Poprawna odpowiedź",
-  "quiz.getReady": "Przygotuj się"
+  "quiz.getReady": "Przygotuj się",
+  "quiz.resumeAvailable": "Wznów rozgrywkę",
+  "quiz.resumeRoomCode": "Pokój",
+  "quiz.resume": "Wznów",
+  "quiz.errorHandshakeFailed": "Handshake szyfrowania nie powiódł się. Odśwież i spróbuj ponownie.",
+  "quiz.errorNickTaken": "Pseudonim zajęty"
 }

@@ -1052,5 +1052,10 @@
   "quiz.skip": "Überspringen",
   "quiz.nextQuestion": "Nächste Frage",
   "quiz.correctAnswer": "Richtige Antwort",
-  "quiz.getReady": "Mach dich bereit"
+  "quiz.getReady": "Mach dich bereit",
+  "quiz.resumeAvailable": "Laufendes Spiel fortsetzen",
+  "quiz.resumeRoomCode": "Raum",
+  "quiz.resume": "Fortsetzen",
+  "quiz.errorHandshakeFailed": "Verschlüsselungs-Handshake fehlgeschlagen. Seite neu laden.",
+  "quiz.errorNickTaken": "Spitzname ist vergeben"
 }

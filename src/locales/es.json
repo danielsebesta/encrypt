@@ -1052,5 +1052,10 @@
   "quiz.skip": "Saltar",
   "quiz.nextQuestion": "Siguiente pregunta",
   "quiz.correctAnswer": "Respuesta correcta",
-  "quiz.getReady": "Prepárate"
+  "quiz.getReady": "Prepárate",
+  "quiz.resumeAvailable": "Reanudar partida en curso",
+  "quiz.resumeRoomCode": "Sala",
+  "quiz.resume": "Reanudar",
+  "quiz.errorHandshakeFailed": "Falló el handshake de cifrado. Recarga e inténtalo de nuevo.",
+  "quiz.errorNickTaken": "Apodo en uso"
 }

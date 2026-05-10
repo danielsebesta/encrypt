@@ -2,6 +2,10 @@
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
   import QRCode from 'qrcode';
+  import {
+    generateEphemeralKeypair, exportPublicKey, importPublicKey, deriveSharedKey,
+    generateRoomKey, importRoomKey, encryptMessage, decryptMessage,
+  } from '../../lib/quizCrypto';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -27,10 +31,14 @@
   type ServerQuestion = { index: number; text: string; choices: [string, string, string, string]; startedAt: number; duration: number };
   type ServerReveal = { index: number; correctIndex: 0 | 1 | 2 | 3; perChoiceCounts: [number, number, number, number] };
 
-  type Phase = 'lobby' | 'question' | 'reveal' | 'leaderboard' | 'finished';
+  type Phase = 'lobby' | 'question' | 'reveal' | 'finished';
 
   const PLAYER_TOKEN_KEY = `quiz-player-${roomId}`;
   const HOST_KEY = `quiz-host-${roomId}`;
+  const ACTIVE_KEY = `quiz-active-${roomId}`;
+  const COUNTDOWN_MS = 3000;
+  const ACTIVE_TTL_MS = 60 * 60 * 1000;
+  const NICK_MAX = 24;
 
   let role: 'pending' | 'host' | 'player' = 'pending';
   let phase: Phase = 'lobby';
@@ -38,9 +46,32 @@
   let connecting = false;
   let serverError = '';
   let hostPaused = false;
+  let myConnId = '';
 
-  // Host state
+  // Host (creator) state
   let hostQuiz: HostQuiz | null = null;
+  let hostKeypair: CryptoKeyPair | null = null;
+  let hostPublicKeyB64 = '';
+  let hostRoomKeyB64 = '';        // base64 of room passphrase (32 random bytes)
+  let hostRoomKey: CryptoKey | null = null;
+
+  type HostPlayer = {
+    token: string;
+    connId: string | null;
+    nick: string;
+    score: number;
+  };
+  let hostPlayers = new Map<string, HostPlayer>();             // keyed by token
+  let hostConnToToken = new Map<string, string>();             // connId → token
+  let hostConnSharedKey = new Map<string, CryptoKey>();        // connId → ECDH shared key
+
+  let hostCurrent: {
+    index: number; text: string; choices: [string, string, string, string]; correctIndex: 0|1|2|3;
+    duration: number; startedAt: number; endsAt: number;
+    answers: Map<string, { choice: 0|1|2|3; receivedAt: number }>;
+  } | null = null;
+  let hostQuestionTimeout: ReturnType<typeof setTimeout> | null = null;
+  let persistTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Player state
   let needsNick = false;
@@ -49,8 +80,11 @@
   let playerNick = '';
   let playerToken = '';
   let myScore = 0;
+  let playerKeypair: CryptoKeyPair | null = null;
+  let playerRoomKey: CryptoKey | null = null;
+  let handshaking = false;
 
-  // Game state from server
+  // Game state mirrored on player (or computed by host)
   let currentQuestion: ServerQuestion | null = null;
   let questionTotal = 0;
   let currentIndex = -1;
@@ -62,7 +96,6 @@
   let podium: LeaderboardEntry[] = [];
   let myAnswer: 0 | 1 | 2 | 3 | null = null;
   let myLastResult: { correct: boolean; gained: number } | null = null;
-  let answersThisQuestion = 0;
 
   // Audio
   let audioCtx: AudioContext | null = null;
@@ -219,30 +252,61 @@
     sessionStorage.setItem(`${PLAYER_TOKEN_KEY}-nick`, nick);
   }
 
-  function init() {
+  async function init() {
     if (typeof window === 'undefined') return;
+
+    const active = loadActiveGame();
     const quiz = loadHostQuiz();
-    if (quiz) {
+
+    if (quiz || active) {
       role = 'host';
-      hostQuiz = quiz;
+      hostQuiz = quiz ?? (active ? { token: active.hostToken, title: active.title, questions: active.questions } : null);
+      hostKeypair = await generateEphemeralKeypair();
+      hostPublicKeyB64 = await exportPublicKey(hostKeypair.publicKey);
+
+      if (active) {
+        // Resume in-progress game
+        hostRoomKeyB64 = active.roomKey;
+        hostRoomKey = await importRoomKey(hostRoomKeyB64);
+        for (const p of active.players) {
+          hostPlayers.set(p.token, { token: p.token, connId: null, nick: p.nick, score: p.score });
+        }
+        phase = active.phase;
+        currentIndex = active.currentIndex;
+        questionTotal = hostQuiz ? hostQuiz.questions.length : 0;
+        if (active.lastReveal) lastReveal = active.lastReveal;
+        if (active.podium) podium = active.podium;
+        recomputeLeaderboardFromHost();
+      } else {
+        hostRoomKeyB64 = await generateRoomKey();
+        hostRoomKey = await importRoomKey(hostRoomKeyB64);
+        questionTotal = hostQuiz ? hostQuiz.questions.length : 0;
+      }
       connectWs();
       return;
     }
+
     role = 'player';
     playerToken = loadPlayerToken();
     const savedNick = loadPlayerNick();
     if (savedNick) {
       playerNick = savedNick;
       nickInput = savedNick;
-      connectWs();
+      await beginPlayerHandshake();
     } else {
       needsNick = true;
     }
   }
 
+  async function beginPlayerHandshake() {
+    handshaking = true;
+    playerKeypair = await generateEphemeralKeypair();
+    connectWs();
+  }
+
   function submitNick() {
     nickError = '';
-    const trimmed = nickInput.trim().slice(0, 24);
+    const trimmed = nickInput.trim().slice(0, NICK_MAX);
     if (!trimmed) {
       nickError = t(dict, 'quiz.errorNickRequired');
       return;
@@ -250,7 +314,7 @@
     playerNick = trimmed;
     savePlayerNick(trimmed);
     needsNick = false;
-    connectWs();
+    beginPlayerHandshake();
   }
 
   function connectWs() {
@@ -270,179 +334,544 @@
       connected = true;
       connecting = false;
       serverError = '';
-      sendIdentity();
     });
-    ws.addEventListener('close', () => {
-      connected = false;
-    });
-    ws.addEventListener('error', () => {
-      connecting = false;
-    });
-    ws.addEventListener('message', handleMessage);
+    ws.addEventListener('close', () => { connected = false; });
+    ws.addEventListener('error', () => { connecting = false; });
+    ws.addEventListener('message', handleServerMessage);
   }
 
-  function sendIdentity() {
+  // ── Envelope helpers ────────────────────────────────────────────────────────
+
+  function sendEnvelope(payload: any, to?: string) {
     if (!ws || ws.readyState !== 1) return;
-    if (role === 'host' && hostQuiz) {
-      ws.send(JSON.stringify({
-        type: 'host-claim',
-        token: hostQuiz.token,
-        total: hostQuiz.questions.length,
-      }));
-    } else if (role === 'player' && playerNick) {
-      ws.send(JSON.stringify({
-        type: 'player-join',
-        nick: playerNick,
-        token: playerToken,
-      }));
-    }
+    ws.send(JSON.stringify({ type: 'envelope', to, payload }));
   }
 
-  function handleMessage(event: MessageEvent) {
+  async function sendEncrypted(roomKey: CryptoKey, payload: any, to?: string) {
+    const ciphertext = await encryptMessage(roomKey, JSON.stringify(payload));
+    sendEnvelope({ type: 'enc', ciphertext }, to);
+  }
+
+  // ── Server message handler ──────────────────────────────────────────────────
+
+  async function handleServerMessage(event: MessageEvent) {
     let data: any;
     try { data = JSON.parse(event.data); } catch { return; }
     if (!data || typeof data.type !== 'string') return;
 
     switch (data.type) {
-      case 'hello':
+      case 'init':
+        myConnId = data.connId || '';
+        serverPresence = data.presence || 0;
+        if (role === 'player' && handshaking) {
+          await sendDhHello();
+        } else if (role === 'host') {
+          // Announce ourselves so any waiting players can (re-)handshake
+          sendEnvelope({ type: 'host-online' });
+          await hostBroadcastState();
+        }
         return;
 
       case 'presence':
         serverPresence = data.count || 0;
         return;
 
-      case 'state':
-        phase = data.phase;
-        questionTotal = data.questionTotal || 0;
-        currentIndex = data.currentIndex ?? -1;
-        hostPaused = !data.hostAlive && phase !== 'lobby' && phase !== 'finished';
-        if (data.question) {
-          currentQuestion = data.question;
-          startTimer();
-        }
-        if (data.reveal) {
-          lastReveal = data.reveal;
-        }
-        if (Array.isArray(data.leaderboard)) {
-          leaderboard = data.leaderboard;
-        }
-        if (Array.isArray(data.players)) {
-          players = data.players;
-          updateMyScore();
-        }
-        if (data.podium) {
-          podium = data.podium;
-        }
+      case 'peer-join':
         return;
 
-      case 'players':
-        players = data.players || [];
-        leaderboard = players;
-        updateMyScore();
-        return;
-
-      case 'join-ok':
-        playerNick = data.nick;
-        myScore = data.score || 0;
-        return;
-
-      case 'question-content':
-        if (role === 'player') {
-          currentQuestion = {
-            index: data.index,
-            text: data.text,
-            choices: data.choices,
-            startedAt: currentQuestion?.startedAt || Date.now(),
-            duration: currentQuestion?.duration || 20000,
-          };
-        }
-        return;
-
-      case 'question-start':
-        currentIndex = data.index;
-        questionTotal = data.total || questionTotal;
-        myAnswer = null;
-        myLastResult = null;
-        answersThisQuestion = 0;
-        if (role === 'host' && hostQuiz) {
-          const q = hostQuiz.questions[data.index];
-          if (q) {
-            currentQuestion = {
-              index: data.index,
-              text: q.text,
-              choices: q.choices,
-              startedAt: data.startedAt,
-              duration: data.duration,
-            };
+      case 'peer-leave':
+        if (role === 'host') {
+          const token = hostConnToToken.get(data.id);
+          hostConnToToken.delete(data.id);
+          hostConnSharedKey.delete(data.id);
+          if (token) {
+            const p = hostPlayers.get(token);
+            if (p && p.connId === data.id) {
+              p.connId = null;
+              hostPlayers = hostPlayers;
+              recomputeLeaderboardFromHost();
+              await hostBroadcastPlayers();
+              persistGameState();
+            }
           }
-        } else if (currentQuestion) {
-          currentQuestion = { ...currentQuestion, startedAt: data.startedAt, duration: data.duration, index: data.index };
+        } else if (role === 'player' && data.id && hostConnIdGuess && data.id === hostConnIdGuess) {
+          // host disconnected
+          hostPaused = true;
         }
-        phase = 'question';
-        startTimer();
         return;
 
-      case 'all-answered':
-        return;
+      case 'envelope': {
+        const from = data.from as string;
+        const payload = data.payload;
+        const receivedAt = data.receivedAt as number;
+        if (!payload || typeof payload.type !== 'string') return;
 
-      case 'answer-ack':
-        myAnswer = data.choice;
+        if (payload.type === 'host-online' && role === 'player') {
+          hostConnIdGuess = from;
+          if (!playerRoomKey) await sendDhHello();
+          else hostPaused = false;
+        } else if (payload.type === 'dh-hello' && role === 'host') {
+          await hostHandleDhHello(from, payload);
+        } else if (payload.type === 'dh-welcome' && role === 'player') {
+          await playerHandleDhWelcome(from, payload);
+        } else if (payload.type === 'enc') {
+          if (role === 'host') {
+            await hostHandleEncrypted(from, payload.ciphertext, receivedAt);
+          } else if (role === 'player') {
+            await playerHandleEncrypted(from, payload.ciphertext);
+          }
+        }
         return;
-
-      case 'reveal':
-        phase = 'reveal';
-        lastReveal = {
-          index: data.index,
-          correctIndex: data.correctIndex,
-          perChoiceCounts: data.perChoiceCounts,
-        };
-        leaderboard = data.leaderboard || [];
-        updateMyScore();
-        stopTimer();
-        return;
-
-      case 'my-result':
-        myLastResult = { correct: data.correct, gained: data.gained };
-        myScore = data.score;
-        return;
-
-      case 'leaderboard':
-        phase = 'leaderboard';
-        leaderboard = data.leaderboard || [];
-        updateMyScore();
-        return;
-
-      case 'final':
-        phase = 'finished';
-        podium = data.podium || [];
-        leaderboard = data.podium || [];
-        updateMyScore();
-        stopTimer();
-        playFinalChord();
-        return;
-
-      case 'host-paused':
-        hostPaused = true;
-        return;
-
-      case 'host-resumed':
-        hostPaused = false;
-        return;
+      }
 
       case 'error':
         serverError = data.message || 'Error';
-        if (data.code === 'NICK_TAKEN') {
-          needsNick = true;
-        } else if (data.code === 'ROOM_TAKEN') {
+        if (data.code === 'ROOM_LOCKED') {
           serverError = t(dict, 'quiz.errorRoomTaken');
         }
         return;
     }
   }
 
+  // ── ECDH handshake ──────────────────────────────────────────────────────────
+
+  let hostConnIdGuess = ''; // player-side: assumed host connId after dh-welcome
+
+  async function sendDhHello() {
+    if (!playerKeypair) return;
+    const pubKey = await exportPublicKey(playerKeypair.publicKey);
+    sendEnvelope({ type: 'dh-hello', pubKey });
+  }
+
+  async function hostHandleDhHello(fromConnId: string, msg: any) {
+    if (!hostKeypair || !hostRoomKeyB64) return;
+    try {
+      const peerPub = await importPublicKey(msg.pubKey);
+      const sharedKey = await deriveSharedKey(hostKeypair.privateKey, peerPub);
+      hostConnSharedKey.set(fromConnId, sharedKey);
+
+      // Encrypt room key with shared secret and send dh-welcome direct to peer
+      const encryptedRoomKey = await encryptMessage(sharedKey, hostRoomKeyB64);
+      sendEnvelope({
+        type: 'dh-welcome',
+        pubKey: hostPublicKeyB64,
+        encryptedRoomKey,
+      }, fromConnId);
+    } catch {}
+  }
+
+  async function playerHandleDhWelcome(fromConnId: string, msg: any) {
+    if (!playerKeypair || playerRoomKey) return; // ignore extra welcomes
+    try {
+      const hostPub = await importPublicKey(msg.pubKey);
+      const sharedKey = await deriveSharedKey(playerKeypair.privateKey, hostPub);
+      const roomKeyB64 = await decryptMessage(sharedKey, msg.encryptedRoomKey);
+      playerRoomKey = await importRoomKey(roomKeyB64);
+      hostConnIdGuess = fromConnId;
+      handshaking = false;
+
+      // Announce ourselves to host
+      await sendEncrypted(playerRoomKey, {
+        type: 'p-join', nick: playerNick, token: playerToken,
+      }, fromConnId);
+    } catch {
+      serverError = t(dict, 'quiz.errorHandshakeFailed');
+    }
+  }
+
+  // ── Host: encrypted message handling ────────────────────────────────────────
+
+  async function hostHandleEncrypted(fromConnId: string, ciphertext: string, receivedAt: number) {
+    if (!hostRoomKey) return;
+    let payload: any;
+    try {
+      const text = await decryptMessage(hostRoomKey, ciphertext);
+      payload = JSON.parse(text);
+    } catch { return; }
+
+    if (!payload || typeof payload.type !== 'string') return;
+
+    if (payload.type === 'p-join') {
+      await hostHandlePlayerJoin(fromConnId, payload.nick, payload.token);
+    } else if (payload.type === 'p-answer') {
+      await hostHandlePlayerAnswer(fromConnId, payload.index, payload.choice, receivedAt);
+    }
+  }
+
+  async function hostHandlePlayerJoin(fromConnId: string, nick: string, token: string) {
+    nick = String(nick || '').trim().slice(0, NICK_MAX);
+    token = String(token || '');
+    if (!nick || token.length < 8) return;
+
+    let player = hostPlayers.get(token);
+    if (player) {
+      player.connId = fromConnId;
+      player.nick = nick;
+    } else {
+      // new player; check nick collision among alive
+      for (const p of hostPlayers.values()) {
+        if (p.connId && p.nick.toLowerCase() === nick.toLowerCase()) {
+          await sendEncrypted(hostRoomKey!, {
+            type: 'h-error', code: 'NICK_TAKEN', message: t(dict, 'quiz.errorNickTaken'),
+          }, fromConnId);
+          return;
+        }
+      }
+      player = { token, connId: fromConnId, nick, score: 0 };
+      hostPlayers.set(token, player);
+    }
+    hostConnToToken.set(fromConnId, token);
+    hostPlayers = hostPlayers;
+    recomputeLeaderboardFromHost();
+
+    // Confirm join to player
+    await sendEncrypted(hostRoomKey!, {
+      type: 'h-join-ok', nick: player.nick, score: player.score,
+    }, fromConnId);
+
+    // Send full state to this player
+    await hostSendStateTo(fromConnId);
+
+    // Broadcast players to all
+    await hostBroadcastPlayers();
+    persistGameState();
+  }
+
+  async function hostHandlePlayerAnswer(fromConnId: string, index: number, choice: number, receivedAt: number) {
+    const token = hostConnToToken.get(fromConnId);
+    if (!token) return;
+    const player = hostPlayers.get(token);
+    if (!player) return;
+
+    if (phase !== 'question' || !hostCurrent || hostCurrent.index !== index) return;
+    if (![0, 1, 2, 3].includes(choice)) return;
+    if (receivedAt < hostCurrent.startedAt) return;
+    if (receivedAt > hostCurrent.endsAt) return;
+    if (hostCurrent.answers.has(token)) return;
+
+    hostCurrent.answers.set(token, { choice: choice as 0|1|2|3, receivedAt });
+
+    // Ack to that player
+    await sendEncrypted(hostRoomKey!, { type: 'h-ack', choice }, fromConnId);
+
+    // If everyone alive answered, auto-reveal
+    let aliveCount = 0;
+    for (const p of hostPlayers.values()) if (p.connId) aliveCount++;
+    if (aliveCount > 0 && hostCurrent.answers.size >= aliveCount) {
+      hostReveal();
+    }
+  }
+
+  // ── Host: game flow ─────────────────────────────────────────────────────────
+
+  function startGame() {
+    if (!hostQuiz || phase !== 'lobby') return;
+    hostStartQuestionAt(0);
+  }
+
+  function hostStartQuestionAt(index: number) {
+    if (!hostQuiz) return;
+    const q = hostQuiz.questions[index];
+    if (!q) return;
+    ensureAudio();
+
+    const now = Date.now();
+    const startedAt = now + COUNTDOWN_MS;
+    const duration = q.duration * 1000;
+    hostCurrent = {
+      index,
+      text: q.text,
+      choices: q.choices,
+      correctIndex: q.correctIndex,
+      duration,
+      startedAt,
+      endsAt: startedAt + duration,
+      answers: new Map(),
+    };
+    phase = 'question';
+    currentIndex = index;
+    lastReveal = null;
+    myAnswer = null;
+    myLastResult = null;
+    currentQuestion = {
+      index, text: q.text, choices: q.choices, startedAt, duration,
+    };
+
+    if (hostQuestionTimeout) clearTimeout(hostQuestionTimeout);
+    hostQuestionTimeout = setTimeout(() => hostReveal(), COUNTDOWN_MS + duration + 50);
+
+    startTimer();
+    hostBroadcastState();
+    persistGameState();
+  }
+
+  function hostReveal() {
+    if (phase !== 'question' || !hostCurrent) return;
+    if (hostQuestionTimeout) { clearTimeout(hostQuestionTimeout); hostQuestionTimeout = null; }
+
+    const q = hostCurrent;
+    const counts: [number, number, number, number] = [0, 0, 0, 0];
+    for (const a of q.answers.values()) counts[a.choice]++;
+
+    const myResults = new Map<string, { correct: boolean; gained: number }>();
+    for (const [token, a] of q.answers) {
+      const player = hostPlayers.get(token);
+      if (!player) continue;
+      const correct = a.choice === q.correctIndex;
+      const elapsed = Math.max(0, a.receivedAt - q.startedAt);
+      const ratio = Math.min(1, elapsed / q.duration);
+      const gained = correct ? Math.max(500, Math.round(1000 - 500 * ratio)) : 0;
+      player.score += gained;
+      myResults.set(token, { correct, gained });
+    }
+    hostPlayers = hostPlayers;
+    phase = 'reveal';
+    lastReveal = { index: q.index, correctIndex: q.correctIndex, perChoiceCounts: counts };
+    recomputeLeaderboardFromHost();
+    stopTimer();
+
+    hostBroadcastState();
+
+    // Send per-player results
+    for (const [token, player] of hostPlayers) {
+      if (!player.connId) continue;
+      const r = myResults.get(token) ?? { correct: false, gained: 0 };
+      sendEncrypted(hostRoomKey!, {
+        type: 'h-result', correct: r.correct, gained: r.gained, score: player.score,
+      }, player.connId);
+    }
+    persistGameState();
+  }
+
+  function endGame() {
+    if (hostQuestionTimeout) { clearTimeout(hostQuestionTimeout); hostQuestionTimeout = null; }
+    phase = 'finished';
+    hostCurrent = null;
+    recomputeLeaderboardFromHost();
+    podium = [...leaderboard].slice(0, 10);
+    stopTimer();
+    playFinalChord();
+    hostBroadcastState();
+    clearActiveGame();
+  }
+
+  function skipOrAdvance() {
+    if (role !== 'host') return;
+    if (phase === 'question') {
+      hostReveal();
+    } else if (phase === 'reveal') {
+      if (currentIndex + 1 < questionTotal) {
+        hostStartQuestionAt(currentIndex + 1);
+      } else {
+        endGame();
+      }
+    }
+  }
+
+  // ── Host: broadcast helpers ─────────────────────────────────────────────────
+
+  function recomputeLeaderboardFromHost() {
+    const arr: LeaderboardEntry[] = [];
+    let i = 0;
+    const sorted = [...hostPlayers.values()].sort((a, b) => b.score - a.score);
+    for (const p of sorted) {
+      i++;
+      arr.push({ nick: p.nick, score: p.score, alive: !!p.connId, rank: i });
+    }
+    leaderboard = arr;
+    players = arr;
+  }
+
+  async function hostBroadcastPlayers() {
+    if (!hostRoomKey) return;
+    await sendEncrypted(hostRoomKey, { type: 'h-players', players: leaderboard });
+  }
+
+  async function hostBroadcastState() {
+    if (!hostRoomKey) return;
+    const payload = buildHostStatePayload();
+    await sendEncrypted(hostRoomKey, payload);
+  }
+
+  async function hostSendStateTo(connId: string) {
+    if (!hostRoomKey) return;
+    const payload = buildHostStatePayload();
+    await sendEncrypted(hostRoomKey, payload, connId);
+  }
+
+  function buildHostStatePayload() {
+    const p: any = {
+      type: 'h-state',
+      phase,
+      currentIndex,
+      questionTotal,
+      players: leaderboard,
+    };
+    if (phase === 'question' && hostCurrent) {
+      p.question = {
+        index: hostCurrent.index,
+        text: hostCurrent.text,
+        choices: hostCurrent.choices,
+        startedAt: hostCurrent.startedAt,
+        duration: hostCurrent.duration,
+      };
+    }
+    if (phase === 'reveal' && lastReveal) {
+      p.reveal = lastReveal;
+      p.leaderboard = leaderboard;
+    }
+    if (phase === 'finished') {
+      p.podium = podium;
+    }
+    return p;
+  }
+
+  // ── Player: encrypted message handling ──────────────────────────────────────
+
+  async function playerHandleEncrypted(fromConnId: string, ciphertext: string) {
+    if (!playerRoomKey) return;
+    // Reject encrypted h-* messages from anyone except the host. Server-added
+    // `from` is trusted in the honest-but-curious threat model; this blocks
+    // player-vs-player impersonation despite all players sharing the room key.
+    if (!hostConnIdGuess || fromConnId !== hostConnIdGuess) return;
+
+    let payload: any;
+    try {
+      const text = await decryptMessage(playerRoomKey, ciphertext);
+      payload = JSON.parse(text);
+    } catch { return; }
+
+    if (!payload || typeof payload.type !== 'string') return;
+
+    switch (payload.type) {
+      case 'h-state': {
+        phase = payload.phase;
+        currentIndex = payload.currentIndex ?? -1;
+        questionTotal = payload.questionTotal || 0;
+        if (Array.isArray(payload.players)) {
+          players = payload.players;
+          leaderboard = payload.players;
+          updateMyScore();
+        }
+        if (payload.question) {
+          currentQuestion = payload.question;
+          myAnswer = null;
+          myLastResult = null;
+          startTimer();
+        }
+        if (payload.reveal) {
+          lastReveal = payload.reveal;
+          stopTimer();
+        }
+        if (payload.leaderboard) {
+          leaderboard = payload.leaderboard;
+        }
+        if (payload.podium) {
+          podium = payload.podium;
+          stopTimer();
+          playFinalChord();
+        }
+        hostPaused = false;
+        return;
+      }
+      case 'h-players':
+        players = payload.players || [];
+        leaderboard = payload.players || [];
+        updateMyScore();
+        return;
+      case 'h-join-ok':
+        playerNick = payload.nick || playerNick;
+        myScore = payload.score || 0;
+        return;
+      case 'h-ack':
+        myAnswer = payload.choice;
+        return;
+      case 'h-result':
+        myLastResult = { correct: payload.correct, gained: payload.gained };
+        myScore = payload.score;
+        return;
+      case 'h-error':
+        serverError = payload.message || 'Error';
+        if (payload.code === 'NICK_TAKEN') needsNick = true;
+        return;
+    }
+  }
+
+  // ── Persistence ─────────────────────────────────────────────────────────────
+
+  type ActiveGame = {
+    roomId: string;
+    hostToken: string;
+    title: string;
+    questions: Question[];
+    roomKey: string;
+    players: { token: string; nick: string; score: number }[];
+    phase: Phase;
+    currentIndex: number;
+    lastReveal: ServerReveal | null;
+    podium: LeaderboardEntry[];
+    updatedAt: number;
+  };
+
+  function loadActiveGame(): ActiveGame | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(ACTIVE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as ActiveGame;
+      if (parsed.roomId !== roomId) return null;
+      if (Date.now() - parsed.updatedAt > ACTIVE_TTL_MS) {
+        localStorage.removeItem(ACTIVE_KEY);
+        return null;
+      }
+      return parsed;
+    } catch { return null; }
+  }
+
+  function persistGameState() {
+    if (role !== 'host' || !hostQuiz) return;
+    if (typeof localStorage === 'undefined') return;
+    if (persistTimeout) clearTimeout(persistTimeout);
+    persistTimeout = setTimeout(() => {
+      try {
+        const data: ActiveGame = {
+          roomId,
+          hostToken: hostQuiz!.token,
+          title: hostQuiz!.title,
+          questions: hostQuiz!.questions,
+          roomKey: hostRoomKeyB64,
+          players: [...hostPlayers.values()].map(p => ({ token: p.token, nick: p.nick, score: p.score })),
+          phase,
+          currentIndex,
+          lastReveal,
+          podium,
+          updatedAt: Date.now(),
+        };
+        localStorage.setItem(ACTIVE_KEY, JSON.stringify(data));
+      } catch {}
+    }, 400);
+  }
+
+  function clearActiveGame() {
+    if (typeof localStorage === 'undefined') return;
+    try { localStorage.removeItem(ACTIVE_KEY); } catch {}
+  }
+
+  // ── Player: submit answer ───────────────────────────────────────────────────
+
+  async function submitAnswer(choice: 0 | 1 | 2 | 3) {
+    if (!playerRoomKey || phase !== 'question' || myAnswer !== null) return;
+    if (countdownNum > 0) return;
+    ensureAudio();
+    myAnswer = choice;
+    await sendEncrypted(playerRoomKey, {
+      type: 'p-answer', index: currentIndex, choice,
+    }, hostConnIdGuess || undefined);
+  }
+
   function updateMyScore() {
     if (role !== 'player' || !playerNick) return;
-    const me = players.find(p => p.nick === playerNick) || leaderboard.find(p => p.nick === playerNick);
+    const me = players.find(p => p.nick === playerNick);
     if (me) myScore = me.score;
   }
 
@@ -487,61 +916,11 @@
     }
   }
 
-  function startGame() {
-    if (!ws || !hostQuiz || phase !== 'lobby') return;
-    startQuestionAt(0);
-  }
-
-  function startQuestionAt(index: number) {
-    if (!ws || !hostQuiz) return;
-    const q = hostQuiz.questions[index];
-    if (!q) return;
-    ensureAudio();
-    ws.send(JSON.stringify({
-      type: 'host-start-question',
-      index,
-      text: q.text,
-      choices: q.choices,
-      correctIndex: q.correctIndex,
-      duration: q.duration * 1000,
-    }));
-  }
-
-  function reveal() {
-    if (!ws || phase !== 'question') return;
-    ws.send(JSON.stringify({ type: 'host-reveal' }));
-  }
-
-  function endGame() {
-    if (!ws) return;
-    ws.send(JSON.stringify({ type: 'host-end' }));
-  }
-
-  function skipOrAdvance() {
-    if (!ws) return;
-    if (phase === 'question') {
-      reveal();
-    } else if (phase === 'reveal') {
-      if (currentIndex + 1 < questionTotal) {
-        startQuestionAt(currentIndex + 1);
-      } else {
-        endGame();
-      }
-    }
-  }
-
   $: skipLabel =
     phase === 'question' ? t(dict, 'quiz.skip') :
     phase === 'reveal'
       ? (currentIndex + 1 < questionTotal ? t(dict, 'quiz.nextQuestion') : t(dict, 'quiz.showPodium'))
       : '';
-
-  function submitAnswer(choice: 0 | 1 | 2 | 3) {
-    if (!ws || phase !== 'question' || myAnswer !== null) return;
-    ensureAudio();
-    myAnswer = choice;
-    ws.send(JSON.stringify({ type: 'player-answer', choice }));
-  }
 
   function getShareUrl(): string {
     if (typeof window === 'undefined') return '';
@@ -575,6 +954,7 @@
   function leaveAndCleanup() {
     if (role === 'host') {
       try { sessionStorage.removeItem(HOST_KEY); } catch {}
+      clearActiveGame();
     }
     const localePrefix = locale === 'en' ? '' : `/${locale}`;
     window.location.href = `${localePrefix}/quiz`;

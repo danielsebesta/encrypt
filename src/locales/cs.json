@@ -1052,5 +1052,10 @@
   "quiz.skip": "Přeskočit",
   "quiz.nextQuestion": "Další otázka",
   "quiz.correctAnswer": "Správná odpověď",
-  "quiz.getReady": "Připrav se"
+  "quiz.getReady": "Připrav se",
+  "quiz.resumeAvailable": "Pokračovat v rozehrané hře",
+  "quiz.resumeRoomCode": "Místnost",
+  "quiz.resume": "Pokračovat",
+  "quiz.errorHandshakeFailed": "Šifrované spojení selhalo. Obnov stránku a zkus to znovu.",
+  "quiz.errorNickTaken": "Tato přezdívka je obsazená"
 }
