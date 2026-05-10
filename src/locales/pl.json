@@ -1057,5 +1057,6 @@
   "quiz.resumeRoomCode": "Pokój",
   "quiz.resume": "Wznów",
   "quiz.errorHandshakeFailed": "Handshake szyfrowania nie powiódł się. Odśwież i spróbuj ponownie.",
-  "quiz.errorNickTaken": "Pseudonim zajęty"
+  "quiz.errorNickTaken": "Pseudonim zajęty",
+  "quiz.showLeaderboard": "Pokaż ranking"
 }

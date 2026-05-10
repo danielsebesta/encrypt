@@ -1057,5 +1057,6 @@
   "quiz.resumeRoomCode": "Raum",
   "quiz.resume": "Fortsetzen",
   "quiz.errorHandshakeFailed": "Verschlüsselungs-Handshake fehlgeschlagen. Seite neu laden.",
-  "quiz.errorNickTaken": "Spitzname ist vergeben"
+  "quiz.errorNickTaken": "Spitzname ist vergeben",
+  "quiz.showLeaderboard": "Bestenliste zeigen"
 }

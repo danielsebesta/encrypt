@@ -1057,5 +1057,6 @@
   "quiz.resumeRoomCode": "Sala",
   "quiz.resume": "Reanudar",
   "quiz.errorHandshakeFailed": "Falló el handshake de cifrado. Recarga e inténtalo de nuevo.",
-  "quiz.errorNickTaken": "Apodo en uso"
+  "quiz.errorNickTaken": "Apodo en uso",
+  "quiz.showLeaderboard": "Mostrar ranking"
 }

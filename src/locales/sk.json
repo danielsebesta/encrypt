@@ -1057,5 +1057,6 @@
   "quiz.resumeRoomCode": "Miestnosť",
   "quiz.resume": "Pokračovať",
   "quiz.errorHandshakeFailed": "Šifrované spojenie zlyhalo. Obnov stránku a skús znova.",
-  "quiz.errorNickTaken": "Táto prezývka je obsadená"
+  "quiz.errorNickTaken": "Táto prezývka je obsadená",
+  "quiz.showLeaderboard": "Zobraziť rebríček"
 }
