@@ -1051,5 +1051,6 @@
   "quiz.totalScore": "Łącznie",
   "quiz.skip": "Pomiń",
   "quiz.nextQuestion": "Następne pytanie",
-  "quiz.correctAnswer": "Poprawna odpowiedź"
+  "quiz.correctAnswer": "Poprawna odpowiedź",
+  "quiz.getReady": "Przygotuj się"
 }

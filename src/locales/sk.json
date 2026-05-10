@@ -1051,5 +1051,6 @@
   "quiz.totalScore": "Spolu",
   "quiz.skip": "Preskočiť",
   "quiz.nextQuestion": "Ďalšia otázka",
-  "quiz.correctAnswer": "Správna odpoveď"
+  "quiz.correctAnswer": "Správna odpoveď",
+  "quiz.getReady": "Priprav sa"
 }

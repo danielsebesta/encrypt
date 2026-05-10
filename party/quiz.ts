@@ -43,6 +43,7 @@ const CHOICE_MAX = 80;
 const MAX_QUESTIONS = 50;
 const MIN_DURATION = 5_000;
 const MAX_DURATION = 120_000;
+const COUNTDOWN_MS = 3_000;
 
 function clean(s: unknown, max: number): string {
   if (typeof s !== "string") return "";
@@ -261,6 +262,7 @@ export default class QuizRoom {
     }
 
     const now = Date.now();
+    const startedAt = now + COUNTDOWN_MS;
     this.state.phase = "question";
     this.state.currentIndex = index;
     this.state.current = {
@@ -269,14 +271,14 @@ export default class QuizRoom {
       choices: cleaned,
       correctIndex: correctIndex as 0 | 1 | 2 | 3,
       duration,
-      startedAt: now,
-      endsAt: now + duration,
+      startedAt,
+      endsAt: startedAt + duration,
       answers: new Map(),
     };
     this.state.lastReveal = null;
 
     try {
-      await this.party.storage.setAlarm(now + duration + 50);
+      await this.party.storage.setAlarm(startedAt + duration + 50);
     } catch {}
 
     this.broadcastPlayersOnly({
@@ -289,8 +291,9 @@ export default class QuizRoom {
     this.broadcast({
       type: "question-start",
       index,
-      startedAt: now,
+      startedAt,
       duration,
+      countdownMs: COUNTDOWN_MS,
       total: this.state.questionTotal,
     });
   }
@@ -314,6 +317,10 @@ export default class QuizRoom {
     }
 
     const now = Date.now();
+    if (now < this.state.current.startedAt) {
+      this.sendError(sender, "NOT_YET", "Wait for the countdown");
+      return;
+    }
     if (now > this.state.current.endsAt) {
       this.sendError(sender, "TOO_LATE", "Time is up");
       return;

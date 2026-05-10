@@ -1051,5 +1051,6 @@
   "quiz.totalScore": "Gesamt",
   "quiz.skip": "Überspringen",
   "quiz.nextQuestion": "Nächste Frage",
-  "quiz.correctAnswer": "Richtige Antwort"
+  "quiz.correctAnswer": "Richtige Antwort",
+  "quiz.getReady": "Mach dich bereit"
 }
