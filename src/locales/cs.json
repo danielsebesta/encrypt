@@ -1051,5 +1051,6 @@
   "quiz.totalScore": "Celkem",
   "quiz.skip": "Přeskočit",
   "quiz.nextQuestion": "Další otázka",
-  "quiz.correctAnswer": "Správná odpověď"
+  "quiz.correctAnswer": "Správná odpověď",
+  "quiz.getReady": "Připrav se"
 }

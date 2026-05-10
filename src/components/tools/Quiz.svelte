@@ -67,6 +67,10 @@
   // Audio
   let audioCtx: AudioContext | null = null;
   let lastTickAt = 0;
+  let lastCountdownAnnouncement = -1;
+
+  // Countdown state
+  let countdownNum = 0;
 
   // Share state
   let copiedLink = false;
@@ -117,6 +121,42 @@
       gain.connect(audioCtx.destination);
       osc.start(now);
       osc.stop(now + 0.15);
+    } catch {}
+  }
+
+  function playCountdownBeep() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    try {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = 660;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    } catch {}
+  }
+
+  function playGo() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    try {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = 1100;
+      osc.type = 'triangle';
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.28, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.65);
     } catch {}
   }
 
@@ -409,9 +449,26 @@
   function startTimer() {
     stopTimer();
     if (!currentQuestion) return;
+    lastCountdownAnnouncement = -1;
     const update = () => {
       if (!currentQuestion) return;
-      const elapsed = (Date.now() - currentQuestion.startedAt) / 1000;
+      const now = Date.now();
+      const cdLeftMs = currentQuestion.startedAt - now;
+      if (cdLeftMs > 0) {
+        const num = Math.ceil(cdLeftMs / 1000);
+        if (num !== lastCountdownAnnouncement && num >= 1 && num <= 3) {
+          playCountdownBeep();
+          lastCountdownAnnouncement = num;
+        }
+        countdownNum = num;
+        timeLeft = currentQuestion.duration / 1000;
+        return;
+      }
+      if (countdownNum > 0) {
+        countdownNum = 0;
+        playGo();
+      }
+      const elapsed = (now - currentQuestion.startedAt) / 1000;
       const total = currentQuestion.duration / 1000;
       const remaining = Math.max(0, total - elapsed);
       timeLeft = remaining;
@@ -420,7 +477,7 @@
       }
     };
     update();
-    timerInterval = setInterval(update, 200);
+    timerInterval = setInterval(update, 100);
   }
 
   function stopTimer() {
@@ -545,6 +602,13 @@
 </script>
 
 <div class="quiz-shell">
+  {#if phase === 'question' && countdownNum > 0}
+    <div class="quiz-countdown-overlay">
+      <div class="quiz-countdown-num quiz-countdown-num-{countdownNum}" key={countdownNum}>{countdownNum}</div>
+      <p class="quiz-countdown-label">{t(dict, 'quiz.getReady')}</p>
+    </div>
+  {/if}
+
   {#if needsNick}
     <div class="quiz-card max-w-sm mx-auto">
       <div class="text-center space-y-3 mb-5">
@@ -779,16 +843,15 @@
         </div>
 
       {:else if phase === 'question'}
-        <div class="space-y-3 quiz-player-stage">
-          <div class="flex items-center justify-between text-xs">
-            <span class="text-zinc-400">{progressLabel}</span>
-            <span class="quiz-timer-num" class:quiz-timer-num--warn={timerWarn}>{timeLeftCeil}s</span>
-          </div>
-          <div class="quiz-progress-bar">
-            <div class="quiz-progress-fill" style="width: {timePercent}%" class:quiz-progress-fill--warn={timerWarn}></div>
-          </div>
-
-          {#if myAnswer === null}
+        {#if myAnswer === null}
+          <div class="quiz-player-stage">
+            <div class="quiz-player-fs-header">
+              <span class="text-zinc-400">{progressLabel}</span>
+              <span class="quiz-timer-num" class:quiz-timer-num--warn={timerWarn}>{timeLeftCeil}s</span>
+            </div>
+            <div class="quiz-progress-bar">
+              <div class="quiz-progress-fill" style="width: {timePercent}%" class:quiz-progress-fill--warn={timerWarn}></div>
+            </div>
             <div class="quiz-player-grid">
               {#each [0, 1, 2, 3] as ci}
                 <button
@@ -797,20 +860,20 @@
                   on:click={() => submitAnswer(ci)}
                   aria-label={`Answer ${ci + 1}`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
                 </button>
               {/each}
             </div>
-          {:else}
-            <div class="quiz-card text-center space-y-3 py-8">
-              <div class="quiz-answered-icon" style="--c: {COLORS[myAnswer].bg}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[myAnswer]}</svg>
-              </div>
-              <p class="text-sm font-medium">{t(dict, 'quiz.answered')}</p>
-              <p class="text-xs text-zinc-400">{t(dict, 'quiz.waitingForOthers')}</p>
+          </div>
+        {:else}
+          <div class="quiz-card text-center space-y-3 py-8">
+            <div class="quiz-answered-icon" style="--c: {COLORS[myAnswer].bg}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[myAnswer]}</svg>
             </div>
-          {/if}
-        </div>
+            <p class="text-sm font-medium">{t(dict, 'quiz.answered')}</p>
+            <p class="text-xs text-zinc-400">{t(dict, 'quiz.waitingForOthers')}</p>
+          </div>
+        {/if}
 
       {:else if phase === 'reveal'}
         <div class="space-y-4">
@@ -1120,30 +1183,81 @@
     border-color: rgb(16, 185, 129);
   }
   .quiz-player-stage {
-    min-height: calc(100vh - 9rem);
+    position: fixed;
+    inset: 0;
+    z-index: 40;
     display: flex; flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.6rem;
+    background: rgb(250 250 250);
+  }
+  :global(.dark) .quiz-player-stage {
+    background: rgb(9 9 11);
+  }
+  .quiz-player-fs-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px;
+    padding: 0.2rem 0.4rem;
   }
   .quiz-player-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
-    flex: 1; min-height: 60vh;
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0.5rem;
   }
   .quiz-player-btn {
     display: flex; align-items: center; justify-content: center;
-    padding: 1rem;
     border-radius: 0.85rem;
     background: var(--c);
     color: white;
     transition: transform 0.1s ease-out;
     box-shadow: 0 6px 20px -8px var(--c);
-    aspect-ratio: 1;
+    width: 100%; height: 100%;
+    min-width: 0; min-height: 0;
+    padding: 0;
   }
   .quiz-player-btn:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
   }
   .quiz-player-btn svg {
-    width: 50%;
-    height: 50%;
-    max-width: 80px; max-height: 80px;
+    width: 38%;
+    height: 38%;
+    max-width: 96px; max-height: 96px;
+  }
+  .quiz-countdown-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1rem;
+    background: rgba(9, 9, 11, 0.92);
+    backdrop-filter: blur(8px);
+    color: white;
+  }
+  .quiz-countdown-num {
+    font-family: 'fira-code', monospace;
+    font-size: 220px;
+    font-weight: 900;
+    line-height: 1;
+    color: rgb(16, 185, 129);
+    text-shadow: 0 0 64px rgba(16, 185, 129, 0.5);
+    animation: quiz-countdown-pop 1s ease-out;
+  }
+  .quiz-countdown-label {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  @keyframes quiz-countdown-pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    20% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @media (max-width: 480px) {
+    .quiz-countdown-num { font-size: 160px; }
   }
   .quiz-answered-icon {
     width: 80px; height: 80px;
