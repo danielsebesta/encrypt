@@ -1048,5 +1048,8 @@
   "quiz.waitingForOthers": "Czekam na innych...",
   "quiz.correct": "Dobrze!",
   "quiz.wrong": "Pudło",
-  "quiz.totalScore": "Łącznie"
+  "quiz.totalScore": "Łącznie",
+  "quiz.skip": "Pomiń",
+  "quiz.nextQuestion": "Następne pytanie",
+  "quiz.correctAnswer": "Poprawna odpowiedź"
 }

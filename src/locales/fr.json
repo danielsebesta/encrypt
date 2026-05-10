@@ -1048,5 +1048,8 @@
   "quiz.waitingForOthers": "En attente des autres...",
   "quiz.correct": "Correct !",
   "quiz.wrong": "Rate",
-  "quiz.totalScore": "Total"
+  "quiz.totalScore": "Total",
+  "quiz.skip": "Passer",
+  "quiz.nextQuestion": "Question suivante",
+  "quiz.correctAnswer": "Bonne reponse"
 }

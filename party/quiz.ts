@@ -1,6 +1,6 @@
 import type { Party, PartyConnection, PartyRequest } from "partykit/server";
 
-type Phase = "lobby" | "question" | "reveal" | "leaderboard" | "finished";
+type Phase = "lobby" | "question" | "reveal" | "finished";
 
 type Player = {
   token: string;
@@ -92,16 +92,12 @@ export default class QuizRoom {
         return this.handleHostClaim(sender, parsed);
       case "player-join":
         return this.handlePlayerJoin(sender, parsed);
-      case "host-relay-question":
-        return this.handleRelayQuestion(sender, parsed);
       case "host-start-question":
         return this.handleStartQuestion(sender, parsed);
       case "player-answer":
         return this.handlePlayerAnswer(sender, parsed);
       case "host-reveal":
         return this.handleReveal(sender);
-      case "host-next":
-        return this.handleNext(sender);
       case "host-end":
         return this.handleEnd(sender);
       case "ping":
@@ -118,7 +114,7 @@ export default class QuizRoom {
       }
     }
 
-    for (const [token, player] of this.state.players) {
+    for (const player of this.state.players.values()) {
       if (player.connId === conn.id) {
         player.alive = false;
         player.connId = null;
@@ -126,6 +122,20 @@ export default class QuizRoom {
     }
 
     this.broadcastPresence();
+    this.broadcastPlayers();
+  }
+
+  async onAlarm() {
+    if (this.state.phase === "question" && this.state.current) {
+      const now = Date.now();
+      if (now + 50 >= this.state.current.endsAt) {
+        await this.doReveal();
+      } else {
+        try {
+          await this.party.storage.setAlarm(this.state.current.endsAt + 50);
+        } catch {}
+      }
+    }
   }
 
   onRequest(_req: PartyRequest) {
@@ -218,41 +228,7 @@ export default class QuizRoom {
     this.broadcastPlayers();
   }
 
-  private handleRelayQuestion(sender: PartyConnection, msg: any) {
-    if (!this.isHost(sender)) return;
-    const index = Number(msg.index);
-    const text = clean(msg.text, TEXT_MAX);
-    const choices = Array.isArray(msg.choices) ? msg.choices.slice(0, 4) : [];
-    if (
-      !Number.isFinite(index) ||
-      index < 0 ||
-      index >= this.state.questionTotal ||
-      !text ||
-      choices.length !== 4
-    ) {
-      this.sendError(sender, "BAD_QUESTION", "Invalid question payload");
-      return;
-    }
-    const cleaned: [string, string, string, string] = [
-      clean(choices[0], CHOICE_MAX),
-      clean(choices[1], CHOICE_MAX),
-      clean(choices[2], CHOICE_MAX),
-      clean(choices[3], CHOICE_MAX),
-    ];
-    if (cleaned.some((c) => !c)) {
-      this.sendError(sender, "BAD_CHOICES", "All 4 choices required");
-      return;
-    }
-
-    this.broadcastPlayersOnly({
-      type: "question-content",
-      index,
-      text,
-      choices: cleaned,
-    });
-  }
-
-  private handleStartQuestion(sender: PartyConnection, msg: any) {
+  private async handleStartQuestion(sender: PartyConnection, msg: any) {
     if (!this.isHost(sender)) return;
 
     const index = Number(msg.index);
@@ -299,6 +275,10 @@ export default class QuizRoom {
     };
     this.state.lastReveal = null;
 
+    try {
+      await this.party.storage.setAlarm(now + duration + 50);
+    } catch {}
+
     this.broadcastPlayersOnly({
       type: "question-content",
       index,
@@ -315,7 +295,7 @@ export default class QuizRoom {
     });
   }
 
-  private handlePlayerAnswer(sender: PartyConnection, msg: any) {
+  private async handlePlayerAnswer(sender: PartyConnection, msg: any) {
     const player = this.findPlayerByConn(sender);
     if (!player) {
       this.sendError(sender, "NOT_PLAYER", "Not a registered player");
@@ -350,24 +330,36 @@ export default class QuizRoom {
 
     const totalAlive = [...this.state.players.values()].filter((p) => p.alive).length;
     if (this.state.current.answers.size >= totalAlive && totalAlive > 0) {
-      this.broadcast({ type: "all-answered" });
+      await this.doReveal();
     }
   }
 
-  private handleReveal(sender: PartyConnection) {
+  private async handleReveal(sender: PartyConnection) {
     if (!this.isHost(sender)) return;
+    if (this.state.phase !== "question") return;
+    await this.doReveal();
+  }
+
+  private async doReveal() {
     if (this.state.phase !== "question" || !this.state.current) return;
+
+    try {
+      await this.party.storage.deleteAlarm();
+    } catch {}
 
     const q = this.state.current;
     const counts: [number, number, number, number] = [0, 0, 0, 0];
     for (const a of q.answers.values()) counts[a.choice]++;
 
+    const myResults = new Map<string, { correct: boolean; gained: number }>();
     for (const [token, a] of q.answers) {
       const player = this.state.players.get(token);
       if (!player) continue;
       const correct = a.choice === q.correctIndex;
       const elapsed = a.receivedAt - q.startedAt;
-      player.score += score(correct, elapsed, q.duration);
+      const gained = score(correct, elapsed, q.duration);
+      player.score += gained;
+      myResults.set(token, { correct, gained });
     }
 
     this.state.phase = "reveal";
@@ -382,36 +374,15 @@ export default class QuizRoom {
       leaderboard,
     });
 
-    for (const [token, a] of q.answers) {
-      const player = this.state.players.get(token);
-      if (!player) continue;
-      const correct = a.choice === q.correctIndex;
-      const gained = score(correct, a.receivedAt - q.startedAt, q.duration);
+    for (const [token, player] of this.state.players) {
+      const result = myResults.get(token) ?? { correct: false, gained: 0 };
       this.sendToPlayerToken(token, {
         type: "my-result",
-        correct,
-        gained,
+        correct: result.correct,
+        gained: result.gained,
         score: player.score,
       });
     }
-  }
-
-  private handleNext(sender: PartyConnection) {
-    if (!this.isHost(sender)) return;
-    if (this.state.phase !== "reveal") return;
-
-    if (this.state.currentIndex + 1 >= this.state.questionTotal) {
-      this.finishGame();
-      return;
-    }
-
-    this.state.phase = "leaderboard";
-    this.broadcast({
-      type: "leaderboard",
-      leaderboard: this.computeLeaderboard(),
-      next: this.state.currentIndex + 1,
-      total: this.state.questionTotal,
-    });
   }
 
   private handleEnd(sender: PartyConnection) {
@@ -419,7 +390,10 @@ export default class QuizRoom {
     this.finishGame();
   }
 
-  private finishGame() {
+  private async finishGame() {
+    try {
+      await this.party.storage.deleteAlarm();
+    } catch {}
     this.state.phase = "finished";
     this.state.current = null;
     const podium = this.computeLeaderboard().slice(0, 10);
@@ -470,11 +444,7 @@ export default class QuizRoom {
       };
     }
 
-    if (
-      (this.state.phase === "reveal" || this.state.phase === "leaderboard") &&
-      this.state.lastReveal &&
-      this.state.current
-    ) {
+    if (this.state.phase === "reveal" && this.state.lastReveal && this.state.current) {
       payload.reveal = {
         index: this.state.current.index,
         correctIndex: this.state.lastReveal.correctIndex,
