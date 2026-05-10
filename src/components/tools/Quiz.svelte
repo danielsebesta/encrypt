@@ -708,11 +708,15 @@
       players: leaderboard,
     };
     if (phase === 'question' && hostCurrent) {
+      // Send a relative offset (ms until question starts) instead of an
+      // absolute timestamp so each client anchors to their own local clock
+      // at receipt — avoids cross-device clock drift desyncing the countdown.
+      const now = Date.now();
       p.question = {
         index: hostCurrent.index,
         text: hostCurrent.text,
         choices: hostCurrent.choices,
-        startedAt: hostCurrent.startedAt,
+        startedAtRel: hostCurrent.startedAt - now,
         duration: hostCurrent.duration,
       };
     }
@@ -754,7 +758,19 @@
           updateMyScore();
         }
         if (payload.question) {
-          currentQuestion = payload.question;
+          // Anchor host-relative offset to our own local clock to avoid
+          // cross-device clock drift breaking the countdown.
+          const rel = typeof payload.question.startedAtRel === 'number'
+            ? payload.question.startedAtRel
+            : 0;
+          const localStartedAt = Date.now() + rel;
+          currentQuestion = {
+            index: payload.question.index,
+            text: payload.question.text,
+            choices: payload.question.choices,
+            startedAt: localStartedAt,
+            duration: payload.question.duration,
+          };
           myAnswer = null;
           myLastResult = null;
           startTimer();
