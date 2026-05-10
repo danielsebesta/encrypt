@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
+  import QRCode from 'qrcode';
   import { getTranslations, t } from '../../lib/i18n';
 
   export let locale = 'en';
@@ -69,6 +70,8 @@
 
   // Share state
   let copiedLink = false;
+  let serverPresence = 0;
+  let qrSvg = '';
 
   let ws: PartySocket | null = null;
 
@@ -262,6 +265,10 @@
 
     switch (data.type) {
       case 'hello':
+        return;
+
+      case 'presence':
+        serverPresence = data.count || 0;
         return;
 
       case 'state':
@@ -475,6 +482,21 @@
     return `${window.location.origin}${localePrefix}/quiz/${roomId}`;
   }
 
+  async function generateQr() {
+    if (typeof window === 'undefined') return;
+    try {
+      qrSvg = await QRCode.toString(getShareUrl(), {
+        type: 'svg',
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 220,
+        color: { dark: '#065f46', light: '#ffffff' },
+      });
+    } catch {
+      qrSvg = '';
+    }
+  }
+
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(getShareUrl());
@@ -497,8 +519,12 @@
   $: revealMax = Math.max(1, ...revealCounts);
   $: progressLabel = questionTotal > 0 ? `${currentIndex + 1} / ${questionTotal}` : '';
   $: timerWarn = timeLeft <= 5 && timeLeft > 0 && phase === 'question';
+  $: formattedRoomCode = roomId.length === 6 && /^\d+$/.test(roomId) ? `${roomId.slice(0, 3)} ${roomId.slice(3)}` : roomId.toUpperCase();
 
-  onMount(init);
+  onMount(() => {
+    init();
+    generateQr();
+  });
   onDestroy(() => {
     stopTimer();
     ws?.close();
@@ -512,7 +538,7 @@
   {#if needsNick}
     <div class="quiz-card max-w-sm mx-auto">
       <div class="text-center space-y-3 mb-5">
-        <div class="quiz-roomcode">{roomId.toUpperCase()}</div>
+        <div class="quiz-roomcode">{formattedRoomCode}</div>
         <h2 class="text-lg font-semibold">{t(dict, 'quiz.enterNickTitle')}</h2>
         <p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'quiz.enterNickSubtitle')}</p>
       </div>
@@ -558,22 +584,39 @@
       </div>
     {/if}
 
+    {#if serverError && connected}
+      <div class="quiz-error-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>{serverError}</span>
+        <button on:click={() => serverError = ''} aria-label="Dismiss">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    {/if}
+
     <!-- HOST VIEW -->
     {#if role === 'host'}
       {#if phase === 'lobby'}
         <div class="space-y-6">
-          <div class="text-center space-y-2">
-            <p class="text-xs uppercase tracking-widest text-zinc-400 font-semibold">{t(dict, 'quiz.roomCode')}</p>
-            <div class="quiz-roomcode-big">{roomId.toUpperCase()}</div>
-            <button class="quiz-link-copy" on:click={copyLink}>
-              {#if copiedLink}
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>{t(dict, 'quiz.copied')}</span>
-              {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span>{getShareUrl().replace(/^https?:\/\//, '')}</span>
-              {/if}
-            </button>
+          <div class="quiz-join-hero">
+            <div class="quiz-join-info">
+              <p class="text-xs uppercase tracking-widest text-zinc-400 font-semibold">{t(dict, 'quiz.roomCode')}</p>
+              <div class="quiz-roomcode-big">{formattedRoomCode}</div>
+              <button class="quiz-link-copy" on:click={copyLink}>
+                {#if copiedLink}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>{t(dict, 'quiz.copied')}</span>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>{getShareUrl().replace(/^https?:\/\//, '')}</span>
+                {/if}
+              </button>
+            </div>
+            {#if qrSvg}
+              <div class="quiz-qr">
+                {@html qrSvg}
+              </div>
+            {/if}
           </div>
 
           <div class="quiz-card">
@@ -742,7 +785,7 @@
     {:else if role === 'player'}
       {#if phase === 'lobby'}
         <div class="quiz-card max-w-sm mx-auto text-center space-y-4">
-          <div class="quiz-roomcode">{roomId.toUpperCase()}</div>
+          <div class="quiz-roomcode">{formattedRoomCode}</div>
           <div>
             <p class="text-xs text-zinc-400 uppercase tracking-widest mb-1">{t(dict, 'quiz.youAre')}</p>
             <p class="text-lg font-semibold">{playerNick}</p>
@@ -901,10 +944,41 @@
   }
   .quiz-roomcode-big {
     font-family: 'fira-code', monospace;
-    font-size: 42px; font-weight: 900;
-    letter-spacing: 0.18em;
+    font-size: 48px; font-weight: 900;
+    letter-spacing: 0.12em;
     color: rgb(16, 185, 129);
     text-shadow: 0 0 16px rgba(16, 185, 129, 0.3);
+    line-height: 1.1;
+    margin: 0.4rem 0;
+  }
+  .quiz-join-hero {
+    display: flex; gap: 1.25rem;
+    align-items: center; justify-content: center;
+    flex-wrap: wrap;
+  }
+  .quiz-join-info {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 0.5rem;
+    text-align: center;
+    min-width: 0;
+  }
+  .quiz-qr {
+    width: 180px; height: 180px;
+    flex-shrink: 0;
+    background: white;
+    border-radius: 0.7rem;
+    padding: 0.5rem;
+    box-shadow: 0 6px 24px -8px rgba(16, 185, 129, 0.4);
+    border: 2px solid rgba(16, 185, 129, 0.2);
+  }
+  .quiz-qr :global(svg) {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+  }
+  @media (max-width: 480px) {
+    .quiz-qr { width: 140px; height: 140px; }
+    .quiz-roomcode-big { font-size: 36px; }
   }
   .quiz-link-copy {
     display: inline-flex; align-items: center; gap: 0.4rem;
@@ -932,6 +1006,22 @@
     background: rgba(245, 158, 11, 0.12);
     color: rgb(251, 191, 36);
   }
+  .quiz-error-banner {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 0.9rem; margin-bottom: 0.8rem;
+    border-radius: 0.55rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: rgb(220, 38, 38);
+    font-size: 12px; font-weight: 600;
+  }
+  :global(.dark) .quiz-error-banner {
+    background: rgba(239, 68, 68, 0.12);
+    color: rgb(252, 165, 165);
+  }
+  .quiz-error-banner span { flex: 1; }
+  .quiz-error-banner button { color: inherit; opacity: 0.7; }
+  .quiz-error-banner button:hover { opacity: 1; }
   .quiz-players {
     display: flex; flex-wrap: wrap; gap: 0.4rem;
   }
