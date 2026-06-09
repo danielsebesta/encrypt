@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Project overview
 
-**encrypt.click** - *Your privacy is just a click away.* A privacy-first security toolkit built with Astro + Svelte. Most user-facing crypto runs in the browser, while a smaller set of server routes handle supporting flows such as Ghost Drop relays, URL shortening, and drand proxying.
+**encrypt.click** - *Your privacy is just a click away.* A privacy-first security toolkit built with Astro + Svelte. Most user-facing crypto runs in the browser, while a smaller set of server routes handle supporting flows such as encrypted upload relays, URL shortening, and drand proxying.
 
 ## Commands
 
@@ -46,14 +46,13 @@ Validate changes with `yarn build`.
   Loader and runtime validation for education content.
 
 - `src/lib/ghost/` and `src/pages/api/ghost/`
-  Ghost Drop crypto, steganography, upload, fetch, and verification support.
+  Encrypted upload crypto, steganography, fetch, and verification support.
 
 ## Current product shape
 
 ### Main site routes
 
 - `/` homepage with `UltimateEncrypt`
-- `/drop` Dead Drop
 - `/u` decrypt / receive flow
 - `/download` handoff download flow
 - `/security` privacy and security summary

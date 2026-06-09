@@ -16,19 +16,16 @@ Privacy-first security tools that run primarily in the browser. The site is buil
 - PGP keys
 - JWT debugger
 - Base64
-- BIP39 mnemonic
 
 ### Privacy tools
 - AES Words
 - Time Capsule
 - Steganography
 - Photo Cipher
-- Ghost Drop
 - Spectral Cipher
 
 ### Other first-class routes
 - `/` homepage with the main `UltimateEncrypt` flow
-- `/drop` Dead Drop link tool
 - `/u` decrypt / receive flow
 - `/download` download handoff flow
 - `/security` privacy and security page
@@ -48,7 +45,7 @@ Privacy-first security tools that run primarily in the browser. The site is buil
 - Every user-facing UI string belongs in the locale files under [`src/locales/`](src/locales/) (`en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`).
 - The education pilot lives in [`src/content/tool-education/`](src/content/tool-education/) and is loaded through [`src/lib/toolEducation.ts`](src/lib/toolEducation.ts).
 - Security headers and middleware behavior live in `src/middleware.ts` and `public/_headers`.
-- The Ghost Drop upload/decrypt subsystem lives under `src/lib/ghost/` and `src/pages/api/ghost/`.
+- The encrypted upload/decrypt subsystem lives under `src/lib/ghost/` and `src/pages/api/ghost/`.
 
 ## Quick start
 
@@ -75,7 +72,7 @@ src/
 │   └── Layout.astro
 ├── lib/
 │   ├── crypto.ts
-│   ├── ghost/                 # Ghost Drop crypto/stego helpers
+│   ├── ghost/                 # Encrypted upload crypto/stego helpers
 │   ├── i18n.ts
 │   ├── languages.ts
 │   ├── toolEducation.ts
@@ -192,7 +189,7 @@ Routing:
 ## Security notes
 
 - Core crypto runs in the browser.
-- Some flows intentionally use server routes for things like URL shortening, Ghost Drop relays, or the drand proxy.
+- Some flows intentionally use server routes for things like URL shortening, encrypted upload relays, or the drand proxy.
 - Read `/security` for the user-facing privacy summary.
 
 ## Deployment

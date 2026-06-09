@@ -6,7 +6,6 @@
 import { bcrypt as bcryptWasm, bcryptVerify as bcryptVerifyWasm } from 'hash-wasm';
 import { v4 as uuidv4 } from 'uuid';
 import { ulid } from 'ulid';
-import * as bip39 from 'bip39';
 import * as openpgp from 'openpgp';
 import zxcvbn from 'zxcvbn';
 import { jwtDecode } from 'jwt-decode';
@@ -202,13 +201,6 @@ export async function hmac(text: string, key: string, algorithm: 'SHA-256' | 'SH
     return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * BIP39 Passphrase
- */
-export function generateMnemonic(strength: 128 | 256 = 128): string {
-    return bip39.generateMnemonic(strength);
-}
-
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -298,9 +290,13 @@ export async function generateSSHKeyPair(bits: number = 4096): Promise<{ publicK
     const e = base64UrlToBytes(jwk.e!);
     const n = base64UrlToBytes(jwk.n!);
     const wireFormat = concatBytes(sshString(keyType), sshMpint(e), sshMpint(n));
+    const wireFormatBuffer = wireFormat.buffer.slice(
+        wireFormat.byteOffset,
+        wireFormat.byteOffset + wireFormat.byteLength,
+    ) as ArrayBuffer;
 
     return {
-        publicKey: `ssh-rsa ${arrayBufferToBase64(wireFormat.buffer)}`,
+        publicKey: `ssh-rsa ${arrayBufferToBase64(wireFormatBuffer)}`,
         privateKey: wrapPem(arrayBufferToBase64(pkcs8), 'PRIVATE KEY'),
     };
 }

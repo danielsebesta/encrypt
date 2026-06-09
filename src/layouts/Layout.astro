@@ -2,7 +2,7 @@
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
-import { getNavCategories, chatIcon, deadDropIcon, studioIcon } from '../lib/tools';
+import { getNavCategories, chatIcon, quizIcon, whiteboardIcon } from '../lib/tools';
 
 type Props = {
   title?: string;
@@ -27,10 +27,6 @@ const currentLang = languages[locale];
 
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
 const navCategories = getNavCategories(t, dict, localePrefix);
-const privacyCat = navCategories.find(c => c.name === t(dict, 'nav.privacy'));
-if (privacyCat) {
-  privacyCat.tools.push({ label: t(dict, 'nav.tool.deadDrop'), href: `${localePrefix}/drop`, icon: deadDropIcon });
-}
 
 const languageOptions = locales.map(l => ({
   code: l,
@@ -114,11 +110,15 @@ const languageOptions = locales.map(l => ({
 				<div class="hidden md:flex items-center gap-1">
 					<a href={`${localePrefix}/chat`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={chatIcon} /></svg>
-						Chat
+						{t(dict, 'nav.chat')}
 					</a>
-					<a href={`${localePrefix}/studio`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={studioIcon} /></svg>
-						Studio
+					<a href={`${localePrefix}/whiteboard`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={whiteboardIcon} /></svg>
+						{t(dict, 'nav.whiteboard')}
+					</a>
+					<a href={`${localePrefix}/quiz`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={quizIcon} /></svg>
+						{t(dict, 'nav.quiz')}
 					</a>
 					{navCategories.map((cat) => (
 						<div class="relative group">
@@ -228,11 +228,15 @@ const languageOptions = locales.map(l => ({
 					<div class="p-5 space-y-5">
 						<a href={`${localePrefix}/chat`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={chatIcon} /></svg>
-							Encrypted Chat
+							{t(dict, 'nav.chat')}
 						</a>
-						<a href={`${localePrefix}/studio`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={studioIcon} /></svg>
-							Studio
+						<a href={`${localePrefix}/whiteboard`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={whiteboardIcon} /></svg>
+							{t(dict, 'nav.whiteboard')}
+						</a>
+						<a href={`${localePrefix}/quiz`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={quizIcon} /></svg>
+							{t(dict, 'nav.quiz')}
 						</a>
 						{navCategories.map((cat) => (
 							<div class="space-y-2">
@@ -286,7 +290,9 @@ const languageOptions = locales.map(l => ({
 							{navCategories.find(c => c.name === t(dict, 'nav.privacy'))?.tools.map((tool) => (
 								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
 							))}
-							<li><a href={`${localePrefix}/chat`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Chat</a></li>
+							<li><a href={`${localePrefix}/chat`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.chat')}</a></li>
+							<li><a href={`${localePrefix}/whiteboard`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.whiteboard')}</a></li>
+							<li><a href={`${localePrefix}/quiz`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.quiz')}</a></li>
 						</ul>
 					</div>
 

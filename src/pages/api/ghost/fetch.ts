@@ -4,6 +4,10 @@ import { fetchSendEncryptedBlob, isSendUrl } from '../../../lib/nologSend';
 
 export const prerender = false;
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export const GET: APIRoute = async ({ url, request }) => {
   const { ok, resetIn } = await checkRateLimit('ghost-fetch', request, 30);
   if (!ok) {
@@ -33,7 +37,7 @@ export const GET: APIRoute = async ({ url, request }) => {
   try {
     if (isSendUrl(targetUrl)) {
       const data = await fetchSendEncryptedBlob(targetUrl);
-      return new Response(data, {
+      return new Response(bytesToArrayBuffer(data), {
         status: 200,
         headers: {
           'Content-Type': 'application/octet-stream',

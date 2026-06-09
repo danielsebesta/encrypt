@@ -8,6 +8,10 @@
 
 const PBKDF2_ITERATIONS = 200_000;
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export async function generateRoomKey(): Promise<string> {
   const key = crypto.getRandomValues(new Uint8Array(32));
   return arrayToB64url(key);
@@ -16,12 +20,12 @@ export async function generateRoomKey(): Promise<string> {
 export async function deriveKeyFromPassword(password: string, roomId: string): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
-    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+    'raw', bytesToArrayBuffer(enc.encode(password)), 'PBKDF2', false, ['deriveKey']
   );
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: enc.encode(`encrypt.click:chat:${roomId}`),
+      salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat:${roomId}`)),
       iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256',
     },
@@ -35,7 +39,7 @@ export async function deriveKeyFromPassword(password: string, roomId: string): P
 export async function importRoomKey(b64Key: string): Promise<CryptoKey> {
   const raw = b64urlToArray(b64Key);
   return crypto.subtle.importKey(
-    'raw', raw, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    'raw', bytesToArrayBuffer(raw), { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
   );
 }
 
@@ -43,9 +47,9 @@ export async function encryptMessage(key: CryptoKey, plaintext: string): Promise
   const enc = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(iv) },
     key,
-    enc.encode(plaintext)
+    bytesToArrayBuffer(enc.encode(plaintext))
   );
   // [iv(12) | ciphertext]
   const combined = new Uint8Array(12 + ciphertext.byteLength);
@@ -59,9 +63,9 @@ export async function decryptMessage(key: CryptoKey, payload: string): Promise<s
   const iv = data.slice(0, 12);
   const ciphertext = data.slice(12);
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(iv) },
     key,
-    ciphertext
+    bytesToArrayBuffer(ciphertext)
   );
   return new TextDecoder().decode(plaintext);
 }

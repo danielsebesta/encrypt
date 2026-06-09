@@ -1,19 +1,19 @@
-import type { Party, PartyConnection } from "partykit/server";
+import type * as Party from "partykit/server";
 
 type RoomState = {
   locked: boolean;
   lockedBy: string | null;
 };
 
-export default class WhiteboardRoom {
-  party: Party;
+export default class WhiteboardRoom implements Party.Server {
+  party: Party.Room;
   state: RoomState = { locked: false, lockedBy: null };
 
-  constructor(party: Party) {
+  constructor(party: Party.Room) {
     this.party = party;
   }
 
-  onConnect(conn: PartyConnection) {
+  onConnect(conn: Party.Connection) {
     if (this.state.locked) {
       conn.send(JSON.stringify({ type: "error", message: "Room is locked" }));
       conn.close(4001, "Room locked");
@@ -29,7 +29,7 @@ export default class WhiteboardRoom {
     }));
   }
 
-  onMessage(message: string, sender: PartyConnection) {
+  onMessage(message: string, sender: Party.Connection) {
     let parsed: any;
     try {
       parsed = JSON.parse(message);
@@ -63,7 +63,7 @@ export default class WhiteboardRoom {
     }
   }
 
-  onClose(conn: PartyConnection) {
+  onClose(conn: Party.Connection) {
     if (this.state.lockedBy === conn.id) {
       this.state.locked = false;
       this.state.lockedBy = null;

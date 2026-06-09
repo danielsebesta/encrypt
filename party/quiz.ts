@@ -1,4 +1,4 @@
-import type { Party, PartyConnection, PartyRequest } from "partykit/server";
+import type * as Party from "partykit/server";
 
 /**
  * Quiz relay: zero-knowledge dumb relay.
@@ -14,15 +14,15 @@ type RoomState = {
   lockedBy: string | null;
 };
 
-export default class QuizRoom {
-  party: Party;
+export default class QuizRoom implements Party.Server {
+  party: Party.Room;
   state: RoomState = { locked: false, lockedBy: null };
 
-  constructor(party: Party) {
+  constructor(party: Party.Room) {
     this.party = party;
   }
 
-  onConnect(conn: PartyConnection) {
+  onConnect(conn: Party.Connection) {
     if (this.state.locked) {
       conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED", message: "Room is locked" }));
       conn.close(4001, "Room locked");
@@ -40,7 +40,7 @@ export default class QuizRoom {
     this.broadcastPresence();
   }
 
-  onMessage(message: string, sender: PartyConnection) {
+  onMessage(message: string, sender: Party.Connection) {
     let parsed: any;
     try {
       parsed = JSON.parse(message);
@@ -93,7 +93,7 @@ export default class QuizRoom {
     }
   }
 
-  onClose(conn: PartyConnection) {
+  onClose(conn: Party.Connection) {
     if (this.state.lockedBy === conn.id) {
       this.state.locked = false;
       this.state.lockedBy = null;
@@ -103,7 +103,7 @@ export default class QuizRoom {
     this.broadcastPresence();
   }
 
-  onRequest(_req: PartyRequest) {
+  onRequest() {
     return new Response(
       JSON.stringify({
         room: this.party.id,

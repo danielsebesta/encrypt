@@ -10,6 +10,10 @@ const GHOST_LIMIT = 10;
 
 type ServiceResult = { service: string; url: string | null; error?: string; details?: string[]; provider?: string };
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 // Limits verified 2026-05-06 by GET / on each instance and grepping
 // MAX_DOWNLOADS / MAX_EXPIRE_SECONDS / MAX_FILE_SIZE from inline config.
 // Direct hosts (qu.ax, x0.at, tmpfile.link, sxcu.net) have no per-file
@@ -51,7 +55,7 @@ function mimeFromName(name: string): string {
 
 function toBlob(buf: Uint8Array, filename?: string): Blob {
   const type = filename ? mimeFromName(filename) : 'application/octet-stream';
-  return new Blob([buf], { type });
+  return new Blob([bytesToArrayBuffer(buf)], { type });
 }
 
 async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
@@ -95,20 +99,6 @@ async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
   return data.files[0].url;
 }
 
-async function uploadFileHosts(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
-  const res = await fetch('https://filehosts.net/api/upload', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`FileHosts: HTTP ${res.status}`);
-  const data = await res.json() as any;
-  const url = data?.file?.url || data?.url;
-  if (!url) throw new Error('FileHosts: no URL in response');
-  return url;
-}
-
 async function uploadGofile(file: Uint8Array, filename: string): Promise<string> {
   const srvRes = await fetch('https://api.gofile.io/servers');
   if (!srvRes.ok) throw new Error(`Gofile servers: HTTP ${srvRes.status}`);
@@ -139,17 +129,6 @@ async function uploadTmpfileLink(file: Uint8Array, filename: string): Promise<st
   const data = await res.json() as any;
   if (!data?.downloadLinkEncoded) throw new Error('tmpfile.link: no URL in response');
   return data.downloadLinkEncoded;
-}
-
-async function uploadFilebin(file: Uint8Array, filename: string): Promise<string> {
-  const binId = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
-  const url = `https://filebin.net/${binId}/${filename}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    body: toBlob(file, filename),
-  });
-  if (!res.ok) throw new Error(`Filebin: HTTP ${res.status}`);
-  return url;
 }
 
 async function uploadTempSh(file: Uint8Array, filename: string): Promise<string> {
