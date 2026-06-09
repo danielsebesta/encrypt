@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE = `encrypt-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `encrypt-pages-${CACHE_VERSION}`;
 
@@ -17,6 +17,7 @@ const STATIC_EXTENSIONS = [
 
 function isStaticAsset(url) {
   const path = new URL(url).pathname;
+  if (path === '/build-integrity.json' || path === '/integrity-check.js') return false;
   return STATIC_EXTENSIONS.some(ext => path.endsWith(ext));
 }
 
@@ -47,6 +48,11 @@ self.addEventListener('fetch', event => {
   // Only handle http(s) requests - skip chrome-extension:// etc.
   const url = new URL(request.url);
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+
+  if (url.pathname === '/build-integrity.json' || url.pathname === '/integrity-check.js' || url.searchParams.has('ec_integrity')) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   if (isStaticAsset(request.url)) {
     event.respondWith(
