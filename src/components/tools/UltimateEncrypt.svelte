@@ -37,6 +37,8 @@
   let pendingUploadFilename = '';
   let pendingUsedStego = false;
   let pendingHosts: HostInfo[] = [];
+  let showManualTransferHelp = false;
+  let resultHasTemporaryUpload = false;
   let progressTitle = '';
   let progressDetail = '';
   let debugLog: string[] = [];
@@ -54,16 +56,6 @@
 
   // Send is the secondary automatic fallback.
   const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: 5 * 1024 * 1024 * 1024 };
-  const SEND_INSTANCE_NAMES = [
-    'send.skylerszijjarto.com', 'send.hostnetwork.xyz', 'send.adminforge.de',
-    'send.cyberjake.xyz', 'send.turingpoint.de', 'send.codespace.cz',
-    'send.mni.li', 'upload.nolog.cz', 'send.monks.tools', 'send.vis.ee',
-    'send.aurorabilisim.com', 'send.artemislena.eu', 'fileupload.ggc-project.de',
-    'send.kokomo.cloud', 'drop.chapril.org', 'send.canine.tools',
-    'send.aslaets.be', 'send.blablalinux.be', 'dropnito.online',
-    'send.jeugdhulp.be',
-  ];
-
   // Emergency binary hosts, tried only after Send fails.
   const BINARY_HOSTS: HostInfo[] = [
     { id: 'quax', name: 'qu.ax', maxBytes: 256 * 1024 * 1024 },
@@ -316,6 +308,8 @@
     shortUrl = '';
     stegoImageUrl = '';
     stegoImageBlob = null;
+    showManualTransferHelp = false;
+    resultHasTemporaryUpload = false;
     setProgress('', '');
     debugLog = [];
 
@@ -337,13 +331,22 @@
     try {
       if (deliveryMode === 'local') {
         await encryptLocal();
+        showManualTransferHelp = true;
         step = 'confirm';
       } else if (deliveryMode === 'link') {
         await encryptInline();
         step = 'result';
       } else {
         await encryptGhostPrepare();
-        step = 'confirm';
+        try {
+          await encryptGhostUpload();
+          step = 'result';
+        } catch (e: any) {
+          error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+          showManualTransferHelp = true;
+          pushDebug(`Upload failed: ${error}`);
+          step = 'confirm';
+        }
       }
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
@@ -357,9 +360,11 @@
     error = '';
     try {
       await encryptGhostUpload();
+      showManualTransferHelp = false;
       step = 'result';
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+      showManualTransferHelp = true;
       pushDebug(`Upload failed: ${error}`);
       step = 'confirm';
     }
@@ -398,6 +403,7 @@
 
     pendingHosts = [];
     pendingUploadBytes = null;
+    resultHasTemporaryUpload = false;
     pushDebug(`Local encrypted file ready for download`);
   }
 
@@ -426,6 +432,7 @@
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
+    resultHasTemporaryUpload = false;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
     await autoShorten(urls.shortenable);
 
@@ -535,6 +542,7 @@
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
+    resultHasTemporaryUpload = true;
     await autoShorten(urls.shortenable);
 
     pendingUploadBytes = null;
@@ -622,6 +630,8 @@
     shortUrl = '';
     error = '';
     showQr = false;
+    showManualTransferHelp = false;
+    resultHasTemporaryUpload = false;
     setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
@@ -654,6 +664,10 @@
   {#if step === 'input'}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="space-y-4" on:paste={handlePaste}>
+      <div class="rounded-lg border border-emerald-200/70 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/20 px-3 py-2 text-xs font-medium leading-relaxed text-emerald-800 dark:text-emerald-300">
+        {t(dict, 'tools.ultimateEncrypt.transferClaim')}
+      </div>
+
       <!-- Input area: text + file -->
       <div class="ue-input-grid" class:ue-input-grid--focused={textFocused && files.length === 0}>
         <!-- Text input -->
@@ -761,36 +775,9 @@
         </p>
       </div>
 
-      {#if pendingHosts.length > 0}
-        <div class="rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 space-y-2.5">
-          <p class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.confirm.hostLabel')}</p>
-          {#each pendingHosts as host}
-            <div class="flex items-start gap-2">
-              <span class="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-              <div>
-                <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">{host.name}</span>
-                {#if host.id === 'nologsend'}
-                  <p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
-                    {t(dict, 'tools.ultimateEncrypt.confirm.oneOf')} {SEND_INSTANCE_NAMES.join(', ')}
-                  </p>
-                {/if}
-              </div>
-            </div>
-          {/each}
-          <p class="text-[10px] text-zinc-400 dark:text-zinc-500 pt-1 border-t border-zinc-200/40 dark:border-zinc-800/30">
-            {t(dict, 'tools.ultimateEncrypt.confirm.privacyNote')}
-          </p>
-        </div>
-        <button class="btn w-full" type="button" on:click={confirmUpload}>
-          {t(dict, 'tools.ultimateEncrypt.confirm.uploadBtn')}
-        </button>
+      {#if error}
+        <p class="text-xs text-red-500">{error}</p>
       {/if}
-
-      <div class="flex items-center gap-3 text-[10px] text-zinc-400">
-        <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
-        <span>{t(dict, 'tools.ultimateEncrypt.confirm.or')}</span>
-        <div class="flex-1 h-px bg-zinc-200 dark:bg-zinc-800"></div>
-      </div>
 
       {#if localFileUrl}
         <div class="ue-passphrase-box">
@@ -810,8 +797,10 @@
         </div>
       {/if}
 
-      {#if error}
-        <p class="text-xs text-red-500">{error}</p>
+      {#if showManualTransferHelp && pendingHosts.length > 0}
+        <button class="btn-outline w-full text-xs" type="button" on:click={confirmUpload}>
+          {t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}
+        </button>
       {/if}
 
       <button type="button" class="text-[10px] font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" on:click={() => step = 'input'}>
@@ -857,6 +846,9 @@
           </div>
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
+        {#if resultHasTemporaryUpload}
+          <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
+        {/if}
         {#if showQr && qrSvg && shareUrl}
           <div class="mt-3 flex justify-center">
             <div class="w-full max-w-[248px] rounded-[1.8rem] border border-emerald-200/80 dark:border-emerald-900/70 bg-[linear-gradient(180deg,rgba(236,253,245,0.98),rgba(209,250,229,0.92))] dark:bg-[linear-gradient(180deg,rgba(2,44,34,0.96),rgba(4,28,24,0.98))] p-3 shadow-[0_18px_60px_rgba(6,95,70,0.18)]">
@@ -894,27 +886,6 @@
         <input class="input text-xs font-mono" type="text" readonly value={password} />
         <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
-
-      {#if localFileUrl}
-        <div class="space-y-3">
-          <div class="ue-passphrase-box">
-            <div class="flex-1">
-              <p class="text-sm font-medium text-emerald-700 dark:text-emerald-400">{localFileName}</p>
-              <p class="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 mt-0.5">{t(dict, 'tools.ultimateEncrypt.confirm.encryptedWith')}</p>
-            </div>
-            <a href={localFileUrl} download={localFileName} class="btn text-xs px-4 py-2">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')}</a>
-          </div>
-          <div class="rounded-xl border border-zinc-200/60 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 space-y-2">
-            <p class="text-xs font-bold text-zinc-600 dark:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.confirm.nextSteps')}</p>
-            <ol class="text-[11px] text-zinc-500 dark:text-zinc-400 space-y-1.5 list-decimal list-inside">
-              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step1')}</li>
-              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step2Prefix')} <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.step2SendInstance')}</a></li>
-              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step3')}</li>
-              <li>{t(dict, 'tools.ultimateEncrypt.confirm.step4Prefix')} <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></li>
-            </ol>
-          </div>
-        </div>
-      {/if}
 
       {#if stegoImageUrl}
         <div class="space-y-2">
