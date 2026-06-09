@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { checkRateLimit } from '../../../lib/rateLimit';
 import { fetchSendEncryptedBlob, isSendUrl } from '../../../lib/nologSend';
+import { stripEclkMagic } from '../../../lib/ghost/crypto';
 
 export const prerender = false;
 
@@ -61,9 +62,9 @@ export const GET: APIRoute = async ({ url, request }) => {
     }
 
     const contentType = res.headers.get('Content-Type') || 'application/octet-stream';
-    const data = await res.arrayBuffer();
+    const data = stripEclkMagic(new Uint8Array(await res.arrayBuffer()));
 
-    return new Response(data, {
+    return new Response(bytesToArrayBuffer(data), {
       status: 200,
       headers: {
         'Content-Type': contentType,
