@@ -5,7 +5,7 @@
     deriveKeyFromPassword,
     encryptMessage, decryptMessage, generateIdentity, nameToGradient
   } from '../../lib/chatCrypto';
-  import { encryptData, decryptData } from '../../lib/ghost/crypto';
+  import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { getTranslations, t } from '../../lib/i18n';
 
@@ -60,6 +60,8 @@
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
+  const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
+  const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
   let tickInterval: ReturnType<typeof setInterval>;
   let messagesEl: HTMLElement;
 
@@ -67,6 +69,15 @@
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  function shuffleArr<T>(arr: T[]): T[] {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
   }
 
   function esc(s: string): string {
@@ -395,11 +406,22 @@
       const buffer = new Uint8Array(await file.arrayBuffer());
       const encrypted = await encryptData(buffer, passwordUsed, file.name);
 
-      // Dual upload: Send + file host in parallel
+      // First-party R2 upload first; Send and public hosts are fallbacks only.
       const uploadUrls: string[] = [];
 
       async function tryHost(svc: string, body: Uint8Array, headers: Record<string, string> = {}): Promise<string | null> {
         try {
+          if (svc === 'eclk') {
+            const res = await fetch(FIRST_PARTY_UPLOAD_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/octet-stream' },
+              body: prependEclkMagic(body),
+            });
+            if (!res.ok) return null;
+            const data = await res.json().catch(() => null);
+            return data?.success && data?.id ? `${FIRST_PARTY_DOWNLOAD_BASE_URL}/${encodeURIComponent(data.id)}` : null;
+          }
+
           const res = await fetch(`/api/ghost/upload?services=${svc}&stego=false&filename=ghost.bin`, {
             method: 'POST', body, headers,
           });
@@ -409,26 +431,21 @@
         } catch { return null; }
       }
 
-      const fileHosts = ['quax', 'x0at', 'tmpfile'];
-      const randomFileHost = fileHosts[Math.floor(Math.random() * fileHosts.length)];
+      const firstPartyUrl = encrypted.length + 4 <= MAX_FILE ? await tryHost('eclk', encrypted) : null;
+      if (firstPartyUrl) uploadUrls.push(firstPartyUrl);
 
-      try {
+      if (uploadUrls.length === 0) try {
         const prepared = await prepareSendUpload(encrypted, 'ghost.bin', 'application/octet-stream');
-        const [sendUrl, fileUrl] = await Promise.all([
-          tryHost('nologsend', prepared.encryptedBytes, {
-            'X-Send-Metadata': prepared.metadataB64,
-            'X-Send-Auth': prepared.authHeader,
-            'X-Send-Secret': prepared.secretB64,
-          }),
-          tryHost(randomFileHost, encrypted),
-        ]);
+        const sendUrl = await tryHost('nologsend', prepared.encryptedBytes, {
+          'X-Send-Metadata': prepared.metadataB64,
+          'X-Send-Auth': prepared.authHeader,
+          'X-Send-Secret': prepared.secretB64,
+        });
         if (sendUrl) uploadUrls.push(sendUrl);
-        if (fileUrl) uploadUrls.push(fileUrl);
       } catch {}
 
-      // Sequential fallback if both failed
       if (uploadUrls.length === 0) {
-        for (const svc of fileHosts) {
+        for (const svc of shuffleArr(['quax', 'x0at', 'tmpfile'])) {
           const url = await tryHost(svc, encrypted);
           if (url) { uploadUrls.push(url); break; }
         }

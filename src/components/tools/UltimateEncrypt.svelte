@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import QRCode from 'qrcode';
   import { encrypt, decrypt } from '../../lib/crypto';
-  import { encryptData } from '../../lib/ghost/crypto';
+  import { encryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { createStegoImage } from '../../lib/ghost/steganography';
   import { prepareSendUpload } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
@@ -46,25 +46,37 @@
   const MAX_FILE = 50 * 1024 * 1024;
   const STEGO_THRESHOLD = 500 * 1024;
 
-  interface HostInfo { id: string; name: string; retention: string; maxBytes: number; }
+  interface HostInfo { id: string; name: string; maxBytes: number; }
 
-  // Send network is preferred - E2E encrypted, multiple instances
-  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', retention: '7-30 days', maxBytes: 5 * 1024 * 1024 * 1024 };
-  const SEND_INSTANCE_NAMES = ['upload.nolog.cz', 'send.adminforge.de', 'send.vis.ee', 'send.artemislena.eu', 'send.cyberjake.xyz', 'send.canine.tools', 'send.kokomo.cloud'];
+  const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
+  const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
+  const FIRST_PARTY_HOST: HostInfo = { id: 'eclk', name: 'encrypt.click upload', maxBytes: MAX_FILE };
 
-  // Fallback binary hosts (shuffled at upload time)
-  const BINARY_HOSTS: HostInfo[] = [
-    { id: 'quax', name: 'qu.ax', retention: '30 days', maxBytes: 256 * 1024 * 1024 },
-    { id: 'x0at', name: 'x0.at', retention: '3-100 days', maxBytes: 512 * 1024 * 1024 },
-    { id: 'tmpfile', name: 'tmpfile.link', retention: '7 days', maxBytes: 100 * 1024 * 1024 },
-    { id: 'litterbox', name: 'Litterbox', retention: '3 days', maxBytes: 1024 * 1024 * 1024 },
-    { id: 'tempsh', name: 'temp.sh', retention: '3 days', maxBytes: 4 * 1024 * 1024 * 1024 },
+  // Send is the secondary automatic fallback.
+  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: 5 * 1024 * 1024 * 1024 };
+  const SEND_INSTANCE_NAMES = [
+    'send.skylerszijjarto.com', 'send.hostnetwork.xyz', 'send.adminforge.de',
+    'send.cyberjake.xyz', 'send.turingpoint.de', 'send.codespace.cz',
+    'send.mni.li', 'upload.nolog.cz', 'send.monks.tools', 'send.vis.ee',
+    'send.aurorabilisim.com', 'send.artemislena.eu', 'fileupload.ggc-project.de',
+    'send.kokomo.cloud', 'drop.chapril.org', 'send.canine.tools',
+    'send.aslaets.be', 'send.blablalinux.be', 'dropnito.online',
+    'send.jeugdhulp.be',
   ];
 
-  // Image hosts for stego PNGs (shuffled at upload time)
+  // Emergency binary hosts, tried only after Send fails.
+  const BINARY_HOSTS: HostInfo[] = [
+    { id: 'quax', name: 'qu.ax', maxBytes: 256 * 1024 * 1024 },
+    { id: 'x0at', name: 'x0.at', maxBytes: 512 * 1024 * 1024 },
+    { id: 'tmpfile', name: 'tmpfile.link', maxBytes: 100 * 1024 * 1024 },
+    { id: 'litterbox', name: 'Litterbox', maxBytes: 1024 * 1024 * 1024 },
+    { id: 'tempsh', name: 'temp.sh', maxBytes: 4 * 1024 * 1024 * 1024 },
+  ];
+
+  // Emergency image hosts for stego PNGs, tried only after Send fails.
   const IMAGE_HOSTS: HostInfo[] = [
-    { id: 'sxcu', name: 'sxcu.net', retention: 'forever', maxBytes: 95 * 1024 * 1024 },
-    { id: 'freeimage', name: 'FreeImage.host', retention: 'forever', maxBytes: 64 * 1024 * 1024 },
+    { id: 'sxcu', name: 'sxcu.net', maxBytes: 95 * 1024 * 1024 },
+    { id: 'freeimage', name: 'FreeImage.host', maxBytes: 64 * 1024 * 1024 },
   ];
 
   function shuffleArr<T>(arr: T[]): T[] {
@@ -447,14 +459,12 @@
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);
     localFileUrl = URL.createObjectURL(encBlob);
 
-    // Determine which hosts will be used
-    if (usedStego) {
-      pendingHosts = shuffleArr(IMAGE_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes);
-    } else {
-      const sendEligible = pendingUploadBytes!.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
-      const fileEligible = shuffleArr(BINARY_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes);
-      pendingHosts = [...sendEligible, ...fileEligible.slice(0, 1)];
-    }
+    const firstPartyEligible = pendingUploadBytes!.length + 4 <= FIRST_PARTY_HOST.maxBytes ? [FIRST_PARTY_HOST] : [];
+    const sendEligible = pendingUploadBytes!.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
+    const emergencyHosts = usedStego
+      ? shuffleArr(IMAGE_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes)
+      : shuffleArr(BINARY_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes);
+    pendingHosts = [...firstPartyEligible, ...sendEligible, ...emergencyHosts];
     pushDebug(`Encrypted file ready. Hosts: ${pendingHosts.map(h => h.name).join(', ')}`);
   }
 
@@ -473,6 +483,20 @@
         let fetchBody: Uint8Array = uploadBytes;
         const headers: Record<string, string> = {};
 
+        if (host.id === 'eclk') {
+          const res = await fetch(FIRST_PARTY_UPLOAD_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: prependEclkMagic(uploadBytes),
+          });
+          if (!res.ok) {
+            pushDebug(`encrypt.click upload failed: HTTP ${res.status}`);
+            return null;
+          }
+          const data = await res.json().catch(() => null) as any;
+          return data?.success && data?.id ? `${FIRST_PARTY_DOWNLOAD_BASE_URL}/${encodeURIComponent(data.id)}` : null;
+        }
+
         if (host.id === 'nologsend') {
           const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
           fetchBody = prepared.encryptedBytes;
@@ -490,16 +514,9 @@
       } catch { return null; }
     }
 
-    if (pendingHosts.length >= 2) {
-      const results = await Promise.allSettled(pendingHosts.map(h => tryUploadHost(h)));
-      for (const r of results) {
-        if (r.status === 'fulfilled' && r.value) uploadUrls.push(r.value);
-      }
-    } else {
-      for (const host of pendingHosts) {
-        const url = await tryUploadHost(host);
-        if (url) { uploadUrls.push(url); break; }
-      }
+    for (const host of pendingHosts) {
+      const url = await tryUploadHost(host);
+      if (url) { uploadUrls.push(url); break; }
     }
 
     if (uploadUrls.length === 0) {
@@ -739,6 +756,9 @@
         <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
           {t(dict, 'tools.ultimateEncrypt.confirm.subtitle')}
         </p>
+        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed rounded-lg bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 px-3 py-2">
+          {t(dict, 'tools.ultimateEncrypt.confirm.storageGuarantee')}
+        </p>
       </div>
 
       {#if pendingHosts.length > 0}
@@ -754,7 +774,6 @@
                     {t(dict, 'tools.ultimateEncrypt.confirm.oneOf')} {SEND_INSTANCE_NAMES.join(', ')}
                   </p>
                 {/if}
-                <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.confirm.retention')} {host.retention}</p>
               </div>
             </div>
           {/each}
@@ -784,12 +803,8 @@
         <div class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed space-y-1.5">
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
           <div class="flex flex-wrap gap-x-3 gap-y-1">
-            <a href="https://upload.nolog.cz" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">upload.nolog.cz</a>
-            <a href="https://wormhole.app" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">wormhole.app</a>
-            <a href="https://file.io" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">file.io</a>
-            <a href="https://gofile.io" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">gofile.io</a>
-            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">swisstransfer.com</a>
-            <a href="https://github.com/timvisee/send-instances/#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">more Send instances</a>
+            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">Send instances</a>
+            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">SwissTransfer</a>
           </div>
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></p>
         </div>

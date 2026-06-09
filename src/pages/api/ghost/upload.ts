@@ -14,26 +14,35 @@ function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-// Limits verified 2026-05-06 by GET / on each instance and grepping
-// MAX_DOWNLOADS / MAX_EXPIRE_SECONDS / MAX_FILE_SIZE from inline config.
+const MiB = 1024 * 1024;
+const GiB = 1024 * MiB;
+const DAY = 86400;
+
+// Limits from the public Send instances table.
 // Direct hosts (qu.ax, x0.at, tmpfile.link, sxcu.net) have no per-file
 // download cap (verified via 200+ sequential GETs).
 // send.boblorange.net is removed: it now requires login.
 const SEND_INSTANCES: SendInstance[] = [
-  { baseUrl: 'https://send.hostnetwork.xyz', label: 'send.hostnetwork.xyz', region: 'eu', country: 'DE', maxBytes: 2684354560, maxExpireSeconds: 700000, maxDownloads: 999999 },
-  { baseUrl: 'https://send.adminforge.de', label: 'send.adminforge.de', region: 'eu', country: 'DE', maxBytes: 8 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 1000 },
-  { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ', maxBytes: 5 * 1024 * 1024 * 1024, maxExpireSeconds: 1209600, maxDownloads: 500 },
-  { baseUrl: 'https://send.canine.tools', label: 'send.canine.tools', region: 'other', maxBytes: 1073741824, maxExpireSeconds: 2592000, maxDownloads: 100 },
-  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other', country: 'US', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 2592000, maxDownloads: 100 },
-  { baseUrl: 'https://send.monks.tools', label: 'send.monks.tools', region: 'other', country: 'US', maxBytes: 5 * 1024 * 1024 * 1024, maxExpireSeconds: 2678400, maxDownloads: 100 },
-  { baseUrl: 'https://send.kokomo.cloud', label: 'send.kokomo.cloud', region: 'other', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
-  { baseUrl: 'https://send.artemislena.eu', label: 'send.artemislena.eu', region: 'eu', country: 'EU', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
-  { baseUrl: 'https://fileupload.ggc-project.de', label: 'fileupload.ggc-project.de', region: 'eu', country: 'DE', maxBytes: 2684354560, maxExpireSeconds: 604800, maxDownloads: 100 },
-  { baseUrl: 'https://drop.chapril.org', label: 'drop.chapril.org', region: 'eu', country: 'DE', maxBytes: 858993459, maxExpireSeconds: 432000, maxDownloads: 100 },
-  { baseUrl: 'https://uploa.cdsp.cz', label: 'send.codespace.cz', region: 'eu', country: 'CZ', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 100 },
-  { baseUrl: 'https://send.mni.li', label: 'send.mni.li', region: 'eu', country: 'NL', maxBytes: 8 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 25 },
-  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'NL', maxBytes: 2684354560, maxExpireSeconds: 259200, maxDownloads: 20 },
-  { baseUrl: 'https://send.turingpoint.de', label: 'send.turingpoint.de', region: 'eu', country: 'DE', maxBytes: 10 * 1024 * 1024 * 1024, maxExpireSeconds: 604800, maxDownloads: 5 },
+  { baseUrl: 'https://send.skylerszijjarto.com', label: 'send.skylerszijjarto.com', region: 'other', country: 'US', maxBytes: 250 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 10000 },
+  { baseUrl: 'https://send.hostnetwork.xyz', label: 'send.hostnetwork.xyz', region: 'eu', country: 'DE', maxBytes: 2560 * MiB, maxExpireSeconds: 700000, maxDownloads: 999999 },
+  { baseUrl: 'https://send.adminforge.de', label: 'send.adminforge.de', region: 'eu', country: 'DE', maxBytes: 8 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 1000 },
+  { baseUrl: 'https://send.cyberjake.xyz', label: 'send.cyberjake.xyz', region: 'other', country: 'US', maxBytes: 10 * GiB, maxExpireSeconds: 30 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.turingpoint.de', label: 'send.turingpoint.de', region: 'eu', country: 'DE', maxBytes: 10 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 10 },
+  { baseUrl: 'https://send.codespace.cz', label: 'send.codespace.cz', region: 'eu', country: 'CZ', maxBytes: 10 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.mni.li', label: 'send.mni.li', region: 'eu', country: 'NL', maxBytes: 8 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 25 },
+  { baseUrl: 'https://upload.nolog.cz', label: 'upload.nolog.cz', region: 'eu', country: 'CZ', maxBytes: 5 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.monks.tools', label: 'send.monks.tools', region: 'other', country: 'US', maxBytes: 5 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 50 },
+  { baseUrl: 'https://send.vis.ee', label: 'send.vis.ee', region: 'eu', country: 'NL', maxBytes: 2560 * MiB, maxExpireSeconds: 3 * DAY, maxDownloads: 10 },
+  { baseUrl: 'https://send.aurorabilisim.com', label: 'send.aurorabilisim.com', region: 'other', country: 'TR', maxBytes: 2560 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.artemislena.eu', label: 'send.artemislena.eu', region: 'eu', country: 'DE', maxBytes: 2560 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://fileupload.ggc-project.de', label: 'fileupload.ggc-project.de', region: 'eu', country: 'DE', maxBytes: 2560 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.kokomo.cloud', label: 'send.kokomo.cloud', region: 'other', country: 'US', maxBytes: 2560 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://drop.chapril.org', label: 'drop.chapril.org', region: 'eu', country: 'DE', maxBytes: 1 * GiB, maxExpireSeconds: 5 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.canine.tools', label: 'send.canine.tools', region: 'other', country: 'US', maxBytes: 1 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.aslaets.be', label: 'send.aslaets.be', region: 'eu', country: 'DE', maxBytes: 512 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 3 },
+  { baseUrl: 'https://send.blablalinux.be', label: 'send.blablalinux.be', region: 'eu', country: 'BE', maxBytes: 512 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 10 },
+  { baseUrl: 'https://dropnito.online', label: 'dropnito.online', region: 'eu', country: 'CZ', maxBytes: 150 * MiB, maxExpireSeconds: 7 * DAY, maxDownloads: 100 },
+  { baseUrl: 'https://send.jeugdhulp.be', label: 'send.jeugdhulp.be', region: 'eu', country: 'FR', maxBytes: 50 * MiB, maxExpireSeconds: 10 * DAY, maxDownloads: 25 },
 ];
 
 function shuffle<T>(arr: T[]): T[] {
@@ -97,25 +106,6 @@ async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
   const data = await res.json() as any;
   if (!data?.files?.[0]?.url) throw new Error('qu.ax: no URL in response');
   return data.files[0].url;
-}
-
-async function uploadGofile(file: Uint8Array, filename: string): Promise<string> {
-  const srvRes = await fetch('https://api.gofile.io/servers');
-  if (!srvRes.ok) throw new Error(`Gofile servers: HTTP ${srvRes.status}`);
-  const srvData = await srvRes.json() as any;
-  const servers = srvData?.data?.servers;
-  const server = Array.isArray(servers) ? (typeof servers[0] === 'string' ? servers[0] : servers[0]?.name) : null;
-  if (!server) throw new Error('Gofile: no server available');
-  const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
-  const res = await fetch(`https://${server}.gofile.io/uploadFile`, {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`Gofile: HTTP ${res.status}`);
-  const data = await res.json() as any;
-  if (!data?.data?.downloadPage) throw new Error('Gofile: no download page in response');
-  return data.data.downloadPage;
 }
 
 async function uploadTmpfileLink(file: Uint8Array, filename: string): Promise<string> {
@@ -212,7 +202,6 @@ const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<s
   sxcu: uploadSxcu,
   freeimage: uploadFreeImage,
   quax: uploadQuax,
-  gofile: uploadGofile,
   tmpfile: uploadTmpfileLink,
   tempsh: uploadTempSh,
   x0at: uploadX0at,
@@ -224,21 +213,19 @@ interface ServiceInfo {
   name: string;
   type: 'image' | 'file';
   maxBytes: number;
-  retention: string;
   tosUrl: string | null;
   recommended?: boolean;
 }
 
 const SERVICE_INFO: ServiceInfo[] = [
-  { id: 'nologsend', name: 'Send network', type: 'file', maxBytes: 5 * 1024 * 1024 * 1024, retention: '3-31 days', tosUrl: 'https://upload.nolog.cz/', recommended: true },
-  { id: 'quax', name: 'qu.ax', type: 'file', maxBytes: 256 * 1024 * 1024, retention: '30 days', tosUrl: 'https://qu.ax/tos', recommended: true },
-  { id: 'tempsh', name: 'temp.sh', type: 'file', maxBytes: 4 * 1024 * 1024 * 1024, retention: '3 days', tosUrl: null },
-  { id: 'gofile', name: 'Gofile.io', type: 'file', maxBytes: Infinity, retention: '10 days', tosUrl: 'https://gofile.io/terms' },
-  { id: 'tmpfile', name: 'tmpfile.link', type: 'file', maxBytes: 100 * 1024 * 1024, retention: '7 days', tosUrl: 'https://tmpfile.link/terms' },
-  { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: 95 * 1024 * 1024, retention: 'forever', tosUrl: 'https://sxcu.net/tos.html', recommended: true },
-  { id: 'freeimage', name: 'FreeImage.host', type: 'image', maxBytes: 64 * 1024 * 1024, retention: 'forever', tosUrl: 'https://freeimage.host/tos' },
-  { id: 'x0at', name: 'x0.at', type: 'file', maxBytes: 512 * 1024 * 1024, retention: '3-100 days', tosUrl: 'https://x0.at' },
-  { id: 'litterbox', name: 'Litterbox', type: 'file', maxBytes: 1024 * 1024 * 1024, retention: '3 days', tosUrl: 'https://catbox.moe/faq.php' },
+  { id: 'nologsend', name: 'Send network', type: 'file', maxBytes: 5 * 1024 * 1024 * 1024, tosUrl: 'https://upload.nolog.cz/', recommended: true },
+  { id: 'quax', name: 'qu.ax', type: 'file', maxBytes: 256 * 1024 * 1024, tosUrl: 'https://qu.ax/tos' },
+  { id: 'tempsh', name: 'temp.sh', type: 'file', maxBytes: 4 * 1024 * 1024 * 1024, tosUrl: null },
+  { id: 'tmpfile', name: 'tmpfile.link', type: 'file', maxBytes: 100 * 1024 * 1024, tosUrl: 'https://tmpfile.link/terms' },
+  { id: 'sxcu', name: 'sxcu.net', type: 'image', maxBytes: 95 * 1024 * 1024, tosUrl: 'https://sxcu.net/tos.html' },
+  { id: 'freeimage', name: 'FreeImage.host', type: 'image', maxBytes: 64 * 1024 * 1024, tosUrl: 'https://freeimage.host/tos' },
+  { id: 'x0at', name: 'x0.at', type: 'file', maxBytes: 512 * 1024 * 1024, tosUrl: 'https://x0.at' },
+  { id: 'litterbox', name: 'Litterbox', type: 'file', maxBytes: 1024 * 1024 * 1024, tosUrl: 'https://catbox.moe/faq.php' },
 ];
 
 export const GET: APIRoute = async () => {

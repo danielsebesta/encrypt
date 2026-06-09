@@ -27,7 +27,6 @@ Privacy-first security tools that run primarily in the browser. The site is buil
 ### Other first-class routes
 - `/` homepage with the main `UltimateEncrypt` flow
 - `/u` decrypt / receive flow
-- `/download` download handoff flow
 - `/security` privacy and security page
 - `/chat` encrypted ephemeral chat
 

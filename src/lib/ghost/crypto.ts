@@ -1,6 +1,26 @@
 const SALT_SIZE = 16;
 const IV_SIZE = 12;
 const PBKDF2_ITERATIONS = 100000;
+const ECLK_MAGIC = new Uint8Array([0x45, 0x43, 0x4c, 0x4b]);
+
+export function prependEclkMagic(data: Uint8Array): Uint8Array {
+  const combined = new Uint8Array(ECLK_MAGIC.length + data.length);
+  combined.set(ECLK_MAGIC, 0);
+  combined.set(data, ECLK_MAGIC.length);
+  return combined;
+}
+
+export function hasEclkMagic(data: Uint8Array): boolean {
+  if (data.length < ECLK_MAGIC.length) return false;
+  for (let i = 0; i < ECLK_MAGIC.length; i++) {
+    if (data[i] !== ECLK_MAGIC[i]) return false;
+  }
+  return true;
+}
+
+export function stripEclkMagic(data: Uint8Array): Uint8Array {
+  return hasEclkMagic(data) ? data.slice(ECLK_MAGIC.length) : data;
+}
 
 export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   const enc = new TextEncoder();

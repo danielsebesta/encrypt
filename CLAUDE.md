@@ -54,7 +54,6 @@ Validate changes with `yarn build`.
 
 - `/` homepage with `UltimateEncrypt`
 - `/u` decrypt / receive flow
-- `/download` handoff download flow
 - `/security` privacy and security summary
 - `/chat` encrypted ephemeral chat
 - `/tools/*` tool pages
