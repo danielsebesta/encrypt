@@ -11,7 +11,7 @@
 
   export let locale = 'en';
   export let roomId = '';
-  export let partyHost = 'encrypt-chat.danielsebesta.partykit.dev';
+  export let partyHost = 'encrypt-click.danielsebesta.partykit.dev';
 
   $: dict = getTranslations(locale);
 

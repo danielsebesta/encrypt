@@ -185,7 +185,6 @@ Use the existing pilot pages as the reference implementation.
 - Navigation / language UI: `src/layouts/Layout.astro`
 - Shared styles: `src/styles/global.css`
 - Security/privacy page: `src/pages/security.astro`
-- Dead Drop: `src/pages/drop.astro`
 - Receive/download flow: `src/pages/u.astro`, `src/pages/download.astro`
 
 ## Pull requests

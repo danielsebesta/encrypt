@@ -13,6 +13,10 @@ import { encryptMessage, decryptMessage, generateRoomKey, importRoomKey } from '
 
 export type ECDHKeypair = CryptoKeyPair;
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 /** Generate an ephemeral P-256 ECDH keypair for a single handshake. */
 export async function generateEphemeralKeypair(): Promise<ECDHKeypair> {
   return crypto.subtle.generateKey(
@@ -32,7 +36,7 @@ export async function exportPublicKey(key: CryptoKey): Promise<string> {
 export async function importPublicKey(b64: string): Promise<CryptoKey> {
   const raw = b64urlToArray(b64);
   return crypto.subtle.importKey(
-    'raw', raw, { name: 'ECDH', namedCurve: 'P-256' }, true, [],
+    'raw', bytesToArrayBuffer(raw), { name: 'ECDH', namedCurve: 'P-256' }, true, [],
   );
 }
 
@@ -56,7 +60,7 @@ export async function deriveSharedKey(
  */
 export async function fingerprint(pubA: string, pubB: string): Promise<string> {
   const sorted = [pubA, pubB].sort().join('|');
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sorted));
+  const digest = await crypto.subtle.digest('SHA-256', bytesToArrayBuffer(new TextEncoder().encode(sorted)));
   const bytes = new Uint8Array(digest);
   return Array.from(bytes.slice(0, 3), b => b.toString(16).padStart(2, '0')).join('-').toUpperCase();
 }

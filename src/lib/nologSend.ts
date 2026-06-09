@@ -33,6 +33,14 @@ function b64ToArray(str: string): Uint8Array {
   return bytes;
 }
 
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+function textToArrayBuffer(text: string): ArrayBuffer {
+  return bytesToArrayBuffer(encoder.encode(text));
+}
+
 function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   const out = new Uint8Array(a.length + b.length);
   out.set(a, 0);
@@ -48,6 +56,27 @@ function parseNonce(header: string | null): string {
   return (header || '').split(' ')[1] || '';
 }
 
+function toTransformController(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  onEnqueue?: () => void,
+): TransformStreamDefaultController<Uint8Array> {
+  return {
+    get desiredSize() {
+      return controller.desiredSize;
+    },
+    enqueue(chunk: Uint8Array) {
+      onEnqueue?.();
+      controller.enqueue(chunk);
+    },
+    error(reason?: unknown) {
+      controller.error(reason);
+    },
+    terminate() {
+      controller.close();
+    },
+  } as TransformStreamDefaultController<Uint8Array>;
+}
+
 function transformStream(readable: ReadableStream<Uint8Array>, transformer: Transformer<Uint8Array, Uint8Array>) {
   try {
     return readable.pipeThrough(new TransformStream(transformer));
@@ -56,28 +85,25 @@ function transformStream(readable: ReadableStream<Uint8Array>, transformer: Tran
     return new ReadableStream<Uint8Array>({
       async start(controller) {
         if (transformer.start) {
-          await transformer.start(controller);
+          await transformer.start(toTransformController(controller));
         }
       },
       async pull(controller) {
         let enqueued = false;
-        const wrappedController = {
-          enqueue(chunk: Uint8Array) {
-            enqueued = true;
-            controller.enqueue(chunk);
-          },
-        };
+        const wrappedController = toTransformController(controller, () => {
+          enqueued = true;
+        });
 
         while (!enqueued) {
           const data = await reader.read();
           if (data.done) {
             if (transformer.flush) {
-              await transformer.flush(controller);
+              await transformer.flush(toTransformController(controller));
             }
             controller.close();
             return;
           }
-          await transformer.transform?.(data.value, wrappedController as unknown as TransformStreamDefaultController<Uint8Array>);
+          await transformer.transform?.(data.value, wrappedController);
         }
       },
       cancel(reason) {
@@ -177,7 +203,7 @@ class ECETransformer implements Transformer<Uint8Array, Uint8Array> {
   ) {}
 
   private async importSecretKey() {
-    return crypto.subtle.importKey('raw', this.ikm, 'HKDF', false, ['deriveKey']);
+    return crypto.subtle.importKey('raw', bytesToArrayBuffer(this.ikm), 'HKDF', false, ['deriveKey']);
   }
 
   private async generateKey() {
@@ -185,8 +211,8 @@ class ECETransformer implements Transformer<Uint8Array, Uint8Array> {
     return crypto.subtle.deriveKey(
       {
         name: 'HKDF',
-        salt: this.salt!,
-        info: encoder.encode('Content-Encoding: aes128gcm\0'),
+        salt: bytesToArrayBuffer(this.salt!),
+        info: textToArrayBuffer('Content-Encoding: aes128gcm\0'),
         hash: 'SHA-256',
       },
       inputKey,
@@ -201,8 +227,8 @@ class ECETransformer implements Transformer<Uint8Array, Uint8Array> {
     const baseKey = await crypto.subtle.deriveKey(
       {
         name: 'HKDF',
-        salt: this.salt!,
-        info: encoder.encode('Content-Encoding: nonce\0'),
+        salt: bytesToArrayBuffer(this.salt!),
+        info: textToArrayBuffer('Content-Encoding: nonce\0'),
         hash: 'SHA-256',
       },
       inputKey,
@@ -265,13 +291,21 @@ class ECETransformer implements Transformer<Uint8Array, Uint8Array> {
 
   private async encryptRecord(buffer: Uint8Array, seq: number, isLast: boolean) {
     const nonce = this.generateNonce(seq);
-    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, this.key!, this.pad(buffer, isLast));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: bytesToArrayBuffer(nonce) },
+      this.key!,
+      bytesToArrayBuffer(this.pad(buffer, isLast)),
+    );
     return new Uint8Array(encrypted);
   }
 
   private async decryptRecord(buffer: Uint8Array, seq: number, isLast: boolean) {
     const nonce = this.generateNonce(seq);
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce, tagLength: 128 }, this.key!, buffer);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: bytesToArrayBuffer(nonce), tagLength: 128 },
+      this.key!,
+      bytesToArrayBuffer(buffer),
+    );
     return this.unpad(new Uint8Array(decrypted), isLast);
   }
 
@@ -327,7 +361,7 @@ function decryptStream(input: ReadableStream<Uint8Array>, key: Uint8Array, rs = 
 }
 
 async function encryptSendBytes(data: Uint8Array, key: Uint8Array) {
-  const encryptedStream = encryptStream(new Blob([data]).stream() as ReadableStream<Uint8Array>, key);
+  const encryptedStream = encryptStream(new Blob([bytesToArrayBuffer(data)]).stream() as ReadableStream<Uint8Array>, key);
   return streamToUint8Array(encryptedStream);
 }
 
@@ -348,7 +382,7 @@ class NologSendKeychain {
   }
 
   private async importSecretKey() {
-    return crypto.subtle.importKey('raw', this.rawSecret, 'HKDF', false, ['deriveKey']);
+    return crypto.subtle.importKey('raw', bytesToArrayBuffer(this.rawSecret), 'HKDF', false, ['deriveKey']);
   }
 
   private async deriveAuthKey() {
@@ -356,8 +390,8 @@ class NologSendKeychain {
     return crypto.subtle.deriveKey(
       {
         name: 'HKDF',
-        salt: new Uint8Array(),
-        info: encoder.encode('authentication'),
+        salt: bytesToArrayBuffer(new Uint8Array()),
+        info: textToArrayBuffer('authentication'),
         hash: 'SHA-256',
       },
       secretKey,
@@ -375,7 +409,7 @@ class NologSendKeychain {
 
   async authHeader() {
     const authKey = await this.deriveAuthKey();
-    const sig = await crypto.subtle.sign({ name: 'HMAC' }, authKey, b64ToArray(this.nonceValue));
+    const sig = await crypto.subtle.sign({ name: 'HMAC' }, authKey, bytesToArrayBuffer(b64ToArray(this.nonceValue)));
     return `send-v1 ${arrayToB64(new Uint8Array(sig))}`;
   }
 
@@ -384,8 +418,8 @@ class NologSendKeychain {
     const metaKey = await crypto.subtle.deriveKey(
       {
         name: 'HKDF',
-        salt: new Uint8Array(),
-        info: encoder.encode('metadata'),
+        salt: bytesToArrayBuffer(new Uint8Array()),
+        info: textToArrayBuffer('metadata'),
         hash: 'SHA-256',
       },
       secretKey,
@@ -399,7 +433,11 @@ class NologSendKeychain {
       type: metadata.type || 'application/octet-stream',
       manifest: metadata.manifest || {},
     }));
-    return new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: new Uint8Array(12), tagLength: 128 }, metaKey, data));
+    return new Uint8Array(await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: bytesToArrayBuffer(new Uint8Array(12)), tagLength: 128 },
+      metaKey,
+      bytesToArrayBuffer(data),
+    ));
   }
 }
 
@@ -441,7 +479,7 @@ function listenForResponse(ws: WebSocket) {
 export async function uploadToNologSend(data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT) {
   const keychain = new NologSendKeychain();
   onDebug?.(`NoLog Send: preparing ${filename} (${data.byteLength} bytes)`);
-  const encryptedStream = encryptStream(new Blob([data]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
+  const encryptedStream = encryptStream(new Blob([bytesToArrayBuffer(data)]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
   const metadata = await keychain.encryptMetadata({ name: filename, size: data.byteLength, type: fileType });
   const verifierB64 = await keychain.authKeyB64();
   onDebug?.(`NoLog Send: metadata encrypted (${metadata.byteLength} bytes)`);
@@ -484,7 +522,7 @@ export async function uploadToNologSend(data: Uint8Array, filename: string, file
     onDebug?.('NoLog Send: server confirmed upload completion');
     return `${uploadInfo.url}#${arrayToB64(keychain.rawSecret)}`;
   } finally {
-    if (![WebSocket.CLOSING, WebSocket.CLOSED].includes(ws.readyState)) {
+    if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
       ws.close();
     }
   }
@@ -543,7 +581,7 @@ export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Arra
       'X-Download-Limit': String(dlimit),
       'Content-Type': 'application/octet-stream',
     },
-    body: encryptedBytes,
+    body: bytesToArrayBuffer(encryptedBytes),
   });
   onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status}`);
   if (!res.ok) {
@@ -577,7 +615,7 @@ export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filena
       'X-Download-Limit': String(dlimit),
       'Content-Type': 'application/octet-stream',
     },
-    body: encryptedBytes,
+    body: bytesToArrayBuffer(encryptedBytes),
   });
   onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status} (timeLimit=${timeLimit}s, dlimit=${dlimit})`);
   if (!res.ok) {
@@ -628,16 +666,26 @@ export async function fetchSendEncryptedBlob(urlString: string, onDebug?: DebugF
 }
 
 async function deriveEceKey(ikm: Uint8Array, salt: Uint8Array) {
-  const baseKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
+  const baseKey = await crypto.subtle.importKey('raw', bytesToArrayBuffer(ikm), 'HKDF', false, ['deriveKey']);
   const aesKey = await crypto.subtle.deriveKey(
-    { name: 'HKDF', salt, info: encoder.encode('Content-Encoding: aes128gcm\0'), hash: 'SHA-256' },
+    {
+      name: 'HKDF',
+      salt: bytesToArrayBuffer(salt),
+      info: textToArrayBuffer('Content-Encoding: aes128gcm\0'),
+      hash: 'SHA-256',
+    },
     baseKey,
     { name: 'AES-GCM', length: 128 },
     true,
     ['decrypt'],
   );
   const nonceKey = await crypto.subtle.deriveKey(
-    { name: 'HKDF', salt, info: encoder.encode('Content-Encoding: nonce\0'), hash: 'SHA-256' },
+    {
+      name: 'HKDF',
+      salt: bytesToArrayBuffer(salt),
+      info: textToArrayBuffer('Content-Encoding: nonce\0'),
+      hash: 'SHA-256',
+    },
     baseKey,
     { name: 'AES-GCM', length: 128 },
     true,
@@ -688,9 +736,9 @@ async function decryptEceBytes(encryptedBytes: Uint8Array, ikm: Uint8Array, onDe
 
     const nonce = eceNonce(nonceBase, seq);
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+      { name: 'AES-GCM', iv: bytesToArrayBuffer(nonce), tagLength: 128 },
       aesKey,
-      record,
+      bytesToArrayBuffer(record),
     );
     parts.push(eceUnpad(new Uint8Array(decrypted), isLast));
     offset = end;
@@ -719,7 +767,7 @@ export async function downloadFromSendUrl(urlString: string, onDebug?: DebugFn) 
   const keychain = new NologSendKeychain(secret);
   onDebug?.(`Send ${baseUrl}: resolving download ${id}`);
   const encryptedBytes = await fetchSendBlob(baseUrl, id, keychain, onDebug);
-  const decryptedStream = decryptStream(new Blob([encryptedBytes]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
+  const decryptedStream = decryptStream(new Blob([bytesToArrayBuffer(encryptedBytes)]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
   const decryptedBytes = await streamToUint8Array(decryptedStream);
   onDebug?.(`Send ${baseUrl}: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
   return decryptedBytes;

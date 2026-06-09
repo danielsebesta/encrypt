@@ -13,7 +13,6 @@
   if (grid) {
     const COLS = Math.min(MAX_COLS, Math.ceil(screen.width / CELL_SIZE) + 2);
     const ROWS = Math.min(MAX_ROWS, Math.ceil(screen.height / CELL_SIZE) + 2);
-    let isDark = document.documentElement.classList.contains('dark');
     const cells: { el: HTMLDivElement; r: number; c: number; prev: string }[] = [];
 
     grid.style.setProperty('--perlin-cols', String(COLS));

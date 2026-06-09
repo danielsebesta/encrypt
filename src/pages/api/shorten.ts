@@ -299,7 +299,7 @@ async function shortenCleanuri(urlToShorten: string, signal: AbortSignal): Promi
   } catch { return null; }
 }
 
-export const POST: APIRoute = async ({ request, url }) => {
+export const POST: APIRoute = async ({ request }) => {
   const { ok, remaining, resetIn } = await checkRateLimit('shorten', request, SHORTEN_LIMIT);
   if (!ok) {
     return new Response(JSON.stringify({ error: 'Too many requests' }), {

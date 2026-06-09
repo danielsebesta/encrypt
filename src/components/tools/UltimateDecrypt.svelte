@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import LZString from 'lz-string';
   import { decrypt } from '../../lib/crypto';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
@@ -580,12 +581,19 @@
       json = new TextDecoder().decode(decompressed);
       pushDebug(`Outer payload gunzipped to ${decompressed.byteLength} bytes`);
     } catch {
-      json = compressedB64;
-      pushDebug('Outer payload was not gzipped, using plaintext JSON fallback');
+      const legacy = LZString.decompressFromBase64(compressedB64) ?? LZString.decompressFromUTF16(compressedB64);
+      json = legacy || compressedB64;
+      pushDebug(legacy ? 'Outer payload opened with legacy LZ fallback' : 'Outer payload was not gzipped, using plaintext JSON fallback');
     }
 
     const data = JSON.parse(json) as any;
     pushDebug(`Outer payload parsed: mode=${data.mode || 'unknown'}, version=${data.v ?? 'unknown'}`);
+
+    if (!data.v && !data.mode && (data.kind === 'text' || data.kind === 'file')) {
+      pushDebug('Legacy URL payload detected');
+      await handleInlinePayload(data);
+      return;
+    }
 
     if (data.v !== 1) {
       throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
