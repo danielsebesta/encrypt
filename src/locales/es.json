@@ -606,6 +606,8 @@
   "chat.callUnmute": "Activar micrófono",
   "chat.callCameraOff": "Apagar cámara",
   "chat.callCameraOn": "Encender cámara",
+  "chat.callEnterFullscreen": "Abrir pantalla completa",
+  "chat.callExitFullscreen": "Salir de pantalla completa",
   "chat.callSettings": "Ajustes de llamada",
   "chat.callMuteMicrophone": "Silenciar micrófono",
   "chat.callMuteAllAudio": "Silenciar todo el sonido",
