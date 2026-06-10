@@ -609,6 +609,7 @@
   "chat.callSettings": "Anrufeinstellungen",
   "chat.callMuteMicrophone": "Mikrofon stummschalten",
   "chat.callMuteAllAudio": "Alle Töne stummschalten",
+  "chat.callUnmuteAllAudio": "Alle Töne einschalten",
   "chat.callBlurMediaWhenAway": "Kameras bei Abwesenheit weichzeichnen",
   "chat.callVolume": "Anruflautstärke",
   "chat.callMicrophone": "Mikrofon",

@@ -609,6 +609,7 @@
   "chat.callSettings": "Nastavení hovoru",
   "chat.callMuteMicrophone": "Ztlumit mikrofon",
   "chat.callMuteAllAudio": "Ztlumit všechny zvuky",
+  "chat.callUnmuteAllAudio": "Zapnout všechny zvuky",
   "chat.callBlurMediaWhenAway": "Rozmazat kamery mimo okno",
   "chat.callVolume": "Hlasitost hovoru",
   "chat.callMicrophone": "Mikrofon",

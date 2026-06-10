@@ -7,7 +7,9 @@ type RoomState = {
 
 const SERVER_INFO = {
   name: "encrypt-1",
-  region: "Amsterdam",
+  location: "AMS-NL",
+  city: "Amsterdam",
+  countryCode: "NL",
 };
 
 export default class ChatRoom implements Party.Server {
