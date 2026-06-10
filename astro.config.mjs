@@ -12,7 +12,11 @@ export default defineConfig({
     // @ts-expect-error - Vite plugin type mismatch between Astro and @tailwindcss/vite
     plugins: [tailwindcss()],
     optimizeDeps: {
-      include: ['lz-string', 'tlock-js']
+      include: ['lz-string', 'tlock-js'],
+      exclude: ['svelte', 'svelte/internal', 'svelte/internal/client']
+    },
+    resolve: {
+      dedupe: ['svelte']
     }
   },
 

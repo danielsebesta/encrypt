@@ -31,10 +31,12 @@
   let localFileUrl = '';
   let localFileName = '';
   let error = '';
+  let resultPassword = '';
 
   // Confirm step state
   let pendingUploadBytes: Uint8Array | null = null;
   let pendingUploadFilename = '';
+  let pendingPayloadPassword = '';
   let pendingUsedStego = false;
   let pendingHosts: HostInfo[] = [];
   let showManualTransferHelp = false;
@@ -389,11 +391,12 @@
 
   async function encryptLocal() {
     if (files.length === 0) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoFileSelected'));
+    const encryptionPassword = password;
     const { buffer, filename } = await resolvePayload();
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
     pushDebug(`Local encrypt: ${filename} (${buffer.byteLength} bytes)`);
 
-    const encrypted = await encryptData(buffer, password, filename);
+    const encrypted = await encryptData(buffer, encryptionPassword, filename);
     pushDebug(`Encrypted to ${encrypted.byteLength} bytes`);
 
     const blob = new Blob([encrypted], { type: 'application/octet-stream' });
@@ -403,11 +406,14 @@
 
     pendingHosts = [];
     pendingUploadBytes = null;
+    pendingPayloadPassword = '';
+    resultPassword = encryptionPassword;
     resultHasTemporaryUpload = false;
     pushDebug(`Local encrypted file ready for download`);
   }
 
   async function encryptInline() {
+    const encryptionPassword = password;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressPreparingTitle'), t(dict, 'tools.ultimateEncrypt.progressPreparingDetail'));
     let payload: any;
     if (files.length > 0) {
@@ -426,12 +432,13 @@
     const compressed = await gzipBytes(jsonBytes);
     const compressedB64 = bytesToBase64(compressed);
     pushDebug(`Inline payload compressed from ${jsonBytes.byteLength} to ${compressed.byteLength} bytes`);
-    const encrypted = await encrypt(compressedB64, password);
+    const encrypted = await encrypt(compressedB64, encryptionPassword);
     const encoded = base64UrlEncode(encrypted);
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
+    resultPassword = encryptionPassword;
     resultHasTemporaryUpload = false;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
     await autoShorten(urls.shortenable);
@@ -439,6 +446,7 @@
   }
 
   async function encryptGhostPrepare() {
+    const encryptionPassword = password;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
     const { buffer, filename } = files.length > 0
       ? await resolvePayload()
@@ -446,7 +454,7 @@
     pushDebug(`Read payload ${filename} (${buffer.byteLength} bytes)`);
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
-    const encrypted = await encryptData(buffer, password, filename);
+    const encrypted = await encryptData(buffer, encryptionPassword, filename);
     pushDebug(`Encrypted (${encrypted.byteLength} bytes)`);
 
     let usedStego = false;
@@ -459,6 +467,8 @@
       pendingUploadFilename = 'ghost.bin';
     }
     pendingUsedStego = usedStego;
+    pendingPayloadPassword = encryptionPassword;
+    resultPassword = encryptionPassword;
 
     // Also create downloadable .enc file
     const encBlob = new Blob([encrypted], { type: 'application/octet-stream' });
@@ -480,6 +490,7 @@
     const uploadBytes = pendingUploadBytes;
     const uploadFilename = pendingUploadFilename;
     const usedStego = pendingUsedStego;
+    const encryptionPassword = pendingPayloadPassword || password;
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
     const uploadUrls: string[] = [];
@@ -537,15 +548,17 @@
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
     const compressedB64 = bytesToBase64(compressed);
-    const encPayload = await encrypt(compressedB64, password);
+    const encPayload = await encrypt(compressedB64, encryptionPassword);
     const encoded = base64UrlEncode(encPayload);
 
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
+    resultPassword = encryptionPassword;
     resultHasTemporaryUpload = true;
     await autoShorten(urls.shortenable);
 
     pendingUploadBytes = null;
+    pendingPayloadPassword = '';
   }
 
   async function wrapInStego(url: string) {
@@ -629,6 +642,8 @@
     resultUrl = '';
     shortUrl = '';
     error = '';
+    resultPassword = '';
+    pendingPayloadPassword = '';
     showQr = false;
     showManualTransferHelp = false;
     resultHasTemporaryUpload = false;
@@ -881,9 +896,9 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <label class="label block">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-          <CopyButton text={password} label={t(dict, 'tools.ultimateEncrypt.copy')} />
+          <CopyButton text={resultPassword || password} label={t(dict, 'tools.ultimateEncrypt.copy')} />
         </div>
-        <input class="input text-xs font-mono" type="text" readonly value={password} />
+        <input class="input text-xs font-mono" type="text" readonly value={resultPassword || password} />
         <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
 

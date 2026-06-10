@@ -1,6 +1,6 @@
 import type * as Party from "partykit/server";
 
-type ChatMode = "persistent" | "ttl-10" | "ttl-5" | "burn" | "live";
+type ChatMode = "live" | "ttl-10" | "ttl-5";
 type AuthMode = "password" | "room-name";
 
 type RoomConfig = {
@@ -9,26 +9,22 @@ type RoomConfig = {
   createdAt: number;
 };
 
-type StoredMessage = {
-  id: string;
-  payload: string;
-  createdAt: number;
-  serverSeq: number;
-  chainSeq?: number;
-  prevHash?: string;
-  hash?: string;
-};
-
 type RoomState = {
   locked: boolean;
   lockedBy: string | null;
   config: RoomConfig | null;
-  history: StoredMessage[];
-  nextServerSeq: number;
 };
 
 type ChatConnectionState = {
   joined: boolean;
+};
+
+type ClientMessageEnvelope = {
+  type: "message";
+  id: string;
+  payload: string;
+  persist: false;
+  createdAt?: number;
 };
 
 const SERVER_INFO = {
@@ -40,8 +36,12 @@ const SERVER_INFO = {
 
 const CONFIG_KEY = "room-config";
 const HISTORY_PREFIX = "history:";
+const MAX_CLIENT_MESSAGE_CHARS = 768_000;
+const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
+const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
+const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const DEFAULT_CONFIG: RoomConfig = {
-  mode: "persistent",
+  mode: "live",
   authMode: "room-name",
   createdAt: 0,
 };
@@ -52,8 +52,6 @@ export default class ChatRoom implements Party.Server {
     locked: false,
     lockedBy: null,
     config: null,
-    history: [],
-    nextServerSeq: 1,
   };
 
   constructor(party: Party.Room) {
@@ -63,14 +61,16 @@ export default class ChatRoom implements Party.Server {
   async onStart() {
     const storedConfig = await this.party.storage.get<RoomConfig>(CONFIG_KEY);
     this.state.config = this.normalizeConfig(storedConfig);
+    if (storedConfig && this.state.config && JSON.stringify(storedConfig) !== JSON.stringify(this.state.config)) {
+      await this.party.storage.put(CONFIG_KEY, this.state.config);
+    }
 
-    const storedHistory = await this.party.storage.list<StoredMessage>({ prefix: HISTORY_PREFIX });
-    this.state.history = Array.from(storedHistory.values())
-      .filter((msg) => Boolean(msg?.id && msg?.payload && msg?.serverSeq))
-      .sort((a, b) => a.serverSeq - b.serverSeq);
-
-    const last = this.state.history[this.state.history.length - 1];
-    this.state.nextServerSeq = last ? last.serverSeq + 1 : 1;
+    // Chat messages are intentionally not stored on the server anymore.
+    // Remove any old server-side chat history if this room still has it.
+    const oldHistory = await this.party.storage.list({ prefix: HISTORY_PREFIX });
+    if (oldHistory.size) {
+      await Promise.all(Array.from(oldHistory.keys()).map((key) => this.party.storage.delete(key)));
+    }
   }
 
   onConnect(conn: Party.Connection<ChatConnectionState>) {
@@ -88,12 +88,14 @@ export default class ChatRoom implements Party.Server {
       rawPresence: this.getConnectionCount(),
       locked: this.state.locked,
       config: this.state.config,
-      historyCount: this.state.history.length,
+      historyCount: 0,
       server: SERVER_INFO,
     }));
   }
 
   async onMessage(message: string, sender: Party.Connection<ChatConnectionState>) {
+    if (typeof message !== "string" || message.length > MAX_CLIENT_MESSAGE_CHARS) return;
+
     let parsed: any;
     try {
       parsed = JSON.parse(message);
@@ -121,15 +123,14 @@ export default class ChatRoom implements Party.Server {
 
       case "message":
         if (!this.isJoined(sender)) return;
-        if (parsed.persist === true && this.state.config?.mode === "persistent") {
-          await this.persistMessage(parsed);
-        }
-        this.broadcast(message, [sender.id]);
+        const envelope = this.normalizeClientMessage(parsed);
+        if (!envelope) return;
+        this.broadcast(JSON.stringify(envelope), [sender.id]);
         break;
 
       case "typing":
         if (!this.isJoined(sender)) return;
-        this.broadcast(message, [sender.id]);
+        this.broadcast(JSON.stringify({ type: "typing" }), [sender.id]);
         break;
 
       case "lock":
@@ -151,7 +152,7 @@ export default class ChatRoom implements Party.Server {
       case "ping":
         sender.send(JSON.stringify({
           type: "pong",
-          t: parsed.t,
+          t: typeof parsed.t === "number" && Number.isFinite(parsed.t) ? parsed.t : Date.now(),
           server: SERVER_INFO,
         }));
         break;
@@ -175,7 +176,7 @@ export default class ChatRoom implements Party.Server {
       rawPresence: this.getConnectionCount(),
       locked: this.state.locked,
       config: this.state.config,
-      historyCount: this.state.history.length,
+      historyCount: 0,
       server: SERVER_INFO,
     }), {
       headers: { "Content-Type": "application/json" },
@@ -193,68 +194,55 @@ export default class ChatRoom implements Party.Server {
 
   private normalizeConfig(input: unknown): RoomConfig | null {
     if (!input || typeof input !== "object") return null;
-    const value = input as Partial<RoomConfig>;
-    const mode = value.mode;
+    const value = input as Partial<RoomConfig> & { mode?: unknown };
     const authMode = value.authMode;
-    if (!this.isChatMode(mode) || !this.isAuthMode(authMode)) return null;
+    if (!this.isAuthMode(authMode)) return null;
     return {
-      mode,
+      mode: this.normalizeChatMode(value.mode),
       authMode,
       createdAt: typeof value.createdAt === "number" ? value.createdAt : Date.now(),
     };
   }
 
-  private isChatMode(value: unknown): value is ChatMode {
-    return value === "persistent" || value === "ttl-10" || value === "ttl-5" || value === "burn" || value === "live";
+  private normalizeChatMode(value: unknown): ChatMode {
+    if (value === "ttl-10" || value === "ttl-5" || value === "live") return value;
+    if (value === "burn") return "ttl-10";
+    return "live";
   }
 
   private isAuthMode(value: unknown): value is AuthMode {
     return value === "password" || value === "room-name";
   }
 
-  private async persistMessage(parsed: any) {
-    if (typeof parsed.id !== "string" || typeof parsed.payload !== "string") return;
-    if (this.state.history.some((msg) => msg.id === parsed.id)) return;
+  private normalizeClientMessage(input: unknown): ClientMessageEnvelope | null {
+    if (!input || typeof input !== "object") return null;
+    const parsed = input as Partial<ClientMessageEnvelope>;
+    if (parsed.type !== "message") return null;
+    if (typeof parsed.id !== "string" || !SAFE_ID_RE.test(parsed.id)) return null;
+    if (typeof parsed.payload !== "string") return null;
+    if (parsed.payload.length < 16 || parsed.payload.length > MAX_ENCRYPTED_PAYLOAD_CHARS) return null;
+    if (!B64URL_RE.test(parsed.payload)) return null;
+    const createdAt = this.safeTimestamp(parsed.createdAt);
 
-    const serverSeq = this.state.nextServerSeq++;
-    const stored: StoredMessage = {
-      id: parsed.id.slice(0, 128),
+    return {
+      type: "message",
+      id: parsed.id,
       payload: parsed.payload,
-      createdAt: typeof parsed.createdAt === "number" ? parsed.createdAt : Date.now(),
-      serverSeq,
-      chainSeq: typeof parsed.seq === "number" ? parsed.seq : undefined,
-      prevHash: typeof parsed.prevHash === "string" ? parsed.prevHash : undefined,
-      hash: typeof parsed.hash === "string" ? parsed.hash : undefined,
+      persist: false,
+      ...(createdAt ? { createdAt } : {}),
     };
+  }
 
-    this.state.history.push(stored);
-    await this.party.storage.put(`${HISTORY_PREFIX}${serverSeq.toString().padStart(16, "0")}:${stored.id}`, stored);
+  private safeTimestamp(value: unknown): number | undefined {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+    return Math.round(value);
   }
 
   private sendHistory(conn: Party.Connection<ChatConnectionState>) {
-    if (this.state.config?.mode !== "persistent" || this.state.history.length === 0) {
-      conn.send(JSON.stringify({
-        type: "history",
-        config: this.state.config,
-        messages: [],
-      }));
-      return;
-    }
-
     conn.send(JSON.stringify({
       type: "history",
       config: this.state.config,
-      messages: this.state.history.map((msg) => ({
-        type: "message",
-        id: msg.id,
-        payload: msg.payload,
-        persist: true,
-        seq: msg.chainSeq,
-        prevHash: msg.prevHash,
-        hash: msg.hash,
-        createdAt: msg.createdAt,
-        serverSeq: msg.serverSeq,
-      })),
+      messages: [],
     }));
   }
 

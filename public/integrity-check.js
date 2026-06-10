@@ -97,8 +97,13 @@
   }
 
   function link(label, href) {
-    if (!href) return '';
-    return '<a href="' + href + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+    if (!href) return null;
+    var anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = label;
+    return anchor;
   }
 
   function showAlert(type, title, message, items) {
@@ -109,7 +114,10 @@
     alertRoot.classList.add(type === 'danger' ? 'integrity-alert--danger' : 'integrity-alert--warning');
 
     if (linksEl) {
-      linksEl.innerHTML = (items || []).filter(Boolean).join('');
+      linksEl.textContent = '';
+      (items || []).filter(Boolean).forEach(function (item) {
+        linksEl.appendChild(item);
+      });
     }
   }
 
