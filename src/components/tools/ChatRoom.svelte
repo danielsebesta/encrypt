@@ -1076,6 +1076,10 @@
     return localStream;
   }
 
+  function touchLocalStream() {
+    localStream = localStream;
+  }
+
   function stopLocalTracks(kind: 'audio' | 'video') {
     if (!localStream) return;
     const tracks = kind === 'audio' ? localStream.getAudioTracks() : localStream.getVideoTracks();
@@ -1084,6 +1088,7 @@
       localStream.removeTrack(track);
       if (track.readyState !== 'ended') track.stop();
     }
+    touchLocalStream();
   }
 
   async function setOutgoingAudioTrack(track: MediaStreamTrack | null) {
@@ -1221,6 +1226,7 @@
 
       stopLocalTracks('audio');
       ensureLocalStream().addTrack(track);
+      touchLocalStream();
       micMuted = false;
       callError = '';
 
@@ -1278,6 +1284,7 @@
 
       stopLocalTracks('video');
       ensureLocalStream().addTrack(track);
+      touchLocalStream();
       cameraOff = false;
       callError = '';
 
