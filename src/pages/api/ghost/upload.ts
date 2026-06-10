@@ -82,7 +82,8 @@ async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
 }
 
 async function uploadFreeImage(file: Uint8Array, filename: string): Promise<string> {
-  const key = (import.meta as any).env?.FREEIMAGE_API_KEY || process.env.FREEIMAGE_API_KEY || '6d207e02198a847aa98d0a2a901485a5';
+  const key = (import.meta as any).env?.FREEIMAGE_API_KEY || process.env.FREEIMAGE_API_KEY;
+  if (!key) throw new Error('FreeImage API key missing');
   const form = new FormData();
   form.append('source', toBlob(file, filename), filename);
   const res = await fetch(`https://freeimage.host/api/1/upload?key=${key}&format=json`, {

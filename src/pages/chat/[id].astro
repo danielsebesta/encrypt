@@ -23,6 +23,6 @@ export const prerender = false;
         {t(dict, 'chat.roomSubtitle')}
       </p>
     </div>
-    <ChatRoom client:only="svelte" roomId={id || 'default'} locale={locale} />
+    <ChatRoom client:load roomId={id || 'default'} locale={locale} />
   </div>
 </Layout>

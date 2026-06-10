@@ -6,24 +6,10 @@
     deriveKeyFromPassword,
     deriveRoomNamePassword,
     encryptMessage, decryptMessage, generateIdentity, nameToGradient,
-    hashChatChain
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { getTranslations, t } from '../../lib/i18n';
-  import {
-    formatChatFingerprint,
-    getOrCreateChatSigningIdentity,
-    listTrustedChatKeys,
-    publicIdentityFromSigningIdentity,
-    signChatRecord,
-    trustChatKey,
-    verifyChatSignature,
-    type ChatPublicIdentity,
-    type ChatSignature,
-    type ChatSigningIdentity,
-    type TrustedChatKey,
-  } from '../../lib/chatIdentity';
 
   export let locale = 'en';
   export let roomId = '';
@@ -44,35 +30,16 @@
     file?: { name: string; size: number; urls: string[] };
     fileError?: boolean;
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
-    burnOnRead?: boolean;
     revealed?: boolean;
     whiteboard?: WhiteboardInvite;
-    persistent?: boolean;
-    historyWarning?: boolean;
-    signature?: MessageSignatureState;
   };
 
-  type MessageSignatureState = {
-    status: 'trusted' | 'valid' | 'invalid' | 'missing' | 'mismatch';
-    fingerprint?: string;
-    displayFingerprint?: string;
-    trustedName?: string;
-    publicIdentity?: ChatPublicIdentity;
-  };
-
-  type ChatRoomMode = 'persistent' | 'ttl-10' | 'ttl-5' | 'burn' | 'live';
+  type ChatRoomMode = 'live' | 'ttl-10' | 'ttl-5';
   type ChatAuthMode = 'password' | 'room-name';
 
   type RoomConfig = {
     mode: ChatRoomMode;
     authMode: ChatAuthMode;
-    createdAt: number;
-  };
-
-  type MessageChain = {
-    seq: number;
-    prevHash: string;
-    hash: string;
     createdAt: number;
   };
 
@@ -85,12 +52,8 @@
     sender?: string;
     color?: string;
     ttl?: number;
-    burnOnRead?: boolean;
     file?: { name: string; size: number; urls?: string[]; url?: string };
-    chain?: MessageChain;
     createdAt?: number;
-    identityKey?: ChatPublicIdentity;
-    signature?: ChatSignature;
   };
 
   type ServerEnvelope = {
@@ -120,6 +83,8 @@
     file?: { name: string; size: number; urls: string[] };
   };
 
+  type LocalHistoryEnvelope = Pick<ServerEnvelope, 'type' | 'id' | 'payload' | 'createdAt'>;
+
   type WhiteboardInvite = {
     roomId: string;
     password: string;
@@ -146,6 +111,10 @@
     cameraOff: boolean;
     screenSharing: boolean;
     makingOffer: boolean;
+    volume: number;
+    audioMuted: boolean;
+    audioLevel: number;
+    speaking: boolean;
   };
 
   type CallSignal = {
@@ -179,6 +148,21 @@
   };
 
   type ServerQuality = 'unknown' | 'good' | 'fair' | 'poor' | 'offline';
+  type RelayProvider = 'encrypt-1' | 'cloudflare' | 'metered' | 'turn' | 'unknown';
+
+  type RelayRoute = {
+    provider: RelayProvider;
+    name: string;
+    host: string;
+    location: string;
+    protocol: string;
+  };
+
+  type RelayStatsSnapshot = {
+    rttMs: number | null;
+    url: string;
+    protocol: string;
+  };
 
   type CallFullscreenTarget = {
     source: 'local' | 'peer';
@@ -195,6 +179,22 @@
     stream: MediaStream | null | undefined;
     muted?: boolean;
     volume?: number;
+    sinkId?: string;
+  };
+
+  type AudioLevelTarget = 'local' | 'peer';
+
+  type AudioLevelMonitor = {
+    context: AudioContext;
+    analyser: AnalyserNode;
+    source: MediaStreamAudioSourceNode;
+    data: Uint8Array;
+    frame: number;
+    trackId: string;
+    target: AudioLevelTarget;
+    peerId?: string;
+    speaking: boolean;
+    lastUiAt: number;
   };
 
   let ws: PartySocket | null = null;
@@ -214,16 +214,12 @@
   let typing: { sender: string; initials: string; color: string } | null = null;
   let typingTimeout: ReturnType<typeof setTimeout>;
   let blurred = false;
-  let roomConfig: RoomConfig = { mode: 'persistent', authMode: 'room-name', createdAt: 0 };
+  let roomConfig: RoomConfig = { mode: 'live', authMode: 'room-name', createdAt: 0 };
   let pendingRoomConfig: RoomConfig | null = null;
-  let historyHeadHash = 'genesis';
-  let historySeq = 0;
-  let historyIntegrity: 'unknown' | 'ok' | 'broken' = 'unknown';
-  let historyLoaded = false;
-  let pendingHistory: HistoryEnvelope | null = null;
+  let currentAuthAttempt: ChatAuthMode | null = null;
+  let localHistoryKey = '';
+  let localHistoryLoaded = false;
   const seenMessageIds = new Set<string>();
-  let signingIdentity: ChatSigningIdentity | null = null;
-  let trustedKeys = new Map<string, TrustedChatKey>();
   let decryptFailCount = 0;
   let onlineUsers: { name: string; initials: string; color: string }[] = [];
   let lastWrongPasswordNotice = 0;
@@ -233,10 +229,6 @@
   let shareCopiedLink = false;
   let shareCopiedPass = false;
   let shareDismissed = false;
-  let identityPanelOpen = false;
-  let identityCopiedFingerprint = false;
-  let identityCopiedKey = false;
-  let identityQrDataUrl = '';
   let clientId = '';
   let callActive = false;
   let callJoining = false;
@@ -251,11 +243,17 @@
   let screenTrack: MediaStreamTrack | null = null;
   let callAudioMuted = false;
   let callVolume = 1;
+  let callSettingsOpen = false;
+  let localAudioLevel = 0;
+  let localSpeaking = false;
   let blurCallMediaWhenAway = true;
   let audioInputDevices: MediaDeviceInfo[] = [];
   let videoInputDevices: MediaDeviceInfo[] = [];
+  let audioOutputDevices: MediaDeviceInfo[] = [];
   let selectedAudioInputId = '';
   let selectedVideoInputId = '';
+  let selectedAudioOutputId = '';
+  let canSelectAudioOutput = false;
   let serverLatencyMs: number | null = null;
   let serverQuality: ServerQuality = 'unknown';
   let lastServerPongAt = 0;
@@ -264,6 +262,18 @@
   let serverRegion = 'AMS-NL';
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
+  let relayRoute: RelayRoute = {
+    provider: 'unknown',
+    name: 'TURN',
+    host: '',
+    location: '',
+    protocol: '',
+  };
+  let relayRttMs: number | null = null;
+  let relayQuality: ServerQuality = 'unknown';
+  let cloudflareRelayColo = '';
+  let cloudflareRelayCountry = '';
+  let cloudflareRelayTraceFetchedAt = 0;
   let callFullscreenTarget: CallFullscreenTarget | null = null;
   let callFullscreenMedia: CallFullscreenMedia | null = null;
   let callFullscreenOverlayEl: HTMLDivElement;
@@ -274,6 +284,11 @@
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
+  const MAX_SDP_CHARS = 96_000;
+  const MAX_ICE_CANDIDATE_CHARS = 4096;
+  const MAX_PENDING_ICE_PER_PEER = 64;
+  const LOCAL_HISTORY_LIMIT = 1000;
+  const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v2:';
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
   const SERVER_FALLBACK_NAME = 'encrypt-1';
@@ -281,11 +296,13 @@
   const CALL_ID = `call:${roomId}`;
   const callPeerMap = new Map<string, CallPeer>();
   const pendingIce = new Map<string, RTCIceCandidateInit[]>();
+  let localAudioMonitor: AudioLevelMonitor | null = null;
+  const peerAudioMonitors = new Map<string, AudioLevelMonitor>();
+  let relayStatsInterval: ReturnType<typeof setInterval> | undefined;
   let tickInterval: ReturnType<typeof setInterval>;
   let messagesEl: HTMLElement;
 
   $: myInitials = getInitials(identity.name);
-  $: ownFingerprint = signingIdentity ? formatChatFingerprint(signingIdentity.fingerprint) : '';
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -322,13 +339,42 @@
     html = html.replace(/(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>');
     // Strikethrough: ~~text~~
     html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
-    // Spoiler: ||text|| → click to reveal
-    html = html.replace(/\|\|(.+?)\|\|/g, '<span class="chat-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+    // Spoiler: ||text|| -> click to reveal. The click handler is delegated
+    // through a Svelte action so encrypted chat text never injects JS handlers.
+    html = html.replace(/\|\|(.+?)\|\|/g, '<span class="chat-spoiler" data-chat-spoiler role="button" tabindex="0">$1</span>');
     // Blockquote: > text (at line start)
     html = html.replace(/(^|\n)&gt; (.+)/g, '$1<blockquote class="chat-quote">$2</blockquote>');
     // Newlines
     html = html.replace(/\n/g, '<br>');
     return html;
+  }
+
+  function revealSpoilers(node: HTMLElement) {
+    function toggleSpoiler(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) return false;
+      const spoiler = target.closest<HTMLElement>('[data-chat-spoiler]');
+      if (!spoiler || !node.contains(spoiler)) return false;
+      spoiler.classList.toggle('revealed');
+      return true;
+    }
+
+    function handleClick(event: MouseEvent) {
+      toggleSpoiler(event.target);
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (toggleSpoiler(event.target)) event.preventDefault();
+    }
+
+    node.addEventListener('click', handleClick);
+    node.addEventListener('keydown', handleKeydown);
+    return {
+      destroy() {
+        node.removeEventListener('click', handleClick);
+        node.removeEventListener('keydown', handleKeydown);
+      },
+    };
   }
 
   function scrollToBottom() {
@@ -349,7 +395,21 @@
     if (node.srcObject !== next.stream) node.srcObject = next.stream ?? null;
     if (typeof next.muted === 'boolean') node.muted = next.muted;
     if (typeof next.volume === 'number') node.volume = Math.max(0, Math.min(1, next.volume));
+    applyAudioOutputDevice(node, next.sinkId);
     ensureMediaElementPlaying(node);
+  }
+
+  function supportsAudioOutputSelection(): boolean {
+    if (typeof HTMLMediaElement === 'undefined') return false;
+    return 'setSinkId' in HTMLMediaElement.prototype;
+  }
+
+  function applyAudioOutputDevice(node: HTMLMediaElement, sinkId: string | undefined) {
+    if (!supportsAudioOutputSelection()) return;
+    const outputNode = node as HTMLMediaElement & { setSinkId?: (sinkId: string) => Promise<void>; sinkId?: string };
+    const nextSink = sinkId || '';
+    if (!outputNode.setSinkId || outputNode.sinkId === nextSink) return;
+    void outputNode.setSinkId(nextSink).catch(() => {});
   }
 
   function preventMediaContextMenu(event: MouseEvent) {
@@ -414,24 +474,385 @@
     callPeers = Array.from(callPeerMap.values());
   }
 
+  function getAudioContextConstructor(): typeof AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    return window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext || null;
+  }
+
+  function getStreamAudioTrack(stream: MediaStream | null | undefined): MediaStreamTrack | null {
+    return stream?.getAudioTracks().find((track) => track.readyState === 'live') ?? null;
+  }
+
+  function stopAudioLevelMonitor(monitor: AudioLevelMonitor | null | undefined) {
+    if (!monitor) return;
+    cancelAnimationFrame(monitor.frame);
+    try { monitor.source.disconnect(); } catch {}
+    void monitor.context.close().catch(() => {});
+  }
+
+  function stopLocalAudioMonitor() {
+    stopAudioLevelMonitor(localAudioMonitor);
+    localAudioMonitor = null;
+    localAudioLevel = 0;
+    localSpeaking = false;
+  }
+
+  function stopPeerAudioMonitor(peerId: string) {
+    stopAudioLevelMonitor(peerAudioMonitors.get(peerId));
+    peerAudioMonitors.delete(peerId);
+    const peer = callPeerMap.get(peerId);
+    if (peer) {
+      peer.audioLevel = 0;
+      peer.speaking = false;
+      syncCallPeers();
+    }
+  }
+
+  function stopAllAudioMonitors() {
+    stopLocalAudioMonitor();
+    for (const peerId of Array.from(peerAudioMonitors.keys())) stopPeerAudioMonitor(peerId);
+  }
+
+  function calculateAudioLevel(data: Uint8Array): number {
+    let sum = 0;
+    for (const sample of data) {
+      const centered = (sample - 128) / 128;
+      sum += centered * centered;
+    }
+    return Math.min(1, Math.sqrt(sum / data.length) * 3.4);
+  }
+
+  function createAudioLevelMonitor(stream: MediaStream, target: AudioLevelTarget, peerId?: string): AudioLevelMonitor | null {
+    const track = getStreamAudioTrack(stream);
+    const AudioContextCtor = getAudioContextConstructor();
+    if (!track || !AudioContextCtor) return null;
+
+    try {
+      const context = new AudioContextCtor();
+      const source = context.createMediaStreamSource(new MediaStream([track]));
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.72;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      const monitor: AudioLevelMonitor = {
+        context,
+        analyser,
+        source,
+        data,
+        frame: 0,
+        trackId: track.id,
+        target,
+        peerId,
+        speaking: false,
+        lastUiAt: 0,
+      };
+      monitor.frame = requestAnimationFrame(() => tickAudioLevel(monitor));
+      return monitor;
+    } catch {
+      return null;
+    }
+  }
+
+  function tickAudioLevel(monitor: AudioLevelMonitor) {
+    monitor.analyser.getByteTimeDomainData(monitor.data);
+    const level = calculateAudioLevel(monitor.data);
+    const speaking = level > 0.12;
+    const now = performance.now();
+    const shouldUpdate = now - monitor.lastUiAt > 90 || speaking !== monitor.speaking || level === 0;
+    monitor.speaking = speaking;
+
+    if (shouldUpdate) {
+      monitor.lastUiAt = now;
+      if (monitor.target === 'local') {
+        localAudioLevel = level;
+        localSpeaking = speaking;
+      } else if (monitor.peerId) {
+        const peer = callPeerMap.get(monitor.peerId);
+        if (peer) {
+          peer.audioLevel = level;
+          peer.speaking = speaking;
+          syncCallPeers();
+        }
+      }
+    }
+
+    monitor.frame = requestAnimationFrame(() => tickAudioLevel(monitor));
+  }
+
+  function startLocalAudioMonitor() {
+    if (!localStream) return;
+    const track = getStreamAudioTrack(localStream);
+    if (!track) {
+      stopLocalAudioMonitor();
+      return;
+    }
+    if (localAudioMonitor?.trackId === track.id) return;
+    stopLocalAudioMonitor();
+    localAudioMonitor = createAudioLevelMonitor(localStream, 'local');
+  }
+
+  function startPeerAudioMonitor(peer: CallPeer) {
+    const track = getStreamAudioTrack(peer.stream);
+    if (!peer.stream || !track) {
+      stopPeerAudioMonitor(peer.id);
+      return;
+    }
+    const current = peerAudioMonitors.get(peer.id);
+    if (current?.trackId === track.id) return;
+    stopPeerAudioMonitor(peer.id);
+    const monitor = createAudioLevelMonitor(peer.stream, 'peer', peer.id);
+    if (monitor) peerAudioMonitors.set(peer.id, monitor);
+  }
+
   function hasTurnCredentials(servers: RTCIceServer[]): boolean {
     return servers.some((server) => {
       const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-      return Boolean(server.username && server.credential && urls.some((url) => String(url).startsWith('turn:')));
+      return Boolean(server.username && server.credential && urls.some((url) => /^turns?:/i.test(String(url))));
     });
   }
 
+  function getTurnUrls(servers: RTCIceServer[]): string[] {
+    return servers.flatMap((server) => Array.isArray(server.urls) ? server.urls : [server.urls])
+      .map((url) => String(url || ''))
+      .filter((url) => /^turns?:/i.test(url));
+  }
+
+  function getTurnHost(url: string): string {
+    const withoutScheme = url.replace(/^turns?:/i, '').split('?')[0];
+    const withoutUser = withoutScheme.split('@').pop() || withoutScheme;
+    return withoutUser.replace(/^\[/, '').split(']')[0].split(':')[0] || withoutUser;
+  }
+
+  function getTurnTransport(url: string): string {
+    const transport = url.match(/[?&]transport=([^&]+)/i)?.[1];
+    if (transport) return transport.toUpperCase();
+    return url.startsWith('turns:') ? 'TLS' : '';
+  }
+
+  function getRelayProvider(url: string): RelayProvider {
+    const host = getTurnHost(url).toLowerCase();
+    if (host.includes('cloudflare.com')) return 'cloudflare';
+    if (host === 'turn.encrypt.click' || host.endsWith('.encrypt.click')) return 'encrypt-1';
+    if (host.includes('metered.ca') || host.includes('metered.live')) return 'metered';
+    return host ? 'turn' : 'unknown';
+  }
+
+  function getCloudflareRelayLocation(): string {
+    if (cloudflareRelayColo) {
+      return cloudflareRelayCountry ? `${cloudflareRelayColo}-${cloudflareRelayCountry}` : cloudflareRelayColo;
+    }
+    return t(dict, 'chat.callRelayNearestEdge');
+  }
+
+  function describeRelayRoute(servers: RTCIceServer[], activeUrl = '', activeProtocol = ''): RelayRoute {
+    const turnUrls = getTurnUrls(servers);
+    const selectedUrl = activeUrl || turnUrls[0] || '';
+    const provider = getRelayProvider(selectedUrl);
+    const host = selectedUrl ? getTurnHost(selectedUrl) : '';
+    const protocol = activeProtocol || (selectedUrl ? getTurnTransport(selectedUrl) : '');
+
+    if (provider === 'cloudflare') {
+      return {
+        provider,
+        name: 'Cloudflare',
+        host,
+        location: getCloudflareRelayLocation(),
+        protocol,
+      };
+    }
+    if (provider === 'encrypt-1') {
+      return {
+        provider,
+        name: 'encrypt-1',
+        host,
+        location: 'AMS-NL',
+        protocol,
+      };
+    }
+    if (provider === 'metered') {
+      return {
+        provider,
+        name: 'Metered',
+        host,
+        location: '',
+        protocol,
+      };
+    }
+
+    return {
+      provider,
+      name: host || 'TURN',
+      host,
+      location: '',
+      protocol,
+    };
+  }
+
+  function updateRelayRoute(activeUrl = '', activeProtocol = '') {
+    relayRoute = describeRelayRoute(iceServers, activeUrl, activeProtocol);
+  }
+
+  function updateRelayQuality() {
+    if (!callActive) {
+      relayQuality = 'offline';
+      return;
+    }
+    if (!callPeers.length || relayRttMs === null) {
+      relayQuality = 'unknown';
+      return;
+    }
+    if (relayRttMs <= 120) {
+      relayQuality = 'good';
+    } else if (relayRttMs <= 300) {
+      relayQuality = 'fair';
+    } else {
+      relayQuality = 'poor';
+    }
+  }
+
+  function getRelayStatusLabel(): string {
+    const location = relayRoute.location ? ` ${relayRoute.location}` : '';
+    const rtt = relayRttMs !== null
+      ? `${relayRttMs} ms`
+      : (callPeers.length ? getServerQualityLabel(relayQuality) : t(dict, 'chat.callRelayWaiting'));
+    return `${relayRoute.name}${location} · ${rtt}`;
+  }
+
+  function getRelayTitle(): string {
+    const parts = [
+      `${t(dict, 'chat.callRelay')}: ${relayRoute.name}`,
+      relayRoute.location ? `${t(dict, 'chat.callRelayLocation')}: ${relayRoute.location}` : '',
+      relayRoute.host ? `${t(dict, 'chat.callRelayHost')}: ${relayRoute.host}` : '',
+      relayRoute.protocol ? `${t(dict, 'chat.callRelayTransport')}: ${relayRoute.protocol}` : '',
+      relayRttMs !== null ? `${t(dict, 'chat.callRelayRtt')}: ${relayRttMs} ms` : '',
+    ].filter(Boolean);
+    return parts.join(' · ');
+  }
+
+  async function refreshCloudflareRelayTrace() {
+    if (typeof window === 'undefined' || !iceServers.length) return;
+    if (describeRelayRoute(iceServers).provider !== 'cloudflare') return;
+    if (cloudflareRelayTraceFetchedAt && Date.now() - cloudflareRelayTraceFetchedAt < 5 * 60 * 1000) return;
+    cloudflareRelayTraceFetchedAt = Date.now();
+
+    try {
+      const res = await fetch('/cdn-cgi/trace', { cache: 'no-store' });
+      if (!res.ok) return;
+      const values = new Map<string, string>();
+      for (const line of (await res.text()).split('\n')) {
+        const index = line.indexOf('=');
+        if (index <= 0) continue;
+        values.set(line.slice(0, index), line.slice(index + 1).trim());
+      }
+      cloudflareRelayColo = values.get('colo') || cloudflareRelayColo;
+      cloudflareRelayCountry = values.get('loc') || cloudflareRelayCountry;
+      updateRelayRoute();
+    } catch {}
+  }
+
+  function getStatsRecord(stats: RTCStatsReport, id: unknown): (RTCStats & Record<string, unknown>) | null {
+    return typeof id === 'string' ? (stats.get(id) as (RTCStats & Record<string, unknown>) | undefined) ?? null : null;
+  }
+
+  function findSelectedCandidatePair(stats: RTCStatsReport): (RTCStats & Record<string, unknown>) | null {
+    for (const report of stats.values()) {
+      const item = report as RTCStats & Record<string, unknown>;
+      if (item.type !== 'transport') continue;
+      const pair = getStatsRecord(stats, item.selectedCandidatePairId);
+      if (pair) return pair;
+    }
+
+    let fallback: (RTCStats & Record<string, unknown>) | null = null;
+    for (const report of stats.values()) {
+      const item = report as RTCStats & Record<string, unknown>;
+      if (item.type !== 'candidate-pair') continue;
+      if (item.selected === true) return item;
+      if (item.state === 'succeeded' && item.nominated === true) fallback = item;
+    }
+    return fallback;
+  }
+
+  async function readPeerRelayStats(peer: CallPeer): Promise<RelayStatsSnapshot | null> {
+    if (peer.pc.connectionState === 'closed' || peer.pc.connectionState === 'failed') return null;
+
+    const stats = await peer.pc.getStats();
+    const pair = findSelectedCandidatePair(stats);
+    if (!pair) return null;
+
+    const local = getStatsRecord(stats, pair.localCandidateId);
+    const remote = getStatsRecord(stats, pair.remoteCandidateId);
+    const url = String(local?.url || remote?.url || '');
+    const protocol = String(local?.relayProtocol || local?.protocol || remote?.relayProtocol || remote?.protocol || '');
+    const rttSeconds = typeof pair.currentRoundTripTime === 'number'
+      ? pair.currentRoundTripTime
+      : (typeof pair.totalRoundTripTime === 'number' && typeof pair.responsesReceived === 'number' && pair.responsesReceived > 0
+        ? pair.totalRoundTripTime / pair.responsesReceived
+        : null);
+
+    return {
+      rttMs: rttSeconds !== null && Number.isFinite(rttSeconds) ? Math.max(0, Math.round(rttSeconds * 1000)) : null,
+      url,
+      protocol: protocol ? protocol.toUpperCase() : '',
+    };
+  }
+
+  async function refreshRelayStats() {
+    if (!callActive) return;
+    const snapshots = await Promise.all(Array.from(callPeerMap.values()).map((peer) => readPeerRelayStats(peer).catch(() => null)));
+    const valid = snapshots.filter((item): item is RelayStatsSnapshot => Boolean(item));
+    const rtts = valid.map((item) => item.rttMs).filter((value): value is number => typeof value === 'number');
+    relayRttMs = rtts.length ? Math.round(rtts.reduce((sum, value) => sum + value, 0) / rtts.length) : null;
+    const routeSnapshot = valid.find((item) => item.url);
+    updateRelayRoute(routeSnapshot?.url || '', routeSnapshot?.protocol || '');
+    updateRelayQuality();
+  }
+
+  function startRelayStatsMonitor() {
+    if (relayStatsInterval) clearInterval(relayStatsInterval);
+    relayStatsInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void refreshRelayStats();
+    }, 2500);
+    void refreshRelayStats();
+  }
+
+  function stopRelayStatsMonitor() {
+    if (relayStatsInterval) clearInterval(relayStatsInterval);
+    relayStatsInterval = undefined;
+    relayRttMs = null;
+    relayQuality = 'unknown';
+  }
+
+  function isSupportedSdpType(type: unknown): type is RTCSdpType {
+    return type === 'offer' || type === 'answer' || type === 'pranswer' || type === 'rollback';
+  }
+
+  function isRelayCandidateString(candidate: unknown): candidate is string {
+    return typeof candidate === 'string'
+      && candidate.length > 0
+      && candidate.length <= MAX_ICE_CANDIDATE_CHARS
+      && / typ relay(?: |$)/.test(candidate);
+  }
+
   function sanitizeRelayDescription(description: RTCSessionDescription | RTCSessionDescriptionInit | null | undefined): RTCSessionDescriptionInit | undefined {
-    if (!description?.type || !description.sdp) return description ?? undefined;
+    if (!description?.type) return undefined;
+    if (!isSupportedSdpType(description.type)) return undefined;
+    if (!description.sdp) return description.type === 'rollback' ? { type: description.type } : undefined;
+    if (description.sdp.length > MAX_SDP_CHARS) return undefined;
     const lines = description.sdp.split('\r\n').filter((line) => {
       if (!line.startsWith('a=candidate:')) return true;
-      return / typ relay(?: |$)/.test(line);
+      return isRelayCandidateString(line);
     });
     return { type: description.type, sdp: lines.join('\r\n') };
   }
 
   function isRelayCandidate(candidate: RTCIceCandidate): boolean {
-    return / typ relay(?: |$)/.test(candidate.candidate);
+    return isRelayCandidateString(candidate.candidate);
+  }
+
+  function isRelayCandidateInit(candidate: RTCIceCandidateInit | undefined): candidate is RTCIceCandidateInit {
+    return Boolean(candidate && isRelayCandidateString(candidate.candidate));
   }
 
   async function loadIceServers(force = false): Promise<RTCIceServer[]> {
@@ -448,9 +869,12 @@
       }
       iceServers = data.iceServers;
       iceServersFetchedAt = Date.now();
+      updateRelayRoute();
+      void refreshCloudflareRelayTrace();
     } catch {
       iceServers = [];
       iceServersFetchedAt = Date.now();
+      updateRelayRoute();
       throw new Error(t(dict, 'chat.callTurnRequired'));
     }
 
@@ -534,11 +958,9 @@
   }
 
   const MODE_LABELS: Record<ChatRoomMode, string> = {
-    persistent: 'chat.modeLabelPersistent',
+    live: 'chat.modeLabelLive',
     'ttl-10': 'chat.modeLabelTtl10',
     'ttl-5': 'chat.modeLabelTtl5',
-    burn: 'chat.modeLabelBurn',
-    live: 'chat.modeLabelLive',
   };
 
   function getRoomTtlSeconds(): number {
@@ -547,12 +969,8 @@
     return 0;
   }
 
-  function isBurnMode(): boolean {
-    return roomConfig.mode === 'burn';
-  }
-
-  function shouldPersistMessages(): boolean {
-    return roomConfig.mode === 'persistent';
+  function shouldKeepParticipantHistory(): boolean {
+    return roomConfig.mode === 'live';
   }
 
   function genId(): string {
@@ -576,8 +994,10 @@
     return locale && locale !== 'en' ? `/${locale}` : '';
   }
 
-  function isChatRoomMode(value: unknown): value is ChatRoomMode {
-    return value === 'persistent' || value === 'ttl-10' || value === 'ttl-5' || value === 'burn' || value === 'live';
+  function normalizeChatRoomMode(value: unknown): ChatRoomMode {
+    if (value === 'live' || value === 'ttl-10' || value === 'ttl-5') return value;
+    if (value === 'burn') return 'ttl-10';
+    return 'live';
   }
 
   function isChatAuthMode(value: unknown): value is ChatAuthMode {
@@ -587,9 +1007,9 @@
   function normalizeRoomConfig(input: unknown): RoomConfig | null {
     if (!input || typeof input !== 'object') return null;
     const value = input as Partial<RoomConfig>;
-    if (!isChatRoomMode(value.mode) || !isChatAuthMode(value.authMode)) return null;
+    if (!isChatAuthMode(value.authMode)) return null;
     return {
-      mode: value.mode,
+      mode: normalizeChatRoomMode(value.mode),
       authMode: value.authMode,
       createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
     };
@@ -605,177 +1025,75 @@
     return t(dict, MODE_LABELS[roomConfig.mode]);
   }
 
-  function getChainRecord(payload: ChatPayload, id: string, createdAt: number) {
-    return {
-      id,
-      text: payload.text || '',
-      sender: payload.sender || '',
-      color: payload.color || '',
-      ttl: payload.ttl || 0,
-      burnOnRead: payload.burnOnRead === true,
-      file: payload.file ? {
-        name: payload.file.name,
-        size: payload.file.size,
-        urls: payload.file.urls || (payload.file.url ? [payload.file.url] : []),
-      } : null,
-      createdAt,
-    };
+  function bytesToB64url(bytes: Uint8Array): string {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
   }
 
-  async function withMessageChain(basePayload: ChatPayload, id: string, createdAt: number): Promise<ChatPayload> {
-    const chain: MessageChain = {
-      seq: historySeq + 1,
-      prevHash: historyHeadHash,
-      hash: '',
-      createdAt,
-    };
-    const record = getChainRecord(basePayload, id, createdAt);
-    chain.hash = await hashChatChain(chain.prevHash, record);
-    return {
-      ...basePayload,
-      type: 'chat-message',
-      id,
-      ttl: 0,
-      burnOnRead: false,
-      createdAt,
-      chain,
-    };
+  async function sha256B64url(input: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+    return bytesToB64url(new Uint8Array(digest));
   }
 
-  function attachPublicIdentity(payload: ChatPayload): ChatPayload {
-    if (!signingIdentity) return payload;
-    return {
-      ...payload,
-      identityKey: publicIdentityFromSigningIdentity(signingIdentity),
-    };
+  async function buildLocalHistoryKey(password: string): Promise<string> {
+    const fingerprint = await sha256B64url(`${roomId}\n${password}`);
+    return `${LOCAL_HISTORY_PREFIX}${roomId}:${fingerprint.slice(0, 32)}`;
   }
 
-  function getSignatureRecord(payload: ChatPayload, id: string) {
-    const createdAt = payload.createdAt || payload.chain?.createdAt || 0;
-    const record: Record<string, unknown> = {
-      roomId,
-      id,
-      type: payload.type || 'chat-message',
-      text: payload.text || '',
-      sender: payload.sender || '',
-      color: payload.color || '',
-      ttl: payload.ttl || 0,
-      burnOnRead: payload.burnOnRead === true,
-      file: payload.file ? {
-        name: payload.file.name,
-        size: payload.file.size,
-        urls: payload.file.urls || (payload.file.url ? [payload.file.url] : []),
-      } : null,
-      chain: payload.chain || null,
-      identityKey: payload.identityKey ? {
-        alg: payload.identityKey.alg,
-        fingerprint: payload.identityKey.fingerprint,
-        publicJwk: payload.identityKey.publicJwk,
-      } : null,
-      createdAt,
-    };
-    if (payload.type === 'whiteboard-invite') {
-      record.whiteboard = {
-        roomId: payload.roomId || '',
-        password: payload.password || '',
-      };
-    }
-    return record;
-  }
-
-  async function signPayload(payload: ChatPayload, id: string, createdAt: number): Promise<ChatPayload> {
-    if (!signingIdentity || !payload.identityKey) return payload;
-    const next = { ...payload, createdAt };
-    return {
-      ...next,
-      signature: await signChatRecord(signingIdentity, getSignatureRecord(next, id)),
-    };
-  }
-
-  async function getSignatureState(payload: ChatPayload, id: string): Promise<MessageSignatureState> {
-    const fingerprint = payload.identityKey?.fingerprint;
-    const displayFingerprint = fingerprint ? formatChatFingerprint(fingerprint) : undefined;
-    if (!payload.identityKey || !payload.signature || !fingerprint) {
-      return { status: 'missing' };
-    }
-
+  function readLocalHistory(): LocalHistoryEnvelope[] {
+    if (!localHistoryKey || typeof localStorage === 'undefined') return [];
     try {
-      const valid = await verifyChatSignature(payload.identityKey, payload.signature, getSignatureRecord(payload, id));
-      if (!valid) return { status: 'invalid', fingerprint, displayFingerprint, publicIdentity: payload.identityKey };
-
-      if (signingIdentity?.fingerprint === fingerprint) {
-        return { status: 'trusted', fingerprint, displayFingerprint, trustedName: identity.name, publicIdentity: payload.identityKey };
-      }
-
-      const trusted = trustedKeys.get(fingerprint);
-      if (!trusted) return { status: 'valid', fingerprint, displayFingerprint, publicIdentity: payload.identityKey };
-      if (payload.sender && trusted.name && trusted.name !== payload.sender) {
-        return { status: 'mismatch', fingerprint, displayFingerprint, trustedName: trusted.name, publicIdentity: payload.identityKey };
-      }
-      return { status: 'trusted', fingerprint, displayFingerprint, trustedName: trusted.name, publicIdentity: payload.identityKey };
+      const raw = localStorage.getItem(localHistoryKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((item): item is LocalHistoryEnvelope =>
+          item?.type === 'message' &&
+          typeof item.id === 'string' &&
+          typeof item.payload === 'string'
+        )
+        .slice(-LOCAL_HISTORY_LIMIT);
     } catch {
-      return { status: 'invalid', fingerprint, displayFingerprint, publicIdentity: payload.identityKey };
+      return [];
     }
   }
 
-  async function trustMessageKey(msg: Message) {
-    const signature = msg.signature;
-    if (!signature?.fingerprint || !signature.publicIdentity || signature.status !== 'valid') return;
-    const trusted = await trustChatKey({
-      fingerprint: signature.fingerprint,
-      name: msg.sender,
-      publicJwk: signature.publicIdentity.publicJwk,
+  function writeLocalHistory(items: LocalHistoryEnvelope[]) {
+    if (!localHistoryKey || typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(localHistoryKey, JSON.stringify(items.slice(-LOCAL_HISTORY_LIMIT)));
+    } catch {}
+  }
+
+  function storeLocalEnvelope(envelope: ServerEnvelope | LocalHistoryEnvelope) {
+    if (!shouldKeepParticipantHistory() || !localHistoryKey || !envelope.id || !envelope.payload) return;
+    const items = readLocalHistory();
+    if (items.some((item) => item.id === envelope.id)) return;
+    items.push({
+      type: 'message',
+      id: envelope.id,
+      payload: envelope.payload,
+      createdAt: typeof envelope.createdAt === 'number' ? envelope.createdAt : Date.now(),
     });
-    trustedKeys = new Map(trustedKeys).set(trusted.fingerprint, trusted);
-    messages = messages.map((item) => {
-      if (item.signature?.fingerprint !== trusted.fingerprint) return item;
-      return {
-        ...item,
-        signature: {
-          ...item.signature,
-          status: item.sender === trusted.name ? 'trusted' : 'mismatch',
-          trustedName: trusted.name,
-        },
-      };
-    });
+    writeLocalHistory(items);
   }
 
-  function canTrustSignature(msg: Message): boolean {
-    return !msg.mine && msg.signature?.status === 'valid' && Boolean(msg.signature.publicIdentity && msg.signature.fingerprint);
+  async function storeLocalPayload(payload: ChatPayload, id: string, createdAt: number) {
+    if (!cryptoKey || !shouldKeepParticipantHistory()) return;
+    const encrypted = await encryptMessage(cryptoKey, JSON.stringify({ ...payload, id, createdAt }));
+    storeLocalEnvelope({ type: 'message', id, payload: encrypted, createdAt });
   }
 
-  function getSignatureLabel(signature: MessageSignatureState | undefined): string {
-    if (!signature) return '';
-    switch (signature.status) {
-      case 'trusted': return t(dict, 'chat.signatureTrusted');
-      case 'valid': return t(dict, 'chat.signatureTrust');
-      case 'invalid': return t(dict, 'chat.signatureInvalid');
-      case 'mismatch': return t(dict, 'chat.signatureMismatch');
-      case 'missing': return t(dict, 'chat.signatureMissing');
+  async function restoreLocalHistory() {
+    if (localHistoryLoaded || !cryptoKey || !shouldKeepParticipantHistory()) return;
+    localHistoryLoaded = true;
+    const items = readLocalHistory();
+    if (!items.length) return;
+    for (const envelope of [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
+      await processServerEnvelope(envelope as ServerEnvelope, true);
     }
-  }
-
-  function getSignatureTitle(signature: MessageSignatureState | undefined): string {
-    if (!signature) return '';
-    const fingerprint = signature.displayFingerprint ? ` · ${signature.displayFingerprint}` : '';
-    if (signature.status === 'mismatch' && signature.trustedName) {
-      return `${t(dict, 'chat.signatureMismatch')} · ${signature.trustedName}${fingerprint}`;
-    }
-    return `${getSignatureLabel(signature)}${fingerprint}`;
-  }
-
-  async function verifyAndAdvanceChain(payload: ChatPayload, id: string): Promise<{ persistent: boolean; warning: boolean }> {
-    if (!payload.chain) return { persistent: false, warning: false };
-    const expected = await hashChatChain(payload.chain.prevHash, getChainRecord(payload, id, payload.chain.createdAt));
-    const warning = expected !== payload.chain.hash || payload.chain.prevHash !== historyHeadHash;
-    if (warning) {
-      historyIntegrity = 'broken';
-    } else if (historyIntegrity !== 'broken') {
-      historyIntegrity = 'ok';
-    }
-    historyHeadHash = payload.chain.hash;
-    historySeq = Math.max(historySeq, payload.chain.seq);
-    return { persistent: true, warning };
+    scrollToBottom();
   }
 
   function getWhiteboardUrl(invite: WhiteboardInvite): string {
@@ -795,8 +1113,8 @@
     };
   }
 
-  function addWhiteboardInviteMessage(invite: WhiteboardInvite, id: string, mine: boolean, signature?: MessageSignatureState) {
-    const ttl = shouldPersistMessages() || roomConfig.mode === 'live' ? 0 : Math.max(getRoomTtlSeconds() || 300, 300);
+  function addWhiteboardInviteMessage(invite: WhiteboardInvite, id: string, mine: boolean) {
+    const ttl = roomConfig.mode === 'live' ? 0 : Math.max(getRoomTtlSeconds() || 300, 300);
     messages = [...messages, {
       id,
       text: '',
@@ -809,7 +1127,6 @@
       remaining: ttl,
       whiteboard: invite,
       revealed: true,
-      signature,
     }];
     scrollToBottom();
   }
@@ -826,7 +1143,7 @@
       createdAt: Date.now(),
     };
     const msgId = `whiteboard-${genId()}`;
-    let payload: ChatPayload = {
+    const payload: ChatPayload = {
       type: 'whiteboard-invite',
       id: msgId,
       roomId: invite.roomId,
@@ -835,18 +1152,16 @@
       color: invite.color,
       createdAt: invite.createdAt,
     };
-    payload = attachPublicIdentity(payload);
-    payload = await signPayload(payload, msgId, invite.createdAt);
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
     ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
-    addWhiteboardInviteMessage(invite, msgId, true, await getSignatureState(payload, msgId));
+    addWhiteboardInviteMessage(invite, msgId, true);
     activeWhiteboard = invite;
   }
 
   function getLiveSyncMessages(): LiveSyncMessage[] {
     if (roomConfig.mode !== 'live') return [];
     return messages
-      .filter((msg) => !msg.burnOnRead && !msg.whiteboard && !msg.persistent && msg.sender && (msg.text || msg.file))
+      .filter((msg) => !msg.whiteboard && msg.sender && (msg.text || msg.file))
       .slice(-200)
       .map((msg) => ({
         id: msg.id,
@@ -865,12 +1180,13 @@
     await sendEncryptedControl({ type: 'chat-sync', messages: syncMessages }, 'sync');
   }
 
-  function applyLiveHistorySync(syncMessages: unknown) {
+  async function applyLiveHistorySync(syncMessages: unknown) {
     if (roomConfig.mode !== 'live' || !Array.isArray(syncMessages)) return;
     const incoming: Message[] = [];
     for (const item of syncMessages as LiveSyncMessage[]) {
       if (!item?.id || seenMessageIds.has(item.id)) continue;
       const sender = item.sender || t(dict, 'chat.guest');
+      const createdAt = item.time || Date.now();
       seenMessageIds.add(item.id);
       incoming.push({
         id: item.id,
@@ -879,13 +1195,22 @@
         initials: getInitials(sender),
         color: item.color || 'rgb(16,185,129)',
         mine: false,
-        time: item.time || Date.now(),
+        time: createdAt,
         ttl: 0,
         remaining: 0,
         file: item.file,
         revealed: true,
-        signature: { status: 'missing' },
       });
+      await storeLocalPayload({
+        type: 'chat-message',
+        id: item.id,
+        text: item.text || '',
+        sender,
+        color: item.color || 'rgb(16,185,129)',
+        ttl: 0,
+        createdAt,
+        file: item.file,
+      }, item.id, createdAt);
     }
     if (incoming.length) {
       messages = [...messages, ...incoming].sort((a, b) => a.time - b.time);
@@ -942,71 +1267,10 @@
     if (stored) {
       sessionStorage.removeItem('chat-password');
       passwordInput = stored;
-      await enterWithPassword(stored);
+      await enterWithPassword(stored, { authMode: pendingRoomConfig?.authMode || 'password' });
     } else {
       connectWs();
     }
-  }
-
-  async function initSignedChat() {
-    try {
-      signingIdentity = await getOrCreateChatSigningIdentity(identity);
-      if (signingIdentity.name && signingIdentity.color) {
-        identity = { name: signingIdentity.name, color: signingIdentity.color };
-      }
-      trustedKeys = new Map((await listTrustedChatKeys()).map((key) => [key.fingerprint, key]));
-      void refreshIdentityQr();
-    } catch {
-      signingIdentity = null;
-      trustedKeys = new Map();
-      identityQrDataUrl = '';
-    }
-    await initChat();
-  }
-
-  function getIdentityExportPayload(): string {
-    if (!signingIdentity) return '';
-    return JSON.stringify({
-      type: 'encrypt.click/chat-key-v1',
-      name: identity.name,
-      fingerprint: signingIdentity.fingerprint,
-      publicJwk: signingIdentity.publicJwk,
-    });
-  }
-
-  async function refreshIdentityQr() {
-    if (!signingIdentity) {
-      identityQrDataUrl = '';
-      return;
-    }
-    try {
-      const QRCode = await import('qrcode');
-      identityQrDataUrl = await QRCode.toDataURL(getIdentityExportPayload(), {
-        margin: 1,
-        width: 132,
-        color: { dark: '#18181b', light: '#ffffff' },
-      });
-    } catch {
-      identityQrDataUrl = '';
-    }
-  }
-
-  async function copyIdentityFingerprint() {
-    if (!signingIdentity) return;
-    try {
-      await navigator.clipboard.writeText(signingIdentity.fingerprint);
-      identityCopiedFingerprint = true;
-      setTimeout(() => { identityCopiedFingerprint = false; }, 1500);
-    } catch {}
-  }
-
-  async function copyIdentityKey() {
-    if (!signingIdentity) return;
-    try {
-      await navigator.clipboard.writeText(getIdentityExportPayload());
-      identityCopiedKey = true;
-      setTimeout(() => { identityCopiedKey = false; }, 1500);
-    } catch {}
   }
 
   async function copyShareLink() {
@@ -1037,6 +1301,7 @@
     wrongPassword = false;
     needsPassword = false;
     checkingRoom = true;
+    currentAuthAttempt = null;
     passwordInput = '';
     passwordUsed = '';
     cryptoKey = null;
@@ -1065,6 +1330,7 @@
     verified = true;
     verifying = false;
     wrongPassword = false;
+    currentAuthAttempt = null;
   }
 
   function startPasswordVerification(activePeerCount: number) {
@@ -1080,10 +1346,17 @@
 
     verificationTimeout = setTimeout(() => {
       if (verifying && !verified) {
-        wrongPassword = true;
         verifying = false;
         joinedRoom = false;
-        ws?.close();
+        if (currentAuthAttempt === 'room-name') {
+          cryptoKey = null;
+          passwordUsed = '';
+          currentAuthAttempt = null;
+          needsPassword = true;
+        } else {
+          wrongPassword = true;
+          ws?.close();
+        }
       }
     }, 4000);
   }
@@ -1106,23 +1379,22 @@
     ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
   }
 
-  async function enterWithPassword(pwd: string, options: { share?: boolean; activePeerCount?: number } = {}) {
+  async function enterWithPassword(pwd: string, options: { share?: boolean; activePeerCount?: number; authMode?: ChatAuthMode } = {}) {
     try {
       clearRoomConfigWaitTimeout();
+      currentAuthAttempt = options.authMode || 'password';
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
       passwordUsed = pwd;
+      localHistoryKey = await buildLocalHistoryKey(pwd);
+      localHistoryLoaded = false;
       needsPassword = false;
       checkingRoom = false;
       if (options.share && !sharePassword) sharePassword = pwd;
+      await restoreLocalHistory();
       if (ws && ws.readyState === 1) {
         await announceJoined(options.activePeerCount ?? serverPresence);
       } else {
         connectWs();
-      }
-      if (pendingHistory) {
-        const queued = pendingHistory;
-        pendingHistory = null;
-        await processHistory(queued);
       }
     } catch {
       passwordError = t(dict, 'chat.errorDeriveKey');
@@ -1134,7 +1406,7 @@
   async function enterRoomNameOnly(activePeerCount = 0) {
     const generated = await deriveRoomNamePassword(roomId);
     passwordInput = '';
-    await enterWithPassword(generated, { share: false, activePeerCount });
+    await enterWithPassword(generated, { share: false, activePeerCount, authMode: 'room-name' });
   }
 
   function waitBrieflyForRoomConfig() {
@@ -1146,7 +1418,7 @@
       roomConfigWaitTimeout = undefined;
       if (cryptoKey) return;
       checkingRoom = false;
-      if (roomConfig.authMode === 'room-name' && serverRawPresence <= 1) {
+      if (roomConfig.authMode === 'room-name') {
         void enterRoomNameOnly(serverPresence);
       } else {
         needsPassword = true;
@@ -1253,7 +1525,6 @@
     if (data.type === 'history') {
       const config = applyRoomConfig(data.config);
       if (!cryptoKey) {
-        pendingHistory = data as HistoryEnvelope;
         if (config) await resolveRoomAccess(true);
       } else {
         await processHistory(data as HistoryEnvelope);
@@ -1284,30 +1555,16 @@
 
   async function processHistory(history: HistoryEnvelope) {
     const historyMessages = Array.isArray(history.messages) ? history.messages : [];
-    historyLoaded = true;
     if (!historyMessages.length) {
-      if (historyIntegrity === 'unknown') historyIntegrity = 'ok';
       if (verifying && serverPresence <= 1) markVerified();
       return;
     }
 
-    let okCount = 0;
-    let failCount = 0;
     for (const envelope of [...historyMessages].sort((a, b) => (a.serverSeq || 0) - (b.serverSeq || 0))) {
-      const ok = await processServerEnvelope(envelope, true);
-      if (ok) okCount++;
-      else failCount++;
+      await processServerEnvelope(envelope, true);
     }
-
-    if (okCount > 0) {
-      if (verifying) markVerified();
-      scrollToBottom();
-    } else if (failCount > 0) {
-      wrongPassword = true;
-      verifying = false;
-      joinedRoom = false;
-      ws?.close();
-    }
+    if (verifying) markVerified();
+    scrollToBottom();
   }
 
   async function processServerEnvelope(data: ServerEnvelope, fromHistory = false): Promise<boolean> {
@@ -1357,7 +1614,7 @@
 
       if (parsed.type === 'chat-sync') {
         if (verifying) markVerified();
-        applyLiveHistorySync(parsed.messages);
+        await applyLiveHistorySync(parsed.messages);
         return true;
       }
 
@@ -1367,8 +1624,7 @@
         const id = data.id || parsed.id || `whiteboard-${genId()}`;
         const invite = normalizeWhiteboardInvite(parsed);
         if (!invite) return true;
-        const signatureState = await getSignatureState(parsed, id);
-        addWhiteboardInviteMessage(invite, id, false, signatureState);
+        addWhiteboardInviteMessage(invite, id, false);
         return true;
       }
 
@@ -1381,10 +1637,7 @@
 
       if (!verified) markVerified();
 
-      const isBurn = parsed.burnOnRead === true;
       const id = parsed.id || data.id || genId();
-      const chainState = await verifyAndAdvanceChain(parsed, id);
-      const signatureState = await getSignatureState(parsed, id);
       const ttl = parsed.ttl || 0;
       const msg: Message = {
         id,
@@ -1393,23 +1646,20 @@
         initials: getInitials(parsed.sender || t(dict, 'chat.guest')),
         color: parsed.color || 'rgb(16,185,129)',
         mine: false,
-        time: isBurn ? 0 : (parsed.createdAt || parsed.chain?.createdAt || Date.now()), // burn-on-read: timer starts on reveal
+        time: parsed.createdAt || Date.now(),
         ttl,
         remaining: ttl,
         file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []) } : undefined,
-        burnOnRead: isBurn,
-        revealed: fromHistory || !isBurn,
-        persistent: chainState.persistent,
-        historyWarning: chainState.warning,
-        signature: signatureState,
+        revealed: true,
       };
       seenMessageIds.add(id);
       messages = [...messages, msg];
       typing = null;
       if (!fromHistory) scrollToBottom();
+      if (!fromHistory) storeLocalEnvelope({ ...data, id });
 
       // Auto-preview for images and text files
-      if (msg.file && !isBurn) autoPreview(msg);
+      if (msg.file) autoPreview(msg);
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
       return true;
@@ -1433,51 +1683,37 @@
   async function sendMessage() {
     if (!inputText.trim() || !cryptoKey || !ws) return;
 
-    const isBurnOnRead = isBurnMode();
-    const persist = shouldPersistMessages();
-    const finalTtl = persist || roomConfig.mode === 'live' ? 0 : (isBurnOnRead ? 10 : getRoomTtlSeconds());
+    const finalTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
     const text = inputText.trim();
     const msgId = genId();
     const createdAt = Date.now();
 
-    let payload: ChatPayload = {
+    const payload: ChatPayload = {
       type: 'chat-message',
       id: msgId,
       text,
       sender: identity.name,
       color: identity.color,
       ttl: finalTtl,
-      burnOnRead: isBurnOnRead,
       createdAt,
     };
-    payload = attachPublicIdentity(payload);
-    if (persist) payload = await withMessageChain(payload, msgId, createdAt);
-    payload = await signPayload(payload, msgId, createdAt);
 
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
     ws.send(JSON.stringify({
       type: 'message',
       payload: encrypted,
       id: msgId,
-      persist,
-      seq: payload.chain?.seq,
-      prevHash: payload.chain?.prevHash,
-      hash: payload.chain?.hash,
+      persist: false,
       createdAt,
     }));
-
-    const chainState = persist ? await verifyAndAdvanceChain(payload, msgId) : { persistent: false, warning: false };
-    const signatureState = await getSignatureState(payload, msgId);
+    storeLocalEnvelope({ type: 'message', payload: encrypted, id: msgId, createdAt });
     seenMessageIds.add(msgId);
 
     messages = [...messages, {
       id: msgId, text, sender: identity.name, initials: myInitials,
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
-      burnOnRead: isBurnOnRead, revealed: true, // own messages are always revealed
-      persistent: chainState.persistent,
-      historyWarning: chainState.warning,
-      signature: signatureState,
+      revealed: true,
     }];
 
     inputText = '';
@@ -1566,39 +1802,29 @@
       if (uploadUrls.length === 0) return;
 
       // Send file message
-      const isBurn = isBurnMode();
-      const persist = shouldPersistMessages();
-      const fileTtl = persist ? 0 : (isBurn ? 30 : getRoomTtlSeconds());
+      const fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
       const msgId = genId();
       const createdAt = Date.now();
-      let payload: ChatPayload = {
+      const payload: ChatPayload = {
         type: 'chat-message',
         id: msgId,
         text: '',
         sender: identity.name,
         color: identity.color,
         ttl: fileTtl,
-        burnOnRead: isBurn,
         createdAt,
         file: { name: file.name, size: file.size, urls: uploadUrls },
       };
-      payload = attachPublicIdentity(payload);
-      if (persist) payload = await withMessageChain(payload, msgId, createdAt);
-      payload = await signPayload(payload, msgId, createdAt);
 
       const encPayload = await encryptMessage(cryptoKey!, JSON.stringify(payload));
       ws!.send(JSON.stringify({
         type: 'message',
         payload: encPayload,
         id: msgId,
-        persist,
-        seq: payload.chain?.seq,
-        prevHash: payload.chain?.prevHash,
-        hash: payload.chain?.hash,
+        persist: false,
         createdAt,
       }));
-      const chainState = persist ? await verifyAndAdvanceChain(payload, msgId) : { persistent: false, warning: false };
-      const signatureState = await getSignatureState(payload, msgId);
+      storeLocalEnvelope({ type: 'message', payload: encPayload, id: msgId, createdAt });
       seenMessageIds.add(msgId);
 
       const ownMsg: Message = {
@@ -1606,14 +1832,11 @@
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls },
-        burnOnRead: isBurn, revealed: true,
-        persistent: chainState.persistent,
-        historyWarning: chainState.warning,
-        signature: signatureState,
+        revealed: true,
       };
       messages = [...messages, ownMsg];
       scrollToBottom();
-      if (!isBurn) autoPreview(ownMsg);
+      autoPreview(ownMsg);
     } finally {
       uploading = false;
     }
@@ -1733,6 +1956,10 @@
       cameraOff: false,
       screenSharing: false,
       makingOffer: false,
+      volume: 1,
+      audioMuted: false,
+      audioLevel: 0,
+      speaking: false,
     };
     callPeerMap.set(peerId, peer);
 
@@ -1742,9 +1969,21 @@
       const stream = current.stream ?? new MediaStream();
       const incomingTracks = event.streams[0]?.getTracks().length ? event.streams[0].getTracks() : [event.track];
       for (const track of incomingTracks) {
-        if (!stream.getTracks().some((existing) => existing.id === track.id)) stream.addTrack(track);
+        if (!stream.getTracks().some((existing) => existing.id === track.id)) {
+          stream.addTrack(track);
+          if (track.kind === 'audio') {
+            track.addEventListener('ended', () => {
+              const latest = callPeerMap.get(peerId);
+              if (!latest?.stream) return;
+              latest.stream.removeTrack(track);
+              startPeerAudioMonitor(latest);
+              syncCallPeers();
+            }, { once: true });
+          }
+        }
       }
       current.stream = stream;
+      startPeerAudioMonitor(current);
       syncCallPeers();
     };
 
@@ -1763,9 +2002,11 @@
       if (!current) return;
       current.state = pc.connectionState;
       syncCallPeers();
+      void refreshRelayStats();
     };
 
     syncCallPeers();
+    void refreshRelayStats();
     return peer;
   }
 
@@ -1775,7 +2016,9 @@
     peer.pc.close();
     callPeerMap.delete(peerId);
     pendingIce.delete(peerId);
+    stopPeerAudioMonitor(peerId);
     syncCallPeers();
+    void refreshRelayStats();
   }
 
   async function flushPendingIce(peerId: string) {
@@ -1817,10 +2060,12 @@
     try {
       const offer = await peer.pc.createOffer();
       await peer.pc.setLocalDescription(offer);
+      const sdp = sanitizeRelayDescription(peer.pc.localDescription);
+      if (!sdp) throw new Error(t(dict, 'chat.callConnectionFailed'));
       await sendCallSignal({
         action: 'offer',
         to: peer.id,
-        sdp: sanitizeRelayDescription(peer.pc.localDescription),
+        sdp,
       });
     } catch (e: any) {
       callError = e?.message || t(dict, 'chat.callConnectionFailed');
@@ -1832,20 +2077,24 @@
 
   async function answerOffer(signal: CallSignal) {
     if (!signal.sdp) return;
+    const remoteSdp = sanitizeRelayDescription(signal.sdp);
+    if (!remoteSdp) return;
     const peer = ensureCallPeer(signal.from, signal.fromName, signal.fromColor);
     try {
       if (peer.pc.signalingState !== 'stable') {
         await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
       }
-      await peer.pc.setRemoteDescription(signal.sdp);
+      await peer.pc.setRemoteDescription(remoteSdp);
       await flushPendingIce(signal.from);
       await applyPeerOutgoingTracks(peer);
       const answer = await peer.pc.createAnswer();
       await peer.pc.setLocalDescription(answer);
+      const sdp = sanitizeRelayDescription(peer.pc.localDescription);
+      if (!sdp) throw new Error(t(dict, 'chat.callConnectionFailed'));
       await sendCallSignal({
         action: 'answer',
         to: signal.from,
-        sdp: sanitizeRelayDescription(peer.pc.localDescription),
+        sdp,
       });
     } catch (e: any) {
       callError = e?.message || t(dict, 'chat.callConnectionFailed');
@@ -1854,10 +2103,12 @@
 
   async function handleAnswer(signal: CallSignal) {
     if (!signal.sdp) return;
+    const remoteSdp = sanitizeRelayDescription(signal.sdp);
+    if (!remoteSdp) return;
     const peer = callPeerMap.get(signal.from);
     if (!peer || peer.pc.signalingState !== 'have-local-offer') return;
     try {
-      await peer.pc.setRemoteDescription(signal.sdp);
+      await peer.pc.setRemoteDescription(remoteSdp);
       await flushPendingIce(signal.from);
     } catch (e: any) {
       callError = e?.message || t(dict, 'chat.callConnectionFailed');
@@ -1865,10 +2116,11 @@
   }
 
   async function handleIce(signal: CallSignal) {
-    if (!signal.candidate) return;
+    if (!isRelayCandidateInit(signal.candidate)) return;
     const peer = callPeerMap.get(signal.from);
     if (!peer || !peer.pc.remoteDescription) {
       const queue = pendingIce.get(signal.from) ?? [];
+      if (queue.length >= MAX_PENDING_ICE_PER_PEER) return;
       queue.push(signal.candidate);
       pendingIce.set(signal.from, queue);
       return;
@@ -1976,15 +2228,20 @@
   async function refreshDevices() {
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
+      canSelectAudioOutput = supportsAudioOutputSelection();
       const devices = await navigator.mediaDevices.enumerateDevices();
       audioInputDevices = devices.filter((device) => device.kind === 'audioinput');
       videoInputDevices = devices.filter((device) => device.kind === 'videoinput');
+      audioOutputDevices = canSelectAudioOutput ? devices.filter((device) => device.kind === 'audiooutput') : [];
 
       if (selectedAudioInputId && !audioInputDevices.some((device) => device.deviceId === selectedAudioInputId)) {
         selectedAudioInputId = '';
       }
       if (selectedVideoInputId && !videoInputDevices.some((device) => device.deviceId === selectedVideoInputId)) {
         selectedVideoInputId = '';
+      }
+      if (selectedAudioOutputId && !audioOutputDevices.some((device) => device.deviceId === selectedAudioOutputId)) {
+        selectedAudioOutputId = '';
       }
     } catch {}
   }
@@ -2001,6 +2258,7 @@
   function stopLocalTracks(kind: 'audio' | 'video') {
     if (!localStream) return;
     const tracks = kind === 'audio' ? localStream.getAudioTracks() : localStream.getVideoTracks();
+    if (kind === 'audio') stopLocalAudioMonitor();
     for (const track of tracks) {
       track.onended = null;
       localStream.removeTrack(track);
@@ -2112,6 +2370,7 @@
     callError = '';
     activeCallNotice = null;
     callNoticeDismissed = false;
+    callSettingsOpen = false;
 
     try {
       await loadIceServers(true);
@@ -2120,6 +2379,8 @@
       cameraOff = true;
       callAudioMuted = false;
       callActive = true;
+      updateRelayQuality();
+      startRelayStatsMonitor();
       await refreshDevices();
       await sendCallSignal({ action: 'join', reply: false });
     } catch (e: any) {
@@ -2142,6 +2403,8 @@
     callPeerMap.clear();
     pendingIce.clear();
     callPeers = [];
+    stopAllAudioMonitors();
+    stopRelayStatsMonitor();
     if (localStream) {
       for (const track of localStream.getTracks()) track.stop();
     }
@@ -2159,6 +2422,8 @@
     cameraOff = true;
     screenSharing = false;
     callAudioMuted = false;
+    callSettingsOpen = false;
+    updateRelayQuality();
     if (clearError) callError = '';
   }
 
@@ -2203,10 +2468,12 @@
       if (deviceId) selectedAudioInputId = deviceId;
       track.onended = () => {
         micMuted = true;
+        stopLocalAudioMonitor();
         void setOutgoingAudioTrack(null).then(() => sendCallSignal({ action: 'media' }));
       };
 
       applyLocalMediaState();
+      startLocalAudioMonitor();
       await refreshDevices();
       await setOutgoingAudioTrack(track);
       await sendCallSignal({ action: 'media' });
@@ -2289,6 +2556,26 @@
     if (!Number.isFinite(next)) return;
     callVolume = Math.max(0, Math.min(1, next));
     if (callVolume > 0 && callAudioMuted) callAudioMuted = false;
+  }
+
+  function setPeerVolume(peerId: string, value: number | string) {
+    const peer = callPeerMap.get(peerId);
+    const next = Number(value);
+    if (!peer || !Number.isFinite(next)) return;
+    peer.volume = Math.max(0, Math.min(1, next));
+    if (peer.volume > 0 && peer.audioMuted) peer.audioMuted = false;
+    syncCallPeers();
+  }
+
+  function setPeerAudioMuted(peerId: string, nextMuted: boolean) {
+    const peer = callPeerMap.get(peerId);
+    if (!peer) return;
+    peer.audioMuted = nextMuted;
+    syncCallPeers();
+  }
+
+  function handleAudioOutputChange() {
+    resumeVisibleCallMedia();
   }
 
   async function refreshCallDevices() {
@@ -2495,20 +2782,12 @@
     }
   }
 
-  function revealMessage(msg: Message) {
-    msg.revealed = true;
-    msg.time = Date.now();
-    messages = messages;
-  }
-
   function tick() {
     const now = Date.now();
     let changed = false;
     const alive: Message[] = [];
     for (const msg of messages) {
       if (!msg.ttl || msg.ttl <= 0) { alive.push(msg); continue; }
-      // Burn-on-read: don't countdown until revealed
-      if (msg.burnOnRead && !msg.revealed) { alive.push(msg); continue; }
       if (msg.time === 0) { alive.push(msg); continue; }
       const elapsed = (now - msg.time) / 1000;
       const rem = Math.max(0, msg.ttl - elapsed);
@@ -2539,11 +2818,12 @@
 
   onMount(() => {
     clientId = genId();
-    void initSignedChat();
+    void initChat();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
+    window.addEventListener('keydown', handleCallFullscreenKeydown);
     window.addEventListener('blur', handleVisibility);
     window.addEventListener('focus', handleVisibility);
   });
@@ -2561,6 +2841,7 @@
       document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('fullscreenchange', handleNativeFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
+      window.removeEventListener('keydown', handleCallFullscreenKeydown);
       window.removeEventListener('blur', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
       window.removeEventListener('beforeunload', chatBeforeUnload);
@@ -2577,8 +2858,6 @@
     else window.removeEventListener('beforeunload', chatBeforeUnload);
   }
 </script>
-
-<svelte:window on:keydown={handleCallFullscreenKeydown} />
 
 <div class="chat-container">
   {#if wrongPassword}
@@ -2645,14 +2924,6 @@
         </div>
       </div>
       <div class="flex items-center gap-1.5">
-        <button
-          class="chat-identity-btn"
-          class:chat-identity-btn--active={identityPanelOpen}
-          title={t(dict, 'chat.identityToggle')}
-          on:click={() => { identityPanelOpen = !identityPanelOpen; }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
-        </button>
         <button class="chat-call-btn" title={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -2663,40 +2934,6 @@
         <span class="chat-mode-badge" title={getRoomModeLabel()}>{getRoomModeLabel()}</span>
       </div>
     </div>
-
-    {#if identityPanelOpen}
-      <div class="chat-identity-panel">
-        <div class="chat-identity-panel__meta">
-          <div class="chat-identity-panel__mark" style="background: {nameToGradient(identity.name)}">{myInitials}</div>
-          <div class="min-w-0">
-            <div class="chat-identity-panel__title-row">
-              <p class="chat-identity-panel__title">{t(dict, 'chat.identityTitle')}</p>
-              <span>{t(dict, 'chat.identityAlgorithm')}</span>
-            </div>
-            <div class="chat-identity-panel__fingerprint">
-              <span>{t(dict, 'chat.identityFingerprint')}</span>
-              <code title={signingIdentity?.fingerprint || ''}>{ownFingerprint || t(dict, 'chat.signatureMissing')}</code>
-            </div>
-            <div class="chat-identity-panel__actions">
-              <button on:click={copyIdentityFingerprint} disabled={!signingIdentity}>
-                {identityCopiedFingerprint ? t(dict, 'chat.identityCopied') : t(dict, 'chat.identityCopyFingerprint')}
-              </button>
-              <button on:click={copyIdentityKey} disabled={!signingIdentity}>
-                {identityCopiedKey ? t(dict, 'chat.identityCopied') : t(dict, 'chat.identityCopyKey')}
-              </button>
-              <span>{t(dict, 'chat.identityTrustedCount').replace('{count}', String(trustedKeys.size))}</span>
-            </div>
-          </div>
-        </div>
-        <div class="chat-identity-panel__qr" aria-label={t(dict, 'chat.identityQrAlt')}>
-          {#if identityQrDataUrl}
-            <img src={identityQrDataUrl} alt={t(dict, 'chat.identityQrAlt')} />
-          {:else}
-            <span>{t(dict, 'chat.identityQrAlt')}</span>
-          {/if}
-        </div>
-      </div>
-    {/if}
 
     {#if sharePassword && !shareDismissed}
       <div class="chat-share-banner">
@@ -2731,21 +2968,6 @@
       </div>
     {/if}
 
-    {#if roomConfig.mode === 'persistent'}
-      <div class="chat-history-banner" class:chat-history-banner--broken={historyIntegrity === 'broken'}>
-        <span class="chat-history-banner__dot"></span>
-        <span>
-          {#if historyIntegrity === 'broken'}
-            {t(dict, 'chat.historyBroken')}
-          {:else if historyLoaded}
-            {t(dict, 'chat.historyVerified')}
-          {:else}
-            {t(dict, 'chat.historyLoading')}
-          {/if}
-        </span>
-      </div>
-    {/if}
-
     {#if activeCallNotice && !callActive}
       <div class="chat-call-banner">
         <div class="chat-call-banner__meta">
@@ -2762,69 +2984,73 @@
       </div>
     {/if}
 
-    <div class="chat-body" class:chat-body--call={callActive}>
+    <div class="chat-body" class:chat-body--call={callActive} class:chat-body--call-settings={callActive && callSettingsOpen}>
       {#if callActive || callError}
         <div class="chat-call-panel" class:chat-call-panel--error={!callActive && Boolean(callError)}>
           {#if callActive}
             <div class="chat-call-panel__top">
               <div class="min-w-0">
-                <p class="chat-call-title">{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : t(dict, 'chat.callAudioActive')}</p>
+                <p class="chat-call-title">{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</p>
                 <p class="chat-call-subtitle">{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</p>
               </div>
+              <div class="chat-call-panel__right">
+                <div class="chat-call-statuses">
+                  <div class="chat-call-server" class:chat-call-server--good={serverQuality === 'good'} class:chat-call-server--fair={serverQuality === 'fair'} class:chat-call-server--poor={serverQuality === 'poor'} class:chat-call-server--offline={serverQuality === 'offline'} title={`${t(dict, 'chat.callServer')}: ${serverName} ${serverRegion}`}>
+                    <span class="chat-call-server__dot"></span>
+                    <span>{serverLatencyMs !== null ? `${serverLatencyMs} ms` : getServerQualityLabel(serverQuality)}</span>
+                  </div>
+                  <div class="chat-call-server chat-call-server--relay" class:chat-call-server--good={relayQuality === 'good'} class:chat-call-server--fair={relayQuality === 'fair'} class:chat-call-server--poor={relayQuality === 'poor'} class:chat-call-server--offline={relayQuality === 'offline'} title={getRelayTitle()}>
+                    <span class="chat-call-server__dot"></span>
+                    <span>{t(dict, 'chat.callRelay')}</span>
+                    <span class="chat-call-server__value">{getRelayStatusLabel()}</span>
+                  </div>
+                </div>
               <div class="chat-call-controls">
-              <button class="chat-call-control" class:chat-call-control--active={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} on:click={toggleMic}>
+              <button class="chat-call-control" class:chat-call-control--active={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={toggleMic}>
                 {#if micMuted}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
                 {:else}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
                 {/if}
               </button>
-              <button class="chat-call-control" class:chat-call-control--active={callAudioMuted} title={callAudioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} on:click={() => setCallAudioMuted(!callAudioMuted)}>
+              <button class="chat-call-control" class:chat-call-control--active={callAudioMuted} title={callAudioMuted ? t(dict, 'chat.callUndeafen') : t(dict, 'chat.callDeafen')} aria-label={callAudioMuted ? t(dict, 'chat.callUndeafen') : t(dict, 'chat.callDeafen')} aria-pressed={callAudioMuted} on:click={() => setCallAudioMuted(!callAudioMuted)}>
                 {#if callAudioMuted}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
                 {:else}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
                 {/if}
               </button>
-              <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} on:click={toggleCamera}>
+              <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={toggleCamera}>
                 {#if cameraOff}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
                 {:else}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
                 {/if}
               </button>
-              <button class="chat-call-control" class:chat-call-control--active={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
+              <button class="chat-call-control" class:chat-call-control--active={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
                 {#if screenSharing}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m7 8 10 6"/><path d="m17 8-10 6"/></svg>
                 {:else}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 10 4-4 4 4"/><path d="M12 6v7"/></svg>
                 {/if}
               </button>
-              <button class="chat-call-control chat-call-control--end" title={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
+              <button class="chat-call-control" class:chat-call-control--active={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.48.67 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.84 0-1.31.52-1.51 1Z"/></svg>
+              </button>
+              <button class="chat-call-control chat-call-control--end" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10.1 7.6a12.4 12.4 0 0 1 3.8 0l.6 2.7a1 1 0 0 0 .95.8h3.75a1 1 0 0 0 .98-1.2l-.48-2.38a3 3 0 0 0-2.02-2.22 18 18 0 0 0-11.36 0 3 3 0 0 0-2.02 2.22l-.48 2.38a1 1 0 0 0 .98 1.2h3.75a1 1 0 0 0 .95-.8Z"/></svg>
               </button>
               </div>
+              </div>
             </div>
 
-          <div class="chat-call-server" class:chat-call-server--good={serverQuality === 'good'} class:chat-call-server--fair={serverQuality === 'fair'} class:chat-call-server--poor={serverQuality === 'poor'} class:chat-call-server--offline={serverQuality === 'offline'}>
-            <span class="chat-call-server__dot"></span>
-            <span>{t(dict, 'chat.callServer')}: {serverName}</span>
-            <span>{serverRegion}</span>
-            <span>{serverLatencyMs !== null ? `${serverLatencyMs} ms · ${getServerQualityLabel(serverQuality)}` : getServerQualityLabel(serverQuality)}</span>
-          </div>
-
-          <div class="chat-call-settings">
+          {#if callSettingsOpen}
+          <div class="chat-call-settings" id="chat-call-settings">
             <div class="chat-call-settings__header">
-              <span>{t(dict, 'chat.callSettings')}</span>
+              <span>{t(dict, 'chat.callAudioAndDevices')}</span>
               <button class="chat-call-settings__refresh" title={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
               </button>
-            </div>
-            <div class="chat-call-toggles">
-              <label class="chat-call-toggle">
-                <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
-                <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
-              </label>
             </div>
             <div class="chat-call-device-grid">
               <label class="chat-call-field">
@@ -2845,15 +3071,54 @@
                   {/each}
                 </select>
               </label>
+              {#if canSelectAudioOutput}
+              <label class="chat-call-field">
+                <span>{t(dict, 'chat.callAudioOutput')}</span>
+                <select bind:value={selectedAudioOutputId} on:change={handleAudioOutputChange}>
+                  <option value="">{t(dict, 'chat.callDefaultOutput')}</option>
+                  {#each audioOutputDevices as device, index (device.deviceId || index)}
+                    <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callAudioOutput')} ${index + 1}`}</option>
+                  {/each}
+                </select>
+              </label>
+              {/if}
               <label class="chat-call-field chat-call-field--volume">
                 <span>{t(dict, 'chat.callVolume')}</span>
                 <input type="range" min="0" max="1" step="0.05" value={callVolume} disabled={callAudioMuted} on:input={(e) => setCallVolume((e.currentTarget as HTMLInputElement).value)} />
               </label>
             </div>
+            <div class="chat-call-toggles">
+              <label class="chat-call-toggle">
+                <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
+                <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
+              </label>
+            </div>
+            {#if callPeers.length > 0}
+              <div class="chat-call-peer-audio">
+                <p class="chat-call-peer-audio__title">{t(dict, 'chat.callParticipantAudio')}</p>
+                {#each callPeers as peer (peer.id)}
+                  <div class="chat-call-peer-row">
+                    <div class="chat-call-peer-row__meta">
+                      <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(peer.name)}">{peer.initials}</div>
+                      <span>{peer.name}</span>
+                    </div>
+                    <button class="chat-call-mini-control" class:chat-call-mini-control--active={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} on:click={() => setPeerAudioMuted(peer.id, !peer.audioMuted)}>
+                      {#if peer.audioMuted}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                      {:else}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                      {/if}
+                    </button>
+                    <input type="range" min="0" max="1" step="0.05" value={peer.volume} disabled={callAudioMuted || peer.audioMuted} on:input={(e) => setPeerVolume(peer.id, (e.currentTarget as HTMLInputElement).value)} aria-label={`${t(dict, 'chat.callVolume')} ${peer.name}`} />
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
+          {/if}
 
           <div class="chat-call-grid" class:chat-call-grid--audio={!callHasVideo}>
-            <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred}>
+            <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred} class:chat-call-tile--speaking={localSpeaking && !micMuted}>
               {#if localDisplayStream && localHasVisibleVideo}
                 <video
                   class="chat-call-video"
@@ -2876,16 +3141,19 @@
               {/if}
               <div class="chat-call-label">
                 <span>{t(dict, 'chat.callYou')}</span>
-                {#if screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if micMuted}<span>{t(dict, 'chat.callMuted')}</span>{/if}
+                {#if !micMuted}
+                  <span class="chat-call-level" style={`--level: ${Math.max(0.04, localAudioLevel)}`}></span>
+                {/if}
+                {#if screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if micMuted}<span>{t(dict, 'chat.callMuted')}</span>{:else if localSpeaking}<span>{t(dict, 'chat.callSpeaking')}</span>{/if}
               </div>
             </div>
             {#each callPeers as peer (peer.id)}
-              <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred}>
+              <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred} class:chat-call-tile--speaking={peer.speaking && !peer.muted}>
                 {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
                   <video
                     class="chat-call-video"
                     class:chat-call-video--contain={peer.screenSharing}
-                    use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }}
+                    use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
                     autoplay
                     playsinline
                     controlslist="nodownload nofullscreen noremoteplayback"
@@ -2900,7 +3168,7 @@
                 {:else}
                   {#if peer.stream}
                     <audio
-                      use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }}
+                      use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
                       autoplay
                       controlslist="nodownload noremoteplayback"
                       disableremoteplayback
@@ -2912,7 +3180,10 @@
                 {/if}
                 <div class="chat-call-label">
                   <span>{peer.name}</span>
-                  {#if peer.screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if peer.muted}<span>{t(dict, 'chat.callMuted')}</span>{:else if peer.state !== 'connected'}<span>{peer.state}</span>{/if}
+                  {#if !peer.muted}
+                    <span class="chat-call-level" style={`--level: ${Math.max(0.04, peer.audioLevel)}`}></span>
+                  {/if}
+                  {#if peer.screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if peer.muted}<span>{t(dict, 'chat.callMuted')}</span>{:else if peer.speaking}<span>{t(dict, 'chat.callSpeaking')}</span>{:else if peer.state !== 'connected'}<span>{peer.state}</span>{/if}
                 </div>
               </div>
             {/each}
@@ -2948,7 +3219,7 @@
             </div>
           </div>
         {/if}
-        <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
+        <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl} use:revealSpoilers>
       {#if messages.length === 0}
         <div class="chat-center">
           <div class="text-center space-y-2 max-w-xs">
@@ -2961,16 +3232,6 @@
 
       {#each messages as msg (msg.id)}
         <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
-          {#if msg.burnOnRead && !msg.revealed && !msg.mine}
-            <!-- Burn on read: hidden until clicked -->
-            <div class="flex items-start gap-2">
-              <div class="chat-avatar" style="background: {nameToGradient(msg.sender)}">{msg.initials}</div>
-              <button class="chat-burn-reveal" on:click={() => revealMessage(msg)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                <span>{msg.sender}</span>
-              </button>
-            </div>
-          {:else}
           <div class="flex items-start gap-2">
             {#if !msg.mine}
               <div class="chat-avatar" style="background: {nameToGradient(msg.sender)}">{msg.initials}</div>
@@ -2978,28 +3239,6 @@
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
                 <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
-                {#if msg.signature}
-                  {#if canTrustSignature(msg)}
-                    <button
-                      type="button"
-                      class="chat-signature-pill chat-signature-pill--valid"
-                      title={getSignatureTitle(msg.signature)}
-                      on:click={() => trustMessageKey(msg)}
-                    >
-                      {getSignatureLabel(msg.signature)}
-                    </button>
-                  {:else}
-                    <span
-                      class="chat-signature-pill"
-                      class:chat-signature-pill--trusted={msg.signature.status === 'trusted'}
-                      class:chat-signature-pill--bad={msg.signature.status === 'invalid' || msg.signature.status === 'mismatch'}
-                      class:chat-signature-pill--missing={msg.signature.status === 'missing'}
-                      title={getSignatureTitle(msg.signature)}
-                    >
-                      {getSignatureLabel(msg.signature)}
-                    </span>
-                  {/if}
-                {/if}
               </div>
               {#if msg.file}
                 <div class="chat-file" class:chat-file--error={msg.fileError}>
@@ -3057,9 +3296,6 @@
               {#if msg.text}
                 <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
               {/if}
-              {#if msg.historyWarning}
-                <p class="chat-history-warning">{t(dict, 'chat.historyMessageWarning')}</p>
-              {/if}
             </div>
             {#if msg.ttl > 0}
               <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
@@ -3075,7 +3311,6 @@
               </div>
             {/if}
           </div>
-          {/if}
         </div>
       {/each}
 
@@ -3141,40 +3376,40 @@
       </div>
     </div>
   {/if}
-</div>
 
-{#if callFullscreenMedia}
-  <div
-    class="chat-call-fullscreen"
-    bind:this={callFullscreenOverlayEl}
-    role="dialog"
-    aria-modal="true"
-    aria-label={callFullscreenMedia.name}
-    tabindex="-1"
-  >
-    <div class="chat-call-fullscreen__bar">
-      <div class="chat-call-fullscreen__meta">
-        <span>{callFullscreenMedia.name}</span>
-        {#if callFullscreenMedia.isScreen}<span>{t(dict, 'chat.callScreenSharing')}</span>{/if}
+  {#if callFullscreenMedia}
+    <div
+      class="chat-call-fullscreen"
+      bind:this={callFullscreenOverlayEl}
+      role="dialog"
+      aria-modal="true"
+      aria-label={callFullscreenMedia.name}
+      tabindex="-1"
+    >
+      <div class="chat-call-fullscreen__bar">
+        <div class="chat-call-fullscreen__meta">
+          <span>{callFullscreenMedia.name}</span>
+          {#if callFullscreenMedia.isScreen}<span>{t(dict, 'chat.callScreenSharing')}</span>{/if}
+        </div>
+        <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} on:click={() => closeCallFullscreen()}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+        </button>
       </div>
-      <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} on:click={() => closeCallFullscreen()}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
-      </button>
+      <video
+        class="chat-call-fullscreen__video"
+        use:streamMedia={{ stream: callFullscreenMedia.stream, muted: true, volume: 0 }}
+        autoplay
+        muted
+        playsinline
+        controlslist="nodownload nofullscreen noremoteplayback"
+        disablepictureinpicture
+        disableremoteplayback
+        on:pause={keepCallMediaPlaying}
+        on:contextmenu={preventMediaContextMenu}
+      ></video>
     </div>
-    <video
-      class="chat-call-fullscreen__video"
-      use:streamMedia={{ stream: callFullscreenMedia.stream, muted: true, volume: 0 }}
-      autoplay
-      muted
-      playsinline
-      controlslist="nodownload nofullscreen noremoteplayback"
-      disablepictureinpicture
-      disableremoteplayback
-      on:pause={keepCallMediaPlaying}
-      on:contextmenu={preventMediaContextMenu}
-    ></video>
-  </div>
-{/if}
+  {/if}
+</div>
 
 <style>
   .chat-container {
@@ -3330,178 +3565,6 @@
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
   .chat-share-copy:hover { color: rgb(16, 185, 129); }
-  .chat-identity-btn {
-    width: 30px; height: 30px; border-radius: 0.5rem;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: rgb(82, 82, 91);
-    background: rgba(244, 244, 245, 0.7);
-    border: 1px solid rgba(228, 228, 231, 0.7);
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
-  }
-  :global(.dark) .chat-identity-btn {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.45);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-identity-btn:hover,
-  .chat-identity-btn--active {
-    color: rgb(37, 99, 235);
-    background: rgba(59, 130, 246, 0.08);
-    border-color: rgba(59, 130, 246, 0.2);
-  }
-  :global(.dark) .chat-identity-btn:hover,
-  :global(.dark) .chat-identity-btn--active {
-    color: rgb(147, 197, 253);
-    background: rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.24);
-  }
-  .chat-identity-panel {
-    min-height: 112px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.85rem;
-    padding: 0.75rem 0.85rem;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.14);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.07), rgba(16, 185, 129, 0.035));
-  }
-  :global(.dark) .chat-identity-panel {
-    border-color: rgba(59, 130, 246, 0.14);
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.11), rgba(16, 185, 129, 0.045));
-  }
-  .chat-identity-panel__meta {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-  .chat-identity-panel__mark {
-    width: 38px; height: 38px; border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center;
-    color: white;
-    font-size: 12px;
-    font-weight: 900;
-    flex-shrink: 0;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.13);
-  }
-  .chat-identity-panel__title-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-  .chat-identity-panel__title {
-    font-size: 13px;
-    line-height: 1.2;
-    font-weight: 900;
-    color: rgb(39, 39, 42);
-  }
-  :global(.dark) .chat-identity-panel__title {
-    color: rgb(228, 228, 231);
-  }
-  .chat-identity-panel__title-row span,
-  .chat-identity-panel__actions span {
-    min-height: 20px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 0.4rem;
-    border-radius: 0.35rem;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(228, 228, 231, 0.65);
-    color: rgb(82, 82, 91);
-    font-size: 10px;
-    font-weight: 850;
-  }
-  :global(.dark) .chat-identity-panel__title-row span,
-  :global(.dark) .chat-identity-panel__actions span {
-    background: rgba(24, 24, 27, 0.62);
-    border-color: rgba(63, 63, 70, 0.48);
-    color: rgb(161, 161, 170);
-  }
-  .chat-identity-panel__fingerprint {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-top: 0.35rem;
-    min-width: 0;
-  }
-  .chat-identity-panel__fingerprint span {
-    color: rgb(113, 113, 122);
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-    flex-shrink: 0;
-  }
-  .chat-identity-panel__fingerprint code {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: 'fira-code', monospace;
-    color: rgb(24, 24, 27);
-    font-size: 12px;
-    font-weight: 800;
-  }
-  :global(.dark) .chat-identity-panel__fingerprint code {
-    color: rgb(244, 244, 245);
-  }
-  .chat-identity-panel__actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.55rem;
-  }
-  .chat-identity-panel__actions button {
-    min-width: 116px;
-    min-height: 28px;
-    padding: 0 0.55rem;
-    border-radius: 0.45rem;
-    color: rgb(37, 99, 235);
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid rgba(59, 130, 246, 0.18);
-    font-size: 11px;
-    font-weight: 850;
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
-  }
-  .chat-identity-panel__actions button:hover:not(:disabled) {
-    color: rgb(5, 150, 105);
-    border-color: rgba(16, 185, 129, 0.26);
-    background: rgba(16, 185, 129, 0.08);
-  }
-  .chat-identity-panel__actions button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  :global(.dark) .chat-identity-panel__actions button {
-    color: rgb(147, 197, 253);
-    background: rgba(24, 24, 27, 0.68);
-    border-color: rgba(59, 130, 246, 0.22);
-  }
-  .chat-identity-panel__qr {
-    width: 92px;
-    height: 92px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.35rem;
-    border-radius: 0.55rem;
-    background: white;
-    border: 1px solid rgba(228, 228, 231, 0.85);
-    flex-shrink: 0;
-  }
-  .chat-identity-panel__qr img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-  }
-  .chat-identity-panel__qr span {
-    color: rgb(113, 113, 122);
-    font-size: 10px;
-    font-weight: 850;
-    text-align: center;
-  }
   .chat-mode-badge {
     min-height: 30px;
     display: inline-flex;
@@ -3519,41 +3582,6 @@
     color: rgb(110, 231, 183);
     border-color: rgba(16, 185, 129, 0.16);
     background: rgba(16, 185, 129, 0.09);
-  }
-  .chat-history-banner {
-    min-height: 30px;
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.35rem 0.85rem;
-    border-bottom: 1px solid rgba(16, 185, 129, 0.12);
-    background: rgba(16, 185, 129, 0.035);
-    color: rgb(5, 150, 105);
-    font-size: 11px;
-    font-weight: 800;
-  }
-  :global(.dark) .chat-history-banner {
-    border-color: rgba(16, 185, 129, 0.1);
-    background: rgba(16, 185, 129, 0.055);
-    color: rgb(110, 231, 183);
-  }
-  .chat-history-banner--broken {
-    border-color: rgba(239, 68, 68, 0.16);
-    background: rgba(239, 68, 68, 0.055);
-    color: rgb(220, 38, 38);
-  }
-  :global(.dark) .chat-history-banner--broken {
-    border-color: rgba(239, 68, 68, 0.18);
-    background: rgba(239, 68, 68, 0.075);
-    color: rgb(248, 113, 113);
-  }
-  .chat-history-banner__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 9999px;
-    background: currentColor;
-    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
-    flex-shrink: 0;
   }
   .chat-call-btn {
     width: 30px; height: 30px; border-radius: 0.5rem;
@@ -3629,6 +3657,21 @@
   .chat-body--call .chat-call-panel {
     border-bottom: 0;
   }
+  .chat-body--call .chat-call-panel__top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .chat-body--call .chat-call-panel__right {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .chat-body--call .chat-call-controls {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
   :global(.dark) .chat-call-panel {
     border-color: rgba(39, 39, 42, 0.55);
     background: rgba(24, 24, 27, 0.42);
@@ -3639,6 +3682,12 @@
   }
   .chat-call-panel__top {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  }
+  .chat-call-panel__right {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-shrink: 0;
   }
   .chat-call-title {
     font-size: 13px; line-height: 1.2; font-weight: 900;
@@ -3681,24 +3730,37 @@
     border-color: rgba(220, 38, 38, 0.25);
   }
   .chat-call-control:disabled { opacity: 0.35; cursor: not-allowed; }
-  .chat-call-server {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.55rem;
-    margin-top: 0.55rem;
-    font-size: 10px; font-weight: 800;
-    color: rgb(113, 113, 122);
+  .chat-call-statuses {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
   }
-  .chat-call-server span:not(.chat-call-server__dot) {
-    min-height: 20px;
-    display: inline-flex; align-items: center;
-    padding: 0 0.4rem;
-    border-radius: 0.35rem;
+  .chat-call-server {
+    min-height: 28px;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0 0.55rem;
+    border-radius: 0.5rem;
     background: rgba(244, 244, 245, 0.82);
     border: 1px solid rgba(228, 228, 231, 0.75);
+    font-size: 10px; font-weight: 800;
+    color: rgb(113, 113, 122);
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .chat-call-server--relay {
+    max-width: min(100%, 320px);
+  }
+  .chat-call-server__value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   :global(.dark) .chat-call-server {
     color: rgb(161, 161, 170);
-  }
-  :global(.dark) .chat-call-server span:not(.chat-call-server__dot) {
     background: rgba(39, 39, 42, 0.58);
     border-color: rgba(63, 63, 70, 0.45);
   }
@@ -3722,11 +3784,14 @@
   }
   .chat-call-settings {
     margin-top: 0.65rem;
-    padding-top: 0.65rem;
-    border-top: 1px solid rgba(228, 228, 231, 0.58);
+    padding: 0.65rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(228, 228, 231, 0.68);
+    background: rgba(255, 255, 255, 0.52);
   }
   :global(.dark) .chat-call-settings {
     border-color: rgba(63, 63, 70, 0.42);
+    background: rgba(24, 24, 27, 0.5);
   }
   .chat-call-settings__header {
     display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -3774,7 +3839,7 @@
   }
   .chat-call-device-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.5rem;
     margin-top: 0.55rem;
   }
@@ -3820,6 +3885,77 @@
   .chat-body--call .chat-call-field--volume {
     grid-column: 1 / -1;
   }
+  .chat-call-peer-audio {
+    margin-top: 0.65rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(228, 228, 231, 0.58);
+  }
+  :global(.dark) .chat-call-peer-audio {
+    border-color: rgba(63, 63, 70, 0.42);
+  }
+  .chat-call-peer-audio__title {
+    margin-bottom: 0.45rem;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: rgb(113, 113, 122);
+  }
+  .chat-call-peer-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 30px minmax(86px, 0.8fr);
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 34px;
+  }
+  .chat-call-peer-row + .chat-call-peer-row {
+    margin-top: 0.35rem;
+  }
+  .chat-call-peer-row__meta {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: rgb(63, 63, 70);
+    font-size: 11px;
+    font-weight: 800;
+  }
+  :global(.dark) .chat-call-peer-row__meta {
+    color: rgb(228, 228, 231);
+  }
+  .chat-call-peer-row__meta span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-call-peer-row input[type="range"] {
+    width: 100%;
+    accent-color: rgb(16, 185, 129);
+  }
+  .chat-call-peer-row input[type="range"]:disabled {
+    opacity: 0.35;
+  }
+  .chat-call-mini-control {
+    width: 28px;
+    height: 28px;
+    border-radius: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(113, 113, 122);
+    background: rgba(244, 244, 245, 0.78);
+    border: 1px solid rgba(228, 228, 231, 0.7);
+  }
+  :global(.dark) .chat-call-mini-control {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.58);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-call-mini-control--active {
+    color: rgb(239, 68, 68);
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
   .chat-call-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -3844,10 +3980,15 @@
     display: flex; align-items: center; justify-content: center;
     background: rgba(228, 228, 231, 0.55);
     border: 1px solid rgba(212, 212, 216, 0.65);
+    transition: border-color 0.18s ease-out, box-shadow 0.18s ease-out;
   }
   :global(.dark) .chat-call-tile {
     background: rgba(39, 39, 42, 0.65);
     border-color: rgba(63, 63, 70, 0.55);
+  }
+  .chat-call-tile--speaking {
+    border-color: rgba(16, 185, 129, 0.72);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);
   }
   .chat-call-grid--audio .chat-call-tile {
     min-height: 72px;
@@ -3917,6 +4058,26 @@
     flex-shrink: 0;
     color: rgb(244, 244, 245);
     opacity: 0.75;
+  }
+  .chat-call-level {
+    flex: 1;
+    min-width: 24px;
+    max-width: 52px;
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+    opacity: 0.9;
+  }
+  .chat-call-level::before {
+    content: '';
+    display: block;
+    width: calc(var(--level, 0) * 100%);
+    height: 100%;
+    min-width: 4px;
+    border-radius: inherit;
+    background: rgb(52, 211, 153);
+    transition: width 0.08s linear;
   }
   .chat-call-tile audio { display: none; }
   .chat-call-error {
@@ -4000,6 +4161,9 @@
       max-height: 52%;
       border-bottom: 1px solid rgba(228, 228, 231, 0.55);
     }
+    .chat-body--call-settings .chat-call-panel {
+      max-height: 80%;
+    }
     :global(.dark) .chat-body--call .chat-call-panel {
       border-color: rgba(39, 39, 42, 0.55);
     }
@@ -4015,28 +4179,35 @@
     }
   }
   @media (max-width: 640px) {
-    .chat-identity-panel {
-      align-items: flex-start;
-    }
-    .chat-identity-panel__qr {
-      width: 78px;
-      height: 78px;
-    }
-    .chat-identity-panel__actions button {
-      min-width: 0;
-      flex: 1 1 120px;
-    }
     .chat-call-panel__top {
       align-items: flex-start;
       flex-direction: column;
     }
+    .chat-call-panel__right {
+      width: 100%;
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .chat-call-server {
+      max-width: 100%;
+    }
     .chat-call-controls {
       width: 100%;
-      justify-content: flex-end;
+      justify-content: flex-start;
       flex-wrap: wrap;
     }
     .chat-call-device-grid {
       grid-template-columns: 1fr;
+    }
+    .chat-body--call .chat-call-device-grid {
+      grid-template-columns: 1fr;
+    }
+    .chat-call-peer-row {
+      grid-template-columns: minmax(0, 1fr) 30px;
+    }
+    .chat-call-peer-row input[type="range"] {
+      grid-column: 1 / -1;
     }
   }
   .chat-status {
@@ -4087,58 +4258,6 @@
     margin-bottom: 2px;
   }
   .chat-sender { font-size: 12px; font-weight: 700; display: block; }
-  .chat-signature-pill {
-    min-height: 18px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 0.35rem;
-    border-radius: 0.35rem;
-    border: 1px solid rgba(161, 161, 170, 0.24);
-    background: rgba(244, 244, 245, 0.72);
-    color: rgb(113, 113, 122);
-    font-size: 9px;
-    line-height: 1;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-  :global(.dark) .chat-signature-pill {
-    border-color: rgba(63, 63, 70, 0.55);
-    background: rgba(39, 39, 42, 0.62);
-    color: rgb(161, 161, 170);
-  }
-  .chat-signature-pill--trusted {
-    border-color: rgba(16, 185, 129, 0.2);
-    background: rgba(16, 185, 129, 0.1);
-    color: rgb(5, 150, 105);
-  }
-  :global(.dark) .chat-signature-pill--trusted {
-    color: rgb(110, 231, 183);
-  }
-  .chat-signature-pill--valid {
-    cursor: pointer;
-    border-color: rgba(59, 130, 246, 0.22);
-    background: rgba(59, 130, 246, 0.08);
-    color: rgb(37, 99, 235);
-  }
-  .chat-signature-pill--valid:hover {
-    border-color: rgba(16, 185, 129, 0.32);
-    background: rgba(16, 185, 129, 0.1);
-    color: rgb(5, 150, 105);
-  }
-  :global(.dark) .chat-signature-pill--valid {
-    color: rgb(147, 197, 253);
-  }
-  .chat-signature-pill--bad {
-    border-color: rgba(239, 68, 68, 0.22);
-    background: rgba(239, 68, 68, 0.08);
-    color: rgb(220, 38, 38);
-  }
-  :global(.dark) .chat-signature-pill--bad {
-    color: rgb(248, 113, 113);
-  }
-  .chat-signature-pill--missing {
-    opacity: 0.72;
-  }
   .chat-text {
     font-size: 15px; line-height: 1.5; color: rgb(63, 63, 70); word-break: break-word;
   }
@@ -4186,16 +4305,6 @@
     border-left: 3px solid rgba(16, 185, 129, 0.4);
     padding-left: 8px; margin: 2px 0;
     color: rgb(113, 113, 122);
-  }
-  .chat-history-warning {
-    margin-top: 0.25rem;
-    font-size: 10px;
-    line-height: 1.35;
-    font-weight: 800;
-    color: rgb(220, 38, 38);
-  }
-  :global(.dark) .chat-history-warning {
-    color: rgb(248, 113, 113);
   }
   .chat-typing {
     font-size: 13px; color: rgb(161, 161, 170); padding: 0.3rem 0;
@@ -4255,18 +4364,6 @@
     border-color: rgba(39, 39, 42, 0.4);
   }
   .chat-preview-expand:hover { background: rgba(16, 185, 129, 0.08); }
-  .chat-burn-reveal {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.5rem 0.85rem; border-radius: 0.6rem;
-    background: rgba(239, 68, 68, 0.08);
-    border: 1px dashed rgba(239, 68, 68, 0.2);
-    color: rgb(239, 68, 68); font-size: 13px; font-weight: 600;
-    transition: all 0.15s;
-  }
-  .chat-burn-reveal:hover {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.3);
-  }
   .chat-attach-btn {
     padding: 0.4rem; border-radius: 0.5rem;
     color: rgb(161, 161, 170); transition: color 0.15s;

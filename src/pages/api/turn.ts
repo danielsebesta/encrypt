@@ -6,17 +6,22 @@ export const prerender = false;
 const TURN_HOST = 'turn.encrypt.click';
 const TURN_TTL_SECONDS = 60 * 60;
 const TURN_LIMIT = 120;
-const METERED_TURN_DOMAIN = 'standard.relay.metered.ca';
-const EXPRESSTURN_TURN_URLS = [
-  'turn:free.expressturn.com:3478?transport=udp',
-  'turn:free.expressturn.com:3478?transport=tcp',
-];
+const CLOUDFLARE_TURN_TTL_SECONDS = 60 * 60;
 const METERED_API_TTL_SECONDS = 45 * 60;
 
+let cloudflareCache: { iceServers: RTCIceServer[]; expiresAt: number; cacheKey: string } | null = null;
 let meteredCache: { iceServers: RTCIceServer[]; expiresAt: number } | null = null;
 
+type TurnProviderResult = {
+  iceServers: RTCIceServer[];
+  ttl: number;
+  expiresAt?: number;
+};
+
 function runtimeEnv(locals: unknown): Record<string, unknown> {
-  return ((locals as any).runtime?.env ?? process.env ?? {}) as Record<string, unknown>;
+  const workerEnv = ((locals as any).runtime?.env ?? {}) as Record<string, unknown>;
+  const nodeEnv = typeof process !== 'undefined' ? (process.env ?? {}) : {};
+  return { ...workerEnv, ...nodeEnv };
 }
 
 function envString(env: Record<string, unknown>, key: string): string {
@@ -55,38 +60,78 @@ function jsonResponse(body: Record<string, unknown>, init?: ResponseInit) {
   });
 }
 
-function meteredStaticIceServers(username: string, credential: string, domain = METERED_TURN_DOMAIN): RTCIceServer[] {
-  return [
-    { urls: `stun:stun.relay.metered.ca:80` },
-    {
+function envNumber(env: Record<string, unknown>, key: string, fallback: number): number {
+  const value = Number(envString(env, key));
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function clampTurnTtl(ttl: number): number {
+  return Math.max(60, Math.min(86400, Math.round(ttl)));
+}
+
+function assertIceServers(value: unknown, source: string): RTCIceServer[] {
+  const iceServers = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object' && Array.isArray((value as { iceServers?: unknown }).iceServers)
+      ? (value as { iceServers: unknown[] }).iceServers
+      : null;
+
+  if (!iceServers || iceServers.length === 0) {
+    throw new Error(`${source} returned no ICE servers`);
+  }
+
+  return iceServers as RTCIceServer[];
+}
+
+async function loadEncryptOneIceServers(secret: string): Promise<TurnProviderResult> {
+  const expiresAt = Math.floor(Date.now() / 1000) + TURN_TTL_SECONDS;
+  const username = String(expiresAt);
+  const credential = await hmacSha1Base64(secret, username);
+
+  return {
+    iceServers: [{
       urls: [
-        `turn:${domain}:80`,
-        `turn:${domain}:80?transport=tcp`,
-        `turn:${domain}:443`,
-        `turns:${domain}:443?transport=tcp`,
+        `turn:${TURN_HOST}:3478?transport=udp`,
+        `turn:${TURN_HOST}:3478?transport=tcp`,
       ],
       username,
       credential,
-    },
-  ];
+    }],
+    ttl: TURN_TTL_SECONDS,
+    expiresAt,
+  };
 }
 
-function parseTurnUrls(value: string, fallback: string[]): string[] {
-  const urls = value
-    .split(/[\s,]+/)
-    .map((url) => url.trim())
-    .filter(Boolean);
-
-  return urls.length ? urls : fallback;
-}
-
-function staticIceServers(urls: string[], username: string, credential: string): RTCIceServer[] {
-  return [{ urls, username, credential }];
-}
-
-async function loadMeteredApiIceServers(apiKey: string, appHost: string): Promise<RTCIceServer[]> {
+async function loadCloudflareIceServers(tokenId: string, apiToken: string, ttl: number): Promise<TurnProviderResult> {
   const now = Date.now();
-  if (meteredCache && meteredCache.expiresAt > now) return meteredCache.iceServers;
+  const cacheKey = `${tokenId}:${ttl}`;
+  if (cloudflareCache && cloudflareCache.cacheKey === cacheKey && cloudflareCache.expiresAt > now) {
+    return { iceServers: cloudflareCache.iceServers, ttl };
+  }
+
+  const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(tokenId)}/credentials/generate-ice-servers`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      'Authorization': `Bearer ${apiToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ttl }),
+  });
+  if (!res.ok) throw new Error(`Cloudflare TURN API ${res.status}`);
+
+  const iceServers = assertIceServers(await res.json(), 'Cloudflare TURN API');
+  cloudflareCache = {
+    iceServers,
+    expiresAt: now + Math.max(30, ttl - 30) * 1000,
+    cacheKey,
+  };
+  return { iceServers, ttl };
+}
+
+async function loadMeteredApiIceServers(apiKey: string, appHost: string): Promise<TurnProviderResult> {
+  const now = Date.now();
+  if (meteredCache && meteredCache.expiresAt > now) return { iceServers: meteredCache.iceServers, ttl: METERED_API_TTL_SECONDS };
 
   const url = new URL('/api/v1/turn/credentials', `https://${appHost}`);
   url.searchParams.set('apiKey', apiKey);
@@ -94,16 +139,33 @@ async function loadMeteredApiIceServers(apiKey: string, appHost: string): Promis
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Metered TURN API ${res.status}`);
 
-  const iceServers = await res.json() as RTCIceServer[];
-  if (!Array.isArray(iceServers) || iceServers.length === 0) {
-    throw new Error('Metered TURN API returned no ICE servers');
-  }
+  const iceServers = assertIceServers(await res.json(), 'Metered TURN API');
 
   meteredCache = {
     iceServers,
     expiresAt: now + METERED_API_TTL_SECONDS * 1000,
   };
-  return iceServers;
+  return { iceServers, ttl: METERED_API_TTL_SECONDS };
+}
+
+function turnResponse(results: TurnProviderResult[]) {
+  const iceServers = results.flatMap((result) => result.iceServers);
+  if (!iceServers.length) {
+    return jsonResponse({
+      iceServers: [],
+      turnReady: false,
+      ttl: 0,
+    });
+  }
+
+  const ttls = results.map((result) => result.ttl).filter((ttl) => ttl > 0);
+  const expiresAtValues = results.map((result) => result.expiresAt).filter((value): value is number => typeof value === 'number');
+  return jsonResponse({
+    iceServers,
+    turnReady: true,
+    ttl: ttls.length ? Math.min(...ttls) : 0,
+    ...(expiresAtValues.length ? { expiresAt: Math.min(...expiresAtValues) } : {}),
+  });
 }
 
 export const GET: APIRoute = async ({ locals, request }) => {
@@ -119,9 +181,10 @@ export const GET: APIRoute = async ({ locals, request }) => {
 
   const env = runtimeEnv(locals);
   const provider = envString(env, 'TURN_PROVIDER').toLowerCase();
-  const forceMetered = provider === 'metered';
-  const forceStatic = provider === 'static' || provider === 'fallback' || provider === 'expressturn';
-  const coturnOnly = provider === 'coturn';
+  const autoProvider = !provider || provider === 'auto';
+  const useEncryptOne = autoProvider || provider === 'encrypt-1' || provider === 'coturn';
+  const useCloudflare = autoProvider || provider === 'cloudflare';
+  const useMetered = autoProvider || provider === 'metered';
   const secret =
     envString(env, 'TURN_AUTH_SECRET') ||
     envString(env, 'COTURN_AUTH_SECRET') ||
@@ -129,96 +192,36 @@ export const GET: APIRoute = async ({ locals, request }) => {
     envString(env, 'TURN_SECRET') ||
     envString(env, 'AUTH_SECRET');
 
-  if (!forceMetered && !forceStatic && secret) {
-    const expiresAt = Math.floor(Date.now() / 1000) + TURN_TTL_SECONDS;
-    const username = String(expiresAt);
-    const credential = await hmacSha1Base64(secret, username);
+  const cloudflareTokenId = envString(env, 'CLOUDFLARE_TURN_TOKEN_ID') || envString(env, 'CLOUDFLARE_TURN_KEY_ID');
+  const cloudflareApiToken = envString(env, 'CLOUDFLARE_TURN_API_TOKEN');
+  const cloudflareTtl = clampTurnTtl(envNumber(env, 'CLOUDFLARE_TURN_TTL_SECONDS', CLOUDFLARE_TURN_TTL_SECONDS));
+  const meteredApiKey = envString(env, 'METERED_TURN_API_KEY');
+  const meteredApiHost = envString(env, 'METERED_TURN_API_HOST') || 'encrypt.metered.live';
 
-    const iceServers: RTCIceServer[] = [{
-      urls: [
-        `turn:${TURN_HOST}:3478?transport=udp`,
-        `turn:${TURN_HOST}:3478?transport=tcp`,
-      ],
-      username,
-      credential,
-    }];
-
-    return jsonResponse({
-      iceServers,
-      turnReady: true,
-      provider: 'coturn',
-      ttl: TURN_TTL_SECONDS,
-      expiresAt,
-    });
-  }
-
-  if (coturnOnly) {
-    return jsonResponse({
-      iceServers: [],
-      turnReady: false,
-      ttl: 0,
-    });
-  }
-
-  if (!forceStatic) {
-    const meteredApiKey = envString(env, 'METERED_TURN_API_KEY');
-    const meteredApiHost = envString(env, 'METERED_TURN_API_HOST') || 'encrypt.metered.live';
-    if (meteredApiKey) {
-      try {
-        const iceServers = await loadMeteredApiIceServers(meteredApiKey, meteredApiHost);
-        return jsonResponse({
-          iceServers,
-          turnReady: true,
-          provider: 'metered',
-          ttl: METERED_API_TTL_SECONDS,
-        });
-      } catch {}
+  if (!autoProvider) {
+    if (useCloudflare && cloudflareTokenId && cloudflareApiToken) {
+      try { return turnResponse([await loadCloudflareIceServers(cloudflareTokenId, cloudflareApiToken, cloudflareTtl)]); } catch {}
     }
-
-    const meteredUsername =
-      envString(env, 'METERED_TURN_USERNAME') ||
-      envString(env, 'METERED_TURN_STATIC_USERNAME');
-    const meteredCredential =
-      envString(env, 'METERED_TURN_CREDENTIAL') ||
-      envString(env, 'METERED_TURN_PASSWORD') ||
-      envString(env, 'METERED_TURN_STATIC_CREDENTIAL');
-    const meteredDomain = envString(env, 'METERED_TURN_DOMAIN') || METERED_TURN_DOMAIN;
-
-    if (meteredUsername && meteredCredential) {
-      return jsonResponse({
-        iceServers: meteredStaticIceServers(meteredUsername, meteredCredential, meteredDomain),
-        turnReady: true,
-        provider: 'metered',
-        ttl: TURN_TTL_SECONDS,
-      });
+    if (useEncryptOne && secret) {
+      try { return turnResponse([await loadEncryptOneIceServers(secret)]); } catch {}
     }
+    if (useMetered && meteredApiKey) {
+      try { return turnResponse([await loadMeteredApiIceServers(meteredApiKey, meteredApiHost)]); } catch {}
+    }
+    return turnResponse([]);
   }
 
-  const staticUsername =
-    envString(env, 'FALLBACK_TURN_USERNAME') ||
-    envString(env, 'EXPRESSTURN_TURN_USERNAME');
-  const staticCredential =
-    envString(env, 'FALLBACK_TURN_CREDENTIAL') ||
-    envString(env, 'FALLBACK_TURN_PASSWORD') ||
-    envString(env, 'EXPRESSTURN_TURN_CREDENTIAL') ||
-    envString(env, 'EXPRESSTURN_TURN_PASSWORD');
-  const staticUrls = parseTurnUrls(
-    envString(env, 'FALLBACK_TURN_URLS') || envString(env, 'EXPRESSTURN_TURN_URLS'),
-    EXPRESSTURN_TURN_URLS
-  );
-
-  if (staticUsername && staticCredential) {
-    return jsonResponse({
-      iceServers: staticIceServers(staticUrls, staticUsername, staticCredential),
-      turnReady: true,
-      provider: provider || 'static',
-      ttl: TURN_TTL_SECONDS,
-    });
+  const providers: Promise<TurnProviderResult | null>[] = [];
+  if (cloudflareTokenId && cloudflareApiToken) {
+    providers.push(loadCloudflareIceServers(cloudflareTokenId, cloudflareApiToken, cloudflareTtl).catch(() => null));
+  }
+  if (secret) {
+    providers.push(loadEncryptOneIceServers(secret).catch(() => null));
+  }
+  if (meteredApiKey) {
+    providers.push(loadMeteredApiIceServers(meteredApiKey, meteredApiHost).catch(() => null));
   }
 
-  return jsonResponse({
-    iceServers: [],
-    turnReady: false,
-    ttl: 0,
-  });
+  const results = (await Promise.all(providers)).filter((result): result is TurnProviderResult => Boolean(result));
+  return turnResponse(results);
 };

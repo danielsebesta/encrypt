@@ -23,7 +23,7 @@ const { locale, dict } = Astro.props;
       />
       <h1 class="text-3xl md:text-5xl lg:text-6xl leading-[1.08] tracking-[-0.04em] font-black text-zinc-950 dark:text-zinc-50">
         {t(dict, 'home.hero.title.line1')}
-        <span class="text-emerald-600 dark:text-emerald-400"> {t(dict, 'home.hero.title.line2')}</span>
+        <span class="block text-emerald-600 dark:text-emerald-400">{t(dict, 'home.hero.title.line2')}</span>
       </h1>
       <p class="mt-4 max-w-xl mx-auto text-base md:text-lg leading-7 text-zinc-500 dark:text-zinc-400">
         {t(dict, 'home.hero.subtitle')}

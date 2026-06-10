@@ -28,7 +28,7 @@ Privacy-first security tools that run primarily in the browser. The site is buil
 - `/` homepage with the main `UltimateEncrypt` flow
 - `/u` decrypt / receive flow
 - `/security` privacy and security page
-- `/chat` encrypted ephemeral chat
+- `/chat` encrypted chat with local participant history or disappearing messages
 
 ## Current architecture
 
@@ -189,7 +189,8 @@ Routing:
 
 - Core crypto runs in the browser.
 - Some flows intentionally use server routes for things like URL shortening, encrypted upload relays, or the drand proxy.
-- Chat calls use WebRTC in TURN-only relay mode to avoid exposing peer IP addresses. Primary TURN is the self-hosted coturn server via `TURN_AUTH_SECRET` / `COTURN_AUTH_SECRET`; local dev also accepts `AUTH_SECRET`. Optional fallback can be Metered (`METERED_TURN_API_KEY` or static `METERED_TURN_USERNAME` + `METERED_TURN_CREDENTIAL`) or generic static TURN such as ExpressTURN (`EXPRESSTURN_TURN_USERNAME` + `EXPRESSTURN_TURN_CREDENTIAL`, optionally `EXPRESSTURN_TURN_URLS`). Default provider selection uses coturn when its secret is present; set `TURN_PROVIDER=metered` or `TURN_PROVIDER=expressturn` as an emergency switch if coturn is down. Without any TURN credentials, calls are disabled.
+- Chat messages are not stored as server history. The default chat mode keeps encrypted message envelopes only in participant browsers (`localStorage`) and online peers sync their current state; 10s/5s disappearing modes skip local history and remove delivered messages from each participant UI after the timer.
+- Chat calls use WebRTC in TURN-only relay mode to avoid exposing peer IP addresses. In auto mode the backend returns a relay pool: Cloudflare TURN first, self-hosted `encrypt-1` second, and Metered API last as backup. `encrypt-1` uses the self-hosted coturn server via `TURN_AUTH_SECRET` / `COTURN_AUTH_SECRET`; local dev also accepts `AUTH_SECRET`. Cloudflare TURN requires `CLOUDFLARE_TURN_TOKEN_ID` + `CLOUDFLARE_TURN_API_TOKEN`, with optional `CLOUDFLARE_TURN_TTL_SECONDS`. Metered requires `METERED_TURN_API_KEY`. Use `TURN_PROVIDER=encrypt-1`, `TURN_PROVIDER=cloudflare`, or `TURN_PROVIDER=metered` to force one provider. Static TURN credentials are intentionally not supported.
 - Read `/security` for the user-facing privacy summary.
 
 ## Deployment
