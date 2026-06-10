@@ -10,8 +10,8 @@
   var branch = alertRoot.getAttribute('data-branch') || 'main';
   var repoUrl = 'https://github.com/' + repo;
 
-  function copy(key, fallback) {
-    return alertRoot.getAttribute('data-' + key) || fallback;
+  function copy(key) {
+    return alertRoot.getAttribute('data-' + key) || '';
   }
 
   function shortSha(sha) {
@@ -151,12 +151,12 @@
     if (latestSha && deployedSha && latestSha !== deployedSha) {
       showAlert(
         'danger',
-        copy('mismatch-title', 'Deployment does not match GitHub main.'),
-        copy('mismatch-message', 'The running site was built from a different commit than the latest commit on GitHub.'),
+        copy('mismatch-title'),
+        copy('mismatch-message'),
         [
-          link(copy('deployed-label', 'Deployed') + ': ' + shortSha(deployedSha), commitLink(deployedSha)),
-          link(copy('latest-label', 'GitHub main') + ': ' + shortSha(latestSha), commitLink(latestSha)),
-          link(copy('repo-label', 'Repository'), repoUrl),
+          link(copy('deployed-label') + ': ' + shortSha(deployedSha), commitLink(deployedSha)),
+          link(copy('latest-label') + ': ' + shortSha(latestSha), commitLink(latestSha)),
+          link(copy('repo-label'), repoUrl),
         ],
       );
       return;
@@ -165,11 +165,11 @@
     if (githubUnavailable) {
       showAlert(
         'warning',
-        copy('unavailable-title', 'Could not verify deployment.'),
-        copy('unavailable-message', 'GitHub could not be reached, so the deployed commit could not be compared. Local asset hashes still matched the build manifest.'),
+        copy('unavailable-title'),
+        copy('unavailable-message'),
         [
-          link(copy('deployed-label', 'Deployed') + ': ' + shortSha(deployedSha), commitLink(deployedSha)),
-          link(copy('repo-label', 'Repository'), repoUrl),
+          link(copy('deployed-label') + ': ' + shortSha(deployedSha), commitLink(deployedSha)),
+          link(copy('repo-label'), repoUrl),
         ],
       );
     }
@@ -184,9 +184,9 @@
   run().catch(function () {
     showAlert(
       'danger',
-      copy('asset-title', 'Deployment integrity check failed.'),
-      copy('asset-message', 'One or more loaded files do not match the build manifest for this deployment. Treat this page as untrusted until it is redeployed from GitHub.'),
-      [link(copy('repo-label', 'Repository'), repoUrl)],
+      copy('asset-title'),
+      copy('asset-message'),
+      [link(copy('repo-label'), repoUrl)],
     );
   });
 })();

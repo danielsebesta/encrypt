@@ -24,8 +24,8 @@ export default class QuizRoom implements Party.Server {
 
   onConnect(conn: Party.Connection) {
     if (this.state.locked) {
-      conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED", message: "Room is locked" }));
-      conn.close(4001, "Room locked");
+      conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED" }));
+      conn.close(4001, "ROOM_LOCKED");
       return;
     }
 

@@ -348,7 +348,7 @@ const languageOptions = locales.map(l => ({
 
 					<!-- Resources -->
 					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">Resources</p>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">{t(dict, 'home.footer.resources')}</p>
 						<ul class="space-y-2.5">
 							<li><a href={`${localePrefix}/security`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'home.footer.security')}</a></li>
 							<li>
@@ -365,7 +365,7 @@ const languageOptions = locales.map(l => ({
 				<!-- Bottom bar -->
 				<div class="mt-12 pt-6 border-t border-zinc-200/50 dark:border-zinc-800/40 flex flex-col sm:flex-row justify-between items-center gap-4">
 					<p class="text-xs text-zinc-400 dark:text-zinc-500">{t(dict, 'home.footer.tagline')}</p>
-					<p class="text-xs text-zinc-400 dark:text-zinc-500">100% client-side encryption</p>
+					<p class="text-xs text-zinc-400 dark:text-zinc-500">{t(dict, 'home.footer.clientSideEncryption')}</p>
 				</div>
 			</div>
 		</footer>

@@ -195,7 +195,7 @@
       debugUnix = String(unix);
       debugRound = round > 0 ? round : null;
     } catch (e: any) {
-      error = e?.message || 'Failed to encrypt.';
+      error = e?.message || t(dict, 'tools.timeCapsule.errorEncryptFailed');
     } finally {
       loading = false;
     }
@@ -253,7 +253,7 @@
       if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t) && compactMeta.t > Math.floor(Date.now() / 1000)) {
         startCountdown(compactMeta.t);
       } else {
-        let label = 'the unlock time (UTC)';
+        let label = t(dict, 'tools.timeCapsule.unlockTimeUtcLabel');
         if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t)) {
           label = new Date(compactMeta.t * 1000).toISOString();
         } else {
@@ -439,4 +439,3 @@
     </div>
   {/if}
 </div>
-
