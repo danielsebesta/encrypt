@@ -22,6 +22,6 @@ export const prerender = true;
         {t(dict, 'chat.pageSubtitle')}
       </p>
     </div>
-    <ChatCreate client:load locale={locale} />
+    <ChatCreate client:only="svelte" locale={locale} />
   </div>
 </Layout>

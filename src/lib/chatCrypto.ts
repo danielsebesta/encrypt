@@ -36,6 +36,16 @@ export async function deriveKeyFromPassword(password: string, roomId: string): P
   );
 }
 
+export async function deriveRoomNamePassword(roomId: string): Promise<string> {
+  const normalizedRoom = roomId.trim().toLowerCase() || 'default';
+  const digest = await sha256Bytes(`encrypt.click:chat:room-name-key:${normalizedRoom}`);
+  return `room-name:${normalizedRoom}:${arrayToB64url(digest).slice(0, 32)}`;
+}
+
+export async function hashChatChain(prevHash: string, record: unknown): Promise<string> {
+  return arrayToB64url(await sha256Bytes(`${prevHash}\n${stableStringify(record)}`));
+}
+
 export async function importRoomKey(b64Key: string): Promise<CryptoKey> {
   const raw = b64urlToArray(b64Key);
   return crypto.subtle.importKey(
@@ -68,6 +78,20 @@ export async function decryptMessage(key: CryptoKey, payload: string): Promise<s
     bytesToArrayBuffer(ciphertext)
   );
   return new TextDecoder().decode(plaintext);
+}
+
+async function sha256Bytes(input: string): Promise<Uint8Array> {
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', bytesToArrayBuffer(enc.encode(input)));
+  return new Uint8Array(digest);
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+
+  const obj = value as Record<string, unknown>;
+  return `{${Object.keys(obj).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`).join(',')}}`;
 }
 
 function arrayToB64url(arr: Uint8Array): string {

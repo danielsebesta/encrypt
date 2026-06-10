@@ -4,11 +4,26 @@
   import Whiteboard from './Whiteboard.svelte';
   import {
     deriveKeyFromPassword,
-    encryptMessage, decryptMessage, generateIdentity, nameToGradient
+    deriveRoomNamePassword,
+    encryptMessage, decryptMessage, generateIdentity, nameToGradient,
+    hashChatChain
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { getTranslations, t } from '../../lib/i18n';
+  import {
+    formatChatFingerprint,
+    getOrCreateChatSigningIdentity,
+    listTrustedChatKeys,
+    publicIdentityFromSigningIdentity,
+    signChatRecord,
+    trustChatKey,
+    verifyChatSignature,
+    type ChatPublicIdentity,
+    type ChatSignature,
+    type ChatSigningIdentity,
+    type TrustedChatKey,
+  } from '../../lib/chatIdentity';
 
   export let locale = 'en';
   export let roomId = '';
@@ -32,6 +47,77 @@
     burnOnRead?: boolean;
     revealed?: boolean;
     whiteboard?: WhiteboardInvite;
+    persistent?: boolean;
+    historyWarning?: boolean;
+    signature?: MessageSignatureState;
+  };
+
+  type MessageSignatureState = {
+    status: 'trusted' | 'valid' | 'invalid' | 'missing' | 'mismatch';
+    fingerprint?: string;
+    displayFingerprint?: string;
+    trustedName?: string;
+    publicIdentity?: ChatPublicIdentity;
+  };
+
+  type ChatRoomMode = 'persistent' | 'ttl-10' | 'ttl-5' | 'burn' | 'live';
+  type ChatAuthMode = 'password' | 'room-name';
+
+  type RoomConfig = {
+    mode: ChatRoomMode;
+    authMode: ChatAuthMode;
+    createdAt: number;
+  };
+
+  type MessageChain = {
+    seq: number;
+    prevHash: string;
+    hash: string;
+    createdAt: number;
+  };
+
+  type ChatPayload = {
+    type?: string;
+    id?: string;
+    roomId?: string;
+    password?: string;
+    text?: string;
+    sender?: string;
+    color?: string;
+    ttl?: number;
+    burnOnRead?: boolean;
+    file?: { name: string; size: number; urls?: string[]; url?: string };
+    chain?: MessageChain;
+    createdAt?: number;
+    identityKey?: ChatPublicIdentity;
+    signature?: ChatSignature;
+  };
+
+  type ServerEnvelope = {
+    type: 'message';
+    id?: string;
+    payload: string;
+    persist?: boolean;
+    seq?: number;
+    prevHash?: string;
+    hash?: string;
+    createdAt?: number;
+    serverSeq?: number;
+  };
+
+  type HistoryEnvelope = {
+    type: 'history';
+    config?: RoomConfig | null;
+    messages?: ServerEnvelope[];
+  };
+
+  type LiveSyncMessage = {
+    id: string;
+    text: string;
+    sender: string;
+    color: string;
+    time: number;
+    file?: { name: string; size: number; urls: string[] };
   };
 
   type WhiteboardInvite = {
@@ -124,10 +210,20 @@
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
+  let serverRawPresence = 0;
   let typing: { sender: string; initials: string; color: string } | null = null;
   let typingTimeout: ReturnType<typeof setTimeout>;
   let blurred = false;
-  let ttlSeconds = 60;
+  let roomConfig: RoomConfig = { mode: 'persistent', authMode: 'room-name', createdAt: 0 };
+  let pendingRoomConfig: RoomConfig | null = null;
+  let historyHeadHash = 'genesis';
+  let historySeq = 0;
+  let historyIntegrity: 'unknown' | 'ok' | 'broken' = 'unknown';
+  let historyLoaded = false;
+  let pendingHistory: HistoryEnvelope | null = null;
+  const seenMessageIds = new Set<string>();
+  let signingIdentity: ChatSigningIdentity | null = null;
+  let trustedKeys = new Map<string, TrustedChatKey>();
   let decryptFailCount = 0;
   let onlineUsers: { name: string; initials: string; color: string }[] = [];
   let lastWrongPasswordNotice = 0;
@@ -137,6 +233,10 @@
   let shareCopiedLink = false;
   let shareCopiedPass = false;
   let shareDismissed = false;
+  let identityPanelOpen = false;
+  let identityCopiedFingerprint = false;
+  let identityCopiedKey = false;
+  let identityQrDataUrl = '';
   let clientId = '';
   let callActive = false;
   let callJoining = false;
@@ -185,6 +285,7 @@
   let messagesEl: HTMLElement;
 
   $: myInitials = getInitials(identity.name);
+  $: ownFingerprint = signingIdentity ? formatChatFingerprint(signingIdentity.fingerprint) : '';
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -432,17 +533,27 @@
     updateServerQuality();
   }
 
-  const TTL_OPTIONS = [
-    { label: '3s', value: 3 },
-    { label: '5s', value: 5 },
-    { label: '10s', value: 10 },
-    { label: '15s', value: 15 },
-    { label: '20s', value: 20 },
-    { label: '30s', value: 30 },
-    { label: '1m', value: 60 },
-    { label: '5m', value: 300 },
-    { label: '👁', value: -1 },
-  ];
+  const MODE_LABELS: Record<ChatRoomMode, string> = {
+    persistent: 'chat.modeLabelPersistent',
+    'ttl-10': 'chat.modeLabelTtl10',
+    'ttl-5': 'chat.modeLabelTtl5',
+    burn: 'chat.modeLabelBurn',
+    live: 'chat.modeLabelLive',
+  };
+
+  function getRoomTtlSeconds(): number {
+    if (roomConfig.mode === 'ttl-10') return 10;
+    if (roomConfig.mode === 'ttl-5') return 5;
+    return 0;
+  }
+
+  function isBurnMode(): boolean {
+    return roomConfig.mode === 'burn';
+  }
+
+  function shouldPersistMessages(): boolean {
+    return roomConfig.mode === 'persistent';
+  }
 
   function genId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(8));
@@ -465,6 +576,208 @@
     return locale && locale !== 'en' ? `/${locale}` : '';
   }
 
+  function isChatRoomMode(value: unknown): value is ChatRoomMode {
+    return value === 'persistent' || value === 'ttl-10' || value === 'ttl-5' || value === 'burn' || value === 'live';
+  }
+
+  function isChatAuthMode(value: unknown): value is ChatAuthMode {
+    return value === 'password' || value === 'room-name';
+  }
+
+  function normalizeRoomConfig(input: unknown): RoomConfig | null {
+    if (!input || typeof input !== 'object') return null;
+    const value = input as Partial<RoomConfig>;
+    if (!isChatRoomMode(value.mode) || !isChatAuthMode(value.authMode)) return null;
+    return {
+      mode: value.mode,
+      authMode: value.authMode,
+      createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
+    };
+  }
+
+  function applyRoomConfig(input: unknown): RoomConfig | null {
+    const normalized = normalizeRoomConfig(input);
+    if (normalized) roomConfig = normalized;
+    return normalized;
+  }
+
+  function getRoomModeLabel(): string {
+    return t(dict, MODE_LABELS[roomConfig.mode]);
+  }
+
+  function getChainRecord(payload: ChatPayload, id: string, createdAt: number) {
+    return {
+      id,
+      text: payload.text || '',
+      sender: payload.sender || '',
+      color: payload.color || '',
+      ttl: payload.ttl || 0,
+      burnOnRead: payload.burnOnRead === true,
+      file: payload.file ? {
+        name: payload.file.name,
+        size: payload.file.size,
+        urls: payload.file.urls || (payload.file.url ? [payload.file.url] : []),
+      } : null,
+      createdAt,
+    };
+  }
+
+  async function withMessageChain(basePayload: ChatPayload, id: string, createdAt: number): Promise<ChatPayload> {
+    const chain: MessageChain = {
+      seq: historySeq + 1,
+      prevHash: historyHeadHash,
+      hash: '',
+      createdAt,
+    };
+    const record = getChainRecord(basePayload, id, createdAt);
+    chain.hash = await hashChatChain(chain.prevHash, record);
+    return {
+      ...basePayload,
+      type: 'chat-message',
+      id,
+      ttl: 0,
+      burnOnRead: false,
+      createdAt,
+      chain,
+    };
+  }
+
+  function attachPublicIdentity(payload: ChatPayload): ChatPayload {
+    if (!signingIdentity) return payload;
+    return {
+      ...payload,
+      identityKey: publicIdentityFromSigningIdentity(signingIdentity),
+    };
+  }
+
+  function getSignatureRecord(payload: ChatPayload, id: string) {
+    const createdAt = payload.createdAt || payload.chain?.createdAt || 0;
+    const record: Record<string, unknown> = {
+      roomId,
+      id,
+      type: payload.type || 'chat-message',
+      text: payload.text || '',
+      sender: payload.sender || '',
+      color: payload.color || '',
+      ttl: payload.ttl || 0,
+      burnOnRead: payload.burnOnRead === true,
+      file: payload.file ? {
+        name: payload.file.name,
+        size: payload.file.size,
+        urls: payload.file.urls || (payload.file.url ? [payload.file.url] : []),
+      } : null,
+      chain: payload.chain || null,
+      identityKey: payload.identityKey ? {
+        alg: payload.identityKey.alg,
+        fingerprint: payload.identityKey.fingerprint,
+        publicJwk: payload.identityKey.publicJwk,
+      } : null,
+      createdAt,
+    };
+    if (payload.type === 'whiteboard-invite') {
+      record.whiteboard = {
+        roomId: payload.roomId || '',
+        password: payload.password || '',
+      };
+    }
+    return record;
+  }
+
+  async function signPayload(payload: ChatPayload, id: string, createdAt: number): Promise<ChatPayload> {
+    if (!signingIdentity || !payload.identityKey) return payload;
+    const next = { ...payload, createdAt };
+    return {
+      ...next,
+      signature: await signChatRecord(signingIdentity, getSignatureRecord(next, id)),
+    };
+  }
+
+  async function getSignatureState(payload: ChatPayload, id: string): Promise<MessageSignatureState> {
+    const fingerprint = payload.identityKey?.fingerprint;
+    const displayFingerprint = fingerprint ? formatChatFingerprint(fingerprint) : undefined;
+    if (!payload.identityKey || !payload.signature || !fingerprint) {
+      return { status: 'missing' };
+    }
+
+    try {
+      const valid = await verifyChatSignature(payload.identityKey, payload.signature, getSignatureRecord(payload, id));
+      if (!valid) return { status: 'invalid', fingerprint, displayFingerprint, publicIdentity: payload.identityKey };
+
+      if (signingIdentity?.fingerprint === fingerprint) {
+        return { status: 'trusted', fingerprint, displayFingerprint, trustedName: identity.name, publicIdentity: payload.identityKey };
+      }
+
+      const trusted = trustedKeys.get(fingerprint);
+      if (!trusted) return { status: 'valid', fingerprint, displayFingerprint, publicIdentity: payload.identityKey };
+      if (payload.sender && trusted.name && trusted.name !== payload.sender) {
+        return { status: 'mismatch', fingerprint, displayFingerprint, trustedName: trusted.name, publicIdentity: payload.identityKey };
+      }
+      return { status: 'trusted', fingerprint, displayFingerprint, trustedName: trusted.name, publicIdentity: payload.identityKey };
+    } catch {
+      return { status: 'invalid', fingerprint, displayFingerprint, publicIdentity: payload.identityKey };
+    }
+  }
+
+  async function trustMessageKey(msg: Message) {
+    const signature = msg.signature;
+    if (!signature?.fingerprint || !signature.publicIdentity || signature.status !== 'valid') return;
+    const trusted = await trustChatKey({
+      fingerprint: signature.fingerprint,
+      name: msg.sender,
+      publicJwk: signature.publicIdentity.publicJwk,
+    });
+    trustedKeys = new Map(trustedKeys).set(trusted.fingerprint, trusted);
+    messages = messages.map((item) => {
+      if (item.signature?.fingerprint !== trusted.fingerprint) return item;
+      return {
+        ...item,
+        signature: {
+          ...item.signature,
+          status: item.sender === trusted.name ? 'trusted' : 'mismatch',
+          trustedName: trusted.name,
+        },
+      };
+    });
+  }
+
+  function canTrustSignature(msg: Message): boolean {
+    return !msg.mine && msg.signature?.status === 'valid' && Boolean(msg.signature.publicIdentity && msg.signature.fingerprint);
+  }
+
+  function getSignatureLabel(signature: MessageSignatureState | undefined): string {
+    if (!signature) return '';
+    switch (signature.status) {
+      case 'trusted': return t(dict, 'chat.signatureTrusted');
+      case 'valid': return t(dict, 'chat.signatureTrust');
+      case 'invalid': return t(dict, 'chat.signatureInvalid');
+      case 'mismatch': return t(dict, 'chat.signatureMismatch');
+      case 'missing': return t(dict, 'chat.signatureMissing');
+    }
+  }
+
+  function getSignatureTitle(signature: MessageSignatureState | undefined): string {
+    if (!signature) return '';
+    const fingerprint = signature.displayFingerprint ? ` · ${signature.displayFingerprint}` : '';
+    if (signature.status === 'mismatch' && signature.trustedName) {
+      return `${t(dict, 'chat.signatureMismatch')} · ${signature.trustedName}${fingerprint}`;
+    }
+    return `${getSignatureLabel(signature)}${fingerprint}`;
+  }
+
+  async function verifyAndAdvanceChain(payload: ChatPayload, id: string): Promise<{ persistent: boolean; warning: boolean }> {
+    if (!payload.chain) return { persistent: false, warning: false };
+    const expected = await hashChatChain(payload.chain.prevHash, getChainRecord(payload, id, payload.chain.createdAt));
+    const warning = expected !== payload.chain.hash || payload.chain.prevHash !== historyHeadHash;
+    if (warning) {
+      historyIntegrity = 'broken';
+    } else if (historyIntegrity !== 'broken') {
+      historyIntegrity = 'ok';
+    }
+    historyHeadHash = payload.chain.hash;
+    historySeq = Math.max(historySeq, payload.chain.seq);
+    return { persistent: true, warning };
+  }
+
   function getWhiteboardUrl(invite: WhiteboardInvite): string {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     return `${origin}${getLocalePrefix()}/whiteboard/${encodeURIComponent(invite.roomId)}`;
@@ -482,8 +795,8 @@
     };
   }
 
-  function addWhiteboardInviteMessage(invite: WhiteboardInvite, id: string, mine: boolean) {
-    const ttl = ttlSeconds > 0 ? Math.max(ttlSeconds, 300) : 300;
+  function addWhiteboardInviteMessage(invite: WhiteboardInvite, id: string, mine: boolean, signature?: MessageSignatureState) {
+    const ttl = shouldPersistMessages() || roomConfig.mode === 'live' ? 0 : Math.max(getRoomTtlSeconds() || 300, 300);
     messages = [...messages, {
       id,
       text: '',
@@ -496,6 +809,7 @@
       remaining: ttl,
       whiteboard: invite,
       revealed: true,
+      signature,
     }];
     scrollToBottom();
   }
@@ -511,19 +825,72 @@
       color: identity.color,
       createdAt: Date.now(),
     };
-    const payload = {
+    const msgId = `whiteboard-${genId()}`;
+    let payload: ChatPayload = {
       type: 'whiteboard-invite',
+      id: msgId,
       roomId: invite.roomId,
       password: invite.password,
       sender: invite.sender,
       color: invite.color,
       createdAt: invite.createdAt,
     };
+    payload = attachPublicIdentity(payload);
+    payload = await signPayload(payload, msgId, invite.createdAt);
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
-    const msgId = `whiteboard-${genId()}`;
     ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
-    addWhiteboardInviteMessage(invite, msgId, true);
+    addWhiteboardInviteMessage(invite, msgId, true, await getSignatureState(payload, msgId));
     activeWhiteboard = invite;
+  }
+
+  function getLiveSyncMessages(): LiveSyncMessage[] {
+    if (roomConfig.mode !== 'live') return [];
+    return messages
+      .filter((msg) => !msg.burnOnRead && !msg.whiteboard && !msg.persistent && msg.sender && (msg.text || msg.file))
+      .slice(-200)
+      .map((msg) => ({
+        id: msg.id,
+        text: msg.text,
+        sender: msg.sender,
+        color: msg.color,
+        time: msg.time || Date.now(),
+        file: msg.file ? { name: msg.file.name, size: msg.file.size, urls: msg.file.urls } : undefined,
+      }));
+  }
+
+  async function sendLiveHistorySync() {
+    if (roomConfig.mode !== 'live') return;
+    const syncMessages = getLiveSyncMessages();
+    if (syncMessages.length === 0) return;
+    await sendEncryptedControl({ type: 'chat-sync', messages: syncMessages }, 'sync');
+  }
+
+  function applyLiveHistorySync(syncMessages: unknown) {
+    if (roomConfig.mode !== 'live' || !Array.isArray(syncMessages)) return;
+    const incoming: Message[] = [];
+    for (const item of syncMessages as LiveSyncMessage[]) {
+      if (!item?.id || seenMessageIds.has(item.id)) continue;
+      const sender = item.sender || t(dict, 'chat.guest');
+      seenMessageIds.add(item.id);
+      incoming.push({
+        id: item.id,
+        text: item.text || '',
+        sender,
+        initials: getInitials(sender),
+        color: item.color || 'rgb(16,185,129)',
+        mine: false,
+        time: item.time || Date.now(),
+        ttl: 0,
+        remaining: 0,
+        file: item.file,
+        revealed: true,
+        signature: { status: 'missing' },
+      });
+    }
+    if (incoming.length) {
+      messages = [...messages, ...incoming].sort((a, b) => a.time - b.time);
+      scrollToBottom();
+    }
   }
 
   function openWhiteboardInline(invite: WhiteboardInvite) {
@@ -558,6 +925,14 @@
   async function initChat() {
     if (typeof window === 'undefined') return;
     checkingRoom = true;
+    const storedConfig = sessionStorage.getItem('chat-room-config');
+    if (storedConfig) {
+      sessionStorage.removeItem('chat-room-config');
+      try {
+        pendingRoomConfig = normalizeRoomConfig(JSON.parse(storedConfig));
+        if (pendingRoomConfig) roomConfig = pendingRoomConfig;
+      } catch {}
+    }
     const stored = sessionStorage.getItem('chat-password');
     const sharePass = sessionStorage.getItem('chat-share-password');
     if (sharePass) {
@@ -571,6 +946,67 @@
     } else {
       connectWs();
     }
+  }
+
+  async function initSignedChat() {
+    try {
+      signingIdentity = await getOrCreateChatSigningIdentity(identity);
+      if (signingIdentity.name && signingIdentity.color) {
+        identity = { name: signingIdentity.name, color: signingIdentity.color };
+      }
+      trustedKeys = new Map((await listTrustedChatKeys()).map((key) => [key.fingerprint, key]));
+      void refreshIdentityQr();
+    } catch {
+      signingIdentity = null;
+      trustedKeys = new Map();
+      identityQrDataUrl = '';
+    }
+    await initChat();
+  }
+
+  function getIdentityExportPayload(): string {
+    if (!signingIdentity) return '';
+    return JSON.stringify({
+      type: 'encrypt.click/chat-key-v1',
+      name: identity.name,
+      fingerprint: signingIdentity.fingerprint,
+      publicJwk: signingIdentity.publicJwk,
+    });
+  }
+
+  async function refreshIdentityQr() {
+    if (!signingIdentity) {
+      identityQrDataUrl = '';
+      return;
+    }
+    try {
+      const QRCode = await import('qrcode');
+      identityQrDataUrl = await QRCode.toDataURL(getIdentityExportPayload(), {
+        margin: 1,
+        width: 132,
+        color: { dark: '#18181b', light: '#ffffff' },
+      });
+    } catch {
+      identityQrDataUrl = '';
+    }
+  }
+
+  async function copyIdentityFingerprint() {
+    if (!signingIdentity) return;
+    try {
+      await navigator.clipboard.writeText(signingIdentity.fingerprint);
+      identityCopiedFingerprint = true;
+      setTimeout(() => { identityCopiedFingerprint = false; }, 1500);
+    } catch {}
+  }
+
+  async function copyIdentityKey() {
+    if (!signingIdentity) return;
+    try {
+      await navigator.clipboard.writeText(getIdentityExportPayload());
+      identityCopiedKey = true;
+      setTimeout(() => { identityCopiedKey = false; }, 1500);
+    } catch {}
   }
 
   async function copyShareLink() {
@@ -597,6 +1033,7 @@
 
   function retryAfterWrongPassword() {
     clearVerificationTimeout();
+    clearRoomConfigWaitTimeout();
     wrongPassword = false;
     needsPassword = false;
     checkingRoom = true;
@@ -615,6 +1052,12 @@
     if (!verificationTimeout) return;
     clearTimeout(verificationTimeout);
     verificationTimeout = undefined;
+  }
+
+  function clearRoomConfigWaitTimeout() {
+    if (!roomConfigWaitTimeout) return;
+    clearTimeout(roomConfigWaitTimeout);
+    roomConfigWaitTimeout = undefined;
   }
 
   function markVerified() {
@@ -649,7 +1092,7 @@
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
 
     joinedRoom = true;
-    ws.send(JSON.stringify({ type: 'join' }));
+    ws.send(JSON.stringify({ type: 'join', config: pendingRoomConfig || roomConfig }));
 
     if (typeof activePeerCount === 'number') {
       startPasswordVerification(activePeerCount);
@@ -665,6 +1108,7 @@
 
   async function enterWithPassword(pwd: string, options: { share?: boolean; activePeerCount?: number } = {}) {
     try {
+      clearRoomConfigWaitTimeout();
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
       passwordUsed = pwd;
       needsPassword = false;
@@ -675,6 +1119,11 @@
       } else {
         connectWs();
       }
+      if (pendingHistory) {
+        const queued = pendingHistory;
+        pendingHistory = null;
+        await processHistory(queued);
+      }
     } catch {
       passwordError = t(dict, 'chat.errorDeriveKey');
       checkingRoom = false;
@@ -682,10 +1131,49 @@
     }
   }
 
-  async function enterEmptyRoom() {
-    const generated = genAutoPassword();
-    passwordInput = generated;
-    await enterWithPassword(generated, { share: true, activePeerCount: 0 });
+  async function enterRoomNameOnly(activePeerCount = 0) {
+    const generated = await deriveRoomNamePassword(roomId);
+    passwordInput = '';
+    await enterWithPassword(generated, { share: false, activePeerCount });
+  }
+
+  function waitBrieflyForRoomConfig() {
+    clearRoomConfigWaitTimeout();
+    checkingRoom = true;
+    needsPassword = false;
+    verifying = false;
+    roomConfigWaitTimeout = setTimeout(() => {
+      roomConfigWaitTimeout = undefined;
+      if (cryptoKey) return;
+      checkingRoom = false;
+      if (roomConfig.authMode === 'room-name' && serverRawPresence <= 1) {
+        void enterRoomNameOnly(serverPresence);
+      } else {
+        needsPassword = true;
+      }
+    }, 1200);
+  }
+
+  async function resolveRoomAccess(configKnown: boolean) {
+    if (cryptoKey) return;
+    clearRoomConfigWaitTimeout();
+    checkingRoom = false;
+    verifying = false;
+    wrongPassword = false;
+
+    if (roomConfig.authMode === 'password') {
+      needsPassword = true;
+      return;
+    }
+
+    if (configKnown || serverRawPresence <= 1) {
+      await enterRoomNameOnly(serverPresence);
+      return;
+    }
+
+    // A first peer may still be storing the room config. Wait for the
+    // room-config broadcast before falling back to room-name-only access.
+    waitBrieflyForRoomConfig();
   }
 
   let serverPresence = 0;
@@ -693,6 +1181,7 @@
 
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
   let verificationTimeout: ReturnType<typeof setTimeout> | undefined;
+  let roomConfigWaitTimeout: ReturnType<typeof setTimeout> | undefined;
 
   function connectWs() {
     verifying = true;
@@ -740,23 +1229,34 @@
 
     // Handle server control messages
     if (data.type === 'init') {
-      serverPresence = data.presence;
+      serverPresence = typeof data.presence === 'number' ? data.presence : 0;
+      serverRawPresence = typeof data.rawPresence === 'number' ? data.rawPresence : serverPresence;
       serverName = data.server?.name || SERVER_FALLBACK_NAME;
       serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
+      const config = applyRoomConfig(data.config);
       if (!cryptoKey) {
-        checkingRoom = false;
-        if (serverPresence <= 0) {
-          await enterEmptyRoom();
-        } else {
-          needsPassword = true;
-          verifying = false;
-        }
+        await resolveRoomAccess(Boolean(config));
         return;
       }
       // The server reports only people who are already inside the chat. When
       // that count is zero, there is nobody online to validate this password.
       if (verifying) {
         startPasswordVerification(serverPresence);
+      }
+      return;
+    }
+    if (data.type === 'room-config') {
+      const config = applyRoomConfig(data.config);
+      if (!cryptoKey && config) await resolveRoomAccess(true);
+      return;
+    }
+    if (data.type === 'history') {
+      const config = applyRoomConfig(data.config);
+      if (!cryptoKey) {
+        pendingHistory = data as HistoryEnvelope;
+        if (config) await resolveRoomAccess(true);
+      } else {
+        await processHistory(data as HistoryEnvelope);
       }
       return;
     }
@@ -771,32 +1271,66 @@
       return;
     }
     if (data.type === 'presence') {
-      serverPresence = data.count;
-      if (!cryptoKey && needsPassword && serverPresence <= 0) {
-        await enterEmptyRoom();
-      } else if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
+      serverPresence = typeof data.count === 'number' ? data.count : 0;
+      serverRawPresence = typeof data.rawCount === 'number' ? data.rawCount : serverPresence;
+      if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
         markVerified();
       }
       return;
     }
     if (data.type !== 'message') return;
-    if (!cryptoKey) return;
+    await processServerEnvelope(data as ServerEnvelope);
+  }
+
+  async function processHistory(history: HistoryEnvelope) {
+    const historyMessages = Array.isArray(history.messages) ? history.messages : [];
+    historyLoaded = true;
+    if (!historyMessages.length) {
+      if (historyIntegrity === 'unknown') historyIntegrity = 'ok';
+      if (verifying && serverPresence <= 1) markVerified();
+      return;
+    }
+
+    let okCount = 0;
+    let failCount = 0;
+    for (const envelope of [...historyMessages].sort((a, b) => (a.serverSeq || 0) - (b.serverSeq || 0))) {
+      const ok = await processServerEnvelope(envelope, true);
+      if (ok) okCount++;
+      else failCount++;
+    }
+
+    if (okCount > 0) {
+      if (verifying) markVerified();
+      scrollToBottom();
+    } else if (failCount > 0) {
+      wrongPassword = true;
+      verifying = false;
+      joinedRoom = false;
+      ws?.close();
+    }
+  }
+
+  async function processServerEnvelope(data: ServerEnvelope, fromHistory = false): Promise<boolean> {
+    if (!cryptoKey) return false;
+    if (data.id && seenMessageIds.has(data.id)) return true;
 
     try {
       const plaintext = await decryptMessage(cryptoKey, data.payload);
-      const parsed = JSON.parse(plaintext);
+      const parsed = JSON.parse(plaintext) as ChatPayload & Record<string, any>;
 
       // Typing indicator
       if (parsed.type === 'typing') {
+        if (fromHistory) return true;
         if (verifying) markVerified();
         typing = { sender: parsed.sender, initials: getInitials(parsed.sender), color: parsed.color };
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { typing = null; }, 3000);
-        return;
+        return true;
       }
 
       // Verify message - someone joined with correct password
       if (parsed.type === 'verify') {
+        if (fromHistory) return true;
         if (verifying) markVerified();
         if (verified && cryptoKey && ws) {
           const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, clientId }));
@@ -804,66 +1338,87 @@
         }
         if (callActive) void sendCallSignal({ action: 'presence' });
         addOnlineUser(parsed.sender, parsed.color);
+        void sendLiveHistorySync();
         messages = [...messages, {
           id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', parsed.sender), sender: '', initials: '→',
           color: 'rgb(16,185,129)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
         }];
         scrollToBottom();
-        return;
+        return true;
       }
 
       // Verify-ack - confirmation from existing member
       if (parsed.type === 'verify-ack') {
+        if (fromHistory) return true;
         if (verifying) markVerified();
         addOnlineUser(parsed.sender, parsed.color);
-        return;
+        return true;
+      }
+
+      if (parsed.type === 'chat-sync') {
+        if (verifying) markVerified();
+        applyLiveHistorySync(parsed.messages);
+        return true;
       }
 
       if (parsed.type === 'whiteboard-invite') {
+        if (fromHistory) return true;
         if (verifying) markVerified();
+        const id = data.id || parsed.id || `whiteboard-${genId()}`;
         const invite = normalizeWhiteboardInvite(parsed);
-        if (!invite) return;
-        addWhiteboardInviteMessage(invite, data.id || `whiteboard-${genId()}`, false);
-        return;
+        if (!invite) return true;
+        const signatureState = await getSignatureState(parsed, id);
+        addWhiteboardInviteMessage(invite, id, false, signatureState);
+        return true;
       }
 
       if (parsed.type === 'call-signal') {
+        if (fromHistory) return true;
         if (verifying) markVerified();
         await handleCallSignal(parsed as CallSignal);
-        return;
+        return true;
       }
 
       if (!verified) markVerified();
 
       const isBurn = parsed.burnOnRead === true;
+      const id = parsed.id || data.id || genId();
+      const chainState = await verifyAndAdvanceChain(parsed, id);
+      const signatureState = await getSignatureState(parsed, id);
+      const ttl = parsed.ttl || 0;
       const msg: Message = {
-        id: data.id || genId(),
-        text: parsed.text,
-        sender: parsed.sender,
-        initials: getInitials(parsed.sender),
-        color: parsed.color,
+        id,
+        text: parsed.text || '',
+        sender: parsed.sender || t(dict, 'chat.guest'),
+        initials: getInitials(parsed.sender || t(dict, 'chat.guest')),
+        color: parsed.color || 'rgb(16,185,129)',
         mine: false,
-        time: isBurn ? 0 : Date.now(), // burn-on-read: timer starts on reveal
-        ttl: parsed.ttl || 60,
-        remaining: parsed.ttl || 60,
+        time: isBurn ? 0 : (parsed.createdAt || parsed.chain?.createdAt || Date.now()), // burn-on-read: timer starts on reveal
+        ttl,
+        remaining: ttl,
         file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []) } : undefined,
         burnOnRead: isBurn,
-        revealed: false,
+        revealed: fromHistory || !isBurn,
+        persistent: chainState.persistent,
+        historyWarning: chainState.warning,
+        signature: signatureState,
       };
+      seenMessageIds.add(id);
       messages = [...messages, msg];
       typing = null;
-      scrollToBottom();
+      if (!fromHistory) scrollToBottom();
 
       // Auto-preview for images and text files
       if (msg.file && !isBurn) autoPreview(msg);
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
+      return true;
     } catch {
       // A single failed decrypt only proves THIS message wasn't from
       // someone with our password — could be a peer in the same room
       // with a different password. The 4s init-handler timeout below
       // is the authoritative "no peer can hear me" signal.
-      if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
+      if (!fromHistory && verified && Date.now() - lastWrongPasswordNotice > 10000) {
         lastWrongPasswordNotice = Date.now();
         messages = [...messages, {
           id: genId(), text: t(dict, 'chat.someoneTriedJoin'), sender: '', initials: '!',
@@ -871,42 +1426,58 @@
         }];
         scrollToBottom();
       }
+      return false;
     }
-  }
-
-  function parseTtlOverride(text: string): { cleanText: string; ttl: number } {
-    const match = text.match(/!(\d+)\s*$/);
-    if (match) {
-      return { cleanText: text.replace(/!(\d+)\s*$/, '').trim(), ttl: parseInt(match[1], 10) };
-    }
-    return { cleanText: text, ttl: 0 };
   }
 
   async function sendMessage() {
     if (!inputText.trim() || !cryptoKey || !ws) return;
 
-    const { cleanText, ttl: overrideTtl } = parseTtlOverride(inputText.trim());
-    const isBurnOnRead = ttlSeconds === -1;
-    const finalTtl = overrideTtl > 0 ? overrideTtl : (isBurnOnRead ? 10 : ttlSeconds);
-    const text = cleanText || inputText.trim();
+    const isBurnOnRead = isBurnMode();
+    const persist = shouldPersistMessages();
+    const finalTtl = persist || roomConfig.mode === 'live' ? 0 : (isBurnOnRead ? 10 : getRoomTtlSeconds());
+    const text = inputText.trim();
+    const msgId = genId();
+    const createdAt = Date.now();
 
-    const payload = {
+    let payload: ChatPayload = {
+      type: 'chat-message',
+      id: msgId,
       text,
       sender: identity.name,
       color: identity.color,
       ttl: finalTtl,
       burnOnRead: isBurnOnRead,
+      createdAt,
     };
+    payload = attachPublicIdentity(payload);
+    if (persist) payload = await withMessageChain(payload, msgId, createdAt);
+    payload = await signPayload(payload, msgId, createdAt);
 
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
-    const msgId = genId();
-    ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
+    ws.send(JSON.stringify({
+      type: 'message',
+      payload: encrypted,
+      id: msgId,
+      persist,
+      seq: payload.chain?.seq,
+      prevHash: payload.chain?.prevHash,
+      hash: payload.chain?.hash,
+      createdAt,
+    }));
+
+    const chainState = persist ? await verifyAndAdvanceChain(payload, msgId) : { persistent: false, warning: false };
+    const signatureState = await getSignatureState(payload, msgId);
+    seenMessageIds.add(msgId);
 
     messages = [...messages, {
       id: msgId, text, sender: identity.name, initials: myInitials,
-      color: identity.color, mine: true, time: Date.now(),
+      color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
       burnOnRead: isBurnOnRead, revealed: true, // own messages are always revealed
+      persistent: chainState.persistent,
+      historyWarning: chainState.warning,
+      signature: signatureState,
     }];
 
     inputText = '';
@@ -995,27 +1566,50 @@
       if (uploadUrls.length === 0) return;
 
       // Send file message
-      const isBurn = ttlSeconds === -1;
-      const fileTtl = isBurn ? 30 : ttlSeconds;
-      const payload = {
+      const isBurn = isBurnMode();
+      const persist = shouldPersistMessages();
+      const fileTtl = persist ? 0 : (isBurn ? 30 : getRoomTtlSeconds());
+      const msgId = genId();
+      const createdAt = Date.now();
+      let payload: ChatPayload = {
+        type: 'chat-message',
+        id: msgId,
         text: '',
         sender: identity.name,
         color: identity.color,
         ttl: fileTtl,
         burnOnRead: isBurn,
+        createdAt,
         file: { name: file.name, size: file.size, urls: uploadUrls },
       };
+      payload = attachPublicIdentity(payload);
+      if (persist) payload = await withMessageChain(payload, msgId, createdAt);
+      payload = await signPayload(payload, msgId, createdAt);
 
       const encPayload = await encryptMessage(cryptoKey!, JSON.stringify(payload));
-      const msgId = genId();
-      ws!.send(JSON.stringify({ type: 'message', payload: encPayload, id: msgId }));
+      ws!.send(JSON.stringify({
+        type: 'message',
+        payload: encPayload,
+        id: msgId,
+        persist,
+        seq: payload.chain?.seq,
+        prevHash: payload.chain?.prevHash,
+        hash: payload.chain?.hash,
+        createdAt,
+      }));
+      const chainState = persist ? await verifyAndAdvanceChain(payload, msgId) : { persistent: false, warning: false };
+      const signatureState = await getSignatureState(payload, msgId);
+      seenMessageIds.add(msgId);
 
       const ownMsg: Message = {
         id: msgId, text: '', sender: identity.name, initials: myInitials,
-        color: identity.color, mine: true, time: Date.now(),
+        color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls },
         burnOnRead: isBurn, revealed: true,
+        persistent: chainState.persistent,
+        historyWarning: chainState.warning,
+        signature: signatureState,
       };
       messages = [...messages, ownMsg];
       scrollToBottom();
@@ -1912,6 +2506,7 @@
     let changed = false;
     const alive: Message[] = [];
     for (const msg of messages) {
+      if (!msg.ttl || msg.ttl <= 0) { alive.push(msg); continue; }
       // Burn-on-read: don't countdown until revealed
       if (msg.burnOnRead && !msg.revealed) { alive.push(msg); continue; }
       if (msg.time === 0) { alive.push(msg); continue; }
@@ -1944,7 +2539,7 @@
 
   onMount(() => {
     clientId = genId();
-    initChat();
+    void initSignedChat();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
@@ -1961,6 +2556,7 @@
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     clearVerificationTimeout();
+    clearRoomConfigWaitTimeout();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('fullscreenchange', handleNativeFullscreenChange);
@@ -2049,6 +2645,14 @@
         </div>
       </div>
       <div class="flex items-center gap-1.5">
+        <button
+          class="chat-identity-btn"
+          class:chat-identity-btn--active={identityPanelOpen}
+          title={t(dict, 'chat.identityToggle')}
+          on:click={() => { identityPanelOpen = !identityPanelOpen; }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        </button>
         <button class="chat-call-btn" title={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -2056,13 +2660,43 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L8 9.76a16 16 0 0 0 6.24 6.24l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92Z"/></svg>
           {/if}
         </button>
-        <select class="text-xs bg-transparent text-zinc-400 border-none outline-none" bind:value={ttlSeconds}>
-          {#each TTL_OPTIONS as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
+        <span class="chat-mode-badge" title={getRoomModeLabel()}>{getRoomModeLabel()}</span>
       </div>
     </div>
+
+    {#if identityPanelOpen}
+      <div class="chat-identity-panel">
+        <div class="chat-identity-panel__meta">
+          <div class="chat-identity-panel__mark" style="background: {nameToGradient(identity.name)}">{myInitials}</div>
+          <div class="min-w-0">
+            <div class="chat-identity-panel__title-row">
+              <p class="chat-identity-panel__title">{t(dict, 'chat.identityTitle')}</p>
+              <span>{t(dict, 'chat.identityAlgorithm')}</span>
+            </div>
+            <div class="chat-identity-panel__fingerprint">
+              <span>{t(dict, 'chat.identityFingerprint')}</span>
+              <code title={signingIdentity?.fingerprint || ''}>{ownFingerprint || t(dict, 'chat.signatureMissing')}</code>
+            </div>
+            <div class="chat-identity-panel__actions">
+              <button on:click={copyIdentityFingerprint} disabled={!signingIdentity}>
+                {identityCopiedFingerprint ? t(dict, 'chat.identityCopied') : t(dict, 'chat.identityCopyFingerprint')}
+              </button>
+              <button on:click={copyIdentityKey} disabled={!signingIdentity}>
+                {identityCopiedKey ? t(dict, 'chat.identityCopied') : t(dict, 'chat.identityCopyKey')}
+              </button>
+              <span>{t(dict, 'chat.identityTrustedCount').replace('{count}', String(trustedKeys.size))}</span>
+            </div>
+          </div>
+        </div>
+        <div class="chat-identity-panel__qr" aria-label={t(dict, 'chat.identityQrAlt')}>
+          {#if identityQrDataUrl}
+            <img src={identityQrDataUrl} alt={t(dict, 'chat.identityQrAlt')} />
+          {:else}
+            <span>{t(dict, 'chat.identityQrAlt')}</span>
+          {/if}
+        </div>
+      </div>
+    {/if}
 
     {#if sharePassword && !shareDismissed}
       <div class="chat-share-banner">
@@ -2094,6 +2728,21 @@
             {/if}
           </button>
         </div>
+      </div>
+    {/if}
+
+    {#if roomConfig.mode === 'persistent'}
+      <div class="chat-history-banner" class:chat-history-banner--broken={historyIntegrity === 'broken'}>
+        <span class="chat-history-banner__dot"></span>
+        <span>
+          {#if historyIntegrity === 'broken'}
+            {t(dict, 'chat.historyBroken')}
+          {:else if historyLoaded}
+            {t(dict, 'chat.historyVerified')}
+          {:else}
+            {t(dict, 'chat.historyLoading')}
+          {/if}
+        </span>
       </div>
     {/if}
 
@@ -2327,7 +2976,31 @@
               <div class="chat-avatar" style="background: {nameToGradient(msg.sender)}">{msg.initials}</div>
             {/if}
             <div class="flex-1 min-w-0">
-              <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
+              <div class="chat-sender-row">
+                <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
+                {#if msg.signature}
+                  {#if canTrustSignature(msg)}
+                    <button
+                      type="button"
+                      class="chat-signature-pill chat-signature-pill--valid"
+                      title={getSignatureTitle(msg.signature)}
+                      on:click={() => trustMessageKey(msg)}
+                    >
+                      {getSignatureLabel(msg.signature)}
+                    </button>
+                  {:else}
+                    <span
+                      class="chat-signature-pill"
+                      class:chat-signature-pill--trusted={msg.signature.status === 'trusted'}
+                      class:chat-signature-pill--bad={msg.signature.status === 'invalid' || msg.signature.status === 'mismatch'}
+                      class:chat-signature-pill--missing={msg.signature.status === 'missing'}
+                      title={getSignatureTitle(msg.signature)}
+                    >
+                      {getSignatureLabel(msg.signature)}
+                    </span>
+                  {/if}
+                {/if}
+              </div>
               {#if msg.file}
                 <div class="chat-file" class:chat-file--error={msg.fileError}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -2384,18 +3057,23 @@
               {#if msg.text}
                 <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
               {/if}
+              {#if msg.historyWarning}
+                <p class="chat-history-warning">{t(dict, 'chat.historyMessageWarning')}</p>
+              {/if}
             </div>
-            <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
-              <svg class="chat-timer__ring" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.1" />
-                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-dasharray="62.83"
-                  stroke-dashoffset={62.83 * (1 - msg.remaining / msg.ttl)}
-                  stroke-linecap="round"
-                  transform="rotate(-90 12 12)" />
-              </svg>
-              <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
-            </div>
+            {#if msg.ttl > 0}
+              <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
+                <svg class="chat-timer__ring" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.1" />
+                  <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-dasharray="62.83"
+                    stroke-dashoffset={62.83 * (1 - msg.remaining / msg.ttl)}
+                    stroke-linecap="round"
+                    transform="rotate(-90 12 12)" />
+                </svg>
+                <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
+              </div>
+            {/if}
           </div>
           {/if}
         </div>
@@ -2652,6 +3330,231 @@
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
   .chat-share-copy:hover { color: rgb(16, 185, 129); }
+  .chat-identity-btn {
+    width: 30px; height: 30px; border-radius: 0.5rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: rgb(82, 82, 91);
+    background: rgba(244, 244, 245, 0.7);
+    border: 1px solid rgba(228, 228, 231, 0.7);
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  :global(.dark) .chat-identity-btn {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.45);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-identity-btn:hover,
+  .chat-identity-btn--active {
+    color: rgb(37, 99, 235);
+    background: rgba(59, 130, 246, 0.08);
+    border-color: rgba(59, 130, 246, 0.2);
+  }
+  :global(.dark) .chat-identity-btn:hover,
+  :global(.dark) .chat-identity-btn--active {
+    color: rgb(147, 197, 253);
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.24);
+  }
+  .chat-identity-panel {
+    min-height: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.14);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.07), rgba(16, 185, 129, 0.035));
+  }
+  :global(.dark) .chat-identity-panel {
+    border-color: rgba(59, 130, 246, 0.14);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.11), rgba(16, 185, 129, 0.045));
+  }
+  .chat-identity-panel__meta {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+  .chat-identity-panel__mark {
+    width: 38px; height: 38px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: 900;
+    flex-shrink: 0;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.13);
+  }
+  .chat-identity-panel__title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chat-identity-panel__title {
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 900;
+    color: rgb(39, 39, 42);
+  }
+  :global(.dark) .chat-identity-panel__title {
+    color: rgb(228, 228, 231);
+  }
+  .chat-identity-panel__title-row span,
+  .chat-identity-panel__actions span {
+    min-height: 20px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.4rem;
+    border-radius: 0.35rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(228, 228, 231, 0.65);
+    color: rgb(82, 82, 91);
+    font-size: 10px;
+    font-weight: 850;
+  }
+  :global(.dark) .chat-identity-panel__title-row span,
+  :global(.dark) .chat-identity-panel__actions span {
+    background: rgba(24, 24, 27, 0.62);
+    border-color: rgba(63, 63, 70, 0.48);
+    color: rgb(161, 161, 170);
+  }
+  .chat-identity-panel__fingerprint {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.35rem;
+    min-width: 0;
+  }
+  .chat-identity-panel__fingerprint span {
+    color: rgb(113, 113, 122);
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .chat-identity-panel__fingerprint code {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'fira-code', monospace;
+    color: rgb(24, 24, 27);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  :global(.dark) .chat-identity-panel__fingerprint code {
+    color: rgb(244, 244, 245);
+  }
+  .chat-identity-panel__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+  }
+  .chat-identity-panel__actions button {
+    min-width: 116px;
+    min-height: 28px;
+    padding: 0 0.55rem;
+    border-radius: 0.45rem;
+    color: rgb(37, 99, 235);
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    font-size: 11px;
+    font-weight: 850;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .chat-identity-panel__actions button:hover:not(:disabled) {
+    color: rgb(5, 150, 105);
+    border-color: rgba(16, 185, 129, 0.26);
+    background: rgba(16, 185, 129, 0.08);
+  }
+  .chat-identity-panel__actions button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  :global(.dark) .chat-identity-panel__actions button {
+    color: rgb(147, 197, 253);
+    background: rgba(24, 24, 27, 0.68);
+    border-color: rgba(59, 130, 246, 0.22);
+  }
+  .chat-identity-panel__qr {
+    width: 92px;
+    height: 92px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem;
+    border-radius: 0.55rem;
+    background: white;
+    border: 1px solid rgba(228, 228, 231, 0.85);
+    flex-shrink: 0;
+  }
+  .chat-identity-panel__qr img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .chat-identity-panel__qr span {
+    color: rgb(113, 113, 122);
+    font-size: 10px;
+    font-weight: 850;
+    text-align: center;
+  }
+  .chat-mode-badge {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.55rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(16, 185, 129, 0.18);
+    background: rgba(16, 185, 129, 0.07);
+    color: rgb(5, 150, 105);
+    font-size: 11px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+  :global(.dark) .chat-mode-badge {
+    color: rgb(110, 231, 183);
+    border-color: rgba(16, 185, 129, 0.16);
+    background: rgba(16, 185, 129, 0.09);
+  }
+  .chat-history-banner {
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.85rem;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.12);
+    background: rgba(16, 185, 129, 0.035);
+    color: rgb(5, 150, 105);
+    font-size: 11px;
+    font-weight: 800;
+  }
+  :global(.dark) .chat-history-banner {
+    border-color: rgba(16, 185, 129, 0.1);
+    background: rgba(16, 185, 129, 0.055);
+    color: rgb(110, 231, 183);
+  }
+  .chat-history-banner--broken {
+    border-color: rgba(239, 68, 68, 0.16);
+    background: rgba(239, 68, 68, 0.055);
+    color: rgb(220, 38, 38);
+  }
+  :global(.dark) .chat-history-banner--broken {
+    border-color: rgba(239, 68, 68, 0.18);
+    background: rgba(239, 68, 68, 0.075);
+    color: rgb(248, 113, 113);
+  }
+  .chat-history-banner__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    background: currentColor;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
+    flex-shrink: 0;
+  }
   .chat-call-btn {
     width: 30px; height: 30px; border-radius: 0.5rem;
     display: inline-flex; align-items: center; justify-content: center;
@@ -3112,6 +4015,17 @@
     }
   }
   @media (max-width: 640px) {
+    .chat-identity-panel {
+      align-items: flex-start;
+    }
+    .chat-identity-panel__qr {
+      width: 78px;
+      height: 78px;
+    }
+    .chat-identity-panel__actions button {
+      min-width: 0;
+      flex: 1 1 120px;
+    }
     .chat-call-panel__top {
       align-items: flex-start;
       flex-direction: column;
@@ -3165,7 +4079,66 @@
     background: rgba(16, 185, 129, 0.12);
   }
   :global(.dark) .chat-bubble--mine { background: rgba(16, 185, 129, 0.15); }
-  .chat-sender { font-size: 12px; font-weight: 700; display: block; margin-bottom: 2px; }
+  .chat-sender-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 2px;
+  }
+  .chat-sender { font-size: 12px; font-weight: 700; display: block; }
+  .chat-signature-pill {
+    min-height: 18px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.35rem;
+    border-radius: 0.35rem;
+    border: 1px solid rgba(161, 161, 170, 0.24);
+    background: rgba(244, 244, 245, 0.72);
+    color: rgb(113, 113, 122);
+    font-size: 9px;
+    line-height: 1;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  :global(.dark) .chat-signature-pill {
+    border-color: rgba(63, 63, 70, 0.55);
+    background: rgba(39, 39, 42, 0.62);
+    color: rgb(161, 161, 170);
+  }
+  .chat-signature-pill--trusted {
+    border-color: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(5, 150, 105);
+  }
+  :global(.dark) .chat-signature-pill--trusted {
+    color: rgb(110, 231, 183);
+  }
+  .chat-signature-pill--valid {
+    cursor: pointer;
+    border-color: rgba(59, 130, 246, 0.22);
+    background: rgba(59, 130, 246, 0.08);
+    color: rgb(37, 99, 235);
+  }
+  .chat-signature-pill--valid:hover {
+    border-color: rgba(16, 185, 129, 0.32);
+    background: rgba(16, 185, 129, 0.1);
+    color: rgb(5, 150, 105);
+  }
+  :global(.dark) .chat-signature-pill--valid {
+    color: rgb(147, 197, 253);
+  }
+  .chat-signature-pill--bad {
+    border-color: rgba(239, 68, 68, 0.22);
+    background: rgba(239, 68, 68, 0.08);
+    color: rgb(220, 38, 38);
+  }
+  :global(.dark) .chat-signature-pill--bad {
+    color: rgb(248, 113, 113);
+  }
+  .chat-signature-pill--missing {
+    opacity: 0.72;
+  }
   .chat-text {
     font-size: 15px; line-height: 1.5; color: rgb(63, 63, 70); word-break: break-word;
   }
@@ -3213,6 +4186,16 @@
     border-left: 3px solid rgba(16, 185, 129, 0.4);
     padding-left: 8px; margin: 2px 0;
     color: rgb(113, 113, 122);
+  }
+  .chat-history-warning {
+    margin-top: 0.25rem;
+    font-size: 10px;
+    line-height: 1.35;
+    font-weight: 800;
+    color: rgb(220, 38, 38);
+  }
+  :global(.dark) .chat-history-warning {
+    color: rgb(248, 113, 113);
   }
   .chat-typing {
     font-size: 13px; color: rgb(161, 161, 170); padding: 0.3rem 0;
