@@ -135,8 +135,9 @@
   let serverLatencyMs: number | null = null;
   let serverQuality: ServerQuality = 'unknown';
   let lastServerPongAt = 0;
+  let serverConnectStartedAt = 0;
   let serverName = 'encrypt-1';
-  let serverRegion = 'Amsterdam';
+  let serverRegion = 'AMS-NL';
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
 
@@ -145,7 +146,7 @@
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
   const SERVER_FALLBACK_NAME = 'encrypt-1';
-  const SERVER_FALLBACK_REGION = 'Amsterdam';
+  const SERVER_FALLBACK_REGION = 'AMS-NL';
   const CALL_ID = `call:${roomId}`;
   const callPeerMap = new Map<string, CallPeer>();
   const pendingIce = new Map<string, RTCIceCandidateInit[]>();
@@ -333,6 +334,13 @@
     }
   }
 
+  function recordServerLatencySample(startedAt: number) {
+    if (!startedAt) return;
+    serverLatencyMs = Math.max(0, Date.now() - startedAt);
+    lastServerPongAt = Date.now();
+    updateServerQuality();
+  }
+
   function sendServerPing() {
     if (!ws || ws.readyState !== 1) {
       updateServerQuality();
@@ -421,6 +429,7 @@
   function connectWs() {
     verifying = true;
     wrongPassword = false;
+    serverConnectStartedAt = Date.now();
     ws = new PartySocket({
       host: partyHost,
       room: roomId,
@@ -432,7 +441,7 @@
     });
     ws.addEventListener('open', async () => {
       connected = true;
-      updateServerQuality();
+      recordServerLatencySample(serverConnectStartedAt);
       if (cryptoKey) {
         const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, clientId }));
         ws!.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
@@ -442,6 +451,7 @@
     ws.addEventListener('close', () => {
       connected = false;
       serverLatencyMs = null;
+      serverConnectStartedAt = 0;
       updateServerQuality();
     });
     ws.addEventListener('error', () => {
@@ -466,7 +476,7 @@
     if (data.type === 'init') {
       serverPresence = data.presence;
       serverName = data.server?.name || SERVER_FALLBACK_NAME;
-      serverRegion = data.server?.region || SERVER_FALLBACK_REGION;
+      serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
       // If alone in room (presence=1 = just me), auto-verify - no one to validate against
       if (verifying && serverPresence <= 1) {
         // Alone - no one to verify against, just enter
@@ -491,7 +501,7 @@
         lastServerPongAt = Date.now();
       }
       serverName = data.server?.name || SERVER_FALLBACK_NAME;
-      serverRegion = data.server?.region || SERVER_FALLBACK_REGION;
+      serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
       updateServerQuality();
       return;
     }
@@ -1615,6 +1625,13 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
                 {/if}
               </button>
+              <button class="chat-call-control" class:chat-call-control--active={callAudioMuted} title={callAudioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} on:click={() => setCallAudioMuted(!callAudioMuted)}>
+                {#if callAudioMuted}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                {/if}
+              </button>
               <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} on:click={toggleCamera}>
                 {#if cameraOff}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
@@ -1639,8 +1656,7 @@
             <span class="chat-call-server__dot"></span>
             <span>{t(dict, 'chat.callServer')}: {serverName}</span>
             <span>{serverRegion}</span>
-            <span>{serverLatencyMs !== null ? `${serverLatencyMs} ms` : t(dict, 'chat.serverQualityUnknown')}</span>
-            <span>{getServerQualityLabel(serverQuality)}</span>
+            <span>{serverLatencyMs !== null ? `${serverLatencyMs} ms · ${getServerQualityLabel(serverQuality)}` : getServerQualityLabel(serverQuality)}</span>
           </div>
 
           <div class="chat-call-settings">
@@ -1651,14 +1667,6 @@
               </button>
             </div>
             <div class="chat-call-toggles">
-              <label class="chat-call-toggle">
-                <input type="checkbox" checked={micMuted} on:change={(e) => setMicMuted((e.currentTarget as HTMLInputElement).checked)} />
-                <span>{t(dict, 'chat.callMuteMicrophone')}</span>
-              </label>
-              <label class="chat-call-toggle">
-                <input type="checkbox" checked={callAudioMuted} on:change={(e) => setCallAudioMuted((e.currentTarget as HTMLInputElement).checked)} />
-                <span>{t(dict, 'chat.callMuteAllAudio')}</span>
-              </label>
               <label class="chat-call-toggle">
                 <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
                 <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
