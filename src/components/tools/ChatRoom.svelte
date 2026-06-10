@@ -40,6 +40,8 @@
     initials: string;
     color: string;
     pc: RTCPeerConnection;
+    audioTransceiver: RTCRtpTransceiver | null;
+    videoTransceiver: RTCRtpTransceiver | null;
     audioSender: RTCRtpSender | null;
     videoSender: RTCRtpSender | null;
     stream: MediaStream | null;
@@ -81,6 +83,17 @@
   };
 
   type ServerQuality = 'unknown' | 'good' | 'fair' | 'poor' | 'offline';
+
+  type CallFullscreenTarget = {
+    source: 'local' | 'peer';
+    peerId?: string;
+  };
+
+  type CallFullscreenMedia = {
+    name: string;
+    stream: MediaStream;
+    isScreen: boolean;
+  };
 
   type StreamMediaOptions = MediaStream | null | undefined | {
     stream: MediaStream | null | undefined;
@@ -125,7 +138,7 @@
   let cameraOff = true;
   let screenSharing = false;
   let screenTrack: MediaStreamTrack | null = null;
-  let callAudioMuted = true;
+  let callAudioMuted = false;
   let callVolume = 1;
   let blurCallMediaWhenAway = true;
   let audioInputDevices: MediaDeviceInfo[] = [];
@@ -140,6 +153,11 @@
   let serverRegion = 'AMS-NL';
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
+  let callFullscreenTarget: CallFullscreenTarget | null = null;
+  let callFullscreenMedia: CallFullscreenMedia | null = null;
+  let callFullscreenOverlayEl: HTMLDivElement;
+  let callFullscreenNativeActive = false;
+  let callMediaSessionHandlersActive = false;
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -217,6 +235,53 @@
     if (node.srcObject !== next.stream) node.srcObject = next.stream ?? null;
     if (typeof next.muted === 'boolean') node.muted = next.muted;
     if (typeof next.volume === 'number') node.volume = Math.max(0, Math.min(1, next.volume));
+    ensureMediaElementPlaying(node);
+  }
+
+  function preventMediaContextMenu(event: MouseEvent) {
+    event.preventDefault();
+  }
+
+  function mediaElementHasLiveStream(node: HTMLMediaElement): boolean {
+    const stream = node.srcObject instanceof MediaStream ? node.srcObject : null;
+    return Boolean(stream?.getTracks().some((track) => track.readyState === 'live'));
+  }
+
+  function ensureMediaElementPlaying(node: HTMLMediaElement) {
+    if (!mediaElementHasLiveStream(node) || !node.paused) return;
+    void node.play().catch(() => {});
+  }
+
+  function keepCallMediaPlaying(event?: Event) {
+    const node = event?.currentTarget as HTMLMediaElement | undefined;
+    if (node && callActive) {
+      requestAnimationFrame(() => ensureMediaElementPlaying(node));
+      return;
+    }
+    resumeVisibleCallMedia();
+  }
+
+  function resumeVisibleCallMedia() {
+    if (typeof document === 'undefined') return;
+    const mediaNodes = document.querySelectorAll<HTMLMediaElement>('.chat-call-video, .chat-call-fullscreen__video, .chat-call-tile audio');
+    mediaNodes.forEach((node) => ensureMediaElementPlaying(node));
+  }
+
+  const callMediaSessionActions = ['play', 'pause', 'stop', 'seekbackward', 'seekforward', 'seekto', 'previoustrack', 'nexttrack'] as const;
+
+  function setCallMediaSessionHandlers(enabled: boolean) {
+    const mediaSession = typeof navigator !== 'undefined' ? (navigator as Navigator & { mediaSession?: MediaSession }).mediaSession : undefined;
+    if (!mediaSession?.setActionHandler) return;
+
+    for (const action of callMediaSessionActions) {
+      try {
+        mediaSession.setActionHandler(action, enabled ? () => keepCallMediaPlaying() : null);
+      } catch {}
+    }
+
+    try {
+      mediaSession.playbackState = enabled ? 'playing' : 'none';
+    } catch {}
   }
 
   function streamMedia(node: HTMLMediaElement, options: StreamMediaOptions) {
@@ -789,6 +854,38 @@
     }
   }
 
+  function getCallVideoStream(track: MediaStreamTrack | null): MediaStream | null {
+    if (!track) return null;
+    if (localStream?.getVideoTracks().some((localTrack) => localTrack.id === track.id)) return localStream;
+    return new MediaStream([track]);
+  }
+
+  function addCallTransceiver(pc: RTCPeerConnection, kind: 'audio' | 'video', track: MediaStreamTrack | null, stream: MediaStream | null): RTCRtpTransceiver | null {
+    if (!pc.addTransceiver) return null;
+    const init: RTCRtpTransceiverInit = {
+      direction: track ? 'sendrecv' : 'recvonly',
+    };
+    if (track && stream) init.streams = [stream];
+
+    try {
+      return pc.addTransceiver(track ?? kind, init);
+    } catch {
+      return null;
+    }
+  }
+
+  function setCallTransceiverDirection(transceiver: RTCRtpTransceiver | null, sending: boolean): boolean {
+    if (!transceiver || transceiver.stopped) return false;
+    const nextDirection: RTCRtpTransceiverDirection = sending ? 'sendrecv' : 'recvonly';
+    if (transceiver.direction === nextDirection) return false;
+    try {
+      transceiver.direction = nextDirection;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function ensureCallPeer(peerId: string, name: string, color: string): CallPeer {
     let peer = callPeerMap.get(peerId);
     if (peer) {
@@ -804,18 +901,22 @@
       iceTransportPolicy: 'relay',
       bundlePolicy: 'max-bundle',
     });
-    try {
-      pc.addTransceiver('audio', { direction: 'recvonly' });
-      pc.addTransceiver('video', { direction: 'recvonly' });
-    } catch {}
+
+    const audioTrack = getCurrentOutgoingAudioTrack();
+    const videoTrack = getCurrentOutgoingVideoTrack();
+    const audioTransceiver = addCallTransceiver(pc, 'audio', audioTrack, audioTrack ? localStream : null);
+    const videoTransceiver = addCallTransceiver(pc, 'video', videoTrack, getCallVideoStream(videoTrack));
+
     peer = {
       id: peerId,
       name: name || t(dict, 'chat.guest'),
       initials: getInitials(name || t(dict, 'chat.guest')),
       color: color || 'rgb(16,185,129)',
       pc,
-      audioSender: null,
-      videoSender: null,
+      audioTransceiver,
+      videoTransceiver,
+      audioSender: audioTransceiver?.sender ?? null,
+      videoSender: videoTransceiver?.sender ?? null,
       stream: null,
       state: pc.connectionState,
       muted: false,
@@ -824,23 +925,6 @@
       makingOffer: false,
     };
     callPeerMap.set(peerId, peer);
-
-    if (localStream) {
-      for (const track of localStream.getTracks()) {
-        const sender = pc.addTrack(track, localStream);
-        if (track.kind === 'audio') peer.audioSender = sender;
-        if (track.kind === 'video') peer.videoSender = sender;
-      }
-    }
-
-    if (screenTrack) {
-      const screenStream = new MediaStream([screenTrack]);
-      if (peer.videoSender) {
-        void peer.videoSender.replaceTrack(screenTrack);
-      } else {
-        peer.videoSender = pc.addTrack(screenTrack, screenStream);
-      }
-    }
 
     pc.ontrack = (event) => {
       const current = callPeerMap.get(peerId);
@@ -894,8 +978,31 @@
     }
   }
 
-  async function createAndSendOffer(peer: CallPeer) {
-    if (peer.makingOffer || peer.pc.signalingState !== 'stable') return;
+  function waitForStableSignaling(pc: RTCPeerConnection, timeoutMs = 5000): Promise<boolean> {
+    if (pc.signalingState === 'stable') return Promise.resolve(true);
+
+    return new Promise((resolve) => {
+      const timeout = window.setTimeout(() => {
+        pc.removeEventListener('signalingstatechange', handleState);
+        resolve(false);
+      }, timeoutMs);
+
+      function handleState() {
+        if (pc.signalingState !== 'stable') return;
+        window.clearTimeout(timeout);
+        pc.removeEventListener('signalingstatechange', handleState);
+        resolve(true);
+      }
+
+      pc.addEventListener('signalingstatechange', handleState);
+    });
+  }
+
+  async function createAndSendOffer(peer: CallPeer, waitForStable = false) {
+    if (peer.makingOffer) return;
+    if (peer.pc.signalingState !== 'stable') {
+      if (!waitForStable || !(await waitForStableSignaling(peer.pc))) return;
+    }
     peer.makingOffer = true;
     try {
       const offer = await peer.pc.createOffer();
@@ -922,6 +1029,7 @@
       }
       await peer.pc.setRemoteDescription(signal.sdp);
       await flushPendingIce(signal.from);
+      await applyPeerOutgoingTracks(peer);
       const answer = await peer.pc.createAnswer();
       await peer.pc.setLocalDescription(answer);
       await sendCallSignal({
@@ -1091,17 +1199,60 @@
     touchLocalStream();
   }
 
+  function getCurrentOutgoingAudioTrack(): MediaStreamTrack | null {
+    if (micMuted) return null;
+    return localStream?.getAudioTracks()[0] ?? null;
+  }
+
+  async function applyPeerOutgoingTracks(peer: CallPeer): Promise<boolean> {
+    const audioTrack = getCurrentOutgoingAudioTrack();
+    const videoTrack = getCurrentOutgoingVideoTrack();
+    let needsOffer = false;
+
+    needsOffer = setCallTransceiverDirection(peer.audioTransceiver, Boolean(audioTrack)) || needsOffer;
+    if (peer.audioSender) {
+      await peer.audioSender.replaceTrack(audioTrack);
+    } else if (peer.audioTransceiver) {
+      peer.audioSender = peer.audioTransceiver.sender;
+      await peer.audioSender.replaceTrack(audioTrack);
+    } else if (audioTrack && localStream) {
+      peer.audioSender = peer.pc.addTrack(audioTrack, localStream);
+      needsOffer = true;
+    }
+
+    needsOffer = setCallTransceiverDirection(peer.videoTransceiver, Boolean(videoTrack)) || needsOffer;
+    const videoStream = getCallVideoStream(videoTrack);
+    if (peer.videoSender) {
+      await peer.videoSender.replaceTrack(videoTrack);
+    } else if (peer.videoTransceiver) {
+      peer.videoSender = peer.videoTransceiver.sender;
+      await peer.videoSender.replaceTrack(videoTrack);
+    } else if (videoTrack && videoStream) {
+      peer.videoSender = peer.pc.addTrack(videoTrack, videoStream);
+      needsOffer = true;
+    }
+
+    return needsOffer;
+  }
+
   async function setOutgoingAudioTrack(track: MediaStreamTrack | null) {
     const renegotiations: Promise<void>[] = [];
     const stream = track ? ensureLocalStream() : localStream;
 
     for (const peer of callPeerMap.values()) {
+      const needsOffer = setCallTransceiverDirection(peer.audioTransceiver, Boolean(track));
+
       if (peer.audioSender) {
+        await peer.audioSender.replaceTrack(track);
+      } else if (peer.audioTransceiver) {
+        peer.audioSender = peer.audioTransceiver.sender;
         await peer.audioSender.replaceTrack(track);
       } else if (track && stream) {
         peer.audioSender = peer.pc.addTrack(track, stream);
-        renegotiations.push(createAndSendOffer(peer));
+        renegotiations.push(createAndSendOffer(peer, true));
       }
+
+      if (needsOffer) renegotiations.push(createAndSendOffer(peer, true));
     }
 
     await Promise.all(renegotiations);
@@ -1109,15 +1260,22 @@
 
   async function setOutgoingVideoTrack(track: MediaStreamTrack | null) {
     const renegotiations: Promise<void>[] = [];
-    const stream = track ? new MediaStream([track]) : localStream;
+    const stream = getCallVideoStream(track);
 
     for (const peer of callPeerMap.values()) {
+      const needsOffer = setCallTransceiverDirection(peer.videoTransceiver, Boolean(track));
+
       if (peer.videoSender) {
+        await peer.videoSender.replaceTrack(track);
+      } else if (peer.videoTransceiver) {
+        peer.videoSender = peer.videoTransceiver.sender;
         await peer.videoSender.replaceTrack(track);
       } else if (track && stream) {
         peer.videoSender = peer.pc.addTrack(track, stream);
-        renegotiations.push(createAndSendOffer(peer));
+        renegotiations.push(createAndSendOffer(peer, true));
       }
+
+      if (needsOffer) renegotiations.push(createAndSendOffer(peer, true));
     }
 
     await Promise.all(renegotiations);
@@ -1150,7 +1308,7 @@
       localStream = new MediaStream();
       micMuted = true;
       cameraOff = true;
-      callAudioMuted = true;
+      callAudioMuted = false;
       callActive = true;
       await refreshDevices();
       await sendCallSignal({ action: 'join', reply: false });
@@ -1169,6 +1327,7 @@
   }
 
   function cleanupCall(clearError = true) {
+    closeCallFullscreen(false);
     for (const peer of callPeerMap.values()) peer.pc.close();
     callPeerMap.clear();
     pendingIce.clear();
@@ -1189,7 +1348,7 @@
     micMuted = true;
     cameraOff = true;
     screenSharing = false;
-    callAudioMuted = true;
+    callAudioMuted = false;
     if (clearError) callError = '';
   }
 
@@ -1379,6 +1538,96 @@
     if (notify) await sendCallSignal({ action: 'media' });
   }
 
+  function getCallFullscreenMedia(target: CallFullscreenTarget | null): CallFullscreenMedia | null {
+    if (!target) return null;
+
+    if (target.source === 'local') {
+      if (!localDisplayStream || !localHasVisibleVideo) return null;
+      return {
+        name: screenSharing ? t(dict, 'chat.callScreenSharing') : t(dict, 'chat.callYou'),
+        stream: localDisplayStream,
+        isScreen: screenSharing,
+      };
+    }
+
+    const peer = target.peerId ? callPeerMap.get(target.peerId) : null;
+    if (!peer?.stream || !peer.stream.getVideoTracks().length || (!peer.screenSharing && peer.cameraOff)) return null;
+    return {
+      name: peer.name,
+      stream: peer.stream,
+      isScreen: peer.screenSharing,
+    };
+  }
+
+  function getNativeFullscreenElement(): Element | null {
+    if (typeof document === 'undefined') return null;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+    };
+    return document.fullscreenElement || doc.webkitFullscreenElement || null;
+  }
+
+  async function requestNativeFullscreen(node: HTMLElement) {
+    const fullscreenNode = node as HTMLElement & {
+      webkitRequestFullscreen?: () => void;
+    };
+
+    try {
+      if (node.requestFullscreen) {
+        await node.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions);
+        callFullscreenNativeActive = true;
+        return;
+      }
+      if (fullscreenNode.webkitRequestFullscreen) {
+        fullscreenNode.webkitRequestFullscreen();
+        callFullscreenNativeActive = true;
+      }
+    } catch {
+      callFullscreenNativeActive = false;
+    }
+  }
+
+  async function exitNativeFullscreen() {
+    if (typeof document === 'undefined') return;
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => void;
+    };
+
+    try {
+      if (document.exitFullscreen && document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (doc.webkitExitFullscreen && doc.webkitFullscreenElement) {
+        doc.webkitExitFullscreen();
+      }
+    } catch {}
+  }
+
+  function openCallFullscreen(target: CallFullscreenTarget) {
+    callFullscreenTarget = target;
+    requestAnimationFrame(() => {
+      callFullscreenOverlayEl?.focus();
+      if (callFullscreenOverlayEl) void requestNativeFullscreen(callFullscreenOverlayEl);
+    });
+  }
+
+  function closeCallFullscreen(exitNative = true) {
+    const shouldExitNative = exitNative && callFullscreenNativeActive && Boolean(getNativeFullscreenElement());
+    callFullscreenTarget = null;
+    callFullscreenMedia = null;
+    callFullscreenNativeActive = false;
+    if (shouldExitNative) void exitNativeFullscreen();
+  }
+
+  function handleCallFullscreenKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && callFullscreenTarget) closeCallFullscreen();
+  }
+
+  function handleNativeFullscreenChange() {
+    if (!callFullscreenNativeActive || getNativeFullscreenElement()) return;
+    callFullscreenNativeActive = false;
+    if (callFullscreenTarget) closeCallFullscreen(false);
+  }
+
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     blurred = document.hidden || !document.hasFocus();
@@ -1456,16 +1705,30 @@
   }
 
   $: localHasCamera = Boolean(localStream?.getVideoTracks().length);
-  $: localDisplayStream = screenSharing && screenTrack ? new MediaStream([screenTrack]) : localStream;
-  $: localHasVisibleVideo = Boolean(screenTrack) || (localHasCamera && !cameraOff);
+  $: localPreviewTrack = screenSharing && screenTrack
+    ? screenTrack
+    : (!cameraOff ? localStream?.getVideoTracks()[0] ?? null : null);
+  $: localDisplayStream = localPreviewTrack ? new MediaStream([localPreviewTrack]) : null;
+  $: localHasVisibleVideo = Boolean(localPreviewTrack);
   $: callHasVideo = localHasVisibleVideo || callPeers.some((peer) => Boolean(peer.stream?.getVideoTracks().length) && (peer.screenSharing || !peer.cameraOff));
   $: callHasScreenSharing = screenSharing || callPeers.some((peer) => peer.screenSharing);
+  $: callFullscreenMedia = getCallFullscreenMedia(callFullscreenTarget);
+  $: if (callFullscreenTarget && !callFullscreenMedia) closeCallFullscreen(false);
+  $: if (callActive && !callMediaSessionHandlersActive) {
+    setCallMediaSessionHandlers(true);
+    callMediaSessionHandlersActive = true;
+  } else if (!callActive && callMediaSessionHandlersActive) {
+    setCallMediaSessionHandlers(false);
+    callMediaSessionHandlersActive = false;
+  }
 
   onMount(() => {
     clientId = genId();
     initChat();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
     window.addEventListener('blur', handleVisibility);
     window.addEventListener('focus', handleVisibility);
   });
@@ -1473,11 +1736,14 @@
   onDestroy(() => {
     if (callActive) void sendCallSignal({ action: 'leave' });
     cleanupCall();
+    setCallMediaSessionHandlers(false);
     ws?.close();
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('fullscreenchange', handleNativeFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
       window.removeEventListener('blur', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
       window.removeEventListener('beforeunload', chatBeforeUnload);
@@ -1494,6 +1760,8 @@
     else window.removeEventListener('beforeunload', chatBeforeUnload);
   }
 </script>
+
+<svelte:window on:keydown={handleCallFullscreenKeydown} />
 
 <div class="chat-container">
   {#if wrongPassword}
@@ -1616,15 +1884,16 @@
       </div>
     {/if}
 
-    {#if callActive || callError}
-      <div class="chat-call-panel" class:chat-call-panel--error={!callActive && Boolean(callError)}>
-        {#if callActive}
-          <div class="chat-call-panel__top">
-            <div class="min-w-0">
-              <p class="chat-call-title">{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : t(dict, 'chat.callAudioActive')}</p>
-              <p class="chat-call-subtitle">{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</p>
-            </div>
-            <div class="chat-call-controls">
+    <div class="chat-body" class:chat-body--call={callActive}>
+      {#if callActive || callError}
+        <div class="chat-call-panel" class:chat-call-panel--error={!callActive && Boolean(callError)}>
+          {#if callActive}
+            <div class="chat-call-panel__top">
+              <div class="min-w-0">
+                <p class="chat-call-title">{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : t(dict, 'chat.callAudioActive')}</p>
+                <p class="chat-call-subtitle">{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</p>
+              </div>
+              <div class="chat-call-controls">
               <button class="chat-call-control" class:chat-call-control--active={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} on:click={toggleMic}>
                 {#if micMuted}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
@@ -1656,8 +1925,8 @@
               <button class="chat-call-control chat-call-control--end" title={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10.1 7.6a12.4 12.4 0 0 1 3.8 0l.6 2.7a1 1 0 0 0 .95.8h3.75a1 1 0 0 0 .98-1.2l-.48-2.38a3 3 0 0 0-2.02-2.22 18 18 0 0 0-11.36 0 3 3 0 0 0-2.02 2.22l-.48 2.38a1 1 0 0 0 .98 1.2h3.75a1 1 0 0 0 .95-.8Z"/></svg>
               </button>
+              </div>
             </div>
-          </div>
 
           <div class="chat-call-server" class:chat-call-server--good={serverQuality === 'good'} class:chat-call-server--fair={serverQuality === 'fair'} class:chat-call-server--poor={serverQuality === 'poor'} class:chat-call-server--offline={serverQuality === 'offline'}>
             <span class="chat-call-server__dot"></span>
@@ -1708,7 +1977,22 @@
           <div class="chat-call-grid" class:chat-call-grid--audio={!callHasVideo}>
             <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred}>
               {#if localDisplayStream && localHasVisibleVideo}
-                <video class="chat-call-video" use:streamMedia={{ stream: localDisplayStream, muted: true, volume: 0 }} autoplay muted playsinline></video>
+                <video
+                  class="chat-call-video"
+                  class:chat-call-video--contain={screenSharing}
+                  use:streamMedia={{ stream: localDisplayStream, muted: true, volume: 0 }}
+                  autoplay
+                  muted
+                  playsinline
+                  controlslist="nodownload nofullscreen noremoteplayback"
+                  disablepictureinpicture
+                  disableremoteplayback
+                  on:pause={keepCallMediaPlaying}
+                  on:contextmenu={preventMediaContextMenu}
+                ></video>
+                <button class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'local' })}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                </button>
               {:else}
                 <div class="chat-call-avatar" style="background: {nameToGradient(identity.name)}">{myInitials}</div>
               {/if}
@@ -1720,10 +2004,31 @@
             {#each callPeers as peer (peer.id)}
               <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred}>
                 {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
-                  <video class="chat-call-video" use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }} autoplay playsinline></video>
+                  <video
+                    class="chat-call-video"
+                    class:chat-call-video--contain={peer.screenSharing}
+                    use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }}
+                    autoplay
+                    playsinline
+                    controlslist="nodownload nofullscreen noremoteplayback"
+                    disablepictureinpicture
+                    disableremoteplayback
+                    on:pause={keepCallMediaPlaying}
+                    on:contextmenu={preventMediaContextMenu}
+                  ></video>
+                  <button class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'peer', peerId: peer.id })}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                  </button>
                 {:else}
                   {#if peer.stream}
-                    <audio use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }} autoplay></audio>
+                    <audio
+                      use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }}
+                      autoplay
+                      controlslist="nodownload noremoteplayback"
+                      disableremoteplayback
+                      on:pause={keepCallMediaPlaying}
+                      on:contextmenu={preventMediaContextMenu}
+                    ></audio>
                   {/if}
                   <div class="chat-call-avatar" style="background: {nameToGradient(peer.name)}">{peer.initials}</div>
                 {/if}
@@ -1734,14 +2039,15 @@
               </div>
             {/each}
           </div>
-        {/if}
-        {#if callError}
-          <p class="chat-call-error">{callError}</p>
-        {/if}
-      </div>
-    {/if}
+          {/if}
+          {#if callError}
+            <p class="chat-call-error">{callError}</p>
+          {/if}
+        </div>
+      {/if}
 
-    <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
+      <div class="chat-thread">
+        <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
       {#if messages.length === 0}
         <div class="chat-center">
           <div class="text-center space-y-2 max-w-xs">
@@ -1831,35 +2137,70 @@
         </div>
       {/if}
 
-    </div>
+        </div>
 
-    <div class="chat-input">
-      <button class="chat-attach-btn" on:click={() => fileInputEl?.click()} disabled={!connected || uploading}>
-        {#if uploading}
-          <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-        {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-        {/if}
-      </button>
-      <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
-      <input
-        type="text"
-        class="chat-input-field"
-        placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
-        bind:value={inputText}
-        on:input={handleTyping}
-        on:keydown={(e) => e.key === 'Enter' && handleSend()}
-        disabled={!connected || uploading}
-        autocomplete="off"
-        data-lpignore="true"
-        data-1p-ignore
-      />
-      <button class="chat-send-btn" on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
+        <div class="chat-input">
+          <button class="chat-attach-btn" on:click={() => fileInputEl?.click()} disabled={!connected || uploading}>
+            {#if uploading}
+              <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            {/if}
+          </button>
+          <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
+          <input
+            type="text"
+            class="chat-input-field"
+            placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
+            bind:value={inputText}
+            on:input={handleTyping}
+            on:keydown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={!connected || uploading}
+            autocomplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+          />
+          <button class="chat-send-btn" on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
   {/if}
 </div>
+
+{#if callFullscreenMedia}
+  <div
+    class="chat-call-fullscreen"
+    bind:this={callFullscreenOverlayEl}
+    role="dialog"
+    aria-modal="true"
+    aria-label={callFullscreenMedia.name}
+    tabindex="-1"
+  >
+    <div class="chat-call-fullscreen__bar">
+      <div class="chat-call-fullscreen__meta">
+        <span>{callFullscreenMedia.name}</span>
+        {#if callFullscreenMedia.isScreen}<span>{t(dict, 'chat.callScreenSharing')}</span>{/if}
+      </div>
+      <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} on:click={() => closeCallFullscreen()}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+      </button>
+    </div>
+    <video
+      class="chat-call-fullscreen__video"
+      use:streamMedia={{ stream: callFullscreenMedia.stream, muted: true, volume: 0 }}
+      autoplay
+      muted
+      playsinline
+      controlslist="nodownload nofullscreen noremoteplayback"
+      disablepictureinpicture
+      disableremoteplayback
+      on:pause={keepCallMediaPlaying}
+      on:contextmenu={preventMediaContextMenu}
+    ></video>
+  </div>
+{/if}
 
 <style>
   .chat-container {
@@ -1892,6 +2233,31 @@
     border-bottom: 1px solid rgba(228, 228, 231, 0.5);
   }
   :global(.dark) .chat-header { border-color: rgba(39, 39, 42, 0.4); }
+  .chat-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-body--call {
+    display: grid;
+    grid-template-columns: minmax(0, 1.22fr) minmax(280px, 0.78fr);
+  }
+  .chat-thread {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-body--call .chat-thread {
+    border-left: 1px solid rgba(228, 228, 231, 0.55);
+    background: rgba(255, 255, 255, 0.3);
+  }
+  :global(.dark) .chat-body--call .chat-thread {
+    border-color: rgba(39, 39, 42, 0.55);
+    background: rgba(9, 9, 11, 0.18);
+  }
   .chat-share-banner {
     padding: 0.5rem 0.75rem;
     border-bottom: 1px solid rgba(16, 185, 129, 0.15);
@@ -1981,9 +2347,15 @@
     background: rgba(39, 39, 42, 0.65);
   }
   .chat-call-panel {
+    min-width: 0;
+    min-height: 0;
     padding: 0.75rem 0.85rem;
     border-bottom: 1px solid rgba(228, 228, 231, 0.55);
     background: rgba(250, 250, 250, 0.62);
+    overflow-y: auto;
+  }
+  .chat-body--call .chat-call-panel {
+    border-bottom: 0;
   }
   :global(.dark) .chat-call-panel {
     border-color: rgba(39, 39, 42, 0.55);
@@ -2170,6 +2542,12 @@
   .chat-call-field input[type="range"]:disabled {
     opacity: 0.35;
   }
+  .chat-body--call .chat-call-device-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .chat-body--call .chat-call-field--volume {
+    grid-column: 1 / -1;
+  }
   .chat-call-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -2178,6 +2556,12 @@
   }
   .chat-call-grid--audio {
     grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  }
+  .chat-body--call .chat-call-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .chat-body--call .chat-call-grid--audio {
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
   }
   .chat-call-tile {
     position: relative;
@@ -2204,8 +2588,37 @@
     background: rgb(24, 24, 27);
     transition: filter 0.25s;
   }
+  .chat-call-video--contain {
+    object-fit: contain;
+  }
   .chat-call-tile--blurred .chat-call-video {
     filter: blur(8px);
+  }
+  .chat-call-fullscreen-btn {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    border-radius: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    background: rgba(24, 24, 27, 0.68);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: opacity 0.15s, transform 0.15s, background 0.15s;
+  }
+  .chat-call-tile:hover .chat-call-fullscreen-btn,
+  .chat-call-fullscreen-btn:focus-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .chat-call-fullscreen-btn:hover {
+    background: rgba(16, 185, 129, 0.82);
   }
   .chat-call-avatar {
     width: 44px; height: 44px; border-radius: 9999px;
@@ -2239,6 +2652,96 @@
     font-size: 11px; line-height: 1.45;
     color: rgb(239, 68, 68);
   }
+  .chat-call-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(5, 5, 6);
+    outline: none;
+  }
+  .chat-call-fullscreen__video {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    background: rgb(5, 5, 6);
+  }
+  .chat-call-fullscreen__bar {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: max(14px, env(safe-area-inset-left));
+    right: max(14px, env(safe-area-inset-right));
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    pointer-events: none;
+  }
+  .chat-call-fullscreen__meta {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.38rem 0.55rem;
+    border-radius: 0.55rem;
+    color: white;
+    background: rgba(24, 24, 27, 0.74);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 12px;
+    font-weight: 850;
+    pointer-events: auto;
+  }
+  .chat-call-fullscreen__meta span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-call-fullscreen__meta span + span {
+    flex-shrink: 0;
+    color: rgb(187, 247, 208);
+  }
+  .chat-call-fullscreen__close {
+    width: 36px;
+    height: 36px;
+    border-radius: 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    background: rgba(24, 24, 27, 0.74);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    pointer-events: auto;
+  }
+  .chat-call-fullscreen__close:hover {
+    background: rgba(239, 68, 68, 0.82);
+  }
+  @media (max-width: 860px) {
+    .chat-body--call {
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-body--call .chat-call-panel {
+      max-height: 52%;
+      border-bottom: 1px solid rgba(228, 228, 231, 0.55);
+    }
+    :global(.dark) .chat-body--call .chat-call-panel {
+      border-color: rgba(39, 39, 42, 0.55);
+    }
+    .chat-body--call .chat-thread {
+      border-left: 0;
+      min-height: 0;
+    }
+  }
+  @media (hover: none) {
+    .chat-call-fullscreen-btn {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
   @media (max-width: 640px) {
     .chat-call-panel__top {
       align-items: flex-start;
@@ -2268,7 +2771,7 @@
     50% { opacity: 0.4; }
   }
   .chat-messages {
-    flex: 1; overflow-y: auto; padding: 1.25rem;
+    flex: 1; min-height: 0; overflow-y: auto; padding: 1.25rem;
     display: flex; flex-direction: column; gap: 0.6rem;
     transition: filter 0.3s;
   }

@@ -606,6 +606,8 @@
   "chat.callUnmute": "Zapnout mikrofon",
   "chat.callCameraOff": "Vypnout kameru",
   "chat.callCameraOn": "Zapnout kameru",
+  "chat.callEnterFullscreen": "Zobrazit na celou obrazovku",
+  "chat.callExitFullscreen": "Ukončit celou obrazovku",
   "chat.callSettings": "Nastavení hovoru",
   "chat.callMuteMicrophone": "Ztlumit mikrofon",
   "chat.callMuteAllAudio": "Ztlumit všechny zvuky",
