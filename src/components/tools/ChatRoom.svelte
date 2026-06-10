@@ -40,16 +40,19 @@
     initials: string;
     color: string;
     pc: RTCPeerConnection;
+    audioSender: RTCRtpSender | null;
+    videoSender: RTCRtpSender | null;
     stream: MediaStream | null;
     state: RTCPeerConnectionState;
     muted: boolean;
     cameraOff: boolean;
+    screenSharing: boolean;
     makingOffer: boolean;
   };
 
   type CallSignal = {
     type: 'call-signal';
-    action: 'join' | 'offer' | 'answer' | 'ice' | 'leave' | 'media';
+    action: 'join' | 'presence' | 'offer' | 'answer' | 'ice' | 'leave' | 'media';
     callId: string;
     from: string;
     fromName: string;
@@ -61,6 +64,7 @@
     candidate?: RTCIceCandidateInit;
     audio?: boolean;
     video?: boolean;
+    screen?: boolean;
   };
 
   type TurnConfig = {
@@ -68,6 +72,20 @@
     turnReady?: boolean;
     ttl?: number;
     expiresAt?: number;
+  };
+
+  type ActiveCallNotice = {
+    from: string;
+    name: string;
+    color: string;
+  };
+
+  type ServerQuality = 'unknown' | 'good' | 'fair' | 'poor' | 'offline';
+
+  type StreamMediaOptions = MediaStream | null | undefined | {
+    stream: MediaStream | null | undefined;
+    muted?: boolean;
+    volume?: number;
   };
 
   let ws: PartySocket | null = null;
@@ -98,13 +116,27 @@
   let clientId = '';
   let callActive = false;
   let callJoining = false;
-  let callMode: CallMode = 'audio';
   let callError = '';
-  let incomingCall: { from: string; name: string; color: string; mode: CallMode } | null = null;
+  let activeCallNotice: ActiveCallNotice | null = null;
+  let callNoticeDismissed = false;
   let localStream: MediaStream | null = null;
   let callPeers: CallPeer[] = [];
-  let micMuted = false;
+  let micMuted = true;
   let cameraOff = true;
+  let screenSharing = false;
+  let screenTrack: MediaStreamTrack | null = null;
+  let callAudioMuted = true;
+  let callVolume = 1;
+  let blurCallMediaWhenAway = true;
+  let audioInputDevices: MediaDeviceInfo[] = [];
+  let videoInputDevices: MediaDeviceInfo[] = [];
+  let selectedAudioInputId = '';
+  let selectedVideoInputId = '';
+  let serverLatencyMs: number | null = null;
+  let serverQuality: ServerQuality = 'unknown';
+  let lastServerPongAt = 0;
+  let serverName = 'encrypt-1';
+  let serverRegion = 'Amsterdam';
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
 
@@ -112,6 +144,8 @@
   const TEXT_AS_FILE_LIMIT = 2000;
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
+  const SERVER_FALLBACK_NAME = 'encrypt-1';
+  const SERVER_FALLBACK_REGION = 'Amsterdam';
   const CALL_ID = `call:${roomId}`;
   const callPeerMap = new Map<string, CallPeer>();
   const pendingIce = new Map<string, RTCIceCandidateInit[]>();
@@ -170,11 +204,25 @@
     });
   }
 
-  function streamMedia(node: HTMLMediaElement, stream: MediaStream | null | undefined) {
-    node.srcObject = stream ?? null;
+  function getStreamMediaOptions(options: StreamMediaOptions) {
+    if (options && typeof options === 'object' && 'stream' in options) {
+      return options;
+    }
+    return { stream: options };
+  }
+
+  function applyStreamMediaOptions(node: HTMLMediaElement, options: StreamMediaOptions) {
+    const next = getStreamMediaOptions(options);
+    if (node.srcObject !== next.stream) node.srcObject = next.stream ?? null;
+    if (typeof next.muted === 'boolean') node.muted = next.muted;
+    if (typeof next.volume === 'number') node.volume = Math.max(0, Math.min(1, next.volume));
+  }
+
+  function streamMedia(node: HTMLMediaElement, options: StreamMediaOptions) {
+    applyStreamMediaOptions(node, options);
     return {
-      update(next: MediaStream | null | undefined) {
-        if (node.srcObject !== next) node.srcObject = next ?? null;
+      update(next: StreamMediaOptions) {
+        applyStreamMediaOptions(node, next);
       },
       destroy() {
         node.srcObject = null;
@@ -244,12 +292,58 @@
       from: clientId,
       fromName: identity.name,
       fromColor: identity.color,
-      mode: callMode,
+      mode: 'audio',
       audio: !micMuted,
-      video: !cameraOff,
+      video: screenSharing || !cameraOff,
+      screen: screenSharing,
       ...partial,
     };
     await sendEncryptedControl(signal as unknown as Record<string, unknown>, 'call');
+  }
+
+  function updateServerQuality() {
+    if (!connected) {
+      serverQuality = 'offline';
+      return;
+    }
+    if (serverLatencyMs === null || !lastServerPongAt) {
+      serverQuality = 'unknown';
+      return;
+    }
+    if (Date.now() - lastServerPongAt > 45000) {
+      serverQuality = 'poor';
+      return;
+    }
+    if (serverLatencyMs <= 150) {
+      serverQuality = 'good';
+    } else if (serverLatencyMs <= 350) {
+      serverQuality = 'fair';
+    } else {
+      serverQuality = 'poor';
+    }
+  }
+
+  function getServerQualityLabel(quality: ServerQuality): string {
+    switch (quality) {
+      case 'good': return t(dict, 'chat.serverQualityGood');
+      case 'fair': return t(dict, 'chat.serverQualityFair');
+      case 'poor': return t(dict, 'chat.serverQualityPoor');
+      case 'offline': return t(dict, 'chat.serverQualityOffline');
+      default: return t(dict, 'chat.serverQualityUnknown');
+    }
+  }
+
+  function sendServerPing() {
+    if (!ws || ws.readyState !== 1) {
+      updateServerQuality();
+      return;
+    }
+    try {
+      ws.send(JSON.stringify({ type: 'ping', t: Date.now() }));
+    } catch {
+      serverQuality = 'poor';
+    }
+    updateServerQuality();
   }
 
   const TTL_OPTIONS = [
@@ -338,13 +432,17 @@
     });
     ws.addEventListener('open', async () => {
       connected = true;
+      updateServerQuality();
       if (cryptoKey) {
-        const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color }));
+        const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, clientId }));
         ws!.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
       }
+      sendServerPing();
     });
     ws.addEventListener('close', () => {
       connected = false;
+      serverLatencyMs = null;
+      updateServerQuality();
     });
     ws.addEventListener('error', () => {
       // WS error means TCP/upgrade/network problem — NOT a password issue.
@@ -356,10 +454,8 @@
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      if (ws && ws.readyState === 1) {
-        try { ws.send(JSON.stringify({ type: 'ping', t: Date.now() })); } catch {}
-      }
-    }, 30000);
+      sendServerPing();
+    }, 10000);
   }
 
   async function handleServerMessage(event: MessageEvent) {
@@ -369,6 +465,8 @@
     // Handle server control messages
     if (data.type === 'init') {
       serverPresence = data.presence;
+      serverName = data.server?.name || SERVER_FALLBACK_NAME;
+      serverRegion = data.server?.region || SERVER_FALLBACK_REGION;
       // If alone in room (presence=1 = just me), auto-verify - no one to validate against
       if (verifying && serverPresence <= 1) {
         // Alone - no one to verify against, just enter
@@ -385,6 +483,16 @@
           }
         }, 4000);
       }
+      return;
+    }
+    if (data.type === 'pong') {
+      if (typeof data.t === 'number') {
+        serverLatencyMs = Math.max(0, Date.now() - data.t);
+        lastServerPongAt = Date.now();
+      }
+      serverName = data.server?.name || SERVER_FALLBACK_NAME;
+      serverRegion = data.server?.region || SERVER_FALLBACK_REGION;
+      updateServerQuality();
       return;
     }
     if (data.type === 'presence') { serverPresence = data.count; return; }
@@ -408,9 +516,10 @@
       if (parsed.type === 'verify') {
         if (verifying) { verified = true; verifying = false; }
         if (verified && cryptoKey && ws) {
-          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color }));
+          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, clientId }));
           ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
         }
+        if (callActive) void sendCallSignal({ action: 'presence' });
         addOnlineUser(parsed.sender, parsed.color);
         messages = [...messages, {
           id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', parsed.sender), sender: '', initials: '→',
@@ -685,28 +794,53 @@
       iceTransportPolicy: 'relay',
       bundlePolicy: 'max-bundle',
     });
+    try {
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+      pc.addTransceiver('video', { direction: 'recvonly' });
+    } catch {}
     peer = {
       id: peerId,
       name: name || t(dict, 'chat.guest'),
       initials: getInitials(name || t(dict, 'chat.guest')),
       color: color || 'rgb(16,185,129)',
       pc,
+      audioSender: null,
+      videoSender: null,
       stream: null,
       state: pc.connectionState,
       muted: false,
       cameraOff: false,
+      screenSharing: false,
       makingOffer: false,
     };
     callPeerMap.set(peerId, peer);
 
     if (localStream) {
-      for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+      for (const track of localStream.getTracks()) {
+        const sender = pc.addTrack(track, localStream);
+        if (track.kind === 'audio') peer.audioSender = sender;
+        if (track.kind === 'video') peer.videoSender = sender;
+      }
+    }
+
+    if (screenTrack) {
+      const screenStream = new MediaStream([screenTrack]);
+      if (peer.videoSender) {
+        void peer.videoSender.replaceTrack(screenTrack);
+      } else {
+        peer.videoSender = pc.addTrack(screenTrack, screenStream);
+      }
     }
 
     pc.ontrack = (event) => {
       const current = callPeerMap.get(peerId);
       if (!current) return;
-      current.stream = event.streams[0] ?? null;
+      const stream = current.stream ?? new MediaStream();
+      const incomingTracks = event.streams[0]?.getTracks().length ? event.streams[0].getTracks() : [event.track];
+      for (const track of incomingTracks) {
+        if (!stream.getTracks().some((existing) => existing.id === track.id)) stream.addTrack(track);
+      }
+      current.stream = stream;
       syncCallPeers();
     };
 
@@ -818,22 +952,30 @@
     if (!signal || signal.from === clientId || signal.callId !== CALL_ID) return;
     if (signal.to && signal.to !== clientId) return;
 
-    const mode: CallMode = signal.mode === 'video' ? 'video' : 'audio';
+    const showActiveCallNotice = () => {
+      if (callActive || callNoticeDismissed) return;
+      activeCallNotice = {
+        from: signal.from,
+        name: signal.fromName,
+        color: signal.fromColor,
+      };
+    };
+
+    if (signal.action === 'presence') {
+      showActiveCallNotice();
+      return;
+    }
 
     if (signal.action === 'join') {
       if (!callActive) {
-        incomingCall = {
-          from: signal.from,
-          name: signal.fromName,
-          color: signal.fromColor,
-          mode,
-        };
+        showActiveCallNotice();
         return;
       }
 
       const peer = ensureCallPeer(signal.from, signal.fromName, signal.fromColor);
       peer.muted = signal.audio === false;
       peer.cameraOff = signal.video === false;
+      peer.screenSharing = signal.screen === true;
       syncCallPeers();
 
       if (!signal.reply && clientId > signal.from) {
@@ -843,15 +985,14 @@
       return;
     }
 
+    if (signal.action === 'leave') {
+      if (callActive) removeCallPeer(signal.from);
+      if (activeCallNotice?.from === signal.from) activeCallNotice = null;
+      return;
+    }
+
     if (!callActive) {
-      if (signal.action === 'offer') {
-        incomingCall = {
-          from: signal.from,
-          name: signal.fromName,
-          color: signal.fromColor,
-          mode,
-        };
-      }
+      if (signal.action === 'offer') showActiveCallNotice();
       return;
     }
 
@@ -870,16 +1011,12 @@
       return;
     }
 
-    if (signal.action === 'leave') {
-      removeCallPeer(signal.from);
-      return;
-    }
-
     if (signal.action === 'media') {
       const peer = callPeerMap.get(signal.from);
       if (!peer) return;
       peer.muted = signal.audio === false;
       peer.cameraOff = signal.video === false;
+      peer.screenSharing = signal.screen === true;
       syncCallPeers();
     }
   }
@@ -890,45 +1027,130 @@
     for (const track of localStream.getVideoTracks()) track.enabled = !cameraOff;
   }
 
-  async function startCall(mode: CallMode) {
+  function getAudioConstraints(): MediaTrackConstraints {
+    return {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      ...(selectedAudioInputId ? { deviceId: { exact: selectedAudioInputId } } : {}),
+    };
+  }
+
+  function getVideoConstraints(): MediaTrackConstraints {
+    return {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      facingMode: 'user',
+      ...(selectedVideoInputId ? { deviceId: { exact: selectedVideoInputId } } : {}),
+    };
+  }
+
+  async function refreshDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      audioInputDevices = devices.filter((device) => device.kind === 'audioinput');
+      videoInputDevices = devices.filter((device) => device.kind === 'videoinput');
+
+      if (selectedAudioInputId && !audioInputDevices.some((device) => device.deviceId === selectedAudioInputId)) {
+        selectedAudioInputId = '';
+      }
+      if (selectedVideoInputId && !videoInputDevices.some((device) => device.deviceId === selectedVideoInputId)) {
+        selectedVideoInputId = '';
+      }
+    } catch {}
+  }
+
+  function ensureLocalStream(): MediaStream {
+    if (!localStream) localStream = new MediaStream();
+    return localStream;
+  }
+
+  function stopLocalTracks(kind: 'audio' | 'video') {
+    if (!localStream) return;
+    const tracks = kind === 'audio' ? localStream.getAudioTracks() : localStream.getVideoTracks();
+    for (const track of tracks) {
+      track.onended = null;
+      localStream.removeTrack(track);
+      if (track.readyState !== 'ended') track.stop();
+    }
+  }
+
+  async function setOutgoingAudioTrack(track: MediaStreamTrack | null) {
+    const renegotiations: Promise<void>[] = [];
+    const stream = track ? ensureLocalStream() : localStream;
+
+    for (const peer of callPeerMap.values()) {
+      if (peer.audioSender) {
+        await peer.audioSender.replaceTrack(track);
+      } else if (track && stream) {
+        peer.audioSender = peer.pc.addTrack(track, stream);
+        renegotiations.push(createAndSendOffer(peer));
+      }
+    }
+
+    await Promise.all(renegotiations);
+  }
+
+  async function setOutgoingVideoTrack(track: MediaStreamTrack | null) {
+    const renegotiations: Promise<void>[] = [];
+    const stream = track ? new MediaStream([track]) : localStream;
+
+    for (const peer of callPeerMap.values()) {
+      if (peer.videoSender) {
+        await peer.videoSender.replaceTrack(track);
+      } else if (track && stream) {
+        peer.videoSender = peer.pc.addTrack(track, stream);
+        renegotiations.push(createAndSendOffer(peer));
+      }
+    }
+
+    await Promise.all(renegotiations);
+  }
+
+  function getCurrentOutgoingVideoTrack(): MediaStreamTrack | null {
+    if (screenTrack) return screenTrack;
+    if (cameraOff) return null;
+    return localStream?.getVideoTracks()[0] ?? null;
+  }
+
+  async function syncOutgoingVideoTrack() {
+    await setOutgoingVideoTrack(getCurrentOutgoingVideoTrack());
+  }
+
+  async function startCall() {
     if (callActive || callJoining || !connected || !verified) return;
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (typeof RTCPeerConnection === 'undefined') {
       callError = t(dict, 'chat.callUnsupported');
       return;
     }
 
     callJoining = true;
     callError = '';
-    incomingCall = null;
-    callMode = mode;
+    activeCallNotice = null;
+    callNoticeDismissed = false;
 
     try {
       await loadIceServers(true);
-      localStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: mode === 'video'
-          ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
-          : false,
-      });
-      micMuted = false;
-      cameraOff = mode !== 'video';
-      applyLocalMediaState();
+      localStream = new MediaStream();
+      micMuted = true;
+      cameraOff = true;
+      callAudioMuted = true;
       callActive = true;
+      await refreshDevices();
       await sendCallSignal({ action: 'join', reply: false });
     } catch (e: any) {
-      callError = e?.name === 'NotAllowedError'
-        ? t(dict, 'chat.callPermissionDenied')
-        : (e?.message || t(dict, 'chat.callStartFailed'));
+      callError = e?.message || t(dict, 'chat.callStartFailed');
       cleanupCall(false);
     } finally {
       callJoining = false;
     }
   }
 
-  async function acceptIncomingCall() {
-    const mode = incomingCall?.mode ?? 'audio';
-    incomingCall = null;
-    await startCall(mode);
+  async function joinActiveCall() {
+    activeCallNotice = null;
+    callNoticeDismissed = false;
+    await startCall();
   }
 
   function cleanupCall(clearError = true) {
@@ -939,11 +1161,20 @@
     if (localStream) {
       for (const track of localStream.getTracks()) track.stop();
     }
+    if (screenTrack) {
+      screenTrack.onended = null;
+      screenTrack.stop();
+    }
     localStream = null;
+    screenTrack = null;
     callActive = false;
     callJoining = false;
-    micMuted = false;
+    activeCallNotice = null;
+    callNoticeDismissed = false;
+    micMuted = true;
     cameraOff = true;
+    screenSharing = false;
+    callAudioMuted = true;
     if (clearError) callError = '';
   }
 
@@ -954,23 +1185,190 @@
   }
 
   async function toggleMic() {
-    if (!callActive || !localStream) return;
-    micMuted = !micMuted;
-    applyLocalMediaState();
-    await sendCallSignal({ action: 'media' });
+    await setMicMuted(!micMuted);
+  }
+
+  async function setMicMuted(nextMuted: boolean) {
+    if (!callActive || callJoining) return;
+
+    if (nextMuted) {
+      micMuted = true;
+      stopLocalTracks('audio');
+      await setOutgoingAudioTrack(null);
+      await sendCallSignal({ action: 'media' });
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      callError = t(dict, 'chat.callUnsupported');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: getAudioConstraints(), video: false });
+      const track = stream.getAudioTracks()[0];
+      if (!track) throw new Error(t(dict, 'chat.callMicrophoneStartFailed'));
+
+      stopLocalTracks('audio');
+      ensureLocalStream().addTrack(track);
+      micMuted = false;
+      callError = '';
+
+      const deviceId = track.getSettings().deviceId;
+      if (deviceId) selectedAudioInputId = deviceId;
+      track.onended = () => {
+        micMuted = true;
+        void setOutgoingAudioTrack(null).then(() => sendCallSignal({ action: 'media' }));
+      };
+
+      applyLocalMediaState();
+      await refreshDevices();
+      await setOutgoingAudioTrack(track);
+      await sendCallSignal({ action: 'media' });
+    } catch (e: any) {
+      micMuted = true;
+      callError = e?.name === 'NotAllowedError'
+        ? t(dict, 'chat.callMicrophonePermissionDenied')
+        : (e?.message || t(dict, 'chat.callMicrophoneStartFailed'));
+    }
+  }
+
+  async function handleAudioInputChange() {
+    if (!micMuted) await setMicMuted(false);
+  }
+
+  async function handleVideoInputChange() {
+    if (!cameraOff) await setCameraOff(false);
   }
 
   async function toggleCamera() {
-    if (!callActive || !localStream?.getVideoTracks().length) return;
-    cameraOff = !cameraOff;
-    applyLocalMediaState();
-    await sendCallSignal({ action: 'media' });
+    await setCameraOff(!cameraOff);
+  }
+
+  async function setCameraOff(nextOff: boolean) {
+    if (!callActive || callJoining) return;
+
+    if (nextOff) {
+      cameraOff = true;
+      stopLocalTracks('video');
+      if (!screenSharing) await syncOutgoingVideoTrack();
+      await sendCallSignal({ action: 'media' });
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      callError = t(dict, 'chat.callUnsupported');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: getVideoConstraints() });
+      const track = stream.getVideoTracks()[0];
+      if (!track) throw new Error(t(dict, 'chat.callCameraStartFailed'));
+
+      stopLocalTracks('video');
+      ensureLocalStream().addTrack(track);
+      cameraOff = false;
+      callError = '';
+
+      const deviceId = track.getSettings().deviceId;
+      if (deviceId) selectedVideoInputId = deviceId;
+      track.onended = () => {
+        cameraOff = true;
+        void syncOutgoingVideoTrack().then(() => sendCallSignal({ action: 'media' }));
+      };
+
+      applyLocalMediaState();
+      await refreshDevices();
+      if (!screenSharing) await syncOutgoingVideoTrack();
+      await sendCallSignal({ action: 'media' });
+    } catch (e: any) {
+      cameraOff = true;
+      callError = e?.name === 'NotAllowedError'
+        ? t(dict, 'chat.callCameraPermissionDenied')
+        : (e?.message || t(dict, 'chat.callCameraStartFailed'));
+    }
+  }
+
+  async function setCallAudioMuted(nextMuted: boolean) {
+    callAudioMuted = nextMuted;
+  }
+
+  async function setBlurCallMediaWhenAway(nextBlur: boolean) {
+    blurCallMediaWhenAway = nextBlur;
+  }
+
+  async function setCallVolume(value: number | string) {
+    const next = Number(value);
+    if (!Number.isFinite(next)) return;
+    callVolume = Math.max(0, Math.min(1, next));
+    if (callVolume > 0 && callAudioMuted) callAudioMuted = false;
+  }
+
+  async function refreshCallDevices() {
+    await refreshDevices();
+  }
+
+  async function startScreenShare() {
+    if (!callActive || callJoining) return;
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      callError = t(dict, 'chat.callScreenUnsupported');
+      return;
+    }
+
+    try {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 15, max: 30 } },
+        audio: false,
+      });
+      const track = displayStream.getVideoTracks()[0];
+      if (!track) throw new Error(t(dict, 'chat.callScreenStartFailed'));
+
+      if (screenTrack) await stopScreenShare(false);
+
+      screenTrack = track;
+      screenSharing = true;
+      callError = '';
+
+      track.onended = () => {
+        void stopScreenShare();
+      };
+
+      await syncOutgoingVideoTrack();
+      await sendCallSignal({ action: 'media' });
+    } catch (e: any) {
+      screenSharing = false;
+      screenTrack = null;
+      callError = e?.name === 'NotAllowedError'
+        ? t(dict, 'chat.callScreenPermissionDenied')
+        : (e?.message || t(dict, 'chat.callScreenStartFailed'));
+    }
+  }
+
+  async function stopScreenShare(notify = true) {
+    const track = screenTrack;
+    if (!track && !screenSharing) return;
+
+    screenSharing = false;
+    screenTrack = null;
+
+    if (track) {
+      track.onended = null;
+      if (track.readyState !== 'ended') track.stop();
+    }
+
+    await syncOutgoingVideoTrack();
+
+    if (notify) await sendCallSignal({ action: 'media' });
   }
 
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     blurred = document.hidden || !document.hasFocus();
-    if (!blurred) document.title = 'encrypt.click/chat';
+    if (!blurred) {
+      document.title = 'encrypt.click/chat';
+      sendServerPing();
+    }
   }
 
   const IMAGE_EXTS = new Set(['png','jpg','jpeg','gif','webp','svg','bmp','ico']);
@@ -1040,8 +1438,11 @@
     if (changed) messages = alive;
   }
 
-  $: localHasVideo = Boolean(localStream?.getVideoTracks().length);
-  $: callHasVideo = localHasVideo || callPeers.some((peer) => Boolean(peer.stream?.getVideoTracks().length));
+  $: localHasCamera = Boolean(localStream?.getVideoTracks().length);
+  $: localDisplayStream = screenSharing && screenTrack ? new MediaStream([screenTrack]) : localStream;
+  $: localHasVisibleVideo = Boolean(screenTrack) || (localHasCamera && !cameraOff);
+  $: callHasVideo = localHasVisibleVideo || callPeers.some((peer) => Boolean(peer.stream?.getVideoTracks().length) && (peer.screenSharing || !peer.cameraOff));
+  $: callHasScreenSharing = screenSharing || callPeers.some((peer) => peer.screenSharing);
 
   onMount(() => {
     clientId = genId();
@@ -1134,18 +1535,11 @@
         </div>
       </div>
       <div class="flex items-center gap-1.5">
-        <button class="chat-call-btn" title={t(dict, 'chat.callStartAudio')} on:click={() => startCall('audio')} disabled={!connected || !verified || callJoining || callActive}>
-          {#if callJoining && callMode === 'audio'}
+        <button class="chat-call-btn" title={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
+          {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
           {:else}
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L8 9.76a16 16 0 0 0 6.24 6.24l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92Z"/></svg>
-          {/if}
-        </button>
-        <button class="chat-call-btn" title={t(dict, 'chat.callStartVideo')} on:click={() => startCall('video')} disabled={!connected || !verified || callJoining || callActive}>
-          {#if callJoining && callMode === 'video'}
-            <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-          {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
           {/if}
         </button>
         <select class="text-xs bg-transparent text-zinc-400 border-none outline-none" bind:value={ttlSeconds}>
@@ -1189,18 +1583,18 @@
       </div>
     {/if}
 
-    {#if incomingCall && !callActive}
+    {#if activeCallNotice && !callActive}
       <div class="chat-call-banner">
         <div class="chat-call-banner__meta">
-          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(incomingCall.name)}">{getInitials(incomingCall.name)}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(activeCallNotice.name)}">{getInitials(activeCallNotice.name)}</div>
           <div class="min-w-0">
-            <p class="chat-call-banner__title">{incomingCall.mode === 'video' ? t(dict, 'chat.callIncomingVideo') : t(dict, 'chat.callIncomingAudio')}</p>
-            <p class="chat-call-banner__name">{incomingCall.name}</p>
+            <p class="chat-call-banner__title">{t(dict, 'chat.callInProgress')}</p>
+            <p class="chat-call-banner__name">{t(dict, 'chat.callInProgressBy').replace('{name}', activeCallNotice.name)}</p>
           </div>
         </div>
         <div class="chat-call-banner__actions">
-          <button class="chat-call-accept" on:click={acceptIncomingCall}>{t(dict, 'chat.callAccept')}</button>
-          <button class="chat-call-decline" on:click={() => { incomingCall = null; }}>{t(dict, 'chat.callDecline')}</button>
+          <button class="chat-call-accept" on:click={joinActiveCall}>{t(dict, 'chat.callJoin')}</button>
+          <button class="chat-call-decline" on:click={() => { activeCallNotice = null; callNoticeDismissed = true; }}>{t(dict, 'chat.callDismiss')}</button>
         </div>
       </div>
     {/if}
@@ -1210,7 +1604,7 @@
         {#if callActive}
           <div class="chat-call-panel__top">
             <div class="min-w-0">
-              <p class="chat-call-title">{callMode === 'video' ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</p>
+              <p class="chat-call-title">{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : t(dict, 'chat.callAudioActive')}</p>
               <p class="chat-call-subtitle">{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</p>
             </div>
             <div class="chat-call-controls">
@@ -1221,11 +1615,18 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
                 {/if}
               </button>
-              <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} on:click={toggleCamera} disabled={!localHasVideo}>
+              <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} on:click={toggleCamera}>
                 {#if cameraOff}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
                 {:else}
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                {/if}
+              </button>
+              <button class="chat-call-control" class:chat-call-control--active={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
+                {#if screenSharing}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m7 8 10 6"/><path d="m17 8-10 6"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 10 4-4 4 4"/><path d="M12 6v7"/></svg>
                 {/if}
               </button>
               <button class="chat-call-control chat-call-control--end" title={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
@@ -1234,31 +1635,86 @@
             </div>
           </div>
 
+          <div class="chat-call-server" class:chat-call-server--good={serverQuality === 'good'} class:chat-call-server--fair={serverQuality === 'fair'} class:chat-call-server--poor={serverQuality === 'poor'} class:chat-call-server--offline={serverQuality === 'offline'}>
+            <span class="chat-call-server__dot"></span>
+            <span>{t(dict, 'chat.callServer')}: {serverName}</span>
+            <span>{serverRegion}</span>
+            <span>{serverLatencyMs !== null ? `${serverLatencyMs} ms` : t(dict, 'chat.serverQualityUnknown')}</span>
+            <span>{getServerQualityLabel(serverQuality)}</span>
+          </div>
+
+          <div class="chat-call-settings">
+            <div class="chat-call-settings__header">
+              <span>{t(dict, 'chat.callSettings')}</span>
+              <button class="chat-call-settings__refresh" title={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
+              </button>
+            </div>
+            <div class="chat-call-toggles">
+              <label class="chat-call-toggle">
+                <input type="checkbox" checked={micMuted} on:change={(e) => setMicMuted((e.currentTarget as HTMLInputElement).checked)} />
+                <span>{t(dict, 'chat.callMuteMicrophone')}</span>
+              </label>
+              <label class="chat-call-toggle">
+                <input type="checkbox" checked={callAudioMuted} on:change={(e) => setCallAudioMuted((e.currentTarget as HTMLInputElement).checked)} />
+                <span>{t(dict, 'chat.callMuteAllAudio')}</span>
+              </label>
+              <label class="chat-call-toggle">
+                <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
+                <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
+              </label>
+            </div>
+            <div class="chat-call-device-grid">
+              <label class="chat-call-field">
+                <span>{t(dict, 'chat.callMicrophone')}</span>
+                <select bind:value={selectedAudioInputId} on:change={handleAudioInputChange}>
+                  <option value="">{t(dict, 'chat.callDefaultMicrophone')}</option>
+                  {#each audioInputDevices as device, index (device.deviceId || index)}
+                    <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callMicrophone')} ${index + 1}`}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="chat-call-field">
+                <span>{t(dict, 'chat.callCamera')}</span>
+                <select bind:value={selectedVideoInputId} on:change={handleVideoInputChange}>
+                  <option value="">{t(dict, 'chat.callDefaultCamera')}</option>
+                  {#each videoInputDevices as device, index (device.deviceId || index)}
+                    <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callCamera')} ${index + 1}`}</option>
+                  {/each}
+                </select>
+              </label>
+              <label class="chat-call-field chat-call-field--volume">
+                <span>{t(dict, 'chat.callVolume')}</span>
+                <input type="range" min="0" max="1" step="0.05" value={callVolume} disabled={callAudioMuted} on:input={(e) => setCallVolume((e.currentTarget as HTMLInputElement).value)} />
+              </label>
+            </div>
+          </div>
+
           <div class="chat-call-grid" class:chat-call-grid--audio={!callHasVideo}>
-            <div class="chat-call-tile">
-              {#if localStream && localHasVideo && !cameraOff}
-                <video class="chat-call-video" use:streamMedia={localStream} autoplay muted playsinline></video>
+            <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred}>
+              {#if localDisplayStream && localHasVisibleVideo}
+                <video class="chat-call-video" use:streamMedia={{ stream: localDisplayStream, muted: true, volume: 0 }} autoplay muted playsinline></video>
               {:else}
                 <div class="chat-call-avatar" style="background: {nameToGradient(identity.name)}">{myInitials}</div>
               {/if}
               <div class="chat-call-label">
                 <span>{t(dict, 'chat.callYou')}</span>
-                {#if micMuted}<span>{t(dict, 'chat.callMuted')}</span>{/if}
+                {#if screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if micMuted}<span>{t(dict, 'chat.callMuted')}</span>{/if}
               </div>
             </div>
             {#each callPeers as peer (peer.id)}
-              <div class="chat-call-tile">
-                {#if peer.stream && peer.stream.getVideoTracks().length && !peer.cameraOff}
-                  <video class="chat-call-video" use:streamMedia={peer.stream} autoplay playsinline></video>
+              <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred}>
+                {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
+                  <video class="chat-call-video" use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }} autoplay playsinline></video>
                 {:else}
                   {#if peer.stream}
-                    <audio use:streamMedia={peer.stream} autoplay></audio>
+                    <audio use:streamMedia={{ stream: peer.stream, muted: callAudioMuted, volume: callVolume }} autoplay></audio>
                   {/if}
                   <div class="chat-call-avatar" style="background: {nameToGradient(peer.name)}">{peer.initials}</div>
                 {/if}
                 <div class="chat-call-label">
                   <span>{peer.name}</span>
-                  {#if peer.muted}<span>{t(dict, 'chat.callMuted')}</span>{:else if peer.state !== 'connected'}<span>{peer.state}</span>{/if}
+                  {#if peer.screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if peer.muted}<span>{t(dict, 'chat.callMuted')}</span>{:else if peer.state !== 'connected'}<span>{peer.state}</span>{/if}
                 </div>
               </div>
             {/each}
@@ -1566,6 +2022,139 @@
     border-color: rgba(220, 38, 38, 0.25);
   }
   .chat-call-control:disabled { opacity: 0.35; cursor: not-allowed; }
+  .chat-call-server {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.55rem;
+    margin-top: 0.55rem;
+    font-size: 10px; font-weight: 800;
+    color: rgb(113, 113, 122);
+  }
+  .chat-call-server span:not(.chat-call-server__dot) {
+    min-height: 20px;
+    display: inline-flex; align-items: center;
+    padding: 0 0.4rem;
+    border-radius: 0.35rem;
+    background: rgba(244, 244, 245, 0.82);
+    border: 1px solid rgba(228, 228, 231, 0.75);
+  }
+  :global(.dark) .chat-call-server {
+    color: rgb(161, 161, 170);
+  }
+  :global(.dark) .chat-call-server span:not(.chat-call-server__dot) {
+    background: rgba(39, 39, 42, 0.58);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-call-server__dot {
+    width: 8px; height: 8px; border-radius: 9999px;
+    background: rgb(161, 161, 170);
+    box-shadow: 0 0 0 3px rgba(161, 161, 170, 0.12);
+  }
+  .chat-call-server--good .chat-call-server__dot {
+    background: rgb(16, 185, 129);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+  }
+  .chat-call-server--fair .chat-call-server__dot {
+    background: rgb(245, 158, 11);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+  }
+  .chat-call-server--poor .chat-call-server__dot,
+  .chat-call-server--offline .chat-call-server__dot {
+    background: rgb(239, 68, 68);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+  }
+  .chat-call-settings {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid rgba(228, 228, 231, 0.58);
+  }
+  :global(.dark) .chat-call-settings {
+    border-color: rgba(63, 63, 70, 0.42);
+  }
+  .chat-call-settings__header {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    font-size: 10px; font-weight: 900; text-transform: uppercase;
+    color: rgb(113, 113, 122);
+  }
+  .chat-call-settings__refresh {
+    width: 24px; height: 24px; border-radius: 0.4rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: rgb(113, 113, 122);
+    background: rgba(244, 244, 245, 0.72);
+    border: 1px solid rgba(228, 228, 231, 0.7);
+  }
+  .chat-call-settings__refresh:hover {
+    color: rgb(16, 185, 129);
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+  :global(.dark) .chat-call-settings__refresh {
+    color: rgb(161, 161, 170);
+    background: rgba(39, 39, 42, 0.55);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-call-toggles {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem;
+    margin-top: 0.5rem;
+  }
+  .chat-call-toggle {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    min-height: 28px;
+    padding: 0 0.55rem;
+    border-radius: 0.45rem;
+    color: rgb(82, 82, 91);
+    background: rgba(244, 244, 245, 0.76);
+    border: 1px solid rgba(228, 228, 231, 0.72);
+    font-size: 11px; font-weight: 800;
+  }
+  :global(.dark) .chat-call-toggle {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.58);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-call-toggle input {
+    width: 13px; height: 13px;
+    accent-color: rgb(16, 185, 129);
+  }
+  .chat-call-device-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.55rem;
+  }
+  .chat-call-field {
+    min-width: 0;
+    display: flex; flex-direction: column; gap: 0.25rem;
+  }
+  .chat-call-field span {
+    font-size: 10px; font-weight: 900;
+    color: rgb(113, 113, 122);
+  }
+  .chat-call-field select,
+  .chat-call-field input[type="range"] {
+    width: 100%;
+    min-height: 30px;
+  }
+  .chat-call-field select {
+    border-radius: 0.45rem;
+    border: 1px solid rgba(228, 228, 231, 0.75);
+    background: rgba(255, 255, 255, 0.72);
+    color: rgb(63, 63, 70);
+    padding: 0 0.45rem;
+    font-size: 11px; font-weight: 700;
+    outline: none;
+  }
+  :global(.dark) .chat-call-field select {
+    color: rgb(228, 228, 231);
+    background: rgba(24, 24, 27, 0.68);
+    border-color: rgba(63, 63, 70, 0.55);
+  }
+  .chat-call-field select:focus {
+    border-color: rgba(16, 185, 129, 0.45);
+  }
+  .chat-call-field input[type="range"] {
+    accent-color: rgb(16, 185, 129);
+  }
+  .chat-call-field input[type="range"]:disabled {
+    opacity: 0.35;
+  }
   .chat-call-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -1598,6 +2187,10 @@
     height: 100%;
     object-fit: cover;
     background: rgb(24, 24, 27);
+    transition: filter 0.25s;
+  }
+  .chat-call-tile--blurred .chat-call-video {
+    filter: blur(8px);
   }
   .chat-call-avatar {
     width: 44px; height: 44px; border-radius: 9999px;
@@ -1630,6 +2223,20 @@
     margin-top: 0.45rem;
     font-size: 11px; line-height: 1.45;
     color: rgb(239, 68, 68);
+  }
+  @media (max-width: 640px) {
+    .chat-call-panel__top {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .chat-call-controls {
+      width: 100%;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .chat-call-device-grid {
+      grid-template-columns: 1fr;
+    }
   }
   .chat-status {
     width: 8px; height: 8px; border-radius: 9999px;

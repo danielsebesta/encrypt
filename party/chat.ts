@@ -5,6 +5,11 @@ type RoomState = {
   lockedBy: string | null;
 };
 
+const SERVER_INFO = {
+  name: "encrypt-1",
+  region: "Amsterdam",
+};
+
 export default class ChatRoom implements Party.Server {
   party: Party.Room;
   state: RoomState = { locked: false, lockedBy: null };
@@ -28,6 +33,7 @@ export default class ChatRoom implements Party.Server {
       type: "init",
       presence: this.getConnectionCount(),
       locked: this.state.locked,
+      server: SERVER_INFO,
     }));
   }
 
@@ -63,6 +69,14 @@ export default class ChatRoom implements Party.Server {
           this.broadcast(JSON.stringify({ type: "unlocked" }));
         }
         break;
+
+      case "ping":
+        sender.send(JSON.stringify({
+          type: "pong",
+          t: parsed.t,
+          server: SERVER_INFO,
+        }));
+        break;
     }
   }
 
@@ -82,6 +96,7 @@ export default class ChatRoom implements Party.Server {
       room: this.party.id,
       presence: this.getConnectionCount(),
       locked: this.state.locked,
+      server: SERVER_INFO,
     }), {
       headers: { "Content-Type": "application/json" },
     });
