@@ -78,7 +78,7 @@ const { locale, dict } = Astro.props;
         <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4 leading-relaxed">
           {t(dict, 'chat.pageSubtitle')}
         </p>
-        <ChatCreate client:load locale={locale} />
+        <ChatCreate client:only="svelte" locale={locale} />
       </div>
 
     </div>
