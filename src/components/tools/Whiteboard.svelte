@@ -13,6 +13,7 @@
   export let locale = 'en';
   export let roomId = '';
   export let partyHost = 'encrypt-click.danielsebesta.partykit.dev';
+  export let initialPassword = '';
 
   $: dict = getTranslations(locale);
 
@@ -109,6 +110,11 @@
 
   async function initRoom() {
     if (typeof window === 'undefined') return;
+    if (initialPassword.trim()) {
+      passwordInput = initialPassword.trim();
+      await enterWithPassword(initialPassword.trim());
+      return;
+    }
     const stored = sessionStorage.getItem('whiteboard-password');
     const sharePass = sessionStorage.getItem('whiteboard-share-password');
     if (sharePass) {
