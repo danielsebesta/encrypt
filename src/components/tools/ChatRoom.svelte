@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
+  import Whiteboard from './Whiteboard.svelte';
   import {
     deriveKeyFromPassword,
     encryptMessage, decryptMessage, generateIdentity, nameToGradient
@@ -30,6 +31,15 @@
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     burnOnRead?: boolean;
     revealed?: boolean;
+    whiteboard?: WhiteboardInvite;
+  };
+
+  type WhiteboardInvite = {
+    roomId: string;
+    password: string;
+    sender: string;
+    color: string;
+    createdAt: number;
   };
 
   type CallMode = 'audio' | 'video';
@@ -110,6 +120,7 @@
   let verified = false;
   let verifying = false;
   let wrongPassword = false;
+  let checkingRoom = false;
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
@@ -158,6 +169,8 @@
   let callFullscreenOverlayEl: HTMLDivElement;
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
+  let composerMenuOpen = false;
+  let activeWhiteboard: WhiteboardInvite | null = null;
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -436,8 +449,115 @@
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
   }
 
+  function genAutoPassword(): string {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    const arr = crypto.getRandomValues(new Uint8Array(20));
+    const chars = Array.from(arr, b => alphabet[b % alphabet.length]);
+    return [0, 5, 10, 15].map(i => chars.slice(i, i + 5).join('')).join('-');
+  }
+
+  function genWhiteboardRoomId(): string {
+    const base = `chat-${roomId || 'room'}-${genId()}`.toLowerCase();
+    return base.replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 80).replace(/^-|-$/g, '');
+  }
+
+  function getLocalePrefix(): string {
+    return locale && locale !== 'en' ? `/${locale}` : '';
+  }
+
+  function getWhiteboardUrl(invite: WhiteboardInvite): string {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
+    return `${origin}${getLocalePrefix()}/whiteboard/${encodeURIComponent(invite.roomId)}`;
+  }
+
+  function normalizeWhiteboardInvite(parsed: any): WhiteboardInvite | null {
+    if (!parsed || typeof parsed.roomId !== 'string' || typeof parsed.password !== 'string') return null;
+    if (!parsed.roomId.trim() || !parsed.password.trim()) return null;
+    return {
+      roomId: parsed.roomId,
+      password: parsed.password,
+      sender: typeof parsed.sender === 'string' && parsed.sender.trim() ? parsed.sender : t(dict, 'chat.guest'),
+      color: typeof parsed.color === 'string' && parsed.color.trim() ? parsed.color : 'rgb(16,185,129)',
+      createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
+    };
+  }
+
+  function addWhiteboardInviteMessage(invite: WhiteboardInvite, id: string, mine: boolean) {
+    const ttl = ttlSeconds > 0 ? Math.max(ttlSeconds, 300) : 300;
+    messages = [...messages, {
+      id,
+      text: '',
+      sender: invite.sender,
+      initials: getInitials(invite.sender),
+      color: invite.color,
+      mine,
+      time: Date.now(),
+      ttl,
+      remaining: ttl,
+      whiteboard: invite,
+      revealed: true,
+    }];
+    scrollToBottom();
+  }
+
+  async function createWhiteboardInvite() {
+    if (!cryptoKey || !ws || !connected || !verified) return;
+    composerMenuOpen = false;
+
+    const invite: WhiteboardInvite = {
+      roomId: genWhiteboardRoomId(),
+      password: genAutoPassword(),
+      sender: identity.name,
+      color: identity.color,
+      createdAt: Date.now(),
+    };
+    const payload = {
+      type: 'whiteboard-invite',
+      roomId: invite.roomId,
+      password: invite.password,
+      sender: invite.sender,
+      color: invite.color,
+      createdAt: invite.createdAt,
+    };
+    const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
+    const msgId = `whiteboard-${genId()}`;
+    ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
+    addWhiteboardInviteMessage(invite, msgId, true);
+    activeWhiteboard = invite;
+  }
+
+  function openWhiteboardInline(invite: WhiteboardInvite) {
+    composerMenuOpen = false;
+    activeWhiteboard = invite;
+  }
+
+  function openWhiteboardNewTab(invite: WhiteboardInvite) {
+    composerMenuOpen = false;
+    const url = getWhiteboardUrl(invite);
+    const child = typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
+    if (child) {
+      try {
+        child.sessionStorage.setItem('whiteboard-password', invite.password);
+        child.location.href = url;
+        return;
+      } catch {
+        child.close();
+      }
+    }
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('whiteboard-password', invite.password);
+      window.location.href = url;
+    }
+  }
+
+  function chooseFileUpload() {
+    composerMenuOpen = false;
+    fileInputEl?.click();
+  }
+
   async function initChat() {
     if (typeof window === 'undefined') return;
+    checkingRoom = true;
     const stored = sessionStorage.getItem('chat-password');
     const sharePass = sessionStorage.getItem('chat-share-password');
     if (sharePass) {
@@ -449,7 +569,7 @@
       passwordInput = stored;
       await enterWithPassword(stored);
     } else {
-      needsPassword = true;
+      connectWs();
     }
   }
 
@@ -475,21 +595,104 @@
     await enterWithPassword(passwordInput.trim());
   }
 
-  async function enterWithPassword(pwd: string) {
+  function retryAfterWrongPassword() {
+    clearVerificationTimeout();
+    wrongPassword = false;
+    needsPassword = false;
+    checkingRoom = true;
+    passwordInput = '';
+    passwordUsed = '';
+    cryptoKey = null;
+    verified = false;
+    verifying = false;
+    joinedRoom = false;
+    ws?.close();
+    ws = null;
+    connectWs();
+  }
+
+  function clearVerificationTimeout() {
+    if (!verificationTimeout) return;
+    clearTimeout(verificationTimeout);
+    verificationTimeout = undefined;
+  }
+
+  function markVerified() {
+    clearVerificationTimeout();
+    verified = true;
+    verifying = false;
+    wrongPassword = false;
+  }
+
+  function startPasswordVerification(activePeerCount: number) {
+    clearVerificationTimeout();
+    verifying = true;
+    verified = false;
+    wrongPassword = false;
+
+    if (activePeerCount <= 0) {
+      markVerified();
+      return;
+    }
+
+    verificationTimeout = setTimeout(() => {
+      if (verifying && !verified) {
+        wrongPassword = true;
+        verifying = false;
+        joinedRoom = false;
+        ws?.close();
+      }
+    }, 4000);
+  }
+
+  async function announceJoined(activePeerCount?: number) {
+    if (!cryptoKey || !ws || ws.readyState !== 1) return;
+
+    joinedRoom = true;
+    ws.send(JSON.stringify({ type: 'join' }));
+
+    if (typeof activePeerCount === 'number') {
+      startPasswordVerification(activePeerCount);
+    } else {
+      verifying = true;
+      verified = false;
+      wrongPassword = false;
+    }
+
+    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, clientId }));
+    ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
+  }
+
+  async function enterWithPassword(pwd: string, options: { share?: boolean; activePeerCount?: number } = {}) {
     try {
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
       passwordUsed = pwd;
       needsPassword = false;
-      connectWs();
+      checkingRoom = false;
+      if (options.share && !sharePassword) sharePassword = pwd;
+      if (ws && ws.readyState === 1) {
+        await announceJoined(options.activePeerCount ?? serverPresence);
+      } else {
+        connectWs();
+      }
     } catch {
       passwordError = t(dict, 'chat.errorDeriveKey');
+      checkingRoom = false;
       needsPassword = true;
     }
   }
 
+  async function enterEmptyRoom() {
+    const generated = genAutoPassword();
+    passwordInput = generated;
+    await enterWithPassword(generated, { share: true, activePeerCount: 0 });
+  }
+
   let serverPresence = 0;
+  let joinedRoom = false;
 
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+  let verificationTimeout: ReturnType<typeof setTimeout> | undefined;
 
   function connectWs() {
     verifying = true;
@@ -507,21 +710,19 @@
     ws.addEventListener('open', async () => {
       connected = true;
       recordServerLatencySample(serverConnectStartedAt);
-      if (cryptoKey) {
-        const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, clientId }));
-        ws!.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
-      }
+      if (cryptoKey) await announceJoined();
       sendServerPing();
     });
     ws.addEventListener('close', () => {
       connected = false;
+      joinedRoom = false;
       serverLatencyMs = null;
       serverConnectStartedAt = 0;
       updateServerQuality();
     });
     ws.addEventListener('error', () => {
       // WS error means TCP/upgrade/network problem — NOT a password issue.
-      // Let PartySocket retry; the 4 s init-handler timeout (after presence > 1)
+      // Let PartySocket retry; the 4 s handshake timeout after peers are present
       // is the authoritative wrong-password signal.
     });
     ws.addEventListener('message', handleServerMessage);
@@ -542,21 +743,20 @@
       serverPresence = data.presence;
       serverName = data.server?.name || SERVER_FALLBACK_NAME;
       serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
-      // If alone in room (presence=1 = just me), auto-verify - no one to validate against
-      if (verifying && serverPresence <= 1) {
-        // Alone - no one to verify against, just enter
-        verified = true;
-        verifying = false;
-      } else if (verifying && serverPresence > 1) {
-        // Others present - they'll send verify messages we need to decrypt
-        // If we can't decrypt any within 4s, wrong password
-        setTimeout(() => {
-          if (verifying && !verified) {
-            wrongPassword = true;
-            verifying = false;
-            ws?.close();
-          }
-        }, 4000);
+      if (!cryptoKey) {
+        checkingRoom = false;
+        if (serverPresence <= 0) {
+          await enterEmptyRoom();
+        } else {
+          needsPassword = true;
+          verifying = false;
+        }
+        return;
+      }
+      // The server reports only people who are already inside the chat. When
+      // that count is zero, there is nobody online to validate this password.
+      if (verifying) {
+        startPasswordVerification(serverPresence);
       }
       return;
     }
@@ -570,7 +770,15 @@
       updateServerQuality();
       return;
     }
-    if (data.type === 'presence') { serverPresence = data.count; return; }
+    if (data.type === 'presence') {
+      serverPresence = data.count;
+      if (!cryptoKey && needsPassword && serverPresence <= 0) {
+        await enterEmptyRoom();
+      } else if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
+        markVerified();
+      }
+      return;
+    }
     if (data.type !== 'message') return;
     if (!cryptoKey) return;
 
@@ -580,7 +788,7 @@
 
       // Typing indicator
       if (parsed.type === 'typing') {
-        if (verifying) { verified = true; verifying = false; }
+        if (verifying) markVerified();
         typing = { sender: parsed.sender, initials: getInitials(parsed.sender), color: parsed.color };
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { typing = null; }, 3000);
@@ -589,7 +797,7 @@
 
       // Verify message - someone joined with correct password
       if (parsed.type === 'verify') {
-        if (verifying) { verified = true; verifying = false; }
+        if (verifying) markVerified();
         if (verified && cryptoKey && ws) {
           const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, clientId }));
           ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
@@ -606,18 +814,26 @@
 
       // Verify-ack - confirmation from existing member
       if (parsed.type === 'verify-ack') {
-        if (verifying) { verified = true; verifying = false; }
+        if (verifying) markVerified();
         addOnlineUser(parsed.sender, parsed.color);
         return;
       }
 
+      if (parsed.type === 'whiteboard-invite') {
+        if (verifying) markVerified();
+        const invite = normalizeWhiteboardInvite(parsed);
+        if (!invite) return;
+        addWhiteboardInviteMessage(invite, data.id || `whiteboard-${genId()}`, false);
+        return;
+      }
+
       if (parsed.type === 'call-signal') {
-        if (verifying) { verified = true; verifying = false; }
+        if (verifying) markVerified();
         await handleCallSignal(parsed as CallSignal);
         return;
       }
 
-      if (!verified) { verified = true; verifying = false; }
+      if (!verified) markVerified();
 
       const isBurn = parsed.burnOnRead === true;
       const msg: Message = {
@@ -1619,6 +1835,10 @@
   }
 
   function handleCallFullscreenKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && composerMenuOpen) {
+      composerMenuOpen = false;
+      return;
+    }
     if (event.key === 'Escape' && callFullscreenTarget) closeCallFullscreen();
   }
 
@@ -1740,6 +1960,7 @@
     ws?.close();
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    clearVerificationTimeout();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
       document.removeEventListener('fullscreenchange', handleNativeFullscreenChange);
@@ -1770,7 +1991,15 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <p class="text-sm font-medium text-red-500">{t(dict, 'chat.wrongPassword')}</p>
         <p class="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.wrongPasswordDetail')}</p>
-        <button class="btn-outline w-full text-xs" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'chat.tryAgain')}</button>
+        <button class="btn-outline w-full text-xs" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
+      </div>
+    </div>
+
+  {:else if checkingRoom}
+    <div class="chat-center">
+      <div class="text-center space-y-2">
+        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <p class="text-xs text-zinc-400">{t(dict, 'common.working')}</p>
       </div>
     </div>
 
@@ -2047,6 +2276,29 @@
       {/if}
 
       <div class="chat-thread">
+        {#if activeWhiteboard}
+          <div class="chat-whiteboard-panel">
+            <div class="chat-whiteboard-panel__bar">
+              <div class="min-w-0">
+                <p class="chat-whiteboard-panel__title">{t(dict, 'chat.whiteboardTitle')}</p>
+                <p class="chat-whiteboard-panel__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', activeWhiteboard.sender)}</p>
+              </div>
+              <div class="chat-whiteboard-panel__actions">
+                <button class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardOpenNewTab')} on:click={() => openWhiteboardNewTab(activeWhiteboard!)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+                </button>
+                <button class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardClose')} on:click={() => { activeWhiteboard = null; }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="chat-whiteboard-panel__surface">
+              {#key activeWhiteboard.roomId}
+                <Whiteboard locale={locale} roomId={activeWhiteboard.roomId} partyHost={partyHost} initialPassword={activeWhiteboard.password} />
+              {/key}
+            </div>
+          </div>
+        {/if}
         <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl}>
       {#if messages.length === 0}
         <div class="chat-center">
@@ -2096,6 +2348,25 @@
                   {/if}
                 </div>
               {/if}
+              {#if msg.whiteboard}
+                <div class="chat-whiteboard-card">
+                  <div class="chat-whiteboard-card__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v14H3z"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 9h5"/><path d="M7 13h10"/></svg>
+                  </div>
+                  <div class="chat-whiteboard-card__body">
+                    <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
+                    <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
+                    <div class="chat-whiteboard-card__actions">
+                      <button class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardInline(msg.whiteboard!)}>
+                        {t(dict, 'chat.whiteboardOpenInline')}
+                      </button>
+                      <button class="chat-whiteboard-card__btn" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
+                        {t(dict, 'chat.whiteboardOpenNewTab')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
               {#if msg.preview}
                 {#if msg.preview.type === 'image' && msg.preview.url}
                   <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
@@ -2140,13 +2411,37 @@
         </div>
 
         <div class="chat-input">
-          <button class="chat-attach-btn" on:click={() => fileInputEl?.click()} disabled={!connected || uploading}>
-            {#if uploading}
-              <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          <div class="chat-attach-menu">
+            <button
+              type="button"
+              class="chat-attach-btn"
+              class:chat-attach-btn--active={composerMenuOpen}
+              on:click={() => { composerMenuOpen = !composerMenuOpen; }}
+              disabled={!connected || uploading}
+              aria-haspopup="menu"
+              aria-expanded={composerMenuOpen}
+              aria-label={t(dict, 'chat.addMenu')}
+              title={t(dict, 'chat.addMenu')}
+            >
+              {#if uploading}
+                <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              {/if}
+            </button>
+            {#if composerMenuOpen}
+              <div class="chat-attach-dropdown" role="menu">
+                <button type="button" class="chat-attach-option" role="menuitem" on:click={chooseFileUpload}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span>{t(dict, 'chat.uploadFile')}</span>
+                </button>
+                <button type="button" class="chat-attach-option" role="menuitem" on:click={createWhiteboardInvite} disabled={!verified}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v14H3z"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 9h5"/><path d="M7 13h10"/></svg>
+                  <span>{t(dict, 'chat.createWhiteboard')}</span>
+                </button>
+              </div>
             {/if}
-          </button>
+          </div>
           <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
           <input
             type="text"
@@ -2155,6 +2450,7 @@
             bind:value={inputText}
             on:input={handleTyping}
             on:keydown={(e) => e.key === 'Enter' && handleSend()}
+            on:focus={() => { composerMenuOpen = false; }}
             disabled={!connected || uploading}
             autocomplete="off"
             data-lpignore="true"
@@ -2257,6 +2553,79 @@
   :global(.dark) .chat-body--call .chat-thread {
     border-color: rgba(39, 39, 42, 0.55);
     background: rgba(9, 9, 11, 0.18);
+  }
+  .chat-whiteboard-panel {
+    flex: 0 0 min(430px, 58%);
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid rgba(228, 228, 231, 0.55);
+    background: rgba(250, 250, 250, 0.72);
+  }
+  :global(.dark) .chat-whiteboard-panel {
+    border-color: rgba(39, 39, 42, 0.55);
+    background: rgba(9, 9, 11, 0.28);
+  }
+  .chat-whiteboard-panel__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid rgba(228, 228, 231, 0.5);
+  }
+  :global(.dark) .chat-whiteboard-panel__bar { border-color: rgba(39, 39, 42, 0.45); }
+  .chat-whiteboard-panel__title {
+    font-size: 12px;
+    font-weight: 850;
+    color: rgb(39, 39, 42);
+  }
+  :global(.dark) .chat-whiteboard-panel__title { color: rgb(228, 228, 231); }
+  .chat-whiteboard-panel__meta {
+    font-size: 11px;
+    color: rgb(113, 113, 122);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chat-whiteboard-panel__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+  .chat-whiteboard-panel__button {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: rgb(113, 113, 122);
+    background: rgba(244, 244, 245, 0.85);
+    border: 1px solid rgba(228, 228, 231, 0.75);
+  }
+  .chat-whiteboard-panel__button:hover {
+    color: rgb(16, 185, 129);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.18);
+  }
+  :global(.dark) .chat-whiteboard-panel__button {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.65);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-whiteboard-panel__surface {
+    flex: 1;
+    min-height: 0;
+  }
+  .chat-whiteboard-panel__surface :global(.wb-container) {
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
   }
   .chat-share-banner {
     padding: 0.5rem 0.75rem;
@@ -2919,8 +3288,54 @@
     padding: 0.4rem; border-radius: 0.5rem;
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
-  .chat-attach-btn:hover:not(:disabled) { color: rgb(16, 185, 129); }
+  .chat-attach-menu { position: relative; flex-shrink: 0; }
+  .chat-attach-btn:hover:not(:disabled),
+  .chat-attach-btn--active {
+    color: rgb(16, 185, 129);
+  }
   .chat-attach-btn:disabled { opacity: 0.3; }
+  .chat-attach-dropdown {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    z-index: 30;
+    width: 190px;
+    padding: 0.3rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(228, 228, 231, 0.75);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    backdrop-filter: blur(14px);
+  }
+  :global(.dark) .chat-attach-dropdown {
+    border-color: rgba(63, 63, 70, 0.65);
+    background: rgba(24, 24, 27, 0.96);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+  }
+  .chat-attach-option {
+    width: 100%;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.55rem;
+    border-radius: 0.5rem;
+    font-size: 12px;
+    font-weight: 800;
+    color: rgb(63, 63, 70);
+    text-align: left;
+  }
+  .chat-attach-option:hover:not(:disabled) {
+    color: rgb(16, 185, 129);
+    background: rgba(16, 185, 129, 0.08);
+  }
+  .chat-attach-option:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+  :global(.dark) .chat-attach-option {
+    color: rgb(228, 228, 231);
+  }
   .chat-file {
     display: flex; align-items: center; gap: 0.5rem;
     padding: 0.4rem 0.6rem; margin: 0.25rem 0;
@@ -2946,6 +3361,88 @@
     color: rgb(16, 185, 129); transition: background 0.15s;
   }
   .chat-file__dl:hover { background: rgba(16, 185, 129, 0.1); }
+  .chat-whiteboard-card {
+    display: flex;
+    gap: 0.6rem;
+    min-width: min(320px, 72vw);
+    margin: 0.25rem 0;
+    padding: 0.6rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(16, 185, 129, 0.16);
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.035));
+  }
+  :global(.dark) .chat-whiteboard-card {
+    border-color: rgba(16, 185, 129, 0.14);
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.055));
+  }
+  .chat-whiteboard-card__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 0.55rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: rgb(16, 185, 129);
+    background: rgba(16, 185, 129, 0.12);
+  }
+  .chat-whiteboard-card__body {
+    min-width: 0;
+    flex: 1;
+  }
+  .chat-whiteboard-card__title {
+    font-size: 13px;
+    font-weight: 850;
+    color: rgb(39, 39, 42);
+  }
+  :global(.dark) .chat-whiteboard-card__title { color: rgb(228, 228, 231); }
+  .chat-whiteboard-card__meta {
+    margin-top: 1px;
+    font-size: 11px;
+    color: rgb(113, 113, 122);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chat-whiteboard-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+  }
+  .chat-whiteboard-card__btn {
+    min-height: 28px;
+    padding: 0 0.55rem;
+    border-radius: 0.45rem;
+    font-size: 11px;
+    font-weight: 850;
+    color: rgb(82, 82, 91);
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(228, 228, 231, 0.8);
+  }
+  .chat-whiteboard-card__btn:hover {
+    color: rgb(16, 185, 129);
+    border-color: rgba(16, 185, 129, 0.22);
+  }
+  .chat-whiteboard-card__btn--primary {
+    color: white;
+    background: rgb(16, 185, 129);
+    border-color: rgb(16, 185, 129);
+  }
+  .chat-whiteboard-card__btn--primary:hover {
+    color: white;
+    background: rgb(5, 150, 105);
+  }
+  :global(.dark) .chat-whiteboard-card__btn {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.68);
+    border-color: rgba(63, 63, 70, 0.5);
+  }
+  :global(.dark) .chat-whiteboard-card__btn--primary {
+    color: white;
+    background: rgb(16, 185, 129);
+    border-color: rgb(16, 185, 129);
+  }
   .chat-send-btn {
     padding: 0.4rem; border-radius: 0.5rem;
     color: rgb(16, 185, 129); transition: background 0.15s;
