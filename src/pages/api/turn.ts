@@ -18,6 +18,18 @@ type TurnProviderResult = {
   expiresAt?: number;
 };
 
+type TurnProviderName = 'cloudflare' | 'encrypt-1' | 'metered';
+
+type TurnProviderAttempt = {
+  provider: TurnProviderName;
+  enabled: boolean;
+  configured: boolean;
+  ok: boolean;
+  count: number;
+  missing?: string[];
+  error?: string;
+};
+
 function runtimeEnv(locals: unknown): Record<string, unknown> {
   const workerEnv = ((locals as any).runtime?.env ?? {}) as Record<string, unknown>;
   const nodeEnv = typeof process !== 'undefined' ? (process.env ?? {}) : {};
@@ -26,7 +38,7 @@ function runtimeEnv(locals: unknown): Record<string, unknown> {
 
 function envString(env: Record<string, unknown>, key: string): string {
   const value = env[key];
-  return typeof value === 'string' ? value : '';
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -148,13 +160,67 @@ async function loadMeteredApiIceServers(apiKey: string, appHost: string): Promis
   return { iceServers, ttl: METERED_API_TTL_SECONDS };
 }
 
-function turnResponse(results: TurnProviderResult[]) {
+function publicErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message.slice(0, 120);
+  return 'provider failed';
+}
+
+async function tryProvider(
+  provider: TurnProviderName,
+  enabled: boolean,
+  missing: string[],
+  load: () => Promise<TurnProviderResult>,
+): Promise<{ result: TurnProviderResult | null; attempt: TurnProviderAttempt }> {
+  const configured = missing.length === 0;
+  if (!enabled || !configured) {
+    return {
+      result: null,
+      attempt: {
+        provider,
+        enabled,
+        configured,
+        ok: false,
+        count: 0,
+        ...(missing.length ? { missing } : {}),
+      },
+    };
+  }
+
+  try {
+    const result = await load();
+    return {
+      result,
+      attempt: {
+        provider,
+        enabled,
+        configured,
+        ok: true,
+        count: result.iceServers.length,
+      },
+    };
+  } catch (error) {
+    return {
+      result: null,
+      attempt: {
+        provider,
+        enabled,
+        configured,
+        ok: false,
+        count: 0,
+        error: publicErrorMessage(error),
+      },
+    };
+  }
+}
+
+function turnResponse(results: TurnProviderResult[], diagnostics?: Record<string, unknown>) {
   const iceServers = results.flatMap((result) => result.iceServers);
   if (!iceServers.length) {
     return jsonResponse({
       iceServers: [],
       turnReady: false,
       ttl: 0,
+      ...(diagnostics ? { diagnostics } : {}),
     });
   }
 
@@ -165,6 +231,7 @@ function turnResponse(results: TurnProviderResult[]) {
     turnReady: true,
     ttl: ttls.length ? Math.min(...ttls) : 0,
     ...(expiresAtValues.length ? { expiresAt: Math.min(...expiresAtValues) } : {}),
+    ...(diagnostics ? { diagnostics } : {}),
   });
 }
 
@@ -197,31 +264,36 @@ export const GET: APIRoute = async ({ locals, request }) => {
   const cloudflareTtl = clampTurnTtl(envNumber(env, 'CLOUDFLARE_TURN_TTL_SECONDS', CLOUDFLARE_TURN_TTL_SECONDS));
   const meteredApiKey = envString(env, 'METERED_TURN_API_KEY');
   const meteredApiHost = envString(env, 'METERED_TURN_API_HOST') || 'encrypt.metered.live';
+  const debug = new URL(request.url).searchParams.get('debug') === '1';
 
-  if (!autoProvider) {
-    if (useCloudflare && cloudflareTokenId && cloudflareApiToken) {
-      try { return turnResponse([await loadCloudflareIceServers(cloudflareTokenId, cloudflareApiToken, cloudflareTtl)]); } catch {}
-    }
-    if (useEncryptOne && secret) {
-      try { return turnResponse([await loadEncryptOneIceServers(secret)]); } catch {}
-    }
-    if (useMetered && meteredApiKey) {
-      try { return turnResponse([await loadMeteredApiIceServers(meteredApiKey, meteredApiHost)]); } catch {}
-    }
-    return turnResponse([]);
-  }
+  const attempts = await Promise.all([
+    tryProvider(
+      'cloudflare',
+      useCloudflare,
+      [
+        ...(cloudflareTokenId ? [] : ['CLOUDFLARE_TURN_TOKEN_ID']),
+        ...(cloudflareApiToken ? [] : ['CLOUDFLARE_TURN_API_TOKEN']),
+      ],
+      () => loadCloudflareIceServers(cloudflareTokenId, cloudflareApiToken, cloudflareTtl),
+    ),
+    tryProvider(
+      'encrypt-1',
+      useEncryptOne,
+      secret ? [] : ['TURN_AUTH_SECRET'],
+      () => loadEncryptOneIceServers(secret),
+    ),
+    tryProvider(
+      'metered',
+      useMetered,
+      meteredApiKey ? [] : ['METERED_TURN_API_KEY'],
+      () => loadMeteredApiIceServers(meteredApiKey, meteredApiHost),
+    ),
+  ]);
 
-  const providers: Promise<TurnProviderResult | null>[] = [];
-  if (cloudflareTokenId && cloudflareApiToken) {
-    providers.push(loadCloudflareIceServers(cloudflareTokenId, cloudflareApiToken, cloudflareTtl).catch(() => null));
-  }
-  if (secret) {
-    providers.push(loadEncryptOneIceServers(secret).catch(() => null));
-  }
-  if (meteredApiKey) {
-    providers.push(loadMeteredApiIceServers(meteredApiKey, meteredApiHost).catch(() => null));
-  }
-
-  const results = (await Promise.all(providers)).filter((result): result is TurnProviderResult => Boolean(result));
-  return turnResponse(results);
+  const results = attempts.map((item) => item.result).filter((result): result is TurnProviderResult => Boolean(result));
+  return turnResponse(results, debug ? {
+    provider: provider || 'auto',
+    autoProvider,
+    attempts: attempts.map((item) => item.attempt),
+  } : undefined);
 };
