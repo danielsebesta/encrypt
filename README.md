@@ -189,7 +189,7 @@ Routing:
 
 - Core crypto runs in the browser.
 - Some flows intentionally use server routes for things like URL shortening, encrypted upload relays, or the drand proxy.
-- Chat audio/video calls use WebRTC in TURN-only relay mode to avoid exposing peer IP addresses. Set `TURN_AUTH_SECRET` to the same coturn `static-auth-secret`; local dev also accepts `AUTH_SECRET` as a fallback. Without TURN credentials, calls are disabled.
+- Chat calls use WebRTC in TURN-only relay mode to avoid exposing peer IP addresses. Primary TURN is the self-hosted coturn server via `TURN_AUTH_SECRET` / `COTURN_AUTH_SECRET`; local dev also accepts `AUTH_SECRET`. Optional fallback can be Metered (`METERED_TURN_API_KEY` or static `METERED_TURN_USERNAME` + `METERED_TURN_CREDENTIAL`) or generic static TURN such as ExpressTURN (`EXPRESSTURN_TURN_USERNAME` + `EXPRESSTURN_TURN_CREDENTIAL`, optionally `EXPRESSTURN_TURN_URLS`). Default provider selection uses coturn when its secret is present; set `TURN_PROVIDER=metered` or `TURN_PROVIDER=expressturn` as an emergency switch if coturn is down. Without any TURN credentials, calls are disabled.
 - Read `/security` for the user-facing privacy summary.
 
 ## Deployment
