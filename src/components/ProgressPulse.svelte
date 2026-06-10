@@ -1,7 +1,13 @@
 <script lang="ts">
-  export let title = 'Working...';
+  import { getTranslations, t } from '../lib/i18n';
+
+  export let title: string | undefined = undefined;
   export let detail = '';
   export let compact = false;
+  export let locale = 'en';
+
+  $: dict = getTranslations(locale);
+  $: displayTitle = title ?? t(dict, 'common.working');
 </script>
 
 <div class={`pp ${compact ? 'pp--compact' : ''}`} aria-live="polite" aria-busy="true">
@@ -14,7 +20,7 @@
     {/each}
   </div>
   <div class="pp-text">
-    <p class="pp-title">{title}</p>
+    <p class="pp-title">{displayTitle}</p>
     {#if detail}
       <p class="pp-detail">{detail}</p>
     {/if}

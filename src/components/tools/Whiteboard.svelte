@@ -845,14 +845,14 @@
       <div class="wb-share-banner">
         <div class="flex items-center justify-between mb-2">
           <span class="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">{t(dict, 'whiteboard.sharePasswordWarning')}</span>
-          <button class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" on:click={() => { shareDismissed = true; }} aria-label="Close">
+          <button class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5 mb-1.5">
           <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'whiteboard.roomLink')}</span>
           <code class="wb-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
-          <button class="wb-share-copy" on:click={copyShareLink} aria-label="Copy link">
+          <button class="wb-share-copy" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
             {#if shareCopiedLink}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
             {:else}
@@ -863,7 +863,7 @@
         <div class="flex items-center gap-1.5">
           <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'whiteboard.password')}</span>
           <code class="wb-share-value">{sharePassword}</code>
-          <button class="wb-share-copy" on:click={copySharePassword} aria-label="Copy password">
+          <button class="wb-share-copy" on:click={copySharePassword} aria-label={t(dict, 'whiteboard.copyRoomPassword')}>
             {#if shareCopiedPass}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
             {:else}
@@ -887,7 +887,7 @@
         on:pointercancel={pointerUp}
         on:contextmenu|preventDefault
         role="application"
-        aria-label="Whiteboard canvas"
+        aria-label={t(dict, 'whiteboard.canvasLabel')}
       >
         {#each shapesArray as s (s.id)}
           {@const isSel = selectedId === s.id}

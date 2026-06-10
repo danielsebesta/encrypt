@@ -425,7 +425,7 @@
       }
 
       case 'error':
-        serverError = data.message || 'Error';
+        serverError = data.message || t(dict, 'quiz.errorGeneric');
         if (data.code === 'ROOM_LOCKED') {
           serverError = t(dict, 'quiz.errorRoomTaken');
         }
@@ -819,7 +819,7 @@
         myScore = payload.score;
         return;
       case 'h-error':
-        serverError = payload.message || 'Error';
+        serverError = payload.message || t(dict, 'quiz.errorGeneric');
         if (payload.code === 'NICK_TAKEN') needsNick = true;
         return;
     }
@@ -1072,7 +1072,7 @@
       <div class="quiz-error-banner">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span>{serverError}</span>
-        <button on:click={() => serverError = ''} aria-label="Dismiss">
+        <button on:click={() => serverError = ''} aria-label={t(dict, 'quiz.dismissError')}>
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -1293,7 +1293,7 @@
                   class="quiz-player-btn"
                   style="--c: {COLORS[ci].bg}"
                   on:click={() => submitAnswer(ci)}
-                  aria-label={`Answer ${ci + 1}`}
+                  aria-label={t(dict, 'quiz.answerAria').replace('{number}', String(ci + 1))}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html ICONS[ci]}</svg>
                 </button>

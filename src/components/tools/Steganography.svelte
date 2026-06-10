@@ -186,9 +186,9 @@
         class="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors cursor-pointer group aspect-video flex flex-col items-center justify-center overflow-hidden"
       >
         {#if encodedImageUrl}
-          <img src={encodedImageUrl} alt="Encoded Result" class="max-h-full max-w-full object-contain" />
+          <img src={encodedImageUrl} alt={t(dict, 'tools.steganography.encodedResultAlt')} class="max-h-full max-w-full object-contain" />
         {:else if imageUrl}
-          <img src={imageUrl} alt="Preview" class="max-h-full max-w-full object-contain" />
+          <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} class="max-h-full max-w-full object-contain" />
         {:else}
           <div class="space-y-2">
             <div class="text-sm text-zinc-500 group-hover:text-emerald-500 transition-colors">

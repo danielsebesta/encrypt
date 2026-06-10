@@ -480,7 +480,7 @@
         <button type="button" on:click={() => imageInput?.click()}
           class="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors cursor-pointer group aspect-video flex flex-col items-center justify-center overflow-hidden">
           {#if imageUrl}
-            <img src={imageUrl} alt="Preview" class="max-h-full max-w-full object-contain" />
+            <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} class="max-h-full max-w-full object-contain" />
           {:else}
             <div class="space-y-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-zinc-400 group-hover:text-emerald-500 transition-colors"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>

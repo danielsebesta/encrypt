@@ -26,7 +26,9 @@
         const words = inputText.trim().split(/\s+/);
         const chunks = words.map(word => {
           const index = dictionary.indexOf(word.toLowerCase());
-          if (index === -1) throw new Error(`Word not found in dictionary: ${word}`);
+          if (index === -1) {
+            throw new Error(t(dict, 'tools.aesWords.errorWordNotFound').replace('{word}', word));
+          }
           return index;
         });
         const encryptedData = from14BitChunks(chunks);

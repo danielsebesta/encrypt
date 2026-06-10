@@ -32,6 +32,44 @@
     revealed?: boolean;
   };
 
+  type CallMode = 'audio' | 'video';
+
+  type CallPeer = {
+    id: string;
+    name: string;
+    initials: string;
+    color: string;
+    pc: RTCPeerConnection;
+    stream: MediaStream | null;
+    state: RTCPeerConnectionState;
+    muted: boolean;
+    cameraOff: boolean;
+    makingOffer: boolean;
+  };
+
+  type CallSignal = {
+    type: 'call-signal';
+    action: 'join' | 'offer' | 'answer' | 'ice' | 'leave' | 'media';
+    callId: string;
+    from: string;
+    fromName: string;
+    fromColor: string;
+    to?: string;
+    mode?: CallMode;
+    reply?: boolean;
+    sdp?: RTCSessionDescriptionInit;
+    candidate?: RTCIceCandidateInit;
+    audio?: boolean;
+    video?: boolean;
+  };
+
+  type TurnConfig = {
+    iceServers?: RTCIceServer[];
+    turnReady?: boolean;
+    ttl?: number;
+    expiresAt?: number;
+  };
+
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
   let identity = generateIdentity(locale);
@@ -57,11 +95,26 @@
   let shareCopiedLink = false;
   let shareCopiedPass = false;
   let shareDismissed = false;
+  let clientId = '';
+  let callActive = false;
+  let callJoining = false;
+  let callMode: CallMode = 'audio';
+  let callError = '';
+  let incomingCall: { from: string; name: string; color: string; mode: CallMode } | null = null;
+  let localStream: MediaStream | null = null;
+  let callPeers: CallPeer[] = [];
+  let micMuted = false;
+  let cameraOff = true;
+  let iceServers: RTCIceServer[] = [];
+  let iceServersFetchedAt = 0;
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
+  const CALL_ID = `call:${roomId}`;
+  const callPeerMap = new Map<string, CallPeer>();
+  const pendingIce = new Map<string, RTCIceCandidateInit[]>();
   let tickInterval: ReturnType<typeof setInterval>;
   let messagesEl: HTMLElement;
 
@@ -115,6 +168,88 @@
     requestAnimationFrame(() => {
       if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
     });
+  }
+
+  function streamMedia(node: HTMLMediaElement, stream: MediaStream | null | undefined) {
+    node.srcObject = stream ?? null;
+    return {
+      update(next: MediaStream | null | undefined) {
+        if (node.srcObject !== next) node.srcObject = next ?? null;
+      },
+      destroy() {
+        node.srcObject = null;
+      },
+    };
+  }
+
+  function syncCallPeers() {
+    callPeers = Array.from(callPeerMap.values());
+  }
+
+  function hasTurnCredentials(servers: RTCIceServer[]): boolean {
+    return servers.some((server) => {
+      const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+      return Boolean(server.username && server.credential && urls.some((url) => String(url).startsWith('turn:')));
+    });
+  }
+
+  function sanitizeRelayDescription(description: RTCSessionDescription | RTCSessionDescriptionInit | null | undefined): RTCSessionDescriptionInit | undefined {
+    if (!description?.type || !description.sdp) return description ?? undefined;
+    const lines = description.sdp.split('\r\n').filter((line) => {
+      if (!line.startsWith('a=candidate:')) return true;
+      return / typ relay(?: |$)/.test(line);
+    });
+    return { type: description.type, sdp: lines.join('\r\n') };
+  }
+
+  function isRelayCandidate(candidate: RTCIceCandidate): boolean {
+    return / typ relay(?: |$)/.test(candidate.candidate);
+  }
+
+  async function loadIceServers(force = false): Promise<RTCIceServer[]> {
+    if (!force && iceServersFetchedAt && Date.now() - iceServersFetchedAt < 45 * 60 * 1000) {
+      return iceServers;
+    }
+
+    try {
+      const res = await fetch('/api/turn', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as TurnConfig;
+      if (!data.turnReady || !Array.isArray(data.iceServers) || !hasTurnCredentials(data.iceServers)) {
+        throw new Error(t(dict, 'chat.callTurnRequired'));
+      }
+      iceServers = data.iceServers;
+      iceServersFetchedAt = Date.now();
+    } catch {
+      iceServers = [];
+      iceServersFetchedAt = Date.now();
+      throw new Error(t(dict, 'chat.callTurnRequired'));
+    }
+
+    return iceServers;
+  }
+
+  async function sendEncryptedControl(payload: Record<string, unknown>, idPrefix: string) {
+    if (!cryptoKey || !ws || ws.readyState !== 1) return;
+    const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
+    ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: `${idPrefix}-${genId()}` }));
+  }
+
+  async function sendCallSignal(partial: Partial<CallSignal>) {
+    if (!clientId) return;
+    const signal: CallSignal = {
+      type: 'call-signal',
+      action: partial.action ?? 'media',
+      callId: CALL_ID,
+      from: clientId,
+      fromName: identity.name,
+      fromColor: identity.color,
+      mode: callMode,
+      audio: !micMuted,
+      video: !cameraOff,
+      ...partial,
+    };
+    await sendEncryptedControl(signal as unknown as Record<string, unknown>, 'call');
   }
 
   const TTL_OPTIONS = [
@@ -278,7 +413,7 @@
         }
         addOnlineUser(parsed.sender, parsed.color);
         messages = [...messages, {
-          id: genId(), text: `${parsed.sender} joined`, sender: '', initials: '→',
+          id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', parsed.sender), sender: '', initials: '→',
           color: 'rgb(16,185,129)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
         }];
         scrollToBottom();
@@ -289,6 +424,12 @@
       if (parsed.type === 'verify-ack') {
         if (verifying) { verified = true; verifying = false; }
         addOnlineUser(parsed.sender, parsed.color);
+        return;
+      }
+
+      if (parsed.type === 'call-signal') {
+        if (verifying) { verified = true; verifying = false; }
+        await handleCallSignal(parsed as CallSignal);
         return;
       }
 
@@ -529,6 +670,303 @@
     }
   }
 
+  function ensureCallPeer(peerId: string, name: string, color: string): CallPeer {
+    let peer = callPeerMap.get(peerId);
+    if (peer) {
+      peer.name = name || peer.name;
+      peer.color = color || peer.color;
+      peer.initials = getInitials(peer.name);
+      syncCallPeers();
+      return peer;
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers,
+      iceTransportPolicy: 'relay',
+      bundlePolicy: 'max-bundle',
+    });
+    peer = {
+      id: peerId,
+      name: name || t(dict, 'chat.guest'),
+      initials: getInitials(name || t(dict, 'chat.guest')),
+      color: color || 'rgb(16,185,129)',
+      pc,
+      stream: null,
+      state: pc.connectionState,
+      muted: false,
+      cameraOff: false,
+      makingOffer: false,
+    };
+    callPeerMap.set(peerId, peer);
+
+    if (localStream) {
+      for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+    }
+
+    pc.ontrack = (event) => {
+      const current = callPeerMap.get(peerId);
+      if (!current) return;
+      current.stream = event.streams[0] ?? null;
+      syncCallPeers();
+    };
+
+    pc.onicecandidate = (event) => {
+      if (!event.candidate) return;
+      if (!isRelayCandidate(event.candidate)) return;
+      void sendCallSignal({
+        action: 'ice',
+        to: peerId,
+        candidate: event.candidate.toJSON(),
+      });
+    };
+
+    pc.onconnectionstatechange = () => {
+      const current = callPeerMap.get(peerId);
+      if (!current) return;
+      current.state = pc.connectionState;
+      syncCallPeers();
+    };
+
+    syncCallPeers();
+    return peer;
+  }
+
+  function removeCallPeer(peerId: string) {
+    const peer = callPeerMap.get(peerId);
+    if (!peer) return;
+    peer.pc.close();
+    callPeerMap.delete(peerId);
+    pendingIce.delete(peerId);
+    syncCallPeers();
+  }
+
+  async function flushPendingIce(peerId: string) {
+    const peer = callPeerMap.get(peerId);
+    const queue = pendingIce.get(peerId);
+    if (!peer || !queue?.length || !peer.pc.remoteDescription) return;
+    pendingIce.delete(peerId);
+    for (const candidate of queue) {
+      try { await peer.pc.addIceCandidate(candidate); } catch {}
+    }
+  }
+
+  async function createAndSendOffer(peer: CallPeer) {
+    if (peer.makingOffer || peer.pc.signalingState !== 'stable') return;
+    peer.makingOffer = true;
+    try {
+      const offer = await peer.pc.createOffer();
+      await peer.pc.setLocalDescription(offer);
+      await sendCallSignal({
+        action: 'offer',
+        to: peer.id,
+        sdp: sanitizeRelayDescription(peer.pc.localDescription),
+      });
+    } catch (e: any) {
+      callError = e?.message || t(dict, 'chat.callConnectionFailed');
+    } finally {
+      peer.makingOffer = false;
+      syncCallPeers();
+    }
+  }
+
+  async function answerOffer(signal: CallSignal) {
+    if (!signal.sdp) return;
+    const peer = ensureCallPeer(signal.from, signal.fromName, signal.fromColor);
+    try {
+      if (peer.pc.signalingState !== 'stable') {
+        await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
+      }
+      await peer.pc.setRemoteDescription(signal.sdp);
+      await flushPendingIce(signal.from);
+      const answer = await peer.pc.createAnswer();
+      await peer.pc.setLocalDescription(answer);
+      await sendCallSignal({
+        action: 'answer',
+        to: signal.from,
+        sdp: sanitizeRelayDescription(peer.pc.localDescription),
+      });
+    } catch (e: any) {
+      callError = e?.message || t(dict, 'chat.callConnectionFailed');
+    }
+  }
+
+  async function handleAnswer(signal: CallSignal) {
+    if (!signal.sdp) return;
+    const peer = callPeerMap.get(signal.from);
+    if (!peer || peer.pc.signalingState !== 'have-local-offer') return;
+    try {
+      await peer.pc.setRemoteDescription(signal.sdp);
+      await flushPendingIce(signal.from);
+    } catch (e: any) {
+      callError = e?.message || t(dict, 'chat.callConnectionFailed');
+    }
+  }
+
+  async function handleIce(signal: CallSignal) {
+    if (!signal.candidate) return;
+    const peer = callPeerMap.get(signal.from);
+    if (!peer || !peer.pc.remoteDescription) {
+      const queue = pendingIce.get(signal.from) ?? [];
+      queue.push(signal.candidate);
+      pendingIce.set(signal.from, queue);
+      return;
+    }
+    try { await peer.pc.addIceCandidate(signal.candidate); } catch {}
+  }
+
+  async function handleCallSignal(signal: CallSignal) {
+    if (!signal || signal.from === clientId || signal.callId !== CALL_ID) return;
+    if (signal.to && signal.to !== clientId) return;
+
+    const mode: CallMode = signal.mode === 'video' ? 'video' : 'audio';
+
+    if (signal.action === 'join') {
+      if (!callActive) {
+        incomingCall = {
+          from: signal.from,
+          name: signal.fromName,
+          color: signal.fromColor,
+          mode,
+        };
+        return;
+      }
+
+      const peer = ensureCallPeer(signal.from, signal.fromName, signal.fromColor);
+      peer.muted = signal.audio === false;
+      peer.cameraOff = signal.video === false;
+      syncCallPeers();
+
+      if (!signal.reply && clientId > signal.from) {
+        await sendCallSignal({ action: 'join', to: signal.from, reply: true });
+      }
+      if (clientId < signal.from) await createAndSendOffer(peer);
+      return;
+    }
+
+    if (!callActive) {
+      if (signal.action === 'offer') {
+        incomingCall = {
+          from: signal.from,
+          name: signal.fromName,
+          color: signal.fromColor,
+          mode,
+        };
+      }
+      return;
+    }
+
+    if (signal.action === 'offer') {
+      await answerOffer(signal);
+      return;
+    }
+
+    if (signal.action === 'answer') {
+      await handleAnswer(signal);
+      return;
+    }
+
+    if (signal.action === 'ice') {
+      await handleIce(signal);
+      return;
+    }
+
+    if (signal.action === 'leave') {
+      removeCallPeer(signal.from);
+      return;
+    }
+
+    if (signal.action === 'media') {
+      const peer = callPeerMap.get(signal.from);
+      if (!peer) return;
+      peer.muted = signal.audio === false;
+      peer.cameraOff = signal.video === false;
+      syncCallPeers();
+    }
+  }
+
+  function applyLocalMediaState() {
+    if (!localStream) return;
+    for (const track of localStream.getAudioTracks()) track.enabled = !micMuted;
+    for (const track of localStream.getVideoTracks()) track.enabled = !cameraOff;
+  }
+
+  async function startCall(mode: CallMode) {
+    if (callActive || callJoining || !connected || !verified) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      callError = t(dict, 'chat.callUnsupported');
+      return;
+    }
+
+    callJoining = true;
+    callError = '';
+    incomingCall = null;
+    callMode = mode;
+
+    try {
+      await loadIceServers(true);
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: mode === 'video'
+          ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+          : false,
+      });
+      micMuted = false;
+      cameraOff = mode !== 'video';
+      applyLocalMediaState();
+      callActive = true;
+      await sendCallSignal({ action: 'join', reply: false });
+    } catch (e: any) {
+      callError = e?.name === 'NotAllowedError'
+        ? t(dict, 'chat.callPermissionDenied')
+        : (e?.message || t(dict, 'chat.callStartFailed'));
+      cleanupCall(false);
+    } finally {
+      callJoining = false;
+    }
+  }
+
+  async function acceptIncomingCall() {
+    const mode = incomingCall?.mode ?? 'audio';
+    incomingCall = null;
+    await startCall(mode);
+  }
+
+  function cleanupCall(clearError = true) {
+    for (const peer of callPeerMap.values()) peer.pc.close();
+    callPeerMap.clear();
+    pendingIce.clear();
+    callPeers = [];
+    if (localStream) {
+      for (const track of localStream.getTracks()) track.stop();
+    }
+    localStream = null;
+    callActive = false;
+    callJoining = false;
+    micMuted = false;
+    cameraOff = true;
+    if (clearError) callError = '';
+  }
+
+  async function endCall(notify = true) {
+    const shouldNotify = notify && callActive;
+    if (shouldNotify) await sendCallSignal({ action: 'leave' }).catch(() => {});
+    cleanupCall();
+  }
+
+  async function toggleMic() {
+    if (!callActive || !localStream) return;
+    micMuted = !micMuted;
+    applyLocalMediaState();
+    await sendCallSignal({ action: 'media' });
+  }
+
+  async function toggleCamera() {
+    if (!callActive || !localStream?.getVideoTracks().length) return;
+    cameraOff = !cameraOff;
+    applyLocalMediaState();
+    await sendCallSignal({ action: 'media' });
+  }
+
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     blurred = document.hidden || !document.hasFocus();
@@ -602,7 +1040,11 @@
     if (changed) messages = alive;
   }
 
+  $: localHasVideo = Boolean(localStream?.getVideoTracks().length);
+  $: callHasVideo = localHasVideo || callPeers.some((peer) => Boolean(peer.stream?.getVideoTracks().length));
+
   onMount(() => {
+    clientId = genId();
     initChat();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
@@ -611,6 +1053,8 @@
   });
 
   onDestroy(() => {
+    if (callActive) void sendCallSignal({ action: 'leave' });
+    cleanupCall();
     ws?.close();
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -689,7 +1133,21 @@
           {/each}
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5">
+        <button class="chat-call-btn" title={t(dict, 'chat.callStartAudio')} on:click={() => startCall('audio')} disabled={!connected || !verified || callJoining || callActive}>
+          {#if callJoining && callMode === 'audio'}
+            <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L8 9.76a16 16 0 0 0 6.24 6.24l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92Z"/></svg>
+          {/if}
+        </button>
+        <button class="chat-call-btn" title={t(dict, 'chat.callStartVideo')} on:click={() => startCall('video')} disabled={!connected || !verified || callJoining || callActive}>
+          {#if callJoining && callMode === 'video'}
+            <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+          {/if}
+        </button>
         <select class="text-xs bg-transparent text-zinc-400 border-none outline-none" bind:value={ttlSeconds}>
           {#each TTL_OPTIONS as opt}
             <option value={opt.value}>{opt.label}</option>
@@ -728,6 +1186,87 @@
             {/if}
           </button>
         </div>
+      </div>
+    {/if}
+
+    {#if incomingCall && !callActive}
+      <div class="chat-call-banner">
+        <div class="chat-call-banner__meta">
+          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(incomingCall.name)}">{getInitials(incomingCall.name)}</div>
+          <div class="min-w-0">
+            <p class="chat-call-banner__title">{incomingCall.mode === 'video' ? t(dict, 'chat.callIncomingVideo') : t(dict, 'chat.callIncomingAudio')}</p>
+            <p class="chat-call-banner__name">{incomingCall.name}</p>
+          </div>
+        </div>
+        <div class="chat-call-banner__actions">
+          <button class="chat-call-accept" on:click={acceptIncomingCall}>{t(dict, 'chat.callAccept')}</button>
+          <button class="chat-call-decline" on:click={() => { incomingCall = null; }}>{t(dict, 'chat.callDecline')}</button>
+        </div>
+      </div>
+    {/if}
+
+    {#if callActive || callError}
+      <div class="chat-call-panel" class:chat-call-panel--error={!callActive && Boolean(callError)}>
+        {#if callActive}
+          <div class="chat-call-panel__top">
+            <div class="min-w-0">
+              <p class="chat-call-title">{callMode === 'video' ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</p>
+              <p class="chat-call-subtitle">{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</p>
+            </div>
+            <div class="chat-call-controls">
+              <button class="chat-call-control" class:chat-call-control--active={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} on:click={toggleMic}>
+                {#if micMuted}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                {/if}
+              </button>
+              <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} on:click={toggleCamera} disabled={!localHasVideo}>
+                {#if cameraOff}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                {/if}
+              </button>
+              <button class="chat-call-control chat-call-control--end" title={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10.1 7.6a12.4 12.4 0 0 1 3.8 0l.6 2.7a1 1 0 0 0 .95.8h3.75a1 1 0 0 0 .98-1.2l-.48-2.38a3 3 0 0 0-2.02-2.22 18 18 0 0 0-11.36 0 3 3 0 0 0-2.02 2.22l-.48 2.38a1 1 0 0 0 .98 1.2h3.75a1 1 0 0 0 .95-.8Z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="chat-call-grid" class:chat-call-grid--audio={!callHasVideo}>
+            <div class="chat-call-tile">
+              {#if localStream && localHasVideo && !cameraOff}
+                <video class="chat-call-video" use:streamMedia={localStream} autoplay muted playsinline></video>
+              {:else}
+                <div class="chat-call-avatar" style="background: {nameToGradient(identity.name)}">{myInitials}</div>
+              {/if}
+              <div class="chat-call-label">
+                <span>{t(dict, 'chat.callYou')}</span>
+                {#if micMuted}<span>{t(dict, 'chat.callMuted')}</span>{/if}
+              </div>
+            </div>
+            {#each callPeers as peer (peer.id)}
+              <div class="chat-call-tile">
+                {#if peer.stream && peer.stream.getVideoTracks().length && !peer.cameraOff}
+                  <video class="chat-call-video" use:streamMedia={peer.stream} autoplay playsinline></video>
+                {:else}
+                  {#if peer.stream}
+                    <audio use:streamMedia={peer.stream} autoplay></audio>
+                  {/if}
+                  <div class="chat-call-avatar" style="background: {nameToGradient(peer.name)}">{peer.initials}</div>
+                {/if}
+                <div class="chat-call-label">
+                  <span>{peer.name}</span>
+                  {#if peer.muted}<span>{t(dict, 'chat.callMuted')}</span>{:else if peer.state !== 'connected'}<span>{peer.state}</span>{/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        {#if callError}
+          <p class="chat-call-error">{callError}</p>
+        {/if}
       </div>
     {/if}
 
@@ -835,7 +1374,7 @@
       <input
         type="text"
         class="chat-input-field"
-        placeholder={uploading ? 'Uploading...' : t(dict, 'chat.messagePlaceholder')}
+        placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
         bind:value={inputText}
         on:input={handleTyping}
         on:keydown={(e) => e.key === 'Enter' && handleSend()}
@@ -907,6 +1446,191 @@
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
   .chat-share-copy:hover { color: rgb(16, 185, 129); }
+  .chat-call-btn {
+    width: 30px; height: 30px; border-radius: 0.5rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: rgb(82, 82, 91);
+    background: rgba(244, 244, 245, 0.7);
+    border: 1px solid rgba(228, 228, 231, 0.7);
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  :global(.dark) .chat-call-btn {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.45);
+    border-color: rgba(63, 63, 70, 0.45);
+  }
+  .chat-call-btn:hover:not(:disabled) {
+    color: rgb(16, 185, 129);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.18);
+  }
+  .chat-call-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .chat-call-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+    background: rgba(16, 185, 129, 0.05);
+  }
+  :global(.dark) .chat-call-banner {
+    background: rgba(16, 185, 129, 0.07);
+    border-color: rgba(16, 185, 129, 0.12);
+  }
+  .chat-call-banner__meta {
+    min-width: 0;
+    display: flex; align-items: center; gap: 0.55rem;
+  }
+  .chat-call-banner__title {
+    font-size: 12px; font-weight: 800;
+    color: rgb(39, 39, 42);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  :global(.dark) .chat-call-banner__title { color: rgb(228, 228, 231); }
+  .chat-call-banner__name {
+    font-size: 11px; color: rgb(113, 113, 122);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-call-banner__actions { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
+  .chat-call-accept,
+  .chat-call-decline {
+    min-height: 30px;
+    padding: 0 0.65rem;
+    border-radius: 0.5rem;
+    font-size: 12px; font-weight: 800;
+  }
+  .chat-call-accept {
+    color: white;
+    background: rgb(16, 185, 129);
+  }
+  .chat-call-decline {
+    color: rgb(113, 113, 122);
+    background: rgba(244, 244, 245, 0.85);
+  }
+  :global(.dark) .chat-call-decline {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.65);
+  }
+  .chat-call-panel {
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid rgba(228, 228, 231, 0.55);
+    background: rgba(250, 250, 250, 0.62);
+  }
+  :global(.dark) .chat-call-panel {
+    border-color: rgba(39, 39, 42, 0.55);
+    background: rgba(24, 24, 27, 0.42);
+  }
+  .chat-call-panel--error {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.14);
+  }
+  .chat-call-panel__top {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  }
+  .chat-call-title {
+    font-size: 13px; line-height: 1.2; font-weight: 900;
+    color: rgb(39, 39, 42);
+  }
+  :global(.dark) .chat-call-title { color: rgb(228, 228, 231); }
+  .chat-call-subtitle { margin-top: 1px; font-size: 11px; color: rgb(113, 113, 122); }
+  .chat-call-controls { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+  .chat-call-control {
+    width: 34px; height: 34px; border-radius: 0.55rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: rgb(82, 82, 91);
+    background: rgba(244, 244, 245, 0.85);
+    border: 1px solid rgba(228, 228, 231, 0.8);
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  :global(.dark) .chat-call-control {
+    color: rgb(212, 212, 216);
+    background: rgba(39, 39, 42, 0.7);
+    border-color: rgba(63, 63, 70, 0.55);
+  }
+  .chat-call-control:hover:not(:disabled) {
+    color: rgb(16, 185, 129);
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.18);
+  }
+  .chat-call-control--active {
+    color: rgb(239, 68, 68);
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  .chat-call-control--end {
+    color: white;
+    background: rgb(239, 68, 68);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  .chat-call-control--end:hover:not(:disabled) {
+    color: white;
+    background: rgb(220, 38, 38);
+    border-color: rgba(220, 38, 38, 0.25);
+  }
+  .chat-call-control:disabled { opacity: 0.35; cursor: not-allowed; }
+  .chat-call-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.55rem;
+    margin-top: 0.65rem;
+  }
+  .chat-call-grid--audio {
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  }
+  .chat-call-tile {
+    position: relative;
+    min-height: 92px;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(228, 228, 231, 0.55);
+    border: 1px solid rgba(212, 212, 216, 0.65);
+  }
+  :global(.dark) .chat-call-tile {
+    background: rgba(39, 39, 42, 0.65);
+    border-color: rgba(63, 63, 70, 0.55);
+  }
+  .chat-call-grid--audio .chat-call-tile {
+    min-height: 72px;
+    aspect-ratio: 4 / 3;
+  }
+  .chat-call-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: rgb(24, 24, 27);
+  }
+  .chat-call-avatar {
+    width: 44px; height: 44px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 14px; font-weight: 900;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+  }
+  .chat-call-label {
+    position: absolute; left: 7px; right: 7px; bottom: 7px;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+    min-height: 22px;
+    padding: 0 0.45rem;
+    border-radius: 0.4rem;
+    color: white;
+    background: rgba(24, 24, 27, 0.72);
+    font-size: 11px; font-weight: 800;
+  }
+  .chat-call-label span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chat-call-label span + span {
+    flex-shrink: 0;
+    color: rgb(244, 244, 245);
+    opacity: 0.75;
+  }
+  .chat-call-tile audio { display: none; }
+  .chat-call-error {
+    margin-top: 0.45rem;
+    font-size: 11px; line-height: 1.45;
+    color: rgb(239, 68, 68);
+  }
   .chat-status {
     width: 8px; height: 8px; border-radius: 9999px;
     background: rgb(245, 158, 11);
