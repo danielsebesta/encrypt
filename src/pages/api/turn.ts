@@ -123,7 +123,6 @@ async function loadCloudflareIceServers(tokenId: string, apiToken: string, ttl: 
 
   const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(tokenId)}/credentials/generate-ice-servers`, {
     method: 'POST',
-    cache: 'no-store',
     headers: {
       'Authorization': `Bearer ${apiToken}`,
       'Content-Type': 'application/json',
@@ -148,7 +147,7 @@ async function loadMeteredApiIceServers(apiKey: string, appHost: string): Promis
   const url = new URL('/api/v1/turn/credentials', `https://${appHost}`);
   url.searchParams.set('apiKey', apiKey);
 
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Metered TURN API ${res.status}`);
 
   const iceServers = assertIceServers(await res.json(), 'Metered TURN API');
