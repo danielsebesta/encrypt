@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/generate-integrity-manifest.mjs",
+    "build": "astro build && node scripts/inject-csp-hashes.mjs && node scripts/generate-integrity-manifest.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "partykit:dev": "node --env-file-if-exists=.env.local ./node_modules/partykit/dist/bin.mjs dev",
