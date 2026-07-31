@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { encrypt, decrypt as decryptMsg } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   const BLOCK = 8;
   const DELTA = 24;

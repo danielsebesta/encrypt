@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { decodeJWT } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { decodeJWT } from '../../lib/jwt';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let input = '';
   let result: any = null;

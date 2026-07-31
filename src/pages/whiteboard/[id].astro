@@ -1,10 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Whiteboard from '../../components/tools/Whiteboard.svelte';
-import { getTranslations, t, type Locale } from '../../lib/i18n';
+import { getTranslations, t, pickDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+const clientDict = pickDict(dict, ['whiteboard', 'common']);
 const { id } = Astro.params;
 
 export const prerender = false;
@@ -23,6 +24,6 @@ export const prerender = false;
         {t(dict, 'whiteboard.roomSubtitle')}
       </p>
     </div>
-    <Whiteboard client:only="svelte" roomId={id || 'default'} locale={locale} />
+    <Whiteboard client:only="svelte" roomId={id || 'default'} locale={locale} dict={clientDict} />
   </div>
 </Layout>

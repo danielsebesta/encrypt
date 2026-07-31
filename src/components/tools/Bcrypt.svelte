@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { bcryptHash, bcryptVerify } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
   let input = '';
   let salt = 10;
   let hashResult = '';
@@ -13,6 +12,7 @@
 
   async function handleHash() {
     if (!input) return;
+    const { bcryptHash } = await import('../../lib/bcrypt');
     hashResult = await bcryptHash(input, salt);
   }
 
@@ -20,6 +20,7 @@
     if (!input || !verifyHash) return;
     isVerifying = true;
     try {
+      const { bcryptVerify } = await import('../../lib/bcrypt');
       verifyResult = await bcryptVerify(input, verifyHash);
     } finally {
       isVerifying = false;

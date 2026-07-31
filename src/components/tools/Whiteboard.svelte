@@ -8,14 +8,15 @@
     encryptBytes, decryptBytes,
     generateIdentity, nameToGradient,
   } from '../../lib/whiteboardCrypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
   export let roomId = '';
   export let partyHost = 'encrypt-click.danielsebesta.partykit.dev';
   export let initialPassword = '';
 
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
+  // dict provided by page
 
   type Tool = 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text' | 'select' | 'eraser';
 

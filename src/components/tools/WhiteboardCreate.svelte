@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let password = '';
   let customRoomId = '';

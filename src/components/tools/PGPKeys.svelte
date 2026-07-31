@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { generatePGPKeyPair } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let name = '';
   let email = '';
@@ -23,6 +22,7 @@
     }
     isGenerating = true;
     try {
+      const { generatePGPKeyPair } = await import('../../lib/pgpKeys');
       keyPair = await generatePGPKeyPair({ name: name.trim(), email: email.trim(), passphrase, rsaBits });
     } catch (e: any) {
       console.error(e);

@@ -1,25 +1,44 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
-  import { timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient, defaultChainInfo, Buffer } from 'tlock-js';
-  // @ts-ignore - drand-client re-exported by tlock-js
-  import { defaultChainOptions } from 'drand-client';
+  export let dict: Record<string, string>;
 
   const PROXY_CHAIN_URL = '/api/drand/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971';
-
-  const chainOpts = {
-    ...defaultChainOptions,
-    chainVerificationParams: {
-      chainHash: '52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971',
-      publicKey: '83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a'
-    }
+  const CHAIN_INFO = {
+    period: 3,
+    genesis_time: 1692803367,
+    publicKey: '83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a',
+    chainHash: '52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971',
   };
-  const chain = new HttpCachingChain(PROXY_CHAIN_URL, chainOpts);
-  const client = new HttpChainClient(chain, chainOpts);
+
+  type TlockApi = {
+    timelockEncrypt: typeof import('tlock-js').timelockEncrypt;
+    timelockDecrypt: typeof import('tlock-js').timelockDecrypt;
+    Buffer: typeof import('tlock-js').Buffer;
+    client: import('tlock-js').HttpChainClient;
+  };
+
+  let tlockApi: TlockApi | null = null;
+
+  async function getTlock(): Promise<TlockApi> {
+    if (tlockApi) return tlockApi;
+    const [{ timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient, Buffer }, { defaultChainOptions }] =
+      await Promise.all([import('tlock-js'), import('drand-client')]);
+    const chainOpts = {
+      ...defaultChainOptions,
+      chainVerificationParams: {
+        chainHash: CHAIN_INFO.chainHash,
+        publicKey: CHAIN_INFO.publicKey,
+      },
+    };
+    const chain = new HttpCachingChain(PROXY_CHAIN_URL, chainOpts);
+    const client = new HttpChainClient(chain, chainOpts);
+    tlockApi = { timelockEncrypt, timelockDecrypt, Buffer, client };
+    return tlockApi;
+  }
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
 
@@ -87,9 +106,8 @@
     const localDate = new Date(targetLocal);
     const timeMs = localDate.getTime();
     if (!Number.isFinite(timeMs)) return;
-    const chain = defaultChainInfo as any;
-    const genesisMs = chain.genesis_time * 1000;
-    const periodMs = chain.period * 1000;
+    const genesisMs = CHAIN_INFO.genesis_time * 1000;
+    const periodMs = CHAIN_INFO.period * 1000;
     const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
     debugUtc = new Date(timeMs).toISOString();
     debugUnix = String(Math.floor(timeMs / 1000));
@@ -163,9 +181,9 @@
 
     loading = true;
     try {
-      const chain = defaultChainInfo as any;
-      const genesisMs = chain.genesis_time * 1000;
-      const periodMs = chain.period * 1000;
+      const { timelockEncrypt, Buffer, client } = await getTlock();
+      const genesisMs = CHAIN_INFO.genesis_time * 1000;
+      const periodMs = CHAIN_INFO.period * 1000;
 
       if (!Number.isFinite(timeMs)) {
         throw new Error(t(dict, 'tools.timeCapsule.errorInvalidBeacon'));
@@ -238,6 +256,7 @@
 
     decryptLoading = true;
     try {
+      const { timelockDecrypt, client } = await getTlock();
       const compact = tryDecodeCompact(input);
       if (compact) {
         const buf = await timelockDecrypt(compact.c, client);

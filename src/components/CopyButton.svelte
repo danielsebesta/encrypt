@@ -1,13 +1,7 @@
 <script lang="ts">
-  import { getTranslations, t } from '../lib/i18n';
-
   export let text = '';
-  export let label: string | undefined = undefined;
+  export let label = '';
   export let className = '';
-  export let locale = 'en';
-
-  $: dict = getTranslations(locale);
-  $: displayLabel = label ?? t(dict, 'common.copy');
 
   let copied = false;
   let timeout: ReturnType<typeof setTimeout>;
@@ -26,5 +20,5 @@
   on:click={copy}
   class="text-[10px] font-bold hover:underline transition-colors {copied ? 'text-emerald-500' : 'text-emerald-600'} {className}"
 >
-  {copied ? '✓' : displayLabel}
+  {copied ? '✓' : label}
 </button>
