@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `encrypt-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `encrypt-pages-${CACHE_VERSION}`;
 
