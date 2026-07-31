@@ -2,205 +2,43 @@
 
 **Your privacy is just a click away.**
 
-Privacy-first security tools that run primarily in the browser. The site is built with Astro + Svelte and ships localized UI in 7 languages.
+Browser-first privacy toolkit: encrypt and share files, chat ephemerally, and use crypto utilities without accounts. Crypto runs in the browser; servers relay ciphertext and supporting metadata when you share, chat, or call. Localized in 7 languages.
 
-## What ships
+**Live:** [encrypt.click](https://encrypt.click)
 
-### Developer tools
-- UUID & ULID
-- Token generator
-- Bcrypt hash
-- HMAC signer
-- RSA keys
-- SSH keys
-- PGP keys
-- JWT debugger
-- Base64
+## Why it matters
 
-### Privacy tools
-- AES Words
-- Time Capsule
-- Steganography
-- Photo Cipher
-- Spectral Cipher
+- **Encrypted share** — encrypt in the browser, send a link; storage/relays handle ciphertext only
+- **Ephemeral chat** — no server message history; optional disappearing messages; calls over TURN-only WebRTC (no direct peer IP exchange)
+- **Collaborative whiteboard** — E2E-encrypted shared canvas without an account; no server drawing history after the room empties
+- **Time Capsule** — time-lock encryption via [drand](https://drand.love/)
+- **Privacy tools** — steganography, photo/audio ciphers, AES-with-words, and more
+- **Developer tools** — JWT, bcrypt, HMAC, RSA/SSH/PGP keys, tokens, UUID/ULID, Base64
 
-### Other first-class routes
-- `/` homepage with the main `UltimateEncrypt` flow
-- `/u` decrypt / receive flow
-- `/security` privacy and security page
-- `/chat` encrypted chat with local participant history or disappearing messages
+## Privacy model (short)
 
-## Current architecture
+| Runs in the browser | Server is involved |
+| --- | --- |
+| Encryption / decryption, key generation, most standalone tools | Short links, ciphertext upload (R2 + server-side fallbacks), drand proxy, realtime rooms (chat / whiteboard), TURN credentials for calls |
 
-- Astro 5
-- Svelte 5 for interactive tools
-- Tailwind CSS v4
-- Cloudflare adapter
-- Astro i18n with `en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`
-
-### Important app patterns
-
-- Tool pages are registered in [`src/lib/tools.ts`](src/lib/tools.ts).
-- Every user-facing UI string belongs in the locale files under [`src/locales/`](src/locales/) (`en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`).
-- The education pilot lives in [`src/content/tool-education/`](src/content/tool-education/) and is loaded through [`src/lib/toolEducation.ts`](src/lib/toolEducation.ts).
-- Security headers and middleware behavior live in `src/middleware.ts` and `public/_headers`.
-- The encrypted upload/decrypt subsystem lives under `src/lib/ghost/` and `src/pages/api/ghost/`.
+Chat does not keep a server-side message history. Default mode keeps encrypted envelopes in participant browsers; disappearing modes skip local history. Details: [/security](https://encrypt.click/security).
 
 ## Quick start
 
 ```bash
-yarn install
-yarn dev
-yarn build
-yarn preview
+pnpm install
+pnpm dev
+pnpm build
+pnpm preview
 ```
 
-Local dev runs at `http://localhost:4321`.
+Dev server: `http://localhost:4321`
 
-## Project structure
+Realtime features also need PartyKit (`pnpm partykit:dev`). See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contributor notes.
 
-```text
-src/
-├── components/
-│   ├── home/                  # Homepage sections
-│   ├── tool-education/        # Shared education UI for pilot tool pages
-│   └── tools/                 # Interactive tool components
-├── content/
-│   └── tool-education/        # Per-tool educational content
-├── layouts/
-│   └── Layout.astro
-├── lib/
-│   ├── crypto.ts
-│   ├── ghost/                 # Encrypted upload crypto/stego helpers
-│   ├── i18n.ts
-│   ├── languages.ts
-│   ├── toolEducation.ts
-│   └── tools.ts
-├── locales/
-│   ├── en.json
-│   ├── cs.json
-│   ├── de.json
-│   ├── es.json
-│   ├── fr.json
-│   ├── sk.json
-│   └── pl.json
-├── pages/
-│   ├── api/
-│   ├── index.astro
-│   ├── drop.astro
-│   ├── download.astro
-│   ├── security.astro
-│   ├── u.astro
-│   └── tools/
-└── styles/
-    └── global.css
-```
+## Stack
 
-## Adding a new tool
-
-At minimum, a new site tool usually needs:
-
-1. A Svelte component in `src/components/tools/`
-2. An Astro page in `src/pages/tools/`
-3. A registry entry in `src/lib/tools.ts`
-4. Locale keys in all 7 locale files
-
-Optionally:
-
-- a richer explainer page like the education pilot: add content in `src/content/tool-education/` per locale and wire it through `src/lib/toolEducation.ts`
-
-### Minimal page pattern
-
-```astro
----
-import Layout from '../../layouts/Layout.astro';
-import MyToolView from '../../components/tools/MyTool.svelte';
-import { getTranslations, t, type Locale } from '../../lib/i18n';
-
-const locale = (Astro.currentLocale ?? 'en') as Locale;
-const dict = getTranslations(locale);
----
-
-<Layout
-  title={t(dict, 'tools.myTool.meta.title')}
-  description={t(dict, 'tools.myTool.meta.description')}
->
-  <div class="max-w-6xl mx-auto px-5 py-12 md:py-20">
-    <div class="tool-hero">
-      <div class="tool-hero__copy">
-        <h1 class="tool-hero__title">
-          {t(dict, 'tools.myTool.h1')}
-          <span class="text-emerald-500">{t(dict, 'tools.myTool.h1Highlight')}</span>
-        </h1>
-        <p class="tool-hero__subtitle">{t(dict, 'tools.myTool.subtitle')}</p>
-      </div>
-    </div>
-
-    <div class="card p-8">
-      <MyToolView client:load locale={locale} />
-    </div>
-  </div>
-</Layout>
-```
-
-### Registry entry
-
-```ts
-{ slug: 'my-tool', i18nPrefix: 'tools.myTool', navLabelKey: 'nav.tool.myTool', category: 'developer' }
-```
-
-Valid categories:
-- `developer`
-- `privacy`
-
-## Education content pilot
-
-These tool pages already use the richer "Understand it" layer:
-
-- `base64`
-- `bcrypt`
-- `jwt`
-- `time-capsule`
-
-The data format is defined in [`src/content.config.ts`](src/content.config.ts). Content lives per locale, per tool, for example:
-
-- [`src/content/tool-education/en/base64.json`](src/content/tool-education/en/base64.json)
-- [`src/content/tool-education/cs/base64.json`](src/content/tool-education/cs/base64.json)
-- [`src/content/tool-education/de/base64.json`](src/content/tool-education/de/base64.json)
-
-## Localization
-
-- `en.json` is the source of truth.
-- Every key must exist in all locale files.
-- Do not hardcode English in components or pages.
-- Long educational copy for the pilot tools belongs in `src/content/tool-education/`, not in the flat locale dictionaries.
-
-Routing:
-
-- `/` = English (default)
-- `/cs/` = Czech
-- `/de/` = German
-- `/es/` = Spanish
-- `/fr/` = French
-- `/sk/` = Slovak
-- `/pl/` = Polish
-
-## Security notes
-
-- Core crypto runs in the browser.
-- Some flows intentionally use server routes for things like URL shortening, encrypted upload relays, or the drand proxy.
-- Chat messages are not stored as server history. The default chat mode keeps encrypted message envelopes only in participant browsers (`localStorage`) and online peers sync their current state; 10s/5s disappearing modes skip local history and remove delivered messages from each participant UI after the timer.
-- Chat calls use WebRTC in TURN-only relay mode to avoid exposing peer IP addresses. In auto mode the backend returns a relay pool: Cloudflare TURN first, self-hosted `encrypt-1` second, and Metered API last as backup. `encrypt-1` uses the self-hosted coturn server via `TURN_AUTH_SECRET` / `COTURN_AUTH_SECRET`; local dev also accepts `AUTH_SECRET`. Cloudflare TURN requires `CLOUDFLARE_TURN_TOKEN_ID` + `CLOUDFLARE_TURN_API_TOKEN`, with optional `CLOUDFLARE_TURN_TTL_SECONDS`. Metered requires `METERED_TURN_API_KEY`. Use `TURN_PROVIDER=encrypt-1`, `TURN_PROVIDER=cloudflare`, or `TURN_PROVIDER=metered` to force one provider. Static TURN credentials are intentionally not supported.
-- Read `/security` for the user-facing privacy summary.
-
-## Deployment
-
-Optimized for Cloudflare Pages / Cloudflare adapter.
-
-Relevant files:
-- [`astro.config.mjs`](astro.config.mjs)
-- [`wrangler.toml`](wrangler.toml)
-- [`public/_headers`](public/_headers)
+Astro 5 · Svelte 5 · Tailwind CSS v4 · Cloudflare · PartyKit
 
 ## Contributing
 
