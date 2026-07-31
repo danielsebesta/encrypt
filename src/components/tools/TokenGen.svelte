@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { generateToken } from '../../lib/crypto';
+  import { generateToken } from '../../lib/ids';
   import { onMount } from 'svelte';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
   let length = 32;
   let type: 'hex' | 'base64' | 'url-safe' = 'hex';
   let result = '';

@@ -1,39 +1,30 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import JWTView from '../../components/tools/JWT.svelte';
-import { getTranslations, t, type Locale } from '../../lib/i18n';
-import { getToolEducation } from '../../lib/toolEducation';
-import ToolQuickFacts from '../../components/tool-education/ToolQuickFacts.astro';
-import ToolEducationPanel from '../../components/tool-education/ToolEducationPanel.astro';
+import ToolHelp from '../../components/tools/ToolHelp.svelte';
+import { getTranslations, t, toolClientDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const education = getToolEducation(locale, 'jwt');
+const clientDict = toolClientDict(dict, 'tools.jwt');
 ---
 
-<Layout 
-  title={education.metaTitle}
-  description={education.metaDescription}
+<Layout
+  title={t(dict, 'tools.jwt.meta.title')}
+  description={t(dict, 'tools.jwt.meta.description')}
 >
   <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
     <div class="tool-hero">
       <div class="tool-hero__copy">
-        <h1 class="tool-hero__title">{t(dict, 'tools.jwt.h1')} <span class="text-emerald-500">{t(dict, 'tools.jwt.h1Highlight')}</span></h1>
+        <h1 class="tool-hero__title">
+          {t(dict, 'tools.jwt.h1')} <span class="text-emerald-500">{t(dict, 'tools.jwt.h1Highlight')}</span>
+          <ToolHelp client:idle dict={clientDict} prefix="tools.jwt" />
+        </h1>
         <p class="tool-hero__subtitle">{t(dict, 'tools.jwt.subtitle')}</p>
       </div>
     </div>
-
     <div class="mt-8">
-      <JWTView client:load locale={locale} />
+      <JWTView client:idle locale={locale} dict={clientDict} />
     </div>
-
-    <div class="mt-8 md:mt-10">
-      <ToolQuickFacts dict={dict} quick={education.quick} />
-    </div>
-
-    <div class="mt-10 md:mt-14">
-      <ToolEducationPanel dict={dict} entry={education} />
-    </div>
-
   </div>
 </Layout>

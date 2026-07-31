@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { generateRSAKeyPair } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { generateRSAKeyPair } from '../../lib/rsaKeys';
+  import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let bits = 2048;
   let isGenerating = false;

@@ -1,16 +1,13 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import QRCode from 'qrcode';
-  import { encrypt, decrypt } from '../../lib/crypto';
+  import { encrypt, decrypt } from '../../lib/aesGcm';
   import { encryptData, prependEclkMagic } from '../../lib/ghost/crypto';
-  import { createStegoImage } from '../../lib/ghost/steganography';
-  import { prepareSendUpload } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   type Step = 'input' | 'confirm' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
@@ -288,6 +285,7 @@
 
   async function generateQr(url: string) {
     try {
+      const { default: QRCode } = await import('qrcode');
       qrSvg = await QRCode.toString(url, {
         type: 'svg',
         errorCorrectionLevel: 'H',
@@ -459,6 +457,7 @@
 
     let usedStego = false;
     if (encrypted.length <= STEGO_THRESHOLD) {
+      const { createStegoImage } = await import('../../lib/ghost/steganography');
       pendingUploadBytes = await createStegoImage(encrypted);
       pendingUploadFilename = 'ghost.png';
       usedStego = true;
@@ -516,6 +515,7 @@
         }
 
         if (host.id === 'nologsend') {
+          const { prepareSendUpload } = await import('../../lib/nologSend');
           const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
           fetchBody = prepared.encryptedBytes;
           headers['X-Send-Metadata'] = prepared.metadataB64;
@@ -564,6 +564,7 @@
   async function wrapInStego(url: string) {
     setProgress(t(dict, 'tools.ultimateEncrypt.progressCoverImageTitle'), t(dict, 'tools.ultimateEncrypt.progressCoverImageDetail'));
     const urlBytes = new TextEncoder().encode(url);
+    const { createStegoImage } = await import('../../lib/ghost/steganography');
     const stegoBytes = await createStegoImage(urlBytes);
     pushDebug(`Generated downloadable PNG wrapper (${stegoBytes.byteLength} bytes)`);
     stegoImageBlob = new Blob([stegoBytes], { type: 'image/png' });
@@ -723,7 +724,7 @@
                 {#if files.length > 1}
                   <span class="text-[10px] text-emerald-600 dark:text-emerald-400">{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')}</span>
                 {/if}
-                <span class="text-[10px] text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
+                <span class="text-[10px] text-zinc-600 dark:text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
                 <button type="button" class="text-[10px] font-bold text-red-500 hover:underline ml-auto" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
               </div>
             </div>
@@ -733,7 +734,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 {t(dict, 'tools.ultimateEncrypt.fileLabel')}
               </span>
-              <span class="text-[10px] text-zinc-300 dark:text-zinc-600">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
+                <span class="text-[10px] text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
             </label>
             <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
           {/if}
@@ -802,7 +803,7 @@
           </div>
           <a href={localFileUrl} download={localFileName} class="btn-outline text-xs px-3 py-1.5">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')}</a>
         </div>
-        <div class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed space-y-1.5">
+        <div class="text-[10px] text-zinc-600 dark:text-zinc-400 leading-relaxed space-y-1.5">
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
           <div class="flex flex-wrap gap-x-3 gap-y-1">
             <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">Send instances</a>
@@ -818,7 +819,7 @@
         </button>
       {/if}
 
-      <button type="button" class="text-[10px] font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" on:click={() => step = 'input'}>
+      <button type="button" class="text-[10px] font-medium text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-300" on:click={() => step = 'input'}>
         &larr; {t(dict, 'tools.ultimateEncrypt.confirm.back')}
       </button>
     </div>
@@ -862,7 +863,7 @@
         </div>
         <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
         {#if resultHasTemporaryUpload}
-          <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
+          <p class="text-[10px] text-zinc-600 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
         {/if}
         {#if showQr && qrSvg && shareUrl}
           <div class="mt-3 flex justify-center">
@@ -882,8 +883,8 @@
           </div>
         {/if}
         {#if shortUrl}
-          <details class="text-[11px] text-zinc-400">
-            <summary class="cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
+          <details class="text-[11px] text-zinc-600 dark:text-zinc-400">
+            <summary class="cursor-pointer select-none hover:text-zinc-800 dark:hover:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
             <div class="mt-1 flex items-center gap-2">
               <input class="input text-[10px] font-mono flex-1" type="text" readonly value={resultUrl} />
               <CopyButton text={resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} className="!text-[9px]" />
@@ -905,7 +906,7 @@
       {#if stegoImageUrl}
         <div class="space-y-2">
           <label class="label block">{t(dict, 'tools.ultimateEncrypt.steganographyImage')}</label>
-          <p class="text-[11px] text-zinc-400">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
+          <p class="text-[11px] text-zinc-600 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
           <div class="flex items-center gap-3">
             <img src={stegoImageUrl} alt="" class="w-16 h-16 rounded border border-zinc-200 dark:border-zinc-800 object-cover" />
             <button type="button" class="btn-outline text-xs" on:click={downloadStego}>{t(dict, 'tools.ultimateEncrypt.downloadImage')}</button>

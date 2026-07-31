@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { hmac } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { hmac } from '../../lib/hmac';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let message = '';
   let secret = '';

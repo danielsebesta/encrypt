@@ -1,10 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import ChatCreate from '../../components/tools/ChatCreate.svelte';
-import { getTranslations, t, type Locale } from '../../lib/i18n';
+import ToolHelp from '../../components/tools/ToolHelp.svelte';
+import { getTranslations, t, pickDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+const clientDict = pickDict(dict, ['chat', 'tools.help', 'common']);
+const chatHelpSections = ['what', 'messages', 'calls', 'files', 'safe', 'watchOut'];
 
 export const prerender = true;
 ---
@@ -17,11 +20,12 @@ export const prerender = true;
     <div class="mb-8 space-y-3">
       <h1 class="text-3xl md:text-4xl font-bold tracking-tight">
         {t(dict, 'chat.pageTitle')} <span class="text-emerald-500">{t(dict, 'chat.pageTitleHighlight')}</span>
+        <ToolHelp client:idle dict={clientDict} prefix="chat" sections={chatHelpSections} />
       </h1>
       <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm mx-auto">
         {t(dict, 'chat.pageSubtitle')}
       </p>
     </div>
-    <ChatCreate client:only="svelte" locale={locale} />
+    <ChatCreate client:idle locale={locale} dict={clientDict} />
   </div>
 </Layout>

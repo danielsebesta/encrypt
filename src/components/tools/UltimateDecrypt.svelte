@@ -1,16 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
-  import { decrypt } from '../../lib/crypto';
+  import { decrypt } from '../../lib/aesGcm';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
   import { decryptSendBlob, isSendUrl } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let password = '';
   let error = '';

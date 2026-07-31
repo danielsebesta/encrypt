@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
   import { deriveRoomNamePassword } from '../../lib/chatCrypto';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let password = '';
   let customRoomId = '';
@@ -115,7 +115,7 @@
       {#if roomError}
         <p class="text-xs text-red-500">{roomError}</p>
       {/if}
-      <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'chat.customRoomIdHint')}</p>
+      <p class="text-[10px] text-zinc-600 dark:text-zinc-400">{t(dict, 'chat.customRoomIdHint')}</p>
     </div>
 
     <div class="space-y-1.5">
@@ -135,7 +135,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </button>
       </div>
-      <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{password.trim() ? t(dict, 'chat.createDescription') : t(dict, 'chat.passwordOptionalHint')}</p>
+      <p class="text-[10px] text-zinc-600 dark:text-zinc-400">{password.trim() ? t(dict, 'chat.createDescription') : t(dict, 'chat.passwordOptionalHint')}</p>
     </div>
 
     <div class="space-y-2">

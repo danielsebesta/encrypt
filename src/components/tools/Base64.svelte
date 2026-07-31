@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { base64Encode, base64Decode } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { base64Encode, base64Decode } from '../../lib/base64';
+  import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let input = '';
   let output = '';

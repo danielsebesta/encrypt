@@ -1,10 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import WhiteboardCreate from '../../components/tools/WhiteboardCreate.svelte';
-import { getTranslations, t, type Locale } from '../../lib/i18n';
+import { getTranslations, t, pickDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+const clientDict = pickDict(dict, ['whiteboard', 'common']);
 
 export const prerender = true;
 ---
@@ -22,6 +23,6 @@ export const prerender = true;
         {t(dict, 'whiteboard.pageSubtitle')}
       </p>
     </div>
-    <WhiteboardCreate client:load locale={locale} />
+    <WhiteboardCreate client:idle locale={locale} dict={clientDict} />
   </div>
 </Layout>

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { generateUUID, generateULID } from '../../lib/crypto';
+  import { generateUUID, generateULID } from '../../lib/ids';
   import { onMount } from 'svelte';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
 
   let uuidResult = '';
   let ulidResult = '';

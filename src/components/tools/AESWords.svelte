@@ -1,9 +1,8 @@
 <script lang="ts">
-  import dictionary from '../../lib/dictionary.json';
-  import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks } from '../../lib/crypto';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks } from '../../lib/aesGcm';
+  import { t } from '../../lib/t';
   export let locale = 'en';
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
   let inputText = '';
   let password = '';
@@ -17,6 +16,7 @@
       return;
     }
     try {
+      const { default: dictionary } = await import('../../lib/dictionary.json');
       if (mode === 'encrypt') {
         const encryptedData = await encrypt(inputText, password);
         const chunks = to14BitChunks(encryptedData);
