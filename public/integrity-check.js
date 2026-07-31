@@ -41,14 +41,37 @@
     }).join('');
   }
 
-  function currentAssetPaths() {
-    var nodes = document.querySelectorAll('script[src],link[rel="stylesheet"][href]');
+  function currentAssetPaths(manifest) {
+    var nodes = document.querySelectorAll('script[src],link[rel="stylesheet"][href],astro-island[component-url],astro-island[renderer-url]');
     var paths = [];
+    var files = (manifest && manifest.files) || {};
 
     nodes.forEach(function (node) {
-      var attr = node.tagName === 'SCRIPT' ? 'src' : 'href';
+      var attr = 'src';
+      if (node.tagName === 'LINK') attr = 'href';
+      else if (node.tagName === 'ASTRO-ISLAND') {
+        ['component-url', 'renderer-url'].forEach(function (islandAttr) {
+          var raw = node.getAttribute(islandAttr);
+          if (!raw) return;
+          var islandUrl = new URL(raw, location.origin);
+          if (
+            islandUrl.origin === location.origin &&
+            files[islandUrl.pathname] &&
+            paths.indexOf(islandUrl.pathname) === -1
+          ) {
+            paths.push(islandUrl.pathname);
+          }
+        });
+        return;
+      }
+
       var url = new URL(node.getAttribute(attr), location.origin);
-      if (url.origin === location.origin && paths.indexOf(url.pathname) === -1) {
+      // Only verify files from this build. Skip Cloudflare (/cdn-cgi) and other injections.
+      if (
+        url.origin === location.origin &&
+        files[url.pathname] &&
+        paths.indexOf(url.pathname) === -1
+      ) {
         paths.push(url.pathname);
       }
     });
@@ -129,10 +152,8 @@
       githubUnavailable = true;
     }
 
-    // Skip hashing HTML documents: Cloudflare may inject challenge/email
-    // scripts into HTML responses, which would false-positive this check.
-    // Static JS/CSS from /_astro and /public stay byte-stable and are verified.
-    var assets = currentAssetPaths();
+    // Verify only build-manifest assets. Ignore HTML and Cloudflare /cdn-cgi injections.
+    var assets = currentAssetPaths(manifest);
     for (var i = 0; i < assets.length; i += 1) {
       await verifyFile(manifest, assets[i]);
     }
