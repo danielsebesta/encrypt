@@ -2,8 +2,7 @@
   "name": "encrypt-click",
   "main": "party/chat.ts",
   "parties": {
-    "whiteboard": "party/whiteboard.ts",
-    "quiz": "party/quiz.ts"
+    "whiteboard": "party/whiteboard.ts"
   },
   "compatibilityDate": "2024-12-01"
 }
