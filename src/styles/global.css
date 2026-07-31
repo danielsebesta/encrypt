@@ -372,6 +372,10 @@
         @apply border border-zinc-300/80 bg-white/70 text-zinc-800 hover:border-emerald-500/50 hover:text-emerald-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-100 dark:hover:border-emerald-500/40 dark:hover:text-emerald-300;
     }
 
+    .home-hero-panels {
+        @apply mx-auto flex max-w-xl flex-col gap-8 md:gap-10;
+    }
+
     .home-tools-section {
         position: relative;
         width: 100%;
