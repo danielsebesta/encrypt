@@ -38,7 +38,7 @@ Validate changes with `pnpm build`.
 
 - `/` homepage with `UltimateEncrypt`
 - `/u` decrypt / receive flow
-- `/security` privacy and security summary
+- `/security` privacy and security summary (`/privacy` redirects here)
 - `/chat` encrypted ephemeral chat
 - `/whiteboard` collaborative whiteboard
 - `/tools/*` tool pages
