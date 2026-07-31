@@ -2,7 +2,7 @@
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
-import { getNavCategories, chatIcon, quizIcon, whiteboardIcon } from '../lib/tools';
+import { getNavCategories, chatIcon, whiteboardIcon } from '../lib/tools';
 
 type Props = {
   title?: string;
@@ -69,37 +69,11 @@ const languageOptions = locales.map(l => ({
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<meta name="apple-mobile-web-app-title" content="encrypt.click" />
 		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="preload" href="/fonts/nunito-v32-latin_latin-ext-regular.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href="/fonts/nunito-v32-latin_latin-ext-900.woff2" as="font" type="font/woff2" crossorigin />
 		<meta name="generator" content={Astro.generator} />
 		{enableIntegrityCheck && <script is:inline src="/integrity-check.js" defer></script>}
-		<script is:inline>
-			(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark');document.documentElement.style.colorScheme=d?'only dark':'only light';}catch(e){}})();
-			if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}
-			(function(){try{
-				var cur=document.documentElement.lang||'en';
-				var stored=localStorage.getItem('ec-lang');
-				var locales=['en','cs','de','es','fr','sk','pl'];
-				if(stored&&locales.indexOf(stored)!==-1&&stored!==cur){
-					var p=location.pathname;
-					var hasPayload=!!location.hash||new URLSearchParams(location.search).has('p');
-					var isDecryptRoute=p==='/u'||p==='/u/';
-					for(var j=1;j<locales.length;j++){if(p.indexOf('/'+locales[j]+'/u')===0){isDecryptRoute=true;break;}}
-					if(isDecryptRoute&&hasPayload){
-						localStorage.setItem('ec-lang',cur);
-						return;
-					}
-					// Strip current locale prefix
-					for(var i=0;i<locales.length;i++){
-						if(locales[i]==='en')continue;
-						if(p.indexOf('/'+locales[i]+'/')===0){p=p.slice(locales[i].length+1)||'/';break;}
-						if(p==='/'+locales[i]){p='/';break;}
-					}
-					// Build new path with stored locale
-					var np=stored==='en'?p:(p==='/'?'/'+stored+'/':'/'+stored+p);
-					if(np!==location.pathname){location.replace(np+location.search+location.hash);return;}
-				}
-				localStorage.setItem('ec-lang',cur);
-			}catch(e){}})();
-		</script>
+		<script is:inline src="/boot.js"></script>
 	</head>
 	<body>
 <nav id="site-nav" class="sticky top-0 z-50 w-full border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300">
@@ -142,7 +116,7 @@ const languageOptions = locales.map(l => ({
 			<div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
 				<!-- Logo -->
 				<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 shrink-0 rounded-lg py-1.5 pr-2 -ml-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
-					<img src="/encryptclick_icon.svg" alt="" class="h-7 w-auto" />
+					<img src="/encryptclick_icon.svg" alt="" width="28" height="28" class="h-7 w-7" decoding="async" />
 					<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
 				</a>
 
@@ -155,10 +129,6 @@ const languageOptions = locales.map(l => ({
 					<a href={`${localePrefix}/whiteboard`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={whiteboardIcon} /></svg>
 						{t(dict, 'nav.whiteboard')}
-					</a>
-					<a href={`${localePrefix}/quiz`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={quizIcon} /></svg>
-						{t(dict, 'nav.quiz')}
 					</a>
 					{navCategories.map((cat) => (
 						<div class="relative group">
@@ -274,13 +244,9 @@ const languageOptions = locales.map(l => ({
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={whiteboardIcon} /></svg>
 							{t(dict, 'nav.whiteboard')}
 						</a>
-						<a href={`${localePrefix}/quiz`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={quizIcon} /></svg>
-							{t(dict, 'nav.quiz')}
-						</a>
 						{navCategories.map((cat) => (
 							<div class="space-y-2">
-								<p class="text-[10px] font-bold uppercase text-zinc-400 tracking-[0.15em] flex items-center gap-1.5">
+								<p class="text-[10px] font-bold uppercase text-zinc-500 tracking-[0.15em] flex items-center gap-1.5">
 									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={cat.icon} /></svg>
 									{cat.name}
 								</p>
@@ -315,7 +281,7 @@ const languageOptions = locales.map(l => ({
 					<!-- Brand -->
 					<div class="col-span-2 md:col-span-1">
 						<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 mb-4">
-							<img src="/encryptclick_icon.svg" alt="" class="h-7 w-auto" />
+							<img src="/encryptclick_icon.svg" alt="" width="28" height="28" class="h-7 w-7" decoding="async" />
 							<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
 						</a>
 						<p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs">
@@ -325,20 +291,19 @@ const languageOptions = locales.map(l => ({
 
 					<!-- Privacy tools -->
 					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">{t(dict, 'nav.privacy')}</p>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-4">{t(dict, 'nav.privacy')}</p>
 						<ul class="space-y-2.5">
 							{navCategories.find(c => c.name === t(dict, 'nav.privacy'))?.tools.map((tool) => (
 								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
 							))}
 							<li><a href={`${localePrefix}/chat`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.chat')}</a></li>
 							<li><a href={`${localePrefix}/whiteboard`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.whiteboard')}</a></li>
-							<li><a href={`${localePrefix}/quiz`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.quiz')}</a></li>
 						</ul>
 					</div>
 
 					<!-- Developer tools -->
 					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">{t(dict, 'nav.developer')}</p>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-4">{t(dict, 'nav.developer')}</p>
 						<ul class="space-y-2.5">
 							{navCategories.find(c => c.name === t(dict, 'nav.developer'))?.tools.map((tool) => (
 								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
@@ -348,7 +313,7 @@ const languageOptions = locales.map(l => ({
 
 					<!-- Resources -->
 					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 mb-4">{t(dict, 'home.footer.resources')}</p>
+						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-4">{t(dict, 'home.footer.resources')}</p>
 						<ul class="space-y-2.5">
 							<li><a href={`${localePrefix}/security`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'home.footer.security')}</a></li>
 							<li>
@@ -364,104 +329,11 @@ const languageOptions = locales.map(l => ({
 
 				<!-- Bottom bar -->
 				<div class="mt-12 pt-6 border-t border-zinc-200/50 dark:border-zinc-800/40 flex flex-col sm:flex-row justify-between items-center gap-4">
-					<p class="text-xs text-zinc-400 dark:text-zinc-500">{t(dict, 'home.footer.tagline')}</p>
-					<p class="text-xs text-zinc-400 dark:text-zinc-500">{t(dict, 'home.footer.clientSideEncryption')}</p>
+					<p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'home.footer.tagline')}</p>
+					<p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'home.footer.clientSideEncryption')}</p>
 				</div>
 			</div>
 		</footer>
-		<script is:inline>
-			(function () {
-				if (typeof window === 'undefined' || typeof document === 'undefined') return;
-
-				if ('IntersectionObserver' in window) {
-					var observer = new IntersectionObserver(function (entries) {
-						entries.forEach(function (entry) {
-							if (entry.isIntersecting) {
-								entry.target.classList.add('aos-visible');
-								observer.unobserve(entry.target);
-							}
-						});
-					}, { threshold: 0.1 });
-
-					document.querySelectorAll('[data-aos]').forEach(function (el) {
-						el.classList.add('aos-fade');
-						var delay = el.getAttribute('data-aos-delay');
-						if (delay) el.classList.add('delay-' + delay);
-						observer.observe(el);
-					});
-				} else {
-					document.querySelectorAll('[data-aos]').forEach(function (el) {
-						el.classList.add('aos-visible');
-					});
-				}
-
-			document.addEventListener('click', function (event) {
-				var anchor = event.target.closest && event.target.closest('a');
-				if (!anchor) return;
-				var href = anchor.getAttribute('href');
-				var target = anchor.getAttribute('target');
-				if (!href || href.indexOf('http') === 0 || href.indexOf('#') === 0 || href.indexOf('blob:') === 0 || target === '_blank' || anchor.hasAttribute('download')) return;
-				if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-
-				// If this is a language switch link, update localStorage BEFORE navigating
-				var lang = anchor.getAttribute('data-lang');
-				if (lang) {
-					try { localStorage.setItem('ec-lang', lang); } catch(e) {}
-				}
-			});
-
-				function bindThemeToggle(id) {
-					var btn = document.getElementById(id);
-					if (!btn) return;
-					btn.addEventListener('click', function () {
-						var isDark = document.documentElement.classList.toggle('dark');
-						document.documentElement.style.colorScheme = isDark ? 'only dark' : 'only light';
-						try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
-					});
-				}
-				bindThemeToggle('theme-toggle');
-				bindThemeToggle('theme-toggle-mobile');
-
-				var menuBtn = document.getElementById('mobile-menu-toggle');
-				var menu = document.getElementById('mobile-menu');
-				var hamburger = document.getElementById('nav-hamburger');
-				if (menuBtn && menu) {
-					menuBtn.addEventListener('click', function () {
-						var isHidden = menu.classList.contains('hidden');
-						menu.classList.toggle('hidden', !isHidden);
-						menuBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
-						if (hamburger) {
-							var path = hamburger.querySelector('path');
-							if (path) {
-								if (isHidden) {
-									hamburger.style.transform = 'rotate(-45deg)';
-									path.style.strokeDasharray = '20 300';
-									path.style.strokeDashoffset = '-32.42px';
-								} else {
-									hamburger.style.transform = '';
-									path.style.strokeDasharray = '12 63';
-									path.style.strokeDashoffset = '0';
-								}
-							}
-						}
-						document.body.style.overflow = isHidden ? 'hidden' : '';
-					});
-				}
-
-				// Scroll-aware navbar
-				var nav = document.getElementById('site-nav');
-				if (nav) {
-					var onScroll = function() {
-						if (window.scrollY > 10) {
-							nav.classList.add('nav-scrolled');
-						} else {
-							nav.classList.remove('nav-scrolled');
-						}
-					};
-					window.addEventListener('scroll', onScroll, { passive: true });
-					onScroll();
-				}
-			})();
-		</script>
+		<script is:inline src="/ui.js" defer></script>
 	</body>
 </html>

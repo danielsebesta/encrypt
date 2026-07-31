@@ -6,8 +6,8 @@
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
   Permissions-Policy: camera=(self), microphone=(self), geolocation=()
   Cross-Origin-Opener-Policy: same-origin
-  Access-Control-Allow-Origin: https://encrypt.click
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://*.encrypt.click https://*.partykit.dev wss://*.partykit.dev https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Cross-Origin-Resource-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' __CSP_SCRIPT_HASHES__; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://*.encrypt.click https://*.partykit.dev wss://*.partykit.dev https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   Server: encrypt.click
 
 /.well-known/security.txt
@@ -16,11 +16,32 @@
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
 
-/theme-init.js
+/boot.js
   Cache-Control: public, max-age=31536000, immutable
+
+/ui.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/favicon.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/favicon.ico
+  Cache-Control: public, max-age=31536000, immutable
+
+/site.webmanifest
+  Cache-Control: public, max-age=604800
 
 /encryptclick_icon.svg
   Cache-Control: public, max-age=31536000, immutable
 
 /encrypt_*.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/encryptclick.svg
   Cache-Control: public, max-age=31536000, immutable
