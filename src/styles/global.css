@@ -337,7 +337,7 @@
     }
 
     .home-hero-features {
-        @apply mt-6 max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-left;
+        @apply mt-6 max-w-xl mx-auto grid grid-cols-1 gap-y-2.5 text-left;
         list-style: none;
         padding: 0;
     }
@@ -582,7 +582,7 @@
         grid-template-columns: 2.5fr 1fr;
     }
 
-    @media (max-width: 639px) {
+    @media (max-width: 767px) {
         .ue-input-grid {
             grid-template-columns: 1fr;
         }
