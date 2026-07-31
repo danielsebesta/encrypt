@@ -1,0 +1,5 @@
+---
+const locale = Astro.currentLocale ?? 'en';
+const prefix = locale === 'en' ? '' : `/${locale}`;
+return Astro.redirect(`${prefix}/security`, 301);
+---
