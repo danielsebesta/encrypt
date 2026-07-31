@@ -8,13 +8,13 @@ This file provides guidance to Claude Code when working in this repository.
 ## Commands
 
 ```bash
-yarn install
-yarn dev
-yarn build
-yarn preview
+pnpm install
+pnpm dev
+pnpm build
+pnpm preview
 ```
 
-Validate changes with `yarn build`.
+Validate changes with `pnpm build`.
 
 ## Architecture
 
@@ -26,26 +26,11 @@ Validate changes with `yarn build`.
 
 ### Main systems
 
-- `src/components/tools/*.svelte`
-  Interactive tool UIs.
-
-- `src/pages/tools/*.astro`
-  Tool pages.
-
-- `src/lib/tools.ts`
-  Tool registry for navbar/category wiring.
-
-- `src/locales/{en,cs,de,es,fr,sk,pl}.json`
-  Flat UI translation dictionaries.
-
-- `src/content/tool-education/*/*.json`
-  Long-form educational content for the education pilot.
-
-- `src/lib/toolEducation.ts`
-  Loader and runtime validation for education content.
-
-- `src/lib/ghost/` and `src/pages/api/ghost/`
-  Encrypted upload crypto, steganography, fetch, and verification support.
+- `src/components/tools/*.svelte` — interactive tool UIs (`ToolHelp.svelte` = `?` dialog)
+- `src/pages/tools/*.astro` — tool pages
+- `src/lib/tools.ts` — tool registry for navbar/category wiring
+- `src/locales/{en,cs,de,es,fr,sk,pl}.json` — flat UI dictionaries
+- `src/lib/ghost/` and `src/pages/api/ghost/` — encrypted upload crypto, stego, fetch, verification
 
 ## Current product shape
 
@@ -55,6 +40,7 @@ Validate changes with `yarn build`.
 - `/u` decrypt / receive flow
 - `/security` privacy and security summary
 - `/chat` encrypted ephemeral chat
+- `/whiteboard` collaborative whiteboard
 - `/tools/*` tool pages
 
 ### Tool categories in `src/lib/tools.ts`
@@ -66,7 +52,7 @@ Validate changes with `yarn build`.
 
 - Never hardcode user-facing English in components or pages.
 - Put normal UI strings in `src/locales/*.json`.
-- For the education pilot, keep long-form explanatory content in `src/content/tool-education/`.
+- Tool explainers live as short `tools.<name>.help.*` locale keys, shown via `ToolHelp`.
 - `en.json` is the source of truth for UI keys.
 - Keep all non-English locale files in sync with English.
 - Keep crypto logic in `src/lib/crypto.ts` or the existing `src/lib/ghost/` helpers.
@@ -75,29 +61,12 @@ Validate changes with `yarn build`.
 
 ## Adding a new tool
 
-Baseline checklist:
-
 1. Create the Svelte tool component in `src/components/tools/`
-2. Create the Astro page in `src/pages/tools/`
+2. Create the Astro page in `src/pages/tools/` (include `<ToolHelp … prefix="tools.myTool" />`)
 3. Register it in `src/lib/tools.ts`
-4. Add locale keys to all 7 locale files
-
-Optional follow-up depending on the tool:
-
-5. Add educational content in `src/content/tool-education/` per locale and wire it through `src/lib/toolEducation.ts`
-
-## Education content pilot
-
-The richer "Understand it" layer currently exists for:
-
-- `base64`
-- `bcrypt`
-- `jwt`
-- `time-capsule`
-
-Use those pages as the pattern if extending the system.
+4. Add locale keys to all 7 locale files, including `tools.myTool.help.what`, `.safe`, and optional `.watchOut`
 
 ## Validation
 
-- Run `yarn build`
+- Run `pnpm build`
 - Check affected pages across all locales
