@@ -41,23 +41,6 @@
     }).join('');
   }
 
-  function routeFileForCurrentPage(manifest) {
-    var pathname = location.pathname || '/';
-    var candidates = [
-      pathname,
-      pathname.endsWith('/') ? pathname.slice(0, -1) || '/' : pathname + '/',
-      pathname.endsWith('/') ? pathname + 'index.html' : pathname + '/index.html',
-    ];
-
-    for (var i = 0; i < candidates.length; i += 1) {
-      var route = candidates[i];
-      if (manifest.routes && manifest.routes[route]) return manifest.routes[route];
-      if (manifest.files && manifest.files[route]) return route;
-    }
-
-    return null;
-  }
-
   function currentAssetPaths() {
     var nodes = document.querySelectorAll('script[src],link[rel="stylesheet"][href]');
     var paths = [];
@@ -146,11 +129,9 @@
       githubUnavailable = true;
     }
 
-    var pageFile = routeFileForCurrentPage(manifest);
-    if (pageFile) {
-      await verifyFile(manifest, pageFile, location.pathname + location.search);
-    }
-
+    // Skip hashing HTML documents: Cloudflare may inject challenge/email
+    // scripts into HTML responses, which would false-positive this check.
+    // Static JS/CSS from /_astro and /public stay byte-stable and are verified.
     var assets = currentAssetPaths();
     for (var i = 0; i < assets.length; i += 1) {
       await verifyFile(manifest, assets[i]);
