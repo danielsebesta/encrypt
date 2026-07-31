@@ -1,0 +1,56 @@
+---
+import { t, type Locale } from '../../lib/i18n';
+import { getNavCategories, whiteboardIcon } from '../../lib/tools';
+
+type Props = {
+  locale: Locale;
+  dict: Record<string, string>;
+};
+
+const { dict } = Astro.props;
+const localePrefix = Astro.props.locale === 'en' ? '' : `/${Astro.props.locale}`;
+const categories = getNavCategories(t, dict, localePrefix);
+---
+
+<section id="home-tools" class="home-tools-section scroll-mt-24" data-aos data-aos-delay="80">
+  <div class="max-w-5xl mx-auto px-5">
+    <div class="home-tools-header">
+      <h2 class="home-tools-title">{t(dict, 'home.tools.title')}</h2>
+      <p class="home-tools-subtitle">{t(dict, 'home.tools.subtitle')}</p>
+    </div>
+
+    <a href={`${localePrefix}/whiteboard`} class="home-tools-spotlight">
+      <span class="home-tools-spotlight__icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={whiteboardIcon} /></svg>
+      </span>
+      <span class="home-tools-spotlight__copy">
+        <span class="home-tools-spotlight__label">{t(dict, 'nav.whiteboard')}</span>
+        <span class="home-tools-spotlight__text">{t(dict, 'home.tools.whiteboardBlurb')}</span>
+      </span>
+      <span class="home-tools-spotlight__go" aria-hidden="true">→</span>
+    </a>
+
+    <div class="home-tools-categories">
+      {categories.map((cat) => (
+        <div class="home-tools-category">
+          <p class="home-tools-category__name">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={cat.icon} /></svg>
+            {cat.name}
+          </p>
+          <ul class="home-tools-grid">
+            {cat.tools.map((tool) => (
+              <li>
+                <a href={tool.href} class="home-tools-card">
+                  <span class="home-tools-card__icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={tool.icon} /></svg>
+                  </span>
+                  <span class="home-tools-card__label">{tool.label}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
