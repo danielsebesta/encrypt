@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import HomeHero from '../components/home/HomeHero.astro';
+import HomeTools from '../components/home/HomeTools.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -10,5 +11,6 @@ const dict = getTranslations(locale);
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
 	<div class="home-page">
 		<HomeHero locale={locale} dict={dict} />
+		<HomeTools locale={locale} dict={dict} />
 	</div>
 </Layout>
