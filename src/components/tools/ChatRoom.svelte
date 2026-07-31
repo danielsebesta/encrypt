@@ -8,14 +8,17 @@
     encryptMessage, decryptMessage, generateIdentity, nameToGradient,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
+  import ToolHelp from './ToolHelp.svelte';
+  const chatHelpSections = ['what', 'messages', 'calls', 'files', 'safe', 'watchOut'];
   import { prepareSendUpload } from '../../lib/nologSend';
-  import { getTranslations, t } from '../../lib/i18n';
+  import { t } from '../../lib/t';
 
   export let locale = 'en';
   export let roomId = '';
   export let partyHost = 'encrypt-click.danielsebesta.partykit.dev';
 
-  $: dict = getTranslations(locale);
+  export let dict: Record<string, string>;
+  // dict provided by page
 
   type Message = {
     id: string;
@@ -107,6 +110,7 @@
     videoSender: RTCRtpSender | null;
     stream: MediaStream | null;
     state: RTCPeerConnectionState;
+    iceState: RTCIceConnectionState;
     muted: boolean;
     cameraOff: boolean;
     screenSharing: boolean;
@@ -162,6 +166,17 @@
     rttMs: number | null;
     url: string;
     protocol: string;
+    connected: boolean;
+    pairState: string;
+    nominated: boolean;
+    localCandidateType: string;
+    remoteCandidateType: string;
+  };
+
+  type CallDebugEvent = {
+    time: number;
+    label: string;
+    data: Record<string, unknown>;
   };
 
   type CallFullscreenTarget = {
@@ -244,6 +259,8 @@
   let callAudioMuted = false;
   let callVolume = 1;
   let callSettingsOpen = false;
+  let callDebugEnabled = false;
+  let callDebugEvents: CallDebugEvent[] = [];
   let localAudioLevel = 0;
   let localSpeaking = false;
   let blurCallMediaWhenAway = true;
@@ -271,6 +288,7 @@
   };
   let relayRttMs: number | null = null;
   let relayQuality: ServerQuality = 'unknown';
+  let relayConnected = false;
   let cloudflareRelayColo = '';
   let cloudflareRelayCountry = '';
   let cloudflareRelayTraceFetchedAt = 0;
@@ -289,6 +307,7 @@
   const MAX_PENDING_ICE_PER_PEER = 64;
   const LOCAL_HISTORY_LIMIT = 1000;
   const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v2:';
+  const CALL_DEBUG_STORAGE_KEY = 'encrypt.click:call-debug';
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
   const SERVER_FALLBACK_NAME = 'encrypt-1';
@@ -296,6 +315,7 @@
   const CALL_ID = `call:${roomId}`;
   const callPeerMap = new Map<string, CallPeer>();
   const pendingIce = new Map<string, RTCIceCandidateInit[]>();
+  let lastRelayDebugKey = '';
   let localAudioMonitor: AudioLevelMonitor | null = null;
   const peerAudioMonitors = new Map<string, AudioLevelMonitor>();
   let relayStatsInterval: ReturnType<typeof setInterval> | undefined;
@@ -619,7 +639,7 @@
   }
 
   function getTurnHost(url: string): string {
-    const withoutScheme = url.replace(/^turns?:/i, '').split('?')[0];
+    const withoutScheme = url.replace(/^(turns?|stuns?):/i, '').split('?')[0];
     const withoutUser = withoutScheme.split('@').pop() || withoutScheme;
     return withoutUser.replace(/^\[/, '').split(']')[0].split(':')[0] || withoutUser;
   }
@@ -636,6 +656,60 @@
     if (host === 'turn.encrypt.click' || host.endsWith('.encrypt.click')) return 'encrypt-1';
     if (host.includes('metered.ca') || host.includes('metered.live')) return 'metered';
     return host ? 'turn' : 'unknown';
+  }
+
+  function getCallDebugEnabledFromStorage(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('callDebug') === '1' || params.get('debug') === 'call') return true;
+      return window.localStorage?.getItem(CALL_DEBUG_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  function shortPeerId(id: string): string {
+    return id ? id.slice(0, 8) : '';
+  }
+
+  function callDebug(label: string, data: Record<string, unknown> = {}) {
+    if (!callDebugEnabled) return;
+    const event: CallDebugEvent = { time: Date.now(), label, data };
+    callDebugEvents = [event, ...callDebugEvents].slice(0, 40);
+    if (typeof window !== 'undefined') {
+      (window as Window & { __encryptCallDebug?: CallDebugEvent[] }).__encryptCallDebug = callDebugEvents;
+    }
+    console.debug('[encrypt.call]', label, data);
+  }
+
+  function describeIceServersForDebug(servers: RTCIceServer[] | undefined): Record<string, unknown>[] {
+    return (servers ?? []).map((server, index) => {
+      const urls = (Array.isArray(server.urls) ? server.urls : [server.urls])
+        .map((url) => String(url || ''))
+        .filter(Boolean);
+      const primaryUrl = urls.find((url) => /^turns?:/i.test(url)) || urls[0] || '';
+      const transports = Array.from(new Set(urls.map((url) => getTurnTransport(url)).filter(Boolean)));
+      return {
+        index,
+        provider: getRelayProvider(primaryUrl),
+        host: primaryUrl ? getTurnHost(primaryUrl) : '',
+        urlCount: urls.length,
+        hasTurn: urls.some((url) => /^turns?:/i.test(url)),
+        transports,
+        hasAuth: Boolean(server.username && server.credential),
+      };
+    });
+  }
+
+  function describeCandidateForDebug(candidate: RTCIceCandidate): Record<string, unknown> {
+    const candidateWithUrl = candidate as RTCIceCandidate & { url?: string; relayProtocol?: string };
+    return {
+      type: candidate.type || '',
+      protocol: candidate.protocol || '',
+      relayProtocol: candidateWithUrl.relayProtocol || '',
+      host: candidateWithUrl.url ? getTurnHost(candidateWithUrl.url) : '',
+    };
   }
 
   function getCloudflareRelayLocation(): string {
@@ -715,7 +789,7 @@
     const location = relayRoute.location ? ` ${relayRoute.location}` : '';
     const rtt = relayRttMs !== null
       ? `${relayRttMs} ms`
-      : (callPeers.length ? getServerQualityLabel(relayQuality) : t(dict, 'chat.callRelayWaiting'));
+      : (relayConnected ? t(dict, 'chat.callRelayConnected') : t(dict, 'chat.callRelayWaiting'));
     return `${relayRoute.name}${location} · ${rtt}`;
   }
 
@@ -725,6 +799,7 @@
       relayRoute.location ? `${t(dict, 'chat.callRelayLocation')}: ${relayRoute.location}` : '',
       relayRoute.host ? `${t(dict, 'chat.callRelayHost')}: ${relayRoute.host}` : '',
       relayRoute.protocol ? `${t(dict, 'chat.callRelayTransport')}: ${relayRoute.protocol}` : '',
+      relayConnected && relayRttMs === null ? t(dict, 'chat.callRelayConnectedNoRtt') : '',
       relayRttMs !== null ? `${t(dict, 'chat.callRelayRtt')}: ${relayRttMs} ms` : '',
     ].filter(Boolean);
     return parts.join(' · ');
@@ -738,7 +813,10 @@
 
     try {
       const res = await fetch('/cdn-cgi/trace', { cache: 'no-store' });
-      if (!res.ok) return;
+      if (!res.ok) {
+        callDebug('cloudflare trace failed', { status: res.status });
+        return;
+      }
       const values = new Map<string, string>();
       for (const line of (await res.text()).split('\n')) {
         const index = line.indexOf('=');
@@ -747,8 +825,15 @@
       }
       cloudflareRelayColo = values.get('colo') || cloudflareRelayColo;
       cloudflareRelayCountry = values.get('loc') || cloudflareRelayCountry;
+      callDebug('cloudflare trace', {
+        colo: cloudflareRelayColo,
+        country: cloudflareRelayCountry,
+        note: 'HTTP edge approximation, not guaranteed TURN edge',
+      });
       updateRelayRoute();
-    } catch {}
+    } catch (error) {
+      callDebug('cloudflare trace error', { error: error instanceof Error ? error.message : 'unknown' });
+    }
   }
 
   function getStatsRecord(stats: RTCStatsReport, id: unknown): (RTCStats & Record<string, unknown>) | null {
@@ -784,6 +869,13 @@
     const remote = getStatsRecord(stats, pair.remoteCandidateId);
     const url = String(local?.url || remote?.url || '');
     const protocol = String(local?.relayProtocol || local?.protocol || remote?.relayProtocol || remote?.protocol || '');
+    const pairState = String(pair.state || '');
+    const nominated = pair.nominated === true;
+    const connected = pair.state === 'succeeded'
+      || pair.nominated === true
+      || peer.pc.connectionState === 'connected'
+      || peer.pc.iceConnectionState === 'connected'
+      || peer.pc.iceConnectionState === 'completed';
     const rttSeconds = typeof pair.currentRoundTripTime === 'number'
       ? pair.currentRoundTripTime
       : (typeof pair.totalRoundTripTime === 'number' && typeof pair.responsesReceived === 'number' && pair.responsesReceived > 0
@@ -794,6 +886,11 @@
       rttMs: rttSeconds !== null && Number.isFinite(rttSeconds) ? Math.max(0, Math.round(rttSeconds * 1000)) : null,
       url,
       protocol: protocol ? protocol.toUpperCase() : '',
+      connected,
+      pairState,
+      nominated,
+      localCandidateType: String(local?.candidateType || ''),
+      remoteCandidateType: String(remote?.candidateType || ''),
     };
   }
 
@@ -803,9 +900,40 @@
     const valid = snapshots.filter((item): item is RelayStatsSnapshot => Boolean(item));
     const rtts = valid.map((item) => item.rttMs).filter((value): value is number => typeof value === 'number');
     relayRttMs = rtts.length ? Math.round(rtts.reduce((sum, value) => sum + value, 0) / rtts.length) : null;
+    relayConnected = valid.some((item) => item.connected);
     const routeSnapshot = valid.find((item) => item.url);
     updateRelayRoute(routeSnapshot?.url || '', routeSnapshot?.protocol || '');
     updateRelayQuality();
+    const debugKey = JSON.stringify({
+      peers: callPeerMap.size,
+      valid: valid.length,
+      connected: relayConnected,
+      rttMs: relayRttMs,
+      provider: relayRoute.provider,
+      host: relayRoute.host,
+      protocol: relayRoute.protocol,
+      states: valid.map((item) => `${item.pairState}:${item.nominated}:${item.localCandidateType}:${item.remoteCandidateType}`),
+    });
+    if (debugKey !== lastRelayDebugKey) {
+      lastRelayDebugKey = debugKey;
+      callDebug('relay stats', {
+        peers: callPeerMap.size,
+        selectedPairs: valid.length,
+        connected: relayConnected,
+        rttMs: relayRttMs,
+        route: relayRoute,
+        snapshots: valid.map((item) => ({
+          rttMs: item.rttMs,
+          connected: item.connected,
+          pairState: item.pairState,
+          nominated: item.nominated,
+          localCandidateType: item.localCandidateType,
+          remoteCandidateType: item.remoteCandidateType,
+          host: item.url ? getTurnHost(item.url) : '',
+          protocol: item.protocol,
+        })),
+      });
+    }
   }
 
   function startRelayStatsMonitor() {
@@ -821,7 +949,9 @@
     if (relayStatsInterval) clearInterval(relayStatsInterval);
     relayStatsInterval = undefined;
     relayRttMs = null;
+    relayConnected = false;
     relayQuality = 'unknown';
+    lastRelayDebugKey = '';
   }
 
   function isSupportedSdpType(type: unknown): type is RTCSdpType {
@@ -869,9 +999,16 @@
       }
       iceServers = data.iceServers;
       iceServersFetchedAt = Date.now();
+      callDebug('turn config loaded', {
+        turnReady: data.turnReady,
+        ttl: data.ttl ?? null,
+        expiresAt: data.expiresAt ?? null,
+        servers: describeIceServersForDebug(data.iceServers),
+      });
       updateRelayRoute();
       void refreshCloudflareRelayTrace();
-    } catch {
+    } catch (error) {
+      callDebug('turn config error', { error: error instanceof Error ? error.message : 'unknown' });
       iceServers = [];
       iceServersFetchedAt = Date.now();
       updateRelayRoute();
@@ -902,6 +1039,15 @@
       screen: screenSharing,
       ...partial,
     };
+    callDebug('call signal out', {
+      action: signal.action,
+      to: signal.to ? shortPeerId(signal.to) : '',
+      hasSdp: Boolean(signal.sdp),
+      hasCandidate: Boolean(signal.candidate),
+      audio: signal.audio,
+      video: signal.video,
+      screen: signal.screen,
+    });
     await sendEncryptedControl(signal as unknown as Record<string, unknown>, 'call');
   }
 
@@ -1952,6 +2098,7 @@
       videoSender: videoTransceiver?.sender ?? null,
       stream: null,
       state: pc.connectionState,
+      iceState: pc.iceConnectionState,
       muted: false,
       cameraOff: false,
       screenSharing: false,
@@ -1962,6 +2109,12 @@
       speaking: false,
     };
     callPeerMap.set(peerId, peer);
+    callDebug('peer created', {
+      peer: shortPeerId(peerId),
+      connectionState: pc.connectionState,
+      iceConnectionState: pc.iceConnectionState,
+      iceServers: describeIceServersForDebug(iceServers),
+    });
 
     pc.ontrack = (event) => {
       const current = callPeerMap.get(peerId);
@@ -1983,6 +2136,12 @@
         }
       }
       current.stream = stream;
+      callDebug('peer track', {
+        peer: shortPeerId(peerId),
+        kind: event.track.kind,
+        readyState: event.track.readyState,
+        streamTracks: stream.getTracks().map((track) => track.kind),
+      });
       startPeerAudioMonitor(current);
       syncCallPeers();
     };
@@ -1990,6 +2149,10 @@
     pc.onicecandidate = (event) => {
       if (!event.candidate) return;
       if (!isRelayCandidate(event.candidate)) return;
+      callDebug('relay candidate out', {
+        peer: shortPeerId(peerId),
+        candidate: describeCandidateForDebug(event.candidate),
+      });
       void sendCallSignal({
         action: 'ice',
         to: peerId,
@@ -2001,6 +2164,26 @@
       const current = callPeerMap.get(peerId);
       if (!current) return;
       current.state = pc.connectionState;
+      callDebug('peer connection state', {
+        peer: shortPeerId(peerId),
+        connectionState: pc.connectionState,
+        iceConnectionState: pc.iceConnectionState,
+        signalingState: pc.signalingState,
+      });
+      syncCallPeers();
+      void refreshRelayStats();
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      const current = callPeerMap.get(peerId);
+      if (!current) return;
+      current.iceState = pc.iceConnectionState;
+      callDebug('peer ice state', {
+        peer: shortPeerId(peerId),
+        connectionState: pc.connectionState,
+        iceConnectionState: pc.iceConnectionState,
+        signalingState: pc.signalingState,
+      });
       syncCallPeers();
       void refreshRelayStats();
     };
@@ -2026,6 +2209,10 @@
     const queue = pendingIce.get(peerId);
     if (!peer || !queue?.length || !peer.pc.remoteDescription) return;
     pendingIce.delete(peerId);
+    callDebug('relay candidate queue flush', {
+      peer: shortPeerId(peerId),
+      count: queue.length,
+    });
     for (const candidate of queue) {
       try { await peer.pc.addIceCandidate(candidate); } catch {}
     }
@@ -2123,14 +2310,42 @@
       if (queue.length >= MAX_PENDING_ICE_PER_PEER) return;
       queue.push(signal.candidate);
       pendingIce.set(signal.from, queue);
+      callDebug('relay candidate queued', {
+        peer: shortPeerId(signal.from),
+        count: queue.length,
+        sdpMid: signal.candidate.sdpMid || '',
+        sdpMLineIndex: signal.candidate.sdpMLineIndex ?? null,
+      });
       return;
     }
-    try { await peer.pc.addIceCandidate(signal.candidate); } catch {}
+    try {
+      await peer.pc.addIceCandidate(signal.candidate);
+      callDebug('relay candidate added', {
+        peer: shortPeerId(signal.from),
+        sdpMid: signal.candidate.sdpMid || '',
+        sdpMLineIndex: signal.candidate.sdpMLineIndex ?? null,
+      });
+    } catch (error) {
+      callDebug('relay candidate add failed', {
+        peer: shortPeerId(signal.from),
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
   }
 
   async function handleCallSignal(signal: CallSignal) {
     if (!signal || signal.from === clientId || signal.callId !== CALL_ID) return;
     if (signal.to && signal.to !== clientId) return;
+    callDebug('call signal in', {
+      action: signal.action,
+      from: shortPeerId(signal.from),
+      toMe: signal.to === clientId,
+      hasSdp: Boolean(signal.sdp),
+      hasCandidate: Boolean(signal.candidate),
+      audio: signal.audio,
+      video: signal.video,
+      screen: signal.screen,
+    });
 
     const showActiveCallNotice = () => {
       if (callActive || callNoticeDismissed) return;
@@ -2371,6 +2586,12 @@
     activeCallNotice = null;
     callNoticeDismissed = false;
     callSettingsOpen = false;
+    callDebug('call start requested', {
+      connected,
+      verified,
+      serverLatencyMs,
+      serverQuality,
+    });
 
     try {
       await loadIceServers(true);
@@ -2382,9 +2603,15 @@
       updateRelayQuality();
       startRelayStatsMonitor();
       await refreshDevices();
+      callDebug('call started', {
+        audioInputs: audioInputDevices.length,
+        videoInputs: videoInputDevices.length,
+        audioOutputs: audioOutputDevices.length,
+      });
       await sendCallSignal({ action: 'join', reply: false });
     } catch (e: any) {
       callError = e?.message || t(dict, 'chat.callStartFailed');
+      callDebug('call start failed', { error: callError });
       cleanupCall(false);
     } finally {
       callJoining = false;
@@ -2398,6 +2625,13 @@
   }
 
   function cleanupCall(clearError = true) {
+    callDebug('call cleanup', {
+      clearError,
+      peers: callPeerMap.size,
+      active: callActive,
+      relayConnected,
+      relayRttMs,
+    });
     closeCallFullscreen(false);
     for (const peer of callPeerMap.values()) peer.pc.close();
     callPeerMap.clear();
@@ -2429,6 +2663,7 @@
 
   async function endCall(notify = true) {
     const shouldNotify = notify && callActive;
+    callDebug('call end requested', { notify, shouldNotify });
     if (shouldNotify) await sendCallSignal({ action: 'leave' }).catch(() => {});
     cleanupCall();
   }
@@ -2818,6 +3053,11 @@
 
   onMount(() => {
     clientId = genId();
+    callDebugEnabled = getCallDebugEnabledFromStorage();
+    callDebug('debug enabled', {
+      client: shortPeerId(clientId),
+      userAgent: navigator.userAgent,
+    });
     void initChat();
     tickInterval = setInterval(tick, 200);
     document.addEventListener('visibilitychange', handleVisibility);
@@ -2924,6 +3164,7 @@
         </div>
       </div>
       <div class="flex items-center gap-1.5">
+        <ToolHelp dict={dict} prefix="chat" sections={chatHelpSections} />
         <button class="chat-call-btn" title={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -3214,7 +3455,7 @@
             </div>
             <div class="chat-whiteboard-panel__surface">
               {#key activeWhiteboard.roomId}
-                <Whiteboard locale={locale} roomId={activeWhiteboard.roomId} partyHost={partyHost} initialPassword={activeWhiteboard.password} />
+                <Whiteboard locale={locale} dict={dict} roomId={activeWhiteboard.roomId} partyHost={partyHost} initialPassword={activeWhiteboard.password} />
               {/key}
             </div>
           </div>
