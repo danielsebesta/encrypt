@@ -34,8 +34,8 @@ const features = [
         decoding="async"
       />
       <h1 class="text-3xl md:text-5xl lg:text-6xl leading-[1.08] tracking-[-0.04em] font-black text-zinc-950 dark:text-zinc-50">
-        {t(dict, 'home.hero.title.line1')}
-        <span class="block text-emerald-600 dark:text-emerald-400">{t(dict, 'home.hero.title.line2')}</span>
+        {t(dict, 'home.hero.title.line1')}{' '}
+        <span class="lp-hero__title-accent">{t(dict, 'home.hero.title.line2')}</span>
       </h1>
       <p class="mt-4 max-w-2xl mx-auto text-base md:text-lg leading-7 text-zinc-600 dark:text-zinc-300">
         {t(dict, 'home.hero.subtitle')}
@@ -66,7 +66,7 @@ const features = [
 
     <div class="home-hero-panels">
 
-      <div id="home-encrypt" class="home-tool-panel scroll-mt-24">
+      <div id="home-encrypt" class="home-tool-panel">
         <div class="flex items-center gap-2 mb-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <p class="text-base font-bold text-zinc-800 dark:text-zinc-200">{t(dict, 'home.hero.panelTitle')}</p>
@@ -97,7 +97,7 @@ const features = [
         </div>
       </div>
 
-      <div id="home-chat" class="home-tool-panel scroll-mt-24">
+      <div id="home-chat" class="home-tool-panel">
         <div class="flex items-center gap-2 mb-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
           <p class="text-base font-bold text-zinc-800 dark:text-zinc-200">{t(dict, 'chat.pageTitle')} <span class="text-emerald-600 dark:text-emerald-400">{t(dict, 'chat.pageTitleHighlight')}</span></p>
