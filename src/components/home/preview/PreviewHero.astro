@@ -1,0 +1,44 @@
+---
+import { t, type Locale } from '../../../lib/i18n';
+
+type Props = {
+  locale: Locale;
+  dict: Record<string, string>;
+};
+
+const { locale, dict } = Astro.props;
+const localePrefix = locale === 'en' ? '' : `/${locale}`;
+---
+
+<section class="lp-hero">
+  <div class="lp-shell">
+<img
+      src="/encrypt_privacy.svg"
+      alt=""
+      width="400"
+      height="440"
+      class="lp-hero__art"
+      decoding="async"
+    />
+
+    <h1 class="lp-hero__title">
+      {t(dict, 'home.hero.title.line1')}{' '}
+      <span class="lp-hero__title-accent">{t(dict, 'home.hero.title.line2')}</span>
+    </h1>
+
+    <p class="lp-hero__subtitle">{t(dict, 'landing.hero.subtitle')}</p>
+
+    <div class="lp-hero__ctas">
+      <a href={`${localePrefix}/share`} class="home-hero-cta home-hero-cta--primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+        {t(dict, 'landing.cta.share')}
+      </a>
+      <a href={`${localePrefix}/chat`} class="home-hero-cta home-hero-cta--secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+        {t(dict, 'landing.cta.chat')}
+      </a>
+    </div>
+
+    <p class="lp-hero__note">{t(dict, 'landing.hero.note')}</p>
+  </div>
+</section>

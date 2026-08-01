@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import UltimateEncrypt from '../components/tools/UltimateEncrypt.svelte';
+import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+const encryptDict = pickDict(dict, ['tools.ultimateEncrypt', 'common']);
+
+export const prerender = true;
+---
+
+<Layout
+  title={t(dict, 'share.meta.title')}
+  description={t(dict, 'share.meta.description')}
+>
+  <div class="max-w-xl mx-auto px-5 py-12 md:py-20">
+    <div class="mb-8 space-y-3 text-center">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
+        {t(dict, 'landing.paths.share.title')}
+      </h1>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-md mx-auto">
+        {t(dict, 'landing.paths.share.text')}
+      </p>
+    </div>
+    <div class="home-tool-panel__surface">
+      <UltimateEncrypt client:idle locale={locale} dict={encryptDict} />
+    </div>
+  </div>
+</Layout>

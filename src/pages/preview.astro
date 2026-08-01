@@ -1,0 +1,20 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PreviewHero from '../components/home/preview/PreviewHero.astro';
+import PreviewPaths from '../components/home/preview/PreviewPaths.astro';
+import PreviewTrust from '../components/home/preview/PreviewTrust.astro';
+import HomeTools from '../components/home/HomeTools.astro';
+import { getTranslations, t, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+---
+
+<Layout title={t(dict, 'landing.meta.title')} description={t(dict, 'landing.meta.description')}>
+  <div class="home-page lp-page">
+    <PreviewHero locale={locale} dict={dict} />
+    <PreviewPaths locale={locale} dict={dict} />
+    <PreviewTrust locale={locale} dict={dict} />
+    <HomeTools locale={locale} dict={dict} />
+  </div>
+</Layout>
