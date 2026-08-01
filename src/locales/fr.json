@@ -814,5 +814,9 @@
   "security.share.p2": "L'upload automatique préfère le stockage de ciphertext first-party (upload.encrypt.click). Ce chemin est limité (environ 50 Mo) et la disponibilité est garantie environ 24 heures. En cas d'échec, le navigateur n'envoie que du ciphertext à l'API d'upload d'encrypt.click, qui peut le relayer côté serveur vers des hôtes temporaires compatibles Send. Ces hôtes devraient voir le ciphertext et la sortie serveur - pas un upload direct de clair depuis le navigateur.",
   "security.share.p3": "Les destinataires ouvrent des liens sur encrypt.click (souvent /u). Le matériel chiffré peut être dans le fragment d'URL (non envoyé à nos serveurs lors d'un chargement normal) ou pointer vers un ciphertext uploadé. Un enrobage PNG optionnel peut cacher le lien dans une image pour un partage hors ligne.",
   "security.chat.p5": "Le tableau blanc utilise la même infrastructure temps réel pour les traits et l'état collaboratifs. Traitez l'accès comme pour le chat : mot de passe fort pour tout ce qui est sensible.",
-  "security.network.li5": "Une vérification d'intégrité du déploiement côté client compare les assets du build à un manifeste publié et, si possible, au dernier commit main sur GitHub."
+  "security.network.li5": "Une vérification d'intégrité du déploiement côté client compare les assets du build à un manifeste publié et, si possible, au dernier commit main sur GitHub.",
+  "home.moments.label": "Pourquoi encrypt.click",
+  "home.moments.papers.eyebrow": "Partage privé",
+  "home.moments.papers.title": "D’une pile de fichiers à un lien chiffré.",
+  "home.moments.papers.text": "Ajoutez un message ou des documents, chiffrez dans le navigateur, puis partagez un lien et un mot de passe. Pas de compte, pas de boîte encombrée."
 }

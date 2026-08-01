@@ -814,5 +814,9 @@
   "security.share.p2": "La subida automática prefiere almacenamiento de ciphertext propio (upload.encrypt.click). Ese camino tiene límite (unos 50 MB) y la disponibilidad está garantizada unas 24 horas. Si falla, el navegador envía solo ciphertext a la API de subida de encrypt.click, que puede retransmitirlo en el servidor a hosts temporales compatibles con Send. Esos hosts deberían ver ciphertext y salida del servidor, no una subida directa de texto en claro desde el navegador.",
   "security.share.p3": "Los destinatarios abren enlaces en encrypt.click (a menudo /u). El material cifrado puede ir en el fragmento de la URL (no se envía a nuestros servidores en cargas normales) o apuntar a ciphertext subido. Un PNG opcional puede ocultar el enlace en una imagen para entregarlo sin conexión.",
   "security.chat.p5": "La pizarra usa la misma infraestructura en tiempo real para trazos y estado compartidos. Trata el acceso como en el chat: usa una contraseña fuerte para lo sensible.",
-  "security.network.li5": "Una comprobación de integridad del despliegue en el cliente compara los assets del build con un manifiesto publicado y, si es posible, con el último commit de main en GitHub."
+  "security.network.li5": "Una comprobación de integridad del despliegue en el cliente compara los assets del build con un manifiesto publicado y, si es posible, con el último commit de main en GitHub.",
+  "home.moments.label": "Por qué encrypt.click",
+  "home.moments.papers.eyebrow": "Compartir en privado",
+  "home.moments.papers.title": "De un montón de archivos a un enlace cifrado.",
+  "home.moments.papers.text": "Añade un mensaje o documentos, cifra en el navegador y pasa un enlace con contraseña. Sin cuenta, sin desorden en la bandeja."
 }

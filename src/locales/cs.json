@@ -814,5 +814,9 @@
   "security.share.p2": "Automatický upload preferuje first-party úložiště ciphertextu (upload.encrypt.click). Tato cesta má limit (okolo 50 MB) a dostupnost je garantovaná asi 24 hodin. Když selže, prohlížeč pošle jen ciphertext na upload API encrypt.click, které ho může serverově předat dočasným Send-kompatibilním hostitelům. Ti by měli vidět ciphertext a serverový egress - ne přímý upload plaintextu z prohlížeče.",
   "security.share.p3": "Příjemci otevírají odkazy na encrypt.click (často /u). Šifrovaný materiál může být ve fragmentu URL (při běžném načtení stránky se na naše servery neposílá) nebo ukazovat na nahraný ciphertext. Volitelné zabalení do PNG umí schovat share link do obrázku pro offline předání.",
   "security.chat.p5": "Whiteboard používá stejnou realtime infrastrukturu pro společné tahy a stav. Přístup berte jako u chatu: na citlivé věci použijte silné heslo.",
-  "security.network.li5": "Klientská kontrola integrity deploymentu porovnává načtené build assety s publikovaným manifestem a, pokud je GitHub dostupný, s nejnovějším commitem na main."
+  "security.network.li5": "Klientská kontrola integrity deploymentu porovnává načtené build assety s publikovaným manifestem a, pokud je GitHub dostupný, s nejnovějším commitem na main.",
+  "home.moments.label": "Proč encrypt.click",
+  "home.moments.papers.eyebrow": "Soukromé sdílení",
+  "home.moments.papers.title": "Z hromady souborů jeden šifrovaný odkaz.",
+  "home.moments.papers.text": "Vlož zprávu nebo dokumenty, zašifruj v prohlížeči a předej odkaz s heslem. Bez účtu, bez nepořádku ve schránce."
 }

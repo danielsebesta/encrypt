@@ -814,5 +814,9 @@
   "security.share.p2": "Automatic upload prefers first-party ciphertext storage (upload.encrypt.click). That path is limited (about 50 MB) and availability is guaranteed for about 24 hours. If it fails, your browser posts ciphertext only to encrypt.click's upload API, which may relay server-side to temporary Send-compatible hosts. Those hosts should see ciphertext and server egress - not a direct browser upload of plaintext.",
   "security.share.p3": "Recipients open links on encrypt.click (often /u). Encrypted material may sit in the URL fragment (not sent to our servers on normal page loads) or point at uploaded ciphertext. Optional PNG wrapping can hide the share link in an image for offline handoff.",
   "security.chat.p5": "Whiteboard sessions use the same realtime infrastructure for collaborative strokes and state. Treat room access like chat: use a strong password for anything sensitive.",
-  "security.network.li5": "A client-side deployment integrity check compares loaded build assets to a published manifest and, when reachable, to the latest GitHub main commit."
+  "security.network.li5": "A client-side deployment integrity check compares loaded build assets to a published manifest and, when reachable, to the latest GitHub main commit.",
+  "home.moments.label": "Why encrypt.click",
+  "home.moments.papers.eyebrow": "Private sharing",
+  "home.moments.papers.title": "From a pile of files to one encrypted link.",
+  "home.moments.papers.text": "Drop in a message or documents, encrypt in the browser, then hand over a link and password. No account, no inbox clutter."
 }

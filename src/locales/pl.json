@@ -814,5 +814,9 @@
   "security.share.p2": "Automatyczny upload preferuje first-party magazyn ciphertextu (upload.encrypt.click). Ta ścieżka ma limit (ok. 50 MB), a dostępność jest gwarantowana przez ok. 24 godziny. Gdy zawiedzie, przeglądarka wysyła tylko ciphertext do API uploadu encrypt.click, które może serwerowo przekazać go tymczasowym hostom zgodnym z Send. Te hosty powinny widzieć ciphertext i egress serwera - nie bezpośredni upload plaintextu z przeglądarki.",
   "security.share.p3": "Odbiorcy otwierają linki na encrypt.click (często /u). Materiał szyfrowany może być we fragmencie URL (przy zwykłym ładowaniu strony nie jest wysyłany na nasze serwery) albo wskazywać na wgrany ciphertext. Opcjonalne opakowanie PNG może ukryć link share w obrazku do przekazania offline.",
   "security.chat.p5": "Whiteboard używa tej samej infrastruktury realtime do wspólnych kresek i stanu. Traktuj dostęp jak w czacie: do wrażliwych rzeczy użyj silnego hasła.",
-  "security.network.li5": "Klientowa kontrola integralności wdrożenia porównuje załadowane assety builda z opublikowanym manifestem oraz, gdy to możliwe, z najnowszym commitem main na GitHubie."
+  "security.network.li5": "Klientowa kontrola integralności wdrożenia porównuje załadowane assety builda z opublikowanym manifestem oraz, gdy to możliwe, z najnowszym commitem main na GitHubie.",
+  "home.moments.label": "Dlaczego encrypt.click",
+  "home.moments.papers.eyebrow": "Prywatne udostępnianie",
+  "home.moments.papers.title": "Ze sterty plików do jednego zaszyfrowanego linku.",
+  "home.moments.papers.text": "Dodaj wiadomość lub dokumenty, zaszyfruj w przeglądarce i przekaż link z hasłem. Bez konta, bez bałaganu w skrzynce."
 }
