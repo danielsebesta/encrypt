@@ -18,6 +18,7 @@
   let textInput = '';
   let file: File | null = null;
   let password = '';
+  let isGeneratedPassword = false;
   let timelockDate = '';
   let showQr = false;
 
@@ -112,6 +113,11 @@
     const before = arr[count * 2] & 1; // coin flip: prepend or append
     words[numIdx] = before ? `${num}${words[numIdx]}` : `${words[numIdx]}${num}`;
     return words.join('-');
+  }
+
+  function useGeneratedPassphrase() {
+    password = generatePassphrase();
+    isGeneratedPassword = true;
   }
 
 
@@ -292,7 +298,7 @@
         margin: 1,
         width: 320,
         color: {
-          dark: '#065f46',
+          dark: '#105f3f',
           light: '#ffffff',
         },
       });
@@ -637,8 +643,7 @@
     step = 'input';
     textInput = '';
     files = [];
-    password = '';
-    password = generatePassphrase();
+    useGeneratedPassphrase();
     timelockDate = '';
     resultUrl = '';
     shortUrl = '';
@@ -659,7 +664,7 @@
     debugLog = [];
   }
 
-  onMount(() => { password = generatePassphrase(); });
+  onMount(useGeneratedPassphrase);
 
   function ueBeforeUnload(e: BeforeUnloadEvent) {
     e.preventDefault();
@@ -750,16 +755,17 @@
         <div class="ue-passphrase-box">
           <input
             id="ue-pass"
-            type="text"
+            type={isGeneratedPassword ? 'text' : 'password'}
             class="ue-passphrase-input"
             bind:value={password}
+            on:input={() => { isGeneratedPassword = false; }}
             autocomplete="off"
             data-lpignore="true"
             data-1p-ignore
             data-bwignore="true"
             placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
           />
-          <button type="button" class="ue-passphrase-refresh" on:click={() => { password = generatePassphrase(); }} aria-label={t(dict, 'common.generatePassphrase')}>
+          <button type="button" class="ue-passphrase-refresh" on:click={useGeneratedPassphrase} aria-label={t(dict, 'common.generatePassphrase')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
@@ -775,6 +781,7 @@
         on:click={handleEncrypt}
         disabled={(!textInput.trim() && files.length === 0)}
       >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
         {t(dict, 'tools.ultimateEncrypt.encryptAndShare')}
       </button>
     </div>
@@ -867,14 +874,14 @@
         {/if}
         {#if showQr && qrSvg && shareUrl}
           <div class="mt-3 flex justify-center">
-            <div class="w-full max-w-[248px] rounded-[1.8rem] border border-emerald-200/80 dark:border-emerald-900/70 bg-[linear-gradient(180deg,rgba(236,253,245,0.98),rgba(209,250,229,0.92))] dark:bg-[linear-gradient(180deg,rgba(2,44,34,0.96),rgba(4,28,24,0.98))] p-3 shadow-[0_18px_60px_rgba(6,95,70,0.18)]">
+            <div class="w-full max-w-[248px] rounded-[1.8rem] border border-emerald-200/80 dark:border-emerald-900/70 bg-[linear-gradient(180deg,oklch(0.975_0.025_160.44_/_0.98),oklch(0.95_0.05_160.44_/_0.92))] dark:bg-[linear-gradient(180deg,oklch(0.25_0.045_160.44_/_0.96),oklch(0.20_0.035_160.44_/_0.98))] p-3 shadow-[0_18px_60px_oklch(0.43_0.09_160.44_/_0.18)]">
               <div class="relative overflow-hidden rounded-[1.35rem] border border-white/70 dark:border-white/8 bg-white p-3">
-                <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.10),transparent_58%)]"></div>
+                <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.7019_0.1577_160.44_/_0.10),transparent_58%)]"></div>
                 <div class="relative mx-auto w-full max-w-[200px]" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>
                   <div class="block w-full [&>svg]:block [&>svg]:h-auto [&>svg]:w-full [&>svg]:rounded-[1rem]">
                     {@html qrSvg}
                   </div>
-                  <div class="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-emerald-200 bg-white shadow-[0_10px_30px_rgba(6,95,70,0.16)]">
+                  <div class="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-emerald-200 bg-white shadow-[0_10px_30px_oklch(0.43_0.09_160.44_/_0.16)]">
                     <img src="/encryptclick_icon.svg" alt="" class="h-6 w-6" />
                   </div>
                 </div>
