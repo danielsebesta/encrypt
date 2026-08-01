@@ -1254,7 +1254,7 @@
       roomId: parsed.roomId,
       password: parsed.password,
       sender: typeof parsed.sender === 'string' && parsed.sender.trim() ? parsed.sender : t(dict, 'chat.guest'),
-      color: typeof parsed.color === 'string' && parsed.color.trim() ? parsed.color : 'rgb(16,185,129)',
+      color: typeof parsed.color === 'string' && parsed.color.trim() ? parsed.color : 'oklch(0.7019 0.1577 160.44)',
       createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
     };
   }
@@ -1339,7 +1339,7 @@
         text: item.text || '',
         sender,
         initials: getInitials(sender),
-        color: item.color || 'rgb(16,185,129)',
+        color: item.color || 'oklch(0.7019 0.1577 160.44)',
         mine: false,
         time: createdAt,
         ttl: 0,
@@ -1352,7 +1352,7 @@
         id: item.id,
         text: item.text || '',
         sender,
-        color: item.color || 'rgb(16,185,129)',
+        color: item.color || 'oklch(0.7019 0.1577 160.44)',
         ttl: 0,
         createdAt,
         file: item.file,
@@ -1744,7 +1744,7 @@
         void sendLiveHistorySync();
         messages = [...messages, {
           id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', parsed.sender), sender: '', initials: '→',
-          color: 'rgb(16,185,129)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
+          color: 'oklch(0.7019 0.1577 160.44)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
         }];
         scrollToBottom();
         return true;
@@ -1790,7 +1790,7 @@
         text: parsed.text || '',
         sender: parsed.sender || t(dict, 'chat.guest'),
         initials: getInitials(parsed.sender || t(dict, 'chat.guest')),
-        color: parsed.color || 'rgb(16,185,129)',
+        color: parsed.color || 'oklch(0.7019 0.1577 160.44)',
         mine: false,
         time: parsed.createdAt || Date.now(),
         ttl,
@@ -2090,7 +2090,7 @@
       id: peerId,
       name: name || t(dict, 'chat.guest'),
       initials: getInitials(name || t(dict, 'chat.guest')),
-      color: color || 'rgb(16,185,129)',
+      color: color || 'oklch(0.7019 0.1577 160.44)',
       pc,
       audioTransceiver,
       videoTransceiver,
@@ -3479,7 +3479,7 @@
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
-                <span class="chat-sender" style="color: {msg.mine ? 'rgb(16,185,129)' : msg.color}">{msg.sender}</span>
+                <span class="chat-sender" style="color: {msg.mine ? 'oklch(0.7019 0.1577 160.44)' : msg.color}">{msg.sender}</span>
               </div>
               {#if msg.file}
                 <div class="chat-file" class:chat-file--error={msg.fileError}>
@@ -3760,9 +3760,9 @@
     border: 1px solid rgba(228, 228, 231, 0.75);
   }
   .chat-whiteboard-panel__button:hover {
-    color: rgb(16, 185, 129);
-    background: rgba(16, 185, 129, 0.08);
-    border-color: rgba(16, 185, 129, 0.18);
+    color: oklch(0.7019 0.1577 160.44);
+    background: oklch(0.7019 0.1577 160.44 / 0.08);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.18);
   }
   :global(.dark) .chat-whiteboard-panel__button {
     color: rgb(212, 212, 216);
@@ -3783,12 +3783,12 @@
   }
   .chat-share-banner {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
-    background: rgba(16, 185, 129, 0.04);
+    border-bottom: 1px solid oklch(0.7019 0.1577 160.44 / 0.15);
+    background: oklch(0.7019 0.1577 160.44 / 0.04);
   }
   :global(.dark) .chat-share-banner {
-    background: rgba(16, 185, 129, 0.06);
-    border-color: rgba(16, 185, 129, 0.1);
+    background: oklch(0.7019 0.1577 160.44 / 0.06);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.1);
   }
   .chat-share-value {
     flex: 1; min-width: 0;
@@ -3805,24 +3805,24 @@
     flex-shrink: 0; padding: 2px;
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
-  .chat-share-copy:hover { color: rgb(16, 185, 129); }
+  .chat-share-copy:hover { color: oklch(0.7019 0.1577 160.44); }
   .chat-mode-badge {
     min-height: 30px;
     display: inline-flex;
     align-items: center;
     padding: 0 0.55rem;
     border-radius: 0.5rem;
-    border: 1px solid rgba(16, 185, 129, 0.18);
-    background: rgba(16, 185, 129, 0.07);
-    color: rgb(5, 150, 105);
+    border: 1px solid oklch(0.7019 0.1577 160.44 / 0.18);
+    background: oklch(0.7019 0.1577 160.44 / 0.07);
+    color: oklch(0.60 0.14 160.44);
     font-size: 11px;
     font-weight: 850;
     white-space: nowrap;
   }
   :global(.dark) .chat-mode-badge {
-    color: rgb(110, 231, 183);
-    border-color: rgba(16, 185, 129, 0.16);
-    background: rgba(16, 185, 129, 0.09);
+    color: oklch(0.84 0.13 160.44);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.16);
+    background: oklch(0.7019 0.1577 160.44 / 0.09);
   }
   .chat-call-btn {
     width: 30px; height: 30px; border-radius: 0.5rem;
@@ -3838,20 +3838,20 @@
     border-color: rgba(63, 63, 70, 0.45);
   }
   .chat-call-btn:hover:not(:disabled) {
-    color: rgb(16, 185, 129);
-    background: rgba(16, 185, 129, 0.08);
-    border-color: rgba(16, 185, 129, 0.18);
+    color: oklch(0.7019 0.1577 160.44);
+    background: oklch(0.7019 0.1577 160.44 / 0.08);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.18);
   }
   .chat-call-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .chat-call-banner {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
     padding: 0.65rem 0.85rem;
-    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
-    background: rgba(16, 185, 129, 0.05);
+    border-bottom: 1px solid oklch(0.7019 0.1577 160.44 / 0.15);
+    background: oklch(0.7019 0.1577 160.44 / 0.05);
   }
   :global(.dark) .chat-call-banner {
-    background: rgba(16, 185, 129, 0.07);
-    border-color: rgba(16, 185, 129, 0.12);
+    background: oklch(0.7019 0.1577 160.44 / 0.07);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   .chat-call-banner__meta {
     min-width: 0;
@@ -3877,7 +3877,7 @@
   }
   .chat-call-accept {
     color: white;
-    background: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44);
   }
   .chat-call-decline {
     color: rgb(113, 113, 122);
@@ -3951,9 +3951,9 @@
     border-color: rgba(63, 63, 70, 0.55);
   }
   .chat-call-control:hover:not(:disabled) {
-    color: rgb(16, 185, 129);
-    background: rgba(16, 185, 129, 0.08);
-    border-color: rgba(16, 185, 129, 0.18);
+    color: oklch(0.7019 0.1577 160.44);
+    background: oklch(0.7019 0.1577 160.44 / 0.08);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.18);
   }
   .chat-call-control--active {
     color: rgb(239, 68, 68);
@@ -4011,8 +4011,8 @@
     box-shadow: 0 0 0 3px rgba(161, 161, 170, 0.12);
   }
   .chat-call-server--good .chat-call-server__dot {
-    background: rgb(16, 185, 129);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+    background: oklch(0.7019 0.1577 160.44);
+    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.16);
   }
   .chat-call-server--fair .chat-call-server__dot {
     background: rgb(245, 158, 11);
@@ -4047,8 +4047,8 @@
     border: 1px solid rgba(228, 228, 231, 0.7);
   }
   .chat-call-settings__refresh:hover {
-    color: rgb(16, 185, 129);
-    border-color: rgba(16, 185, 129, 0.2);
+    color: oklch(0.7019 0.1577 160.44);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.2);
   }
   :global(.dark) .chat-call-settings__refresh {
     color: rgb(161, 161, 170);
@@ -4076,7 +4076,7 @@
   }
   .chat-call-toggle input {
     width: 13px; height: 13px;
-    accent-color: rgb(16, 185, 129);
+    accent-color: oklch(0.7019 0.1577 160.44);
   }
   .chat-call-device-grid {
     display: grid;
@@ -4112,10 +4112,10 @@
     border-color: rgba(63, 63, 70, 0.55);
   }
   .chat-call-field select:focus {
-    border-color: rgba(16, 185, 129, 0.45);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.45);
   }
   .chat-call-field input[type="range"] {
-    accent-color: rgb(16, 185, 129);
+    accent-color: oklch(0.7019 0.1577 160.44);
   }
   .chat-call-field input[type="range"]:disabled {
     opacity: 0.35;
@@ -4171,7 +4171,7 @@
   }
   .chat-call-peer-row input[type="range"] {
     width: 100%;
-    accent-color: rgb(16, 185, 129);
+    accent-color: oklch(0.7019 0.1577 160.44);
   }
   .chat-call-peer-row input[type="range"]:disabled {
     opacity: 0.35;
@@ -4228,8 +4228,8 @@
     border-color: rgba(63, 63, 70, 0.55);
   }
   .chat-call-tile--speaking {
-    border-color: rgba(16, 185, 129, 0.72);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.72);
+    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.14);
   }
   .chat-call-grid--audio .chat-call-tile {
     min-height: 72px;
@@ -4272,7 +4272,7 @@
     transform: translateY(0);
   }
   .chat-call-fullscreen-btn:hover {
-    background: rgba(16, 185, 129, 0.82);
+    background: oklch(0.7019 0.1577 160.44 / 0.82);
   }
   .chat-call-avatar {
     width: 44px; height: 44px; border-radius: 9999px;
@@ -4317,7 +4317,7 @@
     height: 100%;
     min-width: 4px;
     border-radius: inherit;
-    background: rgb(52, 211, 153);
+    background: oklch(0.77 0.155 160.44);
     transition: width 0.08s linear;
   }
   .chat-call-tile audio { display: none; }
@@ -4457,8 +4457,8 @@
     animation: chat-pulse 1.2s ease-in-out infinite;
   }
   .chat-status--connected {
-    background: rgb(16, 185, 129);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    background: oklch(0.7019 0.1577 160.44);
+    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.2);
     animation: none;
   }
   @keyframes chat-pulse {
@@ -4488,9 +4488,9 @@
   :global(.dark) .chat-bubble { background: rgba(39, 39, 42, 0.5); }
   .chat-bubble--mine {
     align-self: flex-end;
-    background: rgba(16, 185, 129, 0.12);
+    background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
-  :global(.dark) .chat-bubble--mine { background: rgba(16, 185, 129, 0.15); }
+  :global(.dark) .chat-bubble--mine { background: oklch(0.7019 0.1577 160.44 / 0.15); }
   .chat-sender-row {
     display: flex;
     align-items: center;
@@ -4509,7 +4509,7 @@
   }
   .chat-timer__ring {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    color: rgb(16, 185, 129);
+    color: oklch(0.7019 0.1577 160.44);
   }
   .chat-timer__num {
     font-size: 10px; font-weight: 700; color: rgb(161, 161, 170);
@@ -4520,11 +4520,11 @@
   .chat-text :global(del) { text-decoration: line-through; opacity: 0.6; }
   .chat-text :global(.chat-code-inline) {
     font-family: 'fira-code', monospace; font-size: 13px;
-    background: rgba(16, 185, 129, 0.08); border-radius: 4px;
+    background: oklch(0.7019 0.1577 160.44 / 0.08); border-radius: 4px;
     padding: 2px 5px;
   }
   :global(.dark) .chat-text :global(.chat-code-inline) {
-    background: rgba(16, 185, 129, 0.12);
+    background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   .chat-text :global(.chat-code-block) {
     font-family: 'fira-code', monospace; font-size: 13px;
@@ -4540,10 +4540,10 @@
     padding: 0 3px; cursor: pointer; transition: all 0.2s;
   }
   .chat-text :global(.chat-spoiler.revealed) {
-    background: rgba(16, 185, 129, 0.1); color: inherit;
+    background: oklch(0.7019 0.1577 160.44 / 0.1); color: inherit;
   }
   .chat-text :global(.chat-quote) {
-    border-left: 3px solid rgba(16, 185, 129, 0.4);
+    border-left: 3px solid oklch(0.7019 0.1577 160.44 / 0.4);
     padding-left: 8px; margin: 2px 0;
     color: rgb(113, 113, 122);
   }
@@ -4596,7 +4596,7 @@
   .chat-preview-expand {
     display: block; width: 100%; padding: 0.3rem;
     font-size: 11px; font-weight: 600; text-align: center;
-    color: rgb(16, 185, 129);
+    color: oklch(0.7019 0.1577 160.44);
     background: rgba(244, 244, 245, 0.8);
     border-top: 1px solid rgba(228, 228, 231, 0.5);
   }
@@ -4604,7 +4604,7 @@
     background: rgba(24, 24, 27, 0.6);
     border-color: rgba(39, 39, 42, 0.4);
   }
-  .chat-preview-expand:hover { background: rgba(16, 185, 129, 0.08); }
+  .chat-preview-expand:hover { background: oklch(0.7019 0.1577 160.44 / 0.08); }
   .chat-attach-btn {
     padding: 0.4rem; border-radius: 0.5rem;
     color: rgb(161, 161, 170); transition: color 0.15s;
@@ -4612,7 +4612,7 @@
   .chat-attach-menu { position: relative; flex-shrink: 0; }
   .chat-attach-btn:hover:not(:disabled),
   .chat-attach-btn--active {
-    color: rgb(16, 185, 129);
+    color: oklch(0.7019 0.1577 160.44);
   }
   .chat-attach-btn:disabled { opacity: 0.3; }
   .chat-attach-dropdown {
@@ -4647,8 +4647,8 @@
     text-align: left;
   }
   .chat-attach-option:hover:not(:disabled) {
-    color: rgb(16, 185, 129);
-    background: rgba(16, 185, 129, 0.08);
+    color: oklch(0.7019 0.1577 160.44);
+    background: oklch(0.7019 0.1577 160.44 / 0.08);
   }
   .chat-attach-option:disabled {
     opacity: 0.42;
@@ -4661,9 +4661,9 @@
     display: flex; align-items: center; gap: 0.5rem;
     padding: 0.4rem 0.6rem; margin: 0.25rem 0;
     border-radius: 0.5rem;
-    background: rgba(16, 185, 129, 0.06);
-    border: 1px solid rgba(16, 185, 129, 0.12);
-    color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44 / 0.06);
+    border: 1px solid oklch(0.7019 0.1577 160.44 / 0.12);
+    color: oklch(0.7019 0.1577 160.44);
   }
   .chat-file--error {
     border-color: rgba(239, 68, 68, 0.2);
@@ -4679,9 +4679,9 @@
   .chat-file__size { font-size: 11px; color: rgb(161, 161, 170); }
   .chat-file__dl {
     padding: 0.25rem; border-radius: 0.35rem;
-    color: rgb(16, 185, 129); transition: background 0.15s;
+    color: oklch(0.7019 0.1577 160.44); transition: background 0.15s;
   }
-  .chat-file__dl:hover { background: rgba(16, 185, 129, 0.1); }
+  .chat-file__dl:hover { background: oklch(0.7019 0.1577 160.44 / 0.1); }
   .chat-whiteboard-card {
     display: flex;
     gap: 0.6rem;
@@ -4689,12 +4689,12 @@
     margin: 0.25rem 0;
     padding: 0.6rem;
     border-radius: 0.65rem;
-    border: 1px solid rgba(16, 185, 129, 0.16);
-    background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.035));
+    border: 1px solid oklch(0.7019 0.1577 160.44 / 0.16);
+    background: linear-gradient(180deg, oklch(0.7019 0.1577 160.44 / 0.08), oklch(0.7019 0.1577 160.44 / 0.035));
   }
   :global(.dark) .chat-whiteboard-card {
-    border-color: rgba(16, 185, 129, 0.14);
-    background: linear-gradient(180deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.055));
+    border-color: oklch(0.7019 0.1577 160.44 / 0.14);
+    background: linear-gradient(180deg, oklch(0.7019 0.1577 160.44 / 0.12), oklch(0.7019 0.1577 160.44 / 0.055));
   }
   .chat-whiteboard-card__icon {
     width: 32px;
@@ -4704,8 +4704,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: rgb(16, 185, 129);
-    background: rgba(16, 185, 129, 0.12);
+    color: oklch(0.7019 0.1577 160.44);
+    background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   .chat-whiteboard-card__body {
     min-width: 0;
@@ -4742,17 +4742,17 @@
     border: 1px solid rgba(228, 228, 231, 0.8);
   }
   .chat-whiteboard-card__btn:hover {
-    color: rgb(16, 185, 129);
-    border-color: rgba(16, 185, 129, 0.22);
+    color: oklch(0.7019 0.1577 160.44);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.22);
   }
   .chat-whiteboard-card__btn--primary {
     color: white;
-    background: rgb(16, 185, 129);
-    border-color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44);
+    border-color: oklch(0.7019 0.1577 160.44);
   }
   .chat-whiteboard-card__btn--primary:hover {
     color: white;
-    background: rgb(5, 150, 105);
+    background: oklch(0.60 0.14 160.44);
   }
   :global(.dark) .chat-whiteboard-card__btn {
     color: rgb(212, 212, 216);
@@ -4761,13 +4761,13 @@
   }
   :global(.dark) .chat-whiteboard-card__btn--primary {
     color: white;
-    background: rgb(16, 185, 129);
-    border-color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44);
+    border-color: oklch(0.7019 0.1577 160.44);
   }
   .chat-send-btn {
     padding: 0.4rem; border-radius: 0.5rem;
-    color: rgb(16, 185, 129); transition: background 0.15s;
+    color: oklch(0.7019 0.1577 160.44); transition: background 0.15s;
   }
-  .chat-send-btn:hover:not(:disabled) { background: rgba(16, 185, 129, 0.1); }
+  .chat-send-btn:hover:not(:disabled) { background: oklch(0.7019 0.1577 160.44 / 0.1); }
   .chat-send-btn:disabled { opacity: 0.3; }
 </style>

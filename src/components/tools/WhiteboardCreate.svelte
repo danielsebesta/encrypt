@@ -173,8 +173,8 @@
     width: 18px;
     height: 18px;
     border-radius: 9999px;
-    background: rgba(16, 185, 129, 0.1);
-    color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44 / 0.1);
+    color: oklch(0.7019 0.1577 160.44);
     font-size: 10px;
     font-weight: 700;
     display: flex;

@@ -156,7 +156,10 @@
         {/each}
       </div>
     </div>
-    <button class="btn w-full" on:click={confirmPassword}>{t(dict, 'chat.createRoom')}</button>
+    <button class="btn w-full" on:click={confirmPassword}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+      {t(dict, 'chat.createRoom')}
+    </button>
 
     <!-- How it works -->
     <div class="chat-how-it-works">
@@ -219,8 +222,8 @@
     width: 18px;
     height: 18px;
     border-radius: 9999px;
-    background: rgba(16, 185, 129, 0.1);
-    color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44 / 0.1);
+    color: oklch(0.7019 0.1577 160.44);
     font-size: 10px;
     font-weight: 700;
     display: flex;
@@ -253,11 +256,11 @@
   }
   .chat-mode-option:hover,
   .chat-mode-option--active {
-    border-color: rgba(16, 185, 129, 0.42);
-    background: rgba(16, 185, 129, 0.06);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.42);
+    background: oklch(0.7019 0.1577 160.44 / 0.06);
   }
   .chat-mode-option--active {
-    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.22);
+    box-shadow: inset 0 0 0 1px oklch(0.7019 0.1577 160.44 / 0.22);
   }
   .chat-mode-option__title {
     font-size: 13px;

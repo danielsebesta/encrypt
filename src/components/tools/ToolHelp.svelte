@@ -162,7 +162,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: rgb(16 185 129);
+    color: oklch(0.7019 0.1577 160.44);
   }
 
   .tool-help-body p {

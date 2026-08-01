@@ -33,7 +33,7 @@
     fontSize?: number;
   };
 
-  const COLORS = ['#0a0a0a','#ef4444','#f97316','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899'];
+  const COLORS = ['#0a0a0a','#ef4444','#f97316','#f59e0b','#00bc7d','#3b82f6','#8b5cf6','#ec4899'];
   const THICKNESS = [1, 2, 4, 7, 12];
   const DRAW_SYNC_INTERVAL_MS = 150;
   const CURSOR_SYNC_INTERVAL_MS = 80;
@@ -901,7 +901,7 @@
           {#if s.type === 'pen' && s.points}
             <path d={penPathD(s.points, s.thickness)} fill={s.color} stroke="none"/>
             {#if isSel}
-              <path d={penPathD(s.points, s.thickness)} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
+              <path d={penPathD(s.points, s.thickness)} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'rect'}
             {@const rx = (s.w ?? 0) < 0 ? (s.x ?? 0) + (s.w ?? 0) : (s.x ?? 0)}
@@ -910,28 +910,28 @@
             {@const rh = Math.abs(s.h ?? 0)}
             <rect x={rx} y={ry} width={rw} height={rh} fill="none" stroke={s.color} stroke-width={s.thickness} stroke-linejoin="round"/>
             {#if isSel}
-              <rect x={rx - 4} y={ry - 4} width={rw + 8} height={rh + 8} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
+              <rect x={rx - 4} y={ry - 4} width={rw + 8} height={rh + 8} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'ellipse'}
             <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2)} ry={Math.abs((s.h ?? 0) / 2)} fill="none" stroke={s.color} stroke-width={s.thickness}/>
             {#if isSel}
-              <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2) + 4} ry={Math.abs((s.h ?? 0) / 2) + 4} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
+              <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2) + 4} ry={Math.abs((s.h ?? 0) / 2) + 4} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'line'}
             <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round"/>
             {#if isSel}
-              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="rgb(16,185,129)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
+              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="oklch(0.7019 0.1577 160.44)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
             {/if}
           {:else if s.type === 'arrow'}
             <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round"/>
             <path d={arrowHeadPath(s.x1 ?? 0, s.y1 ?? 0, s.x2 ?? 0, s.y2 ?? 0, s.thickness)} stroke={s.color} stroke-width={s.thickness} fill="none" stroke-linecap="round"/>
             {#if isSel}
-              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="rgb(16,185,129)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
+              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="oklch(0.7019 0.1577 160.44)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
             {/if}
           {:else if s.type === 'text'}
             <text x={s.x} y={s.y} fill={s.color} font-size={s.fontSize} font-family="ui-sans-serif, system-ui, sans-serif" font-weight="500">{s.text}</text>
             {#if isSel}
-              <rect x={(s.x ?? 0) - 4} y={(s.y ?? 0) - (s.fontSize ?? 16) - 2} width={(s.text?.length ?? 1) * (s.fontSize ?? 16) * 0.55 + 8} height={(s.fontSize ?? 16) + 8} fill="none" stroke="rgb(16,185,129)" stroke-width="2" stroke-dasharray="6 4"/>
+              <rect x={(s.x ?? 0) - 4} y={(s.y ?? 0) - (s.fontSize ?? 16) - 2} width={(s.text?.length ?? 1) * (s.fontSize ?? 16) * 0.55 + 8} height={(s.fontSize ?? 16) + 8} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {/if}
         {/each}
@@ -1048,12 +1048,12 @@
     color: rgb(212, 212, 216);
   }
   .wb-tool-btn:hover, .wb-icon-btn:hover {
-    background: rgba(16, 185, 129, 0.08);
-    color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44 / 0.08);
+    color: oklch(0.7019 0.1577 160.44);
   }
   .wb-tool-btn--active, .wb-icon-btn--active {
-    background: rgba(16, 185, 129, 0.14);
-    color: rgb(16, 185, 129);
+    background: oklch(0.7019 0.1577 160.44 / 0.14);
+    color: oklch(0.7019 0.1577 160.44);
   }
 
   .wb-divider {
@@ -1071,14 +1071,14 @@
   }
   .wb-color-btn:hover { transform: scale(1.1); }
   .wb-color-btn--active {
-    border-color: rgb(16, 185, 129);
+    border-color: oklch(0.7019 0.1577 160.44);
     transform: scale(1.1);
   }
   .wb-color-btn--custom {
     background: conic-gradient(
       from 90deg,
       #ef4444, #f97316, #f59e0b, #facc15, #84cc16,
-      #10b981, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444
+      #00bc7d, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444
     );
     position: relative;
     overflow: hidden;
@@ -1101,8 +1101,8 @@
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s;
   }
-  .wb-thick-btn:hover { background: rgba(16, 185, 129, 0.08); }
-  .wb-thick-btn--active { background: rgba(16, 185, 129, 0.14); }
+  .wb-thick-btn:hover { background: oklch(0.7019 0.1577 160.44 / 0.08); }
+  .wb-thick-btn--active { background: oklch(0.7019 0.1577 160.44 / 0.14); }
   .wb-thick-dot {
     border-radius: 9999px;
     background: currentColor;
@@ -1139,7 +1139,7 @@
     transform: translate(0, -100%);
     pointer-events: auto;
     background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgb(16, 185, 129);
+    border: 1px solid oklch(0.7019 0.1577 160.44);
     border-radius: 4px;
     padding: 4px 6px;
     font-size: 14px;
@@ -1152,12 +1152,12 @@
 
   .wb-share-banner {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
-    background: rgba(16, 185, 129, 0.04);
+    border-bottom: 1px solid oklch(0.7019 0.1577 160.44 / 0.15);
+    background: oklch(0.7019 0.1577 160.44 / 0.04);
   }
   :global(.dark) .wb-share-banner {
-    background: rgba(16, 185, 129, 0.06);
-    border-color: rgba(16, 185, 129, 0.1);
+    background: oklch(0.7019 0.1577 160.44 / 0.06);
+    border-color: oklch(0.7019 0.1577 160.44 / 0.1);
   }
   .wb-share-value {
     flex: 1; min-width: 0;
@@ -1174,7 +1174,7 @@
     flex-shrink: 0; padding: 2px;
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
-  .wb-share-copy:hover { color: rgb(16, 185, 129); }
+  .wb-share-copy:hover { color: oklch(0.7019 0.1577 160.44); }
 
   .wb-footer {
     display: flex;
@@ -1193,8 +1193,8 @@
     animation: wb-pulse 1.2s ease-in-out infinite;
   }
   .wb-status--connected {
-    background: rgb(16, 185, 129);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    background: oklch(0.7019 0.1577 160.44);
+    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.2);
     animation: none;
   }
   @keyframes wb-pulse {
