@@ -814,5 +814,9 @@
   "security.share.p2": "Der automatische Upload bevorzugt First-Party-Ciphertext-Speicher (upload.encrypt.click). Dieser Pfad ist begrenzt (ca. 50 MB) und die Verfügbarkeit ist etwa 24 Stunden garantiert. Schlägt er fehl, sendet der Browser nur Ciphertext an die Upload-API von encrypt.click, die serverseitig an temporäre Send-kompatible Hosts weiterleiten kann. Diese Hosts sollten Ciphertext und Server-Egress sehen - keinen direkten Browser-Upload von Klartext.",
   "security.share.p3": "Empfänger öffnen Links auf encrypt.click (oft /u). Verschlüsseltes Material kann im URL-Fragment liegen (bei normalen Seitenaufrufen nicht an unsere Server gesendet) oder auf hochgeladenen Ciphertext zeigen. Optionales PNG-Wrapping kann den Share-Link in einem Bild für Offline-Übergabe verstecken.",
   "security.chat.p5": "Whiteboard-Sitzungen nutzen dieselbe Realtime-Infrastruktur für gemeinsame Striche und Zustand. Behandeln Sie den Zugang wie beim Chat: für Sensibles ein starkes Passwort verwenden.",
-  "security.network.li5": "Ein clientseitiger Deployment-Integritätscheck vergleicht geladene Build-Assets mit einem veröffentlichten Manifest und - wenn erreichbar - dem neuesten GitHub-main-Commit."
+  "security.network.li5": "Ein clientseitiger Deployment-Integritätscheck vergleicht geladene Build-Assets mit einem veröffentlichten Manifest und - wenn erreichbar - dem neuesten GitHub-main-Commit.",
+  "home.moments.label": "Warum encrypt.click",
+  "home.moments.papers.eyebrow": "Privates Teilen",
+  "home.moments.papers.title": "Vom Dateihaufen zu einem verschlüsselten Link.",
+  "home.moments.papers.text": "Nachricht oder Dokumente einfügen, im Browser verschlüsseln, Link und Passwort weitergeben. Kein Konto, kein Postfachchaos."
 }

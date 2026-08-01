@@ -1,0 +1,65 @@
+---
+import { t, type Locale } from '../../lib/i18n';
+
+type Props = {
+  locale: Locale;
+  dict: Record<string, string>;
+};
+
+const { dict } = Astro.props;
+---
+
+<section class="home-moments-section" aria-label={t(dict, 'home.moments.label')}>
+  <div class="max-w-5xl mx-auto px-5">
+
+    <div class="home-moment" data-aos>
+      <div class="home-moment__art">
+        <img
+          src="/encrypt_papers.svg"
+          alt=""
+          width="280"
+          height="280"
+          class="home-moment__img"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+      <div class="home-moment__copy">
+        <p class="home-moment__eyebrow">{t(dict, 'home.moments.papers.eyebrow')}</p>
+        <h2 class="home-moment__title">{t(dict, 'home.moments.papers.title')}</h2>
+        <p class="home-moment__text">{t(dict, 'home.moments.papers.text')}</p>
+        <a href="#home-encrypt" class="home-hero-cta home-hero-cta--primary home-moment__cta">
+          {t(dict, 'home.hero.ctaEncrypt')}
+        </a>
+      </div>
+    </div>
+
+    <div class="home-moment home-moment--flip" data-aos data-aos-delay="60">
+      <div class="home-moment__art">
+        <img
+          src="/encrypt_chill.svg"
+          alt=""
+          width="280"
+          height="200"
+          class="home-moment__img home-moment__img--wide"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+      <div class="home-moment__copy">
+        <p class="home-moment__eyebrow">{t(dict, 'home.privacyExplainer.eyebrow')}</p>
+        <h2 class="home-moment__title">{t(dict, 'home.privacyExplainer.title')}</h2>
+        <p class="home-moment__text">{t(dict, 'home.privacyExplainer.p1')}</p>
+        <a
+          href="https://github.com/danielsebesta/encrypt"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="home-hero-cta home-hero-cta--secondary home-moment__cta"
+        >
+          {t(dict, 'home.privacyExplainer.cta')}
+        </a>
+      </div>
+    </div>
+
+  </div>
+</section>
