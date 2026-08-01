@@ -2,13 +2,14 @@
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
-import { getNavCategories, chatIcon, whiteboardIcon } from '../lib/tools';
+import { getNavCategories, chatIcon, sendIcon, whiteboardIcon } from '../lib/tools';
 
 type Props = {
   title?: string;
   description?: string;
   ogImage?: string;
   canonical?: string;
+  mainClass?: string;
 };
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -19,11 +20,11 @@ const {
   description = t(dict, 'meta.defaultDescription'),
   ogImage = "/encryptclick.svg",
   canonical,
+  mainClass = '',
 } = Astro.props;
 
 const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.click").href;
 const path = Astro.url.pathname;
-const currentLang = languages[locale];
 
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
 const navCategories = getNavCategories(t, dict, localePrefix);
@@ -34,14 +35,13 @@ const integrityBranch = 'main';
 const languageOptions = locales.map(l => ({
   code: l,
   name: languages[l].name,
-  flag: languages[l].flag,
   href: getLocalePath(path, l),
   active: l === locale
 }));
 ---
 
 <!doctype html>
-<html lang={locale} class="notranslate scroll-smooth">
+<html lang={locale} class="notranslate">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -60,7 +60,7 @@ const languageOptions = locales.map(l => ({
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
-		<meta name="theme-color" content="#10b981" />
+		<meta name="theme-color" content="#00bc7d" />
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
@@ -76,7 +76,8 @@ const languageOptions = locales.map(l => ({
 		<script is:inline src="/boot.js"></script>
 	</head>
 	<body>
-<nav id="site-nav" class="sticky top-0 z-50 w-full border-b border-transparent transition-[background-color,border-color,backdrop-filter] duration-300">
+<main class={`flex-1 ${mainClass}`}>
+<nav id="site-nav" class="w-full bg-transparent">
 			<div
 				id="integrity-alert"
 				class="integrity-alert hidden"
@@ -116,12 +117,16 @@ const languageOptions = locales.map(l => ({
 			<div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
 				<!-- Logo -->
 				<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 shrink-0 rounded-lg py-1.5 pr-2 -ml-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
-					<img src="/encryptclick_icon.svg" alt="" width="28" height="28" class="h-7 w-7" decoding="async" />
-					<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
+					<img src="/encryptclick_icon.svg" alt="" width="36" height="36" class="h-9 w-9" decoding="async" />
+					<span class="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
 				</a>
 
 				<!-- Desktop nav -->
 				<div class="hidden md:flex items-center gap-1">
+					<a href={`${localePrefix}/share`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={sendIcon} /></svg>
+						{t(dict, 'nav.send')}
+					</a>
 					<a href={`${localePrefix}/chat`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
 						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={chatIcon} /></svg>
 						{t(dict, 'nav.chat')}
@@ -172,9 +177,9 @@ const languageOptions = locales.map(l => ({
 						<span class="hidden dark:block"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
 					</button>
 					<div class="relative group">
-						<button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-[13px] font-medium">
-							<span>{currentLang.flag}</span>
-							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 transition-transform duration-200 group-hover:rotate-180"><polyline points="6 9 12 15 18 9"/></svg>
+						<button type="button" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-[13px] font-medium" aria-label={t(dict, 'nav.language')}>
+							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 transition-transform duration-200 group-hover:rotate-180" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
 						</button>
 						<div class="absolute top-full right-0 pt-1.5 opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-[60]">
 							<div class="w-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl shadow-lg p-1.5 grid gap-px">
@@ -184,7 +189,7 @@ const languageOptions = locales.map(l => ({
 										data-lang={lang.code}
 										class={`px-3 py-2 text-[13px] font-medium rounded-lg transition-colors flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'}`}
 									>
-										<span>{lang.flag}</span>
+										<span class="w-6 shrink-0 text-[11px] font-bold uppercase opacity-60">{lang.code}</span>
 										<span>{lang.name}</span>
 									</a>
 								))}
@@ -205,8 +210,8 @@ const languageOptions = locales.map(l => ({
 						<span class="hidden dark:block"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
 					</button>
 					<div class="relative group">
-						<button class="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
-							<span>{currentLang.flag}</span>
+						<button type="button" class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors" aria-label={t(dict, 'nav.language')}>
+							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
 						</button>
 						<div class="absolute top-full right-0 pt-1.5 opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-[60]">
 							<div class="w-36 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl shadow-lg p-1.5 grid gap-px">
@@ -216,7 +221,7 @@ const languageOptions = locales.map(l => ({
 										data-lang={lang.code}
 										class={`px-3 py-2 text-[13px] font-medium rounded-lg transition-colors flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'}`}
 									>
-										<span>{lang.flag}</span>
+										<span class="w-6 shrink-0 text-[11px] font-bold uppercase opacity-60">{lang.code}</span>
 										<span>{lang.name}</span>
 									</a>
 								))}
@@ -236,6 +241,10 @@ const languageOptions = locales.map(l => ({
 			<div id="mobile-menu" class="md:hidden hidden overflow-hidden">
 				<div class="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl max-h-[calc(100vh-3.5rem)] overflow-y-auto">
 					<div class="p-5 space-y-5">
+						<a href={`${localePrefix}/share`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={sendIcon} /></svg>
+							{t(dict, 'nav.send')}
+						</a>
 						<a href={`${localePrefix}/chat`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={chatIcon} /></svg>
 							{t(dict, 'nav.chat')}
@@ -271,66 +280,20 @@ const languageOptions = locales.map(l => ({
 			</div>
 		</nav>
 
-		<main class="flex-1">
 			<slot />
 		</main>
-		<footer class="border-t border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-950">
-			<div class="max-w-6xl mx-auto px-5 py-14 md:py-16">
-				<div class="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-8">
-
-					<!-- Brand -->
-					<div class="col-span-2 md:col-span-1">
-						<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 mb-4">
-							<img src="/encryptclick_icon.svg" alt="" width="28" height="28" class="h-7 w-7" decoding="async" />
-							<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
-						</a>
-						<p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs">
-							{t(dict, 'home.hero.note')}
-						</p>
-					</div>
-
-					<!-- Privacy tools -->
-					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-4">{t(dict, 'nav.privacy')}</p>
-						<ul class="space-y-2.5">
-							{navCategories.find(c => c.name === t(dict, 'nav.privacy'))?.tools.map((tool) => (
-								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
-							))}
-							<li><a href={`${localePrefix}/chat`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.chat')}</a></li>
-							<li><a href={`${localePrefix}/whiteboard`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'nav.whiteboard')}</a></li>
-						</ul>
-					</div>
-
-					<!-- Developer tools -->
-					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-4">{t(dict, 'nav.developer')}</p>
-						<ul class="space-y-2.5">
-							{navCategories.find(c => c.name === t(dict, 'nav.developer'))?.tools.map((tool) => (
-								<li><a href={tool.href} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{tool.label}</a></li>
-							))}
-						</ul>
-					</div>
-
-					<!-- Resources -->
-					<div>
-						<p class="text-xs font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-4">{t(dict, 'home.footer.resources')}</p>
-						<ul class="space-y-2.5">
-							<li><a href={`${localePrefix}/security`} class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">{t(dict, 'home.footer.security')}</a></li>
-							<li>
-								<a href="https://github.com/danielsebesta/encrypt" target="_blank" rel="noopener noreferrer" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-									GitHub
-									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-								</a>
-							</li>
-						</ul>
-					</div>
-
-				</div>
-
-				<!-- Bottom bar -->
-				<div class="mt-12 pt-6 border-t border-zinc-200/50 dark:border-zinc-800/40 flex flex-col sm:flex-row justify-between items-center gap-4">
-					<p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'home.footer.tagline')}</p>
-					<p class="text-xs text-zinc-500 dark:text-zinc-400">{t(dict, 'home.footer.clientSideEncryption')}</p>
+		<footer class="bg-zinc-50/50 dark:bg-zinc-950">
+			<div class="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
+				<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2 shrink-0 rounded-lg transition-colors">
+					<img src="/encryptclick_icon.svg" alt="" width="22" height="22" class="h-[22px] w-[22px]" decoding="async" />
+					<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
+				</a>
+				<div class="flex items-center gap-5 text-[13px]">
+					<a href={`${localePrefix}/security`} class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">{t(dict, 'home.footer.security')}</a>
+					<a href="https://github.com/danielsebesta/encrypt" target="_blank" rel="noopener noreferrer" class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">GitHub</a>
+					<span class="text-zinc-400 dark:text-zinc-500">
+						{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer" class="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors font-medium">Daniel Šebesta</a>
+					</span>
 				</div>
 			</div>
 		</footer>
