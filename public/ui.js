@@ -52,11 +52,18 @@
     var btn = document.getElementById(id);
     if (!btn) return;
     btn.addEventListener('click', function () {
-      var isDark = document.documentElement.classList.toggle('dark');
-      document.documentElement.style.colorScheme = isDark ? 'only dark' : 'only light';
+      var root = document.documentElement;
+      root.classList.add('theme-instant');
+      var isDark = root.classList.toggle('dark');
+      root.style.colorScheme = isDark ? 'only dark' : 'only light';
       try {
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
       } catch (e) {}
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          root.classList.remove('theme-instant');
+        });
+      });
     });
   }
   bindThemeToggle('theme-toggle');
@@ -88,16 +95,4 @@
     });
   }
 
-  var nav = document.getElementById('site-nav');
-  if (nav) {
-    var onScroll = function () {
-      if (window.scrollY > 10) {
-        nav.classList.add('nav-scrolled');
-      } else {
-        nav.classList.remove('nav-scrolled');
-      }
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-  }
 })();
