@@ -1,0 +1,75 @@
+---
+import { t, type Locale } from '../../../lib/i18n';
+
+type Props = {
+  locale: Locale;
+  dict: Record<string, string>;
+};
+
+const { locale, dict } = Astro.props;
+const localePrefix = locale === 'en' ? '' : `/${locale}`;
+
+const paths = [
+  {
+    href: `${localePrefix}/share`,
+    src: '/encrypt_send.svg',
+    width: 140,
+    height: 174,
+    title: 'landing.paths.share.title',
+    text: 'landing.paths.share.text',
+    go: 'landing.paths.share.go',
+    icon: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  },
+  {
+    href: `${localePrefix}/chat`,
+    src: '/encrypt_chat.svg',
+    width: 140,
+    height: 174,
+    title: 'landing.paths.chat.title',
+    text: 'landing.paths.chat.text',
+    go: 'landing.paths.chat.go',
+    icon: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  },
+  {
+    href: `${localePrefix}/whiteboard`,
+    src: '/encrypt_whiteboard.svg',
+    width: 180,
+    height: 126,
+    title: 'landing.paths.whiteboard.title',
+    text: 'landing.paths.whiteboard.text',
+    go: 'landing.paths.whiteboard.go',
+    icon: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  },
+] as const;
+---
+
+<section class="lp-paths" aria-label={t(dict, 'landing.paths.label')}>
+  <div class="lp-shell">
+    <div class="lp-paths__grid">
+      {paths.map((p) => (
+        <a href={p.href} class="lp-path-card">
+          <div class="lp-path-card__art-wrap">
+            <img
+              src={p.src}
+              alt=""
+              width={p.width}
+              height={p.height}
+              class="lp-path-card__art"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          <div class="lp-path-card__copy">
+            <h3 class="lp-path-card__title">{t(dict, p.title)}</h3>
+            <p class="lp-path-card__text">{t(dict, p.text)}</p>
+            <span class="lp-path-card__go">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={p.icon} />
+              {t(dict, p.go)}
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
