@@ -713,13 +713,11 @@
 
     .lp-path-card {
         @apply flex h-full flex-row items-center gap-3 rounded-2xl border border-zinc-200/70 bg-white/70 p-4 text-left transition-all dark:border-zinc-800/70 dark:bg-zinc-950/50 sm:flex-col sm:items-stretch sm:gap-4 sm:p-5 md:p-6;
-        box-shadow: 0 16px 40px -24px rgba(15, 23, 42, 0.12);
     }
 
     .lp-path-card:hover {
         @apply border-emerald-400/50 dark:border-emerald-600/40;
         transform: translateY(-2px);
-        box-shadow: 0 20px 48px -24px oklch(0.7019 0.1577 160.44 / 0.25);
     }
 
     .lp-path-card__art-wrap {
