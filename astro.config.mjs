@@ -8,9 +8,17 @@ export default defineConfig({
   output: 'static',
   adapter: cloudflare({ imageService: 'compile' }),
 
+  server: {
+    // Cloudflare quick tunnels rewrite Host; allow any host in local previews.
+    allowedHosts: true,
+  },
+
   vite: {
     // @ts-expect-error - Vite plugin type mismatch between Astro and @tailwindcss/vite
     plugins: [tailwindcss()],
+    server: {
+      allowedHosts: true,
+    },
     optimizeDeps: {
       include: ['lz-string', 'tlock-js'],
       exclude: ['svelte', 'svelte/internal', 'svelte/internal/client']
