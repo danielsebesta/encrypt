@@ -147,9 +147,9 @@
     }
 
     /* Invert and gently soften main illustrations in dark mode */
-    html.dark img[src*="encrypt_"],
-    html.dark img[src*="encrpt_"] {
-        /* brightness tuned so the lightest \"white\" in SVGs sits close to text-zinc-200 (#e4e4e7) */
+    html.dark img[src*="encrypt"],
+    html.dark img[src*="encrpt"] {
+        /* brightness tuned so the lightest "white" in SVGs sits close to text-zinc-200 (#e4e4e7) */
         filter: invert(1) hue-rotate(180deg) brightness(0.93) !important;
     }
 
