@@ -1,20 +1,48 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PreviewHero from '../components/home/preview/PreviewHero.astro';
-import PreviewPaths from '../components/home/preview/PreviewPaths.astro';
-import PreviewTrust from '../components/home/preview/PreviewTrust.astro';
+import UltimateEncrypt from '../components/tools/UltimateEncrypt.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
-import { getTranslations, t, type Locale } from '../lib/i18n';
+import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+const localePrefix = locale === 'en' ? '' : `/${locale}`;
+const encryptDict = pickDict(dict, ['tools.ultimateEncrypt', 'common']);
+
+const paths = [
+  { href: `${localePrefix}/chat`, src: '/encrypt_chat.svg', title: 'landing.paths.chat.title', text: 'landing.paths.chat.text' },
+  { href: `${localePrefix}/whiteboard`, src: '/encrypt_whiteboard.svg', title: 'landing.paths.whiteboard.title', text: 'landing.paths.whiteboard.text' },
+] as const;
 ---
 
-<Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')} mainClass="lp-page">
-  <div class="home-page">
-    <PreviewHero locale={locale} dict={dict} />
-    <PreviewPaths locale={locale} dict={dict} />
-    <PreviewTrust locale={locale} dict={dict} />
+<Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
+  <div class="page page--wide home">
+    <section class="home-hero">
+      <div>
+        <h1 class="page-title">{t(dict, 'home.hero.title.line1')} {t(dict, 'home.hero.title.line2')}</h1>
+        <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
+        <p class="hint mt-3">{t(dict, 'landing.hero.note')}</p>
+      </div>
+      <img src="/encrypt_privacy.svg" alt="" width="400" height="440" class="home-hero__art" decoding="async" />
+    </section>
+
+    <section class="panel" aria-labelledby="home-share-title">
+      <h2 id="home-share-title" class="section-title mb-4">{t(dict, 'landing.paths.share.title')}</h2>
+      <UltimateEncrypt client:idle locale={locale} dict={encryptDict} />
+    </section>
+
+    <section class="home-paths" aria-label={t(dict, 'landing.paths.label')}>
+      {paths.map((p) => (
+        <a href={p.href} class="home-path">
+          <img src={p.src} alt="" width="64" height="64" class="home-path__art" loading="lazy" decoding="async" />
+          <span>
+            <span class="home-path__title">{t(dict, p.title)}</span>
+            <span class="home-path__text">{t(dict, p.text)}</span>
+          </span>
+        </a>
+      ))}
+    </section>
+
     <HomeTools locale={locale} dict={dict} />
   </div>
 </Layout>
