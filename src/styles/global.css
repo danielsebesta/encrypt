@@ -830,6 +830,28 @@ html.dark {
         @apply mt-1.5;
     }
 
+    /* ── Share and decrypt ── */
+
+    .ue-qr {
+        @apply mx-auto w-full max-w-[220px] rounded-lg border border-line-soft bg-white p-3;
+    }
+
+    .ue-qr svg {
+        @apply block h-auto w-full;
+    }
+
+    .ud-preview {
+        @apply overflow-hidden rounded-lg border border-line-soft bg-surface;
+    }
+
+    .ud-preview__head {
+        @apply flex items-center gap-2 border-b border-line-soft bg-surface-2 px-4 py-2 text-sm font-bold text-muted;
+    }
+
+    .ud-preview__body {
+        @apply max-h-[50vh] overflow-auto;
+    }
+
     /* ── Transitional rules kept until the pages using them are refactored ── */
 
     .integrity-alert {
@@ -908,73 +930,10 @@ html.dark {
         color: rgb(244 114 182);
     }
 
-    .home-tool-panel__surface {
-        @apply rounded-xl border border-zinc-100/60 bg-white/70 dark:bg-zinc-950/60 dark:border-zinc-800/50 p-5 md:p-6;
-        position: relative;
-        z-index: 1;
-    }
-
     @media (min-width: 640px) {
     }
 
-    /* ── UltimateEncrypt input panes ── */
-    .ue-input-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.6rem;
-        transition: grid-template-columns 0.3s ease;
-    }
-
-    .ue-input-grid--focused {
-        grid-template-columns: 2.5fr 1fr;
-    }
-
     @media (max-width: 767px) {
-        .ue-input-grid {
-            grid-template-columns: 1fr;
-        }
-        .ue-input-grid--focused {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .ue-input-pane {
-        @apply rounded-xl border border-zinc-200/80 dark:border-zinc-800/70 bg-zinc-50/50 dark:bg-zinc-900/30 p-3;
-        transition: border-color 0.2s, box-shadow 0.2s;
-        min-height: 120px;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .ue-input-pane--active {
-        border-color: oklch(0.7019 0.1577 160.44 / 0.4);
-        box-shadow: 0 0 0 2px oklch(0.7019 0.1577 160.44 / 0.08);
-    }
-
-    .ue-input-pane--disabled {
-        opacity: 0.35;
-        pointer-events: none;
-    }
-
-    .ue-input-pane__label {
-        @apply flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600 dark:text-zinc-400 mb-2;
-    }
-
-    .ue-textarea {
-        @apply w-full flex-1 bg-transparent text-sm text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-700 resize-none;
-        outline: none;
-        min-height: 70px;
-    }
-
-    .ue-drop-zone {
-        @apply flex items-center justify-center cursor-pointer;
-        border-style: dashed;
-    }
-
-    .ue-drop-zone--dragging {
-        border-color: oklch(0.7019 0.1577 160.44 / 0.6) !important;
-        background: oklch(0.7019 0.1577 160.44 / 0.04);
-        box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.1);
     }
 
     .ue-passphrase-box {

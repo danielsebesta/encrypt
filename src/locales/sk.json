@@ -343,6 +343,7 @@
   "tools.ultimateEncrypt.remove": "Odstrániť",
   "tools.ultimateEncrypt.passwordLabel": "Heslo",
   "tools.ultimateEncrypt.passwordPlaceholder": "Zadaj silné heslo...",
+  "tools.ultimateEncrypt.passwordHint": "Príjemca bude toto heslo potrebovať. Nechajte vygenerované alebo napíšte vlastné.",
   "tools.ultimateEncrypt.transferClaim": "Jednoduchý a bezpečný prenos niekoľkých súborov do 50 MB. Dostupnosť je zaručená 24 hodín.",
   "tools.ultimateEncrypt.shareThisLink": "Zdieľaj tento odkaz",
   "tools.ultimateEncrypt.encryptedLink": "Zašifrovaný odkaz",

@@ -343,6 +343,7 @@
   "tools.ultimateEncrypt.remove": "Supprimer",
   "tools.ultimateEncrypt.passwordLabel": "Mot de passe",
   "tools.ultimateEncrypt.passwordPlaceholder": "Entrez un mot de passe robuste...",
+  "tools.ultimateEncrypt.passwordHint": "Le destinataire aura besoin de ce mot de passe. Gardez celui généré ou saisissez le vôtre.",
   "tools.ultimateEncrypt.transferClaim": "Transfert simple et securise pour quelques fichiers de moins de 50 MB. Stockes 24 heures maximum.",
   "tools.ultimateEncrypt.shareThisLink": "Partagez ce lien",
   "tools.ultimateEncrypt.encryptedLink": "Lien chiffre",

@@ -627,83 +627,58 @@
     if (typeof window !== 'undefined') window.removeEventListener('beforeunload', ueBeforeUnload);
   });
 </script>
-
-<div class="space-y-6 text-left">
+<div class="stack text-left">
   {#if step === 'input'}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <div class="space-y-4" on:paste={handlePaste}>
-      <div class="rounded-lg border border-emerald-200/70 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/20 px-3 py-2 text-xs font-medium leading-relaxed text-emerald-800 dark:text-emerald-300">
-        {t(dict, 'tools.ultimateEncrypt.transferClaim')}
-      </div>
+    <div class="stack" on:paste={handlePaste}>
+      <p class="hint">{t(dict, 'tools.ultimateEncrypt.transferClaim')}</p>
 
-      <!-- Input area: text + file -->
-      <div class="ue-input-grid" class:ue-input-grid--focused={textFocused && files.length === 0}>
-        <!-- Text input -->
-        <div class="ue-input-pane" class:ue-input-pane--active={files.length === 0 && textInput.trim().length > 0} class:ue-input-pane--disabled={files.length > 0}>
-          <label class="ue-input-pane__label" for="ue-text">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-            {t(dict, 'tools.ultimateEncrypt.messageLabel')}
-          </label>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="field">
+          <label class="label" for="ue-text">{t(dict, 'tools.ultimateEncrypt.messageLabel')}</label>
           <textarea
             id="ue-text"
-            class="ue-textarea"
+            class="input"
             bind:value={textInput}
             placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
             disabled={files.length > 0}
-            on:focus={() => textFocused = true}
-            on:blur={() => textFocused = false}
           ></textarea>
         </div>
 
-        <!-- File drop zone -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-          class="ue-input-pane ue-drop-zone"
-          class:ue-input-pane--active={files.length > 0}
-          class:ue-drop-zone--dragging={dragging}
-          bind:this={dropZoneEl}
-          on:drop={handleDrop}
-          on:dragover={handleDragOver}
-          on:dragleave={handleDragLeave}
-        >
+        <div class="field">
+          <span class="label" id="ue-file-label">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
           {#if files.length > 0}
-            <div class="flex flex-col w-full">
-              <span class="ue-input-pane__label">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                {files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}`}
-              </span>
-              <div class="flex items-center gap-2 mt-1">
-                {#if files.length > 1}
-                  <span class="text-[10px] text-emerald-600 dark:text-emerald-400">{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')}</span>
-                {/if}
-                <span class="text-[10px] text-zinc-600 dark:text-zinc-400">{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
-                <button type="button" class="text-[10px] font-bold text-red-500 hover:underline ml-auto" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
-              </div>
+            <div class="dropzone dropzone--active" aria-labelledby="ue-file-label">
+              <span class="dropzone__title max-w-full truncate">{files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}`}</span>
+              <span>{#if files.length > 1}{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')} · {/if}{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
+              <button type="button" class="btn-ghost btn-sm" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
             </div>
           {:else}
-            <label class="flex flex-col items-center gap-1.5 cursor-pointer text-center py-2 w-full h-full justify-center" for="ue-file">
-              <span class="ue-input-pane__label">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                {t(dict, 'tools.ultimateEncrypt.fileLabel')}
-              </span>
-                <span class="text-[10px] text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <label
+              class="dropzone"
+              class:dropzone--dragging={dragging}
+              for="ue-file"
+              bind:this={dropZoneEl}
+              on:drop={handleDrop}
+              on:dragover={handleDragOver}
+              on:dragleave={handleDragLeave}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span class="dropzone__title">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
+              <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
             </label>
-            <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
           {/if}
         </div>
       </div>
 
-      <!-- Password -->
-      <div class="space-y-1.5">
-        <label class="label flex items-center gap-1.5" for="ue-pass">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          {t(dict, 'tools.ultimateEncrypt.passwordLabel')}
-        </label>
-        <div class="ue-passphrase-box">
+      <div class="field">
+        <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
+        <div class="passphrase">
           <input
             id="ue-pass"
             type={isGeneratedPassword ? 'text' : 'password'}
-            class="ue-passphrase-input"
+            class="input"
             bind:value={password}
             on:input={() => { isGeneratedPassword = false; }}
             autocomplete="off"
@@ -711,15 +686,17 @@
             data-1p-ignore
             data-bwignore="true"
             placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
+            aria-describedby="ue-pass-hint"
           />
-          <button type="button" class="ue-passphrase-refresh" on:click={useGeneratedPassphrase} aria-label={t(dict, 'common.generatePassphrase')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={useGeneratedPassphrase} aria-label={t(dict, 'common.generatePassphrase')}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
+        <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 
       {#if error}
-        <p class="text-xs text-red-500">{error}</p>
+        <p class="status status--error" role="alert">{error}</p>
       {/if}
 
       <button
@@ -728,147 +705,110 @@
         on:click={handleEncrypt}
         disabled={(!textInput.trim() && files.length === 0)}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
         {t(dict, 'tools.ultimateEncrypt.encryptAndShare')}
       </button>
+      {#if !textInput.trim() && files.length === 0}
+        <p class="hint text-center">{t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile')}</p>
+      {/if}
     </div>
 
   {:else if step === 'confirm'}
-    <div class="space-y-4">
-      <div class="space-y-2">
-        <p class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{t(dict, 'tools.ultimateEncrypt.confirm.title')}</p>
-        <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          {t(dict, 'tools.ultimateEncrypt.confirm.subtitle')}
-        </p>
-        <p class="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed rounded-lg bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 px-3 py-2">
-          {t(dict, 'tools.ultimateEncrypt.confirm.storageGuarantee')}
-        </p>
+    <div class="stack">
+      <div class="status status--warn">
+        <div>
+          <p class="status__title">{t(dict, 'tools.ultimateEncrypt.confirm.title')}</p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.subtitle')}</p>
+        </div>
       </div>
-
+      <p class="hint">{t(dict, 'tools.ultimateEncrypt.confirm.storageGuarantee')}</p>
       {#if error}
-        <p class="text-xs text-red-500">{error}</p>
+        <p class="status status--error" role="alert">{error}</p>
       {/if}
-
       {#if localFileUrl}
-        <div class="ue-passphrase-box">
-          <div class="flex-1 space-y-1">
-            <p class="text-xs font-medium text-emerald-700 dark:text-emerald-400">{t(dict, 'tools.ultimateEncrypt.confirm.downloadTitle')}</p>
-            <p class="text-[10px] text-emerald-600/70 dark:text-emerald-500/60">{localFileName}</p>
-          </div>
-          <a href={localFileUrl} download={localFileName} class="btn-outline text-xs px-3 py-1.5">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')}</a>
-        </div>
-        <div class="text-[10px] text-zinc-600 dark:text-zinc-400 leading-relaxed space-y-1.5">
+        <a href={localFileUrl} download={localFileName} class="btn w-full">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</a>
+        <div class="hint grid gap-1.5">
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
-          <div class="flex flex-wrap gap-x-3 gap-y-1">
-            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">Send instances</a>
-            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">SwissTransfer</a>
-          </div>
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-emerald-600 dark:text-emerald-400 underline underline-offset-2">encrypt.click/u</a></p>
+          <p class="actions gap-x-4">
+            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">Send instances</a>
+            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">SwissTransfer</a>
+          </p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline underline-offset-2">encrypt.click/u</a></p>
         </div>
       {/if}
-
-      {#if showManualTransferHelp && pendingHosts.length > 0}
-        <button class="btn-outline w-full text-xs" type="button" on:click={confirmUpload}>
-          {t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}
-        </button>
-      {/if}
-
-      <button type="button" class="text-[10px] font-medium text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-300" on:click={() => step = 'input'}>
-        &larr; {t(dict, 'tools.ultimateEncrypt.confirm.back')}
-      </button>
+      <div class="actions">
+        {#if showManualTransferHelp && pendingHosts.length > 0}
+          <button class="btn-secondary" type="button" on:click={confirmUpload}>{t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}</button>
+        {/if}
+        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
+      </div>
     </div>
 
   {:else if step === 'processing'}
-    <div class="space-y-4">
+    <div class="stack">
       <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')} />
       {#if error}
-        <p class="text-xs text-red-500">{error}</p>
+        <p class="status status--error" role="alert">{error}</p>
       {/if}
     </div>
 
   {:else if step === 'result'}
-    <div class="space-y-5">
+    <div class="stack" role="status">
       {#if resultUrl || shortUrl}
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <label class="label block">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
-          <div class="flex items-center gap-2">
-            {#if qrSvg && shareUrl}
-              <button
-                type="button"
-                class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
-                aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}
-                title={t(dict, 'tools.ultimateEncrypt.qrAlt')}
-                on:click={() => showQr = !showQr}
-              >
-                <svg viewBox="0 0 24 24" class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M4 4h6v6H4z" />
-                  <path d="M14 4h6v6h-6z" />
-                  <path d="M4 14h6v6H4z" />
-                  <path d="M14 14h2" />
-                  <path d="M18 14h2v2" />
-                  <path d="M14 18h2v2h-2z" />
-                  <path d="M18 18h2v2h-2z" />
-                </svg>
-              </button>
-            {/if}
-            <CopyButton text={shortUrl || resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} />
+        <div class="field">
+          <div class="output-head">
+            <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
+            <div class="flex items-center gap-1">
+              {#if qrSvg && shareUrl}
+                <button type="button" class="btn-ghost btn-sm" aria-pressed={showQr} on:click={() => showQr = !showQr}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 14h2"/><path d="M18 14h2v2"/><path d="M14 18h2v2h-2z"/><path d="M18 18h2v2h-2z"/></svg>
+                  QR
+                </button>
+              {/if}
+              <CopyButton text={shortUrl || resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+            </div>
           </div>
-        </div>
-        <input class="input text-xs font-mono" type="text" readonly value={shortUrl || resultUrl} />
-        {#if resultHasTemporaryUpload}
-          <p class="text-[10px] text-zinc-600 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
-        {/if}
-        {#if showQr && qrSvg && shareUrl}
-          <div class="mt-3 flex justify-center">
-            <div class="w-full max-w-[248px] rounded-[1.8rem] border border-emerald-200/80 dark:border-emerald-900/70 bg-[linear-gradient(180deg,oklch(0.975_0.025_160.44_/_0.98),oklch(0.95_0.05_160.44_/_0.92))] dark:bg-[linear-gradient(180deg,oklch(0.25_0.045_160.44_/_0.96),oklch(0.20_0.035_160.44_/_0.98))] p-3 shadow-[0_18px_60px_oklch(0.43_0.09_160.44_/_0.18)]">
-              <div class="relative overflow-hidden rounded-[1.35rem] border border-white/70 dark:border-white/8 bg-white p-3">
-                <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.7019_0.1577_160.44_/_0.10),transparent_58%)]"></div>
-                <div class="relative mx-auto w-full max-w-[200px]" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>
-                  <div class="block w-full [&>svg]:block [&>svg]:h-auto [&>svg]:w-full [&>svg]:rounded-[1rem]">
-                    {@html qrSvg}
-                  </div>
-                  <div class="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-emerald-200 bg-white shadow-[0_10px_30px_oklch(0.43_0.09_160.44_/_0.16)]">
-                    <img src="/encryptclick_icon.svg" alt="" class="h-6 w-6" />
-                  </div>
+          <input id="ue-result-link" class="input input--mono" type="text" readonly value={shortUrl || resultUrl} />
+          {#if resultHasTemporaryUpload}
+            <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
+          {/if}
+          {#if showQr && qrSvg && shareUrl}
+            <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+          {/if}
+          {#if shortUrl}
+            <details class="more">
+              <summary>{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
+              <div class="more__body">
+                <div class="flex items-center gap-2">
+                  <input class="input input--mono text-sm" type="text" readonly value={resultUrl} aria-label={t(dict, 'tools.ultimateEncrypt.encryptedLink')} />
+                  <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
                 </div>
               </div>
-            </div>
-          </div>
-        {/if}
-        {#if shortUrl}
-          <details class="text-[11px] text-zinc-600 dark:text-zinc-400">
-            <summary class="cursor-pointer select-none hover:text-zinc-800 dark:hover:text-zinc-300">{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
-            <div class="mt-1 flex items-center gap-2">
-              <input class="input text-[10px] font-mono flex-1" type="text" readonly value={resultUrl} />
-              <CopyButton text={resultUrl} label={t(dict, 'tools.ultimateEncrypt.copy')} className="!text-[9px]" />
-            </div>
-          </details>
-        {/if}
-      </div>
+            </details>
+          {/if}
+        </div>
       {/if}
 
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <label class="label block">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-          <CopyButton text={resultPassword || password} label={t(dict, 'tools.ultimateEncrypt.copy')} />
+      <div class="field">
+        <div class="output-head">
+          <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
+          <CopyButton text={resultPassword || password} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
         </div>
-        <input class="input text-xs font-mono" type="text" readonly value={resultPassword || password} />
-        <p class="text-[10px] text-amber-500">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
+        <input id="ue-result-pass" class="input input--mono" type="text" readonly value={resultPassword || password} />
+        <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
 
       {#if stegoImageUrl}
-        <div class="space-y-2">
-          <label class="label block">{t(dict, 'tools.ultimateEncrypt.steganographyImage')}</label>
-          <p class="text-[11px] text-zinc-600 dark:text-zinc-400">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
+        <div class="field">
+          <span class="label">{t(dict, 'tools.ultimateEncrypt.steganographyImage')}</span>
+          <p class="hint">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
           <div class="flex items-center gap-3">
-            <img src={stegoImageUrl} alt="" class="w-16 h-16 rounded border border-zinc-200 dark:border-zinc-800 object-cover" />
-            <button type="button" class="btn-outline text-xs" on:click={downloadStego}>{t(dict, 'tools.ultimateEncrypt.downloadImage')}</button>
+            <img src={stegoImageUrl} alt="" class="h-16 w-16 rounded-lg border border-line-soft object-cover" />
+            <button type="button" class="btn-secondary btn-sm" on:click={downloadStego}>{t(dict, 'tools.ultimateEncrypt.downloadImage')}</button>
           </div>
         </div>
       {/if}
 
-      <button type="button" class="btn-outline w-full text-xs" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
+      <button type="button" class="btn-secondary w-full" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
     </div>
   {/if}
 </div>
