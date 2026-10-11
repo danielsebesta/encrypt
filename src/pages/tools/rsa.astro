@@ -13,17 +13,15 @@ const clientDict = toolClientDict(dict, 'tools.rsa');
   title={t(dict, 'tools.rsa.meta.title')}
   description={t(dict, 'tools.rsa.meta.description')}
 >
-  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
-    <div class="tool-hero">
-      <div class="tool-hero__copy">
-        <h1 class="tool-hero__title">
-          {t(dict, 'tools.rsa.h1')} <span class="text-emerald-500">{t(dict, 'tools.rsa.h1Highlight')}</span>
-          <ToolHelp client:idle dict={clientDict} prefix="tools.rsa" />
-        </h1>
-        <p class="tool-hero__subtitle">{t(dict, 'tools.rsa.subtitle')}</p>
-      </div>
-    </div>
-    <div class="mt-8">
+  <div class="page">
+    <header class="page-head">
+      <h1 class="page-title">
+        {t(dict, 'tools.rsa.h1')} {t(dict, 'tools.rsa.h1Highlight')}
+        <ToolHelp client:idle dict={clientDict} prefix="tools.rsa" />
+      </h1>
+      <p class="page-lead">{t(dict, 'tools.rsa.subtitle')}</p>
+    </header>
+    <div class="panel">
       <RSAView client:idle locale={locale} dict={clientDict} />
     </div>
   </div>

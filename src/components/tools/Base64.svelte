@@ -8,44 +8,48 @@
 
   let input = '';
   let output = '';
+  let error = '';
   let mode: 'encode' | 'decode' = 'encode';
 
   function handleProcess() {
+    error = '';
     if (!input) {
-        output = '';
-        return;
+      output = '';
+      return;
     }
     try {
-        output = mode === 'encode' ? base64Encode(input) : base64Decode(input);
-    } catch (e) {
-        output = mode === 'encode' ? t(dict, 'tools.base64.errorInvalidEncode') : t(dict, 'tools.base64.errorInvalid');
+      output = mode === 'encode' ? base64Encode(input) : base64Decode(input);
+    } catch {
+      output = '';
+      error = mode === 'encode' ? t(dict, 'tools.base64.errorInvalidEncode') : t(dict, 'tools.base64.errorInvalid');
     }
   }
 
   $: if (input || mode) handleProcess();
-
 </script>
 
-<div class="space-y-6">
-  <div class="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-lg">
-    <button on:click={() => mode = 'encode'} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {mode === 'encode' ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">{t(dict, 'tools.base64.encode')}</button>
-    <button on:click={() => mode = 'decode'} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {mode === 'decode' ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">{t(dict, 'tools.base64.decode')}</button>
+<div class="stack">
+  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.base64.h1')}>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="base64-panel" on:click={() => mode = 'encode'}>{t(dict, 'tools.base64.encode')}</button>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="base64-panel" on:click={() => mode = 'decode'}>{t(dict, 'tools.base64.decode')}</button>
   </div>
 
-  <div class="grid gap-6">
-    <div class="grid gap-1.5">
-        <label class="label">{t(dict, 'tools.base64.inputText')}</label>
-        <textarea bind:value={input} placeholder={mode === 'encode' ? t(dict, 'tools.base64.encodePlaceholder') : t(dict, 'tools.base64.decodePlaceholder')} class="input min-h-[120px] font-mono text-sm"></textarea>
+  <div id="base64-panel" role="tabpanel" class="stack">
+    <div class="field">
+      <label class="label" for="base64-input">{t(dict, 'tools.base64.inputText')}</label>
+      <textarea id="base64-input" bind:value={input} placeholder={mode === 'encode' ? t(dict, 'tools.base64.encodePlaceholder') : t(dict, 'tools.base64.decodePlaceholder')} class="input input--mono" spellcheck="false" autocapitalize="off" aria-invalid={error ? 'true' : undefined}></textarea>
     </div>
 
-    <div class="grid gap-2">
-      <div class="flex justify-between items-end">
-        <label class="label">{t(dict, 'tools.base64.outputResult')}</label>
-        <CopyButton text={output} label={t(dict, 'tools.base64.copy')} />
+    {#if error}
+      <p class="status status--error" role="alert">{error}</p>
+    {/if}
+
+    <div class="field">
+      <div class="output-head">
+        <span class="label" id="base64-out-label">{t(dict, 'tools.base64.outputResult')}</span>
+        <CopyButton text={output} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
       </div>
-      <div class="p-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl font-mono text-sm break-all min-h-[120px] text-zinc-800 dark:text-zinc-200">
-        {output}
-      </div>
+      <output class="output min-h-32" aria-labelledby="base64-out-label" aria-live="polite">{output}</output>
     </div>
   </div>
 </div>
