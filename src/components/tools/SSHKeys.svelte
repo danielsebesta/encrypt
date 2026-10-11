@@ -8,77 +8,57 @@
 
   let bits = 4096;
   let isGenerating = false;
+  let error = '';
   let keyPair: { publicKey: string; privateKey: string } | null = null;
 
   async function generate() {
+    error = '';
     isGenerating = true;
     try {
       keyPair = await generateSSHKeyPair(bits);
-    } catch (e) {
-      console.error(e);
+    } catch {
       keyPair = null;
+      error = t(dict, 'tools.sshKeys.failedToGenerate');
     } finally {
       isGenerating = false;
     }
   }
-
 </script>
 
-<div class="space-y-6">
-  <div class="grid gap-6">
-    <div class="grid gap-1.5">
-      <label class="label">{t(dict, 'tools.sshKeys.keyType')}</label>
-      <div class="text-xs text-zinc-500 dark:text-zinc-400">
-        {t(dict, 'tools.sshKeys.keyTypeValue1')}
-        <code class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-900/60">ssh-rsa</code>
-        {t(dict, 'tools.sshKeys.keyTypeValue2')}
-      </div>
-    </div>
-
-    <div class="grid gap-1.5">
-      <label class="label">{t(dict, 'tools.sshKeys.keyBitLength')}</label>
-      <select bind:value={bits} class="input">
-        <option value={2048}>{t(dict, 'tools.sshKeys.bit2048')}</option>
-        <option value={4096}>{t(dict, 'tools.sshKeys.bit4096')}</option>
-      </select>
-    </div>
-
-    <button
-      on:click={generate}
-      disabled={isGenerating}
-      class="btn w-full py-4 uppercase tracking-widest text-xs font-black"
-    >
-      {isGenerating ? t(dict, 'tools.sshKeys.generatingKeys') : t(dict, 'tools.sshKeys.generateBtn')}
-    </button>
-
-    {#if keyPair}
-      <div class="space-y-6">
-        <div class="space-y-2">
-          <div class="flex justify-between items-end">
-            <label class="label">
-              {t(dict, 'tools.sshKeys.publicKey')}
-            </label>
-            <CopyButton text={keyPair.publicKey} label={t(dict, 'tools.sshKeys.copy')} />
-          </div>
-          <pre
-            class="result-box-neutral text-[10px] max-h-40 whitespace-pre-wrap select-all"
-          >{keyPair.publicKey}</pre>
-        </div>
-
-        <div class="space-y-2">
-          <div class="flex justify-between items-end">
-            <label
-              class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest text-amber-600"
-            >
-              {t(dict, 'tools.sshKeys.privateKey')}
-            </label>
-            <CopyButton text={keyPair.privateKey} label={t(dict, 'tools.sshKeys.copy')} />
-          </div>
-          <pre
-            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-x-auto overflow-y-auto max-h-40 whitespace-pre select-all text-amber-700 dark:text-amber-500"
-          >{keyPair.privateKey}</pre>
-        </div>
-      </div>
-    {/if}
+<div class="stack">
+  <div class="field">
+    <label class="label" for="ssh-bits">{t(dict, 'tools.sshKeys.keyBitLength')}</label>
+    <select id="ssh-bits" bind:value={bits} class="input">
+      <option value={2048}>{t(dict, 'tools.sshKeys.bit2048')}</option>
+      <option value={4096}>{t(dict, 'tools.sshKeys.bit4096')}</option>
+    </select>
+    <p class="hint">{t(dict, 'tools.sshKeys.keyType')}: {t(dict, 'tools.sshKeys.keyTypeValue1')} <code class="font-mono">ssh-rsa</code> {t(dict, 'tools.sshKeys.keyTypeValue2')}</p>
   </div>
+
+  <button type="button" class="btn w-full" on:click={generate} disabled={isGenerating}>
+    {isGenerating ? t(dict, 'tools.sshKeys.generatingKeys') : t(dict, 'tools.sshKeys.generateBtn')}
+  </button>
+
+  {#if error}
+    <p class="status status--error" role="alert">{error}</p>
+  {/if}
+  {#if keyPair}
+    <div class="stack" role="status">
+      <div class="field">
+        <div class="output-head">
+          <span class="label" id="ssh-pub-label">{t(dict, 'tools.sshKeys.publicKey')}</span>
+          <CopyButton text={keyPair.publicKey} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+        </div>
+        <output class="output output--scroll" aria-labelledby="ssh-pub-label">{keyPair.publicKey}</output>
+      </div>
+      <div class="field">
+        <div class="output-head">
+          <span class="label" id="ssh-priv-label">{t(dict, 'tools.sshKeys.privateKey')}</span>
+          <CopyButton text={keyPair.privateKey} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+        </div>
+        <output class="output output--secret output--scroll" aria-labelledby="ssh-priv-label">{keyPair.privateKey}</output>
+        <p class="hint">{t(dict, 'common.secretHint')}</p>
+      </div>
+    </div>
+  {/if}
 </div>

@@ -13,17 +13,15 @@ const clientDict = toolClientDict(dict, 'tools.uuidUlid');
   title={t(dict, 'tools.uuidUlid.meta.title')}
   description={t(dict, 'tools.uuidUlid.meta.description')}
 >
-  <div class="max-w-4xl mx-auto px-5 py-12 md:py-20">
-    <div class="tool-hero">
-      <div class="tool-hero__copy">
-        <h1 class="tool-hero__title">
-          {t(dict, 'tools.uuidUlid.h1')} <span class="text-emerald-500">{t(dict, 'tools.uuidUlid.h1Highlight')}</span>
-          <ToolHelp client:idle dict={clientDict} prefix="tools.uuidUlid" />
-        </h1>
-        <p class="tool-hero__subtitle">{t(dict, 'tools.uuidUlid.subtitle')}</p>
-      </div>
-    </div>
-    <div class="mt-8">
+  <div class="page">
+    <header class="page-head">
+      <h1 class="page-title">
+        {t(dict, 'tools.uuidUlid.h1')} {t(dict, 'tools.uuidUlid.h1Highlight')}
+        <ToolHelp client:idle dict={clientDict} prefix="tools.uuidUlid" />
+      </h1>
+      <p class="page-lead">{t(dict, 'tools.uuidUlid.subtitle')}</p>
+    </header>
+    <div class="panel">
       <UUIDULIDView client:idle locale={locale} dict={clientDict} />
     </div>
   </div>

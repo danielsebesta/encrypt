@@ -1,69 +1,65 @@
 <script lang="ts">
   import { decodeJWT } from '../../lib/jwt';
   import { t } from '../../lib/t';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
 
   let input = '';
-  let result: any = null;
+  let result: { header: unknown; payload: unknown } | null = null;
+  let error = '';
 
   function handleInput() {
-    if (!input) {
-        result = null;
-        return;
+    error = '';
+    if (!input.trim()) {
+      result = null;
+      return;
     }
     try {
-      result = decodeJWT(input);
-    } catch (e) {
-      result = { error: t(dict, 'tools.jwt.invalidJwt') };
+      result = decodeJWT(input.trim());
+    } catch {
+      result = null;
+      error = t(dict, 'tools.jwt.invalidJwt');
     }
   }
+
+  $: headerJson = result ? JSON.stringify(result.header, null, 2) : '';
+  $: payloadJson = result ? JSON.stringify(result.payload, null, 2) : '';
 </script>
 
-<div class="space-y-6 text-left">
-    <div class="grid gap-2">
-        <label class="label">{t(dict, 'tools.jwt.encodedToken')}</label>
-        <textarea 
-            bind:value={input} 
-            on:input={handleInput} 
-            placeholder={t(dict, 'tools.jwt.placeholder')}
-            class="input min-h-[120px] font-mono text-xs leading-relaxed"
-        ></textarea>
-    </div>
+<div class="stack">
+  <div class="field">
+    <label class="label" for="jwt-input">{t(dict, 'tools.jwt.encodedToken')}</label>
+    <textarea id="jwt-input" bind:value={input} on:input={handleInput} placeholder={t(dict, 'tools.jwt.placeholder')} class="input input--mono" spellcheck="false" autocomplete="off" autocapitalize="off" aria-invalid={error ? 'true' : undefined}></textarea>
+  </div>
 
-    {#if result}
-        <div class="grid gap-6">
-            {#if result.error}
-                <div class="p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 rounded-xl text-red-600 text-xs font-bold uppercase tracking-widest text-center">
-                    {result.error}
-                </div>
-            {:else}
-                <div class="space-y-4">
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <h4 class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] px-1">{t(dict, 'tools.jwt.header')}</h4>
-                            <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-auto shadow-inner">
-                                <pre class="text-[10px] text-pink-600 dark:text-pink-400 font-mono">{JSON.stringify(result.header, null, 2)}</pre>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <h4 class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] px-1">{t(dict, 'tools.jwt.payload')}</h4>
-                            <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-auto shadow-inner">
-                                <pre class="text-[10px] text-purple-600 dark:text-purple-400 font-mono">{JSON.stringify(result.payload, null, 2)}</pre>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="p-4 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-xl">
-                        <div class="text-[9px] font-black text-emerald-800 dark:text-emerald-500 uppercase tracking-widest mb-2 px-1">{t(dict, 'tools.jwt.signatureStatus')}</div>
-                        <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                             {t(dict, 'tools.jwt.decodedLocally')}
-                        </div>
-                    </div>
-                </div>
-            {/if}
+  {#if error}
+    <p class="status status--error" role="alert">{error}</p>
+  {/if}
+
+  {#if result}
+    <div class="stack" role="status">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="field">
+          <div class="output-head">
+            <span class="label" id="jwt-header-label">{t(dict, 'tools.jwt.header')}</span>
+            <CopyButton text={headerJson} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+          </div>
+          <pre class="output" aria-labelledby="jwt-header-label">{headerJson}</pre>
         </div>
-    {/if}
+        <div class="field">
+          <div class="output-head">
+            <span class="label" id="jwt-payload-label">{t(dict, 'tools.jwt.payload')}</span>
+            <CopyButton text={payloadJson} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+          </div>
+          <pre class="output" aria-labelledby="jwt-payload-label">{payloadJson}</pre>
+        </div>
+      </div>
+      <p class="status">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <span><strong>{t(dict, 'tools.jwt.signatureStatus')}:</strong> {t(dict, 'tools.jwt.decodedLocally')}</span>
+      </p>
+    </div>
+  {/if}
 </div>

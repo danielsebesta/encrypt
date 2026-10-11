@@ -25,111 +25,68 @@
       const { generatePGPKeyPair } = await import('../../lib/pgpKeys');
       keyPair = await generatePGPKeyPair({ name: name.trim(), email: email.trim(), passphrase, rsaBits });
     } catch (e: any) {
-      console.error(e);
       error = e?.message || t(dict, 'tools.pgpKeys.failedToGenerate');
     } finally {
       isGenerating = false;
     }
   }
-
 </script>
 
-<div class="space-y-6">
-  <div class="grid gap-6">
-    <div class="grid md:grid-cols-2 gap-4">
-      <div class="space-y-1.5">
-        <label class="label" for="pgp-name">
-          {t(dict, 'tools.pgpKeys.name')}
-        </label>
-        <input
-          id="pgp-name"
-          class="input"
-          bind:value={name}
-          placeholder={t(dict, 'tools.pgpKeys.namePlaceholder')}
-          autocomplete="name"
-        />
-      </div>
-      <div class="space-y-1.5">
-        <label class="label" for="pgp-email">
-          {t(dict, 'tools.pgpKeys.email')}
-        </label>
-        <input
-          id="pgp-email"
-          class="input"
-          type="email"
-          bind:value={email}
-          placeholder={t(dict, 'tools.pgpKeys.emailPlaceholder')}
-          autocomplete="email"
-        />
-      </div>
+<div class="stack">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="field">
+      <label class="label" for="pgp-name">{t(dict, 'tools.pgpKeys.name')}</label>
+      <input id="pgp-name" class="input" bind:value={name} placeholder={t(dict, 'tools.pgpKeys.namePlaceholder')} autocomplete="name" aria-invalid={error && !name.trim() ? 'true' : undefined} />
     </div>
-
-    <div class="grid md:grid-cols-2 gap-4">
-      <div class="space-y-1.5">
-        <label class="label" for="pgp-pass">
-          {t(dict, 'tools.pgpKeys.keyPassphrase')}
-        </label>
-        <input
-          id="pgp-pass"
-          class="input"
-          type="password"
-          bind:value={passphrase}
-          autocomplete="new-password"
-          placeholder={t(dict, 'tools.pgpKeys.passphrasePlaceholder')}
-        />
-      </div>
-      <div class="space-y-1.5">
-        <label class="label" for="pgp-bits">
-          {t(dict, 'tools.pgpKeys.rsaStrength')}
-        </label>
-        <select id="pgp-bits" bind:value={rsaBits} class="input">
-          <option value={2048}>{t(dict, 'tools.pgpKeys.bit2048')}</option>
-          <option value={4096}>{t(dict, 'tools.pgpKeys.bit4096')}</option>
-        </select>
-      </div>
+    <div class="field">
+      <label class="label" for="pgp-email">{t(dict, 'tools.pgpKeys.email')}</label>
+      <input id="pgp-email" class="input" type="email" bind:value={email} placeholder={t(dict, 'tools.pgpKeys.emailPlaceholder')} autocomplete="email" aria-invalid={error && !email.trim() ? 'true' : undefined} />
     </div>
-
-    <button
-      on:click={generate}
-      disabled={isGenerating}
-      class="btn w-full py-4 uppercase tracking-widest text-xs font-black"
-    >
-      {isGenerating ? t(dict, 'tools.pgpKeys.generatingKeys') : t(dict, 'tools.pgpKeys.generateBtn')}
-    </button>
-
-    {#if error}
-      <p class="text-xs text-red-500">{error}</p>
-    {/if}
-
-    {#if keyPair}
-      <div class="space-y-6">
-        <div class="space-y-2">
-          <div class="flex justify-between items-end">
-            <label class="label">
-              {t(dict, 'tools.pgpKeys.publicKey')}
-            </label>
-            <CopyButton text={keyPair.publicKey} label={t(dict, 'tools.pgpKeys.copy')} />
-          </div>
-          <pre
-            class="result-box-neutral text-[10px] overflow-auto max-h-52 select-all"
-          >{keyPair.publicKey}</pre>
-        </div>
-
-        <div class="space-y-2">
-          <div class="flex justify-between items-end">
-            <label
-              class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest text-amber-600"
-            >
-              {t(dict, 'tools.pgpKeys.privateKey')}
-            </label>
-            <CopyButton text={keyPair.privateKey} label={t(dict, 'tools.pgpKeys.copy')} />
-          </div>
-          <pre
-            class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-[10px] overflow-auto max-h-52 break-all select-all text-amber-700 dark:text-amber-500"
-          >{keyPair.privateKey}</pre>
-        </div>
-      </div>
-    {/if}
   </div>
-</div>
 
+  <details class="more">
+    <summary>{t(dict, 'tools.pgpKeys.moreOptions')}</summary>
+    <div class="more__body">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="field">
+          <label class="label" for="pgp-pass">{t(dict, 'tools.pgpKeys.keyPassphrase')}</label>
+          <input id="pgp-pass" class="input" type="password" bind:value={passphrase} autocomplete="new-password" placeholder={t(dict, 'tools.pgpKeys.passphrasePlaceholder')} />
+        </div>
+        <div class="field">
+          <label class="label" for="pgp-bits">{t(dict, 'tools.pgpKeys.rsaStrength')}</label>
+          <select id="pgp-bits" bind:value={rsaBits} class="input">
+            <option value={2048}>{t(dict, 'tools.pgpKeys.bit2048')}</option>
+            <option value={4096}>{t(dict, 'tools.pgpKeys.bit4096')}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <button type="button" class="btn w-full" on:click={generate} disabled={isGenerating}>
+    {isGenerating ? t(dict, 'tools.pgpKeys.generatingKeys') : t(dict, 'tools.pgpKeys.generateBtn')}
+  </button>
+
+  {#if error}
+    <p class="status status--error" role="alert">{error}</p>
+  {/if}
+  {#if keyPair}
+    <div class="stack" role="status">
+      <div class="field">
+        <div class="output-head">
+          <span class="label" id="pgp-pub-label">{t(dict, 'tools.pgpKeys.publicKey')}</span>
+          <CopyButton text={keyPair.publicKey} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+        </div>
+        <output class="output output--scroll" aria-labelledby="pgp-pub-label">{keyPair.publicKey}</output>
+      </div>
+      <div class="field">
+        <div class="output-head">
+          <span class="label" id="pgp-priv-label">{t(dict, 'tools.pgpKeys.privateKey')}</span>
+          <CopyButton text={keyPair.privateKey} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+        </div>
+        <output class="output output--secret output--scroll" aria-labelledby="pgp-priv-label">{keyPair.privateKey}</output>
+        <p class="hint">{t(dict, 'common.secretHint')}</p>
+      </div>
+    </div>
+  {/if}
+</div>

@@ -1,85 +1,113 @@
 <script lang="ts">
   import { t } from '../../lib/t';
+  import CopyButton from '../CopyButton.svelte';
+
   export let locale = 'en';
   export let dict: Record<string, string>;
+
   let input = '';
   let salt = 10;
   let hashResult = '';
-  
+  let hashError = '';
+  let isHashing = false;
+
+  let verifyInput = '';
   let verifyHash = '';
   let verifyResult: boolean | null = null;
+  let verifyError = '';
   let isVerifying = false;
 
   async function handleHash() {
-    if (!input) return;
-    const { bcryptHash } = await import('../../lib/bcrypt');
-    hashResult = await bcryptHash(input, salt);
+    hashError = '';
+    if (!input) {
+      hashError = t(dict, 'tools.bcrypt.errorNoInput');
+      return;
+    }
+    isHashing = true;
+    try {
+      const { bcryptHash } = await import('../../lib/bcrypt');
+      hashResult = await bcryptHash(input, salt);
+    } catch {
+      hashError = t(dict, 'tools.bcrypt.errorInvalidCost');
+    } finally {
+      isHashing = false;
+    }
   }
 
   async function handleVerify() {
-    if (!input || !verifyHash) return;
+    verifyError = '';
+    verifyResult = null;
+    if (!verifyInput || !verifyHash) {
+      verifyError = t(dict, 'tools.bcrypt.errorVerifyBoth');
+      return;
+    }
     isVerifying = true;
     try {
       const { bcryptVerify } = await import('../../lib/bcrypt');
-      verifyResult = await bcryptVerify(input, verifyHash);
+      verifyResult = await bcryptVerify(verifyInput, verifyHash.trim());
+    } catch {
+      verifyError = t(dict, 'tools.bcrypt.errorInvalidHash');
     } finally {
       isVerifying = false;
     }
   }
 </script>
 
-<div class="space-y-10">
-  <!-- Hash Section -->
-  <div class="space-y-4">
-    <div class="flex items-center gap-2 mb-2">
-        <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-        <h3 class="text-sm font-bold uppercase tracking-widest text-zinc-500">{t(dict, 'tools.bcrypt.generateHash')}</h3>
+<div class="stack">
+  <section class="stack" aria-labelledby="bcrypt-hash-title">
+    <h2 id="bcrypt-hash-title" class="section-title">{t(dict, 'tools.bcrypt.generateHash')}</h2>
+    <div class="field">
+      <label class="label" for="bcrypt-text">{t(dict, 'tools.bcrypt.cleartextInput')}</label>
+      <input id="bcrypt-text" class="input" bind:value={input} placeholder={t(dict, 'tools.bcrypt.hashPlaceholder')} autocomplete="off" />
     </div>
-    <div class="grid gap-4">
-        <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.bcrypt.cleartextInput')}</label>
-            <input bind:value={input} placeholder={t(dict, 'tools.bcrypt.hashPlaceholder')} class="input" />
+    <details class="more">
+      <summary>{t(dict, 'tools.bcrypt.costRounds')}</summary>
+      <div class="more__body">
+        <div class="field">
+          <label class="label" for="bcrypt-cost">{t(dict, 'tools.bcrypt.costRounds')}</label>
+          <input id="bcrypt-cost" type="number" inputmode="numeric" bind:value={salt} min="4" max="15" class="input max-w-32" aria-describedby="bcrypt-cost-hint" />
+          <p id="bcrypt-cost-hint" class="hint">{t(dict, 'tools.bcrypt.costHint')}</p>
         </div>
-        <div class="flex gap-3">
-            <button on:click={handleHash} class="btn flex-1">{t(dict, 'tools.bcrypt.generateBtn')}</button>
-            <div class="grid gap-1.5">
-                <input type="number" bind:value={salt} min="4" max="15" class="input w-20 text-center" title={t(dict, 'tools.bcrypt.costRounds')} />
-            </div>
+      </div>
+    </details>
+    <button type="button" class="btn w-full" on:click={handleHash} disabled={isHashing}>{isHashing ? t(dict, 'tools.bcrypt.computing') : t(dict, 'tools.bcrypt.generateBtn')}</button>
+    {#if hashError}
+      <p class="status status--error" role="alert">{hashError}</p>
+    {/if}
+    {#if hashResult}
+      <div class="field">
+        <div class="output-head">
+          <span class="label" id="bcrypt-out-label">{t(dict, 'tools.bcrypt.hashOutput')}</span>
+          <CopyButton text={hashResult} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
         </div>
-        {#if hashResult}
-            <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-xl font-mono text-xs break-all select-all shadow-sm">
-                {hashResult}
-            </div>
-        {/if}
-    </div>
-  </div>
+        <output class="output output--ok" aria-labelledby="bcrypt-out-label" aria-live="polite">{hashResult}</output>
+      </div>
+    {/if}
+  </section>
 
-  <!-- Verify Section -->
-  <div class="space-y-4 pt-6 border-t border-zinc-100 dark:border-zinc-800">
-    <div class="flex items-center gap-2 mb-2">
-        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
-        <h3 class="text-sm font-bold uppercase tracking-widest text-zinc-500">{t(dict, 'tools.bcrypt.verifyHashTitle')}</h3>
+  <hr class="border-line-soft" />
+
+  <section class="stack" aria-labelledby="bcrypt-verify-title">
+    <h2 id="bcrypt-verify-title" class="section-title">{t(dict, 'tools.bcrypt.verifyHashTitle')}</h2>
+    <div class="field">
+      <label class="label" for="bcrypt-verify-text">{t(dict, 'tools.bcrypt.cleartextInput')}</label>
+      <input id="bcrypt-verify-text" class="input" bind:value={verifyInput} placeholder={t(dict, 'tools.bcrypt.hashPlaceholder')} autocomplete="off" />
     </div>
-    <div class="grid gap-4">
-        <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.bcrypt.hashToCompare')}</label>
-            <input bind:value={verifyHash} placeholder={t(dict, 'tools.bcrypt.pasteHash')} class="input font-mono text-xs" />
+    <div class="field">
+      <label class="label" for="bcrypt-hash">{t(dict, 'tools.bcrypt.hashToCompare')}</label>
+      <input id="bcrypt-hash" class="input input--mono" bind:value={verifyHash} placeholder={t(dict, 'tools.bcrypt.pasteHash')} autocomplete="off" spellcheck="false" />
+    </div>
+    <button type="button" class="btn-secondary w-full" on:click={handleVerify} disabled={isVerifying}>{isVerifying ? t(dict, 'tools.bcrypt.computing') : t(dict, 'tools.bcrypt.verifyMatch')}</button>
+    {#if verifyError}
+      <p class="status status--error" role="alert">{verifyError}</p>
+    {/if}
+    {#if verifyResult !== null}
+      <div class="status {verifyResult ? 'status--ok' : 'status--error'}" role="status">
+        <div>
+          <p class="status__title">{verifyResult ? t(dict, 'tools.bcrypt.matchConfirmed') : t(dict, 'tools.bcrypt.invalidMatch')}</p>
+          <p>{verifyResult ? t(dict, 'tools.bcrypt.matchText') : t(dict, 'tools.bcrypt.invalidText')}</p>
         </div>
-        <button on:click={handleVerify} class="btn-secondary w-full" disabled={isVerifying}>
-            {isVerifying ? t(dict, 'tools.bcrypt.computing') : t(dict, 'tools.bcrypt.verifyMatch')}
-        </button>
-        
-        {#if verifyResult !== null}
-            <div class="p-6 rounded-2xl text-center border-2 {verifyResult ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/50' : 'bg-red-50 border-red-100 text-red-600 dark:bg-red-950/20 dark:border-red-900/50'}">
-                {#if verifyResult}
-                    <div class="text-xl font-black italic tracking-tighter">{t(dict, 'tools.bcrypt.matchConfirmed')}</div>
-                    <div class="text-xs opacity-80 uppercase tracking-widest mt-1">{t(dict, 'tools.bcrypt.matchText')}</div>
-                {:else}
-                    <div class="text-xl font-black italic tracking-tighter text-red-600">{t(dict, 'tools.bcrypt.invalidMatch')}</div>
-                    <div class="text-xs opacity-80 uppercase tracking-widest mt-1">{t(dict, 'tools.bcrypt.invalidText')}</div>
-                {/if}
-            </div>
-        {/if}
-    </div>
-  </div>
+      </div>
+    {/if}
+  </section>
 </div>

@@ -3,47 +3,49 @@
   import { onMount } from 'svelte';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
+
   export let locale = 'en';
   export let dict: Record<string, string>;
+
   let length = 32;
   let type: 'hex' | 'base64' | 'url-safe' = 'hex';
   let result = '';
+  let valid = true;
 
   function refresh() {
-    result = generateToken(length, type);
+    const n = Number(length);
+    valid = Number.isInteger(n) && n >= 8 && n <= 128;
+    if (!valid) return;
+    result = generateToken(n, type);
   }
 
   onMount(refresh);
-
 </script>
 
-<div class="space-y-6">
-  <div class="grid gap-6">
-    <div class="grid grid-cols-2 gap-4">
-        <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.token.entropyLength')}</label>
-            <input type="number" bind:value={length} on:input={refresh} min="8" max="128" class="input" />
-        </div>
-        <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.token.encoding')}</label>
-            <select bind:value={type} on:change={refresh} class="input">
-                <option value="hex">{t(dict, 'tools.token.hex')}</option>
-                <option value="base64">{t(dict, 'tools.token.base64Enc')}</option>
-                <option value="url-safe">{t(dict, 'tools.token.urlSafe')}</option>
-            </select>
-        </div>
+<div class="stack">
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="field">
+      <label class="label" for="token-length">{t(dict, 'tools.token.entropyLength')}</label>
+      <input id="token-length" type="number" inputmode="numeric" bind:value={length} on:input={refresh} min="8" max="128" class="input" aria-describedby="token-length-hint" aria-invalid={valid ? undefined : 'true'} />
+      <p id="token-length-hint" class="hint" class:text-danger={!valid}>{t(dict, 'tools.token.lengthRange')}</p>
     </div>
-
-    <div class="grid gap-2">
-      <div class="flex justify-between items-end">
-        <label class="label">{t(dict, 'tools.token.generatedToken')}</label>
-        <CopyButton text={result} label={t(dict, 'tools.token.copy')} />
-      </div>
-      <div class="p-6 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl font-mono text-lg break-all text-center text-emerald-700 dark:text-emerald-400">
-        {result}
-      </div>
+    <div class="field">
+      <label class="label" for="token-type">{t(dict, 'tools.token.encoding')}</label>
+      <select id="token-type" bind:value={type} on:change={refresh} class="input">
+        <option value="hex">{t(dict, 'tools.token.hex')}</option>
+        <option value="base64">{t(dict, 'tools.token.base64Enc')}</option>
+        <option value="url-safe">{t(dict, 'tools.token.urlSafe')}</option>
+      </select>
     </div>
-
-    <button on:click={refresh} class="btn-secondary w-full py-4 uppercase tracking-widest text-xs font-black">{t(dict, 'tools.token.refreshToken')}</button>
   </div>
+
+  <div class="field">
+    <div class="output-head">
+      <span class="label" id="token-label">{t(dict, 'tools.token.generatedToken')}</span>
+      <CopyButton text={result} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+    </div>
+    <output class="output output--ok" aria-labelledby="token-label" aria-live="polite">{result}</output>
+  </div>
+
+  <button type="button" class="btn w-full" on:click={refresh}>{t(dict, 'tools.token.refreshToken')}</button>
 </div>
