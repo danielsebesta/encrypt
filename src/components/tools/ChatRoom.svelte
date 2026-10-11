@@ -3827,7 +3827,7 @@
   }
   .chat-share-value {
     flex: 1; min-width: 0;
-    font-size: 12px; font-family: 'fira-code', monospace;
+    font-size: 12px; font-family: var(--font-mono);
     color: rgb(63, 63, 70); background: rgba(244, 244, 245, 0.8);
     padding: 4px 8px; border-radius: 6px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -4554,7 +4554,7 @@
   .chat-text :global(em) { font-style: italic; }
   .chat-text :global(del) { text-decoration: line-through; opacity: 0.6; }
   .chat-text :global(.chat-code-inline) {
-    font-family: 'fira-code', monospace; font-size: 13px;
+    font-family: var(--font-mono); font-size: 13px;
     background: oklch(0.7019 0.1577 160.44 / 0.08); border-radius: 4px;
     padding: 2px 5px;
   }
@@ -4562,7 +4562,7 @@
     background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   .chat-text :global(.chat-code-block) {
-    font-family: 'fira-code', monospace; font-size: 13px;
+    font-family: var(--font-mono); font-size: 13px;
     background: rgba(0, 0, 0, 0.04); border-radius: 8px;
     padding: 8px 10px; margin: 6px 0; overflow-x: auto;
     white-space: pre-wrap; word-break: break-all;
@@ -4619,7 +4619,7 @@
   }
   .chat-preview-code {
     margin: 0; padding: 0.5rem 0.6rem;
-    font-family: 'fira-code', monospace; font-size: 12px; line-height: 1.5;
+    font-family: var(--font-mono); font-size: 12px; line-height: 1.5;
     white-space: pre-wrap; word-break: break-all;
     color: rgb(82, 82, 91); background: rgba(244, 244, 245, 0.6);
     max-height: 200px; overflow-y: auto;
