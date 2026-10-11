@@ -1,64 +1,12 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root { color-scheme: only light; }
-:root.dark { color-scheme: only dark; }
-
-@font-face {
-    font-display: swap;
-    font-family: 'fira-code';
-    font-style: normal;
-    font-weight: 400;
-    src: url('/fonts/fira-code-400.woff2') format('woff2');
-}
-
-@font-face {
-    font-display: swap;
-    font-family: 'fira-code';
-    font-style: normal;
-    font-weight: 500;
-    src: url('/fonts/fira-code-500.woff2') format('woff2');
-}
-
-@font-face {
-    font-display: swap;
-    font-family: 'fira-code';
-    font-style: normal;
-    font-weight: 600;
-    src: url('/fonts/fira-code-600.woff2') format('woff2');
-}
-
-@font-face {
-    font-display: swap;
-    font-family: 'fira-code';
-    font-style: normal;
-    font-weight: 700;
-    src: url('/fonts/fira-code-700.woff2') format('woff2');
-}
-
-/* Nunito weights used by the UI */
 @font-face {
     font-display: swap;
     font-family: 'Nunito';
     font-style: normal;
     font-weight: 400;
     src: url('/fonts/nunito-v32-latin_latin-ext-regular.woff2') format('woff2');
-}
-
-@font-face {
-    font-display: swap;
-    font-family: 'Nunito';
-    font-style: normal;
-    font-weight: 500;
-    src: url('/fonts/nunito-v32-latin_latin-ext-500.woff2') format('woff2');
-}
-
-@font-face {
-    font-display: swap;
-    font-family: 'Nunito';
-    font-style: normal;
-    font-weight: 600;
-    src: url('/fonts/nunito-v32-latin_latin-ext-600.woff2') format('woff2');
 }
 
 @font-face {
@@ -73,95 +21,155 @@
     font-display: swap;
     font-family: 'Nunito';
     font-style: normal;
-    font-weight: 800;
-    src: url('/fonts/nunito-v32-latin_latin-ext-800.woff2') format('woff2');
-}
-
-@font-face {
-    font-display: swap;
-    font-family: 'Nunito';
-    font-style: normal;
     font-weight: 900;
     src: url('/fonts/nunito-v32-latin_latin-ext-900.woff2') format('woff2');
 }
 
-@theme {
-    --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "fira-code", ui-monospace, monospace;
-    --color-brand: oklch(0.7019 0.1577 160.44);
-    --color-emerald-50: oklch(0.975 0.025 160.44);
-    --color-emerald-100: oklch(0.95 0.05 160.44);
-    --color-emerald-200: oklch(0.90 0.09 160.44);
-    --color-emerald-300: oklch(0.84 0.13 160.44);
-    --color-emerald-400: oklch(0.77 0.155 160.44);
-    --color-emerald-500: var(--color-brand);
-    --color-emerald-600: oklch(0.60 0.14 160.44);
-    --color-emerald-700: oklch(0.51 0.115 160.44);
-    --color-emerald-800: oklch(0.43 0.09 160.44);
-    --color-emerald-900: oklch(0.37 0.07 160.44);
-    --color-emerald-950: oklch(0.25 0.045 160.44);
-
-    --illu-dark: #27272a;
-    /* zinc-800 */
-    --illu-emerald: #00bc7d;
-    /* emerald-500 */
+@font-face {
+    font-display: swap;
+    font-family: 'Fira Code';
+    font-style: normal;
+    font-weight: 400;
+    src: url('/fonts/fira-code-400.woff2') format('woff2');
 }
 
+/* ── Tokens ─────────────────────────────────────────────── */
+
+:root {
+    color-scheme: only light;
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --surface-2: #f4f4f5;
+    --line: #d4d4d8;
+    --line-soft: #e4e4e7;
+    --text: #18181b;
+    --muted: #52525b;
+    --accent: #007a4f;
+    --accent-strong: #00603d;
+    --accent-weak: #e9fcf1;
+    --accent-line: #a9f1ca;
+    --on-accent: #ffffff;
+    --warn: #b45309;
+    --warn-weak: #fffbeb;
+    --danger: #b91c1c;
+    --danger-weak: #fef2f2;
+    --shadow-float: 0 12px 32px -8px rgb(24 24 27 / 0.18), 0 0 0 1px rgb(24 24 27 / 0.04);
+    --illu-dark: #27272a;
+    --illu-emerald: #00bc7d;
+}
+
+html.dark {
+    color-scheme: only dark;
+    --bg: #09090b;
+    --surface: #18181b;
+    --surface-2: #27272a;
+    --line: #3f3f46;
+    --line-soft: #27272a;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --accent: #3cd292;
+    --accent-strong: #75e5ae;
+    --accent-weak: #0a281a;
+    --accent-line: #154b33;
+    --on-accent: #09090b;
+    --warn: #fbbf24;
+    --warn-weak: #1f1a0b;
+    --danger: #f87171;
+    --danger-weak: #2a1111;
+    --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.06);
+    --illu-dark: #f4f4f5;
+}
+
+@theme {
+    --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --color-brand: #00bc7d;
+    --color-emerald-50: #e9fcf1;
+    --color-emerald-100: #d3fae3;
+    --color-emerald-200: #a9f1ca;
+    --color-emerald-300: #75e5ae;
+    --color-emerald-400: #3cd292;
+    --color-emerald-500: #00bc7d;
+    --color-emerald-600: #009963;
+    --color-emerald-700: #007a4f;
+    --color-emerald-800: #105f3f;
+    --color-emerald-900: #154b33;
+    --color-emerald-950: #0a281a;
+    --ease-out: cubic-bezier(0.2, 0, 0, 1);
+    --duration-fast: 150ms;
+    --duration-dialog: 200ms;
+    --z-nav: 10;
+    --z-menu: 20;
+    --z-dialog: 30;
+    --z-toast: 40;
+}
+
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-line: var(--line);
+    --color-line-soft: var(--line-soft);
+    --color-text: var(--text);
+    --color-muted: var(--muted);
+    --color-accent: var(--accent);
+    --color-accent-strong: var(--accent-strong);
+    --color-accent-weak: var(--accent-weak);
+    --color-accent-line: var(--accent-line);
+    --color-on-accent: var(--on-accent);
+    --color-warn: var(--warn);
+    --color-warn-weak: var(--warn-weak);
+    --color-danger: var(--danger);
+    --color-danger-weak: var(--danger-weak);
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+
 @layer base {
-    html:not(.dark) {
-        --illu-dark: #27272a;
-    }
-
-    html.dark {
-        --illu-dark: #f4f4f5;
-        /* zinc-100 */
-    }
-
     html {
         @apply font-sans antialiased;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-text-size-adjust: 100%;
     }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-        @apply font-sans font-bold tracking-tight;
+    body {
+        @apply min-h-screen flex flex-col;
+        min-height: 100dvh;
     }
 
-    html:not(.dark) {
-        @apply bg-white text-zinc-900 selection:bg-emerald-400/30 selection:text-emerald-800;
+    h1, h2, h3, h4 {
+        @apply font-bold tracking-tight;
+        text-wrap: balance;
     }
 
-    html.dark {
-        @apply bg-zinc-950 text-zinc-200 selection:bg-emerald-500/30 selection:text-emerald-300;
+    ::selection {
+        background: var(--accent-weak);
+        color: var(--accent-strong);
     }
 
     button, summary, select, [role="button"] {
         cursor: pointer;
     }
 
-    body {
-        @apply min-h-screen flex flex-col;
+    :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 0.25rem;
     }
 
-    /* Invert and gently soften main illustrations in dark mode */
-    html.dark img[src*="encrypt"],
-    html.dark img[src*="encrpt"] {
-        /* brightness tuned so the lightest "white" in SVGs sits close to text-zinc-200 (#e4e4e7) */
-        filter: invert(1) hue-rotate(180deg) brightness(0.93) !important;
+    html.dark img[src*="encrypt"] {
+        filter: invert(1) hue-rotate(180deg) brightness(0.93);
     }
 
-    /* Instant theme switch - no color/filter fades */
-    html.theme-instant,
-    html.theme-instant *,
-    html.theme-instant *::before,
-    html.theme-instant *::after {
-        transition: none !important;
-        animation: none !important;
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
     }
-
 }
 
 @layer components {
@@ -842,11 +850,5 @@
 
     .tool-hero__subtitle {
         @apply text-sm md:text-base leading-relaxed text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    html {
-        scroll-behavior: auto;
     }
 }
