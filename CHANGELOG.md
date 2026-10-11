@@ -34,5 +34,10 @@ A pass over every page for consistency, accessibility and size. No cryptographic
 - Call UI rebuilt in the Discord pattern: dark stage with participant tiles, speaking ring, name pill with mute state, and one bottom bar with microphone, camera, screen, settings and leave. Deafen, devices, volume and per-participant audio live in the settings drawer.
 - Whiteboard drawings are clamped to the shared sheet, the sheet is drawn with visible bounds, and the inline board inside chat gets more height.
 
+### Language
+- Language is chosen on the server, so it works without JavaScript: an unprefixed page redirects to the language from `Accept-Language` on the first visit, and to the `ec-lang` cookie once you picked a language in the menu. Localized links are served as linked, so a shared `/cs/…` link stays Czech.
+- The menu links go through `/_lang/<code>?to=…`, which sets the one-year functional cookie and continues to the page. The cookie holds only the language code. The old `localStorage` redirect in `boot.js` is gone.
+- Only unprefixed pages pass through the worker (`run_worker_first` in `wrangler.toml`); assets, APIs and localized pages are served directly.
+
 ### Removed
 - Two orphaned home components, the landing preview components, the scroll-fade script, no-op animation classes, 27 unused style rules, six font files, and the SVG social image (replaced by `public/og.png`).

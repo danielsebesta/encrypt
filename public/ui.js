@@ -1,15 +1,6 @@
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  document.addEventListener('click', function (event) {
-    var anchor = event.target.closest && event.target.closest('a[data-lang]');
-    if (!anchor) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    try {
-      localStorage.setItem('ec-lang', anchor.getAttribute('data-lang'));
-    } catch (e) {}
-  });
-
   var themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
     themeBtn.addEventListener('click', function () {

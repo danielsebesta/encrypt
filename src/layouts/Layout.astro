@@ -2,6 +2,7 @@
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
+import { languageChoiceHref } from '../lib/locale';
 import { getNavCategories } from '../lib/tools';
 import { getGithubStars } from '../lib/githubStars';
 
@@ -39,6 +40,7 @@ const languageOptions = locales.map(l => ({
   code: l,
   name: languages[l].name,
   href: getLocalePath(path, l),
+  choose: languageChoiceHref(l, getLocalePath(path, l)),
   active: l === locale
 }));
 
@@ -169,7 +171,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						</button>
 						<div id="nav-menu-lang" class="menu menu--end" hidden>
 							{languageOptions.map((lang) => (
-								<a href={lang.href} data-lang={lang.code} class="menu__item" aria-current={lang.active ? 'page' : undefined} lang={lang.code}>
+								<a href={lang.choose} rel="nofollow" class="menu__item" aria-current={lang.active ? 'page' : undefined} lang={lang.code}>
 									<span class="w-6 shrink-0 text-xs uppercase opacity-60">{lang.code}</span>
 									{lang.name}
 								</a>

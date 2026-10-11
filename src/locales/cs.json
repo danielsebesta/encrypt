@@ -53,7 +53,7 @@
   "security.shortening.p2": "Shortener dostane celou zkracovanou URL. U šifrovaných share linků to může zahrnovat metadata šifrovaného payloadu. Pro maximum soukromí third-party shortenery u citlivých odkazů nepoužívejte.",
   "security.shortening.p3": "Sdílené short linky můžou zůstat na doméně encrypt.click. Po otevření může encrypt.click shortener vyřešit serverově a přesměrovat zpět na encrypt.click URL - shortener tak vidí spíš infrastrukturu než přímo prohlížeč návštěvníka, i když může logovat, že daný šifrovaný odkaz byl resolvován.",
   "security.cookies.title": "Cookies a local storage",
-  "security.cookies.p1": "Web nenastavuje tracking ani analytické cookies a nepoužívá third-party trackery ani reklamní pixely. Prohlížeč může používat localStorage pro preference (téma, jazyk) a při chatu s lokální historií i šifrované obálky zpráv na zařízení. Session storage může krátce držet heslo místnosti při vstupu.",
+  "security.cookies.p1": "Web nastavuje jedinou funkční cookie ec-lang, a to až poté, co si v menu vyberete jazyk. Obsahuje jen dvoupísmenný kód jazyka, nic jiného, platí rok a neslouží ke sledování. První návštěva bez ní se zobrazí v jazyce vašeho prohlížeče. Prohlížeč může používat localStorage pro motiv a při zapnuté místní historii chatu pro zašifrované obálky zpráv ve vašem zařízení. Session storage může krátce držet heslo místnosti během připojování.",
   "security.cookies.p2": "Cloudflare (hosting) může podle provozu a nastavení prohlížeče nastavit cookies pro bezpečnost a ochranu proti zneužití podle vlastních zásad Cloudflare.",
   "security.network.title": "Síť a transportní bezpečnost",
   "security.network.li1": "Veškerý provoz běží přes HTTPS s moderním TLS.",

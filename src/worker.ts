@@ -1,6 +1,7 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import { DurableObject } from 'cloudflare:workers';
 import { ChatServer, WhiteboardServer, routeRealtimeRequest, type RealtimeEnv } from '../party/server';
+import { localeResponse } from './lib/locale';
 
 export { ChatServer, WhiteboardServer };
 
@@ -79,6 +80,6 @@ export default {
       if (refused) return refused;
       if (isRealtime) return (await routeRealtimeRequest(request, env)) ?? new Response('Not found', { status: 404 });
     }
-    return handle(request, env as any, ctx);
+    return localeResponse(request) ?? handle(request, env as any, ctx);
   },
 };
