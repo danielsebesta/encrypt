@@ -1,14 +1,15 @@
+import { env } from 'cloudflare:workers';
+import { readLimited, mapConcurrent, fetchNoRedirect } from '../../../lib/httpLimits';
 import type { APIRoute } from 'astro';
-import { checkRateLimit } from '../../../lib/rateLimit';
 import type { SendInstance } from '../../../lib/nologSend';
 import { uploadToSendHttp, proxySendUpload } from '../../../lib/nologSend';
 
 export const prerender = false;
 
 const MAX_BYTES = 50 * 1024 * 1024;
-const GHOST_LIMIT = 10;
 
 type ServiceResult = { service: string; url: string | null; error?: string; details?: string[]; provider?: string };
+type Uploader = (file: Uint8Array, blob: () => Blob, filename: string) => Promise<string>;
 
 function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -67,112 +68,90 @@ function toBlob(buf: Uint8Array, filename?: string): Blob {
   return new Blob([bytesToArrayBuffer(buf)], { type });
 }
 
-async function uploadSxcu(file: Uint8Array, filename: string): Promise<string> {
+function postForm(url: string, form: FormData) {
+  return fetchNoRedirect(url, { method: 'POST', signal: AbortSignal.timeout(30_000), body: form });
+}
+
+const uploadSxcu: Uploader = async (_file, blob, filename) => {
   const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
+  form.append('file', blob(), filename);
   form.append('noembed', 'true');
-  const res = await fetch('https://sxcu.net/api/files/create', {
-    method: 'POST',
-    body: form,
-  });
+  const res = await postForm('https://sxcu.net/api/files/create', form);
   if (!res.ok) throw new Error(`sxcu.net: HTTP ${res.status}`);
   const data = await res.json() as any;
   if (!data?.url) throw new Error('sxcu.net: no URL in response');
   return data.url;
-}
+};
 
-async function uploadFreeImage(file: Uint8Array, filename: string): Promise<string> {
-  const key = (import.meta as any).env?.FREEIMAGE_API_KEY || process.env.FREEIMAGE_API_KEY;
+const uploadFreeImage: Uploader = async (_file, blob, filename) => {
+  const key = (env as Record<string, unknown>).FREEIMAGE_API_KEY;
   if (!key) throw new Error('FreeImage API key missing');
   const form = new FormData();
-  form.append('source', toBlob(file, filename), filename);
-  const res = await fetch(`https://freeimage.host/api/1/upload?key=${key}&format=json`, {
-    method: 'POST',
-    body: form,
-  });
+  form.append('source', blob(), filename);
+  const res = await postForm(`https://freeimage.host/api/1/upload?key=${key}&format=json`, form);
   if (!res.ok) throw new Error(`FreeImage: HTTP ${res.status}`);
   const data = await res.json() as any;
   if (!data?.image?.url) throw new Error('FreeImage: no URL in response');
   return data.image.url;
-}
+};
 
-async function uploadQuax(file: Uint8Array, filename: string): Promise<string> {
+const uploadQuax: Uploader = async (_file, blob, filename) => {
   const form = new FormData();
-  form.append('files[]', toBlob(file, filename), filename);
-  const res = await fetch('https://qu.ax/upload', {
-    method: 'POST',
-    body: form,
-  });
+  form.append('files[]', blob(), filename);
+  const res = await postForm('https://qu.ax/upload', form);
   if (!res.ok) throw new Error(`qu.ax: HTTP ${res.status}`);
   const data = await res.json() as any;
   if (!data?.files?.[0]?.url) throw new Error('qu.ax: no URL in response');
   return data.files[0].url;
-}
+};
 
-async function uploadTmpfileLink(file: Uint8Array, filename: string): Promise<string> {
+const uploadTmpfileLink: Uploader = async (_file, blob, filename) => {
   const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
-  const res = await fetch('https://tmpfile.link/api/upload', {
-    method: 'POST',
-    body: form,
-  });
+  form.append('file', blob(), filename);
+  const res = await postForm('https://tmpfile.link/api/upload', form);
   if (!res.ok) throw new Error(`tmpfile.link: HTTP ${res.status}`);
   const data = await res.json() as any;
   if (!data?.downloadLinkEncoded) throw new Error('tmpfile.link: no URL in response');
   return data.downloadLinkEncoded;
-}
+};
 
-async function uploadTempSh(file: Uint8Array, filename: string): Promise<string> {
-  const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
-  const res = await fetch('https://temp.sh/upload', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`temp.sh: HTTP ${res.status}`);
+async function textUpload(label: string, url: string, form: FormData): Promise<string> {
+  const res = await postForm(url, form);
+  if (!res.ok) throw new Error(`${label}: HTTP ${res.status}`);
   const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('temp.sh: invalid response');
+  if (!text || !text.startsWith('http')) throw new Error(`${label}: invalid response`);
   return text;
 }
 
-
-async function uploadX0at(file: Uint8Array, filename: string): Promise<string> {
+const uploadTempSh: Uploader = async (_file, blob, filename) => {
   const form = new FormData();
-  form.append('file', toBlob(file, filename), filename);
-  const res = await fetch('https://x0.at/', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`x0.at: HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('x0.at: invalid response');
-  return text;
-}
+  form.append('file', blob(), filename);
+  return textUpload('temp.sh', 'https://temp.sh/upload', form);
+};
 
-async function uploadLitterbox(file: Uint8Array, filename: string): Promise<string> {
+const uploadX0at: Uploader = async (_file, blob, filename) => {
+  const form = new FormData();
+  form.append('file', blob(), filename);
+  return textUpload('x0.at', 'https://x0.at/', form);
+};
+
+const uploadLitterbox: Uploader = async (_file, blob, filename) => {
   const form = new FormData();
   form.append('reqtype', 'fileupload');
   form.append('time', '72h');
-  form.append('fileToUpload', toBlob(file, filename), filename);
-  const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
-    method: 'POST',
-    body: form,
-  });
-  if (!res.ok) throw new Error(`Litterbox: HTTP ${res.status}`);
-  const text = (await res.text()).trim();
-  if (!text || !text.startsWith('http')) throw new Error('Litterbox: invalid response');
-  return text;
-}
+  form.append('fileToUpload', blob(), filename);
+  return textUpload('Litterbox', 'https://litterbox.catbox.moe/resources/internals/api.php', form);
+};
 
 function eligibleSendInstances(fileSize: number): SendInstance[] {
   return shuffle(SEND_INSTANCES.filter(i => fileSize <= i.maxBytes));
 }
 
-async function uploadNologSendLegacy(file: Uint8Array, filename: string): Promise<string> {
+const uploadNologSendLegacy: Uploader = async (file, _blob, filename) => {
   const failures: string[] = [];
   const instances = eligibleSendInstances(file.byteLength);
 
-  for (const instance of instances) {
+  for (const instance of instances.slice(0, 3)) {
     try {
       return await uploadToSendHttp(instance.baseUrl, file, filename, mimeFromName(filename), undefined, instance.maxExpireSeconds, instance.maxDownloads);
     } catch (e: any) {
@@ -181,15 +160,16 @@ async function uploadNologSendLegacy(file: Uint8Array, filename: string): Promis
   }
 
   throw new Error(`Send network failed (${failures.join(' | ')})`);
-}
+};
 
-async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string): Promise<string> {
+// The client keeps the Send secret and appends it to the returned URL itself.
+async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: string, authHeader: string): Promise<string> {
   const failures: string[] = [];
   const instances = eligibleSendInstances(encryptedBytes.byteLength);
 
-  for (const instance of instances) {
+  for (const instance of instances.slice(0, 3)) {
     try {
-      return await proxySendUpload(instance.baseUrl, encryptedBytes, metadataB64, authHeader, secretB64, undefined, instance.maxExpireSeconds, instance.maxDownloads);
+      return await proxySendUpload(instance.baseUrl, encryptedBytes, metadataB64, authHeader, undefined, instance.maxExpireSeconds, instance.maxDownloads);
     } catch (e: any) {
       failures.push(`${instance.label}: ${e?.message || 'upload failed'}`);
     }
@@ -198,7 +178,7 @@ async function uploadNologSendProxy(encryptedBytes: Uint8Array, metadataB64: str
   throw new Error(`Send network failed (${failures.join(' | ')})`);
 }
 
-const SERVICES: Record<string, (file: Uint8Array, filename: string) => Promise<string>> = {
+const SERVICES: Record<string, Uploader> = {
   nologsend: uploadNologSendLegacy,
   sxcu: uploadSxcu,
   freeimage: uploadFreeImage,
@@ -238,26 +218,9 @@ export const GET: APIRoute = async () => {
 
 export const POST: APIRoute = async ({ request, url }) => {
   try {
-    const { ok, resetIn } = await checkRateLimit('ghost', request, GHOST_LIMIT);
-    if (!ok) {
-      return new Response(JSON.stringify({ error: 'Too many requests' }), {
-        status: 429,
-        headers: { 'Content-Type': 'application/json', 'Retry-After': String(resetIn) }
-      });
-    }
-
-    const arrayBuf = await request.arrayBuffer();
-    if (!arrayBuf || arrayBuf.byteLength === 0) {
+    const buffer = await readLimited(request, MAX_BYTES);
+    if (buffer.byteLength === 0) {
       return new Response(JSON.stringify({ error: 'File missing' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const buffer = new Uint8Array(arrayBuf);
-
-    if (buffer.byteLength > MAX_BYTES) {
-      return new Response(JSON.stringify({ error: `File exceeds ${Math.round(MAX_BYTES / (1024 * 1024))} MB limit (got ${(buffer.byteLength / (1024 * 1024)).toFixed(1)} MB)` }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -266,22 +229,24 @@ export const POST: APIRoute = async ({ request, url }) => {
     const params = url.searchParams;
     const servicesStr = params.get('services');
     const isStego = params.get('stego') === 'true';
-    const filename = params.get('filename') || (isStego ? 'ghost.png' : 'ghost.bin');
-    const requestedServices = servicesStr ? servicesStr.split(',').filter(s => SERVICES[s]) : Object.keys(SERVICES);
+    const filename = (params.get('filename') || (isStego ? 'ghost.png' : 'ghost.bin')).slice(0, 255);
+    const requestedServices = [...new Set(servicesStr ? servicesStr.split(',').filter(s => Object.hasOwn(SERVICES, s)) : Object.keys(SERVICES))];
 
     const sendMetadataB64 = request.headers.get('X-Send-Metadata');
     const sendAuth = request.headers.get('X-Send-Auth');
-    const sendSecret = request.headers.get('X-Send-Secret');
-    const isSendProxy = !!(sendMetadataB64 && sendAuth && sendSecret);
+    const isSendProxy = !!(sendMetadataB64 && sendAuth);
 
-    const results: ServiceResult[] = await Promise.all(
-      requestedServices.map(async (service) => {
+    // One shared Blob and one upload at a time keep peak memory near a single copy of the file.
+    let blob: Blob | undefined;
+    const getBlob = () => (blob ??= toBlob(buffer, filename));
+
+    const results: ServiceResult[] = await mapConcurrent(requestedServices, 1, async (service) => {
         try {
           let resultUrl: string;
           if (service === 'nologsend' && isSendProxy) {
-            resultUrl = await uploadNologSendProxy(buffer, sendMetadataB64, sendAuth, sendSecret);
+            resultUrl = await uploadNologSendProxy(buffer, sendMetadataB64, sendAuth);
           } else {
-            resultUrl = await SERVICES[service](buffer, filename);
+            resultUrl = await SERVICES[service](buffer, getBlob, filename);
           }
           return { service, url: resultUrl };
         } catch (e: any) {
@@ -291,7 +256,7 @@ export const POST: APIRoute = async ({ request, url }) => {
             : undefined;
           return { service, url: null, error: message, details };
         }
-      })
+      }
     );
 
     return new Response(JSON.stringify({ results }), {
@@ -300,7 +265,7 @@ export const POST: APIRoute = async ({ request, url }) => {
     });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e?.message || 'Internal server error' }), {
-      status: 500,
+      status: e?.message === 'Body too large' ? 413 : 502,
       headers: { 'Content-Type': 'application/json' }
     });
   }

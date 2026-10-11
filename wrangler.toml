@@ -1,4 +1,30 @@
 name = "encrypt-click"
-pages_build_output_dir = "dist"
-compatibility_date = "2024-09-23"
+main = "src/worker.ts"
+compatibility_date = "2026-10-07"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "SECURITY_BUDGET"
+class_name = "SecurityBudget"
+
+[[durable_objects.bindings]]
+name = "CHAT"
+class_name = "ChatServer"
+
+[[durable_objects.bindings]]
+name = "WHITEBOARD"
+class_name = "WhiteboardServer"
+
+[[migrations]]
+tag = "security-v1"
+new_sqlite_classes = ["SecurityBudget"]
+
+[[migrations]]
+tag = "realtime-v1"
+new_sqlite_classes = ["ChatServer", "WhiteboardServer"]
+
+routes = [
+  { pattern = "encrypt.click", custom_domain = true },
+  { pattern = "www.encrypt.click", custom_domain = true }
+]

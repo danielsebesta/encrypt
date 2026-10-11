@@ -1,6 +1,4 @@
-const SALT_SIZE = 16;
-const IV_SIZE = 12;
-const PBKDF2_ITERATIONS = 100000;
+import { sealPassword, openPassword, passwordKey } from '../passwordEnvelope';
 const ECLK_MAGIC = new Uint8Array([0x45, 0x43, 0x4c, 0x4b]);
 
 export function prependEclkMagic(data: Uint8Array): Uint8Array {
@@ -22,52 +20,32 @@ export function stripEclkMagic(data: Uint8Array): Uint8Array {
   return hasEclkMagic(data) ? data.slice(ECLK_MAGIC.length) : data;
 }
 
-export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const passwordKey = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
-    passwordKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
+export const deriveKey = (password: string, salt: Uint8Array) => passwordKey(password, salt, 100_000);
 
-export async function encryptData(data: Uint8Array, password: string, originalName?: string): Promise<Uint8Array> {
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE));
-  const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE));
-  const key = await deriveKey(password, salt);
-  
-  const meta = JSON.stringify({ name: originalName || '', size: data.length });
-  const metaBytes = new TextEncoder().encode(meta);
-  const metaLen = new Uint8Array([metaBytes.length]);
-  
-  const payload = new Uint8Array(1 + metaBytes.length + data.length);
-  payload.set(metaLen, 0);
-  payload.set(metaBytes, 1);
-  payload.set(data, 1 + metaBytes.length);
-  
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, payload as BufferSource);
-  const result = new Uint8Array(SALT_SIZE + IV_SIZE + ciphertext.byteLength);
-  result.set(salt, 0);
-  result.set(iv, SALT_SIZE);
-  result.set(new Uint8Array(ciphertext), SALT_SIZE + IV_SIZE);
-  return result;
+export async function encryptData(data: Uint8Array, password: string, originalName = ''): Promise<Uint8Array> {
+  const meta = new TextEncoder().encode(JSON.stringify({ name: originalName, size: data.length }));
+  if (meta.length > 65536) throw new Error('Metadata too large');
+  const payload = new Uint8Array(5 + meta.length + data.length);
+  new DataView(payload.buffer).setUint32(1, meta.length);
+  payload.set(meta, 5); payload.set(data, 5 + meta.length);
+  return sealPassword(payload, password);
 }
 
 export async function decryptData(encrypted: Uint8Array, password: string): Promise<{ data: Uint8Array; name: string }> {
-  const salt = encrypted.slice(0, SALT_SIZE);
-  const iv = encrypted.slice(SALT_SIZE, SALT_SIZE + IV_SIZE);
-  const ciphertext = encrypted.slice(SALT_SIZE + IV_SIZE);
-  const key = await deriveKey(password, salt);
-  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, ciphertext as BufferSource);
-  const payload = new Uint8Array(plaintext);
-  
-  const metaLen = payload[0];
-  const metaBytes = payload.slice(1, 1 + metaLen);
-  const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as { name: string; size?: number };
-  const data = payload.slice(1 + metaLen);
-  
-  return { data, name: meta.name || 'decrypted-file' };
+  const payload = await openPassword(encrypted, password);
+  const parse = (offset: number, length: number) => {
+    if (length < 2 || length > 65536 || offset + length > payload.length) throw new Error('Invalid metadata length');
+    const meta = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(payload.slice(offset, offset + length)));
+    const data = payload.slice(offset + length);
+    if (!meta || typeof meta.name !== 'string' || !Number.isSafeInteger(meta.size) || meta.size !== data.length) throw new Error('Invalid metadata');
+    return { data, name: meta.name || 'decrypted-file' };
+  };
+  if (payload.length >= 5 && payload[0] === 0) {
+    try { return parse(5, new DataView(payload.buffer).getUint32(1)); } catch { /* Try authenticated legacy overflow. */ }
+  }
+  // Older writers wrapped the one-byte metadata length. Recovery is only attempted after GCM authentication.
+  for (let length = payload[0]; length <= Math.min(65536, payload.length - 1); length += 256) {
+    try { return parse(1, length); } catch { /* Try next wrapped length. */ }
+  }
+  throw new Error('Invalid encrypted file metadata');
 }

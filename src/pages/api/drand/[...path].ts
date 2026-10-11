@@ -1,33 +1,20 @@
 import type { APIRoute } from 'astro';
-import { checkRateLimit } from '../../../lib/rateLimit';
+import { fetchNoRedirect } from '../../../lib/httpLimits';
 
 const DRAND_ORIGIN = 'https://api.drand.sh';
-const DRAND_LIMIT = 120;
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ params, request }) => {
-  const { ok, remaining, resetIn } = await checkRateLimit('drand', request, DRAND_LIMIT);
-  if (!ok) {
-    return new Response(JSON.stringify({ error: 'Too many requests' }), {
-      status: 429,
-      headers: {
-        'Content-Type': 'application/json',
-        'Retry-After': String(resetIn),
-        'X-RateLimit-Remaining': '0'
-      }
-    });
-  }
-
+export const GET: APIRoute = async ({ params }) => {
+  if (!/^(?:[a-f0-9]{64}\/)?(?:info|public\/(?:latest|[1-9][0-9]{0,15}))$/.test(params.path ?? '')) return new Response('Invalid drand path', { status: 400 });
   const upstream = `${DRAND_ORIGIN}/${params.path ?? ''}`;
-  const res = await fetch(upstream, {
-    headers: { 'Accept': 'application/json' }
+  const res = await fetchNoRedirect(upstream, {
+    headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(8000)
   });
 
   const headers: Record<string, string> = {
-    'Content-Type': res.headers.get('Content-Type') ?? 'application/json',
+    'Content-Type': 'application/json',
     'Cache-Control': res.headers.get('Cache-Control') ?? 'public, max-age=2',
-    'X-RateLimit-Remaining': String(remaining - 1)
   };
   return new Response(res.body, { status: res.status, headers });
 };

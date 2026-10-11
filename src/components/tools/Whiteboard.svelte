@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { roomCredentials, ReplayWindow } from "../../lib/roomAccess";
+  let accessToken = "";
+  let channelId = "";
+  const replay = new ReplayWindow();
   import { onMount, onDestroy, tick } from 'svelte';
   import PartySocket from 'partysocket';
   import * as Y from 'yjs';
@@ -12,7 +16,7 @@
 
   export let locale = 'en';
   export let roomId = '';
-  export let partyHost = 'encrypt-click.danielsebesta.partykit.dev';
+  export let partyHost = '';
   export let initialPassword = '';
 
   export let dict: Record<string, string>;
@@ -139,6 +143,8 @@
 
   async function enterWithPassword(pwd: string) {
     try {
+      const access = await roomCredentials(pwd, roomId, 'whiteboard');
+      accessToken = access.token; channelId = access.channel;
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
       passwordUsed = pwd;
       needsPassword = false;
@@ -176,7 +182,7 @@
       shapesVersion++;
     });
 
-    // Outgoing updates — batched in 50 ms windows. Yjs fires update events
+    // Outgoing updates - batched in 50 ms windows. Yjs fires update events
     // many times per second during fast drawing; merging them into one
     // payload before the network roundtrip cuts DO requests dramatically.
     ydoc.on('update', (update: Uint8Array, origin: any) => {
@@ -203,8 +209,8 @@
     verifying = true;
     wrongPassword = false;
     ws = new PartySocket({
-      host: partyHost,
-      room: roomId,
+      host: partyHost || window.location.host,
+      room: channelId,
       party: 'whiteboard',
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
@@ -215,6 +221,7 @@
 
     ws.addEventListener('open', async () => {
       connected = true;
+      ws!.send(JSON.stringify({ type: 'join', token: accessToken }));
       if (cryptoKey) {
         const verifyPayload = await encryptMessage(cryptoKey,
           JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color }));
@@ -227,7 +234,7 @@
     });
 
     ws.addEventListener('error', () => {
-      // WS error means TCP/upgrade/network problem — NOT a password issue.
+      // WS error means TCP/upgrade/network problem - NOT a password issue.
       // Let PartySocket retry; the 4 s init-handler timeout (after presence > 1)
       // is the authoritative wrong-password signal.
     });
@@ -236,7 +243,7 @@
 
     // Application-level keepalive: defeats idle timeouts on mobile/proxy paths.
     // Server ignores type:'ping' (no envelope), so this is a cheap noop.
-    // Skipped when tab is hidden — browser usually throttles timers anyway,
+    // Skipped when tab is hidden - browser usually throttles timers anyway,
     // and reconnect on visibility change handles return-from-background.
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
@@ -278,13 +285,16 @@
     }
     if (data.type !== 'envelope') return;
     if (!cryptoKey) return;
+    if (typeof data.payload !== 'string' || data.payload.length > 720000) return;
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data.payload));
+    if (!replay.accept(Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''))) return;
 
     try {
       if (data.kind === 'cursor') {
         const text = await decryptMessage(cryptoKey, data.payload);
         const c = JSON.parse(text);
         if (verifying) { verified = true; verifying = false; }
-        upsertCursor(c.id, c.x, c.y, c.name, c.color);
+        upsertCursor(data.from || c.id, c.x, c.y, c.name, c.color);
         return;
       }
 
@@ -322,7 +332,7 @@
     } catch {
       // A failed decrypt only means THIS message wasn't from someone with
       // our password. Could be a peer in the same room with a different
-      // password — don't conclude wrongPassword from a single fail. The
+      // password - don't conclude wrongPassword from a single fail. The
       // 4s init-handler timeout is the authoritative "no peer can hear me"
       // signal, and the auto-verify-on-decrypt above handles the success path.
       if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
@@ -426,7 +436,7 @@
     const now = Date.now();
     // Cursor send: only when there's somebody to see it, only when we
     // actually moved, only when tab is in foreground, throttled to 20 Hz,
-    // and skipped while we're drawing — the doc updates already convey
+    // and skipped while we're drawing - the doc updates already convey
     // our position to peers as the stroke materializes.
     if (
       verified && cryptoKey && ws && connected

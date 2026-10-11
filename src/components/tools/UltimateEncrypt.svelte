@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { randomIndex } from "../../lib/random";
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
   import { encryptData, prependEclkMagic } from '../../lib/ghost/crypto';
@@ -11,7 +12,6 @@
 
   type Step = 'input' | 'confirm' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
-  type ShortProvider = 'shrink' | 'nolog' | 'spoome' | 'isgd' | '1url';
 
   let step: Step = 'input';
 
@@ -91,26 +91,25 @@
   }
 
 
-  // EFF-inspired compact wordlist (1024 common short English words, 10 bits each)
-  // 5 words = 50 bits entropy, 6 words = 60 bits - comparable to 20-char random
-  const WORDS = 'able,acid,aged,also,area,army,away,baby,back,ball,band,bank,base,bath,bean,bear,beat,been,beer,bell,belt,best,bill,bird,bite,blow,blue,boat,body,bomb,bond,bone,book,boom,born,boss,both,bowl,bulk,burn,bush,busy,cafe,cage,cake,call,calm,came,camp,card,care,case,cash,cast,cave,cell,chat,chip,city,claim,clan,clay,clip,club,coal,coat,code,coin,cold,come,cook,cool,cope,copy,core,cost,crew,crop,cure,cute,dado,dale,dame,dare,dark,data,date,dawn,dead,deaf,deal,dear,debt,deck,deed,deem,deep,deer,demo,deny,desk,dial,dice,diet,dirt,disc,dish,dock,does,dome,done,door,dose,down,draw,drew,drop,drum,dual,duck,dude,duel,duke,dull,dump,dune,dust,duty,each,earn,ease,east,easy,edge,else,emit,epic,euro,even,ever,evil,exam,exit,eyed,face,fact,fade,fail,fair,fake,fall,fame,fang,fare,farm,fast,fate,fear,feat,feed,feel,feet,fell,felt,file,fill,film,find,fine,fire,firm,fish,fist,five,flag,flat,fled,flew,flip,flow,foam,fold,folk,fond,font,food,fool,foot,ford,fore,fork,form,fort,foul,four,free,from,fuel,full,fund,fury,fuse,gain,gala,gale,game,gang,gave,gaze,gear,gene,gift,girl,give,glad,glow,glue,goat,goes,gold,golf,gone,good,grab,gram,gray,grew,grey,grid,grip,grow,gulf,guru,gust,guys,hack,half,hall,halt,hand,hang,hard,harm,hate,haul,have,haze,head,heal,heap,hear,heat,heel,held,hell,help,herb,here,hero,hide,high,hike,hill,hint,hire,hold,hole,holy,home,hood,hook,hope,horn,host,hour,huge,hull,hung,hunt,hurt,icon,idea,inch,info,into,iron,isle,item,jack,jail,java,jazz,jean,jeep,jets,jobs,join,joke,jump,june,jury,just,keen,keep,kept,kick,kids,kill,kind,king,kiss,knee,knew,knit,knob,knot,know,labs,lack,laid,lake,lamp,land,lane,last,late,lawn,lead,leaf,lean,left,lend,lens,less,lied,lieu,life,lift,like,limb,lime,limp,line,link,lion,list,live,load,loan,lock,logo,lone,long,look,lord,lose,loss,lost,lots,loud,love,luck,lump,lung,lure,made,mail,main,make,male,mall,malt,mane,many,mare,mark,mask,mass,mate,maze,meal,mean,meat,melt,memo,menu,mere,mesh,mess,mild,mile,milk,mill,mind,mine,mint,miss,mode,mole,mood,moon,more,most,moth,move,much,must,myth,nail,name,navy,neat,neck,need,nest,news,next,nice,nine,node,none,noon,norm,nose,note,noun,nude,nuts,oath,obey,odds,okay,once,only,onto,open,oral,ours,oval,oven,over,pace,pack,page,paid,pain,pair,pale,palm,pane,pack,park,part,pass,past,path,peak,peel,peer,pine,pink,pipe,plan,play,plea,plot,ploy,plug,plus,poem,poet,pole,poll,polo,pond,pool,poor,pope,pork,port,pose,post,pour,pray,prey,prop,pull,pump,punk,pure,push,quit,quiz,race,rack,rage,raid,rail,rain,rang,rank,rare,rate,rays,read,real,rear,reef,reel,rely,rent,rest,rice,rich,ride,rife,rift,ring,riot,rise,risk,road,roam,rock,rode,role,roll,roof,room,root,rope,rose,ruin,rule,rush,ruth,sack,safe,sage,said,sake,sale,salt,same,sand,sang,save,seal,seed,seek,seem,seen,self,sell,semi,send,sent,sept,shed,ship,shoe,shop,shot,show,shut,sick,side,sift,sigh,sign,silk,sing,sink,site,size,skin,skip,slam,slap,slid,slim,slip,slot,slow,snap,snow,soak,soar,sock,soft,soil,sold,sole,some,song,soon,sort,soul,sour,span,spec,sped,spin,spot,star,stay,stem,step,stir,stop,stud,such,suit,sung,sure,surf,swan,swap,swim,sync,tact,tail,take,tale,talk,tall,tank,tape,task,team,tear,tell,temp,tend,tent,term,test,text,than,that,them,then,they,thin,this,thus,tick,tide,tidy,tied,tier,tile,till,time,tiny,tire,toad,told,toll,tomb,tone,took,tool,tops,tore,torn,toss,tour,town,trap,tray,tree,trek,trim,trio,trip,true,tube,tuck,tuna,tune,turf,turn,twin,type,ugly,undo,unit,upon,urge,used,user,vain,vale,vary,vast,veil,vein,vent,verb,very,vest,veto,vibe,vice,view,vine,visa,void,volt,vote,wade,wage,wait,wake,walk,wall,wand,want,ward,warm,warn,warp,wary,wash,watt,wave,wavy,waxy,weak,wear,weed,week,well,went,were,west,what,when,whom,wide,wife,wild,will,wilt,wily,wind,wine,wing,wink,wipe,wire,wise,wish,with,woke,wolf,womb,wood,wool,word,wore,work,worm,worn,wrap,wren,yard,yarn,yeah,year,yell,yoga,your,zeal,zero,zinc,zone,zoom'.split(',');
+  // Eight independently sampled words; entropy depends on this actual unique word list.
+  const WORDS = 'able,acid,aged,also,area,army,away,baby,back,ball,band,bank,base,bath,bean,bear,beat,been,beer,bell,belt,best,bill,bird,bite,blow,blue,boat,body,bomb,bond,bone,book,boom,born,boss,both,bowl,bulk,burn,bush,busy,cafe,cage,cake,call,calm,came,camp,card,care,case,cash,cast,cave,cell,chat,chip,city,claim,clan,clay,clip,club,coal,coat,code,coin,cold,come,cook,cool,cope,copy,core,cost,crew,crop,cure,cute,dado,dale,dame,dare,dark,data,date,dawn,dead,deaf,deal,dear,debt,deck,deed,deem,deep,deer,demo,deny,desk,dial,dice,diet,dirt,disc,dish,dock,does,dome,done,door,dose,down,draw,drew,drop,drum,dual,duck,dude,duel,duke,dull,dump,dune,dust,duty,each,earn,ease,east,easy,edge,else,emit,epic,euro,even,ever,evil,exam,exit,eyed,face,fact,fade,fail,fair,fake,fall,fame,fang,fare,farm,fast,fate,fear,feat,feed,feel,feet,fell,felt,file,fill,film,find,fine,fire,firm,fish,fist,five,flag,flat,fled,flew,flip,flow,foam,fold,folk,fond,font,food,fool,foot,ford,fore,fork,form,fort,foul,four,free,from,fuel,full,fund,fury,fuse,gain,gala,gale,game,gang,gave,gaze,gear,gene,gift,girl,give,glad,glow,glue,goat,goes,gold,golf,gone,good,grab,gram,gray,grew,grey,grid,grip,grow,gulf,guru,gust,guys,hack,half,hall,halt,hand,hang,hard,harm,hate,haul,have,haze,head,heal,heap,hear,heat,heel,held,hell,help,herb,here,hero,hide,high,hike,hill,hint,hire,hold,hole,holy,home,hood,hook,hope,horn,host,hour,huge,hull,hung,hunt,hurt,icon,idea,inch,info,into,iron,isle,item,jack,jail,java,jazz,jean,jeep,jets,jobs,join,joke,jump,june,jury,just,keen,keep,kept,kick,kids,kill,kind,king,kiss,knee,knew,knit,knob,knot,know,labs,lack,laid,lake,lamp,land,lane,last,late,lawn,lead,leaf,lean,left,lend,lens,less,lied,lieu,life,lift,like,limb,lime,limp,line,link,lion,list,live,load,loan,lock,logo,lone,long,look,lord,lose,loss,lost,lots,loud,love,luck,lump,lung,lure,made,mail,main,make,male,mall,malt,mane,many,mare,mark,mask,mass,mate,maze,meal,mean,meat,melt,memo,menu,mere,mesh,mess,mild,mile,milk,mill,mind,mine,mint,miss,mode,mole,mood,moon,more,most,moth,move,much,must,myth,nail,name,navy,neat,neck,need,nest,news,next,nice,nine,node,none,noon,norm,nose,note,noun,nude,nuts,oath,obey,odds,okay,once,only,onto,open,oral,ours,oval,oven,over,pace,pack,page,paid,pain,pair,pale,palm,pane,park,part,pass,past,path,peak,peel,peer,pine,pink,pipe,plan,play,plea,plot,ploy,plug,plus,poem,poet,pole,poll,polo,pond,pool,poor,pope,pork,port,pose,post,pour,pray,prey,prop,pull,pump,punk,pure,push,quit,quiz,race,rack,rage,raid,rail,rain,rang,rank,rare,rate,rays,read,real,rear,reef,reel,rely,rent,rest,rice,rich,ride,rife,rift,ring,riot,rise,risk,road,roam,rock,rode,role,roll,roof,room,root,rope,rose,ruin,rule,rush,ruth,sack,safe,sage,said,sake,sale,salt,same,sand,sang,save,seal,seed,seek,seem,seen,self,sell,semi,send,sent,sept,shed,ship,shoe,shop,shot,show,shut,sick,side,sift,sigh,sign,silk,sing,sink,site,size,skin,skip,slam,slap,slid,slim,slip,slot,slow,snap,snow,soak,soar,sock,soft,soil,sold,sole,some,song,soon,sort,soul,sour,span,spec,sped,spin,spot,star,stay,stem,step,stir,stop,stud,such,suit,sung,sure,surf,swan,swap,swim,sync,tact,tail,take,tale,talk,tall,tank,tape,task,team,tear,tell,temp,tend,tent,term,test,text,than,that,them,then,they,thin,this,thus,tick,tide,tidy,tied,tier,tile,till,time,tiny,tire,toad,told,toll,tomb,tone,took,tool,tops,tore,torn,toss,tour,town,trap,tray,tree,trek,trim,trio,trip,true,tube,tuck,tuna,tune,turf,turn,twin,type,ugly,undo,unit,upon,urge,used,user,vain,vale,vary,vast,veil,vein,vent,verb,very,vest,veto,vibe,vice,view,vine,visa,void,volt,vote,wade,wage,wait,wake,walk,wall,wand,want,ward,warm,warn,warp,wary,wash,watt,wave,wavy,waxy,weak,wear,weed,week,well,went,were,west,what,when,whom,wide,wife,wild,will,wilt,wily,wind,wine,wing,wink,wipe,wire,wise,wish,with,woke,wolf,womb,wood,wool,word,wore,work,worm,worn,wrap,wren,yard,yarn,yeah,year,yell,yoga,your,zeal,zero,zinc,zone,zoom'.split(',');
 
   function capitalize(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   function generatePassphrase(): string {
-    const count = 5;
+    const count = 8;
     const arr = crypto.getRandomValues(new Uint8Array(count * 2 + 2));
     const words: string[] = [];
     for (let i = 0; i < count; i++) {
-      const idx = ((arr[i * 2] << 8) | arr[i * 2 + 1]) % WORDS.length;
+      const idx = randomIndex(WORDS.length);
       words.push(capitalize(WORDS[idx]));
     }
     // Add a random 2-digit number to a random word
-    const numIdx = arr[count * 2] % count;
-    const num = (arr[count * 2 + 1] % 90) + 10; // 10-99
-    const before = arr[count * 2] & 1; // coin flip: prepend or append
+    const numIdx = randomIndex(count);
+    const num = randomIndex(90) + 10; // 10-99
+    const before = randomIndex(2); // coin flip: prepend or append
     words[numIdx] = before ? `${num}${words[numIdx]}` : `${words[numIdx]}${num}`;
     return words.join('-');
   }
@@ -278,10 +277,7 @@
 
   function buildReceiveUrls(encoded: string) {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
-    return {
-      direct: `${origin}/u/#${encoded}`,
-      shortenable: `${origin}/u/?p=${encoded}`,
-    };
+    return { direct: `${origin}/u/#${encoded}` };
   }
 
   async function gzipBytes(input: Uint8Array): Promise<Uint8Array> {
@@ -445,7 +441,7 @@
     resultPassword = encryptionPassword;
     resultHasTemporaryUpload = false;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
-    await autoShorten(urls.shortenable);
+    // Keep ciphertext in the URL fragment; no automatic external shortening.
 
   }
 
@@ -505,6 +501,7 @@
         pushDebug(`Uploading to ${host.name}`);
         let fetchBody: Uint8Array = uploadBytes;
         const headers: Record<string, string> = {};
+        let sendSecret = '';
 
         if (host.id === 'eclk') {
           const res = await fetch(FIRST_PARTY_UPLOAD_URL, {
@@ -526,7 +523,7 @@
           fetchBody = prepared.encryptedBytes;
           headers['X-Send-Metadata'] = prepared.metadataB64;
           headers['X-Send-Auth'] = prepared.authHeader;
-          headers['X-Send-Secret'] = prepared.secretB64;
+          sendSecret = prepared.secretB64;
         }
 
         const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
@@ -534,7 +531,9 @@
         });
         if (!res.ok) return null;
         const data = await res.json().catch(() => null) as any;
-        return data?.results?.[0]?.url || null;
+        const url = data?.results?.[0]?.url;
+        if (!url) return null;
+        return sendSecret ? `${url}#${sendSecret}` : url;
       } catch { return null; }
     }
 
@@ -561,7 +560,7 @@
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     resultHasTemporaryUpload = true;
-    await autoShorten(urls.shortenable);
+    // Keep ciphertext in the URL fragment; no automatic external shortening.
 
     pendingUploadBytes = null;
     pendingPayloadPassword = '';
@@ -575,58 +574,6 @@
     pushDebug(`Generated downloadable PNG wrapper (${stegoBytes.byteLength} bytes)`);
     stegoImageBlob = new Blob([stegoBytes], { type: 'image/png' });
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
-  }
-
-  // Our own shortener - always try first
-  const OWN_SHORT: ShortProvider = 'shrink';
-  // Fallback if our shortener is down - shuffled
-  const FALLBACK_SHORT: ShortProvider[] = ['nolog', 'spoome', '1url', 'isgd'];
-
-  const SHORT_NAMES: Record<ShortProvider, string> = {
-    shrink: 'l.encrypt.click', nolog: 'Nolog.link',
-    spoome: 'spoo.me', isgd: 'is.gd', '1url': '1url.cz',
-  };
-
-  const SHORTEN_TIMEOUT = 3000;
-
-  async function tryShorten(url: string, provider: ShortProvider): Promise<string | null> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), SHORTEN_TIMEOUT);
-    try {
-      pushDebug(`Shortener ${SHORT_NAMES[provider]}: request start`);
-      const res = await fetch('/api/shorten', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, provider }),
-        signal: controller.signal,
-      });
-      const data = await res.json();
-      pushDebug(`Shortener ${SHORT_NAMES[provider]}: HTTP ${res.status}`);
-      if (res.ok && data?.shorturl) {
-        pushDebug(`Shortener ${SHORT_NAMES[provider]}: success -> ${data.shorturl}`);
-        return data.shorturl;
-      }
-      if (data?.error) pushDebug(`Shortener ${SHORT_NAMES[provider]}: ${data.error}`);
-    } catch (e: any) {
-      pushDebug(`Shortener ${SHORT_NAMES[provider]}: ${e?.name === 'AbortError' ? 'timeout' : e?.message || 'failed'}`);
-    } finally {
-      clearTimeout(timer);
-    }
-    return null;
-  }
-
-  async function autoShorten(url: string): Promise<void> {
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressShortenTitle'), t(dict, 'tools.ultimateEncrypt.progressShortenDetail'));
-    // Try our own shortener first (with retry)
-    const own = await tryShorten(url, OWN_SHORT);
-    if (own) { shortUrl = own; return; }
-    const ownRetry = await tryShorten(url, OWN_SHORT);
-    if (ownRetry) { shortUrl = ownRetry; return; }
-    // Fallback to external providers (shuffled)
-    for (const provider of shuffleArr(FALLBACK_SHORT)) {
-      const result = await tryShorten(url, provider);
-      if (result) { shortUrl = result; return; }
-    }
   }
 
   function downloadStego() {

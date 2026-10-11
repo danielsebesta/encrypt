@@ -1,3 +1,5 @@
+// Same-origin consistency check: fetched assets must match this deployment's manifest.
+// It never contacts third parties and does not prove the host itself is honest.
 (function () {
   var alertRoot = document.getElementById('integrity-alert');
   if (!alertRoot || !window.crypto || !crypto.subtle) return;
@@ -7,7 +9,6 @@
   var linksEl = alertRoot.querySelector('[data-integrity-links]');
   var dismissButton = alertRoot.querySelector('[data-integrity-dismiss]');
   var repo = alertRoot.getAttribute('data-repo') || 'danielsebesta/encrypt';
-  var branch = alertRoot.getAttribute('data-branch') || 'main';
   var repoUrl = 'https://github.com/' + repo;
 
   function copy(key) {
@@ -79,27 +80,16 @@
     return paths;
   }
 
-  async function verifyFile(manifest, publicPath, fetchPath) {
+  async function verifyFile(manifest, publicPath) {
     var expected = manifest.files && manifest.files[publicPath];
     if (!expected) {
       throw new Error('Missing manifest entry for ' + publicPath);
     }
 
-    var actualHash = await hashBytes(await fetchBytes(fetchPath || publicPath));
+    var actualHash = await hashBytes(await fetchBytes(publicPath));
     if (actualHash !== expected.sha256) {
       throw new Error('Hash mismatch for ' + publicPath);
     }
-  }
-
-  async function githubHeadSha() {
-    var response = await fetch('https://api.github.com/repos/' + repo + '/commits/' + branch, {
-      cache: 'no-store',
-      headers: { accept: 'application/vnd.github+json' },
-    });
-    if (!response.ok) throw new Error('GitHub commit lookup failed');
-    var payload = await response.json();
-    if (!payload || !payload.sha) throw new Error('GitHub commit response missing sha');
-    return payload.sha;
   }
 
   function link(label, href) {
@@ -112,12 +102,12 @@
     return anchor;
   }
 
-  function showAlert(type, title, message, items) {
+  function showAlert(title, message, items) {
     if (titleEl) titleEl.textContent = title;
     if (messageEl) messageEl.textContent = message;
 
-    alertRoot.classList.remove('hidden', 'integrity-alert--warning', 'integrity-alert--danger');
-    alertRoot.classList.add(type === 'danger' ? 'integrity-alert--danger' : 'integrity-alert--warning');
+    alertRoot.classList.remove('hidden', 'integrity-alert--warning');
+    alertRoot.classList.add('integrity-alert--danger');
 
     if (linksEl) {
       linksEl.textContent = '';
@@ -127,61 +117,21 @@
     }
   }
 
-  function commitLink(sha) {
-    return sha ? repoUrl + '/commit/' + sha : '';
-  }
+  var deployedSha = '';
 
   async function run() {
-    var manifest = await (async function () {
-      var response = await fetch(cacheBust('/build-integrity.json'), {
-        cache: 'no-store',
-        credentials: 'same-origin',
-        headers: { accept: 'application/json' },
-      });
-      if (!response.ok) throw new Error('Build manifest unavailable');
-      return response.json();
-    })();
+    var response = await fetch(cacheBust('/build-integrity.json'), {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error('Build manifest unavailable');
+    var manifest = await response.json();
+    deployedSha = manifest.commitSha || '';
 
-    var deployedSha = manifest.commitSha || '';
-    var latestSha = '';
-    var githubUnavailable = false;
-
-    try {
-      latestSha = await githubHeadSha();
-    } catch {
-      githubUnavailable = true;
-    }
-
-    // Verify only build-manifest assets. Ignore HTML and Cloudflare /cdn-cgi injections.
     var assets = currentAssetPaths(manifest);
     for (var i = 0; i < assets.length; i += 1) {
       await verifyFile(manifest, assets[i]);
-    }
-
-    if (latestSha && deployedSha && latestSha !== deployedSha) {
-      showAlert(
-        'danger',
-        copy('mismatch-title'),
-        copy('mismatch-message'),
-        [
-          link(copy('deployed-label') + ': ' + shortSha(deployedSha), commitLink(deployedSha)),
-          link(copy('latest-label') + ': ' + shortSha(latestSha), commitLink(latestSha)),
-          link(copy('repo-label'), repoUrl),
-        ],
-      );
-      return;
-    }
-
-    if (githubUnavailable) {
-      showAlert(
-        'warning',
-        copy('unavailable-title'),
-        copy('unavailable-message'),
-        [
-          link(copy('deployed-label') + ': ' + shortSha(deployedSha), commitLink(deployedSha)),
-          link(copy('repo-label'), repoUrl),
-        ],
-      );
     }
   }
 
@@ -193,10 +143,12 @@
 
   run().catch(function () {
     showAlert(
-      'danger',
       copy('asset-title'),
       copy('asset-message'),
-      [link(copy('repo-label'), repoUrl)],
+      [
+        deployedSha ? link(copy('deployed-label') + ': ' + shortSha(deployedSha), repoUrl + '/commit/' + deployedSha) : null,
+        link(copy('repo-label'), repoUrl),
+      ],
     );
   });
 })();

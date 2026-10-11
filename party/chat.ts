@@ -1,7 +1,8 @@
-import type * as Party from "partykit/server";
+import { issueTurnGrant } from "../src/lib/turnGrant";
+import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
 type ChatMode = "live" | "ttl-10" | "ttl-5";
-type AuthMode = "password" | "room-name";
+type AuthMode = "password" | "fragment";
 
 type RoomConfig = {
   mode: ChatMode;
@@ -36,51 +37,55 @@ const SERVER_INFO = {
 
 const CONFIG_KEY = "room-config";
 const HISTORY_PREFIX = "history:";
-const MAX_CLIENT_MESSAGE_CHARS = 768_000;
 const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
+const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const DEFAULT_CONFIG: RoomConfig = {
   mode: "live",
-  authMode: "room-name",
+  authMode: "fragment",
   createdAt: 0,
 };
 
-export default class ChatRoom implements Party.Server {
-  party: Party.Room;
+export default class ChatRoom {
+  access: RoomAccess;
+  private queue = Promise.resolve();
   state: RoomState = {
     locked: false,
     lockedBy: null,
     config: null,
   };
 
-  constructor(party: Party.Room) {
-    this.party = party;
+  constructor(private host: RoomHost) {
+    this.access = new RoomAccess(host);
   }
 
   async onStart() {
-    const storedConfig = await this.party.storage.get<RoomConfig>(CONFIG_KEY);
+    const storedConfig = await this.host.storage.get<RoomConfig>(CONFIG_KEY);
     this.state.config = this.normalizeConfig(storedConfig);
     if (storedConfig && this.state.config && JSON.stringify(storedConfig) !== JSON.stringify(this.state.config)) {
-      await this.party.storage.put(CONFIG_KEY, this.state.config);
+      await this.host.storage.put(CONFIG_KEY, this.state.config);
     }
 
     // Chat messages are intentionally not stored on the server anymore.
     // Remove any old server-side chat history if this room still has it.
-    const oldHistory = await this.party.storage.list({ prefix: HISTORY_PREFIX });
+    const oldHistory = await this.host.storage.list({ prefix: HISTORY_PREFIX });
     if (oldHistory.size) {
-      await Promise.all(Array.from(oldHistory.keys()).map((key) => this.party.storage.delete(key)));
+      await Promise.all(Array.from(oldHistory.keys()).map((key) => this.host.storage.delete(key)));
     }
   }
 
-  onConnect(conn: Party.Connection<ChatConnectionState>) {
+  onConnect(conn: RoomConnection) {
+    if (this.getConnectionCount() > 32) { conn.close(4008, "ROOM_FULL"); return; }
     if (this.state.locked) {
       conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED" }));
       conn.close(4001, "ROOM_LOCKED");
       return;
     }
 
+    void this.host.storage.deleteAlarm().catch(() => {});
     conn.setState({ joined: false });
+    this.access.open(conn);
 
     conn.send(JSON.stringify({
       type: "init",
@@ -93,9 +98,13 @@ export default class ChatRoom implements Party.Server {
     }));
   }
 
-  async onMessage(message: string, sender: Party.Connection<ChatConnectionState>) {
-    if (typeof message !== "string" || message.length > MAX_CLIENT_MESSAGE_CHARS) return;
+  onMessage(message: string, sender: RoomConnection) {
+    if (!this.access.allow(sender, message)) return;
+    this.queue = this.queue.then(() => this.handleMessage(message, sender)).catch(() => {});
+    return this.queue;
+  }
 
+  private async handleMessage(message: string, sender: RoomConnection) {
     let parsed: any;
     try {
       parsed = JSON.parse(message);
@@ -103,8 +112,10 @@ export default class ChatRoom implements Party.Server {
       return;
     }
 
+    if (!parsed || typeof parsed !== "object") return;
     switch (parsed.type) {
       case "join":
+        if (!await this.access.join(sender, parsed.token, () => this.state.locked)) { sender.close(4003, "FORBIDDEN"); return; }
         const hadConfig = Boolean(this.state.config);
         if (!this.state.config) {
           await this.setRoomConfig(parsed.config);
@@ -134,7 +145,7 @@ export default class ChatRoom implements Party.Server {
         break;
 
       case "lock":
-        if (!this.isJoined(sender)) return;
+        if (!this.isJoined(sender) || this.state.locked) return;
         this.state.locked = true;
         this.state.lockedBy = sender.id;
         this.broadcast(JSON.stringify({ type: "locked" }));
@@ -149,6 +160,13 @@ export default class ChatRoom implements Party.Server {
         }
         break;
 
+      case "turn-grant": {
+        if (!this.isJoined(sender)) return;
+        const secret = this.host.env.ROOM_TURN_SECRET;
+        if (typeof secret !== 'string' || secret.length < 32) return;
+        sender.send(JSON.stringify({ type: 'turn-grant', token: await issueTurnGrant(secret, this.host.name) }));
+        break;
+      }
       case "ping":
         sender.send(JSON.stringify({
           type: "pong",
@@ -159,28 +177,24 @@ export default class ChatRoom implements Party.Server {
     }
   }
 
-  onClose(conn: Party.Connection<ChatConnectionState>) {
+  onClose(conn: RoomConnection) {
     const wasJoined = this.isJoined(conn);
+    this.access.remove(conn);
     if (this.state.lockedBy === conn.id) {
       this.state.locked = false;
       this.state.lockedBy = null;
       this.broadcast(JSON.stringify({ type: "unlocked" }));
     }
     if (wasJoined) this.broadcastPresence();
+    if (this.getConnectionCount([conn.id]) === 0) {
+      void this.host.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS).catch(() => {});
+    }
   }
 
-  onRequest() {
-    return new Response(JSON.stringify({
-      room: this.party.id,
-      presence: this.getJoinedConnectionCount(),
-      rawPresence: this.getConnectionCount(),
-      locked: this.state.locked,
-      config: this.state.config,
-      historyCount: 0,
-      server: SERVER_INFO,
-    }), {
-      headers: { "Content-Type": "application/json" },
-    });
+  async onAlarm() {
+    if (this.getConnectionCount() > 0) return;
+    this.state = { locked: false, lockedBy: null, config: null };
+    await this.host.storage.deleteAll();
   }
 
   private async setRoomConfig(input: unknown) {
@@ -189,7 +203,7 @@ export default class ChatRoom implements Party.Server {
       createdAt: Date.now(),
     };
     this.state.config = normalized;
-    await this.party.storage.put(CONFIG_KEY, normalized);
+    await this.host.storage.put(CONFIG_KEY, normalized);
   }
 
   private normalizeConfig(input: unknown): RoomConfig | null {
@@ -211,7 +225,7 @@ export default class ChatRoom implements Party.Server {
   }
 
   private isAuthMode(value: unknown): value is AuthMode {
-    return value === "password" || value === "room-name";
+    return value === "password" || value === "fragment";
   }
 
   private normalizeClientMessage(input: unknown): ClientMessageEnvelope | null {
@@ -238,7 +252,7 @@ export default class ChatRoom implements Party.Server {
     return Math.round(value);
   }
 
-  private sendHistory(conn: Party.Connection<ChatConnectionState>) {
+  private sendHistory(conn: RoomConnection) {
     conn.send(JSON.stringify({
       type: "history",
       config: this.state.config,
@@ -246,22 +260,22 @@ export default class ChatRoom implements Party.Server {
     }));
   }
 
-  private getConnectionCount(): number {
+  private getConnectionCount(exclude: string[] = []): number {
     let count = 0;
-    for (const _ of this.party.getConnections()) count++;
+    for (const conn of this.host.getConnections()) if (!exclude.includes(conn.id)) count++;
     return count;
   }
 
   private getJoinedConnectionCount(): number {
     let count = 0;
-    for (const conn of this.party.getConnections<ChatConnectionState>()) {
+    for (const conn of this.host.getConnections()) {
       if (this.isJoined(conn)) count++;
     }
     return count;
   }
 
-  private isJoined(conn: Party.Connection<ChatConnectionState>): boolean {
-    return conn.state?.joined === true;
+  private isJoined(conn: RoomConnection): boolean {
+    return (conn.state as ChatConnectionState | null)?.joined === true && this.access.has(conn);
   }
 
   private broadcastPresence() {
@@ -274,7 +288,7 @@ export default class ChatRoom implements Party.Server {
   }
 
   private broadcast(message: string, exclude?: string[], includeWaiting = false) {
-    for (const conn of this.party.getConnections<ChatConnectionState>()) {
+    for (const conn of this.host.getConnections()) {
       if (exclude && exclude.includes(conn.id)) continue;
       if (!includeWaiting && !this.isJoined(conn)) continue;
       conn.send(message);

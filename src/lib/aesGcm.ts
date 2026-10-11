@@ -1,81 +1,23 @@
-/**
- * Lean AES-GCM helpers used by encrypt/decrypt flows.
- * Kept separate from the heavy tool kitchen-sink in crypto.ts
- * so homepage islands do not pull openpgp/hash-wasm/etc.
- */
+import { sealPassword, openPassword } from './passwordEnvelope';
 
-const PBKDF2_ITERATIONS = 100000;
-const SALT_SIZE = 16;
-const IV_SIZE = 12;
-
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
-  const encoder = new TextEncoder();
-  const passwordKey = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveKey'],
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: salt as BufferSource,
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256',
-    },
-    passwordKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt'],
-  );
-}
-
-/** Encrypts cleartext. Returns [Salt(16) | IV(12) | Ciphertext]. */
 export async function encrypt(text: string, password: string): Promise<Uint8Array> {
-  const encoder = new TextEncoder();
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_SIZE));
-  const iv = crypto.getRandomValues(new Uint8Array(IV_SIZE));
-  const key = await deriveKey(password, salt);
-
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encoder.encode(text),
-  );
-
-  const result = new Uint8Array(SALT_SIZE + IV_SIZE + ciphertext.byteLength);
-  result.set(salt, 0);
-  result.set(iv, SALT_SIZE);
-  result.set(new Uint8Array(ciphertext), SALT_SIZE + IV_SIZE);
-
-  return result;
+  return sealPassword(new TextEncoder().encode(text), password);
 }
 
-/** Decrypts [Salt(16) | IV(12) | Ciphertext]. */
 export async function decrypt(data: Uint8Array, password: string): Promise<string> {
-  const salt = data.slice(0, SALT_SIZE);
-  const iv = data.slice(SALT_SIZE, SALT_SIZE + IV_SIZE);
-  const ciphertext = data.slice(SALT_SIZE + IV_SIZE);
-
-  const key = await deriveKey(password, salt);
-  const cleartext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    ciphertext,
-  );
-
-  return new TextDecoder().decode(cleartext);
+  return new TextDecoder().decode(await openPassword(data, password));
 }
 
-/** Packs bytes into 14-bit chunks (0–16383), with a 2-byte length prefix. */
+/** Uses the legacy uint16 length, or zero followed by uint32 for larger payloads. */
 export function to14BitChunks(data: Uint8Array): number[] {
   const length = data.byteLength;
-  const combined = new Uint8Array(length + 2);
-  combined[0] = (length >> 8) & 0xff;
-  combined[1] = length & 0xff;
-  combined.set(data, 2);
+  if (length > 16 * 1024 * 1024) throw new Error('Input too large');
+  const prefix = length > 65535 ? 6 : 2;
+  const combined = new Uint8Array(length + prefix);
+  combined[0] = prefix === 6 ? 0 : (length >> 8) & 0xff;
+  combined[1] = prefix === 6 ? 0 : length & 0xff;
+  if (prefix === 6) new DataView(combined.buffer).setUint32(2, length);
+  combined.set(data, prefix);
 
   const chunks: number[] = [];
   let currentVal = 0;
@@ -101,6 +43,7 @@ export function to14BitChunks(data: Uint8Array): number[] {
 
 /** Recovers bytes from 14-bit chunks produced by to14BitChunks. */
 export function from14BitChunks(chunks: number[]): Uint8Array {
+  if (chunks.length > 10_000_000 || chunks.some(c => !Number.isInteger(c) || c < 0 || c > 16383)) throw new Error('Invalid words');
   const bytes: number[] = [];
   let currentVal = 0;
   let currentBits = 0;
@@ -118,6 +61,12 @@ export function from14BitChunks(chunks: number[]): Uint8Array {
 
   if (bytes.length < 2) return new Uint8Array(0);
 
-  const length = (bytes[0] << 8) | bytes[1];
-  return new Uint8Array(bytes.slice(2, 2 + length));
+  let length = (bytes[0] << 8) | bytes[1];
+  let prefix = 2;
+  if (length === 0 && bytes.length >= 6) {
+    length = new DataView(new Uint8Array(bytes).buffer).getUint32(2); prefix = 6;
+    if (length <= 65535) throw new Error('Invalid extended length');
+  }
+  if (prefix + length > bytes.length || bytes.length - prefix - length > 1) throw new Error('Invalid length');
+  return new Uint8Array(bytes.slice(prefix, prefix + length));
 }

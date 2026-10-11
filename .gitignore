@@ -18,6 +18,7 @@ pnpm-debug.log*
 .env
 .env.production
 .env.local
+.dev.vars
 
 # macOS-specific files
 .DS_Store
@@ -30,3 +31,18 @@ pnpm-debug.log*
 *.bak
 *.off
 check_results*
+*.log
+.wrangler/
+.partykit/
+
+# generated audit snapshots (CI regenerates them)
+audit-dependencies.json
+audit-history.json
+
+# agent tooling (local only)
+.agents/
+.claude/
+skills-lock.json
+
+# local audit notes
+audit-fixes.json

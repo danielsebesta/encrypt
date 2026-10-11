@@ -6,18 +6,18 @@ import cloudflare from '@astrojs/cloudflare';
 
 export default defineConfig({
   output: 'static',
-  adapter: cloudflare({ imageService: 'compile' }),
+  session: false,
+  adapter: cloudflare({ imageService: 'passthrough' }),
 
   server: {
-    // Cloudflare quick tunnels rewrite Host; allow any host in local previews.
-    allowedHosts: true,
+    // Add explicitly trusted development hostnames here.
+    allowedHosts: [],
   },
 
   vite: {
-    // @ts-expect-error - Vite plugin type mismatch between Astro and @tailwindcss/vite
     plugins: [tailwindcss()],
     server: {
-      allowedHosts: true,
+      allowedHosts: [],
     },
     optimizeDeps: {
       include: ['lz-string', 'tlock-js'],

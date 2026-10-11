@@ -6,7 +6,7 @@
  * 2. Password: AES key derived from password via PBKDF2
  */
 
-const PBKDF2_ITERATIONS = 200_000;
+const PBKDF2_ITERATIONS = 600_000;
 
 function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
@@ -17,7 +17,7 @@ export async function generateRoomKey(): Promise<string> {
   return arrayToB64url(key);
 }
 
-export async function deriveKeyFromPassword(password: string, roomId: string): Promise<CryptoKey> {
+export async function deriveKeyFromPassword(password: string, roomId: string, iterations = PBKDF2_ITERATIONS): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw', bytesToArrayBuffer(enc.encode(password)), 'PBKDF2', false, ['deriveKey']
@@ -26,7 +26,7 @@ export async function deriveKeyFromPassword(password: string, roomId: string): P
     {
       name: 'PBKDF2',
       salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat:${roomId}`)),
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -36,11 +36,6 @@ export async function deriveKeyFromPassword(password: string, roomId: string): P
   );
 }
 
-export async function deriveRoomNamePassword(roomId: string): Promise<string> {
-  const normalizedRoom = roomId.trim().toLowerCase() || 'default';
-  const digest = await sha256Bytes(`encrypt.click:chat:room-name-key:${normalizedRoom}`);
-  return `room-name:${normalizedRoom}:${arrayToB64url(digest).slice(0, 32)}`;
-}
 
 export async function hashChatChain(prevHash: string, record: unknown): Promise<string> {
   return arrayToB64url(await sha256Bytes(`${prevHash}\n${stableStringify(record)}`));
@@ -48,6 +43,7 @@ export async function hashChatChain(prevHash: string, record: unknown): Promise<
 
 export async function importRoomKey(b64Key: string): Promise<CryptoKey> {
   const raw = b64urlToArray(b64Key);
+  if (raw.length !== 32) throw new Error('Invalid room key');
   return crypto.subtle.importKey(
     'raw', bytesToArrayBuffer(raw), { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
   );

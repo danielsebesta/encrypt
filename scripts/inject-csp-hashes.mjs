@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const DIST_DIR = path.resolve('dist');
+const DIST_DIR = path.resolve('dist/client');
 const HEADERS_PATH = path.join(DIST_DIR, '_headers');
 const PLACEHOLDER = '__CSP_SCRIPT_HASHES__';
 const INLINE_SCRIPT_RE = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi;
@@ -43,10 +43,10 @@ if (sorted.length === 0) {
 
 let headers = await readFile(HEADERS_PATH, 'utf8');
 if (!headers.includes(PLACEHOLDER)) {
-  throw new Error(`Missing ${PLACEHOLDER} in dist/_headers`);
+  throw new Error(`Missing ${PLACEHOLDER} in dist/client/_headers`);
 }
 
 headers = headers.replace(PLACEHOLDER, sorted.join(' '));
 await writeFile(HEADERS_PATH, headers);
 
-console.log(`Injected ${sorted.length} CSP script hashes into dist/_headers`);
+console.log(`Injected ${sorted.length} CSP script hashes into dist/client/_headers`);

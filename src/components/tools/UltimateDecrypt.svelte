@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readLimited } from '../../lib/httpLimits';
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
   import { decrypt } from '../../lib/aesGcm';
@@ -413,7 +414,7 @@
 
   async function gunzipBytes(input: Uint8Array): Promise<Uint8Array> {
     const stream = new Blob([input]).stream().pipeThrough(new DecompressionStream('gzip'));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
+    return readLimited(new Response(stream), 64 * 1024 * 1024);
   }
 
   onMount(() => {
@@ -848,7 +849,7 @@
           <audio controls class="w-full" use:loadMedia={openedFileUrl}></audio>
         {/key}
       {:else if previewType === 'pdf'}
-        <iframe src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
+        <iframe sandbox src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
       {:else if previewType === 'zip' && zipTree.length > 0}
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
           <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">

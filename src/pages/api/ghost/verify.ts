@@ -1,20 +1,14 @@
 import type { APIRoute } from 'astro';
-import { checkRateLimit } from '../../../lib/rateLimit';
+
+import { parseAllowedFetchUrl, fetchAllowedUrl } from '../../../lib/ghost/allowedFetch';
+import { readJsonLimited, mapConcurrent } from '../../../lib/httpLimits';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request }) => {
-  const { ok, resetIn } = await checkRateLimit('ghost-verify', request, 20);
-  if (!ok) {
-    return new Response(JSON.stringify({ error: 'Too many requests' }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json', 'Retry-After': String(resetIn) }
-    });
-  }
-
   let body: { urls?: string[] };
   try {
-    body = await request.json();
+    body = await readJsonLimited(request);
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400,
@@ -22,17 +16,19 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const urls = body.urls || [];
+  if (!body || !Array.isArray(body.urls) || body.urls.length > 8 || body.urls.some(u => typeof u !== 'string' || !parseAllowedFetchUrl(u))) {
+    return new Response(JSON.stringify({ error: 'Invalid URLs (maximum 8)' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
+  const urls = [...new Set(body.urls)];
 
-  const results = await Promise.all(
-    urls.map(async (url) => {
+  const results = await mapConcurrent(urls, 3, async (url) => {
       try {
-        const res = await fetch(url, { method: 'HEAD' });
+        const res = await fetchAllowedUrl(parseAllowedFetchUrl(url)!, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
         return { url, ok: res.ok, status: res.status };
       } catch {
         return { url, ok: false, status: 0 };
       }
-    })
+    }
   );
 
   return new Response(JSON.stringify({ results }), {

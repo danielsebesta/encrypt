@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
-  import { deriveRoomNamePassword } from '../../lib/chatCrypto';
+  import { generateRoomKey } from '../../lib/chatCrypto';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -11,6 +12,9 @@
   let roomError = '';
 
   type ChatRoomMode = 'live' | 'ttl-10' | 'ttl-5';
+
+  // The relay receives a slow password-derived capability, so a short typed password could be guessed offline.
+  const MIN_PASSWORD_LENGTH = 12;
 
   const ROOM_MODES: { value: ChatRoomMode; title: string; hint: string }[] = [
     { value: 'live', title: 'chat.modeLiveTitle', hint: 'chat.modeLiveHint' },
@@ -56,17 +60,17 @@
   }
 
   function genPassphrase(): string {
-    const count = 5;
+    const count = 8;
     const arr = crypto.getRandomValues(new Uint8Array(count * 2 + 2));
     const words: string[] = [];
     for (let i = 0; i < count; i++) {
-      const idx = ((arr[i * 2] << 8) | arr[i * 2 + 1]) % WORDS.length;
+      const idx = randomIndex(WORDS.length);
       const w = WORDS[idx];
       words.push(w.charAt(0).toUpperCase() + w.slice(1));
     }
-    const numIdx = arr[count * 2] % count;
-    const num = (arr[count * 2 + 1] % 90) + 10;
-    words[numIdx] = (arr[count * 2] & 1) ? `${num}${words[numIdx]}` : `${words[numIdx]}${num}`;
+    const numIdx = randomIndex(count);
+    const num = randomIndex(90) + 10;
+    words[numIdx] = (randomIndex(2)) ? `${num}${words[numIdx]}` : `${words[numIdx]}${num}`;
     return words.join('-');
   }
 
@@ -79,13 +83,17 @@
     }
 
     const typedPassword = password.trim();
-    const finalPassword = typedPassword || await deriveRoomNamePassword(roomId);
+    if (typedPassword && typedPassword.length < MIN_PASSWORD_LENGTH) {
+      roomError = t(dict, 'chat.passwordTooShort');
+      return;
+    }
+    const finalPassword = typedPassword || await generateRoomKey();
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
-    const link = `${origin}/chat/${roomId}`;
+    const link = `${origin}/chat/${roomId}${typedPassword ? '' : '#k=' + finalPassword}`;
     sessionStorage.setItem('chat-password', finalPassword);
     sessionStorage.setItem('chat-room-config', JSON.stringify({
       mode: selectedMode,
-      authMode: typedPassword ? 'password' : 'room-name',
+      authMode: typedPassword ? 'password' : 'fragment',
       createdAt: Date.now(),
     }));
     if (typedPassword) {

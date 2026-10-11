@@ -1,3 +1,5 @@
+import { readLimited, MAX_TRANSFER_BYTES, fetchNoRedirect } from './httpLimits';
+import { parseAllowedFetchUrl } from './ghost/allowedFetch';
 const DEFAULT_NONCE = 'yRCdyQ1EMSA3mo4rqSkuNQ==';
 const KEY_LENGTH = 16;
 const NONCE_LENGTH = 12;
@@ -46,10 +48,6 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   out.set(a, 0);
   out.set(b, a.length);
   return out;
-}
-
-function delay(ms = 100) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function parseNonce(header: string | null): string {
@@ -441,99 +439,13 @@ class NologSendKeychain {
   }
 }
 
-async function openWs(url: string) {
-  return new Promise<WebSocket>((resolve, reject) => {
-    try {
-      const ws = new WebSocket(url);
-      ws.binaryType = 'arraybuffer';
-      ws.addEventListener('open', () => resolve(ws), { once: true });
-      ws.addEventListener('error', () => reject(new Error(`WebSocket connection failed (readyState=${ws.readyState})`)), { once: true });
-      ws.addEventListener('close', (event) => reject(new Error(`WebSocket closed before open (code=${event.code}, reason=${event.reason || 'none'})`)), { once: true });
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-function listenForResponse(ws: WebSocket) {
-  return new Promise<any>((resolve, reject) => {
-    function handleClose(event: CloseEvent) {
-      ws.removeEventListener('message', handleMessage);
-      reject(new Error(`NoLog Send connection closed (code=${event.code}, reason=${event.reason || 'none'})`));
-    }
-    function handleMessage(event: MessageEvent) {
-      ws.removeEventListener('close', handleClose);
-      try {
-        const response = JSON.parse(String(event.data));
-        if (response.error) throw new Error(String(response.error));
-        resolve(response);
-      } catch (error) {
-        reject(error);
-      }
-    }
-    ws.addEventListener('message', handleMessage, { once: true });
-    ws.addEventListener('close', handleClose, { once: true });
-  });
-}
-
-export async function uploadToNologSend(data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT) {
-  const keychain = new NologSendKeychain();
-  onDebug?.(`NoLog Send: preparing ${filename} (${data.byteLength} bytes)`);
-  const encryptedStream = encryptStream(new Blob([bytesToArrayBuffer(data)]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
-  const metadata = await keychain.encryptMetadata({ name: filename, size: data.byteLength, type: fileType });
-  const verifierB64 = await keychain.authKeyB64();
-  onDebug?.(`NoLog Send: metadata encrypted (${metadata.byteLength} bytes)`);
-  const ws = await openWs('wss://upload.nolog.cz/api/ws');
-  onDebug?.('NoLog Send: websocket opened');
-
-  try {
-    const uploadInfoResponse = listenForResponse(ws);
-    ws.send(JSON.stringify({
-      fileMetadata: arrayToB64(metadata),
-      authorization: `send-v1 ${verifierB64}`,
-      timeLimit,
-      dlimit,
-    }));
-    onDebug?.(`NoLog Send: upload handshake sent (timeLimit=${timeLimit}s, dlimit=${dlimit})`);
-
-    const uploadInfo = await uploadInfoResponse;
-    onDebug?.(`NoLog Send: upload accepted (id=${uploadInfo.id}, url=${uploadInfo.url})`);
-    const completedResponse = listenForResponse(ws);
-    const reader = encryptedStream.getReader();
-    let sentBytes = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      ws.send(value);
-      sentBytes += value.byteLength;
-      while (ws.bufferedAmount > ECE_RECORD_SIZE * 2 && ws.readyState === WebSocket.OPEN) {
-        await delay();
-      }
-    }
-    onDebug?.(`NoLog Send: encrypted stream sent (${sentBytes} bytes including envelope)`);
-
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(new Uint8Array([0]));
-      onDebug?.('NoLog Send: EOF sent');
-    }
-
-    await completedResponse;
-    onDebug?.('NoLog Send: server confirmed upload completion');
-    return `${uploadInfo.url}#${arrayToB64(keychain.rawSecret)}`;
-  } finally {
-    if (ws.readyState !== WebSocket.CLOSING && ws.readyState !== WebSocket.CLOSED) {
-      ws.close();
-    }
-  }
-}
-
 function normalizeSendBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/g, '');
 }
 
 function parseSendDownloadUrl(urlString: string) {
-  const url = new URL(urlString);
+  const url = parseAllowedFetchUrl(urlString);
+  if (!url) throw new Error('Invalid Send URL');
   const match = url.pathname.match(/\/download\/([0-9a-fA-F]{10,16})\/?$/);
   const secret = url.hash.slice(1);
 
@@ -568,12 +480,14 @@ export async function prepareSendUpload(data: Uint8Array, filename: string, file
   };
 }
 
-export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, secretB64: string, onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT): Promise<string> {
+// Returns the bare download URL; the caller appends its own Send secret as the fragment.
+export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT): Promise<string> {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   onDebug?.(`Send ${normalizedBaseUrl}: proxying pre-encrypted upload (${encryptedBytes.byteLength} bytes, timeLimit=${timeLimit}s, dlimit=${dlimit})`);
 
-  const res = await fetch(`${normalizedBaseUrl}/api/upload`, {
+  const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/upload`, {
     method: 'POST',
+    signal: AbortSignal.timeout(30_000),
     headers: {
       'Authorization': authHeader,
       'X-File-Metadata': metadataB64,
@@ -593,7 +507,7 @@ export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Arra
     throw new Error('Send upload failed: missing URL');
   }
   onDebug?.(`Send ${normalizedBaseUrl}: upload accepted (id=${uploadInfo.id}, url=${uploadInfo.url})`);
-  return `${uploadInfo.url}#${secretB64}`;
+  return String(uploadInfo.url);
 }
 
 export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT) {
@@ -606,8 +520,9 @@ export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filena
   const encryptedBytes = await encryptSendBytes(data, keychain.rawSecret);
   onDebug?.(`Send ${normalizedBaseUrl}: encrypted body prepared (${encryptedBytes.byteLength} bytes including envelope)`);
 
-  const res = await fetch(`${normalizedBaseUrl}/api/upload`, {
+  const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/upload`, {
     method: 'POST',
+    signal: AbortSignal.timeout(30_000),
     headers: {
       'Authorization': `send-v1 ${verifierB64}`,
       'X-File-Metadata': arrayToB64(metadata),
@@ -633,8 +548,9 @@ export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filena
 async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKeychain, onDebug?: DebugFn) {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   const doFetch = async () => {
-    const res = await fetch(`${normalizedBaseUrl}/api/download/blob/${id}`, {
+    const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/download/blob/${id}`, {
       headers: { Authorization: await keychain.authHeader() },
+      signal: AbortSignal.timeout(30_000),
     });
     const nonce = parseNonce(res.headers.get('WWW-Authenticate'));
     return { res, nonce };
@@ -653,7 +569,7 @@ async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKey
     throw new Error(`Send download failed: HTTP ${res.status}`);
   }
 
-  const bytes = new Uint8Array(await res.arrayBuffer());
+  const bytes = await readLimited(res, MAX_TRANSFER_BYTES);
   onDebug?.(`Send ${normalizedBaseUrl}: encrypted blob downloaded (${bytes.byteLength} bytes)`);
   return bytes;
 }
