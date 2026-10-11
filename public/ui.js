@@ -20,27 +20,42 @@
   }
 
   var toggles = Array.prototype.slice.call(document.querySelectorAll('[data-menu-toggle]'));
+  var hoverMenus = window.matchMedia('(hover: hover) and (min-width: 768px)');
 
   function menuFor(btn) {
     return document.getElementById(btn.getAttribute('aria-controls'));
   }
 
+  function setMenu(btn, open) {
+    var menu = menuFor(btn);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (menu) menu.classList.toggle('menu--open', open);
+  }
+
   function closeMenus(except) {
     toggles.forEach(function (btn) {
-      if (btn === except) return;
-      var menu = menuFor(btn);
-      btn.setAttribute('aria-expanded', 'false');
-      if (menu) menu.hidden = true;
+      if (btn !== except) setMenu(btn, false);
     });
   }
 
   toggles.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var menu = menuFor(btn);
+    var group = btn.parentElement;
+    var leaveTimer = null;
+    btn.addEventListener('click', function (event) {
       var open = btn.getAttribute('aria-expanded') === 'true';
+      var pointer = event.detail > 0 && hoverMenus.matches;
       closeMenus(btn);
-      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
-      if (menu) menu.hidden = open;
+      setMenu(btn, pointer ? true : !open);
+    });
+    group.addEventListener('mouseenter', function () {
+      if (!hoverMenus.matches) return;
+      clearTimeout(leaveTimer);
+      closeMenus(btn);
+      setMenu(btn, true);
+    });
+    group.addEventListener('mouseleave', function () {
+      if (!hoverMenus.matches) return;
+      leaveTimer = setTimeout(function () { setMenu(btn, false); }, 150);
     });
   });
 
