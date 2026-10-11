@@ -462,101 +462,73 @@
     a.click();
   }
 </script>
-
-<div class="space-y-6">
-  <div class="tab-bar">
-    <button on:click={() => mode = 'encode'} class="tab-btn {mode === 'encode' ? 'tab-btn-active' : ''}">
-      {t(dict, 'tools.spectralCipher.encode')}
-    </button>
-    <button on:click={() => mode = 'decode'} class="tab-btn {mode === 'decode' ? 'tab-btn-active' : ''}">
-      {t(dict, 'tools.spectralCipher.decode')}
-    </button>
+<div class="stack">
+  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.spectralCipher.h1')}>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="spectral-panel" on:click={() => mode = 'encode'}>{t(dict, 'tools.spectralCipher.encode')}</button>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="spectral-panel" on:click={() => mode = 'decode'}>{t(dict, 'tools.spectralCipher.decode')}</button>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-    <div class="space-y-4">
+  <div id="spectral-panel" role="tabpanel" class="grid gap-6 md:grid-cols-2">
+    <div class="stack">
       {#if mode === 'encode'}
-        <input bind:this={imageInput} type="file" accept="image/*" on:change={handleImageFile} class="hidden" />
-        <button type="button" on:click={() => imageInput?.click()}
-          class="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors cursor-pointer group aspect-video flex flex-col items-center justify-center overflow-hidden">
-          {#if imageUrl}
-            <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} class="max-h-full max-w-full object-contain" />
-          {:else}
-            <div class="space-y-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-zinc-400 group-hover:text-emerald-500 transition-colors"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-              <div class="text-sm text-zinc-500 group-hover:text-emerald-500 transition-colors">
-                {t(dict, 'tools.spectralCipher.sourceImage')}
-              </div>
-            </div>
-          {/if}
-        </button>
+        <div class="field">
+          <span class="label">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
+          <label class="dropzone aspect-video" class:dropzone--active={!!imageUrl} for="spectral-image">
+            {#if imageUrl}
+              <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} />
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
+            {/if}
+            <input id="spectral-image" bind:this={imageInput} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
+          </label>
+        </div>
       {:else}
-        <input bind:this={audioInput} type="file" accept=".wav,audio/wav" on:change={handleAudioFile} class="hidden" />
-        <button type="button" on:click={() => audioInput?.click()}
-          class="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors cursor-pointer group aspect-video flex flex-col items-center justify-center overflow-hidden">
-          {#if audioFileName}
-            <div class="space-y-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg>
-              <div class="text-sm text-emerald-500 font-medium">{audioFileName}</div>
-            </div>
-          {:else}
-            <div class="space-y-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-zinc-400 group-hover:text-emerald-500 transition-colors"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg>
-              <div class="text-sm text-zinc-500 group-hover:text-emerald-500 transition-colors">
-                {t(dict, 'tools.spectralCipher.sourceAudio')}
-              </div>
-              <div class="text-xs text-zinc-400 dark:text-zinc-600 italic">.wav</div>
-            </div>
-          {/if}
-        </button>
+        <div class="field">
+          <span class="label">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
+          <label class="dropzone aspect-video" class:dropzone--active={!!audioFileName} for="spectral-audio">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg>
+            {#if audioFileName}
+              <span class="dropzone__title max-w-full truncate">{audioFileName}</span>
+            {:else}
+              <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
+              <span>.wav</span>
+            {/if}
+            <input id="spectral-audio" bind:this={audioInput} type="file" accept=".wav,audio/wav" on:change={handleAudioFile} class="sr-only" />
+          </label>
+        </div>
       {/if}
-
-      <canvas bind:this={spectrogramCanvas} class="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 {wavBlobUrl || extractedImageUrl ? '' : 'hidden'}" style="image-rendering: pixelated;"></canvas>
-
+      <canvas bind:this={spectrogramCanvas} class="w-full rounded-lg border border-line-soft {wavBlobUrl || extractedImageUrl ? '' : 'hidden'}" style="image-rendering: pixelated;"></canvas>
       {#if status}
-        <div class="text-xs text-emerald-600 dark:text-emerald-400/80 italic">{status}</div>
+        <p class="status" role="status">{status}</p>
       {/if}
     </div>
 
-    <div class="space-y-4">
-      <div class="grid gap-4">
-        {#if mode === 'encode'}
-          {#if carrierLoaded}
-            <div class="grid gap-1.5">
-              <label class="label">{t(dict, 'tools.spectralCipher.imageStrength')} - {Math.round(imageStrength * 100)}%</label>
-              <input type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} class="w-full accent-emerald-500" />
-              <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
-            </div>
-          {/if}
-
-          <button on:click={encodeImage} class="btn w-full" disabled={processing || !imageUrl}>
-            {#if processing}
-              <svg class="animate-spin inline-block mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            {/if}
-            {t(dict, 'tools.spectralCipher.encodeButton')}
-          </button>
-          {#if wavBlobUrl}
-            <audio src={wavBlobUrl} controls class="w-full"></audio>
-            <button on:click={downloadWav} class="btn-outline w-full">
-              {t(dict, 'tools.spectralCipher.downloadWav')}
-            </button>
-          {/if}
-        {:else}
-          <button on:click={decodeAudio} class="btn-outline w-full" disabled={processing || !audioFile}>
-            {#if processing}
-              <svg class="animate-spin inline-block mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            {/if}
-            {t(dict, 'tools.spectralCipher.decodeButton')}
-          </button>
-          {#if extractedImageUrl}
-            <button on:click={downloadImage} class="btn-outline w-full">
-              {t(dict, 'tools.spectralCipher.downloadImage')}
-            </button>
-          {/if}
+    <div class="stack">
+      {#if mode === 'encode'}
+        {#if carrierLoaded}
+          <div class="field">
+            <label class="label" for="spectral-strength">{t(dict, 'tools.spectralCipher.imageStrength')}: {Math.round(imageStrength * 100)}%</label>
+            <input id="spectral-strength" type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} aria-describedby="spectral-strength-hint" />
+            <p id="spectral-strength-hint" class="hint">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
+          </div>
         {/if}
-      </div>
+        <button type="button" on:click={encodeImage} class="btn w-full" disabled={processing || !imageUrl}>
+          {t(dict, 'tools.spectralCipher.encodeButton')}
+        </button>
+        {#if wavBlobUrl}
+          <audio src={wavBlobUrl} controls class="w-full"></audio>
+          <button type="button" on:click={downloadWav} class="btn-secondary w-full">{t(dict, 'tools.spectralCipher.downloadWav')}</button>
+        {/if}
+      {:else}
+        <button type="button" on:click={decodeAudio} class="btn w-full" disabled={processing || !audioFile}>
+          {t(dict, 'tools.spectralCipher.decodeButton')}
+        </button>
+        {#if extractedImageUrl}
+          <button type="button" on:click={downloadImage} class="btn-secondary w-full">{t(dict, 'tools.spectralCipher.downloadImage')}</button>
+        {/if}
+      {/if}
     </div>
   </div>
-
   <canvas bind:this={offscreenCanvas} class="hidden"></canvas>
 </div>

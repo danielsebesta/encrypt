@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
   import { t } from '../../lib/t';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -286,175 +287,95 @@
     }
   }
 </script>
-
-<div class="space-y-8">
-  <div class="inline-flex rounded-full bg-zinc-100 dark:bg-zinc-900/70 p-1 text-xs font-semibold">
-    <button
-      type="button"
-      class="px-4 py-1.5 rounded-full transition-colors"
-      class:bg-white={mode === 'encrypt'}
-      class:text-zinc-900={mode === 'encrypt'}
-      class:text-zinc-500={mode !== 'encrypt'}
-      on:click={() => (mode = 'encrypt')}
-    >
-      {t(dict, 'tools.timeCapsule.createCapsule')}
-    </button>
-    <button
-      type="button"
-      class="px-4 py-1.5 rounded-full transition-colors"
-      class:bg-white={mode === 'decrypt'}
-      class:text-zinc-900={mode === 'decrypt'}
-      class:text-zinc-500={mode !== 'decrypt'}
-      on:click={() => (mode = 'decrypt')}
-    >
-      {t(dict, 'tools.timeCapsule.openCapsule')}
-    </button>
+<div class="stack">
+  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.timeCapsule.h1')}>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'encrypt'} aria-controls="tc-panel" on:click={() => (mode = 'encrypt')}>{t(dict, 'tools.timeCapsule.createCapsule')}</button>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'decrypt'} aria-controls="tc-panel" on:click={() => (mode = 'decrypt')}>{t(dict, 'tools.timeCapsule.openCapsule')}</button>
   </div>
 
-  {#if mode === 'encrypt'}
-    <div class="space-y-6">
-      <div class="space-y-2">
-        <label class="label block" for="tc-message">
-          {t(dict, 'tools.timeCapsule.message')}
-        </label>
-        <textarea
-          id="tc-message"
-          class="input min-h-[140px] resize-vertical font-mono text-xs"
-          bind:value={message}
-          placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')}
-        ></textarea>
+  <div id="tc-panel" role="tabpanel" class="stack">
+    {#if mode === 'encrypt'}
+      <div class="field">
+        <label class="label" for="tc-message">{t(dict, 'tools.timeCapsule.message')}</label>
+        <textarea id="tc-message" class="input" bind:value={message} placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')}></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="tc-date">{t(dict, 'tools.timeCapsule.unlockAfter')}</label>
+        <input id="tc-date" type="datetime-local" class="input" bind:value={targetLocal} on:change={updateDerived} />
       </div>
 
-      <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] items-end">
-        <div class="space-y-2">
-          <label class="label block" for="tc-date">
-            {t(dict, 'tools.timeCapsule.unlockAfter')}
-          </label>
-          <input
-            id="tc-date"
-            type="datetime-local"
-            class="input"
-            bind:value={targetLocal}
-            on:change={updateDerived}
-          />
-        </div>
-        <button class="btn w-full md:w-auto" type="button" on:click={handleEncrypt} disabled={loading}>
-          {#if loading}
-            {t(dict, 'tools.timeCapsule.encrypting')}
-          {:else}
-            {t(dict, 'tools.timeCapsule.lockMessage')}
-          {/if}
-        </button>
-      </div>
-
-      {#if error}
-        <p class="text-xs text-red-500">{error}</p>
-      {/if}
-
-      <details class="text-xs text-zinc-500">
-        <summary class="cursor-pointer select-none">{t(dict, 'tools.timeCapsule.advancedTiming')}</summary>
-        <div class="mt-2 space-y-1">
-          <p>
-            <span class="font-semibold">{t(dict, 'tools.timeCapsule.localTime')}</span>
-            <span class="ml-1">{targetLocal || '-'}</span>
-          </p>
-          {#if debugUtc}
-            <p>
-              <span class="font-semibold">{t(dict, 'tools.timeCapsule.utc')}</span>
-              <span class="ml-1">{debugUtc}</span>
-            </p>
-            <p>
-                <span class="font-semibold">{t(dict, 'tools.timeCapsule.unixTimestamp')}</span>
-              <span class="ml-1">{debugUnix}</span>
-            </p>
-            {#if debugRound}
-              <p>
-                <span class="font-semibold">{t(dict, 'tools.timeCapsule.drandRound')}</span>
-                <span class="ml-1">{debugRound}</span>
-              </p>
+      <details class="more">
+        <summary>{t(dict, 'tools.timeCapsule.advancedTiming')}</summary>
+        <div class="more__body">
+          <dl class="grid gap-1 text-sm text-muted sm:grid-cols-[auto_1fr] sm:gap-x-4">
+            <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.localTime')}</dt>
+            <dd class="font-mono">{targetLocal || '-'}</dd>
+            {#if debugUtc}
+              <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.utc')}</dt>
+              <dd class="font-mono">{debugUtc}</dd>
+              <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.unixTimestamp')}</dt>
+              <dd class="font-mono">{debugUnix}</dd>
+              {#if debugRound}
+                <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.drandRound')}</dt>
+                <dd class="font-mono">{debugRound}</dd>
+              {/if}
             {/if}
-          {/if}
-          <div class="mt-2 space-y-1">
-            <label class="block font-semibold" for="tc-manual-unix">
-              {t(dict, 'tools.timeCapsule.manualUnix')}
-            </label>
-            <input
-              id="tc-manual-unix"
-              type="number"
-              class="input"
-              bind:value={manualUnix}
-              placeholder={t(dict, 'tools.timeCapsule.manualUnixPlaceholder')}
-            />
-            <label class="inline-flex items-center gap-2 mt-1 text-[11px]">
-              <input type="checkbox" bind:checked={useManualUnix} />
-              <span>{t(dict, 'tools.timeCapsule.useManualUnix')}</span>
-            </label>
+          </dl>
+          <div class="field">
+            <label class="label" for="tc-manual-unix">{t(dict, 'tools.timeCapsule.manualUnix')}</label>
+            <input id="tc-manual-unix" type="number" inputmode="numeric" class="input input--mono" bind:value={manualUnix} placeholder={t(dict, 'tools.timeCapsule.manualUnixPlaceholder')} />
           </div>
+          <label class="check">
+            <input type="checkbox" bind:checked={useManualUnix} />
+            <span>{t(dict, 'tools.timeCapsule.useManualUnix')}</span>
+          </label>
         </div>
       </details>
 
-      {#if ciphertext}
-        <div class="space-y-2">
-          <label class="label block" for="tc-output">
-            {t(dict, 'tools.timeCapsule.ciphertext')}
-          </label>
-          <textarea
-            id="tc-output"
-            class="input min-h-[180px] resize-vertical font-mono text-[11px]"
-            readonly
-            value={ciphertext}
-          ></textarea>
-        </div>
-      {/if}
-    </div>
-  {:else}
-    <div class="space-y-6">
-      <div class="space-y-2">
-        <label class="label block" for="tc-cipher">
-          {t(dict, 'tools.timeCapsule.ciphertext')}
-        </label>
-        <textarea
-          id="tc-cipher"
-          class="input min-h-[160px] resize-vertical font-mono text-[11px]"
-          bind:value={decryptInput}
-          placeholder={t(dict, 'tools.timeCapsule.pastePlaceholder')}
-        ></textarea>
-      </div>
-
-      <button class="btn w-full md:w-auto" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
-        {#if decryptLoading}
-          {t(dict, 'tools.timeCapsule.decrypting')}
-        {:else}
-          {t(dict, 'tools.timeCapsule.openCapsule')}
-        {/if}
+      <button class="btn w-full" type="button" on:click={handleEncrypt} disabled={loading}>
+        {loading ? t(dict, 'tools.timeCapsule.encrypting') : t(dict, 'tools.timeCapsule.lockMessage')}
       </button>
-
+      {#if error}
+        <p class="status status--error" role="alert">{error}</p>
+      {/if}
+      {#if ciphertext}
+        <div class="field">
+          <div class="output-head">
+            <label class="label" for="tc-output">{t(dict, 'tools.timeCapsule.ciphertext')}</label>
+            <CopyButton text={ciphertext} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+          </div>
+          <textarea id="tc-output" class="input input--mono min-h-44" readonly value={ciphertext}></textarea>
+        </div>
+      {/if}
+    {:else}
+      <div class="field">
+        <label class="label" for="tc-cipher">{t(dict, 'tools.timeCapsule.ciphertext')}</label>
+        <textarea id="tc-cipher" class="input input--mono min-h-40" bind:value={decryptInput} placeholder={t(dict, 'tools.timeCapsule.pastePlaceholder')}></textarea>
+      </div>
+      <button class="btn w-full" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
+        {decryptLoading ? t(dict, 'tools.timeCapsule.decrypting') : t(dict, 'tools.timeCapsule.openCapsule')}
+      </button>
       {#if decryptError}
-        <p class="text-xs text-red-500">{decryptError}</p>
+        <p class="status status--error" role="alert">{decryptError}</p>
       {/if}
-
       {#if countdownTarget}
-        <div class="rounded-2xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-6 text-center">
-          <div class="text-[11px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2">
-            {t(dict, 'tools.timeCapsule.tooEarly').split('{time}')[0].replace(/\.?\s*$/, '')}
-          </div>
-          <div class="text-3xl font-extrabold font-mono tracking-wider text-zinc-900 dark:text-zinc-100">
-            {countdownDisplay}
-          </div>
-          <div class="text-[10px] text-zinc-400 mt-2">
-            {new Date(countdownTarget * 1000).toLocaleString()}
+        <div class="status status--warn" role="status">
+          <div>
+            <p class="status__title">{t(dict, 'tools.timeCapsule.tooEarly').split('{time}')[0].replace(/\.?\s*$/, '')}</p>
+            <p class="mt-1 font-mono text-2xl font-bold tabular-nums text-text">{countdownDisplay}</p>
+            <p class="status__detail">{new Date(countdownTarget * 1000).toLocaleString()}</p>
           </div>
         </div>
       {/if}
-
       {#if decrypted}
-        <div class="space-y-2">
-          <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-500">{t(dict, 'tools.timeCapsule.decryptedMessage')}</h3>
-          <div class="card p-4 text-left text-sm font-mono whitespace-pre-wrap break-words">
-            {decrypted}
+        <div class="field">
+          <div class="output-head">
+            <span class="label" id="tc-decrypted-label">{t(dict, 'tools.timeCapsule.decryptedMessage')}</span>
+            <CopyButton text={decrypted} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
           </div>
+          <output class="output output--ok break-words" aria-labelledby="tc-decrypted-label" aria-live="polite">{decrypted}</output>
         </div>
       {/if}
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
   import { t } from '../../lib/t';
+  import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -154,128 +155,65 @@
     img.src = imageUrl;
   }
 </script>
-
-<div class="space-y-6">
-  <div class="tab-bar">
-    <button
-      on:click={() => mode = 'encode'}
-      class="tab-btn {mode === 'encode' ? 'tab-btn-active' : ''}"
-    >
-      {t(dict, 'tools.steganography.encode')}
-    </button>
-    <button
-      on:click={() => mode = 'decode'}
-      class="tab-btn {mode === 'decode' ? 'tab-btn-active' : ''}"
-    >
-      {t(dict, 'tools.steganography.decode')}
-    </button>
+<div class="stack">
+  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.steganography.h1')}>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="stego-panel" on:click={() => mode = 'encode'}>{t(dict, 'tools.steganography.encode')}</button>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="stego-panel" on:click={() => mode = 'decode'}>{t(dict, 'tools.steganography.decode')}</button>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-    <div class="space-y-4">
-      <input
-        bind:this={fileInput}
-        type="file"
-        accept="image/*"
-        on:change={handleImageFile}
-        class="hidden"
-      />
-      <button
-        type="button"
-        on:click={triggerFileSelect}
-        class="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 text-center bg-white dark:bg-zinc-900/40 hover:border-emerald-400 dark:hover:border-emerald-500/50 transition-colors cursor-pointer group aspect-video flex flex-col items-center justify-center overflow-hidden"
-      >
+  <div id="stego-panel" role="tabpanel" class="grid gap-6 md:grid-cols-2">
+    <div class="stack">
+      <div class="field">
+        <span class="label">{t(dict, 'tools.steganography.sourceImage')}</span>
+        <label class="dropzone aspect-video" class:dropzone--active={!!imageUrl} for="stego-file">
+          {#if encodedImageUrl}
+            <img src={encodedImageUrl} alt={t(dict, 'tools.steganography.encodedResultAlt')} />
+          {:else if imageUrl}
+            <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} />
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <span class="dropzone__title">{t(dict, 'tools.steganography.sourceImage')}</span>
+            <span>{t(dict, 'tools.steganography.pngRecommended')}</span>
+          {/if}
+          <input id="stego-file" bind:this={fileInput} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
+        </label>
+      </div>
+      {#if status}
+        <p class="status" role="status">{status}</p>
+      {/if}
+    </div>
+
+    <div class="stack">
+      {#if mode === 'encode'}
+        <div class="field">
+          <label class="label" for="stego-message">{t(dict, 'tools.steganography.secretMessage')}</label>
+          <textarea id="stego-message" bind:value={message} placeholder={t(dict, 'tools.steganography.messagePlaceholder')} class="input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        </div>
+        <div class="field">
+          <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
+          <input id="stego-password" type="password" bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} class="input" autocomplete="new-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+        </div>
+        <button type="button" on:click={encode} class="btn w-full">{t(dict, 'tools.steganography.injectPixels')}</button>
         {#if encodedImageUrl}
-          <img src={encodedImageUrl} alt={t(dict, 'tools.steganography.encodedResultAlt')} class="max-h-full max-w-full object-contain" />
-        {:else if imageUrl}
-          <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} class="max-h-full max-w-full object-contain" />
-        {:else}
-          <div class="space-y-2">
-            <div class="text-sm text-zinc-500 group-hover:text-emerald-500 transition-colors">
-              {t(dict, 'tools.steganography.sourceImage')}
+          <button type="button" on:click={downloadEncoded} class="btn-secondary w-full">{t(dict, 'tools.steganography.downloadEncrypted')}</button>
+        {/if}
+      {:else}
+        <div class="field">
+          <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
+          <input id="stego-password" type="password" bind:value={password} placeholder={t(dict, 'tools.steganography.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+        </div>
+        <button type="button" on:click={decode} class="btn w-full">{t(dict, 'tools.steganography.scanPixels')}</button>
+        {#if decodedMessage}
+          <div class="field">
+            <div class="output-head">
+              <span class="label" id="stego-out-label">{t(dict, 'tools.steganography.foundMessage')}</span>
+              <CopyButton text={decodedMessage} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
             </div>
-            <div class="text-xs text-zinc-400 dark:text-zinc-600 italic">{t(dict, 'tools.steganography.pngRecommended')}</div>
+            <output class="output output--ok min-h-32 break-words" aria-labelledby="stego-out-label" aria-live="polite">{decodedMessage}</output>
           </div>
         {/if}
-      </button>
-      {#if status}
-        <div class="text-xs text-emerald-600 dark:text-emerald-400/80 italic">
-          {status}
-        </div>
-      {/if}
-    </div>
-
-    <div class="space-y-4">
-      {#if mode === 'encode'}
-        <div class="grid gap-4">
-          <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.steganography.secretMessage')}</label>
-            <textarea
-              bind:value={message}
-              placeholder={t(dict, 'tools.steganography.messagePlaceholder')}
-              class="input min-h-[120px] resize-none"
-              spellcheck="false"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-            ></textarea>
-          </div>
-          <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.steganography.securityPassword')}</label>
-            <input
-              type="password"
-              bind:value={password}
-              placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')}
-              class="input"
-              autocomplete="new-password"
-              spellcheck="false"
-              autocorrect="off"
-              autocapitalize="off"
-              data-lpignore="true"
-              data-1p-ignore
-            />
-          </div>
-          <button on:click={encode} class="btn w-full">
-            {t(dict, 'tools.steganography.injectPixels')}
-          </button>
-          {#if encodedImageUrl}
-            <button on:click={downloadEncoded} class="btn-outline w-full">
-              {t(dict, 'tools.steganography.downloadEncrypted')}
-            </button>
-          {/if}
-        </div>
-      {:else}
-        <div class="grid gap-4">
-          <div class="grid gap-1.5">
-            <label class="label">{t(dict, 'tools.steganography.securityPassword')}</label>
-            <input
-              type="password"
-              bind:value={password}
-              placeholder={t(dict, 'tools.steganography.decPasswordPlaceholder')}
-              class="input"
-              autocomplete="current-password"
-              spellcheck="false"
-              autocorrect="off"
-              autocapitalize="off"
-              data-lpignore="true"
-              data-1p-ignore
-            />
-          </div>
-          <button on:click={decode} class="btn-outline w-full">
-            {t(dict, 'tools.steganography.scanPixels')}
-          </button>
-          {#if decodedMessage}
-            <div class="grid gap-1.5">
-              <label class="label">{t(dict, 'tools.steganography.foundMessage')}</label>
-              <div class="result-box min-h-[120px]">
-                {decodedMessage}
-              </div>
-            </div>
-          {/if}
-        </div>
       {/if}
     </div>
   </div>
-
   <canvas bind:this={canvas} class="hidden"></canvas>
 </div>
