@@ -28,5 +28,11 @@ A pass over every page for consistency, accessibility and size. No cryptographic
 - Plain descriptions for the hide-in-image tools and token generator.
 - Applied to all seven locales. 142 unused strings removed.
 
+### Rooms
+- Aliases are language neutral: each participant sends a seed, and every viewer renders the name in their own language, so a Czech user sees "Jasný Holub" where an English user sees "Bright Dove". Colors derive from the same seed, so they match on every screen.
+- The alias is kept per room in the browser, so a reload or reconnect keeps the same name and color.
+- Call UI rebuilt in the Discord pattern: dark stage with participant tiles, speaking ring, name pill with mute state, and one bottom bar with microphone, camera, screen, settings and leave. Deafen, devices, volume and per-participant audio live in the settings drawer.
+- Whiteboard drawings are clamped to the shared sheet, the sheet is drawn with visible bounds, and the inline board inside chat gets more height.
+
 ### Removed
 - Two orphaned home components, the landing preview components, the scroll-fade script, no-op animation classes, 27 unused style rules, six font files, and the SVG social image (replaced by `public/og.png`).
