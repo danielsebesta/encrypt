@@ -2,106 +2,79 @@
 
 **Your privacy is just a click away.**
 
-Browser-first privacy toolkit: encrypt and share files, chat ephemerally, and use crypto utilities without accounts. Crypto runs in the browser; servers relay ciphertext and supporting metadata when you share, chat, or call. Localized in 7 languages.
+Free, open-source privacy tools that run in your browser. Share an encrypted file or message with a link and a password, talk in encrypted chat rooms with calls and screen sharing, draw on an encrypted whiteboard, and use fourteen developer and privacy utilities. No account, no trackers, seven languages.
 
 **Live:** [encrypt.click](https://encrypt.click)
 
-## Why it matters
+## What it does
 
-- **Encrypted share** - encrypt in the browser, send a link; storage/relays handle ciphertext only
-- **Ephemeral chat** - no server message history; optional disappearing messages; calls over TURN-only WebRTC (no direct peer IP exchange)
-- **Collaborative whiteboard** - E2E-encrypted shared canvas without an account; no server drawing history after the room empties
-- **Time Capsule** - time-lock encryption via [drand](https://drand.love/)
-- **Privacy tools** - steganography, photo/audio ciphers, AES-with-words, and more
-- **Developer tools** - JWT, bcrypt, HMAC, RSA/SSH/PGP keys, tokens, UUID/ULID, Base64
+- **Share** a file or message. It is encrypted in your browser with AES-256-GCM, the ciphertext goes to temporary storage, and the recipient opens the link and types the password. Files up to 50 MB, kept for 24 hours.
+- **Chat** in a room with a name and an optional password. Messages, calls, screen sharing and file drops are end-to-end encrypted. The server relays ciphertext and keeps no message history. Calls run over a TURN relay only, so participants never see each other's IP address.
+- **Whiteboard** on a shared canvas, synced live and end-to-end encrypted. Drawings live only in the participants' browsers.
+- **Privacy tools:** AES words, time capsule (time-lock encryption with [drand](https://drand.love/)), steganography, photo cipher, spectral cipher.
+- **Developer tools:** UUID and ULID, token generator, bcrypt, HMAC, RSA, SSH and PGP keys, JWT decoder, Base64.
 
-## Privacy model (short)
+## Privacy model
 
-| Runs in the browser | Server is involved |
+| Runs in your browser | The server is involved |
 | --- | --- |
-| Encryption / decryption, key generation, most standalone tools | Short links, ciphertext upload (R2 + server-side fallbacks), drand proxy, realtime rooms (chat / whiteboard), TURN credentials for calls |
+| Encryption and decryption, key generation, every standalone tool | Ciphertext upload, short links, the drand proxy, realtime rooms, TURN credentials for calls |
 
-Chat does not keep a server-side message history. Default mode keeps encrypted envelopes in participant browsers; disappearing modes skip local history. Details: [/security](https://encrypt.click/security).
+Chat has no server-side history. The default mode keeps encrypted envelopes in participant browsers; disappearing modes keep nothing. Participant names are random aliases rendered in each viewer's language, so a name never reveals the language someone uses. The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security.txt](https://encrypt.click/.well-known/security.txt).
 
-## Quick start
+## Run it locally
+
+Node 24.21 (`.nvmrc`) and pnpm 10 through corepack.
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev       # the site at http://localhost:4321, without chat and whiteboard rooms
 pnpm build
-pnpm preview
+pnpm preview   # the built Worker at http://localhost:4321, rooms included
+pnpm test      # unit tests
+pnpm check     # astro check
 ```
 
-Dev server: `http://localhost:4321`
+## How it is built
 
-Realtime rooms (chat, whiteboard) run as Durable Objects inside the same Worker,
-so `astro dev` serves everything except rooms. For rooms run `pnpm dev:worker`,
-which builds and starts `wrangler dev`. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
-for contributor notes.
+Astro 7 pages, Svelte 5 for the interactive tools, Tailwind CSS 4, one Cloudflare Worker with Durable Objects for the rooms (PartyServer).
 
-## Stack
+- **Design system.** Tokens, components, the tool page template and the writing rules are in [`DESIGN.md`](DESIGN.md). Every page uses only those.
+- **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The Worker picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
+- **Crypto.** `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
+- **Changes.** [`CHANGELOG.md`](CHANGELOG.md).
 
-Astro 7 · Svelte 5 · Tailwind CSS v4 · Cloudflare Workers · PartyServer
+## Deploy
 
-## Security upgrade and deployment
+Production deploys from GitHub Actions on every push to `main` ([`deploy.yml`](.github/workflows/deploy.yml)), after tests, type check and build. `pnpm run deploy` does the same from a machine logged in with `wrangler login`. The build writes assets to `dist/client` and the Worker config to `dist/server/wrangler.json`; `scripts/merge-wrangler-routes.mjs` copies the custom domains and the `run_worker_first` patterns from `wrangler.toml` into it. Deploy assets and Worker together, because the CSP hashes in `_headers` are computed from the built scripts.
 
-Use Node 24.21+ and the pinned pnpm version. Run `pnpm test`, `pnpm check`,
-`pnpm build`, and `pnpm audit` before publishing. TypeScript stays on 6.0.3
-because the current Astro/Svelte checker integrations do not support TypeScript 7.
+Repository secrets for the workflow:
 
-This version targets **Workers, not Pages**. The build writes public assets to
-`dist/client` and worker configuration to `dist/server/wrangler.json`.
-Production deploys run from GitHub Actions (`.github/workflows/deploy.yml`) on every
-push to `main`, so the build log and the deployed commit are public. The workflow needs
-the repository secrets `CLOUDFLARE_API_TOKEN` (an API token from the "Edit Cloudflare
-Workers" template) and `CLOUDFLARE_ACCOUNT_ID`. `pnpm run deploy` does the same from a
-machine logged in with `wrangler login`.
-Worker secrets: `ROOM_TURN_SECRET` (random, at least 32 characters; signs TURN grants
-issued to joined chat participants), `TURN_PROVIDER=cloudflare`,
-`CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN` (a Realtime TURN key).
-Optional: `RATE_LIMIT_SECRET` for request-budget IP hashing and `FREEIMAGE_API_KEY`
-for one of the image upload hosts. Wrangler loads `.env` automatically, so never
-name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the
-account token.
-Three Durable Object migrations are required: `SECURITY_BUDGET` (shared request
-budgets; expensive APIs fail closed if it cannot be reached), `CHAT` and
-`WHITEBOARD` (PartyServer rooms, reached at `/parties/main/<room>` and
-`/parties/whiteboard/<room>` on the site origin). The hosted PartyKit platform is
-no longer used; delete the old `encrypt-click` PartyKit project after cutover.
-Per-client and global per-minute request ceilings live in `src/worker.ts`;
-review them against expected traffic before deployment. `/api/*` and `/parties/*`
-reject cross-site browser requests (`Sec-Fetch-Site` / `Origin`), so other
-websites cannot drive visitors' browsers through the relays.
+| Secret | Purpose |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | API token from the "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Account id |
 
-New rooms use a separate password-derived authorization capability and channel
-identifier. The relay receives that capability, so it could attempt an offline
-guess of a weak typed password; room creation therefore requires at least 12
-characters or the generated passphrase. Old clients and old room-name-only links
-are intentionally incompatible; create and share a new room. Without a chosen
-password, the full `#k=...` link carries a random 256-bit secret. Do not send
-that full link to a shortener. Existing encrypted files and text remain
-readable; long legacy file metadata is recovered after authentication. Old Photo
-Cipher images retain their original password weakness: decrypt and re-encode
-them to use the new public permutation format. Empty chat rooms delete their
-stored configuration after seven days.
+Worker secrets:
 
-Set a random **at least 32-byte** `ROOM_TURN_SECRET` Worker secret. Never use a
-`PUBLIC_` environment variable for it. It also keys the per-client request
-budget hashes (override with `RATE_LIMIT_SECRET`). TURN issuance requires a
-short-lived signed room grant and issues credentials valid for at most five
-minutes. Configure Cloudflare TURN or coturn as before; reusable Metered
-credentials are disabled. TURN provider bandwidth/allocation quotas and billing
-alerts must also be configured at the provider: a web request budget cannot cap
-traffic on an already allocated TURN connection. Without a valid grant secret,
-calls cannot obtain relay credentials.
+| Secret | Purpose |
+| --- | --- |
+| `ROOM_TURN_SECRET` | Random, at least 32 bytes. Signs the short-lived TURN grants issued to room participants and keys the per-client request budget hashes. Never expose it as a `PUBLIC_` variable. |
+| `TURN_PROVIDER` | `cloudflare` |
+| `CLOUDFLARE_TURN_TOKEN_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Cloudflare Realtime TURN key |
+| `RATE_LIMIT_SECRET` | Optional, separate key for request budget hashing |
+| `FREEIMAGE_API_KEY` | Optional, one of the image upload hosts |
 
-Rebuild and deploy assets together so CSP hashes match. Fixed script URLs now
-revalidate and use a new cache key; the service worker retires old application
-caches. The deployment manifest is a same-origin consistency check, not
-independent proof that browser code or a compromised host is authentic; pages
-no longer contact GitHub from visitors' browsers (the star count is fetched at
-build time or by the Worker). Link ciphertext remains in the URL fragment and is
-never sent to shorteners.
+Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
+
+Durable Object classes: `SECURITY_BUDGET` (shared per-minute request budgets; the expensive APIs fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main/<room>` and `/parties/whiteboard/<room>`). The per-client and global ceilings are in `src/worker.ts`. `/api/*` and `/parties/*` reject cross-site browser requests.
+
+## Operational notes
+
+- Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires at least 12 characters or the generated passphrase. Without a password the full `#k=…` link carries a random 256-bit secret; never send that link through a shortener.
+- TURN credentials are valid for five minutes and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
+- The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
+- Empty chat rooms delete their stored configuration after seven days.
 
 ## Contributing
 

@@ -2,8 +2,7 @@
 
 ## Setup
 
-- Node.js 24.21+ (see `.nvmrc`)
-- pnpm 10
+Node 24.21 (`.nvmrc`) and pnpm 10 through corepack.
 
 ```bash
 git clone https://github.com/danielsebesta/encrypt.git
@@ -12,43 +11,44 @@ pnpm install
 pnpm dev
 ```
 
-Before opening a PR, run `pnpm test`, `pnpm check`, `pnpm build`, and `pnpm audit`.
-For manual browser checks of chat and whiteboard, run `pnpm dev:worker` (wrangler
-dev with the Durable Object rooms on port 8787).
+`pnpm dev` serves the site at `http://localhost:4321` without the chat and whiteboard rooms. `pnpm build && pnpm preview` runs the built Worker with the rooms. Calls need a TURN provider, so they only work on a deployed Worker with the secrets from the README.
 
-Realtime (chat / whiteboard) rooms are PartyServer Durable Objects in `src/worker.ts`;
-`astro dev` does not run them, `pnpm dev:worker` does.
+Before opening a pull request run `pnpm test`, `pnpm check`, `pnpm build` and `pnpm audit`. CI runs the same four on every pull request and `main` requires that check to pass.
 
 ## Rules
 
-- Do not hardcode user-facing English - put UI strings in `src/locales/*.json` (`en.json` is the source of truth; keep all 7 locales in sync).
-- Keep crypto in `src/lib/crypto.ts` or `src/lib/ghost/`.
-- Prefer existing UI patterns over new abstractions.
-- Check affected pages across locales when changing public flows.
+- **No hardcoded user-facing text.** Every string goes to `src/locales/*.json`. `en.json` is the source of truth; add the key to all seven files in the same change.
+- **Use the design system.** Tokens, component classes, the tool page template and the writing rules are in [`DESIGN.md`](DESIGN.md). Do not add parallel styles or one-off components.
+- **Keep crypto where it is.** `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and `party/`. A UI change must not touch key handling, data formats or network behavior; if it has to, say so in the pull request.
+- **Accessibility is part of done.** Every control has a label, icon-only buttons have `aria-label`, errors use `role="alert"`, results use `role="status"`, inputs are 16 px, and a page works at 320 px, with the keyboard, and in both themes.
+- **Commits are yours.** Write them in your own name, one concern per commit, no tool or bot co-author trailers.
 
-## Where things live (light map)
+## Where things live
 
 | Path | Purpose |
 | --- | --- |
-| `src/components/tools/` | Interactive tool UIs (+ `ToolHelp` for the `?` dialog) |
-| `src/pages/tools/` | Tool page wrappers |
-| `src/lib/tools.ts` | Tool registry / nav |
-| `src/locales/` | Flat UI translations |
-| `src/lib/ghost/` + `src/pages/api/ghost/` | Encrypted upload / decrypt |
-| `party/` | Room logic (chat, whiteboard) and the PartyServer Durable Object wrappers |
+| `src/components/tools/` | Interactive tools, `ToolHelp.svelte` is the `?` dialog |
+| `src/pages/tools/` | Tool pages, all on the same shell |
+| `src/lib/tools.ts` | Tool registry for navigation and the home page |
+| `src/locales/` | Flat UI dictionaries, seven languages |
+| `src/lib/locale.ts` | Server-side language negotiation used by `src/worker.ts` |
+| `src/lib/alias.ts` | Language-neutral participant aliases and colors |
+| `src/styles/global.css` | Tokens and component classes |
+| `src/lib/ghost/`, `src/pages/api/ghost/` | Encrypted upload, fetch and verification |
+| `party/` | Chat and whiteboard rooms, PartyServer Durable Objects |
+| `tests/` | Unit tests, run with `pnpm test` |
 
 ## Adding a tool
 
-1. Svelte component in `src/components/tools/`
-2. Astro page in `src/pages/tools/` with `<ToolHelp client:load locale={locale} prefix="tools.myTool" />` next to the title
-3. Registry entry in `src/lib/tools.ts` (`developer` or `privacy`)
-4. Locale keys in all 7 files, including short help copy:
-   - `tools.myTool.help.what`
-   - `tools.myTool.help.safe`
-   - optional `tools.myTool.help.watchOut`
+1. Create the Svelte component in `src/components/tools/` using only the classes from `DESIGN.md`: input, options behind a disclosure, one primary button, status, result with copy or download.
+2. Copy any file in `src/pages/tools/` and change the component import and the `tools.<name>` prefix.
+3. Register the slug in `src/lib/tools.ts` under `developer` or `privacy`.
+4. Add to all seven locale files: `nav.tool.<name>`, `tools.<name>.h1` (same text as the navigation label), `.subtitle`, `.meta.title`, `.meta.description`, `.help.what`, `.help.safe` and optionally `.help.watchOut`.
 
 ## Pull requests
 
-1. Branch → change → `pnpm build`
-2. Spot-check affected locales
-3. Open a PR with a short summary of user-visible changes
+1. Branch from `main`, make the change, run the four commands above.
+2. Check the affected pages in at least one non-English locale at 320 px and 1280 px, light and dark.
+3. Open a pull request with a short summary of what a user will notice.
+
+Merging to `main` deploys to production. Dependency updates come from Dependabot once a week; minor and patch updates merge on their own after the checks pass, majors wait for a review.
