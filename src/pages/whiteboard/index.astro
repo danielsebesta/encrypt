@@ -14,15 +14,21 @@ export const prerender = true;
   title={t(dict, 'whiteboard.meta.createTitle')}
   description={t(dict, 'whiteboard.meta.createDescription')}
 >
-  <div class="max-w-lg mx-auto px-5 py-12 md:py-20 text-center">
-    <div class="mb-8 space-y-3">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight">
-        {t(dict, 'whiteboard.pageTitle')} <span class="text-emerald-500">{t(dict, 'whiteboard.pageTitleHighlight')}</span>
-      </h1>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm mx-auto">
-        {t(dict, 'whiteboard.pageSubtitle')}
-      </p>
+  <div class="page page--narrow">
+    <header class="page-head">
+      <h1 class="page-title">{t(dict, 'whiteboard.pageTitle')} {t(dict, 'whiteboard.pageTitleHighlight')}</h1>
+      <p class="page-lead">{t(dict, 'whiteboard.pageSubtitle')}</p>
+    </header>
+    <div class="panel">
+      <WhiteboardCreate client:idle locale={locale} dict={clientDict} />
     </div>
-    <WhiteboardCreate client:idle locale={locale} dict={clientDict} />
+    <details class="more mt-6">
+      <summary>{t(dict, 'whiteboard.howItWorks')}</summary>
+      <ol class="steps more__body">
+        <li>{t(dict, 'whiteboard.howStep1')}</li>
+        <li>{t(dict, 'whiteboard.howStep2')}</li>
+        <li>{t(dict, 'whiteboard.howStep3')}</li>
+      </ol>
+    </details>
   </div>
 </Layout>

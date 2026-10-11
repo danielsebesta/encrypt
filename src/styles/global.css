@@ -830,6 +830,37 @@ html.dark {
         @apply mt-1.5;
     }
 
+    /* ── Choice cards (radio) ── */
+
+    .choice-list {
+        @apply grid gap-2;
+    }
+
+    .choice {
+        @apply flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface px-3.5 py-3;
+        transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+    }
+
+    .choice:hover {
+        @apply border-accent;
+    }
+
+    .choice--active {
+        @apply border-accent bg-accent-weak;
+    }
+
+    .choice input {
+        @apply mt-0.5 shrink-0;
+    }
+
+    .choice__title {
+        @apply block text-sm font-bold text-text;
+    }
+
+    .choice__hint {
+        @apply mt-0.5 block text-sm leading-snug text-muted;
+    }
+
     /* ── Share and decrypt ── */
 
     .ue-qr {
@@ -934,28 +965,6 @@ html.dark {
     }
 
     @media (max-width: 767px) {
-    }
-
-    .ue-passphrase-box {
-        @apply flex items-center gap-2 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-3 py-2;
-    }
-
-    .ue-passphrase-refresh {
-        @apply cursor-pointer flex-none p-1 rounded-md text-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 transition-colors;
-    }
-
-    .ue-passphrase-refresh:active svg {
-        transform: rotate(-180deg);
-        transition: transform 0.3s;
-    }
-
-    .ue-passphrase-input {
-        @apply w-full bg-transparent text-sm font-medium text-emerald-700 dark:text-emerald-400;
-        outline: none;
-    }
-
-    .ue-passphrase-input::placeholder {
-        @apply text-emerald-400/50 dark:text-emerald-600/60;
     }
 
     .tool-hero {
