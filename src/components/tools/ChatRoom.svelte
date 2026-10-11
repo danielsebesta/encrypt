@@ -5,6 +5,7 @@
   const encryptMessage = (key: CryptoKey, text: string) => sealMessage(key, stampPayload(text, channelId));
   import { randomIndex } from "../../lib/random";
   import { roomCredentials, safeColor, ReplayWindow } from "../../lib/roomAccess";
+  import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   let accessToken = "";
   let channelId = "";
   const replay = new ReplayWindow();
@@ -13,7 +14,7 @@
   import Whiteboard from './Whiteboard.svelte';
   import {
     deriveKeyFromPassword,
-    encryptMessage as sealMessage, decryptMessage, generateIdentity, nameToGradient,
+    encryptMessage as sealMessage, decryptMessage,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import ToolHelp from './ToolHelp.svelte';
@@ -34,6 +35,7 @@
     sender: string;
     initials: string;
     color: string;
+    alias?: Alias;
     mine: boolean;
     time: number;
     ttl: number;
@@ -90,6 +92,7 @@
     text: string;
     sender: string;
     color: string;
+    alias?: [number, number, number];
     time: number;
     file?: { name: string; size: number; urls: string[] };
   };
@@ -101,6 +104,7 @@
     password: string;
     sender: string;
     color: string;
+    alias?: Alias;
     createdAt: number;
   };
 
@@ -111,6 +115,7 @@
     name: string;
     initials: string;
     color: string;
+    alias?: Alias;
     pc: RTCPeerConnection;
     audioTransceiver: RTCRtpTransceiver | null;
     videoTransceiver: RTCRtpTransceiver | null;
@@ -136,6 +141,7 @@
     from: string;
     fromName: string;
     fromColor: string;
+    fromAlias?: [number, number, number];
     to?: string;
     mode?: CallMode;
     reply?: boolean;
@@ -157,6 +163,7 @@
     from: string;
     name: string;
     color: string;
+    alias?: Alias;
   };
 
   type ServerQuality = 'unknown' | 'good' | 'fair' | 'poor' | 'offline';
@@ -222,7 +229,16 @@
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
-  let identity = generateIdentity(locale);
+  const alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
+  const identity = { name: aliasName(dict, alias), color: aliasColor(alias) };
+
+  function senderInfo(p: any, fallbackName = '', fallbackColor = '') {
+    const al = parseAlias(p?.alias ?? p?.fromAlias) ?? undefined;
+    const raw = typeof p?.sender === 'string' ? p.sender : typeof p?.fromName === 'string' ? p.fromName : '';
+    const name = al ? aliasName(dict, al) : (raw.trim() || fallbackName || t(dict, 'chat.guest'));
+    const color = al ? aliasColor(al) : safeColor(p?.color ?? p?.fromColor ?? fallbackColor);
+    return { name, color, alias: al, initials: getInitials(name), key: al ? aliasKey(al) : name };
+  }
   let messages: Message[] = [];
   let inputText = '';
   let connected = false;
@@ -234,7 +250,7 @@
   let passwordInput = '';
   let passwordError = '';
   let serverRawPresence = 0;
-  let typing: { sender: string; initials: string; color: string } | null = null;
+  let typing: { sender: string; initials: string; color: string; alias?: Alias } | null = null;
   let typingTimeout: ReturnType<typeof setTimeout>;
   let blurred = false;
   let roomConfig: RoomConfig = { mode: 'live', authMode: 'fragment', createdAt: 0 };
@@ -244,7 +260,7 @@
   let localHistoryLoaded = false;
   const seenMessageIds = new Set<string>();
   let decryptFailCount = 0;
-  let onlineUsers: { name: string; initials: string; color: string }[] = [];
+  let onlineUsers: { key: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
   let lastWrongPasswordNotice = 0;
   let uploading = false;
   let fileInputEl: HTMLInputElement;
@@ -467,7 +483,7 @@
 
   function resumeVisibleCallMedia() {
     if (typeof document === 'undefined') return;
-    const mediaNodes = document.querySelectorAll<HTMLMediaElement>('.chat-call-video, .chat-call-fullscreen__video, .chat-call-tile audio');
+    const mediaNodes = document.querySelectorAll<HTMLMediaElement>('.call__video, .chat-call-fullscreen__video, .call__tile audio');
     mediaNodes.forEach((node) => ensureMediaElementPlaying(node));
   }
 
@@ -1061,6 +1077,7 @@
       from: clientId,
       fromName: identity.name,
       fromColor: identity.color,
+      fromAlias: aliasWire(alias),
       mode: 'audio',
       audio: !micMuted,
       video: screenSharing || !cameraOff,
@@ -1284,11 +1301,13 @@
   function normalizeWhiteboardInvite(parsed: any): WhiteboardInvite | null {
     if (!parsed || typeof parsed.roomId !== 'string' || typeof parsed.password !== 'string') return null;
     if (!parsed.roomId.trim() || !parsed.password.trim()) return null;
+    const who = senderInfo(parsed, '', 'var(--accent)');
     return {
       roomId: parsed.roomId,
       password: parsed.password,
-      sender: typeof parsed.sender === 'string' && parsed.sender.trim() ? parsed.sender : t(dict, 'chat.guest'),
-      color: typeof parsed.color === 'string' && parsed.color.trim() ? parsed.color : 'var(--accent)',
+      sender: who.name,
+      color: who.color,
+      alias: who.alias,
       createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
     };
   }
@@ -1300,6 +1319,7 @@
       text: '',
       sender: invite.sender,
       initials: getInitials(invite.sender),
+      alias: invite.alias,
       color: invite.color,
       mine,
       time: Date.now(),
@@ -1320,6 +1340,7 @@
       password: genAutoPassword(),
       sender: identity.name,
       color: identity.color,
+      alias,
       createdAt: Date.now(),
     };
     const msgId = `whiteboard-${genId()}`;
@@ -1348,6 +1369,7 @@
         text: msg.text,
         sender: msg.sender,
         color: msg.color,
+        alias: msg.alias ? aliasWire(msg.alias) : undefined,
         time: msg.time || Date.now(),
         file: msg.file ? { name: msg.file.name, size: msg.file.size, urls: msg.file.urls } : undefined,
       }));
@@ -1365,15 +1387,16 @@
     const incoming: Message[] = [];
     for (const item of syncMessages as LiveSyncMessage[]) {
       if (!item?.id || seenMessageIds.has(item.id)) continue;
-      const sender = item.sender || t(dict, 'chat.guest');
+      const who = senderInfo(item, '', 'var(--accent)');
       const createdAt = item.time || Date.now();
       seenMessageIds.add(item.id);
       incoming.push({
         id: item.id,
         text: item.text || '',
-        sender,
-        initials: getInitials(sender),
-        color: item.color || 'var(--accent)',
+        sender: who.name,
+        initials: who.initials,
+        alias: who.alias,
+        color: who.color,
         mine: false,
         time: createdAt,
         ttl: 0,
@@ -1557,7 +1580,7 @@
     }
 
     verificationChallenge = crypto.randomUUID();
-    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, clientId }));
+    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), clientId }));
     ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
   }
 
@@ -1766,7 +1789,8 @@
       // Typing indicator
       if (parsed.type === 'typing') {
         if (fromHistory) return true;
-        typing = { sender: parsed.sender, initials: getInitials(parsed.sender), color: parsed.color };
+        const who = senderInfo(parsed);
+        typing = { sender: who.name, initials: who.initials, color: who.color, alias: who.alias };
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { typing = null; }, 3000);
         return true;
@@ -1776,14 +1800,15 @@
       if (parsed.type === 'verify') {
         if (fromHistory) return true;
         if (cryptoKey && ws && typeof parsed.challenge === 'string') {
-          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, clientId }));
+          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), clientId }));
           ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
         }
         if (callActive) void sendCallSignal({ action: 'presence' });
-        addOnlineUser(parsed.sender, parsed.color);
+        const joiner = senderInfo(parsed);
+        addOnlineUser(joiner);
         void sendLiveHistorySync();
         messages = [...messages, {
-          id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', parsed.sender), sender: '', initials: '→',
+          id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
           color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
         }];
         scrollToBottom();
@@ -1794,7 +1819,7 @@
       if (parsed.type === 'verify-ack') {
         if (fromHistory || parsed.challenge !== verificationChallenge) return true;
         if (verifying) markVerified();
-        addOnlineUser(parsed.sender, parsed.color);
+        addOnlineUser(senderInfo(parsed));
         return true;
       }
 
@@ -1821,12 +1846,14 @@
 
       const id = parsed.id || genId();
       const ttl = parsed.ttl || 0;
+      const who = senderInfo(parsed, '', 'var(--accent)');
       const msg: Message = {
         id,
         text: parsed.text || '',
-        sender: parsed.sender || t(dict, 'chat.guest'),
-        initials: getInitials(parsed.sender || t(dict, 'chat.guest')),
-        color: parsed.color || 'var(--accent)',
+        sender: who.name,
+        initials: who.initials,
+        alias: who.alias,
+        color: who.color,
         mine: false,
         time: parsed.createdAt || Date.now(),
         ttl,
@@ -1876,6 +1903,7 @@
       text,
       sender: identity.name,
       color: identity.color,
+      alias: aliasWire(alias),
       ttl: finalTtl,
       createdAt,
     };
@@ -1892,7 +1920,7 @@
     seenMessageIds.add(msgId);
 
     messages = [...messages, {
-      id: msgId, text, sender: identity.name, initials: myInitials,
+      id: msgId, text, sender: identity.name, initials: myInitials, alias,
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
       revealed: true,
@@ -1992,6 +2020,7 @@
         text: '',
         sender: identity.name,
         color: identity.color,
+        alias: aliasWire(alias),
         ttl: fileTtl,
         createdAt,
         file: { name: file.name, size: file.size, urls: uploadUrls },
@@ -2009,7 +2038,7 @@
       seenMessageIds.add(msgId);
 
       const ownMsg: Message = {
-        id: msgId, text: '', sender: identity.name, initials: myInitials,
+        id: msgId, text: '', sender: identity.name, initials: myInitials, alias,
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls },
@@ -2062,7 +2091,7 @@
     const now = Date.now();
     if (now - typingSent > 3000) {
       // Send typing indicator as encrypted message (no leaking to wrong-password users)
-      const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', sender: identity.name, color: identity.color }));
+      const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
       ws.send(JSON.stringify({ type: 'message', payload, id: 'typing-' + genId() }));
       typingSent = now;
     }
@@ -2100,11 +2129,12 @@
     }
   }
 
-  function ensureCallPeer(peerId: string, name: string, color: string): CallPeer {
+  function ensureCallPeer(peerId: string, name: string, color: string, peerAlias?: Alias): CallPeer {
     let peer = callPeerMap.get(peerId);
     if (peer) {
       peer.name = name || peer.name;
       peer.color = color || peer.color;
+      peer.alias = peerAlias ?? peer.alias;
       peer.initials = getInitials(peer.name);
       syncCallPeers();
       return peer;
@@ -2125,6 +2155,7 @@
       id: peerId,
       name: name || t(dict, 'chat.guest'),
       initials: getInitials(name || t(dict, 'chat.guest')),
+      alias: peerAlias,
       color: color || 'var(--accent)',
       pc,
       audioTransceiver,
@@ -2301,7 +2332,7 @@
     if (!signal.sdp) return;
     const remoteSdp = sanitizeRelayDescription(signal.sdp);
     if (!remoteSdp) return;
-    const peer = ensureCallPeer(signal.from, signal.fromName, signal.fromColor);
+    const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
     try {
       if (peer.pc.signalingState !== 'stable') {
         await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
@@ -2386,8 +2417,9 @@
       if (callActive || callNoticeDismissed) return;
       activeCallNotice = {
         from: signal.from,
-        name: signal.fromName,
-        color: signal.fromColor,
+        name: senderInfo(signal).name,
+        color: senderInfo(signal).color,
+        alias: senderInfo(signal).alias,
       };
     };
 
@@ -2402,7 +2434,7 @@
         return;
       }
 
-      const peer = ensureCallPeer(signal.from, signal.fromName, signal.fromColor);
+      const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
       peer.muted = signal.audio === false;
       peer.cameraOff = signal.video === false;
       peer.screenSharing = signal.screen === true;
@@ -3046,9 +3078,9 @@
     }
   }
 
-  function addOnlineUser(name: string, color: string) {
-    if (!onlineUsers.find(u => u.name === name)) {
-      onlineUsers = [...onlineUsers, { name, initials: getInitials(name), color }];
+  function addOnlineUser(user: { key: string; name: string; color: string; alias?: Alias; initials: string }) {
+    if (!onlineUsers.find(u => u.key === user.key)) {
+      onlineUsers = [...onlineUsers, user];
     }
   }
 
@@ -3193,9 +3225,9 @@
       <div class="flex items-center gap-2">
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
-          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(identity.name)}" title={identity.name}>{myInitials}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias)}" title={identity.name}>{myInitials}</div>
           {#each onlineUsers as user}
-            <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(user.name)}" title={user.name}>{user.initials}</div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
           {/each}
         </div>
       </div>
@@ -3206,7 +3238,7 @@
           <span>{shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}</span>
         </button>
         <ToolHelp dict={dict} prefix="chat" sections={chatHelpSections} />
-        <button class="chat-call-btn" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
+        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
           {:else}
@@ -3253,7 +3285,7 @@
     {#if activeCallNotice && !callActive}
       <div class="chat-call-banner">
         <div class="chat-call-banner__meta">
-          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(activeCallNotice.name)}">{getInitials(activeCallNotice.name)}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}">{getInitials(activeCallNotice.name)}</div>
           <div class="min-w-0">
             <p class="chat-call-banner__title">{t(dict, 'chat.callInProgress')}</p>
             <p class="chat-call-banner__name">{t(dict, 'chat.callInProgressBy').replace('{name}', activeCallNotice.name)}</p>
@@ -3268,211 +3300,204 @@
 
     <div class="chat-body" class:chat-body--call={callActive} class:chat-body--call-settings={callActive && callSettingsOpen}>
       {#if callActive || callError}
-        <div class="chat-call-panel" class:chat-call-panel--error={!callActive && Boolean(callError)}>
+        <div class="call" class:call--error={!callActive && Boolean(callError)}>
           {#if callActive}
-            <div class="chat-call-panel__top">
-              <div class="min-w-0">
-                <p class="chat-call-title">{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</p>
-                <p class="chat-call-subtitle">{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</p>
+            <div class="call__stage">
+              <div class="call__status" title={`${t(dict, 'chat.callServer')}: ${serverName} ${serverRegion} · ${getRelayTitle()}`}>
+                <span class="call__dot call__dot--{serverQuality}"></span>
+                <span>{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</span>
+                <span aria-hidden="true">·</span>
+                <span>{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</span>
+                {#if serverLatencyMs !== null}<span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span>{/if}
               </div>
-              <div class="chat-call-panel__right">
-                <div class="chat-call-statuses">
-                  <div class="chat-call-server" class:chat-call-server--good={serverQuality === 'good'} class:chat-call-server--fair={serverQuality === 'fair'} class:chat-call-server--poor={serverQuality === 'poor'} class:chat-call-server--offline={serverQuality === 'offline'} title={`${t(dict, 'chat.callServer')}: ${serverName} ${serverRegion}`}>
-                    <span class="chat-call-server__dot"></span>
-                    <span>{serverLatencyMs !== null ? `${serverLatencyMs} ms` : getServerQualityLabel(serverQuality)}</span>
-                  </div>
-                  <div class="chat-call-server chat-call-server--relay" class:chat-call-server--good={relayQuality === 'good'} class:chat-call-server--fair={relayQuality === 'fair'} class:chat-call-server--poor={relayQuality === 'poor'} class:chat-call-server--offline={relayQuality === 'offline'} title={getRelayTitle()}>
-                    <span class="chat-call-server__dot"></span>
-                    <span>{t(dict, 'chat.callRelay')}</span>
-                    <span class="chat-call-server__value">{getRelayStatusLabel()}</span>
-                  </div>
-                </div>
-              <div class="chat-call-controls">
-              <button class="chat-call-control" class:chat-call-control--active={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={toggleMic}>
-                {#if micMuted}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                {/if}
-              </button>
-              <button class="chat-call-control" class:chat-call-control--active={callAudioMuted} title={callAudioMuted ? t(dict, 'chat.callUndeafen') : t(dict, 'chat.callDeafen')} aria-label={callAudioMuted ? t(dict, 'chat.callUndeafen') : t(dict, 'chat.callDeafen')} aria-pressed={callAudioMuted} on:click={() => setCallAudioMuted(!callAudioMuted)}>
-                {#if callAudioMuted}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                {/if}
-              </button>
-              <button class="chat-call-control" class:chat-call-control--active={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={toggleCamera}>
-                {#if cameraOff}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-                {/if}
-              </button>
-              <button class="chat-call-control" class:chat-call-control--active={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
-                {#if screenSharing}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m7 8 10 6"/><path d="m17 8-10 6"/></svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 10 4-4 4 4"/><path d="M12 6v7"/></svg>
-                {/if}
-              </button>
-              <button class="chat-call-control" class:chat-call-control--active={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.48.67 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.84 0-1.31.52-1.51 1Z"/></svg>
-              </button>
-              <button class="chat-call-control chat-call-control--end" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10.1 7.6a12.4 12.4 0 0 1 3.8 0l.6 2.7a1 1 0 0 0 .95.8h3.75a1 1 0 0 0 .98-1.2l-.48-2.38a3 3 0 0 0-2.02-2.22 18 18 0 0 0-11.36 0 3 3 0 0 0-2.02 2.22l-.48 2.38a1 1 0 0 0 .98 1.2h3.75a1 1 0 0 0 .95-.8Z"/></svg>
-              </button>
-              </div>
-              </div>
-            </div>
 
-          {#if callSettingsOpen}
-          <div class="chat-call-settings" id="chat-call-settings">
-            <div class="chat-call-settings__header">
-              <span>{t(dict, 'chat.callAudioAndDevices')}</span>
-              <button type="button" class="chat-call-settings__refresh" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
-              </button>
-            </div>
-            <div class="chat-call-device-grid">
-              <label class="chat-call-field">
-                <span>{t(dict, 'chat.callMicrophone')}</span>
-                <select bind:value={selectedAudioInputId} on:change={handleAudioInputChange}>
-                  <option value="">{t(dict, 'chat.callDefaultMicrophone')}</option>
-                  {#each audioInputDevices as device, index (device.deviceId || index)}
-                    <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callMicrophone')} ${index + 1}`}</option>
-                  {/each}
-                </select>
-              </label>
-              <label class="chat-call-field">
-                <span>{t(dict, 'chat.callCamera')}</span>
-                <select bind:value={selectedVideoInputId} on:change={handleVideoInputChange}>
-                  <option value="">{t(dict, 'chat.callDefaultCamera')}</option>
-                  {#each videoInputDevices as device, index (device.deviceId || index)}
-                    <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callCamera')} ${index + 1}`}</option>
-                  {/each}
-                </select>
-              </label>
-              {#if canSelectAudioOutput}
-              <label class="chat-call-field">
-                <span>{t(dict, 'chat.callAudioOutput')}</span>
-                <select bind:value={selectedAudioOutputId} on:change={handleAudioOutputChange}>
-                  <option value="">{t(dict, 'chat.callDefaultOutput')}</option>
-                  {#each audioOutputDevices as device, index (device.deviceId || index)}
-                    <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callAudioOutput')} ${index + 1}`}</option>
-                  {/each}
-                </select>
-              </label>
-              {/if}
-              <label class="chat-call-field chat-call-field--volume">
-                <span>{t(dict, 'chat.callVolume')}</span>
-                <input type="range" min="0" max="1" step="0.05" value={callVolume} disabled={callAudioMuted} on:input={(e) => setCallVolume((e.currentTarget as HTMLInputElement).value)} />
-              </label>
-            </div>
-            <div class="chat-call-toggles">
-              <label class="chat-call-toggle">
-                <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
-                <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
-              </label>
-            </div>
-            {#if callPeers.length > 0}
-              <div class="chat-call-peer-audio">
-                <p class="chat-call-peer-audio__title">{t(dict, 'chat.callParticipantAudio')}</p>
-                {#each callPeers as peer (peer.id)}
-                  <div class="chat-call-peer-row">
-                    <div class="chat-call-peer-row__meta">
-                      <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(peer.name)}">{peer.initials}</div>
-                      <span>{peer.name}</span>
-                    </div>
-                    <button class="chat-call-mini-control" class:chat-call-mini-control--active={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} on:click={() => setPeerAudioMuted(peer.id, !peer.audioMuted)}>
-                      {#if peer.audioMuted}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-                      {:else}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                      {/if}
-                    </button>
-                    <input type="range" min="0" max="1" step="0.05" value={peer.volume} disabled={callAudioMuted || peer.audioMuted} on:input={(e) => setPeerVolume(peer.id, (e.currentTarget as HTMLInputElement).value)} aria-label={`${t(dict, 'chat.callVolume')} ${peer.name}`} />
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-          {/if}
-
-          <div class="chat-call-grid" class:chat-call-grid--audio={!callHasVideo}>
-            <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred} class:chat-call-tile--speaking={localSpeaking && !micMuted}>
-              {#if localDisplayStream && localHasVisibleVideo}
-                <video
-                  class="chat-call-video"
-                  class:chat-call-video--contain={screenSharing}
-                  use:streamMedia={{ stream: localDisplayStream, muted: true, volume: 0 }}
-                  autoplay
-                  muted
-                  playsinline
-                  controlslist="nodownload nofullscreen noremoteplayback"
-                  disablepictureinpicture
-                  disableremoteplayback
-                  on:pause={keepCallMediaPlaying}
-                  on:contextmenu={preventMediaContextMenu}
-                ></video>
-                <button type="button" class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'local' })}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-                </button>
-              {:else}
-                <div class="chat-call-avatar" style="background: {nameToGradient(identity.name)}">{myInitials}</div>
-              {/if}
-              <div class="chat-call-label">
-                <span>{t(dict, 'chat.callYou')}</span>
-                {#if !micMuted}
-                  <span class="chat-call-level" style={`--level: ${Math.max(0.04, localAudioLevel)}`}></span>
-                {/if}
-                {#if screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if micMuted}<span>{t(dict, 'chat.callMuted')}</span>{:else if localSpeaking}<span>{t(dict, 'chat.callSpeaking')}</span>{/if}
-              </div>
-            </div>
-            {#each callPeers as peer (peer.id)}
-              <div class="chat-call-tile" class:chat-call-tile--blurred={blurCallMediaWhenAway && blurred} class:chat-call-tile--speaking={peer.speaking && !peer.muted}>
-                {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
-                  <video
-                    class="chat-call-video"
-                    class:chat-call-video--contain={peer.screenSharing}
-                    use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
-                    autoplay
-                    playsinline
-                    controlslist="nodownload nofullscreen noremoteplayback"
-                    disablepictureinpicture
-                    disableremoteplayback
-                    on:pause={keepCallMediaPlaying}
-                    on:contextmenu={preventMediaContextMenu}
-                  ></video>
-                  <button type="button" class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'peer', peerId: peer.id })}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-                  </button>
-                {:else}
-                  {#if peer.stream}
-                    <audio
-                      use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
+              <div class="call__grid" class:call__grid--audio={!callHasVideo}>
+                <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurCallMediaWhenAway && blurred}>
+                  {#if localDisplayStream && localHasVisibleVideo}
+                    <video
+                      class="call__video"
+                      class:call__video--contain={screenSharing}
+                      use:streamMedia={{ stream: localDisplayStream, muted: true, volume: 0 }}
                       autoplay
-                      controlslist="nodownload noremoteplayback"
+                      muted
+                      playsinline
+                      controlslist="nodownload nofullscreen noremoteplayback"
+                      disablepictureinpicture
                       disableremoteplayback
                       on:pause={keepCallMediaPlaying}
                       on:contextmenu={preventMediaContextMenu}
-                    ></audio>
+                    ></video>
+                    <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'local' })}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                    </button>
+                  {:else}
+                    <div class="call__avatar" style="background: {aliasGradient(alias)}">{myInitials}</div>
                   {/if}
-                  <div class="chat-call-avatar" style="background: {nameToGradient(peer.name)}">{peer.initials}</div>
-                {/if}
-                <div class="chat-call-label">
-                  <span>{peer.name}</span>
-                  {#if !peer.muted}
-                    <span class="chat-call-level" style={`--level: ${Math.max(0.04, peer.audioLevel)}`}></span>
-                  {/if}
-                  {#if peer.screenSharing}<span>{t(dict, 'chat.callScreenSharing')}</span>{:else if peer.muted}<span>{t(dict, 'chat.callMuted')}</span>{:else if peer.speaking}<span>{t(dict, 'chat.callSpeaking')}</span>{:else if peer.state !== 'connected'}<span>{peer.state}</span>{/if}
+                  <div class="call__name">
+                    <span>{t(dict, 'chat.callYou')}</span>
+                    {#if micMuted}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callMuted')}><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                    {:else}
+                      <span class="call__level" style={`--level: ${Math.max(0.04, localAudioLevel)}`}></span>
+                    {/if}
+                    {#if screenSharing}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
+                    {/if}
+                  </div>
                 </div>
+
+                {#each callPeers as peer (peer.id)}
+                  <div class="call__tile" class:call__tile--speaking={peer.speaking && !peer.muted} class:call__tile--blurred={blurCallMediaWhenAway && blurred}>
+                    {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
+                      <video
+                        class="call__video"
+                        class:call__video--contain={peer.screenSharing}
+                        use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
+                        autoplay
+                        playsinline
+                        controlslist="nodownload nofullscreen noremoteplayback"
+                        disablepictureinpicture
+                        disableremoteplayback
+                        on:pause={keepCallMediaPlaying}
+                        on:contextmenu={preventMediaContextMenu}
+                      ></video>
+                      <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'peer', peerId: peer.id })}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                      </button>
+                    {:else}
+                      {#if peer.stream}
+                        <audio
+                          use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
+                          autoplay
+                          controlslist="nodownload noremoteplayback"
+                          disableremoteplayback
+                          on:pause={keepCallMediaPlaying}
+                          on:contextmenu={preventMediaContextMenu}
+                        ></audio>
+                      {/if}
+                      <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name)}">{peer.initials}</div>
+                    {/if}
+                    <div class="call__name">
+                      <span>{peer.name}</span>
+                      {#if peer.muted}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callMuted')}><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                      {:else}
+                        <span class="call__level" style={`--level: ${Math.max(0.04, peer.audioLevel)}`}></span>
+                      {/if}
+                      {#if peer.screenSharing}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
+                      {/if}
+                      {#if peer.state !== 'connected'}<span class="call__name-state">{peer.state}</span>{/if}
+                    </div>
+                  </div>
+                {/each}
               </div>
-            {/each}
-          </div>
+            </div>
+
+            <div class="call__bar">
+              <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={toggleMic}>
+                {#if micMuted}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                {/if}
+              </button>
+              <button type="button" class="call__btn" class:call__btn--off={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={toggleCamera}>
+                {#if cameraOff}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
+                {:else}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+                {/if}
+              </button>
+              <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 10 4-4 4 4"/><path d="M12 6v7"/></svg>
+              </button>
+              <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.48.67 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.84 0-1.31.52-1.51 1Z"/></svg>
+              </button>
+              <button type="button" class="call__btn call__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" y1="2" x2="2" y2="22"/></svg>
+              </button>
+            </div>
+
+            {#if callSettingsOpen}
+              <div class="call__settings" id="chat-call-settings">
+                <div class="call__settings-head">
+                  <span>{t(dict, 'chat.callAudioAndDevices')}</span>
+                  <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
+                  </button>
+                </div>
+                <div class="call__fields">
+                  <div class="field">
+                    <label class="label" for="call-mic">{t(dict, 'chat.callMicrophone')}</label>
+                    <select id="call-mic" class="input" bind:value={selectedAudioInputId} on:change={handleAudioInputChange}>
+                      <option value="">{t(dict, 'chat.callDefaultMicrophone')}</option>
+                      {#each audioInputDevices as device, index (device.deviceId || index)}
+                        <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callMicrophone')} ${index + 1}`}</option>
+                      {/each}
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="call-cam">{t(dict, 'chat.callCamera')}</label>
+                    <select id="call-cam" class="input" bind:value={selectedVideoInputId} on:change={handleVideoInputChange}>
+                      <option value="">{t(dict, 'chat.callDefaultCamera')}</option>
+                      {#each videoInputDevices as device, index (device.deviceId || index)}
+                        <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callCamera')} ${index + 1}`}</option>
+                      {/each}
+                    </select>
+                  </div>
+                  {#if canSelectAudioOutput}
+                    <div class="field">
+                      <label class="label" for="call-out">{t(dict, 'chat.callAudioOutput')}</label>
+                      <select id="call-out" class="input" bind:value={selectedAudioOutputId} on:change={handleAudioOutputChange}>
+                        <option value="">{t(dict, 'chat.callDefaultOutput')}</option>
+                        {#each audioOutputDevices as device, index (device.deviceId || index)}
+                          <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callAudioOutput')} ${index + 1}`}</option>
+                        {/each}
+                      </select>
+                    </div>
+                  {/if}
+                  <div class="field">
+                    <label class="label" for="call-volume">{t(dict, 'chat.callVolume')}</label>
+                    <input id="call-volume" type="range" min="0" max="1" step="0.05" value={callVolume} disabled={callAudioMuted} on:input={(e) => setCallVolume((e.currentTarget as HTMLInputElement).value)} />
+                  </div>
+                </div>
+                <label class="check">
+                  <input type="checkbox" checked={callAudioMuted} on:change={(e) => setCallAudioMuted((e.currentTarget as HTMLInputElement).checked)} />
+                  <span>{t(dict, 'chat.callDeafen')}</span>
+                </label>
+                <label class="check">
+                  <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
+                  <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
+                </label>
+                {#if callPeers.length > 0}
+                  <div class="call__peers">
+                    <p class="label">{t(dict, 'chat.callParticipantAudio')}</p>
+                    {#each callPeers as peer (peer.id)}
+                      <div class="call__peer">
+                        <div class="call__peer-name">
+                          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name)}">{peer.initials}</div>
+                          <span>{peer.name}</span>
+                        </div>
+                        <button type="button" class="btn-ghost btn-sm btn-icon" class:text-danger={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-label={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-pressed={peer.audioMuted} on:click={() => setPeerAudioMuted(peer.id, !peer.audioMuted)}>
+                          {#if peer.audioMuted}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                          {:else}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                          {/if}
+                        </button>
+                        <input type="range" min="0" max="1" step="0.05" value={peer.volume} disabled={callAudioMuted || peer.audioMuted} on:input={(e) => setPeerVolume(peer.id, (e.currentTarget as HTMLInputElement).value)} aria-label={`${t(dict, 'chat.callVolume')} ${peer.name}`} />
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+                <p class="call__relay">{t(dict, 'chat.callRelay')}: {getRelayStatusLabel()}</p>
+              </div>
+            {/if}
           {/if}
           {#if callError}
-            <p class="chat-call-error">{callError}</p>
+            <p class="status status--error" role="alert">{callError}</p>
           {/if}
         </div>
       {/if}
@@ -3514,7 +3539,7 @@
         <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
           <div class="flex items-start gap-2">
             {#if !msg.mine}
-              <div class="chat-avatar" style="background: {nameToGradient(msg.sender)}">{msg.initials}</div>
+              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}">{msg.initials}</div>
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
@@ -3596,7 +3621,7 @@
 
       {#if typing}
         <div class="chat-typing">
-          <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(typing.sender)}">{typing.initials}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(typing.alias, typing.sender)}">{typing.initials}</div>
           <span style="color: {safeColor(typing.color)}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
         </div>
       {/if}
@@ -3693,6 +3718,313 @@
 </div>
 
 <style>
+  .call {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: #111214;
+    color: #f2f3f5;
+  }
+  .call--error {
+    background: transparent;
+    color: inherit;
+    padding: 0.75rem;
+  }
+  .call__stage {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .call__status {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #b5bac1;
+  }
+  .call__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #80848e;
+  }
+  .call__dot--good { background: #23a55a; }
+  .call__dot--fair { background: #f0b232; }
+  .call__dot--poor,
+  .call__dot--offline { background: #f23f43; }
+  .call__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.6rem;
+    align-content: start;
+  }
+  .call__grid--audio {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .call__tile {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    min-height: 110px;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: #2b2d31;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px transparent;
+    transition: box-shadow 0.15s ease-out;
+  }
+  .call__tile--speaking {
+    box-shadow: 0 0 0 2px #23a55a;
+  }
+  .call__tile--blurred .call__video {
+    filter: blur(14px);
+  }
+  .call__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  .call__video--contain {
+    object-fit: contain;
+  }
+  .call__avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #fff;
+  }
+  .call__name {
+    position: absolute;
+    left: 0.5rem;
+    bottom: 0.5rem;
+    max-width: calc(100% - 1rem);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 0.4rem;
+    background: rgba(0, 0, 0, 0.6);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .call__name > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .call__name svg {
+    flex: none;
+    color: #f23f43;
+  }
+  .call__name .call__name-screen {
+    color: #23a55a;
+  }
+  .call__name-state {
+    color: #b5bac1;
+    font-weight: 400;
+  }
+  .call__level {
+    flex: none;
+    width: 26px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.18);
+    overflow: hidden;
+  }
+  .call__level::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: calc(var(--level, 0) * 100%);
+    background: #23a55a;
+    transition: width 0.1s linear;
+  }
+  .call__expand {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+  }
+  .call__tile:hover .call__expand,
+  .call__expand:focus-visible {
+    opacity: 1;
+  }
+  .call__bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem 0.8rem;
+  }
+  .call__btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #2b2d31;
+    color: #f2f3f5;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
+  }
+  .call__btn:hover:not(:disabled) {
+    background: #3f4147;
+  }
+  .call__btn:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+  .call__btn--off {
+    background: #f2f3f5;
+    color: #f23f43;
+  }
+  .call__btn--off:hover:not(:disabled) {
+    background: #fff;
+  }
+  .call__btn--on {
+    background: #f2f3f5;
+    color: #111214;
+  }
+  .call__btn--on:hover:not(:disabled) {
+    background: #fff;
+  }
+  .call__btn--leave {
+    background: #f23f43;
+    color: #fff;
+  }
+  .call__btn--leave:hover:not(:disabled) {
+    background: #da373c;
+  }
+  .call__btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .call__btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+  .call__settings {
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 4.6rem;
+    max-height: calc(100% - 5.6rem);
+    z-index: 1;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    background: #2b2d31;
+    display: grid;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    overflow: auto;
+  }
+  .call__settings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+  }
+  .call__settings .label,
+  .call__settings .check {
+    color: #f2f3f5;
+  }
+  .call__settings .input {
+    background: #1e1f22;
+    border-color: #3f4147;
+    color: #f2f3f5;
+    min-height: 2.5rem;
+  }
+  .call__settings .btn-ghost {
+    color: #b5bac1;
+  }
+  .call__settings .btn-ghost:hover {
+    background: #3f4147;
+    color: #fff;
+  }
+  .call__settings .btn-ghost.text-danger {
+    color: #f23f43;
+  }
+  .call__fields {
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .call__peers {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .call__peer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.4rem 0.5rem;
+  }
+  .call__peer input[type="range"] {
+    grid-column: 1 / -1;
+    height: 2rem;
+  }
+  .call__peer-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .call__peer-name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .call__relay {
+    font-size: 0.75rem;
+    color: #b5bac1;
+  }
+  .call .status--error {
+    margin: 0.75rem;
+  }
+  .chat-body--call > .call {
+    flex: 0 1 auto;
+    max-height: 64%;
+    min-height: 240px;
+    overflow: hidden;
+  }
+  @media (max-width: 860px) {
+    .chat-body--call > .call {
+      max-height: 56%;
+    }
+    .call__btn {
+      width: 44px;
+      height: 44px;
+    }
+    .call__expand {
+      opacity: 1;
+    }
+  }
+
   .chat-container {
     display: flex;
     flex-direction: column;
@@ -3701,6 +4033,9 @@
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
+  }
+  .chat-container:has(.chat-whiteboard-panel) {
+    height: min(88dvh, 940px);
   }
   .chat-center {
     flex: 1;
@@ -3733,10 +4068,6 @@
     display: flex;
     flex-direction: column;
   }
-  .chat-body--call {
-    display: grid;
-    grid-template-columns: minmax(0, 1.22fr) minmax(280px, 0.78fr);
-  }
   .chat-thread {
     flex: 1;
     min-width: 0;
@@ -3744,17 +4075,9 @@
     display: flex;
     flex-direction: column;
   }
-  .chat-body--call .chat-thread {
-    border-left: 1px solid rgba(228, 228, 231, 0.55);
-    background: rgba(255, 255, 255, 0.3);
-  }
-  :global(.dark) .chat-body--call .chat-thread {
-    border-color: rgba(39, 39, 42, 0.55);
-    background: rgba(9, 9, 11, 0.18);
-  }
   .chat-whiteboard-panel {
-    flex: 0 0 min(430px, 58%);
-    min-height: 300px;
+    flex: 1 1 72%;
+    min-height: 320px;
     display: flex;
     flex-direction: column;
     border-bottom: 1px solid rgba(228, 228, 231, 0.55);
@@ -3868,25 +4191,6 @@
     border-color: oklch(0.7019 0.1577 160.44 / 0.16);
     background: oklch(0.7019 0.1577 160.44 / 0.09);
   }
-  .chat-call-btn {
-    width: 30px; height: 30px; border-radius: 0.5rem;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: rgb(82, 82, 91);
-    background: rgba(244, 244, 245, 0.7);
-    border: 1px solid rgba(228, 228, 231, 0.7);
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
-  }
-  :global(.dark) .chat-call-btn {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.45);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-call-btn:hover:not(:disabled) {
-    color: var(--accent);
-    background: oklch(0.7019 0.1577 160.44 / 0.08);
-    border-color: oklch(0.7019 0.1577 160.44 / 0.18);
-  }
-  .chat-call-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .chat-call-banner {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
     padding: 0.65rem 0.85rem;
@@ -3931,367 +4235,6 @@
     color: rgb(212, 212, 216);
     background: rgba(39, 39, 42, 0.65);
   }
-  .chat-call-panel {
-    min-width: 0;
-    min-height: 0;
-    padding: 0.75rem 0.85rem;
-    border-bottom: 1px solid rgba(228, 228, 231, 0.55);
-    background: rgba(250, 250, 250, 0.62);
-    overflow-y: auto;
-  }
-  .chat-body--call .chat-call-panel {
-    border-bottom: 0;
-  }
-  .chat-body--call .chat-call-panel__top {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .chat-body--call .chat-call-panel__right {
-    width: 100%;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .chat-body--call .chat-call-controls {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-  :global(.dark) .chat-call-panel {
-    border-color: rgba(39, 39, 42, 0.55);
-    background: rgba(24, 24, 27, 0.42);
-  }
-  .chat-call-panel--error {
-    background: rgba(239, 68, 68, 0.05);
-    border-color: rgba(239, 68, 68, 0.14);
-  }
-  .chat-call-panel__top {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  }
-  .chat-call-panel__right {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    flex-shrink: 0;
-  }
-  .chat-call-title {
-    font-size: 13px; line-height: 1.2; font-weight: 900;
-    color: rgb(39, 39, 42);
-  }
-  :global(.dark) .chat-call-title { color: rgb(228, 228, 231); }
-  .chat-call-subtitle { margin-top: 1px; font-size: 0.75rem; color: rgb(113, 113, 122); }
-  .chat-call-controls { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
-  .chat-call-control {
-    width: 34px; height: 34px; border-radius: 0.55rem;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: rgb(82, 82, 91);
-    background: rgba(244, 244, 245, 0.85);
-    border: 1px solid rgba(228, 228, 231, 0.8);
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
-  }
-  :global(.dark) .chat-call-control {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.7);
-    border-color: rgba(63, 63, 70, 0.55);
-  }
-  .chat-call-control:hover:not(:disabled) {
-    color: var(--accent);
-    background: oklch(0.7019 0.1577 160.44 / 0.08);
-    border-color: oklch(0.7019 0.1577 160.44 / 0.18);
-  }
-  .chat-call-control--active {
-    color: rgb(239, 68, 68);
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  .chat-call-control--end {
-    color: white;
-    background: rgb(239, 68, 68);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  .chat-call-control--end:hover:not(:disabled) {
-    color: white;
-    background: rgb(220, 38, 38);
-    border-color: rgba(220, 38, 38, 0.25);
-  }
-  .chat-call-control:disabled { opacity: 0.35; cursor: not-allowed; }
-  .chat-call-statuses {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .chat-call-server {
-    min-height: 28px;
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    padding: 0 0.55rem;
-    border-radius: 0.5rem;
-    background: rgba(244, 244, 245, 0.82);
-    border: 1px solid rgba(228, 228, 231, 0.75);
-    font-size: 0.75rem; font-weight: 800;
-    color: rgb(113, 113, 122);
-    white-space: nowrap;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .chat-call-server--relay {
-    max-width: min(100%, 320px);
-  }
-  .chat-call-server__value {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  :global(.dark) .chat-call-server {
-    color: rgb(161, 161, 170);
-    background: rgba(39, 39, 42, 0.58);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-call-server__dot {
-    width: 8px; height: 8px; border-radius: 9999px;
-    background: rgb(161, 161, 170);
-    box-shadow: 0 0 0 3px rgba(161, 161, 170, 0.12);
-  }
-  .chat-call-server--good .chat-call-server__dot {
-    background: var(--accent);
-    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.16);
-  }
-  .chat-call-server--fair .chat-call-server__dot {
-    background: rgb(245, 158, 11);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
-  }
-  .chat-call-server--poor .chat-call-server__dot,
-  .chat-call-server--offline .chat-call-server__dot {
-    background: rgb(239, 68, 68);
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
-  }
-  .chat-call-settings {
-    margin-top: 0.65rem;
-    padding: 0.65rem;
-    border-radius: 0.65rem;
-    border: 1px solid rgba(228, 228, 231, 0.68);
-    background: rgba(255, 255, 255, 0.52);
-  }
-  :global(.dark) .chat-call-settings {
-    border-color: rgba(63, 63, 70, 0.42);
-    background: rgba(24, 24, 27, 0.5);
-  }
-  .chat-call-settings__header {
-    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-    font-size: 0.75rem; font-weight: 900; text-transform: uppercase;
-    color: rgb(113, 113, 122);
-  }
-  .chat-call-settings__refresh {
-    width: 24px; height: 24px; border-radius: 0.4rem;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: rgb(113, 113, 122);
-    background: rgba(244, 244, 245, 0.72);
-    border: 1px solid rgba(228, 228, 231, 0.7);
-  }
-  .chat-call-settings__refresh:hover {
-    color: var(--accent);
-    border-color: oklch(0.7019 0.1577 160.44 / 0.2);
-  }
-  :global(.dark) .chat-call-settings__refresh {
-    color: rgb(161, 161, 170);
-    background: rgba(39, 39, 42, 0.55);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-call-toggles {
-    display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem;
-    margin-top: 0.5rem;
-  }
-  .chat-call-toggle {
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    min-height: 28px;
-    padding: 0 0.55rem;
-    border-radius: 0.45rem;
-    color: rgb(82, 82, 91);
-    background: rgba(244, 244, 245, 0.76);
-    border: 1px solid rgba(228, 228, 231, 0.72);
-    font-size: 0.75rem; font-weight: 800;
-  }
-  :global(.dark) .chat-call-toggle {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.58);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-call-toggle input {
-    width: 13px; height: 13px;
-    accent-color: var(--accent);
-  }
-  .chat-call-device-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.5rem;
-    margin-top: 0.55rem;
-  }
-  .chat-call-field {
-    min-width: 0;
-    display: flex; flex-direction: column; gap: 0.25rem;
-  }
-  .chat-call-field span {
-    font-size: 0.75rem; font-weight: 900;
-    color: rgb(113, 113, 122);
-  }
-  .chat-call-field select,
-  .chat-call-field input[type="range"] {
-    width: 100%;
-    min-height: 30px;
-  }
-  .chat-call-field select {
-    border-radius: 0.45rem;
-    border: 1px solid rgba(228, 228, 231, 0.75);
-    background: rgba(255, 255, 255, 0.72);
-    color: rgb(63, 63, 70);
-    padding: 0 0.45rem;
-    font-size: 0.75rem; font-weight: 700;
-    outline: none;
-  }
-  :global(.dark) .chat-call-field select {
-    color: rgb(228, 228, 231);
-    background: rgba(24, 24, 27, 0.68);
-    border-color: rgba(63, 63, 70, 0.55);
-  }
-  .chat-call-field select:focus {
-    border-color: oklch(0.7019 0.1577 160.44 / 0.45);
-  }
-  .chat-call-field input[type="range"] {
-    accent-color: var(--accent);
-  }
-  .chat-call-field input[type="range"]:disabled {
-    opacity: 0.35;
-  }
-  .chat-body--call .chat-call-device-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .chat-body--call .chat-call-field--volume {
-    grid-column: 1 / -1;
-  }
-  .chat-call-peer-audio {
-    margin-top: 0.65rem;
-    padding-top: 0.6rem;
-    border-top: 1px solid rgba(228, 228, 231, 0.58);
-  }
-  :global(.dark) .chat-call-peer-audio {
-    border-color: rgba(63, 63, 70, 0.42);
-  }
-  .chat-call-peer-audio__title {
-    margin-bottom: 0.45rem;
-    font-size: 0.75rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    color: rgb(113, 113, 122);
-  }
-  .chat-call-peer-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 30px minmax(86px, 0.8fr);
-    align-items: center;
-    gap: 0.45rem;
-    min-height: 34px;
-  }
-  .chat-call-peer-row + .chat-call-peer-row {
-    margin-top: 0.35rem;
-  }
-  .chat-call-peer-row__meta {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: rgb(63, 63, 70);
-    font-size: 0.75rem;
-    font-weight: 800;
-  }
-  :global(.dark) .chat-call-peer-row__meta {
-    color: rgb(228, 228, 231);
-  }
-  .chat-call-peer-row__meta span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .chat-call-peer-row input[type="range"] {
-    width: 100%;
-    accent-color: var(--accent);
-  }
-  .chat-call-peer-row input[type="range"]:disabled {
-    opacity: 0.35;
-  }
-  .chat-call-mini-control {
-    width: 28px;
-    height: 28px;
-    border-radius: 0.45rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: rgb(113, 113, 122);
-    background: rgba(244, 244, 245, 0.78);
-    border: 1px solid rgba(228, 228, 231, 0.7);
-  }
-  :global(.dark) .chat-call-mini-control {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.58);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-call-mini-control--active {
-    color: rgb(239, 68, 68);
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  .chat-call-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 0.55rem;
-    margin-top: 0.65rem;
-  }
-  .chat-call-grid--audio {
-    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  }
-  .chat-body--call .chat-call-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-  .chat-body--call .chat-call-grid--audio {
-    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-  }
-  .chat-call-tile {
-    position: relative;
-    min-height: 92px;
-    aspect-ratio: 16 / 10;
-    overflow: hidden;
-    border-radius: 0.5rem;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(228, 228, 231, 0.55);
-    border: 1px solid rgba(212, 212, 216, 0.65);
-    transition: border-color 0.18s ease-out, box-shadow 0.18s ease-out;
-  }
-  :global(.dark) .chat-call-tile {
-    background: rgba(39, 39, 42, 0.65);
-    border-color: rgba(63, 63, 70, 0.55);
-  }
-  .chat-call-tile--speaking {
-    border-color: oklch(0.7019 0.1577 160.44 / 0.72);
-    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.14);
-  }
-  .chat-call-grid--audio .chat-call-tile {
-    min-height: 72px;
-    aspect-ratio: 4 / 3;
-  }
-  .chat-call-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: rgb(24, 24, 27);
-    transition: filter 0.25s;
-  }
-  .chat-call-video--contain {
-    object-fit: contain;
-  }
-  .chat-call-tile--blurred .chat-call-video {
-    filter: blur(8px);
-  }
   .chat-call-fullscreen-btn {
     position: absolute;
     top: 7px;
@@ -4310,65 +4253,8 @@
     transform: translateY(-2px);
     transition: opacity 0.15s, transform 0.15s, background 0.15s;
   }
-  .chat-call-tile:hover .chat-call-fullscreen-btn,
-  .chat-call-fullscreen-btn:focus-visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
   .chat-call-fullscreen-btn:hover {
     background: oklch(0.7019 0.1577 160.44 / 0.82);
-  }
-  .chat-call-avatar {
-    width: 44px; height: 44px; border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center;
-    color: white; font-size: 14px; font-weight: 900;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
-  }
-  .chat-call-label {
-    position: absolute; left: 7px; right: 7px; bottom: 7px;
-    display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
-    min-height: 22px;
-    padding: 0 0.45rem;
-    border-radius: 0.4rem;
-    color: white;
-    background: rgba(24, 24, 27, 0.72);
-    font-size: 0.75rem; font-weight: 800;
-  }
-  .chat-call-label span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .chat-call-label span + span {
-    flex-shrink: 0;
-    color: rgb(244, 244, 245);
-    opacity: 0.75;
-  }
-  .chat-call-level {
-    flex: 1;
-    min-width: 24px;
-    max-width: 52px;
-    height: 4px;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.18);
-    overflow: hidden;
-    opacity: 0.9;
-  }
-  .chat-call-level::before {
-    content: '';
-    display: block;
-    width: calc(var(--level, 0) * 100%);
-    height: 100%;
-    min-width: 4px;
-    border-radius: inherit;
-    background: oklch(0.77 0.155 160.44);
-    transition: width 0.08s linear;
-  }
-  .chat-call-tile audio { display: none; }
-  .chat-call-error {
-    margin-top: 0.45rem;
-    font-size: 0.75rem; line-height: 1.45;
-    color: rgb(239, 68, 68);
   }
   .chat-call-fullscreen {
     position: fixed;
@@ -4437,62 +4323,10 @@
   .chat-call-fullscreen__close:hover {
     background: rgba(239, 68, 68, 0.82);
   }
-  @media (max-width: 860px) {
-    .chat-body--call {
-      display: flex;
-      flex-direction: column;
-    }
-    .chat-body--call .chat-call-panel {
-      max-height: 52%;
-      border-bottom: 1px solid rgba(228, 228, 231, 0.55);
-    }
-    .chat-body--call-settings .chat-call-panel {
-      max-height: 80%;
-    }
-    :global(.dark) .chat-body--call .chat-call-panel {
-      border-color: rgba(39, 39, 42, 0.55);
-    }
-    .chat-body--call .chat-thread {
-      border-left: 0;
-      min-height: 0;
-    }
-  }
   @media (hover: none) {
     .chat-call-fullscreen-btn {
       opacity: 1;
       transform: translateY(0);
-    }
-  }
-  @media (max-width: 640px) {
-    .chat-call-panel__top {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-    .chat-call-panel__right {
-      width: 100%;
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .chat-call-server {
-      max-width: 100%;
-    }
-    .chat-call-controls {
-      width: 100%;
-      justify-content: flex-start;
-      flex-wrap: wrap;
-    }
-    .chat-call-device-grid {
-      grid-template-columns: 1fr;
-    }
-    .chat-body--call .chat-call-device-grid {
-      grid-template-columns: 1fr;
-    }
-    .chat-call-peer-row {
-      grid-template-columns: minmax(0, 1fr) 30px;
-    }
-    .chat-call-peer-row input[type="range"] {
-      grid-column: 1 / -1;
     }
   }
   .chat-status {

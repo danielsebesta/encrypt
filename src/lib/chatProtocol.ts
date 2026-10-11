@@ -16,6 +16,7 @@ export function validPayload(value: any, room: string, history = false): boolean
   if (!LIVE_TYPES.has(value.type) && !history && now - value._sentAt > MESSAGE_MAX_AGE_MS) return false;
   if (typeof value.text !== 'undefined' && (typeof value.text !== 'string' || value.text.length > 200000)) return false;
   if (typeof value.sender !== 'undefined' && (typeof value.sender !== 'string' || value.sender.length > 128)) return false;
+  if (value.alias !== undefined && !(Array.isArray(value.alias) && value.alias.length === 3 && value.alias.every((n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < 360))) return false;
   if (value.ttl !== undefined && (!Number.isFinite(value.ttl) || value.ttl < 0 || value.ttl > 86400)) return false;
   if (value.file && (!Array.isArray(value.file.urls) || value.file.urls.length > 8 || value.file.urls.some((u: unknown) => typeof u !== 'string' || u.length > 4096))) return false;
   return true;

@@ -1,4 +1,4 @@
-import { encryptMessage, decryptMessage, generateIdentity, nameToGradient } from './chatCrypto';
+import { encryptMessage, decryptMessage } from './chatCrypto';
 
 const PBKDF2_ITERATIONS = 600_000;
 
@@ -46,4 +46,4 @@ function b64ToBytes(str: string): Uint8Array {
   return bytes;
 }
 
-export { encryptMessage, decryptMessage, generateIdentity, nameToGradient };
+export { encryptMessage, decryptMessage };
