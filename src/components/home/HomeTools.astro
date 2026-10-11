@@ -12,34 +12,26 @@ const localePrefix = Astro.props.locale === 'en' ? '' : `/${Astro.props.locale}`
 const categories = getNavCategories(t, dict, localePrefix);
 ---
 
-<section id="home-tools" class="home-tools-section">
-  <div class="max-w-5xl mx-auto px-5">
-    <div class="home-tools-header">
-      <h2 class="home-tools-title">{t(dict, 'home.tools.title')}</h2>
-      <p class="home-tools-subtitle">{t(dict, 'home.tools.subtitle')}</p>
-    </div>
+<section id="home-tools" aria-labelledby="home-tools-title">
+  <h2 id="home-tools-title" class="section-title">{t(dict, 'home.tools.title')}</h2>
+  <p class="hint mt-1">{t(dict, 'home.tools.subtitle')}</p>
 
-    <div class="home-tools-categories">
-      {categories.map((cat) => (
-        <div class="home-tools-category">
-          <p class="home-tools-category__name">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={cat.icon} /></svg>
-            {cat.name}
-          </p>
-          <ul class="home-tools-grid">
-            {cat.tools.map((tool) => (
-              <li>
-                <a href={tool.href} class="home-tools-card">
-                  <span class="home-tools-card__icon" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={tool.icon} /></svg>
-                  </span>
-                  <span class="home-tools-card__label">{tool.label}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+  {categories.map((cat) => (
+    <div>
+      <h3 class="home-tools__name">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><Fragment set:html={cat.icon} /></svg>
+        {cat.name}
+      </h3>
+      <ul class="home-tools__grid">
+        {cat.tools.map((tool) => (
+          <li>
+            <a href={tool.href} class="home-tools__card">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="home-tools__icon"><Fragment set:html={tool.icon} /></svg>
+              {tool.label}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
-  </div>
+  ))}
 </section>

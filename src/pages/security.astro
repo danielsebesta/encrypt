@@ -4,85 +4,36 @@ import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+
+const sections: { title: string; paragraphs?: string[]; list?: string[] }[] = [
+  { title: 'security.noAccounts.title', paragraphs: ['security.noAccounts.text'] },
+  { title: 'security.clientSide.title', paragraphs: ['security.clientSide.p1', 'security.clientSide.p2'] },
+  { title: 'security.share.title', paragraphs: ['security.share.p1', 'security.share.p2', 'security.share.p3'] },
+  { title: 'security.chat.title', paragraphs: ['security.chat.p1', 'security.chat.p2', 'security.chat.p3', 'security.chat.p4', 'security.chat.p5'] },
+  { title: 'security.shortening.title', paragraphs: ['security.shortening.p1', 'security.shortening.p2', 'security.shortening.p3'] },
+  { title: 'security.cookies.title', paragraphs: ['security.cookies.p1', 'security.cookies.p2'] },
+  { title: 'security.network.title', list: ['security.network.li1', 'security.network.li2', 'security.network.li3', 'security.network.li4', 'security.network.li5'] },
+  { title: 'security.thirdParty.title', paragraphs: ['security.thirdParty.p1', 'security.thirdParty.p2'] },
+  { title: 'security.disclosure.title', paragraphs: ['security.disclosure.text'] },
+  { title: 'security.nonLegal.title', paragraphs: ['security.nonLegal.text'] },
+];
 ---
 
 <Layout
   title={t(dict, 'security.meta.title')}
   description={t(dict, 'security.meta.description')}
 >
-  <main class="max-w-3xl mx-auto px-5 py-16 md:py-24 space-y-10">
-    <header class="space-y-3 text-center md:text-left">
-      <h1 class="text-3xl md:text-4xl font-black tracking-tight">{t(dict, 'security.h1')}</h1>
-      <p class="text-zinc-500 dark:text-zinc-400 text-sm md:text-base">{t(dict, 'security.subtitle')}</p>
+  <article class="page article">
+    <header class="page-head">
+      <h1 class="page-title">{t(dict, 'security.h1')}</h1>
+      <p class="page-lead">{t(dict, 'security.subtitle')}</p>
     </header>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.noAccounts.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.noAccounts.text')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.clientSide.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.clientSide.p1')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.clientSide.p2')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.share.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.share.p1')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.share.p2')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.share.p3')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.chat.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.chat.p1')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.chat.p2')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.chat.p3')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.chat.p4')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.chat.p5')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.shortening.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.shortening.p1')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.shortening.p2')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.shortening.p3')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.cookies.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.cookies.p1')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.cookies.p2')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.network.title')}</h2>
-      <ul class="space-y-2 text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed list-disc list-inside">
-        <li>{t(dict, 'security.network.li1')}</li>
-        <li>{t(dict, 'security.network.li2')}</li>
-        <li>{t(dict, 'security.network.li3')}</li>
-        <li>{t(dict, 'security.network.li4')}</li>
-        <li>{t(dict, 'security.network.li5')}</li>
-      </ul>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.thirdParty.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.thirdParty.p1')}</p>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.thirdParty.p2')}</p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.disclosure.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
-        {t(dict, 'security.disclosure.text')}
-      </p>
-    </section>
-
-    <section class="space-y-4">
-      <h2 class="text-base md:text-lg font-bold tracking-tight">{t(dict, 'security.nonLegal.title')}</h2>
-      <p class="text-sm md:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">{t(dict, 'security.nonLegal.text')}</p>
-    </section>
-  </main>
+    {sections.map((s) => (
+      <section>
+        <h2>{t(dict, s.title)}</h2>
+        {s.paragraphs?.map((p) => <p>{t(dict, p)}</p>)}
+        {s.list && <ul>{s.list.map((li) => <li>{t(dict, li)}</li>)}</ul>}
+      </section>
+    ))}
+  </article>
 </Layout>
