@@ -1,5 +1,6 @@
 <script lang="ts">
   import { roomCredentials, ReplayWindow } from "../../lib/roomAccess";
+  import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   let accessToken = "";
   let channelId = "";
   const replay = new ReplayWindow();
@@ -10,7 +11,7 @@
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
     encryptBytes, decryptBytes,
-    generateIdentity, nameToGradient,
+
   } from '../../lib/whiteboardCrypto';
   import { t } from '../../lib/t';
 
@@ -46,8 +47,17 @@
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
-  let identity = generateIdentity(locale);
+  const alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
+  const identity = { name: aliasName(dict, alias), color: aliasColor(alias), key: aliasKey(alias) };
   let myInitials = getInitials(identity.name);
+
+  function senderInfo(p: any) {
+    const al = parseAlias(p?.alias) ?? undefined;
+    const raw = typeof p?.sender === 'string' ? p.sender : typeof p?.name === 'string' ? p.name : '';
+    const name = al ? aliasName(dict, al) : (raw.trim() || t(dict, 'whiteboard.guest'));
+    const color = al ? aliasColor(al) : (typeof p?.color === 'string' ? p.color : 'var(--accent)');
+    return { name, color, alias: al, key: al ? aliasKey(al) : name };
+  }
 
   let connected = false;
   let verified = false;
@@ -59,7 +69,7 @@
   let serverPresence = 0;
   let lastWrongPasswordNotice = 0;
 
-  let onlineUsers: { id: string; name: string; initials: string; color: string }[] = [];
+  let onlineUsers: { id: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
   let myConnId = '';
 
   let sharePassword = '';
@@ -87,7 +97,7 @@
   let textInputEl: HTMLTextAreaElement | null = null;
 
   // Live cursors (ephemeral)
-  type Cursor = { id: string; x: number; y: number; name: string; color: string; lastSeen: number };
+  type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; lastSeen: number };
   let cursors: Cursor[] = [];
   let lastCursorSent = 0;
   let lastCursorX = -9999;
@@ -224,7 +234,7 @@
       ws!.send(JSON.stringify({ type: 'join', token: accessToken }));
       if (cryptoKey) {
         const verifyPayload = await encryptMessage(cryptoKey,
-          JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color }));
+          JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
         ws!.send(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }));
       }
     });
@@ -294,7 +304,7 @@
         const text = await decryptMessage(cryptoKey, data.payload);
         const c = JSON.parse(text);
         if (verifying) { verified = true; verifying = false; }
-        upsertCursor(data.from || c.id, c.x, c.y, c.name, c.color);
+        upsertCursor(data.from || c.id, c.x, c.y, senderInfo(c).name, senderInfo(c).color, senderInfo(c).alias);
         return;
       }
 
@@ -309,11 +319,11 @@
         const text = await decryptMessage(cryptoKey, data.payload);
         const parsed = JSON.parse(text);
         if (verifying) { verified = true; verifying = false; }
-        addOnlineUser(data.from || parsed.sender, parsed.sender, parsed.color);
+        addOnlineUser(data.from || senderInfo(parsed).key, senderInfo(parsed));
         if (verified && cryptoKey && ws) {
           // verify-ack
           const ack = await encryptMessage(cryptoKey,
-            JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color }));
+            JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
           ws.send(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }));
           // Send full state to new joiner
           const state = Y.encodeStateAsUpdate(ydoc);
@@ -326,7 +336,7 @@
         const text = await decryptMessage(cryptoKey, data.payload);
         const parsed = JSON.parse(text);
         if (verifying) { verified = true; verifying = false; }
-        addOnlineUser(data.from || parsed.sender, parsed.sender, parsed.color);
+        addOnlineUser(data.from || senderInfo(parsed).key, senderInfo(parsed));
         return;
       }
     } catch {
@@ -341,17 +351,17 @@
     }
   }
 
-  function addOnlineUser(id: string, name: string, color: string) {
-    if (!onlineUsers.find(u => u.name === name)) {
-      onlineUsers = [...onlineUsers, { id: id || name, name, initials: getInitials(name), color }];
+  function addOnlineUser(id: string, who: { name: string; color: string; alias?: Alias; key: string }) {
+    if (!onlineUsers.find(u => u.id === id || u.name === who.name)) {
+      onlineUsers = [...onlineUsers, { id: id || who.key, name: who.name, initials: getInitials(who.name), color: who.color, alias: who.alias }];
     }
   }
 
-  function upsertCursor(id: string, x: number, y: number, name: string, color: string) {
+  function upsertCursor(id: string, x: number, y: number, name: string, color: string, cursorAlias?: Alias) {
     const now = Date.now();
     const idx = cursors.findIndex(c => c.id === id);
     if (idx >= 0) {
-      cursors[idx] = { id, x, y, name, color, lastSeen: now };
+      cursors[idx] = { id, x, y, name, color, alias: cursorAlias, lastSeen: now };
       cursors = cursors;
     } else {
       cursors = [...cursors, { id, x, y, name, color, lastSeen: now }];
@@ -377,7 +387,7 @@
     const ctm = svgEl.getScreenCTM();
     if (!ctm) return { x: 0, y: 0, pressure: 0.5 };
     const local = pt.matrixTransform(ctm.inverse());
-    return { x: local.x, y: local.y, pressure: e.pressure || 0.5 };
+    return { x: Math.min(1600, Math.max(0, local.x)), y: Math.min(1000, Math.max(0, local.y)), pressure: e.pressure || 0.5 };
   }
 
   function pointerDown(e: PointerEvent) {
@@ -519,7 +529,7 @@
     if (!cryptoKey || !ws) return;
     try {
       const payload = await encryptMessage(cryptoKey, JSON.stringify({
-        id: identity.name, x, y, name: identity.name, color: identity.color,
+        id: identity.key, x, y, name: identity.name, color: identity.color, alias: aliasWire(alias),
       }));
       ws.send(JSON.stringify({ type: 'envelope', kind: 'cursor', payload, id: 'c-' + genId() }));
     } catch {}
@@ -907,6 +917,13 @@
         role="application"
         aria-label={t(dict, 'whiteboard.canvasLabel')}
       >
+        <defs>
+          <pattern id="wb-dots" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="20" cy="20" r="1.5" fill="rgba(0,0,0,0.08)" />
+          </pattern>
+        </defs>
+        <rect width="1600" height="1000" fill="#ffffff" />
+        <rect width="1600" height="1000" fill="url(#wb-dots)" />
         {#each shapesArray as s (s.id)}
           {@const isSel = selectedId === s.id}
           {#if s.type === 'pen' && s.points}
@@ -968,7 +985,7 @@
         {/if}
 
         {#each cursors as c (c.id)}
-          {#if c.name !== identity.name}
+          {#if c.id !== identity.key && c.name !== identity.name}
             <g transform="translate({c.x}, {c.y})" pointer-events="none">
               <path d="M0 0 L 0 18 L 5 14 L 8 21 L 11 19 L 8 13 L 14 13 Z" fill={c.color} stroke="white" stroke-width="1"/>
               <text x="14" y="10" font-size="11" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="600" fill={c.color}>{c.name}</text>
@@ -997,9 +1014,9 @@
         <span class="wb-status" class:wb-status--connected={connected}></span>
         <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : t(dict, 'whiteboard.connecting')}</span>
         <div class="flex items-center -space-x-1.5">
-          <div class="wb-avatar wb-avatar--sm" style="background: {nameToGradient(identity.name)}" title={identity.name}>{myInitials}</div>
+          <div class="wb-avatar wb-avatar--sm" style="background: {aliasGradient(alias)}" title={identity.name}>{myInitials}</div>
           {#each onlineUsers as user}
-            <div class="wb-avatar wb-avatar--sm" style="background: {nameToGradient(user.name)}" title={user.name}>{user.initials}</div>
+            <div class="wb-avatar wb-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
           {/each}
         </div>
       </div>
@@ -1122,9 +1139,7 @@
     flex: 1;
     position: relative;
     overflow: hidden;
-    background:
-      radial-gradient(circle at 20px 20px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px) 0 0/40px 40px,
-      #ffffff;
+    background: var(--surface-2);
   }
 
   .wb-canvas {
@@ -1133,6 +1148,7 @@
     height: 100%;
     touch-action: none;
     cursor: crosshair;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
   }
   .wb-canvas--locked { cursor: not-allowed; }
 
