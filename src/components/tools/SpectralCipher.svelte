@@ -44,7 +44,6 @@
   const IMG_HEIGHT = 512;
   const DEFAULT_WIDTH = 512;
 
-  // ── FFT (radix-2 Cooley-Tukey) ──
   function fft(re: Float64Array, im: Float64Array) {
     const n = re.length;
     if (n <= 1) return;
@@ -84,12 +83,10 @@
     for (let i = 0; i < n; i++) { re[i] /= n; im[i] = -im[i] / n; }
   }
 
-  // ── Hanning window ──
   function hann(i: number, n: number): number {
     return 0.5 * (1 - Math.cos(2 * Math.PI * i / n));
   }
 
-  // ── WAV encode/decode ──
   function encodeWav(samples: Float32Array, sr: number): Blob {
     const len = samples.length;
     const buf = new ArrayBuffer(44 + len * 2);
@@ -123,7 +120,6 @@
     const totalSamples = (buffer.byteLength - dataOffset) / bytesPerSample;
     const framesCount = Math.floor(totalSamples / channels);
 
-    // Read all channels then mix to mono
     const samples = new Float32Array(framesCount);
     for (let f = 0; f < framesCount; f++) {
       let sum = 0;
@@ -140,12 +136,10 @@
     return { samples, sampleRate: sr };
   }
 
-  // ── Frequency bin mapping ──
   function freqToBin(freq: number): number {
     return Math.round(freq * FFT_SIZE / SAMPLE_RATE);
   }
 
-  // ── Image → Audio (encode) ──
   async function encodeImage() {
     if (!imageUrl) { status = t(dict, 'tools.spectralCipher.pleaseProvide'); return; }
     processing = true;
@@ -165,14 +159,12 @@
         ctx.drawImage(img, 0, 0, w, h);
         const imgData = ctx.getImageData(0, 0, w, h);
 
-        // Convert to grayscale
         let grayscale = new Uint8Array(w * h);
         for (let i = 0; i < w * h; i++) {
           const r = imgData.data[i * 4], g = imgData.data[i * 4 + 1], b = imgData.data[i * 4 + 2];
           grayscale[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
         }
 
-        // Spectral encoding: for each column, build frequency frame and IFFT
         const minBin = freqToBin(MIN_FREQ);
         const maxBin = freqToBin(MAX_FREQ);
         const usableBins = maxBin - minBin;
@@ -203,23 +195,19 @@
             audio[offset + i] += re[i];
           }
 
-          // Yield every 64 columns
           if (col % 64 === 0) await new Promise(r => setTimeout(r, 0));
         }
 
-        // Normalize the image signal
         let maxAmp = 0;
         for (let i = 0; i < audio.length; i++) maxAmp = Math.max(maxAmp, Math.abs(audio[i]));
         if (maxAmp > 0) for (let i = 0; i < audio.length; i++) audio[i] /= maxAmp;
 
-        // Mix with carrier audio
         let finalAudio = audio;
         let finalRate = SAMPLE_RATE;
         if (carrierBuffer) {
           const carrier = decodeWav(carrierBuffer.slice(0));
           finalRate = carrier.sampleRate;
 
-          // Resample image audio if sample rates differ
           let imageSignal = audio;
           if (carrier.sampleRate !== SAMPLE_RATE) {
             const ratio = carrier.sampleRate / SAMPLE_RATE;
@@ -234,8 +222,6 @@
             }
           }
 
-          // Mix: carrier at (1 - strength), image at strength
-          // This way at 100% image completely dominates, at 50% they're equal
           const carrierGain = 1 - imageStrength * 0.7; // carrier fades but never fully gone
           const imageGain = imageStrength * 3; // image signal boosted significantly
 
@@ -247,18 +233,15 @@
             finalAudio[i] = c + s;
           }
 
-          // Normalize to prevent clipping
           let mixMax = 0;
           for (let i = 0; i < finalAudio.length; i++) mixMax = Math.max(mixMax, Math.abs(finalAudio[i]));
           if (mixMax > 1) for (let i = 0; i < finalAudio.length; i++) finalAudio[i] /= mixMax;
         }
 
-        // Generate WAV
         const wavBlob = encodeWav(finalAudio, finalRate);
         if (wavBlobUrl) URL.revokeObjectURL(wavBlobUrl);
         wavBlobUrl = URL.createObjectURL(wavBlob);
 
-        // Render spectrogram preview
         renderSpectrogram(finalAudio, finalRate);
 
         status = t(dict, 'tools.spectralCipher.encoded');
@@ -271,7 +254,6 @@
     img.src = imageUrl;
   }
 
-  // ── Compute STFT magnitudes for a sample array ──
   function computeSTFT(samples: Float32Array, numFrames: number, minBin: number, usableBins: number, imgH: number, imgW: number): Float32Array {
     const mags = new Float32Array(imgW * imgH);
     for (let col = 0; col < numFrames; col++) {
@@ -292,7 +274,6 @@
     return mags;
   }
 
-  // ── Audio → Image (decode) ──
   async function decodeAudio() {
     if (!audioFile) { status = t(dict, 'tools.spectralCipher.pleaseProvideAudio'); return; }
     processing = true;
@@ -311,10 +292,8 @@
       const imgW = numFrames;
       const imgH = IMG_HEIGHT;
 
-      // Compute mixed signal magnitudes
       const mixedMags = computeSTFT(samples, numFrames, minBin, usableBins, imgH, imgW);
 
-      // Subtract carrier spectrum if available
       let mags = mixedMags;
       if (carrierBuffer) {
         const carrier = decodeWav(carrierBuffer.slice(0));
@@ -322,7 +301,6 @@
         const carrierW = Math.min(carrierFrames, imgW);
         const carrierMags = computeSTFT(carrier.samples, carrierW, minBin, usableBins, imgH, carrierW);
 
-        // Spectral subtraction: remove carrier energy, keep image residual
         mags = new Float32Array(imgW * imgH);
         for (let col = 0; col < imgW; col++) {
           for (let row = 0; row < imgH; row++) {
@@ -334,7 +312,6 @@
         }
       }
 
-      // Normalize to 0-255
       let maxMag = 0;
       for (let i = 0; i < mags.length; i++) if (mags[i] > maxMag) maxMag = mags[i];
 
@@ -345,7 +322,6 @@
         }
       }
 
-      // Render extracted image
       renderExtractedImage(pixels, imgW, imgH);
       renderSpectrogram(samples instanceof Float32Array ? samples : new Float32Array(samples), sampleRate);
       status = t(dict, 'tools.spectralCipher.decoded');
@@ -369,7 +345,6 @@
     const scaleX = spectrogramCanvas.width / numFrames;
     const scaleY = spectrogramCanvas.height / usableBins;
 
-    // Two-pass: collect magnitudes, then normalize
     const magGrid: number[][] = [];
     let maxMag = 0;
     for (let col = 0; col < numFrames; col++) {

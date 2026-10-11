@@ -20,9 +20,6 @@ const GiB = 1024 * MiB;
 const DAY = 86400;
 
 // Limits from the public Send instances table.
-// Direct hosts (qu.ax, x0.at, tmpfile.link, sxcu.net) have no per-file
-// download cap (verified via 200+ sequential GETs).
-// send.boblorange.net is removed: it now requires login.
 const SEND_INSTANCES: SendInstance[] = [
   { baseUrl: 'https://send.skylerszijjarto.com', label: 'send.skylerszijjarto.com', region: 'other', country: 'US', maxBytes: 250 * GiB, maxExpireSeconds: 7 * DAY, maxDownloads: 10000 },
   { baseUrl: 'https://send.hostnetwork.xyz', label: 'send.hostnetwork.xyz', region: 'eu', country: 'DE', maxBytes: 2560 * MiB, maxExpireSeconds: 700000, maxDownloads: 999999 },

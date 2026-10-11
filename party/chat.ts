@@ -67,8 +67,7 @@ export default class ChatRoom {
       await this.host.storage.put(CONFIG_KEY, this.state.config);
     }
 
-    // Chat messages are intentionally not stored on the server anymore.
-    // Remove any old server-side chat history if this room still has it.
+    // Messages are no longer stored; drop history left by older versions.
     const oldHistory = await this.host.storage.list({ prefix: HISTORY_PREFIX });
     if (oldHistory.size) {
       await Promise.all(Array.from(oldHistory.keys()).map((key) => this.host.storage.delete(key)));

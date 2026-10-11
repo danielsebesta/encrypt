@@ -21,7 +21,6 @@
   export let initialPassword = '';
 
   export let dict: Record<string, string>;
-  // dict provided by page
 
   type Tool = 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text' | 'select' | 'eraser';
 
@@ -77,13 +76,11 @@
   let shareCopiedPass = false;
   let shareDismissed = false;
 
-  // Yjs document
   let ydoc: Y.Doc;
   let yshapes: Y.Map<Shape>;
   let undoMgr: Y.UndoManager;
   let shapesVersion = 0;
 
-  // Tooling state
   let tool: Tool = 'pen';
   let currentColor = COLORS[0];
   let currentThickness = THICKNESS[1];
@@ -96,7 +93,6 @@
   let svgEl: SVGSVGElement;
   let textInputEl: HTMLTextAreaElement | null = null;
 
-  // Live cursors (ephemeral)
   type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; lastSeen: number };
   let cursors: Cursor[] = [];
   let lastCursorSent = 0;
@@ -192,9 +188,7 @@
       shapesVersion++;
     });
 
-    // Outgoing updates - batched in 50 ms windows. Yjs fires update events
-    // many times per second during fast drawing; merging them into one
-    // payload before the network roundtrip cuts DO requests dramatically.
+    // Yjs emits many updates per second while drawing; 50 ms batches cut Durable Object requests.
     ydoc.on('update', (update: Uint8Array, origin: any) => {
       if (origin === 'remote') return;
       if (!cryptoKey || !ws || !verified) return;
@@ -244,17 +238,12 @@
     });
 
     ws.addEventListener('error', () => {
-      // WS error means TCP/upgrade/network problem - NOT a password issue.
-      // Let PartySocket retry; the 4 s init-handler timeout (after presence > 1)
-      // is the authoritative wrong-password signal.
+      // A socket error is a network problem, not a wrong password; the init timeout decides that.
     });
 
     ws.addEventListener('message', handleServerMessage);
 
-    // Application-level keepalive: defeats idle timeouts on mobile/proxy paths.
-    // Server ignores type:'ping' (no envelope), so this is a cheap noop.
-    // Skipped when tab is hidden - browser usually throttles timers anyway,
-    // and reconnect on visibility change handles return-from-background.
+    // Keepalive against idle timeouts on mobile and proxy paths; hidden tabs reconnect on return instead.
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
       if (pageHidden) return;
@@ -321,11 +310,9 @@
         if (verifying) { verified = true; verifying = false; }
         addOnlineUser(data.from || senderInfo(parsed).key, senderInfo(parsed));
         if (verified && cryptoKey && ws) {
-          // verify-ack
           const ack = await encryptMessage(cryptoKey,
             JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
           ws.send(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }));
-          // Send full state to new joiner
           const state = Y.encodeStateAsUpdate(ydoc);
           await sendDocUpdate(state);
         }
@@ -340,11 +327,7 @@
         return;
       }
     } catch {
-      // A failed decrypt only means THIS message wasn't from someone with
-      // our password. Could be a peer in the same room with a different
-      // password - don't conclude wrongPassword from a single fail. The
-      // 4s init-handler timeout is the authoritative "no peer can hear me"
-      // signal, and the auto-verify-on-decrypt above handles the success path.
+      // One failed decrypt may be a peer with a different password; the init timeout decides.
       if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
         lastWrongPasswordNotice = Date.now();
       }
@@ -370,15 +353,12 @@
 
   let cursorCleanInterval: ReturnType<typeof setInterval>;
 
-  // Lock state
   let roomLocked = false;
 
   function toggleLock() {
     if (!ws) return;
     ws.send(JSON.stringify({ type: roomLocked ? 'unlock' : 'lock' }));
   }
-
-  // ==== Drawing logic ====
 
   function getSvgPoint(e: PointerEvent): { x: number; y: number; pressure: number } {
     if (!svgEl) return { x: 0, y: 0, pressure: 0.5 };
@@ -392,7 +372,7 @@
 
   function pointerDown(e: PointerEvent) {
     if (!verified || roomLocked) return;
-    if (e.button === 2) return; // right-click
+    if (e.button === 2) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const p = getSvgPoint(e);
 
@@ -444,10 +424,7 @@
     const p = getSvgPoint(e);
 
     const now = Date.now();
-    // Cursor send: only when there's somebody to see it, only when we
-    // actually moved, only when tab is in foreground, throttled to 20 Hz,
-    // and skipped while we're drawing - the doc updates already convey
-    // our position to peers as the stroke materializes.
+    // Cursor at 20 Hz, only with peers and in the foreground; while drawing the stroke itself shows the position.
     if (
       verified && cryptoKey && ws && connected
       && serverPresence > 1

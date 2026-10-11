@@ -10,11 +10,9 @@ export type ToolDefinition = {
 
 // Lucide SVG inner content (24x24 viewBox, stroke-based)
 const icons = {
-  // Categories
   developer: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
   privacy: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
-  // Tools
   fingerprint: '<path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M2 12a10 10 0 0 1 18-6"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/>',
   key: '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
   hash: '<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
@@ -34,7 +32,6 @@ const icons = {
 } as const;
 
 export const tools: ToolDefinition[] = [
-  // ── Developer ──────────────────────────────────────────
   { slug: 'uuid-ulid',    i18nPrefix: 'tools.uuidUlid',     navLabelKey: 'nav.tool.uuidUlid',     category: 'developer', icon: icons.fingerprint },
   { slug: 'token',        i18nPrefix: 'tools.token',         navLabelKey: 'nav.tool.token',         category: 'developer', icon: icons.key },
   { slug: 'bcrypt',       i18nPrefix: 'tools.bcrypt',        navLabelKey: 'nav.tool.bcrypt',        category: 'developer', icon: icons.hash },
@@ -45,7 +42,6 @@ export const tools: ToolDefinition[] = [
   { slug: 'jwt',          i18nPrefix: 'tools.jwt',           navLabelKey: 'nav.tool.jwt',           category: 'developer', icon: icons.fileKey },
   { slug: 'base64',       i18nPrefix: 'tools.base64',        navLabelKey: 'nav.tool.base64',        category: 'developer', icon: icons.binary },
 
-  // ── Privacy ────────────────────────────────────────────
   { slug: 'aes-words',    i18nPrefix: 'tools.aesWords',      navLabelKey: 'nav.tool.aesWords',      category: 'privacy', icon: icons.lock },
   { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'privacy', icon: icons.clock },
   { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy', icon: icons.image },
