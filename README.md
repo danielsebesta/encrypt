@@ -42,7 +42,6 @@ Astro 7 pages, Svelte 5 for the interactive tools, Tailwind CSS 4, one Cloudflar
 - **Design system.** Tokens, components, the tool page template and the writing rules are in [`DESIGN.md`](DESIGN.md). Every page uses only those.
 - **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The Worker picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
 - **Crypto.** `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
-- **Changes.** [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Deploy
 
