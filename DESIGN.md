@@ -90,7 +90,12 @@ Content is left-aligned. The primary action is the only `.btn` in the panel. Dow
 - Page titles match the navigation label exactly.
 - Errors say what happened and what to do, in one sentence. No apologies, no jargon.
 - Security notes are one sentence at the moment they matter, for example under the password field.
+- Participant aliases come from `chat.alias.adj.*` and `chat.alias.animal.*` and are rendered by `src/lib/alias.ts` from a numeric seed, never sent as localized text.
 - Every string lives in `src/locales/*.json`. `en.json` is the source of truth and the other six files carry the same keys.
+
+## Call UI
+
+The call stage uses its own fixed dark palette (`.call*` classes in `ChatRoom.svelte`) in both themes, like a video app: tiles `#2b2d31` on `#111214`, speaking ring and level bar `#23a55a`, off states white with red `#f23f43`, leave `#f23f43`. Controls are 48 px round buttons in one bottom bar: microphone, camera, screen, settings, leave. Everything else lives in the settings drawer.
 
 ## Adding a tool
 
