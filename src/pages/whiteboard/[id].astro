@@ -16,7 +16,7 @@ export const prerender = false;
   description={t(dict, 'whiteboard.meta.roomDescription')}
 >
   <div class="page page--wide pt-5 pb-8 md:pt-6">
-    <h1 class="section-title mb-3">{t(dict, 'whiteboard.pageTitle')} {t(dict, 'whiteboard.pageTitleHighlight')}</h1>
+    <h1 class="section-title mb-3">{t(dict, 'whiteboard.pageTitle')}</h1>
     <Whiteboard client:idle roomId={id || 'default'} locale={locale} dict={clientDict} />
   </div>
 </Layout>
