@@ -1,28 +1,6 @@
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  if ('IntersectionObserver' in window) {
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('aos-visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.1 });
-
-    document.querySelectorAll('[data-aos]').forEach(function (el) {
-      el.classList.add('aos-fade');
-      var delay = el.getAttribute('data-aos-delay');
-      if (delay) el.classList.add('delay-' + delay);
-      observer.observe(el);
-    });
-  } else {
-    document.querySelectorAll('[data-aos]').forEach(function (el) {
-      el.classList.add('aos-visible');
-    });
-  }
-
   document.addEventListener('click', function (event) {
     var anchor = event.target.closest && event.target.closest('a');
     if (!anchor) return;

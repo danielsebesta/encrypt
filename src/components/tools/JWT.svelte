@@ -21,7 +21,7 @@
   }
 </script>
 
-<div class="space-y-6 animate-in fade-in duration-500 text-left">
+<div class="space-y-6 text-left">
     <div class="grid gap-2">
         <label class="label">{t(dict, 'tools.jwt.encodedToken')}</label>
         <textarea 
@@ -33,7 +33,7 @@
     </div>
 
     {#if result}
-        <div class="grid gap-6 animate-in slide-in-from-bottom-2">
+        <div class="grid gap-6">
             {#if result.error}
                 <div class="p-4 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/50 rounded-xl text-red-600 text-xs font-bold uppercase tracking-widest text-center">
                     {result.error}

@@ -28,7 +28,7 @@
   }
 </script>
 
-<div class="space-y-10 animate-in fade-in duration-500">
+<div class="space-y-10">
   <!-- Hash Section -->
   <div class="space-y-4">
     <div class="flex items-center gap-2 mb-2">
@@ -70,7 +70,7 @@
         </button>
         
         {#if verifyResult !== null}
-            <div class="p-6 rounded-2xl text-center border-2 {verifyResult ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/50' : 'bg-red-50 border-red-100 text-red-600 dark:bg-red-950/20 dark:border-red-900/50'} animate-in zoom-in-95">
+            <div class="p-6 rounded-2xl text-center border-2 {verifyResult ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/50' : 'bg-red-50 border-red-100 text-red-600 dark:bg-red-950/20 dark:border-red-900/50'}">
                 {#if verifyResult}
                     <div class="text-xl font-black italic tracking-tighter">{t(dict, 'tools.bcrypt.matchConfirmed')}</div>
                     <div class="text-xs opacity-80 uppercase tracking-widest mt-1">{t(dict, 'tools.bcrypt.matchText')}</div>
