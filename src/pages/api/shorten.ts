@@ -83,14 +83,12 @@ async function shortenUrlVanish(urlToShorten: string, signal: AbortSignal): Prom
     return withScheme.replace('https://www.urlvanish.com/', 'https://urlvanish.com/');
   };
 
-  // Prefer the explicit result code element if present
   const codeMatch = html.match(/<code class="short-url-text">([^<]+)<\/code>/);
   if (codeMatch && codeMatch[1]) {
     const s = codeMatch[1].trim();
     return s ? normalize(s) : null;
   }
 
-  // Fallback: look for a short URL pattern (with or without www)
   const urlMatch = html.match(/https:\/\/(?:www\.)?urlvanish\.com\/[A-Za-z0-9]+/);
   return urlMatch ? normalize(urlMatch[0]) : null;
 }

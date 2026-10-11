@@ -31,7 +31,6 @@
   let error = '';
   let resultPassword = '';
 
-  // Confirm step state
   let pendingUploadBytes: Uint8Array | null = null;
   let pendingUploadFilename = '';
   let pendingPayloadPassword = '';
@@ -106,10 +105,9 @@
       const idx = randomIndex(WORDS.length);
       words.push(capitalize(WORDS[idx]));
     }
-    // Add a random 2-digit number to a random word
     const numIdx = randomIndex(count);
-    const num = randomIndex(90) + 10; // 10-99
-    const before = randomIndex(2); // coin flip: prepend or append
+    const num = randomIndex(90) + 10;
+    const before = randomIndex(2);
     words[numIdx] = before ? `${num}${words[numIdx]}` : `${words[numIdx]}${num}`;
     return words.join('-');
   }
@@ -441,7 +439,6 @@
     resultPassword = encryptionPassword;
     resultHasTemporaryUpload = false;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
-    // Keep ciphertext in the URL fragment; no automatic external shortening.
 
   }
 
@@ -471,7 +468,6 @@
     pendingPayloadPassword = encryptionPassword;
     resultPassword = encryptionPassword;
 
-    // Also create downloadable .enc file
     const encBlob = new Blob([encrypted], { type: 'application/octet-stream' });
     localFileName = `${filename}.enc`;
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);

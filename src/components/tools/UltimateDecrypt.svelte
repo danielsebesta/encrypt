@@ -42,7 +42,6 @@
     const sorted = [...entries].sort((a, b) => a.name.localeCompare(b.name));
     for (const e of sorted) {
       const parts = e.name.replace(/\/$/, '').split('/');
-      // Insert implicit parent directories
       for (let i = 1; i < parts.length; i++) {
         const dir = parts.slice(0, i).join('/');
         if (!seenDirs.has(dir)) {
@@ -527,7 +526,6 @@
     const buffer = new Uint8Array(await encryptedFile!.arrayBuffer());
     pushDebug(`Encrypted file loaded (${buffer.byteLength} bytes, name=${encryptedFile!.name})`);
 
-    // Try ghost/crypto decryptData first (has embedded filename metadata)
     try {
       const { data: decryptedData, name } = await decryptData(buffer, password);
       pushDebug(`Decrypted successfully (${decryptedData.byteLength} bytes, original name=${name})`);
@@ -537,7 +535,6 @@
       pushDebug(`decryptData failed: ${e?.message || 'unknown'}, trying stego extraction...`);
     }
 
-    // Try stego extraction (might be a stego PNG with encrypted data inside)
     try {
       const extracted = await extractStego(buffer);
       if (extracted) {
@@ -551,7 +548,6 @@
       pushDebug(`Stego+decrypt failed: ${e?.message || 'unknown'}`);
     }
 
-    // Try as raw AES text (from crypto.ts encrypt/decrypt)
     try {
       const text = await decrypt(buffer, password);
       pushDebug(`Decrypted as raw AES text (${text.length} chars)`);
@@ -615,7 +611,6 @@
     openedFileMime = mime;
     previewType = detectPreview(mime, name);
 
-    // Always create blob URL for download button
     const copy = new Uint8Array(bytes);
     const blob = new Blob([copy], { type: mime });
     openedFileUrl = URL.createObjectURL(blob);

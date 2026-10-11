@@ -1,8 +1,4 @@
-/**
- * Re-exports for compatibility. Prefer importing from the specific modules
- * (aesGcm, bcrypt, ids, hmac, rsaKeys, pgpKeys, base64, jwt) so tool pages
- * do not share one kitchen-sink chunk.
- */
+// Compatibility re-exports. Import the specific module instead so tool pages do not share one chunk.
 
 export { encrypt, decrypt, to14BitChunks, from14BitChunks } from './aesGcm';
 export { bcryptHash, bcryptVerify } from './bcrypt';

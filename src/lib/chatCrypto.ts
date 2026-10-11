@@ -1,11 +1,3 @@
-/**
- * E2E Chat Encryption
- *
- * Two modes:
- * 1. Key-in-hash: Random AES key embedded in URL fragment (#)
- * 2. Password: AES key derived from password via PBKDF2
- */
-
 const PBKDF2_ITERATIONS = 600_000;
 
 function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {

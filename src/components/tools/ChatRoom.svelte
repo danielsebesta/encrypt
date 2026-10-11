@@ -27,7 +27,6 @@
   export let partyHost = '';
 
   export let dict: Record<string, string>;
-  // dict provided by page
 
   type Message = {
     id: string;
@@ -369,28 +368,19 @@
 
   function parseMarkdown(text: string): string {
     let html = esc(text);
-    // Code blocks: ```lang\ncode\n``` → <pre><code>
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
       `<pre class="chat-code-block"><code>${code.trim()}</code></pre>`);
-    // Inline code: `code`
     html = html.replace(/`([^`]+)`/g, '<code class="chat-code-inline">$1</code>');
-    // Bold italic: ***text*** or ___text___
     html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
     html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
-    // Bold: **text** or __text__
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-    // Italic: *text* or _text_
     html = html.replace(/(?<!\w)\*(.+?)\*(?!\w)/g, '<em>$1</em>');
     html = html.replace(/(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>');
-    // Strikethrough: ~~text~~
     html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
-    // Spoiler: ||text|| -> click to reveal. The click handler is delegated
-    // through a Svelte action so encrypted chat text never injects JS handlers.
+    // Spoiler clicks are delegated through a Svelte action, so chat text never injects handlers.
     html = html.replace(/\|\|(.+?)\|\|/g, '<span class="chat-spoiler" data-chat-spoiler role="button" tabindex="0">$1</span>');
-    // Blockquote: > text (at line start)
     html = html.replace(/(^|\n)&gt; (.+)/g, '$1<blockquote class="chat-quote">$2</blockquote>');
-    // Newlines
     html = html.replace(/\n/g, '<br>');
     return html;
   }
@@ -1687,9 +1677,7 @@
       updateServerQuality();
     });
     ws.addEventListener('error', () => {
-      // WS error means TCP/upgrade/network problem - NOT a password issue.
-      // Let PartySocket retry; the 4 s handshake timeout after peers are present
-      // is the authoritative wrong-password signal.
+      // A socket error is a network problem, not a wrong password; the handshake timeout decides that.
     });
     ws.addEventListener('message', handleServerMessage);
 
@@ -1704,7 +1692,6 @@
     let data: any;
     try { data = JSON.parse(event.data); } catch { return; }
 
-    // Handle server control messages
     if (data.type === 'init') {
       serverPresence = typeof data.presence === 'number' ? data.presence : 0;
       serverRawPresence = typeof data.rawPresence === 'number' ? data.rawPresence : serverPresence;
@@ -1786,7 +1773,6 @@
       if (typeof parsed.id === 'string') seenMessageIds.add(parsed.id);
       parsed.color = safeColor(parsed.color);
 
-      // Typing indicator
       if (parsed.type === 'typing') {
         if (fromHistory) return true;
         const who = senderInfo(parsed);
@@ -1796,7 +1782,6 @@
         return true;
       }
 
-      // Verify message - someone joined with correct password
       if (parsed.type === 'verify') {
         if (fromHistory) return true;
         if (cryptoKey && ws && typeof parsed.challenge === 'string') {
@@ -1815,7 +1800,6 @@
         return true;
       }
 
-      // Verify-ack - confirmation from existing member
       if (parsed.type === 'verify-ack') {
         if (fromHistory || parsed.challenge !== verificationChallenge) return true;
         if (verifying) markVerified();
@@ -1867,16 +1851,12 @@
       if (!fromHistory) scrollToBottom();
       if (!fromHistory) storeLocalEnvelope({ ...data, id });
 
-      // Auto-preview for images and text files
       if (msg.file) autoPreview(msg);
 
       if (blurred) document.title = `(!) encrypt.click/chat`;
       return true;
     } catch {
-      // A single failed decrypt only proves THIS message wasn't from
-      // someone with our password - could be a peer in the same room
-      // with a different password. The 4s init-handler timeout below
-      // is the authoritative "no peer can hear me" signal.
+      // One failed decrypt may be a peer with a different password; the init timeout decides.
       if (!fromHistory && verified && Date.now() - lastWrongPasswordNotice > 10000) {
         lastWrongPasswordNotice = Date.now();
         messages = [...messages, {
@@ -1935,7 +1915,6 @@
     const text = inputText.trim();
     if (!text) return;
 
-    // Large text → auto-convert to file
     if (text.length > TEXT_AS_FILE_LIMIT) {
       const blob = new Blob([text], { type: 'text/plain' });
       const file = new File([blob], 'message.txt', { type: 'text/plain' });
@@ -2010,7 +1989,6 @@
 
       if (uploadUrls.length === 0) return;
 
-      // Send file message
       const fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
       const msgId = genId();
       const createdAt = Date.now();
@@ -2073,10 +2051,9 @@
         a.href = url; a.download = name || msg.file!.name;
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
-        return; // success
+        return;
       } catch { continue; }
     }
-    // All URLs failed
     msg.fileError = true;
     messages = messages;
   }
