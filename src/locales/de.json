@@ -11,6 +11,7 @@
   "nav.toggleTheme": "Design wechseln",
   "nav.language": "Sprache",
   "nav.menu": "Menü",
+  "nav.skip": "Zum Inhalt springen",
   "integrity.assetTitle": "Integritätsprüfung der Bereitstellung fehlgeschlagen",
   "integrity.assetMessage": "Die Bereitstellungsprüfung vergleicht neu geladene Dateien mit dem Manifest desselben Servers. Sie beweist weder die Echtheit des laufenden Browsercodes noch schützt sie vor einem kompromittierten Hosting.",
   "integrity.deployedLabel": "Bereitgestellt",

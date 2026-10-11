@@ -2,7 +2,7 @@
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
-import { getNavCategories, chatIcon, sendIcon, whiteboardIcon } from '../lib/tools';
+import { getNavCategories } from '../lib/tools';
 import { getGithubStars } from '../lib/githubStars';
 
 type Props = {
@@ -19,18 +19,20 @@ const dict = getTranslations(locale);
 const {
   title = t(dict, 'meta.defaultTitle'),
   description = t(dict, 'meta.defaultDescription'),
-  ogImage = "/encryptclick.svg",
+  ogImage = 'https://encrypt.click/og.png',
   canonical,
   mainClass = '',
 } = Astro.props;
 
-const canonicalUrl = canonical || new URL(Astro.url.pathname, "https://encrypt.click").href;
+const site = 'https://encrypt.click';
 const path = Astro.url.pathname;
-
+const canonicalUrl = canonical || new URL(path, site).href;
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
+const homeHref = locale === 'en' ? '/' : `/${locale}/`;
 const navCategories = getNavCategories(t, dict, localePrefix);
 const enableIntegrityCheck = import.meta.env.PROD;
 const integrityRepository = 'danielsebesta/encrypt';
+const repoUrl = `https://github.com/${integrityRepository}`;
 const githubStars = await getGithubStars(integrityRepository);
 
 const languageOptions = locales.map(l => ({
@@ -39,6 +41,14 @@ const languageOptions = locales.map(l => ({
   href: getLocalePath(path, l),
   active: l === locale
 }));
+
+const primaryLinks = [
+  { href: `${localePrefix}/share`, label: t(dict, 'nav.send') },
+  { href: `${localePrefix}/chat`, label: t(dict, 'nav.chat') },
+  { href: `${localePrefix}/whiteboard`, label: t(dict, 'nav.whiteboard') },
+];
+
+const isCurrent = (href: string) => path === href || path === `${href}/`;
 ---
 
 <!doctype html>
@@ -46,23 +56,29 @@ const languageOptions = locales.map(l => ({
 	<head>
 		<meta charset="UTF-8" />
 		<style>.theme-instant,.theme-instant *,.theme-instant *::before,.theme-instant *::after{transition:none!important;animation:none!important}</style>
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="google" content="notranslate" />
 		<meta name="format-detection" content="telephone=no" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<link rel="canonical" href={canonicalUrl} />
+		{languageOptions.map((lang) => <link rel="alternate" hreflang={lang.code} href={new URL(lang.href, site).href} />)}
+		<link rel="alternate" hreflang="x-default" href={new URL(getLocalePath(path, 'en'), site).href} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonicalUrl} />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		<meta property="og:image" content={ogImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:locale" content={locale} />
 		<meta property="og:site_name" content="encrypt.click" />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
-		<meta name="theme-color" content="#00bc7d" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
@@ -77,8 +93,8 @@ const languageOptions = locales.map(l => ({
 		<script is:inline src="/boot.js?v=security-v2"></script>
 	</head>
 	<body>
-<main class={`flex-1 ${mainClass}`}>
-<nav id="site-nav" class="w-full bg-transparent">
+		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
+		<header class="site-header">
 			<div
 				id="integrity-alert"
 				class="integrity-alert hidden"
@@ -87,8 +103,9 @@ const languageOptions = locales.map(l => ({
 				data-asset-message={t(dict, 'integrity.assetMessage')}
 				data-deployed-label={t(dict, 'integrity.deployedLabel')}
 				data-repo-label={t(dict, 'integrity.repoLabel')}
+				role="alert"
 			>
-				<div class="mx-auto flex max-w-6xl items-start gap-3 px-5 py-3">
+				<div class="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3">
 					<div class="integrity-alert__icon" aria-hidden="true">
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 							<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
@@ -101,197 +118,91 @@ const languageOptions = locales.map(l => ({
 						<p class="integrity-alert__message" data-integrity-message></p>
 						<div class="integrity-alert__links" data-integrity-links></div>
 					</div>
-					<button class="integrity-alert__dismiss" type="button" aria-label={t(dict, 'integrity.dismissLabel')} data-integrity-dismiss>
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+					<button class="btn-ghost btn-sm btn-icon" type="button" aria-label={t(dict, 'integrity.dismissLabel')} data-integrity-dismiss>
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 							<path d="M18 6 6 18"/>
 							<path d="m6 6 12 12"/>
 						</svg>
 					</button>
 				</div>
 			</div>
-			<div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-				<!-- Logo -->
-				<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2.5 shrink-0 rounded-lg py-1.5 pr-2 -ml-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors">
+
+			<nav id="site-nav" class="nav" aria-label={t(dict, 'nav.menu')}>
+				<a href={homeHref} class="nav__brand">
 					<img src="/encryptclick_icon.svg" alt="" width="36" height="36" class="h-9 w-9" decoding="async" />
-					<span class="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
+					<span>encrypt.click</span>
 				</a>
 
-				<!-- Desktop nav -->
-				<div class="hidden md:flex items-center gap-1">
-					<a href={`${localePrefix}/share`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={sendIcon} /></svg>
-						{t(dict, 'nav.send')}
-					</a>
-					<a href={`${localePrefix}/chat`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={chatIcon} /></svg>
-						{t(dict, 'nav.chat')}
-					</a>
-					<a href={`${localePrefix}/whiteboard`} class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={whiteboardIcon} /></svg>
-						{t(dict, 'nav.whiteboard')}
-					</a>
-					{navCategories.map((cat) => (
-						<div class="relative group">
-							<button class="text-[13px] font-medium px-3 py-2 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/50 transition-colors flex items-center gap-1.5">
-								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={cat.icon} /></svg>
+				<div id="nav-links" class="nav__links">
+					{primaryLinks.map((link) => (
+						<a href={link.href} class="nav__link" aria-current={isCurrent(link.href) ? 'page' : undefined}>{link.label}</a>
+					))}
+					{navCategories.map((cat, i) => (
+						<div class="nav__group">
+							<button type="button" class="nav__link" aria-expanded="false" aria-controls={`nav-menu-${i}`} data-menu-toggle>
 								{cat.name}
-								<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 transition-transform duration-200 group-hover:rotate-180"><polyline points="6 9 12 15 18 9"/></svg>
+								<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav__chevron"><path d="m6 9 6 6 6-6"/></svg>
 							</button>
-							<div class="absolute top-full left-0 pt-1.5 opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-[60]">
-								<div class="w-56 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl shadow-lg p-1.5 grid gap-px">
-									{cat.tools.map((tool) => (
-										<a href={tool.href} class="px-3 py-2 text-[13px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 rounded-lg transition-colors flex items-center gap-2">
-											<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 shrink-0"><Fragment set:html={tool.icon} /></svg>
-											{tool.label}
-										</a>
-									))}
-								</div>
+							<div id={`nav-menu-${i}`} class="menu" hidden>
+								{cat.tools.map((tool) => (
+									<a href={tool.href} class="menu__item" aria-current={isCurrent(tool.href) ? 'page' : undefined}>
+										<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="opacity-60"><Fragment set:html={tool.icon} /></svg>
+										{tool.label}
+									</a>
+								))}
 							</div>
 						</div>
 					))}
 				</div>
 
-				<!-- Desktop actions -->
-				<div class="hidden md:flex items-center gap-0.5">
-					<a
-						href="https://github.com/danielsebesta/encrypt"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
-						aria-label="GitHub"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+				<div class="nav__actions">
+					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')}>
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
 					</a>
-					<button
-						id="theme-toggle"
-						type="button"
-						class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
-						aria-label={t(dict, 'nav.toggleTheme')}
-					>
-						<span class="block dark:hidden"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
-						<span class="hidden dark:block"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')}>
+						<svg class="dark:hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+						<svg class="hidden dark:block" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
 					</button>
-					<div class="relative group">
-						<button type="button" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-[13px] font-medium" aria-label={t(dict, 'nav.language')}>
-							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
-							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-40 transition-transform duration-200 group-hover:rotate-180" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+					<div class="nav__group">
+						<button type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.language')} aria-expanded="false" aria-controls="nav-menu-lang" data-menu-toggle>
+							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
 						</button>
-						<div class="absolute top-full right-0 pt-1.5 opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-[60]">
-							<div class="w-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl shadow-lg p-1.5 grid gap-px">
-								{languageOptions.map((lang) => (
-									<a
-										href={lang.href}
-										data-lang={lang.code}
-										class={`px-3 py-2 text-[13px] font-medium rounded-lg transition-colors flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'}`}
-									>
-										<span class="w-6 shrink-0 text-[11px] font-bold uppercase opacity-60">{lang.code}</span>
-										<span>{lang.name}</span>
-									</a>
-								))}
-							</div>
+						<div id="nav-menu-lang" class="menu menu--end" hidden>
+							{languageOptions.map((lang) => (
+								<a href={lang.href} data-lang={lang.code} class="menu__item" aria-current={lang.active ? 'page' : undefined} lang={lang.code}>
+									<span class="w-6 shrink-0 text-xs uppercase opacity-60">{lang.code}</span>
+									{lang.name}
+								</a>
+							))}
 						</div>
 					</div>
-				</div>
-
-				<!-- Mobile actions -->
-				<div class="flex md:hidden items-center gap-0.5">
-					<button
-						id="theme-toggle-mobile"
-						type="button"
-						class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
-						aria-label={t(dict, 'nav.toggleTheme')}
-					>
-						<span class="block dark:hidden"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
-						<span class="hidden dark:block"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
-					</button>
-					<div class="relative group">
-						<button type="button" class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors" aria-label={t(dict, 'nav.language')}>
-							<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
-						</button>
-						<div class="absolute top-full right-0 pt-1.5 opacity-0 translate-y-1 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto transition-all duration-200 z-[60]">
-							<div class="w-36 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 rounded-xl shadow-lg p-1.5 grid gap-px">
-								{languageOptions.map((lang) => (
-									<a
-										href={lang.href}
-										data-lang={lang.code}
-										class={`px-3 py-2 text-[13px] font-medium rounded-lg transition-colors flex items-center gap-2 ${lang.active ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/60'}`}
-									>
-										<span class="w-6 shrink-0 text-[11px] font-bold uppercase opacity-60">{lang.code}</span>
-										<span>{lang.name}</span>
-									</a>
-								))}
-							</div>
-						</div>
-					</div>
-					<button id="mobile-menu-toggle" type="button" class="p-2 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors" aria-label={t(dict, 'nav.menu')} aria-expanded="false" aria-controls="mobile-menu">
-						<svg id="nav-hamburger" class="transition-transform duration-300 ease-in-out" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M27 10 13 10C10.8 10 9 8.2 9 6 9 3.5 10.8 2 13 2 15.2 2 17 3.8 17 6L17 26C17 28.2 18.8 30 21 30 23.2 30 25 28.2 25 26 25 23.8 23.2 22 21 22L7 22" style="stroke-dasharray:12 63;transition:stroke-dasharray 300ms ease-in-out,stroke-dashoffset 300ms ease-in-out" />
-							<path d="M7 16 27 16" />
-						</svg>
+					<button id="nav-toggle" type="button" class="btn-ghost btn-icon nav__burger" aria-label={t(dict, 'nav.menu')} aria-expanded="false" aria-controls="nav-links">
+						<svg class="nav__burger-open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
+						<svg class="nav__burger-close" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 					</button>
 				</div>
-			</div>
+			</nav>
+		</header>
 
-			<!-- Mobile menu -->
-			<div id="mobile-menu" class="md:hidden hidden overflow-hidden">
-				<div class="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl max-h-[calc(100vh-3.5rem)] overflow-y-auto">
-					<div class="p-5 space-y-5">
-						<a href={`${localePrefix}/share`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={sendIcon} /></svg>
-							{t(dict, 'nav.send')}
-						</a>
-						<a href={`${localePrefix}/chat`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={chatIcon} /></svg>
-							{t(dict, 'nav.chat')}
-						</a>
-						<a href={`${localePrefix}/whiteboard`} class="flex items-center gap-2 py-2 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
-							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={whiteboardIcon} /></svg>
-							{t(dict, 'nav.whiteboard')}
-						</a>
-						{navCategories.map((cat) => (
-							<div class="space-y-2">
-								<p class="text-[10px] font-bold uppercase text-zinc-500 tracking-[0.15em] flex items-center gap-1.5">
-									<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-50"><Fragment set:html={cat.icon} /></svg>
-									{cat.name}
-								</p>
-								<div class="grid grid-cols-2 gap-1">
-									{cat.tools.map((tool) => (
-										<a href={tool.href} class="py-2 px-1 text-[13px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-											<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-35 shrink-0"><Fragment set:html={tool.icon} /></svg>
-											{tool.label}
-										</a>
-									))}
-								</div>
-							</div>
-						))}
-						<div class="pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-							<a href="https://github.com/danielsebesta/encrypt" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 py-2 text-[13px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="opacity-60"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-								{t(dict, 'nav.github')}
-							</a>
-						</div>
-					</div>
-				</div>
-			</div>
-		</nav>
-
+		<main id="main" class={`flex-1 ${mainClass}`} tabindex="-1">
 			<slot />
 		</main>
-		<footer class="bg-zinc-50/50 dark:bg-zinc-950">
-			<div class="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
-				<a href={locale === 'en' ? '/' : `/${locale}/`} class="flex items-center gap-2 shrink-0 rounded-lg transition-colors">
+
+		<footer class="site-footer">
+			<div class="site-footer__inner">
+				<a href={homeHref} class="nav__brand">
 					<img src="/encryptclick_icon.svg" alt="" width="22" height="22" class="h-[22px] w-[22px]" decoding="async" />
-					<span class="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">encrypt.click</span>
+					<span class="text-sm">encrypt.click</span>
 				</a>
-				<div class="flex items-center gap-5 text-[13px]">
-					<a href={`${localePrefix}/security`} class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">{t(dict, 'home.footer.security')}</a>
-					<a href="https://github.com/danielsebesta/encrypt" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors group">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="opacity-50 group-hover:opacity-80 transition-opacity"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+				<div class="site-footer__links">
+					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
+					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="opacity-60"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
 						GitHub
-						{githubStars !== null && <span class="opacity-60">★ {githubStars.toLocaleString('en')}</span>}
+						{githubStars !== null && <span>★ {githubStars.toLocaleString('en')}</span>}
 					</a>
-					<span class="text-zinc-400 dark:text-zinc-500">
-						{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer" class="text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors font-medium">Daniel Šebesta</a>
+					<span>
+						{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer" class="text-text">Daniel Šebesta</a>
 					</span>
 				</div>
 			</div>

@@ -11,6 +11,7 @@
   "nav.toggleTheme": "Toggle theme",
   "nav.language": "Language",
   "nav.menu": "Menu",
+  "nav.skip": "Skip to content",
   "integrity.assetTitle": "Deployment integrity check failed",
   "integrity.assetMessage": "The deployment check compares freshly fetched assets and the build manifest from this server. It cannot prove the authenticity of the code running in your browser or protect against a compromised host.",
   "integrity.deployedLabel": "Deployed",

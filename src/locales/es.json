@@ -11,6 +11,7 @@
   "nav.toggleTheme": "Cambiar tema",
   "nav.language": "Idioma",
   "nav.menu": "Menú",
+  "nav.skip": "Saltar al contenido",
   "integrity.assetTitle": "Falló la verificación de integridad del despliegue",
   "integrity.assetMessage": "La comprobación compara archivos recién descargados con el manifiesto del mismo servidor. No demuestra la autenticidad del código ejecutado en el navegador ni protege frente a un servidor comprometido.",
   "integrity.deployedLabel": "Desplegado",

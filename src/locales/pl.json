@@ -11,6 +11,7 @@
   "nav.toggleTheme": "Przełącz motyw",
   "nav.language": "Język",
   "nav.menu": "Menu",
+  "nav.skip": "Przejdź do treści",
   "integrity.assetTitle": "Kontrola integralności wdrożenia nie powiodła się",
   "integrity.assetMessage": "Kontrola porównuje nowo pobrane pliki z manifestem tego samego serwera. Nie potwierdza autentyczności kodu uruchomionego w przeglądarce ani nie chroni przed przejętym hostingiem.",
   "integrity.deployedLabel": "Wdrożone",

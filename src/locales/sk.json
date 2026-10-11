@@ -11,6 +11,7 @@
   "nav.toggleTheme": "Prepnúť motív",
   "nav.language": "Jazyk",
   "nav.menu": "Menu",
+  "nav.skip": "Preskočiť na obsah",
   "integrity.assetTitle": "Kontrola integrity nasadenia zlyhala",
   "integrity.assetMessage": "Kontrola nasadenia porovnáva novo stiahnuté súbory s manifestom z rovnakého servera. Nedokazuje pravosť kódu v prehliadači a nechráni pred napadnutým hostingom.",
   "integrity.deployedLabel": "Nasadené",

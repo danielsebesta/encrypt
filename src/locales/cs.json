@@ -11,6 +11,7 @@
   "nav.toggleTheme": "Přepnout motiv",
   "nav.language": "Jazyk",
   "nav.menu": "Menu",
+  "nav.skip": "Přeskočit na obsah",
   "integrity.assetTitle": "Kontrola integrity nasazení selhala",
   "integrity.assetMessage": "Kontrola nasazení porovnává nově stažené soubory s manifestem ze stejného serveru. Nedokazuje pravost kódu běžícího v prohlížeči a nechrání před kompromitovaným hostingem.",
   "integrity.deployedLabel": "Nasazeno",
