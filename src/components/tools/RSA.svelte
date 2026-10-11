@@ -21,7 +21,7 @@
 
 </script>
 
-<div class="space-y-6 animate-in fade-in duration-500">
+<div class="space-y-6">
   <div class="grid gap-6">
     <div class="grid gap-1.5">
         <label class="label">{t(dict, 'tools.rsa.keyBitLength')}</label>
@@ -37,7 +37,7 @@
     </button>
 
     {#if keyPair}
-        <div class="space-y-6 animate-in slide-in-from-bottom-2">
+        <div class="space-y-6">
             <div class="space-y-2">
                 <div class="flex justify-between items-end">
                     <label class="label">{t(dict, 'tools.rsa.publicKey')}</label>

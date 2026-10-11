@@ -19,7 +19,7 @@
 
 </script>
 
-<div class="space-y-6 animate-in fade-in duration-500">
+<div class="space-y-6">
   <div class="grid gap-6">
     <div class="grid gap-2">
       <div class="flex justify-between items-end">

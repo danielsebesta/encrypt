@@ -15,7 +15,7 @@
   }
 </script>
 
-<div class="space-y-6 animate-in fade-in duration-500">
+<div class="space-y-6">
   <div class="grid gap-6">
     <div class="grid gap-1.5">
         <label class="label">{t(dict, 'tools.hmac.messageData')}</label>

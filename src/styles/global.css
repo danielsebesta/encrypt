@@ -197,10 +197,6 @@
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-950;
     }
 
-    .btn-icon {
-        @apply cursor-pointer h-9 w-9 rounded-full flex items-center justify-center;
-    }
-
     .integrity-alert {
         @apply border-b backdrop-blur-xl;
     }
@@ -312,16 +308,6 @@
 
     .tab-btn-active {
         @apply text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500;
-    }
-
-.badge-secondary {
-        @apply inline-flex items-center gap-1 rounded-full bg-emerald-100/80 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 px-3 py-1 border border-emerald-200/70 dark:border-emerald-800/60;
-    }
-
-    .badge-outline {
-        @apply inline-flex items-center gap-1 rounded-full border border-zinc-200/70 dark:border-zinc-800/80 bg-transparent text-xs px-3 py-1.5
-            text-zinc-700 dark:text-zinc-200
-            hover:border-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-300;
     }
 
     /* ── Homepage ── */
@@ -446,34 +432,6 @@
         @apply mt-2 max-w-xl mx-auto text-sm md:text-base leading-relaxed text-zinc-500 dark:text-zinc-400;
     }
 
-    .home-tools-spotlight {
-        @apply mb-8 flex items-center gap-3 rounded-2xl border border-emerald-200/60 bg-emerald-50/40 px-4 py-3.5 text-left transition-colors dark:border-emerald-900/40 dark:bg-emerald-950/20;
-    }
-
-    .home-tools-spotlight:hover {
-        @apply border-emerald-400/70 bg-emerald-50/70 dark:border-emerald-700/50 dark:bg-emerald-950/35;
-    }
-
-    .home-tools-spotlight__icon {
-        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/80 text-emerald-600 dark:bg-zinc-950/50 dark:text-emerald-400;
-    }
-
-    .home-tools-spotlight__copy {
-        @apply min-w-0 flex-1;
-    }
-
-    .home-tools-spotlight__label {
-        @apply block text-sm font-semibold text-zinc-900 dark:text-zinc-100;
-    }
-
-    .home-tools-spotlight__text {
-        @apply mt-0.5 block text-sm leading-snug text-zinc-500 dark:text-zinc-400;
-    }
-
-    .home-tools-spotlight__go {
-        @apply shrink-0 text-lg text-emerald-600 dark:text-emerald-400;
-    }
-
     .home-tools-categories {
         @apply grid gap-8 md:gap-10;
     }
@@ -518,53 +476,10 @@
         box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.25);
     }
 
-    .home-tool-panel__title {
-        @apply mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300;
-        position: relative;
-        z-index: 1;
-    }
-
     .home-tool-panel__surface {
         @apply rounded-xl border border-zinc-100/60 bg-white/70 dark:bg-zinc-950/60 dark:border-zinc-800/50 p-5 md:p-6;
         position: relative;
         z-index: 1;
-    }
-
-    .home-tool-link {
-        @apply cursor-pointer inline-flex items-center gap-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-300 transition-colors;
-    }
-
-    .home-tool-link:hover {
-        @apply text-emerald-600 dark:text-emerald-400;
-    }
-
-    .home-tool-link__dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 9999px;
-        flex: none;
-        background: oklch(0.7019 0.1577 160.44 / 0.5);
-        transition: all 0.2s;
-    }
-
-    .home-tool-link:hover .home-tool-link__dot {
-        background: oklch(0.7019 0.1577 160.44 / 0.9);
-        box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.15), 0 0 8px oklch(0.7019 0.1577 160.44 / 0.2);
-    }
-
-    .bento-card {
-        @apply rounded-2xl border border-zinc-200/50 bg-white/60 dark:bg-zinc-950/50 dark:border-zinc-800/50 overflow-hidden;
-        backdrop-filter: blur(14px) saturate(1.2);
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .bento-card:hover {
-        border-color: oklch(0.7019 0.1577 160.44 / 0.3);
-        box-shadow: 0 0 0 1px oklch(0.7019 0.1577 160.44 / 0.08);
-    }
-
-    html.dark .bento-card:hover {
-        border-color: oklch(0.7019 0.1577 160.44 / 0.2);
     }
 
     /* ── Landing preview (/preview) ── */
@@ -644,16 +559,8 @@
         @apply mx-auto w-full max-w-5xl px-5;
     }
 
-    .lp-preview-banner {
-        @apply mb-8 inline-flex rounded-full border border-amber-300/70 bg-amber-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-200;
-    }
-
     .lp-hero {
         @apply relative w-full pt-8 pb-10 md:pt-12 md:pb-14 text-center;
-    }
-
-    .lp-hero__lock {
-        @apply mx-auto mb-5 h-auto w-16 md:w-24;
     }
 
     .lp-hero__art {
@@ -696,14 +603,6 @@
 
     .lp-paths {
         @apply relative w-full pb-10 md:pb-14;
-    }
-
-    .lp-paths__intro {
-        @apply mb-6 text-center md:mb-8;
-    }
-
-    .lp-paths__intro .lp-section-text {
-        @apply mx-auto;
     }
 
     .lp-paths__grid {
@@ -749,42 +648,6 @@
         @apply mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300 sm:mt-auto sm:pt-4;
     }
 
-    .lp-actions {
-        @apply relative w-full pb-12 md:pb-16;
-    }
-
-    .lp-actions__stack {
-        @apply flex max-w-xl flex-col gap-8 md:gap-10;
-    }
-
-    .lp-action__head {
-        @apply mb-4;
-    }
-
-    .lp-action__art {
-        @apply mb-4 h-auto w-full max-w-[200px] drop-shadow-md md:max-w-[240px];
-    }
-
-    .lp-action__title {
-        @apply text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 md:text-2xl;
-    }
-
-    .lp-action__lead {
-        @apply mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300;
-    }
-
-    .lp-steps {
-        @apply mb-4 flex list-none flex-col gap-2 p-0;
-    }
-
-    .lp-steps li {
-        @apply flex items-start gap-2.5 text-sm leading-snug text-zinc-600 dark:text-zinc-300;
-    }
-
-    .lp-steps__num {
-        @apply mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-bold text-emerald-700 dark:text-emerald-300;
-    }
-
     .lp-trust {
         @apply relative w-full pb-12 md:pb-16;
     }
@@ -799,10 +662,6 @@
 
     .lp-trust__img {
         @apply h-auto w-full max-w-[200px] drop-shadow-xl md:max-w-[280px];
-    }
-
-    .lp-trust__img--privacy {
-        @apply max-w-[220px] md:max-w-[300px];
     }
 
     .lp-trust__title {
@@ -951,11 +810,6 @@
         @apply flex items-center gap-2 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/20 px-3 py-2;
     }
 
-    .ue-passphrase-words {
-        @apply flex-1 text-sm font-medium text-emerald-700 dark:text-emerald-400 select-all;
-        letter-spacing: 0.01em;
-    }
-
     .ue-passphrase-refresh {
         @apply cursor-pointer flex-none p-1 rounded-md text-emerald-500/60 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-900/30 transition-colors;
     }
@@ -991,31 +845,8 @@
     }
 }
 
-@layer utilities {
-    .aos-fade {
-        opacity: 0;
-        transition: opacity 300ms ease-out;
-    }
-
-    .aos-visible {
-        opacity: 1;
-    }
-    .aos-fade.delay-0 { transition-delay: 0ms; }
-    .aos-fade.delay-60 { transition-delay: 60ms; }
-    .aos-fade.delay-80 { transition-delay: 80ms; }
-    .aos-fade.delay-120 { transition-delay: 120ms; }
-}
-
 @media (prefers-reduced-motion: reduce) {
     html {
         scroll-behavior: auto;
-    }
-
-    main,
-    .aos-fade,
-    .home-tool-panel {
-        transition: none !important;
-        animation: none !important;
-        transform: none !important;
     }
 }

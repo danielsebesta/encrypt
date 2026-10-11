@@ -12,7 +12,7 @@ const localePrefix = Astro.props.locale === 'en' ? '' : `/${Astro.props.locale}`
 const categories = getNavCategories(t, dict, localePrefix);
 ---
 
-<section id="home-tools" class="home-tools-section" data-aos data-aos-delay="80">
+<section id="home-tools" class="home-tools-section">
   <div class="max-w-5xl mx-auto px-5">
     <div class="home-tools-header">
       <h2 class="home-tools-title">{t(dict, 'home.tools.title')}</h2>

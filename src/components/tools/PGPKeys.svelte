@@ -34,7 +34,7 @@
 
 </script>
 
-<div class="space-y-6 animate-in fade-in duration-500">
+<div class="space-y-6">
   <div class="grid gap-6">
     <div class="grid md:grid-cols-2 gap-4">
       <div class="space-y-1.5">
@@ -102,7 +102,7 @@
     {/if}
 
     {#if keyPair}
-      <div class="space-y-6 animate-in slide-in-from-bottom-2">
+      <div class="space-y-6">
         <div class="space-y-2">
           <div class="flex justify-between items-end">
             <label class="label">

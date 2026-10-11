@@ -26,7 +26,7 @@
 
 </script>
 
-<div class="space-y-6 animate-in fade-in duration-500">
+<div class="space-y-6">
   <div class="flex p-1 bg-zinc-100 dark:bg-zinc-900 rounded-lg">
     <button on:click={() => mode = 'encode'} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {mode === 'encode' ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">{t(dict, 'tools.base64.encode')}</button>
     <button on:click={() => mode = 'decode'} class="flex-1 py-2 text-xs font-bold rounded-md transition-all {mode === 'decode' ? 'bg-white dark:bg-zinc-800 text-emerald-500 shadow-sm' : 'text-zinc-500'}">{t(dict, 'tools.base64.decode')}</button>
