@@ -55,7 +55,7 @@ Validate changes with `pnpm test`, `pnpm check` and `pnpm build`.
 
 ## Working rules
 
-- Read `DESIGN.md` first: tokens, component classes, the tool page template and the writing rules. Use only those classes; do not add parallel abstractions.
+- Use only the tokens and component classes in `src/styles/global.css`; do not add parallel abstractions. Copy an existing tool page for the layout.
 - Never hardcode user-facing English in components or pages.
 - Put normal UI strings in `src/locales/*.json`.
 - Tool explainers live as short `tools.<name>.help.*` locale keys, shown via `ToolHelp`.
