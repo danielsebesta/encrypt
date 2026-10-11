@@ -2,6 +2,8 @@
   "meta.defaultTitle": "encrypt.click - Dein Datenschutz-Toolkit",
   "meta.defaultDescription": "Kostenlose Open-Source-Tools für mehr Privatsphäre. Die Kryptografie läuft im Browser; beim Teilen, Chatten oder Hochladen verlassen nur Geheimtext und notwendige Metadaten dein Gerät.",
   "common.working": "Wird verarbeitet...",
+  "common.copy": "Kopieren",
+  "common.copied": "Kopiert",
   "common.generatePassphrase": "Passphrase generieren",
   "nav.developer": "Entwickler",
   "nav.privacy": "Datenschutz",

@@ -2,6 +2,8 @@
   "meta.defaultTitle": "encrypt.click - Votre boîte à outils de confidentialité",
   "meta.defaultDescription": "Outils de confidentialité gratuits et open source. La cryptographie s’exécute dans le navigateur ; lors d’un partage, d’un chat ou d’un téléversement, seuls le texte chiffré et les métadonnées nécessaires quittent l’appareil.",
   "common.working": "Traitement...",
+  "common.copy": "Copier",
+  "common.copied": "Copié",
   "common.generatePassphrase": "Générer une phrase de passe",
   "nav.developer": "Développement",
   "nav.privacy": "Confidentialité",

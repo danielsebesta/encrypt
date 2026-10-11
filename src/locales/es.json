@@ -2,6 +2,8 @@
   "meta.defaultTitle": "encrypt.click - Tu kit de privacidad",
   "meta.defaultDescription": "Herramientas de privacidad gratuitas y de código abierto. Las operaciones criptográficas se ejecutan en el navegador; al compartir, chatear o subir archivos, solo salen datos cifrados y los metadatos necesarios.",
   "common.working": "Trabajando...",
+  "common.copy": "Copiar",
+  "common.copied": "Copiado",
   "common.generatePassphrase": "Generar frase de contraseña",
   "nav.developer": "Desarrollador",
   "nav.privacy": "Privacidad",
