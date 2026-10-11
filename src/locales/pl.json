@@ -2,6 +2,8 @@
   "meta.defaultTitle": "encrypt.click - Twój zestaw narzędzi do ochrony prywatności",
   "meta.defaultDescription": "Bezpłatne narzędzia open source do ochrony prywatności. Kryptografia działa w przeglądarce; podczas udostępniania, czatu lub przesyłania plików urządzenie opuszczają tylko szyfrogram i niezbędne metadane.",
   "common.working": "Pracuję...",
+  "common.copy": "Kopiuj",
+  "common.copied": "Skopiowano",
   "common.generatePassphrase": "Wygeneruj hasło wielowyrazowe",
   "nav.developer": "Programista",
   "nav.privacy": "Prywatność",

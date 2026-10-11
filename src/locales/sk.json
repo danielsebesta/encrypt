@@ -2,6 +2,8 @@
   "meta.defaultTitle": "encrypt.click - Tvoja sada na ochranu súkromia",
   "meta.defaultDescription": "Bezplatné open-source nástroje na ochranu súkromia. Kryptografia beží v prehliadači; pri zdieľaní, četovaní alebo nahrávaní opúšťajú zariadenie len šifrované dáta a nevyhnutné metadáta.",
   "common.working": "Pracujem...",
+  "common.copy": "Kopírovať",
+  "common.copied": "Skopírované",
   "common.generatePassphrase": "Vygenerovať heslovú frázu",
   "nav.developer": "Vývojár",
   "nav.privacy": "Súkromie",

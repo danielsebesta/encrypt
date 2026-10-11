@@ -2,6 +2,8 @@
   "meta.defaultTitle": "encrypt.click - Your privacy toolkit",
   "meta.defaultDescription": "Free, open-source privacy tools. Cryptography runs in your browser; when you share, chat, or upload, only ciphertext and necessary metadata leave your device.",
   "common.working": "Working...",
+  "common.copy": "Copy",
+  "common.copied": "Copied",
   "common.generatePassphrase": "Generate passphrase",
   "nav.developer": "Developer",
   "nav.privacy": "Privacy",
