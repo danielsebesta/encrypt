@@ -1,205 +1,12 @@
 import { readJsonLimited } from '../../lib/httpLimits';
 import type { APIRoute } from 'astro';
 
-const NOLOG_API = 'https://nolog.link/';
-const ONEURL_API = 'https://1url.cz/';
-const URLVANISH_API = 'https://www.urlvanish.com/create.php';
-const ISGD_API = 'https://is.gd/create.php';
-const TINI_API = 'https://tini.fyi/api/v1/url/create';
-const TINI_BASE = 'https://tini.fyi/';
-const CHOTO_API = 'https://backend.choto.co/api/v1/links';
-const DAGD_API = 'https://da.gd/s';
-const SPOOME_API = 'https://spoo.me/';
-const CLEANURI_API = 'https://cleanuri.com/api/v1/shorten';
-const ULVIS_API = 'https://ulvis.net/api.php';
-const KRATKY_API = 'https://kratky.link/';
 const SHRINK_API = 'https://l.encrypt.click/api/shorten';
-
-type Provider = 'shrink' | 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd' | 'dagd' | 'spoome' | 'cleanuri' | 'ulvis' | 'kratky';
 
 export const prerender = false;
 
-async function shortenNolog(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(NOLOG_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'encrypt.click/1' },
-    body: JSON.stringify({ url: urlToShorten, alias: '' }),
-    signal
-  });
-  const text = await res.text();
-  if (!res.ok) return null;
-  try {
-    const data = JSON.parse(text) as { shorturl?: string };
-    const s = typeof data?.shorturl === 'string' ? data.shorturl : '';
-    return s ? (s.startsWith('http') ? s : `https://${s}`) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function shorten1url(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const body = new URLSearchParams({
-    url: urlToShorten,
-    url2c0de: '2url',
-    homepage: '',
-    url2code: '1',
-    zkratka: ''
-  }).toString();
-  const res = await fetch(ONEURL_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'text/html', 'User-Agent': 'encrypt.click/1' },
-    body,
-    signal
-  });
-  const html = await res.text();
-  if (!res.ok) return null;
-  const m = html.match(/href="(https:\/\/1url\.cz\/[A-Za-z0-9]+)"/);
-  return m ? m[1] : null;
-}
-
-async function shortenUrlVanish(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const body = new URLSearchParams({
-    url: urlToShorten,
-    shorten: ''
-  }).toString();
-
-  const res = await fetch(URLVANISH_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'text/html',
-      'User-Agent': 'encrypt.click/1',
-      'Referer': 'https://www.urlvanish.com/'
-    },
-    body,
-    signal
-  });
-
-  const html = await res.text();
-  if (!res.ok) return null;
-
-  const normalize = (u: string): string => {
-    const withScheme = u.startsWith('http') ? u : `https://${u}`;
-    return withScheme.replace('https://www.urlvanish.com/', 'https://urlvanish.com/');
-  };
-
-  const codeMatch = html.match(/<code class="short-url-text">([^<]+)<\/code>/);
-  if (codeMatch && codeMatch[1]) {
-    const s = codeMatch[1].trim();
-    return s ? normalize(s) : null;
-  }
-
-  const urlMatch = html.match(/https:\/\/(?:www\.)?urlvanish\.com\/[A-Za-z0-9]+/);
-  return urlMatch ? normalize(urlMatch[0]) : null;
-}
-
-async function shortenTini(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(TINI_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'encrypt.click/1',
-      'Referer': 'https://app.tini.fyi/'
-    },
-    body: JSON.stringify({
-      destination: urlToShorten,
-      alias: ''
-    }),
-    signal
-  });
-
-  const text = await res.text();
-  if (!res.ok) return null;
-
-  try {
-    const data = JSON.parse(text) as {
-      status?: string;
-      data?: { shortCode?: string | null; destination?: string | null } | null;
-    };
-    if (data.status !== 'success') return null;
-    const code = data.data?.shortCode;
-    if (typeof code === 'string' && code.trim().length > 0) {
-      return `${TINI_BASE}${code.trim()}`;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function shortenChoto(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(CHOTO_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': 'encrypt.click/1',
-      'Referer': 'https://choto.co/',
-      'Origin': 'https://choto.co',
-      'timezone': 'Europe/Prague'
-    },
-    body: JSON.stringify({ link: urlToShorten }),
-    signal
-  });
-
-  const text = await res.text();
-  if (!res.ok) return null;
-
-  try {
-    const data = JSON.parse(text) as {
-      status?: boolean;
-      status_code?: number;
-      data?: {
-        link?: {
-          short_link?: string | null;
-        } | null;
-      } | null;
-    };
-    if (!data.status || data.status_code !== 200) return null;
-    const short = data.data?.link?.short_link;
-    if (typeof short === 'string' && short.trim().length > 0) {
-      return short.trim();
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function shortenIsgd(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const body = new URLSearchParams({
-    url: urlToShorten,
-    format: 'json'
-  }).toString();
-
-  const res = await fetch(`${ISGD_API}?${body}`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'encrypt.click/1'
-    },
-    signal
-  });
-
-  const text = await res.text();
-  if (!res.ok) return null;
-
-  try {
-    const data = JSON.parse(text) as {
-      shorturl?: string | null;
-      errorcode?: number;
-      errormessage?: string;
-    };
-    if (data.errorcode) return null;
-    const short = data.shorturl;
-    if (typeof short === 'string' && short.trim().length > 0) {
-      return short.trim();
-    }
-    return null;
-  } catch {
-    return null;
-  }
+function json(data: unknown, status: number): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 async function shortenShrink(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
@@ -212,189 +19,53 @@ async function shortenShrink(urlToShorten: string, signal: AbortSignal): Promise
   if (!res.ok) return null;
   try {
     const data = await res.json() as { short_url?: string };
-    return typeof data.short_url === 'string' && data.short_url.startsWith('http') ? data.short_url : null;
-  } catch { return null; }
-}
-
-async function shortenUlvis(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(`${ULVIS_API}?url=${encodeURIComponent(urlToShorten)}`, {
-    method: 'GET',
-    headers: { 'User-Agent': 'encrypt.click/1' },
-    signal
-  });
-  const text = (await res.text()).trim();
-  if (!res.ok) return null;
-  return text && text.startsWith('http') ? text : null;
-}
-
-async function shortenKratky(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(KRATKY_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=UTF-8',
-      'Accept': 'text/x-component',
-      'Next-Action': '403221ef1e534f31b0b278e8b7f6a95cc940634ed8',
-      'User-Agent': 'encrypt.click/1'
-    },
-    body: JSON.stringify([{ originalUrl: urlToShorten }]),
-    signal
-  });
-  const text = await res.text();
-  if (!res.ok) return null;
-  try {
-    const match = text.match(/"shortCode"\s*:\s*"([^"]+)"/);
-    if (!match) return null;
-    return `https://kratky.link/${match[1]}`;
-  } catch { return null; }
-}
-
-async function shortenDagd(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(`${DAGD_API}?url=${encodeURIComponent(urlToShorten)}`, {
-    method: 'GET',
-    headers: { 'User-Agent': 'encrypt.click/1' },
-    signal
-  });
-  const text = (await res.text()).trim();
-  if (!res.ok) return null;
-  return text && text.startsWith('http') ? text : null;
-}
-
-async function shortenSpoome(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(SPOOME_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'application/json',
-      'User-Agent': 'encrypt.click/1'
-    },
-    body: new URLSearchParams({ url: urlToShorten }).toString(),
-    signal
-  });
-  const text = await res.text();
-  if (!res.ok) return null;
-  try {
-    const data = JSON.parse(text) as { short_url?: string };
-    return typeof data.short_url === 'string' && data.short_url.trim() ? data.short_url.trim() : null;
-  } catch { return null; }
-}
-
-async function shortenCleanuri(urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(CLEANURI_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'encrypt.click/1'
-    },
-    body: new URLSearchParams({ url: urlToShorten }).toString(),
-    signal
-  });
-  const text = await res.text();
-  if (!res.ok) return null;
-  try {
-    const data = JSON.parse(text) as { result_url?: string };
-    return typeof data.result_url === 'string' && data.result_url.trim() ? data.result_url.trim() : null;
+    return typeof data.short_url === 'string' && data.short_url.startsWith('https://l.encrypt.click/') ? data.short_url : null;
   } catch { return null; }
 }
 
 export const POST: APIRoute = async ({ request }) => {
   if (request.headers.get('Content-Type')?.includes('application/json') !== true) {
-    return new Response(JSON.stringify({ error: 'Content-Type must be application/json' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return json({ error: 'Content-Type must be application/json' }, 400);
   }
 
-  let body: { url?: string; provider?: string };
+  let body: { url?: string };
   try {
     body = await readJsonLimited(request);
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return json({ error: 'Invalid JSON' }, 400);
   }
 
   const targetUrl = typeof body?.url === 'string' ? body.url.trim() : '';
-  if (!targetUrl) {
-    return new Response(JSON.stringify({ error: 'Missing url' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  if (!targetUrl) return json({ error: 'Missing url' }, 400);
 
   let parsed: URL;
   try {
     parsed = new URL(targetUrl);
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid URL' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return json({ error: 'Invalid URL' }, 400);
   }
 
-  if (parsed.hash || parsed.username || parsed.password || parsed.protocol !== 'https:' || parsed.port) {
-    return new Response(JSON.stringify({ error: 'Only HTTPS links without secrets in fragments can be shortened' }), { status: 400 });
-  }
   const hostname = parsed.hostname.toLowerCase();
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-  const isEncryptClickRoot = hostname === 'encrypt.click';
-  const isEncryptClickSub = hostname.endsWith('.encrypt.click');
-
-  if (!isLocal && !isEncryptClickRoot && !isEncryptClickSub) {
-    return new Response(JSON.stringify({ error: 'URL must be on encrypt.click' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  if (parsed.hash || parsed.username || parsed.password || (!isLocal && (parsed.protocol !== 'https:' || parsed.port))) {
+    return json({ error: 'Only HTTPS links without secrets in fragments can be shortened' }, 400);
+  }
+  if (!isLocal && hostname !== 'encrypt.click' && !hostname.endsWith('.encrypt.click')) {
+    return json({ error: 'URL must be on encrypt.click' }, 400);
   }
 
-  const urlToShorten = isLocal ? `https://encrypt.click${parsed.pathname}${parsed.hash}` : targetUrl;
-
-  const requested = body?.provider;
-  const VALID_PROVIDERS: Provider[] = ['shrink', 'nolog', '1url', 'urlvanish', 'tini', 'choto', 'isgd', 'dagd', 'spoome', 'cleanuri', 'ulvis', 'kratky'];
-  const provider: Provider = VALID_PROVIDERS.includes(requested as Provider) ? requested as Provider : 'shrink';
-
-  const PROVIDER_FNS: Record<Provider, (url: string, signal: AbortSignal) => Promise<string | null>> = {
-    shrink: shortenShrink,
-    nolog: shortenNolog,
-    '1url': shorten1url,
-    urlvanish: shortenUrlVanish,
-    tini: shortenTini,
-    choto: shortenChoto,
-    isgd: shortenIsgd,
-    dagd: shortenDagd,
-    spoome: shortenSpoome,
-    cleanuri: shortenCleanuri,
-    ulvis: shortenUlvis,
-    kratky: shortenKratky,
-  };
+  const urlToShorten = isLocal ? `https://encrypt.click${parsed.pathname}${parsed.search}` : targetUrl;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
-
   let shorturl: string | null;
   try {
-    shorturl = await PROVIDER_FNS[provider](urlToShorten, controller.signal);
+    shorturl = await shortenShrink(urlToShorten, controller.signal);
   } catch {
     shorturl = null;
   }
   clearTimeout(timeout);
 
-  if (!shorturl) {
-    let message = 'Shortening failed. The external shortener may be temporarily unavailable.';
-
-    if (provider === 'choto') {
-      message =
-        'choto.co could not shorten this link. Their service may reject URLs this long. Try a different shortener or, if this keeps happening, report the issue on the encrypt.click GitHub repository.';
-    }
-
-    return new Response(JSON.stringify({ error: message }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
-  return new Response(JSON.stringify({ shorturl: shorturl }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
+  if (!shorturl) return json({ error: 'Shortening failed' }, 503);
+  return json({ shorturl }, 200);
 };

@@ -275,7 +275,10 @@
 
   function buildReceiveUrls(encoded: string) {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
-    return { direct: `${origin}/u/#${encoded}` };
+    return {
+      direct: `${origin}/u/#${encoded}`,
+      shortenable: `${origin}/u/?p=${encoded}`,
+    };
   }
 
   async function gzipBytes(input: Uint8Array): Promise<Uint8Array> {
@@ -439,7 +442,7 @@
     resultPassword = encryptionPassword;
     resultHasTemporaryUpload = false;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
-
+    await autoShorten(urls.shortenable);
   }
 
   async function encryptGhostPrepare() {
@@ -556,7 +559,7 @@
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     resultHasTemporaryUpload = true;
-    // Keep ciphertext in the URL fragment; no automatic external shortening.
+    await autoShorten(urls.shortenable);
 
     pendingUploadBytes = null;
     pendingPayloadPassword = '';
@@ -570,6 +573,32 @@
     pushDebug(`Generated downloadable PNG wrapper (${stegoBytes.byteLength} bytes)`);
     stegoImageBlob = new Blob([stegoBytes], { type: 'image/png' });
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
+  }
+
+  async function autoShorten(url: string): Promise<void> {
+    setProgress(t(dict, 'tools.ultimateEncrypt.progressShortenTitle'), t(dict, 'tools.ultimateEncrypt.progressShortenDetail'));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      try {
+        const res = await fetch('/api/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => null);
+        pushDebug(`Shortener: HTTP ${res.status}`);
+        if (res.ok && typeof data?.shorturl === 'string') {
+          shortUrl = data.shorturl;
+          return;
+        }
+      } catch (e: any) {
+        pushDebug(`Shortener: ${e?.name === 'AbortError' ? 'timeout' : e?.message || 'failed'}`);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
   }
 
   function downloadStego() {
