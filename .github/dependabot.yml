@@ -4,8 +4,28 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Prague
     open-pull-requests-limit: 10
+    # Wait a week after a release before proposing it; compromised versions are usually pulled within days.
+    cooldown:
+      default-days: 7
+    # One pull request per week for minor and patch updates; majors stay separate for manual review.
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Prague
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
