@@ -1,6 +1,6 @@
 import { encryptMessage, decryptMessage, generateIdentity, nameToGradient } from './chatCrypto';
 
-const PBKDF2_ITERATIONS = 200_000;
+const PBKDF2_ITERATIONS = 600_000;
 
 export async function deriveKeyFromPassword(password: string, roomId: string): Promise<CryptoKey> {
   const enc = new TextEncoder();

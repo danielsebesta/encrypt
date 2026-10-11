@@ -2,7 +2,7 @@
 
 ## Setup
 
-- Node.js 18+
+- Node.js 24.21+ (see `.nvmrc`)
 - pnpm 10
 
 ```bash
@@ -12,13 +12,16 @@ pnpm install
 pnpm dev
 ```
 
-Before opening a PR, run `pnpm build`.
+Before opening a PR, run `pnpm test`, `pnpm check`, `pnpm build`, and `pnpm audit`.
+For manual browser checks of chat and whiteboard, run `pnpm dev:worker` (wrangler
+dev with the Durable Object rooms on port 8787).
 
-Realtime (chat / whiteboard) needs PartyKit in another terminal: `pnpm partykit:dev`.
+Realtime (chat / whiteboard) rooms are PartyServer Durable Objects in `src/worker.ts`;
+`astro dev` does not run them, `pnpm dev:worker` does.
 
 ## Rules
 
-- Do not hardcode user-facing English — put UI strings in `src/locales/*.json` (`en.json` is the source of truth; keep all 7 locales in sync).
+- Do not hardcode user-facing English - put UI strings in `src/locales/*.json` (`en.json` is the source of truth; keep all 7 locales in sync).
 - Keep crypto in `src/lib/crypto.ts` or `src/lib/ghost/`.
 - Prefer existing UI patterns over new abstractions.
 - Check affected pages across locales when changing public flows.
@@ -32,7 +35,7 @@ Realtime (chat / whiteboard) needs PartyKit in another terminal: `pnpm partykit:
 | `src/lib/tools.ts` | Tool registry / nav |
 | `src/locales/` | Flat UI translations |
 | `src/lib/ghost/` + `src/pages/api/ghost/` | Encrypted upload / decrypt |
-| `party/` | PartyKit room servers (chat, whiteboard) |
+| `party/` | Room logic (chat, whiteboard) and the PartyServer Durable Object wrappers |
 
 ## Adding a tool
 

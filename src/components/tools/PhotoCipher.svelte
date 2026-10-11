@@ -8,9 +8,10 @@
   const BLOCK = 8;
   const DELTA = 24;
   const REP = 7;
-  const MAGIC = 'PCPH';
+  const MAGIC = 'PCP2';
+  const PUBLIC_SEED = 0x50435032;
   const HEADER_SIZE = 8;
-  const CRYPTO_OVERHEAD = 44;
+  const CRYPTO_OVERHEAD = 52;
   const MAX_FILE = 10 * 1024 * 1024;
   const MIN_DIM = 800;
   const MAX_DIM = 2048;
@@ -113,6 +114,7 @@
         h = Math.round(h * scale);
       }
     }
+    if (!forEncode && (w > MAX_DIM || h > MAX_DIM)) throw new Error('Image dimensions too large');
     w = Math.floor(w / BLOCK) * BLOCK;
     h = Math.floor(h / BLOCK) * BLOCK;
     const c = document.createElement('canvas');
@@ -201,7 +203,7 @@
       }
 
       status = t(dict, 'tools.photoCipher.embedding');
-      const seed = await getSeed(password);
+      const seed = PUBLIC_SEED;
       const order = shuffledOrder(total, seed);
 
       await new Promise(r => setTimeout(r, 0));
@@ -245,28 +247,26 @@
       }
 
       status = t(dict, 'tools.photoCipher.extracting');
-      const seed = await getSeed(password);
-      const order = shuffledOrder(total, seed);
-
-      await new Promise(r => setTimeout(r, 0));
-      const raw: number[] = new Array(total);
-      for (let i = 0; i < total; i++) {
-        const idx = order[i];
-        raw[i] = qimExtract(px, idx % bxCount, Math.floor(idx / bxCount), norm.width);
+      function extract(seed: number): number[] {
+        const order = shuffledOrder(total, seed);
+        const data: number[] = [];
+        for (let i = 0; i < Math.floor(total / REP); i++) {
+          let ones = 0;
+          for (let r = 0; r < REP; r++) {
+            const idx = order[i * REP + r];
+            ones += qimExtract(px, idx % bxCount, Math.floor(idx / bxCount), norm.width);
+          }
+          data.push(ones > REP / 2 ? 1 : 0);
+        }
+        return data;
       }
-
-      const maxBits = Math.floor(total / REP);
-      const data: number[] = new Array(maxBits);
-      for (let i = 0; i < maxBits; i++) {
-        let ones = 0;
-        const base = i * REP;
-        for (let r = 0; r < REP; r++) ones += raw[base + r];
-        data[i] = ones > REP / 2 ? 1 : 0;
-      }
-
-      const magicBytes = bitsToBytes(data.slice(0, 32));
-      if (new TextDecoder().decode(magicBytes) !== MAGIC) {
-        status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
+      // New files use a public layout; password guesses must pass AES-GCM's KDF.
+      let data = extract(PUBLIC_SEED);
+      if (new TextDecoder().decode(bitsToBytes(data.slice(0, 32))) !== MAGIC) {
+        data = extract(await getSeed(password));
+        if (new TextDecoder().decode(bitsToBytes(data.slice(0, 32))) !== 'PCPH') {
+          status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
+        }
       }
 
       const lenBytes = bitsToBytes(data.slice(32, 64));

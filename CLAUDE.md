@@ -26,11 +26,11 @@ Validate changes with `pnpm build`.
 
 ### Main systems
 
-- `src/components/tools/*.svelte` — interactive tool UIs (`ToolHelp.svelte` = `?` dialog)
-- `src/pages/tools/*.astro` — tool pages
-- `src/lib/tools.ts` — tool registry for navbar/category wiring
-- `src/locales/{en,cs,de,es,fr,sk,pl}.json` — flat UI dictionaries
-- `src/lib/ghost/` and `src/pages/api/ghost/` — encrypted upload crypto, stego, fetch, verification
+- `src/components/tools/*.svelte` - interactive tool UIs (`ToolHelp.svelte` = `?` dialog)
+- `src/pages/tools/*.astro` - tool pages
+- `src/lib/tools.ts` - tool registry for navbar/category wiring
+- `src/locales/{en,cs,de,es,fr,sk,pl}.json` - flat UI dictionaries
+- `src/lib/ghost/` and `src/pages/api/ghost/` - encrypted upload crypto, stego, fetch, verification
 
 ## Current product shape
 

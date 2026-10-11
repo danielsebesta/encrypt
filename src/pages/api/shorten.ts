@@ -1,5 +1,5 @@
+import { readJsonLimited } from '../../lib/httpLimits';
 import type { APIRoute } from 'astro';
-import { checkRateLimit } from '../../lib/rateLimit';
 
 const NOLOG_API = 'https://nolog.link/';
 const ONEURL_API = 'https://1url.cz/';
@@ -14,7 +14,6 @@ const CLEANURI_API = 'https://cleanuri.com/api/v1/shorten';
 const ULVIS_API = 'https://ulvis.net/api.php';
 const KRATKY_API = 'https://kratky.link/';
 const SHRINK_API = 'https://l.encrypt.click/api/shorten';
-const SHORTEN_LIMIT = 30;
 
 type Provider = 'shrink' | 'nolog' | '1url' | 'urlvanish' | 'tini' | 'choto' | 'isgd' | 'dagd' | 'spoome' | 'cleanuri' | 'ulvis' | 'kratky';
 
@@ -300,14 +299,6 @@ async function shortenCleanuri(urlToShorten: string, signal: AbortSignal): Promi
 }
 
 export const POST: APIRoute = async ({ request }) => {
-  const { ok, remaining, resetIn } = await checkRateLimit('shorten', request, SHORTEN_LIMIT);
-  if (!ok) {
-    return new Response(JSON.stringify({ error: 'Too many requests' }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json', 'Retry-After': String(resetIn), 'X-RateLimit-Remaining': '0' }
-    });
-  }
-
   if (request.headers.get('Content-Type')?.includes('application/json') !== true) {
     return new Response(JSON.stringify({ error: 'Content-Type must be application/json' }), {
       status: 400,
@@ -317,7 +308,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: { url?: string; provider?: string };
   try {
-    body = await request.json();
+    body = await readJsonLimited(request);
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400,
@@ -343,6 +334,9 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  if (parsed.hash || parsed.username || parsed.password || parsed.protocol !== 'https:' || parsed.port) {
+    return new Response(JSON.stringify({ error: 'Only HTTPS links without secrets in fragments can be shortened' }), { status: 400 });
+  }
   const hostname = parsed.hostname.toLowerCase();
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
   const isEncryptClickRoot = hostname === 'encrypt.click';
@@ -403,6 +397,6 @@ export const POST: APIRoute = async ({ request }) => {
 
   return new Response(JSON.stringify({ shorturl: shorturl }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json', 'X-RateLimit-Remaining': String(remaining - 1) }
+    headers: { 'Content-Type': 'application/json' }
   });
 };

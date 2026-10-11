@@ -1,15 +1,15 @@
+import { env as workerEnv } from 'cloudflare:workers';
+import { verifyTurnGrant } from '../../lib/turnGrant';
 import type { APIRoute } from 'astro';
-import { checkRateLimit } from '../../lib/rateLimit';
+import { fetchNoRedirect } from '../../lib/httpLimits';
 
 export const prerender = false;
 
 const TURN_HOST = 'turn.encrypt.click';
-const TURN_TTL_SECONDS = 60 * 60;
-const TURN_LIMIT = 120;
-const CLOUDFLARE_TURN_TTL_SECONDS = 60 * 60;
+const TURN_TTL_SECONDS = 5 * 60;
+const CLOUDFLARE_TURN_TTL_SECONDS = 5 * 60;
 const METERED_API_TTL_SECONDS = 45 * 60;
 
-let cloudflareCache: { iceServers: RTCIceServer[]; expiresAt: number; cacheKey: string } | null = null;
 let meteredCache: { iceServers: RTCIceServer[]; expiresAt: number } | null = null;
 
 type TurnProviderResult = {
@@ -30,10 +30,8 @@ type TurnProviderAttempt = {
   error?: string;
 };
 
-function runtimeEnv(locals: unknown): Record<string, unknown> {
-  const workerEnv = ((locals as any).runtime?.env ?? {}) as Record<string, unknown>;
-  const nodeEnv = typeof process !== 'undefined' ? (process.env ?? {}) : {};
-  return { ...workerEnv, ...nodeEnv };
+function runtimeEnv(_locals: unknown): Record<string, unknown> {
+  return workerEnv as Record<string, unknown>;
 }
 
 function envString(env: Record<string, unknown>, key: string): string {
@@ -78,7 +76,7 @@ function envNumber(env: Record<string, unknown>, key: string, fallback: number):
 }
 
 function clampTurnTtl(ttl: number): number {
-  return Math.max(60, Math.min(86400, Math.round(ttl)));
+  return Math.max(60, Math.min(300, Math.round(ttl)));
 }
 
 function assertIceServers(value: unknown, source: string): RTCIceServer[] {
@@ -97,7 +95,7 @@ function assertIceServers(value: unknown, source: string): RTCIceServer[] {
 
 async function loadEncryptOneIceServers(secret: string): Promise<TurnProviderResult> {
   const expiresAt = Math.floor(Date.now() / 1000) + TURN_TTL_SECONDS;
-  const username = String(expiresAt);
+  const username = `${expiresAt}:${crypto.randomUUID()}`;
   const credential = await hmacSha1Base64(secret, username);
 
   return {
@@ -115,14 +113,9 @@ async function loadEncryptOneIceServers(secret: string): Promise<TurnProviderRes
 }
 
 async function loadCloudflareIceServers(tokenId: string, apiToken: string, ttl: number): Promise<TurnProviderResult> {
-  const now = Date.now();
-  const cacheKey = `${tokenId}:${ttl}`;
-  if (cloudflareCache && cloudflareCache.cacheKey === cacheKey && cloudflareCache.expiresAt > now) {
-    return { iceServers: cloudflareCache.iceServers, ttl };
-  }
-
-  const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(tokenId)}/credentials/generate-ice-servers`, {
+  const res = await fetchNoRedirect(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(tokenId)}/credentials/generate-ice-servers`, {
     method: 'POST',
+    signal: AbortSignal.timeout(8000),
     headers: {
       'Authorization': `Bearer ${apiToken}`,
       'Content-Type': 'application/json',
@@ -132,11 +125,6 @@ async function loadCloudflareIceServers(tokenId: string, apiToken: string, ttl: 
   if (!res.ok) throw new Error(`Cloudflare TURN API ${res.status}`);
 
   const iceServers = assertIceServers(await res.json(), 'Cloudflare TURN API');
-  cloudflareCache = {
-    iceServers,
-    expiresAt: now + Math.max(30, ttl - 30) * 1000,
-    cacheKey,
-  };
   return { iceServers, ttl };
 }
 
@@ -235,22 +223,15 @@ function turnResponse(results: TurnProviderResult[], diagnostics?: Record<string
 }
 
 export const GET: APIRoute = async ({ locals, request }) => {
-  const { ok, resetIn } = await checkRateLimit('turn', request, TURN_LIMIT);
-  if (!ok) {
-    return jsonResponse({ error: 'Too many requests' }, {
-      status: 429,
-      headers: {
-        'Retry-After': String(resetIn),
-      },
-    });
-  }
-
   const env = runtimeEnv(locals);
+  const grantSecret = envString(env, 'ROOM_TURN_SECRET');
+  const grant = request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
+  if (!await verifyTurnGrant(grantSecret, grant)) return jsonResponse({ error: 'Room authorization required' }, { status: 403 });
   const provider = envString(env, 'TURN_PROVIDER').toLowerCase();
   const autoProvider = !provider || provider === 'auto';
   const useEncryptOne = autoProvider || provider === 'encrypt-1' || provider === 'coturn';
   const useCloudflare = autoProvider || provider === 'cloudflare';
-  const useMetered = autoProvider || provider === 'metered';
+  const useMetered = false; // Static provider credentials cannot be safely scoped or expired.
   const secret =
     envString(env, 'TURN_AUTH_SECRET') ||
     envString(env, 'COTURN_AUTH_SECRET') ||
@@ -263,7 +244,7 @@ export const GET: APIRoute = async ({ locals, request }) => {
   const cloudflareTtl = clampTurnTtl(envNumber(env, 'CLOUDFLARE_TURN_TTL_SECONDS', CLOUDFLARE_TURN_TTL_SECONDS));
   const meteredApiKey = envString(env, 'METERED_TURN_API_KEY');
   const meteredApiHost = envString(env, 'METERED_TURN_API_HOST') || 'encrypt.metered.live';
-  const debug = new URL(request.url).searchParams.get('debug') === '1';
+  const debug = false;
 
   const attempts = await Promise.all([
     tryProvider(

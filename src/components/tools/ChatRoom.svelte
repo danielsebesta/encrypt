@@ -1,11 +1,19 @@
 <script lang="ts">
+  import { archiveLegacyHistory, migrateRoomHistory } from '../../lib/chatHistory';
+  import { stampPayload, validPayload } from '../../lib/chatProtocol';
+  let verificationChallenge = '';
+  const encryptMessage = (key: CryptoKey, text: string) => sealMessage(key, stampPayload(text, channelId));
+  import { randomIndex } from "../../lib/random";
+  import { roomCredentials, safeColor, ReplayWindow } from "../../lib/roomAccess";
+  let accessToken = "";
+  let channelId = "";
+  const replay = new ReplayWindow();
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
   import Whiteboard from './Whiteboard.svelte';
   import {
     deriveKeyFromPassword,
-    deriveRoomNamePassword,
-    encryptMessage, decryptMessage, generateIdentity, nameToGradient,
+    encryptMessage as sealMessage, decryptMessage, generateIdentity, nameToGradient,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import ToolHelp from './ToolHelp.svelte';
@@ -15,7 +23,7 @@
 
   export let locale = 'en';
   export let roomId = '';
-  export let partyHost = 'encrypt-click.danielsebesta.partykit.dev';
+  export let partyHost = '';
 
   export let dict: Record<string, string>;
   // dict provided by page
@@ -38,7 +46,7 @@
   };
 
   type ChatRoomMode = 'live' | 'ttl-10' | 'ttl-5';
-  type ChatAuthMode = 'password' | 'room-name';
+  type ChatAuthMode = 'password' | 'fragment';
 
   type RoomConfig = {
     mode: ChatRoomMode;
@@ -229,7 +237,7 @@
   let typing: { sender: string; initials: string; color: string } | null = null;
   let typingTimeout: ReturnType<typeof setTimeout>;
   let blurred = false;
-  let roomConfig: RoomConfig = { mode: 'live', authMode: 'room-name', createdAt: 0 };
+  let roomConfig: RoomConfig = { mode: 'live', authMode: 'fragment', createdAt: 0 };
   let pendingRoomConfig: RoomConfig | null = null;
   let currentAuthAttempt: ChatAuthMode | null = null;
   let localHistoryKey = '';
@@ -279,6 +287,8 @@
   let serverRegion = 'AMS-NL';
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
+  let iceServersExpiresAt = 0;
+  let iceServersLoading: Promise<RTCIceServer[]> | null = null;
   let relayRoute: RelayRoute = {
     provider: 'unknown',
     name: 'TURN',
@@ -306,7 +316,7 @@
   const MAX_ICE_CANDIDATE_CHARS = 4096;
   const MAX_PENDING_ICE_PER_PEER = 64;
   const LOCAL_HISTORY_LIMIT = 1000;
-  const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v2:';
+  const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v3:';
   const CALL_DEBUG_STORAGE_KEY = 'encrypt.click:call-debug';
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
@@ -939,6 +949,7 @@
   function startRelayStatsMonitor() {
     if (relayStatsInterval) clearInterval(relayStatsInterval);
     relayStatsInterval = setInterval(() => {
+      if (callActive && Date.now() >= iceServersExpiresAt) void loadIceServers().catch(() => {});
       if (typeof document !== 'undefined' && document.hidden) return;
       void refreshRelayStats();
     }, 2500);
@@ -986,12 +997,27 @@
   }
 
   async function loadIceServers(force = false): Promise<RTCIceServer[]> {
-    if (!force && iceServersFetchedAt && Date.now() - iceServersFetchedAt < 45 * 60 * 1000) {
-      return iceServers;
-    }
+    if (!force && iceServers.length && Date.now() < iceServersExpiresAt) return iceServers;
+    if (iceServersLoading) return iceServersLoading;
+    iceServersLoading = fetchIceServers().finally(() => { iceServersLoading = null; });
+    return iceServersLoading;
+  }
 
+  async function fetchIceServers(): Promise<RTCIceServer[]> {
     try {
-      const res = await fetch('/api/turn', { cache: 'no-store' });
+      const grant = await new Promise<string>((resolve, reject) => {
+        if (!ws || ws.readyState !== 1) { reject(new Error('Not connected')); return; }
+        const socket = ws;
+        const timer = setTimeout(() => { socket.removeEventListener('message', listener); reject(new Error('TURN authorization unavailable')); }, 4000);
+        const listener = (event: MessageEvent) => {
+          try { const data = JSON.parse(event.data); if (data.type !== 'turn-grant' || typeof data.token !== 'string') return;
+            clearTimeout(timer); socket.removeEventListener('message', listener); resolve(data.token);
+          } catch {}
+        };
+        socket.addEventListener('message', listener);
+        socket.send(JSON.stringify({ type: 'turn-grant' }));
+      });
+      const res = await fetch('/api/turn', { cache: 'no-store', headers: { Authorization: `Bearer ${grant}` } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as TurnConfig;
       if (!data.turnReady || !Array.isArray(data.iceServers) || !hasTurnCredentials(data.iceServers)) {
@@ -999,6 +1025,7 @@
       }
       iceServers = data.iceServers;
       iceServersFetchedAt = Date.now();
+      iceServersExpiresAt = iceServersFetchedAt + Math.max(30, (data.ttl ?? 300) - 60) * 1000;
       callDebug('turn config loaded', {
         turnReady: data.turnReady,
         ttl: data.ttl ?? null,
@@ -1011,6 +1038,7 @@
       callDebug('turn config error', { error: error instanceof Error ? error.message : 'unknown' });
       iceServers = [];
       iceServersFetchedAt = Date.now();
+      iceServersExpiresAt = Date.now() + 30_000;
       updateRelayRoute();
       throw new Error(t(dict, 'chat.callTurnRequired'));
     }
@@ -1147,7 +1175,7 @@
   }
 
   function isChatAuthMode(value: unknown): value is ChatAuthMode {
-    return value === 'password' || value === 'room-name';
+    return value === 'password' || value === 'fragment';
   }
 
   function normalizeRoomConfig(input: unknown): RoomConfig | null {
@@ -1183,8 +1211,14 @@
   }
 
   async function buildLocalHistoryKey(password: string): Promise<string> {
-    const fingerprint = await sha256B64url(`${roomId}\n${password}`);
-    return `${LOCAL_HISTORY_PREFIX}${roomId}:${fingerprint.slice(0, 32)}`;
+    const key = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
+    try {
+      archiveLegacyHistory(localStorage);
+      const legacyKey = await deriveKeyFromPassword(password, roomId, 200_000);
+      await migrateRoomHistory(localStorage, roomId, key,
+        async cipher => encryptMessage(cryptoKey!, await decryptMessage(legacyKey, cipher)), LOCAL_HISTORY_LIMIT);
+    } catch { /* Storage may be disabled or full; chat remains usable. */ }
+    return key;
   }
 
   function readLocalHistory(): LocalHistoryEnvelope[] {
@@ -1404,7 +1438,8 @@
         if (pendingRoomConfig) roomConfig = pendingRoomConfig;
       } catch {}
     }
-    const stored = sessionStorage.getItem('chat-password');
+    const fragmentKey = new URLSearchParams(location.hash.slice(1)).get('k');
+    const stored = fragmentKey && /^[A-Za-z0-9_-]{43}$/.test(fragmentKey) ? fragmentKey : sessionStorage.getItem('chat-password');
     const sharePass = sessionStorage.getItem('chat-share-password');
     if (sharePass) {
       sharePassword = sharePass;
@@ -1413,9 +1448,9 @@
     if (stored) {
       sessionStorage.removeItem('chat-password');
       passwordInput = stored;
-      await enterWithPassword(stored, { authMode: pendingRoomConfig?.authMode || 'password' });
+      await enterWithPassword(stored, { authMode: fragmentKey ? 'fragment' : pendingRoomConfig?.authMode || 'password' });
     } else {
-      connectWs();
+      checkingRoom = false; needsPassword = true;
     }
   }
 
@@ -1456,7 +1491,7 @@
     joinedRoom = false;
     ws?.close();
     ws = null;
-    connectWs();
+    checkingRoom = false; needsPassword = true;
   }
 
   function clearVerificationTimeout() {
@@ -1494,7 +1529,7 @@
       if (verifying && !verified) {
         verifying = false;
         joinedRoom = false;
-        if (currentAuthAttempt === 'room-name') {
+        if (currentAuthAttempt === 'fragment') {
           cryptoKey = null;
           passwordUsed = '';
           currentAuthAttempt = null;
@@ -1511,7 +1546,7 @@
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
 
     joinedRoom = true;
-    ws.send(JSON.stringify({ type: 'join', config: pendingRoomConfig || roomConfig }));
+    ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig }));
 
     if (typeof activePeerCount === 'number') {
       startPasswordVerification(activePeerCount);
@@ -1521,7 +1556,8 @@
       wrongPassword = false;
     }
 
-    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, clientId }));
+    verificationChallenge = crypto.randomUUID();
+    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, clientId }));
     ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
   }
 
@@ -1529,6 +1565,8 @@
     try {
       clearRoomConfigWaitTimeout();
       currentAuthAttempt = options.authMode || 'password';
+      const access = await roomCredentials(pwd, roomId, 'chat');
+      accessToken = access.token; channelId = access.channel;
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
       passwordUsed = pwd;
       localHistoryKey = await buildLocalHistoryKey(pwd);
@@ -1550,9 +1588,7 @@
   }
 
   async function enterRoomNameOnly(activePeerCount = 0) {
-    const generated = await deriveRoomNamePassword(roomId);
-    passwordInput = '';
-    await enterWithPassword(generated, { share: false, activePeerCount, authMode: 'room-name' });
+    checkingRoom = false; needsPassword = true;
   }
 
   function waitBrieflyForRoomConfig() {
@@ -1564,7 +1600,7 @@
       roomConfigWaitTimeout = undefined;
       if (cryptoKey) return;
       checkingRoom = false;
-      if (roomConfig.authMode === 'room-name') {
+      if (roomConfig.authMode === 'fragment') {
         void enterRoomNameOnly(serverPresence);
       } else {
         needsPassword = true;
@@ -1606,8 +1642,8 @@
     wrongPassword = false;
     serverConnectStartedAt = Date.now();
     ws = new PartySocket({
-      host: partyHost,
-      room: roomId,
+      host: partyHost || window.location.host,
+      room: channelId,
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
       reconnectionDelayGrowFactor: 1.4,
@@ -1628,7 +1664,7 @@
       updateServerQuality();
     });
     ws.addEventListener('error', () => {
-      // WS error means TCP/upgrade/network problem — NOT a password issue.
+      // WS error means TCP/upgrade/network problem - NOT a password issue.
       // Let PartySocket retry; the 4 s handshake timeout after peers are present
       // is the authoritative wrong-password signal.
     });
@@ -1715,16 +1751,21 @@
 
   async function processServerEnvelope(data: ServerEnvelope, fromHistory = false): Promise<boolean> {
     if (!cryptoKey) return false;
-    if (data.id && seenMessageIds.has(data.id)) return true;
+
 
     try {
       const plaintext = await decryptMessage(cryptoKey, data.payload);
       const parsed = JSON.parse(plaintext) as ChatPayload & Record<string, any>;
+      if (!validPayload(parsed, channelId, fromHistory)) return false;
+      if (!replay.accept(parsed._id)) return true;
+      if (!replay.accept(await sha256B64url(data.payload))) return true;
+      if (typeof parsed.id === 'string' && seenMessageIds.has(parsed.id)) return true;
+      if (typeof parsed.id === 'string') seenMessageIds.add(parsed.id);
+      parsed.color = safeColor(parsed.color);
 
       // Typing indicator
       if (parsed.type === 'typing') {
         if (fromHistory) return true;
-        if (verifying) markVerified();
         typing = { sender: parsed.sender, initials: getInitials(parsed.sender), color: parsed.color };
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => { typing = null; }, 3000);
@@ -1734,9 +1775,8 @@
       // Verify message - someone joined with correct password
       if (parsed.type === 'verify') {
         if (fromHistory) return true;
-        if (verifying) markVerified();
-        if (verified && cryptoKey && ws) {
-          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, clientId }));
+        if (cryptoKey && ws && typeof parsed.challenge === 'string') {
+          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, clientId }));
           ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
         }
         if (callActive) void sendCallSignal({ action: 'presence' });
@@ -1752,22 +1792,20 @@
 
       // Verify-ack - confirmation from existing member
       if (parsed.type === 'verify-ack') {
-        if (fromHistory) return true;
+        if (fromHistory || parsed.challenge !== verificationChallenge) return true;
         if (verifying) markVerified();
         addOnlineUser(parsed.sender, parsed.color);
         return true;
       }
 
       if (parsed.type === 'chat-sync') {
-        if (verifying) markVerified();
         await applyLiveHistorySync(parsed.messages);
         return true;
       }
 
       if (parsed.type === 'whiteboard-invite') {
         if (fromHistory) return true;
-        if (verifying) markVerified();
-        const id = data.id || parsed.id || `whiteboard-${genId()}`;
+        const id = parsed.id || `whiteboard-${genId()}`;
         const invite = normalizeWhiteboardInvite(parsed);
         if (!invite) return true;
         addWhiteboardInviteMessage(invite, id, false);
@@ -1776,14 +1814,12 @@
 
       if (parsed.type === 'call-signal') {
         if (fromHistory) return true;
-        if (verifying) markVerified();
         await handleCallSignal(parsed as CallSignal);
         return true;
       }
 
-      if (!verified) markVerified();
 
-      const id = parsed.id || data.id || genId();
+      const id = parsed.id || genId();
       const ttl = parsed.ttl || 0;
       const msg: Message = {
         id,
@@ -1811,7 +1847,7 @@
       return true;
     } catch {
       // A single failed decrypt only proves THIS message wasn't from
-      // someone with our password — could be a peer in the same room
+      // someone with our password - could be a peer in the same room
       // with a different password. The 4s init-handler timeout below
       // is the authoritative "no peer can hear me" signal.
       if (!fromHistory && verified && Date.now() - lastWrongPasswordNotice > 10000) {
@@ -1933,9 +1969,8 @@
         const sendUrl = await tryHost('nologsend', prepared.encryptedBytes, {
           'X-Send-Metadata': prepared.metadataB64,
           'X-Send-Auth': prepared.authHeader,
-          'X-Send-Secret': prepared.secretB64,
         });
-        if (sendUrl) uploadUrls.push(sendUrl);
+        if (sendUrl) uploadUrls.push(`${sendUrl}#${prepared.secretB64}`);
       } catch {}
 
       if (uploadUrls.length === 0) {
@@ -2022,7 +2057,7 @@
   let typingSent = 0;
   async function handleTyping() {
     if (!ws || !connected || !cryptoKey) return;
-    // No one to show the indicator to — skip the send, save a request.
+    // No one to show the indicator to - skip the send, save a request.
     if (serverPresence <= 1) return;
     const now = Date.now();
     if (now - typingSent > 3000) {
@@ -3479,7 +3514,7 @@
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
-                <span class="chat-sender" style="color: {msg.mine ? 'oklch(0.7019 0.1577 160.44)' : msg.color}">{msg.sender}</span>
+                <span class="chat-sender" style="color: {msg.mine ? 'oklch(0.7019 0.1577 160.44)' : safeColor(msg.color)}">{msg.sender}</span>
               </div>
               {#if msg.file}
                 <div class="chat-file" class:chat-file--error={msg.fileError}>
@@ -3558,7 +3593,7 @@
       {#if typing}
         <div class="chat-typing">
           <div class="chat-avatar chat-avatar--sm" style="background: {nameToGradient(typing.sender)}">{typing.initials}</div>
-          <span style="color: {typing.color}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
+          <span style="color: {safeColor(typing.color)}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
         </div>
       {/if}
 

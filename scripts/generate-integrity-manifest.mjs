@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const DIST_DIR = path.resolve('dist');
+const DIST_DIR = path.resolve('dist/client');
 const MANIFEST_PATH = path.join(DIST_DIR, 'build-integrity.json');
 const REPOSITORY = 'danielsebesta/encrypt';
 const DEFAULT_BRANCH = 'main';
