@@ -104,186 +104,67 @@
     window.location.href = link;
   }
 </script>
+<div class="stack text-left">
+  <div class="field">
+    <label class="label" for="chat-room">{t(dict, 'chat.customRoomId')}</label>
+    <input
+      id="chat-room"
+      class="input"
+      type="text"
+      bind:value={customRoomId}
+      on:input={handleRoomIdInput}
+      placeholder={t(dict, 'chat.customRoomIdPlaceholder')}
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      data-lpignore="true"
+      data-1p-ignore
+      data-bwignore="true"
+      aria-describedby="chat-room-hint"
+      aria-invalid={roomError ? 'true' : undefined}
+    />
+    {#if roomError}
+      <p class="status status--error" role="alert">{roomError}</p>
+    {/if}
+    <p id="chat-room-hint" class="hint">{t(dict, 'chat.customRoomIdHint')}</p>
+  </div>
 
-<div class="space-y-4">
-    <!-- Room name + password -->
-    <div class="space-y-1.5">
-      <label class="label block">{t(dict, 'chat.customRoomId')}</label>
+  <div class="field">
+    <label class="label" for="chat-pass">{t(dict, 'chat.passwordOptional')}</label>
+    <div class="passphrase">
       <input
-        class="input w-full"
+        id="chat-pass"
+        class="input"
         type="text"
-        bind:value={customRoomId}
-        on:input={handleRoomIdInput}
-        placeholder={t(dict, 'chat.customRoomIdPlaceholder')}
+        bind:value={password}
+        placeholder={t(dict, 'chat.roomPasswordOptionalPlaceholder')}
         autocomplete="off"
         data-lpignore="true"
         data-1p-ignore
         data-bwignore="true"
+        aria-describedby="chat-pass-hint"
       />
-      {#if roomError}
-        <p class="text-xs text-red-500">{roomError}</p>
-      {/if}
-      <p class="text-[10px] text-zinc-600 dark:text-zinc-400">{t(dict, 'chat.customRoomIdHint')}</p>
+      <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { password = genPassphrase(); }} aria-label={t(dict, 'common.generatePassphrase')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
     </div>
+    <p id="chat-pass-hint" class="hint">{password.trim() ? t(dict, 'chat.createDescription') : t(dict, 'chat.passwordOptionalHint')}</p>
+  </div>
 
-    <div class="space-y-1.5">
-      <label class="label block">{t(dict, 'chat.passwordOptional')}</label>
-      <div class="ue-passphrase-box">
-        <input
-          class="ue-passphrase-input flex-1"
-          type="text"
-          bind:value={password}
-          placeholder={t(dict, 'chat.roomPasswordOptionalPlaceholder')}
-          autocomplete="off"
-          data-lpignore="true"
-          data-1p-ignore
-          data-bwignore="true"
-        />
-        <button class="ue-passphrase-refresh" on:click={() => { password = genPassphrase(); }} aria-label={t(dict, 'common.generatePassphrase')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        </button>
-      </div>
-      <p class="text-[10px] text-zinc-600 dark:text-zinc-400">{password.trim() ? t(dict, 'chat.createDescription') : t(dict, 'chat.passwordOptionalHint')}</p>
+  <fieldset class="field">
+    <legend class="label mb-1.5">{t(dict, 'chat.roomMode')}</legend>
+    <div class="choice-list">
+      {#each ROOM_MODES as mode}
+        <label class="choice" class:choice--active={selectedMode === mode.value}>
+          <input type="radio" name="chat-mode" value={mode.value} bind:group={selectedMode} />
+          <span>
+            <span class="choice__title">{t(dict, mode.title)}</span>
+            <span class="choice__hint">{t(dict, mode.hint)}</span>
+          </span>
+        </label>
+      {/each}
     </div>
+  </fieldset>
 
-    <div class="space-y-2">
-      <label class="label block">{t(dict, 'chat.roomMode')}</label>
-      <div class="chat-mode-grid" role="radiogroup" aria-label={t(dict, 'chat.roomMode')}>
-        {#each ROOM_MODES as mode}
-          <button
-            type="button"
-            class="chat-mode-option"
-            class:chat-mode-option--active={selectedMode === mode.value}
-            on:click={() => { selectedMode = mode.value; }}
-            role="radio"
-            aria-checked={selectedMode === mode.value}
-          >
-            <span class="chat-mode-option__title">{t(dict, mode.title)}</span>
-            <span class="chat-mode-option__hint">{t(dict, mode.hint)}</span>
-          </button>
-        {/each}
-      </div>
-    </div>
-    <button class="btn w-full" on:click={confirmPassword}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-      {t(dict, 'chat.createRoom')}
-    </button>
-
-    <!-- How it works -->
-    <div class="chat-how-it-works">
-      <p class="chat-how-title">{t(dict, 'chat.howItWorks')}</p>
-      <div class="chat-how-steps">
-        <div class="chat-how-step">
-          <span class="chat-how-num">1</span>
-          <span>{t(dict, 'chat.howStep1')}</span>
-        </div>
-        <div class="chat-how-step">
-          <span class="chat-how-num">2</span>
-          <span>{t(dict, 'chat.howStep2')}</span>
-        </div>
-        <div class="chat-how-step">
-          <span class="chat-how-num">3</span>
-          <span>{t(dict, 'chat.howStep3')}</span>
-        </div>
-      </div>
-    </div>
-
-
+  <button class="btn w-full" type="button" on:click={confirmPassword}>{t(dict, 'chat.createRoom')}</button>
 </div>
-
-<style>
-  .chat-how-it-works {
-    border-top: 1px solid rgba(228, 228, 231, 0.5);
-    padding-top: 1rem;
-    margin-top: 0.5rem;
-  }
-  :global(.dark) .chat-how-it-works {
-    border-color: rgba(39, 39, 42, 0.4);
-  }
-  .chat-how-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: rgb(113, 113, 122);
-    margin-bottom: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .chat-how-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .chat-how-step {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    font-size: 12px;
-    color: rgb(113, 113, 122);
-    text-align: left;
-    line-height: 1.4;
-  }
-  :global(.dark) .chat-how-step {
-    color: rgb(161, 161, 170);
-  }
-  .chat-how-num {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    border-radius: 9999px;
-    background: oklch(0.7019 0.1577 160.44 / 0.1);
-    color: oklch(0.7019 0.1577 160.44);
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .chat-mode-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  .chat-mode-option {
-    width: 100%;
-    min-height: 58px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.15rem;
-    padding: 0.65rem 0.75rem;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(228, 228, 231, 0.75);
-    background: rgba(250, 250, 250, 0.72);
-    text-align: left;
-    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
-  }
-  :global(.dark) .chat-mode-option {
-    border-color: rgba(63, 63, 70, 0.55);
-    background: rgba(24, 24, 27, 0.5);
-  }
-  .chat-mode-option:hover,
-  .chat-mode-option--active {
-    border-color: oklch(0.7019 0.1577 160.44 / 0.42);
-    background: oklch(0.7019 0.1577 160.44 / 0.06);
-  }
-  .chat-mode-option--active {
-    box-shadow: inset 0 0 0 1px oklch(0.7019 0.1577 160.44 / 0.22);
-  }
-  .chat-mode-option__title {
-    font-size: 13px;
-    font-weight: 850;
-    color: rgb(39, 39, 42);
-  }
-  :global(.dark) .chat-mode-option__title {
-    color: rgb(228, 228, 231);
-  }
-  .chat-mode-option__hint {
-    font-size: 11px;
-    line-height: 1.35;
-    color: rgb(113, 113, 122);
-  }
-  :global(.dark) .chat-mode-option__hint {
-    color: rgb(161, 161, 170);
-  }
-</style>

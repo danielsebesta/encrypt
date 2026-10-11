@@ -86,112 +86,52 @@
     window.location.href = link;
   }
 </script>
+<div class="stack text-left">
+  <div class="field">
+    <label class="label" for="wb-room">{t(dict, 'whiteboard.customRoomId')}</label>
+    <input
+      id="wb-room"
+      class="input"
+      type="text"
+      bind:value={customRoomId}
+      on:input={handleRoomIdInput}
+      placeholder={t(dict, 'whiteboard.customRoomIdPlaceholder')}
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      data-lpignore="true"
+      data-1p-ignore
+      data-bwignore="true"
+      aria-describedby="wb-room-hint"
+      aria-invalid={roomError ? 'true' : undefined}
+    />
+    {#if roomError}
+      <p class="status status--error" role="alert">{roomError}</p>
+    {/if}
+    <p id="wb-room-hint" class="hint">{t(dict, 'whiteboard.customRoomIdHint')}</p>
+  </div>
 
-<div class="space-y-4">
-    <div class="space-y-1.5">
-      <label class="label block">{t(dict, 'whiteboard.customRoomId')}</label>
+  <div class="field">
+    <label class="label" for="wb-pass">{t(dict, 'whiteboard.password')}</label>
+    <div class="passphrase">
       <input
-        class="input w-full"
+        id="wb-pass"
+        class="input"
         type="text"
-        bind:value={customRoomId}
-        on:input={handleRoomIdInput}
-        placeholder={t(dict, 'whiteboard.customRoomIdPlaceholder')}
+        bind:value={password}
+        placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
         autocomplete="off"
         data-lpignore="true"
         data-1p-ignore
         data-bwignore="true"
+        aria-describedby="wb-pass-hint"
       />
-      <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'whiteboard.customRoomIdHint')}</p>
+      <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { password = genPassphrase(); }} aria-label={t(dict, 'common.generatePassphrase')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
     </div>
+    <p id="wb-pass-hint" class="hint">{t(dict, 'whiteboard.createDescription')}</p>
+  </div>
 
-    <div class="space-y-1.5">
-      <label class="label block">{t(dict, 'whiteboard.password')}</label>
-      <div class="ue-passphrase-box">
-        <input
-          class="ue-passphrase-input flex-1"
-          type="text"
-          bind:value={password}
-          placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
-          autocomplete="off"
-          data-lpignore="true"
-          data-1p-ignore
-          data-bwignore="true"
-        />
-        <button class="ue-passphrase-refresh" on:click={() => { password = genPassphrase(); }} aria-label={t(dict, 'common.generatePassphrase')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        </button>
-      </div>
-      {#if roomError}
-        <p class="text-xs text-red-500">{roomError}</p>
-      {/if}
-      <p class="text-[10px] text-zinc-400 dark:text-zinc-500">{t(dict, 'whiteboard.createDescription')}</p>
-    </div>
-    <button class="btn w-full" on:click={confirmPassword}>{t(dict, 'whiteboard.createRoom')}</button>
-
-    <div class="wb-how-it-works">
-      <p class="wb-how-title">{t(dict, 'whiteboard.howItWorks')}</p>
-      <div class="wb-how-steps">
-        <div class="wb-how-step">
-          <span class="wb-how-num">1</span>
-          <span>{t(dict, 'whiteboard.howStep1')}</span>
-        </div>
-        <div class="wb-how-step">
-          <span class="wb-how-num">2</span>
-          <span>{t(dict, 'whiteboard.howStep2')}</span>
-        </div>
-        <div class="wb-how-step">
-          <span class="wb-how-num">3</span>
-          <span>{t(dict, 'whiteboard.howStep3')}</span>
-        </div>
-      </div>
-    </div>
+  <button class="btn w-full" type="button" on:click={confirmPassword}>{t(dict, 'whiteboard.createRoom')}</button>
 </div>
-
-<style>
-  .wb-how-it-works {
-    border-top: 1px solid rgba(228, 228, 231, 0.5);
-    padding-top: 1rem;
-    margin-top: 0.5rem;
-  }
-  :global(.dark) .wb-how-it-works {
-    border-color: rgba(39, 39, 42, 0.4);
-  }
-  .wb-how-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: rgb(113, 113, 122);
-    margin-bottom: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .wb-how-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .wb-how-step {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    font-size: 12px;
-    color: rgb(113, 113, 122);
-    text-align: left;
-    line-height: 1.4;
-  }
-  :global(.dark) .wb-how-step {
-    color: rgb(161, 161, 170);
-  }
-  .wb-how-num {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    border-radius: 9999px;
-    background: oklch(0.7019 0.1577 160.44 / 0.1);
-    color: oklch(0.7019 0.1577 160.44);
-    font-size: 10px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-</style>
