@@ -589,6 +589,160 @@ html.dark {
         outline: none;
     }
 
+    /* ── Site chrome ── */
+
+    .skip-link {
+        @apply sr-only;
+    }
+
+    .skip-link:focus-visible {
+        @apply not-sr-only fixed left-4 top-4 rounded-lg bg-accent px-4 py-3 text-base font-bold text-on-accent;
+        z-index: var(--z-toast);
+    }
+
+    .site-header {
+        position: relative;
+        z-index: var(--z-nav);
+    }
+
+    .nav {
+        @apply mx-auto flex h-14 max-w-6xl items-center gap-2 px-4;
+    }
+
+    .nav__brand {
+        @apply inline-flex min-h-11 items-center gap-2.5 rounded-lg pr-2 text-lg font-bold tracking-tight text-text;
+    }
+
+    .nav .nav__brand {
+        @apply mr-auto md:mr-4;
+    }
+
+    .nav__links {
+        display: none;
+    }
+
+    .nav__link {
+        @apply inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-bold text-muted;
+        transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+    }
+
+    .nav__link:hover,
+    .nav__link[aria-expanded="true"] {
+        @apply bg-surface-2 text-text;
+    }
+
+    .nav__link[aria-current="page"] {
+        @apply text-accent;
+    }
+
+    .nav__chevron {
+        transition: transform var(--duration-fast) var(--ease-out);
+    }
+
+    .nav__link[aria-expanded="true"] .nav__chevron {
+        transform: rotate(180deg);
+    }
+
+    .nav__group {
+        @apply relative;
+    }
+
+    .nav__actions {
+        @apply flex items-center;
+    }
+
+    .menu {
+        @apply absolute left-0 top-full mt-1 min-w-52 rounded-xl border border-line bg-bg p-1.5;
+        z-index: var(--z-menu);
+        box-shadow: var(--shadow-float);
+    }
+
+    .menu--end {
+        left: auto;
+        right: 0;
+    }
+
+    .menu__item {
+        @apply flex min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm font-bold text-muted;
+        transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+    }
+
+    .menu__item:hover {
+        @apply bg-surface-2 text-text;
+    }
+
+    .menu__item[aria-current="page"] {
+        @apply bg-accent-weak text-accent-strong;
+    }
+
+    .nav__burger-close,
+    .nav__github {
+        display: none;
+    }
+
+    .nav--open .nav__burger-open {
+        display: none;
+    }
+
+    .nav--open .nav__burger-close {
+        display: block;
+    }
+
+    @media (min-width: 768px) {
+        .nav__links {
+            @apply flex flex-1 items-center gap-0.5;
+        }
+
+        .nav__burger {
+            display: none;
+        }
+
+        .nav__github {
+            display: inline-flex;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .nav--open .nav__links {
+            @apply absolute inset-x-0 top-full flex flex-col gap-0.5 overflow-y-auto border-y border-line-soft bg-bg p-3;
+            max-height: calc(100dvh - 3.5rem);
+            box-shadow: var(--shadow-float);
+        }
+
+        .nav__links .nav__link {
+            @apply w-full justify-between text-base;
+        }
+
+        .nav__links .nav__group .menu {
+            @apply static mt-0 grid min-w-0 border-0 bg-transparent p-0 pl-2 shadow-none;
+        }
+
+        .nav__links .menu__item {
+            @apply min-h-11 text-base;
+        }
+    }
+
+    .site-footer {
+        @apply mt-auto border-t border-line-soft;
+    }
+
+    .site-footer__inner {
+        @apply mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-3;
+    }
+
+    .site-footer__links {
+        @apply flex flex-wrap items-center gap-x-5 text-sm text-muted;
+    }
+
+    .site-footer__links a,
+    .site-footer__links span {
+        @apply inline-flex min-h-11 items-center gap-1.5;
+    }
+
+    .site-footer__links a:hover {
+        @apply text-text;
+    }
+
     /* ── Transitional rules kept until the pages using them are refactored ── */
 
     .integrity-alert {
@@ -623,9 +777,6 @@ html.dark {
         @apply underline decoration-current/30 underline-offset-4 hover:decoration-current;
     }
 
-    .integrity-alert__dismiss {
-        @apply -mr-2 shrink-0 rounded-lg p-2 opacity-70 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10;
-    }
 
     .ud-code-comment {
         color: rgb(113 113 122);
