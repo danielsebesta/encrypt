@@ -15,15 +15,8 @@ export const prerender = false;
   title={t(dict, 'whiteboard.meta.roomTitle')}
   description={t(dict, 'whiteboard.meta.roomDescription')}
 >
-  <div class="max-w-6xl mx-auto px-3 py-6 md:py-10">
-    <div class="mb-4 text-center">
-      <h1 class="text-2xl md:text-3xl font-bold tracking-tight mb-2">
-        {t(dict, 'whiteboard.pageTitle')} <span class="text-emerald-500">{t(dict, 'whiteboard.pageTitleHighlight')}</span>
-      </h1>
-      <p class="text-xs text-zinc-400 dark:text-zinc-500">
-        {t(dict, 'whiteboard.roomSubtitle')}
-      </p>
-    </div>
-    <Whiteboard client:only="svelte" roomId={id || 'default'} locale={locale} dict={clientDict} />
+  <div class="page page--wide pt-5 pb-8 md:pt-6">
+    <h1 class="section-title mb-3">{t(dict, 'whiteboard.pageTitle')} {t(dict, 'whiteboard.pageTitleHighlight')}</h1>
+    <Whiteboard client:idle roomId={id || 'default'} locale={locale} dict={clientDict} />
   </div>
 </Layout>
