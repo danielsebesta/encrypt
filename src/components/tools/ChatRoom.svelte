@@ -1288,7 +1288,7 @@
       roomId: parsed.roomId,
       password: parsed.password,
       sender: typeof parsed.sender === 'string' && parsed.sender.trim() ? parsed.sender : t(dict, 'chat.guest'),
-      color: typeof parsed.color === 'string' && parsed.color.trim() ? parsed.color : 'oklch(0.7019 0.1577 160.44)',
+      color: typeof parsed.color === 'string' && parsed.color.trim() ? parsed.color : 'var(--accent)',
       createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : Date.now(),
     };
   }
@@ -1373,7 +1373,7 @@
         text: item.text || '',
         sender,
         initials: getInitials(sender),
-        color: item.color || 'oklch(0.7019 0.1577 160.44)',
+        color: item.color || 'var(--accent)',
         mine: false,
         time: createdAt,
         ttl: 0,
@@ -1386,7 +1386,7 @@
         id: item.id,
         text: item.text || '',
         sender,
-        color: item.color || 'oklch(0.7019 0.1577 160.44)',
+        color: item.color || 'var(--accent)',
         ttl: 0,
         createdAt,
         file: item.file,
@@ -1784,7 +1784,7 @@
         void sendLiveHistorySync();
         messages = [...messages, {
           id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', parsed.sender), sender: '', initials: '→',
-          color: 'oklch(0.7019 0.1577 160.44)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
+          color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
         }];
         scrollToBottom();
         return true;
@@ -1826,7 +1826,7 @@
         text: parsed.text || '',
         sender: parsed.sender || t(dict, 'chat.guest'),
         initials: getInitials(parsed.sender || t(dict, 'chat.guest')),
-        color: parsed.color || 'oklch(0.7019 0.1577 160.44)',
+        color: parsed.color || 'var(--accent)',
         mine: false,
         time: parsed.createdAt || Date.now(),
         ttl,
@@ -2125,7 +2125,7 @@
       id: peerId,
       name: name || t(dict, 'chat.guest'),
       initials: getInitials(name || t(dict, 'chat.guest')),
-      color: color || 'oklch(0.7019 0.1577 160.44)',
+      color: color || 'var(--accent)',
       pc,
       audioTransceiver,
       videoTransceiver,
@@ -3139,9 +3139,9 @@
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <p class="text-sm font-medium text-red-500">{t(dict, 'chat.wrongPassword')}</p>
-        <p class="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.wrongPasswordDetail')}</p>
-        <button class="btn-outline w-full text-xs" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
+        <p class="status status--error" role="alert">{t(dict, 'chat.wrongPassword')}</p>
+        <p class="hint">{t(dict, 'chat.wrongPasswordDetail')}</p>
+        <button type="button" class="btn-secondary w-full" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
       </div>
     </div>
 
@@ -3149,7 +3149,7 @@
     <div class="chat-center">
       <div class="text-center space-y-2">
         <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="text-xs text-zinc-400">{t(dict, 'common.working')}</p>
+        <p class="hint">{t(dict, 'common.working')}</p>
       </div>
     </div>
 
@@ -3158,12 +3158,13 @@
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t(dict, 'chat.roomRequiresPassword')}</p>
-          <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.roomPasswordHint')}</p>
+          <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
+          <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
         <input
           type="password"
           class="input w-full"
+          aria-label={t(dict, 'chat.password')}
           placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
           bind:value={passwordInput}
           on:keydown={(e) => e.key === 'Enter' && submitPassword()}
@@ -3173,7 +3174,7 @@
           data-bwignore="true"
         />
         {#if passwordError}
-          <p class="text-xs text-red-500">{passwordError}</p>
+          <p class="status status--error" role="alert">{passwordError}</p>
         {/if}
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
       </div>
@@ -3183,7 +3184,7 @@
     <div class="chat-center">
       <div class="text-center space-y-2">
         <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="text-xs text-zinc-400">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
+        <p class="hint">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
       </div>
     </div>
 
@@ -3199,8 +3200,13 @@
         </div>
       </div>
       <div class="flex items-center gap-1.5">
+        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'chat.connected') : t(dict, 'chat.connecting')}</span>
+        <button type="button" class="btn-ghost btn-sm chat-copy-link" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>{shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}</span>
+        </button>
         <ToolHelp dict={dict} prefix="chat" sections={chatHelpSections} />
-        <button class="chat-call-btn" title={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
+        <button class="chat-call-btn" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
           {:else}
@@ -3214,15 +3220,15 @@
     {#if sharePassword && !shareDismissed}
       <div class="chat-share-banner">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">{t(dict, 'chat.sharePasswordWarning')}</span>
-          <button class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" on:click={() => { shareDismissed = true; }}>
+          <span class="text-sm font-bold text-accent">{t(dict, 'chat.sharePasswordWarning')}</span>
+          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'chat.closeSharePanel')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5 mb-1.5">
-          <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'chat.roomLink')}</span>
+          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.roomLink')}</span>
           <code class="chat-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
-          <button class="chat-share-copy" on:click={copyShareLink}>
+          <button type="button" class="chat-share-copy" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
             {#if shareCopiedLink}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
             {:else}
@@ -3231,9 +3237,9 @@
           </button>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'chat.password')}</span>
+          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.password')}</span>
           <code class="chat-share-value">{sharePassword}</code>
-          <button class="chat-share-copy" on:click={copySharePassword}>
+          <button type="button" class="chat-share-copy" on:click={copySharePassword} aria-label={t(dict, 'chat.copyRoomPassword')}>
             {#if shareCopiedPass}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
             {:else}
@@ -3324,7 +3330,7 @@
           <div class="chat-call-settings" id="chat-call-settings">
             <div class="chat-call-settings__header">
               <span>{t(dict, 'chat.callAudioAndDevices')}</span>
-              <button class="chat-call-settings__refresh" title={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
+              <button type="button" class="chat-call-settings__refresh" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
               </button>
             </div>
@@ -3409,7 +3415,7 @@
                   on:pause={keepCallMediaPlaying}
                   on:contextmenu={preventMediaContextMenu}
                 ></video>
-                <button class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'local' })}>
+                <button type="button" class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'local' })}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                 </button>
               {:else}
@@ -3438,7 +3444,7 @@
                     on:pause={keepCallMediaPlaying}
                     on:contextmenu={preventMediaContextMenu}
                   ></video>
-                  <button class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'peer', peerId: peer.id })}>
+                  <button type="button" class="chat-call-fullscreen-btn" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'peer', peerId: peer.id })}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                   </button>
                 {:else}
@@ -3480,10 +3486,10 @@
                 <p class="chat-whiteboard-panel__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', activeWhiteboard.sender)}</p>
               </div>
               <div class="chat-whiteboard-panel__actions">
-                <button class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardOpenNewTab')} on:click={() => openWhiteboardNewTab(activeWhiteboard!)}>
+                <button type="button" class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardOpenNewTab')} aria-label={t(dict, 'chat.whiteboardOpenNewTab')} on:click={() => openWhiteboardNewTab(activeWhiteboard!)}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
                 </button>
-                <button class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardClose')} on:click={() => { activeWhiteboard = null; }}>
+                <button type="button" class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardClose')} aria-label={t(dict, 'chat.whiteboardClose')} on:click={() => { activeWhiteboard = null; }}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
@@ -3497,12 +3503,10 @@
         {/if}
         <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl} use:revealSpoilers>
       {#if messages.length === 0}
-        <div class="chat-center">
-          <div class="text-center space-y-2 max-w-xs">
-            <p class="text-sm font-medium text-zinc-600 dark:text-zinc-400">{t(dict, 'chat.emptyRoomNotice')}</p>
-            <p class="text-xs text-emerald-500 font-medium">{t(dict, 'chat.emptyRoomNotice2')}</p>
-            <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'chat.emptyRoomNotice3')}</p>
-          </div>
+        <div class="empty max-w-sm mx-auto my-auto">
+          <p class="empty__title">{t(dict, 'chat.emptyRoomNotice')}</p>
+          <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
+          <p class="hint">{t(dict, 'chat.emptyRoomNotice3')}</p>
         </div>
       {/if}
 
@@ -3514,7 +3518,7 @@
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
-                <span class="chat-sender" style="color: {msg.mine ? 'oklch(0.7019 0.1577 160.44)' : safeColor(msg.color)}">{msg.sender}</span>
+                <span class="chat-sender" style="color: {msg.mine ? 'var(--accent)' : safeColor(msg.color)}">{msg.sender}</span>
               </div>
               {#if msg.file}
                 <div class="chat-file" class:chat-file--error={msg.fileError}>
@@ -3523,14 +3527,14 @@
                     <span class="chat-file__name">{msg.file.name}</span>
                     <span class="chat-file__size">
                       {#if msg.fileError}
-                        Expired
+                        {t(dict, 'chat.fileExpired')}
                       {:else}
                         {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`}
                       {/if}
                     </span>
                   </div>
                   {#if !msg.fileError}
-                    <button class="chat-file__dl" on:click={() => downloadChatFile(msg)}>
+                    <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </button>
                   {/if}
@@ -3563,7 +3567,7 @@
                     <pre class="chat-preview-code">{msg.preview.expanded ? msg.preview.text : msg.preview.text.slice(0, PREVIEW_TEXT_LIMIT)}{!msg.preview.expanded && msg.preview.text.length > PREVIEW_TEXT_LIMIT ? '…' : ''}</pre>
                     {#if msg.preview.text.length > PREVIEW_TEXT_LIMIT}
                       <button class="chat-preview-expand" on:click={() => { if (msg.preview) msg.preview.expanded = !msg.preview.expanded; messages = messages; }}>
-                        {msg.preview.expanded ? '▲' : '▼'} {msg.preview.expanded ? 'Less' : 'More'}
+                        {msg.preview.expanded ? t(dict, 'chat.previewLess') : t(dict, 'chat.previewMore')}
                       </button>
                     {/if}
                   </div>
@@ -3635,6 +3639,7 @@
           <input
             type="text"
             class="chat-input-field"
+            aria-label={t(dict, 'chat.messagePlaceholder')}
             placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
             bind:value={inputText}
             on:input={handleTyping}
@@ -3645,7 +3650,7 @@
             data-lpignore="true"
             data-1p-ignore
           />
-          <button class="chat-send-btn" on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
+          <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
@@ -3691,17 +3696,11 @@
   .chat-container {
     display: flex;
     flex-direction: column;
-    height: 75vh;
-    max-height: 700px;
-    border-radius: 1rem;
+    height: min(75dvh, 700px);
+    border-radius: 0.75rem;
     overflow: hidden;
-    border: 1px solid rgba(228, 228, 231, 0.6);
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(12px);
-  }
-  :global(.dark) .chat-container {
-    border-color: rgba(39, 39, 42, 0.5);
-    background: rgba(9, 9, 11, 0.6);
+    border: 1px solid var(--line-soft);
+    background: var(--surface);
   }
   .chat-center {
     flex: 1;
@@ -3710,7 +3709,17 @@
     justify-content: center;
     padding: 2rem;
   }
+  .chat-copy-link span {
+    display: none;
+  }
+  @media (min-width: 640px) {
+    .chat-copy-link span {
+      display: inline;
+    }
+  }
   .chat-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -3766,12 +3775,12 @@
   :global(.dark) .chat-whiteboard-panel__bar { border-color: rgba(39, 39, 42, 0.45); }
   .chat-whiteboard-panel__title {
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 700;
     color: rgb(39, 39, 42);
   }
   :global(.dark) .chat-whiteboard-panel__title { color: rgb(228, 228, 231); }
   .chat-whiteboard-panel__meta {
-    font-size: 11px;
+    font-size: 0.75rem;
     color: rgb(113, 113, 122);
     white-space: nowrap;
     overflow: hidden;
@@ -3795,7 +3804,7 @@
     border: 1px solid rgba(228, 228, 231, 0.75);
   }
   .chat-whiteboard-panel__button:hover {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     background: oklch(0.7019 0.1577 160.44 / 0.08);
     border-color: oklch(0.7019 0.1577 160.44 / 0.18);
   }
@@ -3840,7 +3849,7 @@
     flex-shrink: 0; padding: 2px;
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
-  .chat-share-copy:hover { color: oklch(0.7019 0.1577 160.44); }
+  .chat-share-copy:hover { color: var(--accent); }
   .chat-mode-badge {
     min-height: 30px;
     display: inline-flex;
@@ -3850,8 +3859,8 @@
     border: 1px solid oklch(0.7019 0.1577 160.44 / 0.18);
     background: oklch(0.7019 0.1577 160.44 / 0.07);
     color: oklch(0.60 0.14 160.44);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 0.75rem;
+    font-weight: 700;
     white-space: nowrap;
   }
   :global(.dark) .chat-mode-badge {
@@ -3873,7 +3882,7 @@
     border-color: rgba(63, 63, 70, 0.45);
   }
   .chat-call-btn:hover:not(:disabled) {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     background: oklch(0.7019 0.1577 160.44 / 0.08);
     border-color: oklch(0.7019 0.1577 160.44 / 0.18);
   }
@@ -3899,7 +3908,7 @@
   }
   :global(.dark) .chat-call-banner__title { color: rgb(228, 228, 231); }
   .chat-call-banner__name {
-    font-size: 11px; color: rgb(113, 113, 122);
+    font-size: 0.75rem; color: rgb(113, 113, 122);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chat-call-banner__actions { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
@@ -3912,7 +3921,7 @@
   }
   .chat-call-accept {
     color: white;
-    background: oklch(0.7019 0.1577 160.44);
+    background: var(--accent);
   }
   .chat-call-decline {
     color: rgb(113, 113, 122);
@@ -3970,7 +3979,7 @@
     color: rgb(39, 39, 42);
   }
   :global(.dark) .chat-call-title { color: rgb(228, 228, 231); }
-  .chat-call-subtitle { margin-top: 1px; font-size: 11px; color: rgb(113, 113, 122); }
+  .chat-call-subtitle { margin-top: 1px; font-size: 0.75rem; color: rgb(113, 113, 122); }
   .chat-call-controls { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
   .chat-call-control {
     width: 34px; height: 34px; border-radius: 0.55rem;
@@ -3986,7 +3995,7 @@
     border-color: rgba(63, 63, 70, 0.55);
   }
   .chat-call-control:hover:not(:disabled) {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     background: oklch(0.7019 0.1577 160.44 / 0.08);
     border-color: oklch(0.7019 0.1577 160.44 / 0.18);
   }
@@ -4021,7 +4030,7 @@
     border-radius: 0.5rem;
     background: rgba(244, 244, 245, 0.82);
     border: 1px solid rgba(228, 228, 231, 0.75);
-    font-size: 10px; font-weight: 800;
+    font-size: 0.75rem; font-weight: 800;
     color: rgb(113, 113, 122);
     white-space: nowrap;
     min-width: 0;
@@ -4046,7 +4055,7 @@
     box-shadow: 0 0 0 3px rgba(161, 161, 170, 0.12);
   }
   .chat-call-server--good .chat-call-server__dot {
-    background: oklch(0.7019 0.1577 160.44);
+    background: var(--accent);
     box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.16);
   }
   .chat-call-server--fair .chat-call-server__dot {
@@ -4071,7 +4080,7 @@
   }
   .chat-call-settings__header {
     display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-    font-size: 10px; font-weight: 900; text-transform: uppercase;
+    font-size: 0.75rem; font-weight: 900; text-transform: uppercase;
     color: rgb(113, 113, 122);
   }
   .chat-call-settings__refresh {
@@ -4082,7 +4091,7 @@
     border: 1px solid rgba(228, 228, 231, 0.7);
   }
   .chat-call-settings__refresh:hover {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     border-color: oklch(0.7019 0.1577 160.44 / 0.2);
   }
   :global(.dark) .chat-call-settings__refresh {
@@ -4102,7 +4111,7 @@
     color: rgb(82, 82, 91);
     background: rgba(244, 244, 245, 0.76);
     border: 1px solid rgba(228, 228, 231, 0.72);
-    font-size: 11px; font-weight: 800;
+    font-size: 0.75rem; font-weight: 800;
   }
   :global(.dark) .chat-call-toggle {
     color: rgb(212, 212, 216);
@@ -4111,7 +4120,7 @@
   }
   .chat-call-toggle input {
     width: 13px; height: 13px;
-    accent-color: oklch(0.7019 0.1577 160.44);
+    accent-color: var(--accent);
   }
   .chat-call-device-grid {
     display: grid;
@@ -4124,7 +4133,7 @@
     display: flex; flex-direction: column; gap: 0.25rem;
   }
   .chat-call-field span {
-    font-size: 10px; font-weight: 900;
+    font-size: 0.75rem; font-weight: 900;
     color: rgb(113, 113, 122);
   }
   .chat-call-field select,
@@ -4138,7 +4147,7 @@
     background: rgba(255, 255, 255, 0.72);
     color: rgb(63, 63, 70);
     padding: 0 0.45rem;
-    font-size: 11px; font-weight: 700;
+    font-size: 0.75rem; font-weight: 700;
     outline: none;
   }
   :global(.dark) .chat-call-field select {
@@ -4150,7 +4159,7 @@
     border-color: oklch(0.7019 0.1577 160.44 / 0.45);
   }
   .chat-call-field input[type="range"] {
-    accent-color: oklch(0.7019 0.1577 160.44);
+    accent-color: var(--accent);
   }
   .chat-call-field input[type="range"]:disabled {
     opacity: 0.35;
@@ -4171,7 +4180,7 @@
   }
   .chat-call-peer-audio__title {
     margin-bottom: 0.45rem;
-    font-size: 10px;
+    font-size: 0.75rem;
     font-weight: 900;
     text-transform: uppercase;
     color: rgb(113, 113, 122);
@@ -4192,7 +4201,7 @@
     align-items: center;
     gap: 0.45rem;
     color: rgb(63, 63, 70);
-    font-size: 11px;
+    font-size: 0.75rem;
     font-weight: 800;
   }
   :global(.dark) .chat-call-peer-row__meta {
@@ -4206,7 +4215,7 @@
   }
   .chat-call-peer-row input[type="range"] {
     width: 100%;
-    accent-color: oklch(0.7019 0.1577 160.44);
+    accent-color: var(--accent);
   }
   .chat-call-peer-row input[type="range"]:disabled {
     opacity: 0.35;
@@ -4323,7 +4332,7 @@
     border-radius: 0.4rem;
     color: white;
     background: rgba(24, 24, 27, 0.72);
-    font-size: 11px; font-weight: 800;
+    font-size: 0.75rem; font-weight: 800;
   }
   .chat-call-label span {
     overflow: hidden;
@@ -4358,7 +4367,7 @@
   .chat-call-tile audio { display: none; }
   .chat-call-error {
     margin-top: 0.45rem;
-    font-size: 11px; line-height: 1.45;
+    font-size: 0.75rem; line-height: 1.45;
     color: rgb(239, 68, 68);
   }
   .chat-call-fullscreen {
@@ -4373,7 +4382,7 @@
   }
   .chat-call-fullscreen__video {
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     object-fit: contain;
     background: rgb(5, 5, 6);
   }
@@ -4400,7 +4409,7 @@
     background: rgba(24, 24, 27, 0.74);
     border: 1px solid rgba(255, 255, 255, 0.12);
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 700;
     pointer-events: auto;
   }
   .chat-call-fullscreen__meta span {
@@ -4492,7 +4501,7 @@
     animation: chat-pulse 1.2s ease-in-out infinite;
   }
   .chat-status--connected {
-    background: oklch(0.7019 0.1577 160.44);
+    background: var(--accent);
     box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.2);
     animation: none;
   }
@@ -4514,7 +4523,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
   .chat-avatar--sm {
-    width: 24px; height: 24px; border-radius: 9999px; font-size: 9px;
+    width: 24px; height: 24px; border-radius: 9999px; font-size: 0.75rem;
   }
   .chat-bubble {
     max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 0.875rem;
@@ -4544,10 +4553,10 @@
   }
   .chat-timer__ring {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
   }
   .chat-timer__num {
-    font-size: 10px; font-weight: 700; color: rgb(161, 161, 170);
+    font-size: 0.75rem; font-weight: 700; color: rgb(161, 161, 170);
     position: relative; z-index: 1;
   }
   .chat-text :global(strong) { font-weight: 700; }
@@ -4588,7 +4597,7 @@
   }
   .chat-wrong-password {
     display: flex; align-items: center; gap: 0.4rem;
-    font-size: 11px; color: rgb(239, 68, 68);
+    font-size: 0.75rem; color: rgb(239, 68, 68);
     padding: 0.5rem 0.75rem; margin-top: 0.25rem;
     border-radius: 0.5rem;
     background: rgba(239, 68, 68, 0.08);
@@ -4630,8 +4639,8 @@
   }
   .chat-preview-expand {
     display: block; width: 100%; padding: 0.3rem;
-    font-size: 11px; font-weight: 600; text-align: center;
-    color: oklch(0.7019 0.1577 160.44);
+    font-size: 0.75rem; font-weight: 600; text-align: center;
+    color: var(--accent);
     background: rgba(244, 244, 245, 0.8);
     border-top: 1px solid rgba(228, 228, 231, 0.5);
   }
@@ -4647,7 +4656,7 @@
   .chat-attach-menu { position: relative; flex-shrink: 0; }
   .chat-attach-btn:hover:not(:disabled),
   .chat-attach-btn--active {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
   }
   .chat-attach-btn:disabled { opacity: 0.3; }
   .chat-attach-dropdown {
@@ -4682,7 +4691,7 @@
     text-align: left;
   }
   .chat-attach-option:hover:not(:disabled) {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     background: oklch(0.7019 0.1577 160.44 / 0.08);
   }
   .chat-attach-option:disabled {
@@ -4698,7 +4707,7 @@
     border-radius: 0.5rem;
     background: oklch(0.7019 0.1577 160.44 / 0.06);
     border: 1px solid oklch(0.7019 0.1577 160.44 / 0.12);
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
   }
   .chat-file--error {
     border-color: rgba(239, 68, 68, 0.2);
@@ -4711,10 +4720,10 @@
     color: rgb(63, 63, 70);
   }
   :global(.dark) .chat-file__name { color: rgb(212, 212, 216); }
-  .chat-file__size { font-size: 11px; color: rgb(161, 161, 170); }
+  .chat-file__size { font-size: 0.75rem; color: rgb(161, 161, 170); }
   .chat-file__dl {
     padding: 0.25rem; border-radius: 0.35rem;
-    color: oklch(0.7019 0.1577 160.44); transition: background 0.15s;
+    color: var(--accent); transition: background 0.15s;
   }
   .chat-file__dl:hover { background: oklch(0.7019 0.1577 160.44 / 0.1); }
   .chat-whiteboard-card {
@@ -4739,7 +4748,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   .chat-whiteboard-card__body {
@@ -4748,13 +4757,13 @@
   }
   .chat-whiteboard-card__title {
     font-size: 13px;
-    font-weight: 850;
+    font-weight: 700;
     color: rgb(39, 39, 42);
   }
   :global(.dark) .chat-whiteboard-card__title { color: rgb(228, 228, 231); }
   .chat-whiteboard-card__meta {
     margin-top: 1px;
-    font-size: 11px;
+    font-size: 0.75rem;
     color: rgb(113, 113, 122);
     white-space: nowrap;
     overflow: hidden;
@@ -4770,20 +4779,20 @@
     min-height: 28px;
     padding: 0 0.55rem;
     border-radius: 0.45rem;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 0.75rem;
+    font-weight: 700;
     color: rgb(82, 82, 91);
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(228, 228, 231, 0.8);
   }
   .chat-whiteboard-card__btn:hover {
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
     border-color: oklch(0.7019 0.1577 160.44 / 0.22);
   }
   .chat-whiteboard-card__btn--primary {
     color: white;
-    background: oklch(0.7019 0.1577 160.44);
-    border-color: oklch(0.7019 0.1577 160.44);
+    background: var(--accent);
+    border-color: var(--accent);
   }
   .chat-whiteboard-card__btn--primary:hover {
     color: white;
@@ -4796,12 +4805,12 @@
   }
   :global(.dark) .chat-whiteboard-card__btn--primary {
     color: white;
-    background: oklch(0.7019 0.1577 160.44);
-    border-color: oklch(0.7019 0.1577 160.44);
+    background: var(--accent);
+    border-color: var(--accent);
   }
   .chat-send-btn {
     padding: 0.4rem; border-radius: 0.5rem;
-    color: oklch(0.7019 0.1577 160.44); transition: background 0.15s;
+    color: var(--accent); transition: background 0.15s;
   }
   .chat-send-btn:hover:not(:disabled) { background: oklch(0.7019 0.1577 160.44 / 0.1); }
   .chat-send-btn:disabled { opacity: 0.3; }

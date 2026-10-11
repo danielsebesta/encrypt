@@ -728,9 +728,9 @@
     <div class="wb-center">
       <div class="space-y-4 max-w-xs w-full text-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <p class="text-sm font-medium text-red-500">{t(dict, 'whiteboard.wrongPassword')}</p>
-        <p class="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'whiteboard.wrongPasswordDetail')}</p>
-        <button class="btn-outline w-full text-xs" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'whiteboard.tryAgain')}</button>
+        <p class="status status--error" role="alert">{t(dict, 'whiteboard.wrongPassword')}</p>
+        <p class="hint">{t(dict, 'whiteboard.wrongPasswordDetail')}</p>
+        <button type="button" class="btn-secondary w-full" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'whiteboard.tryAgain')}</button>
       </div>
     </div>
 
@@ -739,12 +739,13 @@
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
-          <p class="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed">{t(dict, 'whiteboard.roomPasswordHint')}</p>
+          <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
+          <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
         <input
           type="password"
           class="input w-full"
+          aria-label={t(dict, 'whiteboard.password')}
           placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
           bind:value={passwordInput}
           on:keydown={(e) => e.key === 'Enter' && submitPassword()}
@@ -754,7 +755,7 @@
           data-bwignore="true"
         />
         {#if passwordError}
-          <p class="text-xs text-red-500">{passwordError}</p>
+          <p class="status status--error" role="alert">{passwordError}</p>
         {/if}
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'whiteboard.enterRoom')}</button>
       </div>
@@ -764,7 +765,7 @@
     <div class="wb-center">
       <div class="text-center space-y-2">
         <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="text-xs text-zinc-400">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+        <p class="hint">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
       </div>
     </div>
 
@@ -861,13 +862,13 @@
     {#if sharePassword && !shareDismissed}
       <div class="wb-share-banner">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">{t(dict, 'whiteboard.sharePasswordWarning')}</span>
-          <button class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
+          <span class="text-sm font-bold text-accent">{t(dict, 'whiteboard.sharePasswordWarning')}</span>
+          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5 mb-1.5">
-          <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'whiteboard.roomLink')}</span>
+          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.roomLink')}</span>
           <code class="wb-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
           <button class="wb-share-copy" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
             {#if shareCopiedLink}
@@ -878,7 +879,7 @@
           </button>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="text-[10px] text-zinc-400 w-8 shrink-0">{t(dict, 'whiteboard.password')}</span>
+          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>
           <code class="wb-share-value">{sharePassword}</code>
           <button class="wb-share-copy" on:click={copySharePassword} aria-label={t(dict, 'whiteboard.copyRoomPassword')}>
             {#if shareCopiedPass}
@@ -911,7 +912,7 @@
           {#if s.type === 'pen' && s.points}
             <path d={penPathD(s.points, s.thickness)} fill={s.color} stroke="none"/>
             {#if isSel}
-              <path d={penPathD(s.points, s.thickness)} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
+              <path d={penPathD(s.points, s.thickness)} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'rect'}
             {@const rx = (s.w ?? 0) < 0 ? (s.x ?? 0) + (s.w ?? 0) : (s.x ?? 0)}
@@ -920,28 +921,28 @@
             {@const rh = Math.abs(s.h ?? 0)}
             <rect x={rx} y={ry} width={rw} height={rh} fill="none" stroke={s.color} stroke-width={s.thickness} stroke-linejoin="round"/>
             {#if isSel}
-              <rect x={rx - 4} y={ry - 4} width={rw + 8} height={rh + 8} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
+              <rect x={rx - 4} y={ry - 4} width={rw + 8} height={rh + 8} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'ellipse'}
             <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2)} ry={Math.abs((s.h ?? 0) / 2)} fill="none" stroke={s.color} stroke-width={s.thickness}/>
             {#if isSel}
-              <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2) + 4} ry={Math.abs((s.h ?? 0) / 2) + 4} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
+              <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2) + 4} ry={Math.abs((s.h ?? 0) / 2) + 4} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {:else if s.type === 'line'}
             <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round"/>
             {#if isSel}
-              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="oklch(0.7019 0.1577 160.44)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
+              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="var(--accent)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
             {/if}
           {:else if s.type === 'arrow'}
             <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round"/>
             <path d={arrowHeadPath(s.x1 ?? 0, s.y1 ?? 0, s.x2 ?? 0, s.y2 ?? 0, s.thickness)} stroke={s.color} stroke-width={s.thickness} fill="none" stroke-linecap="round"/>
             {#if isSel}
-              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="oklch(0.7019 0.1577 160.44)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
+              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="var(--accent)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
             {/if}
           {:else if s.type === 'text'}
             <text x={s.x} y={s.y} fill={s.color} font-size={s.fontSize} font-family="ui-sans-serif, system-ui, sans-serif" font-weight="500">{s.text}</text>
             {#if isSel}
-              <rect x={(s.x ?? 0) - 4} y={(s.y ?? 0) - (s.fontSize ?? 16) - 2} width={(s.text?.length ?? 1) * (s.fontSize ?? 16) * 0.55 + 8} height={(s.fontSize ?? 16) + 8} fill="none" stroke="oklch(0.7019 0.1577 160.44)" stroke-width="2" stroke-dasharray="6 4"/>
+              <rect x={(s.x ?? 0) - 4} y={(s.y ?? 0) - (s.fontSize ?? 16) - 2} width={(s.text?.length ?? 1) * (s.fontSize ?? 16) * 0.55 + 8} height={(s.fontSize ?? 16) + 8} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
             {/if}
           {/if}
         {/each}
@@ -994,6 +995,7 @@
     <div class="wb-footer">
       <div class="flex items-center gap-2">
         <span class="wb-status" class:wb-status--connected={connected}></span>
+        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : t(dict, 'whiteboard.connecting')}</span>
         <div class="flex items-center -space-x-1.5">
           <div class="wb-avatar wb-avatar--sm" style="background: {nameToGradient(identity.name)}" title={identity.name}>{myInitials}</div>
           {#each onlineUsers as user}
@@ -1010,17 +1012,11 @@
   .wb-container {
     display: flex;
     flex-direction: column;
-    height: 80vh;
-    max-height: 820px;
-    border-radius: 1rem;
+    height: min(80dvh, 820px);
+    border-radius: 0.75rem;
     overflow: hidden;
-    border: 1px solid rgba(228, 228, 231, 0.6);
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(12px);
-  }
-  :global(.dark) .wb-container {
-    border-color: rgba(39, 39, 42, 0.5);
-    background: rgba(9, 9, 11, 0.6);
+    border: 1px solid var(--line-soft);
+    background: var(--surface);
   }
 
   .wb-center {
@@ -1059,11 +1055,11 @@
   }
   .wb-tool-btn:hover, .wb-icon-btn:hover {
     background: oklch(0.7019 0.1577 160.44 / 0.08);
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
   }
   .wb-tool-btn--active, .wb-icon-btn--active {
     background: oklch(0.7019 0.1577 160.44 / 0.14);
-    color: oklch(0.7019 0.1577 160.44);
+    color: var(--accent);
   }
 
   .wb-divider {
@@ -1081,7 +1077,7 @@
   }
   .wb-color-btn:hover { transform: scale(1.1); }
   .wb-color-btn--active {
-    border-color: oklch(0.7019 0.1577 160.44);
+    border-color: var(--accent);
     transform: scale(1.1);
   }
   .wb-color-btn--custom {
@@ -1149,7 +1145,7 @@
     transform: translate(0, -100%);
     pointer-events: auto;
     background: rgba(255, 255, 255, 0.95);
-    border: 1px solid oklch(0.7019 0.1577 160.44);
+    border: 1px solid var(--accent);
     border-radius: 4px;
     padding: 4px 6px;
     font-size: 14px;
@@ -1171,7 +1167,7 @@
   }
   .wb-share-value {
     flex: 1; min-width: 0;
-    font-size: 12px; font-family: 'fira-code', monospace;
+    font-size: 12px; font-family: var(--font-mono);
     color: rgb(63, 63, 70); background: rgba(244, 244, 245, 0.8);
     padding: 4px 8px; border-radius: 6px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1184,7 +1180,7 @@
     flex-shrink: 0; padding: 2px;
     color: rgb(161, 161, 170); transition: color 0.15s;
   }
-  .wb-share-copy:hover { color: oklch(0.7019 0.1577 160.44); }
+  .wb-share-copy:hover { color: var(--accent); }
 
   .wb-footer {
     display: flex;
@@ -1192,7 +1188,7 @@
     justify-content: space-between;
     padding: 0.5rem 0.85rem;
     border-top: 1px solid rgba(228, 228, 231, 0.5);
-    font-size: 11px;
+    font-size: 0.75rem;
     color: rgb(113, 113, 122);
   }
   :global(.dark) .wb-footer { border-color: rgba(39, 39, 42, 0.4); color: rgb(161, 161, 170); }
@@ -1203,7 +1199,7 @@
     animation: wb-pulse 1.2s ease-in-out infinite;
   }
   .wb-status--connected {
-    background: oklch(0.7019 0.1577 160.44);
+    background: var(--accent);
     box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.2);
     animation: none;
   }
@@ -1220,7 +1216,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
   .wb-avatar--sm {
-    width: 24px; height: 24px; font-size: 9px;
+    width: 24px; height: 24px; font-size: 0.75rem;
   }
 
   .wb-counter {
