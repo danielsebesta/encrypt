@@ -343,6 +343,7 @@
   "tools.ultimateEncrypt.remove": "Remove",
   "tools.ultimateEncrypt.passwordLabel": "Password",
   "tools.ultimateEncrypt.passwordPlaceholder": "Enter a strong password...",
+  "tools.ultimateEncrypt.passwordHint": "The recipient needs this password. Keep the one we generated or type your own.",
   "tools.ultimateEncrypt.transferClaim": "Simple, secure transfer for a few files under 50 MB. Stored for 24 hours max.",
   "tools.ultimateEncrypt.shareThisLink": "Share this link",
   "tools.ultimateEncrypt.encryptedLink": "Encrypted link",

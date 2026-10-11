@@ -732,57 +732,48 @@
     a.remove();
   }
 </script>
-
-<div class="space-y-6 text-left">
+<div class="stack text-left">
   {#if hasHash}
-    <p class="text-sm text-zinc-500 dark:text-zinc-400">
-      {t(dict, 'tools.ultimateDecrypt.payloadFound')}
-    </p>
+    <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.payloadFound')}</p>
   {:else}
-    <div class="space-y-4">
-      <p class="text-sm text-zinc-500 dark:text-zinc-400">
-        {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="text-emerald-500">/u#...</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}
-      </p>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div class="ue-input-pane ue-drop-zone" class:ue-input-pane--active={!!encryptedFile}>
-          {#if encryptedFile}
-            <div class="flex flex-col items-center gap-2 text-center py-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{encryptedFile.name}</span>
-              <span class="text-[10px] text-zinc-400">{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
-              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => encryptedFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
-            </div>
-          {:else}
-            <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ud-enc">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateDecrypt.upload.encryptedFile')}</span>
-              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">{t(dict, 'tools.ultimateDecrypt.upload.encFileHint')}</span>
-            </label>
-            <input id="ud-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
-          {/if}
+    <p class="hint">
+      {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="font-mono text-accent">/u#…</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}
+    </p>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {#if encryptedFile}
+        <div class="dropzone dropzone--active">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span class="dropzone__title max-w-full truncate">{encryptedFile.name}</span>
+          <span>{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
+          <button type="button" class="btn-ghost btn-sm" on:click={() => encryptedFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
         </div>
-        <div class="ue-input-pane ue-drop-zone" class:ue-input-pane--active={!!stegoFile}>
-          {#if stegoFile}
-            <div class="flex flex-col items-center gap-2 text-center py-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate max-w-full px-2">{stegoFile.name}</span>
-              <button type="button" class="text-[10px] font-bold text-red-500 hover:underline" on:click={() => stegoFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
-            </div>
-          {:else}
-            <label class="flex flex-col items-center gap-2 cursor-pointer text-center py-2 w-full h-full justify-center" for="ud-stego">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              <span class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">{t(dict, 'tools.ultimateDecrypt.upload.stegoImage')}</span>
-              <span class="text-[9px] text-zinc-300 dark:text-zinc-600">{t(dict, 'tools.ultimateDecrypt.upload.stegoHint')}</span>
-            </label>
-            <input id="ud-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
-          {/if}
+      {:else}
+        <label class="dropzone" for="ud-enc">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.upload.encryptedFile')}</span>
+          <span>{t(dict, 'tools.ultimateDecrypt.upload.encFileHint')}</span>
+          <input id="ud-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
+        </label>
+      {/if}
+      {#if stegoFile}
+        <div class="dropzone dropzone--active">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span class="dropzone__title max-w-full truncate">{stegoFile.name}</span>
+          <button type="button" class="btn-ghost btn-sm" on:click={() => stegoFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
         </div>
-      </div>
+      {:else}
+        <label class="dropzone" for="ud-stego">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.upload.stegoImage')}</span>
+          <span>{t(dict, 'tools.ultimateDecrypt.upload.stegoHint')}</span>
+          <input id="ud-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
+        </label>
+      {/if}
     </div>
   {/if}
 
-  <div class="space-y-2">
-    <label class="label block" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}</label>
+  <div class="field">
+    <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}</label>
     <input
       id="ud-pass"
       type="password"
@@ -793,6 +784,7 @@
       data-1p-ignore
       data-bwignore="true"
       placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
+      aria-invalid={error ? 'true' : undefined}
       on:keydown={(e) => {
         if (e.key === 'Enter' && !loading && (hasHash || stegoFile || encryptedFile)) {
           e.preventDefault();
@@ -814,92 +806,89 @@
   {#if loading}
     <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateDecrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateDecrypt.progressDefaultDetail')} compact={true} />
   {/if}
-
   {#if error}
-    <p class="text-xs text-red-500">{error}</p>
+    <p class="status status--error" role="alert">{error}</p>
   {/if}
 
   {#if openedText}
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <label class="label block">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</label>
-        <CopyButton text={openedText} label={t(dict, 'tools.ultimateDecrypt.copy')} />
+    <div class="field" role="status">
+      <div class="output-head">
+        <span class="label">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</span>
+        <CopyButton text={openedText} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
       </div>
-      <div class="result-box min-h-[80px] whitespace-pre-wrap">
-        {openedText}
-      </div>
+      <div class="output output--ok min-h-20">{openedText}</div>
       {#if previewTruncated}
-        <p class="text-[11px] text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+        <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
       {/if}
     </div>
   {/if}
 
   {#if openedFileName}
-    <div class="space-y-3">
-      <p class="text-xs text-emerald-500">{t(dict, 'tools.ultimateDecrypt.fileDecrypted')} {openedFileName}</p>
-
+    <div class="stack" role="status">
+      <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.fileDecrypted')} {openedFileName}</p>
       {#if previewType === 'image'}
-        <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" />
+        <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-lg border border-line-soft" />
       {:else if previewType === 'video' && openedFileUrl}
         {#key openedFileUrl}
-          <video controls class="max-w-full rounded-xl border border-zinc-200 dark:border-zinc-800" use:loadMedia={openedFileUrl}></video>
+          <video controls class="max-w-full rounded-lg border border-line-soft" use:loadMedia={openedFileUrl}></video>
         {/key}
       {:else if previewType === 'audio' && openedFileUrl}
         {#key openedFileUrl}
           <audio controls class="w-full" use:loadMedia={openedFileUrl}></audio>
         {/key}
       {:else if previewType === 'pdf'}
-        <iframe sandbox src={openedFileUrl} title={openedFileName} class="w-full h-[70vh] rounded-xl border border-zinc-200 dark:border-zinc-800"></iframe>
+        <iframe sandbox src={openedFileUrl} title={openedFileName} class="h-[70vh] w-full rounded-lg border border-line-soft"></iframe>
       {:else if previewType === 'zip' && zipTree.length > 0}
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
-          <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.ultimateDecrypt.upload.files')}</span>
+        <div class="ud-preview">
+          <div class="ud-preview__head">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.ultimateDecrypt.upload.files')}</span>
           </div>
-          <div class="max-h-[50vh] overflow-auto font-mono">
+          <div class="ud-preview__body font-mono text-sm">
             {#each zipTree as node}
-              <div class="flex items-center gap-1.5 py-1 pr-3 text-[11px] border-t border-zinc-100/80 dark:border-zinc-800/40 first:border-t-0" style="padding-left: {12 + node.depth * 16}px">
+              <div class="flex items-center gap-1.5 py-1 pr-3" style="padding-left: {12 + node.depth * 16}px">
                 {#if node.isDir}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" class="text-amber-400 dark:text-amber-500 shrink-0"><path d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/></svg>
-                  <span class="text-zinc-700 dark:text-zinc-300 font-medium">{node.label}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" class="shrink-0 text-warn" aria-hidden="true"><path d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"/></svg>
+                  <span class="font-bold text-text">{node.label}</span>
                 {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-300 dark:text-zinc-600 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <span class="truncate flex-1 text-zinc-600 dark:text-zinc-400">{node.label}</span>
-                  <span class="text-[10px] text-zinc-400 dark:text-zinc-600 tabular-nums shrink-0">{node.size < 1024 ? `${node.size} B` : node.size < 1048576 ? `${(node.size / 1024).toFixed(1)} KB` : `${(node.size / 1048576).toFixed(1)} MB`}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-muted" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span class="flex-1 truncate text-text">{node.label}</span>
+                  <span class="shrink-0 text-xs text-muted tabular-nums">{node.size < 1024 ? `${node.size} B` : node.size < 1048576 ? `${(node.size / 1024).toFixed(1)} KB` : `${(node.size / 1048576).toFixed(1)} MB`}</span>
                 {/if}
               </div>
             {/each}
           </div>
         </div>
       {:else if previewType === 'env' && openedEnvEntries.length > 0}
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70 overflow-hidden">
-          <div class="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900/50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{t(dict, 'tools.ultimateDecrypt.upload.envHeader')}</span>
+        <div class="ud-preview">
+          <div class="ud-preview__head">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warn" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>{t(dict, 'tools.ultimateDecrypt.upload.envHeader')}</span>
           </div>
-          <div class="max-h-[50vh] overflow-auto font-mono text-[11px]">
+          <div class="ud-preview__body font-mono text-sm">
             {#each openedEnvEntries as entry, i}
               {#if entry.isComment}
-                <div class="px-4 py-1 text-zinc-400 dark:text-zinc-600">{entry.key}</div>
+                <div class="px-4 py-1 text-muted">{entry.key}</div>
               {:else}
-                <div class="flex items-center gap-0 border-t border-zinc-100/80 dark:border-zinc-800/40">
-                  <span class="px-4 py-1.5 text-emerald-700 dark:text-emerald-400 font-medium shrink-0">{entry.key}</span>
-                  <span class="text-zinc-300 dark:text-zinc-700">=</span>
+                <div class="flex items-center">
+                  <span class="shrink-0 px-4 py-1.5 font-bold text-accent">{entry.key}</span>
+                  <span class="text-muted">=</span>
                   {#if entry.visible}
-                    <span class="px-2 py-1.5 text-zinc-700 dark:text-zinc-300 break-all flex-1">{entry.value}</span>
+                    <span class="flex-1 break-all px-2 py-1.5 text-text">{entry.value}</span>
                   {:else}
-                    <span class="px-2 py-1.5 text-zinc-400 dark:text-zinc-600 flex-1">••••••••</span>
+                    <span class="flex-1 px-2 py-1.5 text-muted">••••••••</span>
                   {/if}
                   <button
                     type="button"
-                    class="px-2.5 py-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 shrink-0"
+                    class="btn-ghost btn-sm btn-icon shrink-0"
                     on:click={() => { openedEnvEntries[i].visible = !openedEnvEntries[i].visible; openedEnvEntries = openedEnvEntries; }}
                     aria-label={entry.visible ? t(dict, 'tools.ultimateDecrypt.hideSecret') : t(dict, 'tools.ultimateDecrypt.showSecret')}
+                    aria-pressed={entry.visible}
                   >
                     {#if entry.visible}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                     {:else}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     {/if}
                   </button>
                 </div>
@@ -908,48 +897,46 @@
           </div>
         </div>
       {:else if previewType === 'csv'}
-        <div class="overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/70">
-          <table class="min-w-full text-xs">
-            <tbody>
-              {#each openedCsvRows as row, rowIndex}
-                <tr class={rowIndex === 0 ? 'bg-zinc-50 dark:bg-zinc-900/80' : 'border-t border-zinc-200 dark:border-zinc-800'}>
-                  {#each row as cell}
-                    <td class="max-w-[240px] px-3 py-2 align-top font-mono whitespace-pre-wrap break-words text-zinc-700 dark:text-zinc-200">{cell}</td>
-                  {/each}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+        <div class="ud-preview">
+          <div class="ud-preview__body">
+            <table class="min-w-full text-sm">
+              <tbody>
+                {#each openedCsvRows as row, rowIndex}
+                  <tr class={rowIndex === 0 ? 'bg-surface-2 font-bold' : 'border-t border-line-soft'}>
+                    {#each row as cell}
+                      <td class="max-w-[240px] whitespace-pre-wrap break-words px-3 py-2 align-top font-mono text-text">{cell}</td>
+                    {/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
         </div>
         {#if previewTruncated}
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+          <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
         {/if}
       {:else if previewType === 'code'}
-        <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/70 overflow-auto">
-          <div class="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <div class="ud-preview">
+          <div class="ud-preview__head justify-between">
             <span>{t(dict, 'tools.ultimateDecrypt.previewCode')}</span>
-            <span>{openedCodeLanguage}</span>
+            <span class="font-mono">{openedCodeLanguage}</span>
           </div>
-          <pre class="m-0 p-4 text-[12px] leading-6 font-mono whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-100"><code class="ud-code" data-language={openedCodeLanguage}>{@html openedCodeHtml}</code></pre>
+          <pre class="ud-preview__body m-0 whitespace-pre-wrap break-words p-4 font-mono text-sm leading-6 text-text"><code class="ud-code" data-language={openedCodeLanguage}>{@html openedCodeHtml}</code></pre>
         </div>
         {#if previewTruncated}
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+          <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
         {/if}
       {:else if previewType === 'text'}
-        <div class="result-box min-h-[160px] max-h-[70vh] overflow-auto whitespace-pre-wrap font-mono text-xs leading-6">
-          {openedText}
-        </div>
+        <div class="output output--scroll min-h-40 max-h-[70vh]">{openedText}</div>
         {#if previewTruncated}
-          <p class="text-[11px] text-zinc-500 dark:text-zinc-400">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+          <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
         {/if}
       {/if}
-
       {#if openedFileUrl}
-        <button type="button" class="btn-outline text-xs" on:click={downloadFile}>
+        <button type="button" class="btn-secondary" on:click={downloadFile}>
           {t(dict, 'tools.ultimateDecrypt.download')} {openedFileName}
         </button>
       {/if}
     </div>
   {/if}
-
 </div>

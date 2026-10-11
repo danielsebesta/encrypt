@@ -343,6 +343,7 @@
   "tools.ultimateEncrypt.remove": "Usuń",
   "tools.ultimateEncrypt.passwordLabel": "Hasło",
   "tools.ultimateEncrypt.passwordPlaceholder": "Wprowadź silne hasło...",
+  "tools.ultimateEncrypt.passwordHint": "Odbiorca będzie potrzebować tego hasła. Zostaw wygenerowane lub wpisz własne.",
   "tools.ultimateEncrypt.transferClaim": "Proste i bezpieczne przesyłanie kilku plików do 50 MB. Są przechowywane przez maksymalnie 24 godziny.",
   "tools.ultimateEncrypt.shareThisLink": "Udostępnij ten link",
   "tools.ultimateEncrypt.encryptedLink": "Zaszyfrowany link",

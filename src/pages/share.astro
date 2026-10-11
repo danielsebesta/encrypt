@@ -14,16 +14,12 @@ export const prerender = true;
   title={t(dict, 'share.meta.title')}
   description={t(dict, 'share.meta.description')}
 >
-  <div class="max-w-xl mx-auto px-5 py-12 md:py-20">
-    <div class="mb-8 space-y-3 text-center">
-      <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-        {t(dict, 'landing.paths.share.title')}
-      </h1>
-      <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-md mx-auto">
-        {t(dict, 'landing.paths.share.text')}
-      </p>
-    </div>
-    <div class="home-tool-panel__surface">
+  <div class="page">
+    <header class="page-head">
+      <h1 class="page-title">{t(dict, 'landing.paths.share.title')}</h1>
+      <p class="page-lead">{t(dict, 'landing.paths.share.text')}</p>
+    </header>
+    <div class="panel">
       <UltimateEncrypt client:idle locale={locale} dict={encryptDict} />
     </div>
   </div>

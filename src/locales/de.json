@@ -343,6 +343,7 @@
   "tools.ultimateEncrypt.remove": "Entfernen",
   "tools.ultimateEncrypt.passwordLabel": "Passwort",
   "tools.ultimateEncrypt.passwordPlaceholder": "Gib ein starkes Passwort ein...",
+  "tools.ultimateEncrypt.passwordHint": "Der Empfänger braucht dieses Passwort. Behalten Sie das erzeugte oder geben Sie ein eigenes ein.",
   "tools.ultimateEncrypt.transferClaim": "Einfache, sichere Übertragung einiger Dateien bis 50 MB. Sie werden höchstens 24 Stunden gespeichert.",
   "tools.ultimateEncrypt.shareThisLink": "Diesen Link teilen",
   "tools.ultimateEncrypt.encryptedLink": "Verschlüsselter Link",
