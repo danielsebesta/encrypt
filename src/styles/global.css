@@ -54,8 +54,6 @@
     --danger: #b91c1c;
     --danger-weak: #fef2f2;
     --shadow-float: 0 12px 32px -8px rgb(24 24 27 / 0.18), 0 0 0 1px rgb(24 24 27 / 0.04);
-    --illu-dark: #27272a;
-    --illu-emerald: #00bc7d;
 }
 
 html.dark {
@@ -77,7 +75,6 @@ html.dark {
     --danger: #f87171;
     --danger-weak: #2a1111;
     --shadow-float: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.06);
-    --illu-dark: #f4f4f5;
 }
 
 @theme {
