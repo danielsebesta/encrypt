@@ -1,0 +1,36 @@
+diff --git a/src/freehand.js b/src/freehand.js
+index bd95ffb638dfe92fe36e4c1af34aaf5110f35a47..2648566e97b7758f088855ff061605b2e9cb63be 100644
+--- a/src/freehand.js
++++ b/src/freehand.js
+@@ -27,9 +27,18 @@ export function strokeOutline(pts, { size = 4, thinning = 0.55, streamline = 0.3
+   // simulated from velocity when it doesn't (fast = thin, like a real pen)
+   const radii = new Array(n)
+   let vel = 0
++  let smooth = -1
+   for (let i = 0; i < n; i++) {
+     let p = pts[i * 3 + 2]
+     const hasReal = p > 0 && p !== 0.5
++    if (!simulate) {
++      // a pen: real pressure sets the width over a wide range — nominal at half
++      // pressure, a hairline at a light touch, nearly double when pressed hard
++      if (hasReal) smooth = smooth < 0 ? p : smooth + (p - smooth) * 0.5
++      else if (smooth < 0) smooth = 0.5
++      radii[i] = Math.max(0.35, (size / 2) * (0.2 + 1.6 * smooth))
++      continue
++    }
+     if (!hasReal && simulate) {
+       const d = i ? Math.hypot(sp[i * 2] - sp[(i - 1) * 2], sp[i * 2 + 1] - sp[(i - 1) * 2 + 1]) : 0
+       vel = vel + (Math.min(1, d / (size * 1.8)) - vel) * 0.35
+diff --git a/src/shapes.js b/src/shapes.js
+index 92a36917ccfb6f1491f3a664efaff02ee32a9e8e..894910ebf49bebb654eb812faae2dce0cef151b7 100644
+--- a/src/shapes.js
++++ b/src/shapes.js
+@@ -30,7 +30,7 @@ export function localBounds(shape) {
+     case 'draw':
+     case 'highlight': {
+       const b = ptsBounds(p.pts, 3)
+-      const m = SIZES[p.size] * (shape.type === 'highlight' ? HIGHLIGHT_SCALE / 2 : 0.75)
++      const m = p.isPen && shape.type === 'draw' ? INK_SIZES[p.size] * 0.95 : SIZES[p.size] * (shape.type === 'highlight' ? HIGHLIGHT_SCALE / 2 : 0.75)
+       return { x: b.x - m, y: b.y - m, w: b.w + m * 2, h: b.h + m * 2 }
+     }
+     case 'arrow':

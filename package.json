@@ -46,7 +46,10 @@
       "esbuild",
       "sharp",
       "workerd"
-    ]
+    ],
+    "patchedDependencies": {
+      "@quickdrawjs/core": "patches/@quickdrawjs__core.patch"
+    }
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",
