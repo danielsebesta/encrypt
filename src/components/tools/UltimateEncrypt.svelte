@@ -6,6 +6,7 @@
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
+  import PassphraseField from '../PassphraseField.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -18,7 +19,6 @@
   let textInput = '';
   let file: File | null = null;
   let password = '';
-  let isGeneratedPassword = false;
   let timelockDate = '';
   let showQr = false;
 
@@ -97,6 +97,13 @@
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
+  let passwordRevealed = false;
+
+  function useGeneratedPassphrase() {
+    password = generatePassphrase();
+    passwordRevealed = true;
+  }
+
   function generatePassphrase(): string {
     const count = 8;
     const arr = crypto.getRandomValues(new Uint8Array(count * 2 + 2));
@@ -112,10 +119,6 @@
     return words.join('-');
   }
 
-  function useGeneratedPassphrase() {
-    password = generatePassphrase();
-    isGeneratedPassword = true;
-  }
 
 
   let textFocused = false;
@@ -699,24 +702,7 @@
 
       <div class="field">
         <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-        <div class="passphrase">
-          <input
-            id="ue-pass"
-            type={isGeneratedPassword ? 'text' : 'password'}
-            class="input"
-            bind:value={password}
-            on:input={() => { isGeneratedPassword = false; }}
-            autocomplete="off"
-            data-lpignore="true"
-            data-1p-ignore
-            data-bwignore="true"
-            placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
-            aria-describedby="ue-pass-hint"
-          />
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={useGeneratedPassphrase} aria-label={t(dict, 'common.generatePassphrase')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
+        <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-hint" generate={generatePassphrase} bind:revealed={passwordRevealed} />
         <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 

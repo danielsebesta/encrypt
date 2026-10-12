@@ -6,6 +6,8 @@
   "common.copied": "Kopiert",
   "common.secretHint": "Privat. Niemals weitergeben.",
   "common.generatePassphrase": "Passphrase generieren",
+  "common.showPassword": "Passwort anzeigen",
+  "common.hidePassword": "Passwort verbergen",
   "nav.developer": "Entwickler",
   "nav.privacy": "Datenschutz",
   "nav.github": "GitHub-Repository",

@@ -6,6 +6,8 @@
   "common.copied": "Skopírované",
   "common.secretHint": "Súkromný. Nikdy ho nezdieľajte.",
   "common.generatePassphrase": "Vygenerovať heslovú frázu",
+  "common.showPassword": "Zobraziť heslo",
+  "common.hidePassword": "Skryť heslo",
   "nav.developer": "Vývojár",
   "nav.privacy": "Súkromie",
   "nav.github": "GitHub repozitár",
