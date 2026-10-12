@@ -16,9 +16,12 @@ export const prerender = true;
   description={t(dict, 'chat.meta.createDescription')}
 >
   <div class="page page--narrow">
-    <header class="page-head">
-      <h1 class="page-title">{t(dict, 'chat.pageTitle')}</h1>
-      <p class="page-lead">{t(dict, 'chat.pageSubtitle')}</p>
+    <header class="page-head page-head--art">
+      <div>
+        <h1 class="page-title">{t(dict, 'chat.pageTitle')}</h1>
+        <p class="page-lead">{t(dict, 'chat.pageSubtitle')}</p>
+      </div>
+      <img src="/encrypt_e2e.svg" alt="" width="222" height="143" class="page-head__art" decoding="async" />
     </header>
     <div class="panel">
       <ChatCreate client:idle locale={locale} dict={clientDict} />

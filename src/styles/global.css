@@ -318,6 +318,18 @@ html.dark {
         @apply mb-6 md:mb-8;
     }
 
+    .page-head--art {
+        @apply grid grid-cols-[1fr_auto] items-center gap-x-4 sm:gap-x-8;
+    }
+
+    .page-head__art {
+        @apply h-20 w-auto sm:h-28 md:h-32;
+    }
+
+    .state-art {
+        @apply mx-auto h-24 w-auto;
+    }
+
     .page-title {
         @apply font-black leading-tight tracking-tight text-text;
         font-size: clamp(1.75rem, 1.2rem + 2.5vw, 2.25rem);

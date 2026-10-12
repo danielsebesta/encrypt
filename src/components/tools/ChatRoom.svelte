@@ -3163,7 +3163,7 @@
   {#if wrongPassword}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
         <p class="status status--error" role="alert">{t(dict, 'chat.wrongPassword')}</p>
         <p class="hint">{t(dict, 'chat.wrongPasswordDetail')}</p>
         <button type="button" class="btn-secondary w-full" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
@@ -3182,7 +3182,7 @@
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <img src="/encrypt_lock.svg" alt="" width="97" height="129" class="state-art" decoding="async" />
           <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
@@ -3508,6 +3508,7 @@
         <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl} use:revealSpoilers>
       {#if messages.length === 0}
         <div class="empty max-w-sm mx-auto my-auto">
+          <img src="/encrypt_chill.svg" alt="" width="135" height="116" class="state-art mb-2" decoding="async" />
           <p class="empty__title">{t(dict, 'chat.emptyRoomNotice')}</p>
           <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
           <p class="hint">{t(dict, 'chat.emptyRoomNotice3')}</p>
