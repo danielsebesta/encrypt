@@ -154,7 +154,7 @@ html.dark {
         border-radius: 0.25rem;
     }
 
-    html.dark img[src*="encrypt"] {
+    html.dark img[src^="/encrypt"] {
         filter: invert(1) hue-rotate(180deg) brightness(0.93);
     }
 
