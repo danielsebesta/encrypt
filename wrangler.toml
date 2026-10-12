@@ -3,6 +3,10 @@ main = "src/worker.ts"
 compatibility_date = "2026-10-07"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
+routes = [
+  { pattern = "encrypt.click", custom_domain = true },
+  { pattern = "www.encrypt.click", custom_domain = true }
+]
 
 # Unprefixed pages pass through the worker so the language can be chosen server-side; assets and localized pages are served directly.
 [assets]
@@ -27,8 +31,3 @@ new_sqlite_classes = ["SecurityBudget"]
 [[migrations]]
 tag = "realtime-v1"
 new_sqlite_classes = ["ChatServer", "WhiteboardServer"]
-
-routes = [
-  { pattern = "encrypt.click", custom_domain = true },
-  { pattern = "www.encrypt.click", custom_domain = true }
-]
