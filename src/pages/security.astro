@@ -24,9 +24,12 @@ const sections: { title: string; paragraphs?: string[]; list?: string[] }[] = [
   description={t(dict, 'security.meta.description')}
 >
   <article class="page article">
-    <header class="page-head">
-      <h1 class="page-title">{t(dict, 'security.h1')}</h1>
-      <p class="page-lead">{t(dict, 'security.subtitle')}</p>
+    <header class="page-head page-head--art">
+      <div>
+        <h1 class="page-title">{t(dict, 'security.h1')}</h1>
+        <p class="page-lead">{t(dict, 'security.subtitle')}</p>
+      </div>
+      <img src="/encrypt_shield.svg" alt="" width="154" height="128" class="page-head__art" decoding="async" />
     </header>
     {sections.map((s) => (
       <section>

@@ -16,9 +16,12 @@ export const prerender = true;
   description={t(dict, 'whiteboard.meta.createDescription')}
 >
   <div class="page page--narrow">
-    <header class="page-head">
-      <h1 class="page-title">{t(dict, 'whiteboard.pageTitle')}</h1>
-      <p class="page-lead">{t(dict, 'whiteboard.pageSubtitle')}</p>
+    <header class="page-head page-head--art">
+      <div>
+        <h1 class="page-title">{t(dict, 'whiteboard.pageTitle')}</h1>
+        <p class="page-lead">{t(dict, 'whiteboard.pageSubtitle')}</p>
+      </div>
+      <img src="/encrypt_highfive.svg" alt="" width="116" height="124" class="page-head__art" decoding="async" />
     </header>
     <div class="panel">
       <WhiteboardCreate client:idle locale={locale} dict={clientDict} />

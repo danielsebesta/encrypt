@@ -803,6 +803,7 @@
 
   {:else if step === 'result'}
     <div class="stack" role="status">
+      <img src="/encrypt_send.svg" alt="" width="236" height="293" class="state-art" decoding="async" />
       {#if resultUrl || shortUrl}
         <div class="field">
           <div class="output-head">

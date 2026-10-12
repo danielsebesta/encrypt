@@ -935,7 +935,7 @@
   {#if wrongPassword}
     <div class="wb-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-danger" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
         <p class="status status--error" role="alert">{t(dict, 'whiteboard.wrongPassword')}</p>
         <p class="hint">{t(dict, 'whiteboard.wrongPasswordDetail')}</p>
         <button type="button" class="btn-secondary w-full" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'whiteboard.tryAgain')}</button>
@@ -946,7 +946,7 @@
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-accent" aria-hidden="true">{@html ICONS.lock}</svg>
+          <img src="/encrypt_lock.svg" alt="" width="97" height="129" class="state-art" decoding="async" />
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
