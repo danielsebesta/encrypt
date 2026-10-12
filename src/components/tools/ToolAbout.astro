@@ -1,0 +1,59 @@
+---
+import { t } from '../../lib/i18n';
+
+interface Props {
+  dict: Record<string, string>;
+  prefix: string;
+}
+
+const { dict, prefix } = Astro.props;
+const sections: { title?: string; body: string }[] = [];
+for (let n = 1; dict[`${prefix}.about.${n}`]; n++) {
+  sections.push({ title: dict[`${prefix}.about.${n}.title`], body: dict[`${prefix}.about.${n}`] });
+}
+const id = `about-${prefix.replace(/[^a-zA-Z0-9]+/g, '-')}`;
+---
+
+{sections.length > 0 && (
+  <section class="about" aria-labelledby={`${id}-title`} data-about>
+    <h2 id={`${id}-title`} class="section-title">{t(dict, 'tools.about.title')}</h2>
+    <div id={`${id}-body`} class="about__body" data-about-body>
+      {sections.map((s) => (
+        <>
+          {s.title && <h3>{s.title}</h3>}
+          <p>{s.body}</p>
+        </>
+      ))}
+    </div>
+    <button
+      type="button"
+      class="about__toggle"
+      aria-expanded="false"
+      aria-controls={`${id}-body`}
+      data-about-toggle
+      data-less={t(dict, 'tools.about.less')}
+    >{t(dict, 'tools.about.more')}</button>
+  </section>
+)}
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-about]')) {
+    const body = root.querySelector<HTMLElement>('[data-about-body]')!;
+    const toggle = root.querySelector<HTMLButtonElement>('[data-about-toggle]')!;
+    const more = toggle.textContent ?? '';
+    const less = toggle.dataset.less ?? '';
+    if (body.scrollHeight <= body.clientHeight + 4) {
+      root.classList.add('about--fits');
+      continue;
+    }
+    const set = (open: boolean) => {
+      root.classList.toggle('about--open', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.textContent = open ? less : more;
+    };
+    toggle.addEventListener('click', () => set(!root.classList.contains('about--open')));
+    body.addEventListener('click', () => {
+      if (!root.classList.contains('about--open')) set(true);
+    });
+  }
+</script>

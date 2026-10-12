@@ -1,7 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import SpectralCipherView from '../../components/tools/SpectralCipher.svelte';
-import ToolHelp from '../../components/tools/ToolHelp.svelte';
+import ToolAbout from '../../components/tools/ToolAbout.astro';
 import { getTranslations, t, toolClientDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -15,14 +15,12 @@ const clientDict = toolClientDict(dict, 'tools.spectralCipher');
 >
   <div class="page page--wide">
     <header class="page-head">
-      <h1 class="page-title">
-        {t(dict, 'tools.spectralCipher.h1')}
-        <ToolHelp client:idle dict={clientDict} prefix="tools.spectralCipher" />
-      </h1>
+      <h1 class="page-title">{t(dict, 'tools.spectralCipher.h1')}</h1>
       <p class="page-lead">{t(dict, 'tools.spectralCipher.subtitle')}</p>
     </header>
     <div class="panel">
       <SpectralCipherView client:idle locale={locale} dict={clientDict} />
     </div>
+    <ToolAbout dict={dict} prefix="tools.spectralCipher" />
   </div>
 </Layout>

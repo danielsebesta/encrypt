@@ -41,7 +41,7 @@ export function pickDict(
 
 /** Client-facing messages for a tool page (tool strings + shared help chrome + common). */
 export function toolClientDict(dict: Record<string, string>, toolPrefix: string): Record<string, string> {
-  return pickDict(dict, [toolPrefix, 'tools.help', 'common']);
+  return pickDict(dict, [toolPrefix, 'common']);
 }
 
 export function getLocalePath(currentPath: string, targetLocale: Locale): string {

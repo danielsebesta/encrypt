@@ -1,7 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import TimeCapsuleView from '../../components/tools/TimeCapsule.svelte';
-import ToolHelp from '../../components/tools/ToolHelp.svelte';
+import ToolAbout from '../../components/tools/ToolAbout.astro';
 import { getTranslations, t, toolClientDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -15,14 +15,12 @@ const clientDict = toolClientDict(dict, 'tools.timeCapsule');
 >
   <div class="page">
     <header class="page-head">
-      <h1 class="page-title">
-        {t(dict, 'tools.timeCapsule.h1')}
-        <ToolHelp client:idle dict={clientDict} prefix="tools.timeCapsule" />
-      </h1>
+      <h1 class="page-title">{t(dict, 'tools.timeCapsule.h1')}</h1>
       <p class="page-lead">{t(dict, 'tools.timeCapsule.subtitle')}</p>
     </header>
     <div class="panel">
       <TimeCapsuleView client:idle locale={locale} dict={clientDict} />
     </div>
+    <ToolAbout dict={dict} prefix="tools.timeCapsule" />
   </div>
 </Layout>
