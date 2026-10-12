@@ -336,7 +336,7 @@
   "tools.ultimateEncrypt.steganographyHelp": "Tento obrázok obsahuje zašifrovaný odkaz ukrytý v pixeloch.",
   "tools.ultimateEncrypt.downloadImage": "Stiahnuť obrázok",
   "tools.ultimateEncrypt.qrAlt": "QR kód pre zašifrovaný odkaz",
-  "tools.ultimateEncrypt.encryptAnother": "Zašifrovať ďalšiu správu",
+  "tools.ultimateEncrypt.encryptAnother": "Zdieľať niečo ďalšie",
   "tools.ultimateEncrypt.progressDefaultTitle": "Pripravujem tvoj balíček",
   "tools.ultimateEncrypt.progressDefaultDetail": "Šifrovanie beží v prehliadači.",
   "tools.ultimateEncrypt.progressPreparingTitle": "Pripravujem správu",

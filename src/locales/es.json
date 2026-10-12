@@ -336,7 +336,7 @@
   "tools.ultimateEncrypt.steganographyHelp": "Esta imagen contiene un enlace cifrado oculto en sus píxeles.",
   "tools.ultimateEncrypt.downloadImage": "Descargar imagen",
   "tools.ultimateEncrypt.qrAlt": "Código QR para el enlace cifrado",
-  "tools.ultimateEncrypt.encryptAnother": "Cifrar otro mensaje",
+  "tools.ultimateEncrypt.encryptAnother": "Compartir otra cosa",
   "tools.ultimateEncrypt.progressDefaultTitle": "Preparando tu paquete",
   "tools.ultimateEncrypt.progressDefaultDetail": "El cifrado se ejecuta en el navegador.",
   "tools.ultimateEncrypt.progressPreparingTitle": "Preparando el mensaje",

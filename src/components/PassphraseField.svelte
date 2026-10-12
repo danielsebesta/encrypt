@@ -11,9 +11,17 @@
 
   export let revealed = false;
 
+  // A generated passphrase is shown so it can be read out; editing it hides it unless the eye was used.
+  let shownByUser = false;
+
   function useGenerated() {
     value = generate();
     revealed = true;
+    shownByUser = false;
+  }
+
+  function hideWhileEditing() {
+    if (!shownByUser) revealed = false;
   }
 </script>
 
@@ -24,6 +32,7 @@
     type={revealed ? 'text' : 'password'}
     bind:value
     on:input
+    on:input={hideWhileEditing}
     {placeholder}
     autocomplete="off"
     autocapitalize="off"
@@ -37,7 +46,7 @@
   <button
     type="button"
     class="btn-ghost btn-sm btn-icon"
-    on:click={() => { revealed = !revealed; }}
+    on:click={() => { revealed = !revealed; shownByUser = revealed; }}
     aria-label={t(dict, 'common.showPassword')}
     aria-pressed={revealed}
     aria-controls={id}
