@@ -647,6 +647,11 @@
     editor.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-delta * 0.005));
   }
 
+  // Middle-button drag pans the board; without this the browser starts its own page autoscroll.
+  function blockMiddleClick(e: MouseEvent) {
+    if (e.button === 1) e.preventDefault();
+  }
+
   function board(node: HTMLDivElement) {
     themeId = isDarkTheme() ? 'dark' : 'light';
     const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
@@ -670,6 +675,8 @@
     node.addEventListener('keydown', onBoardKeydown);
     node.addEventListener('drop', blockFileDrop);
     node.addEventListener('wheel', onBoardWheel, { capture: true, passive: false });
+    node.addEventListener('mousedown', blockMiddleClick);
+    node.addEventListener('auxclick', blockMiddleClick);
     shapeCount = store.size;
     syncUi();
     if (pendingFit || store.size) { pendingFit = false; ed.fitContent(); }
@@ -680,6 +687,8 @@
         node.removeEventListener('keydown', onBoardKeydown);
         node.removeEventListener('drop', blockFileDrop);
         node.removeEventListener('wheel', onBoardWheel, { capture: true });
+        node.removeEventListener('mousedown', blockMiddleClick);
+        node.removeEventListener('auxclick', blockMiddleClick);
         ed.destroy();
         if (editor === ed) editor = null;
       },
