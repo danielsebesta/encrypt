@@ -86,3 +86,20 @@ export function sanitizeScribbles(list: unknown): ScribbleStroke[] {
   }
   return out;
 }
+
+export const BOARD_CHAT_MAX_TEXT = 2000;
+export const BOARD_CHAT_KEEP = 200;
+
+export type BoardChatItem = { id: string; text: string; alias: [number, number, number]; at: number; ttl?: number };
+
+/** Board chat messages from peers: short ids, bounded text, a wire alias and a sane timestamp. */
+export function validBoardChatItem(value: unknown): value is BoardChatItem {
+  if (!isPlainObject(value)) return false;
+  const { id, text, alias, at, ttl } = value;
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(id)) return false;
+  if (typeof text !== 'string' || !text.trim() || text.length > BOARD_CHAT_MAX_TEXT) return false;
+  if (!Array.isArray(alias) || alias.length !== 3 || !alias.every((n) => Number.isInteger(n) && n >= 0 && n < 360)) return false;
+  if (!finite(at, 1e13) || at <= 0) return false;
+  if (ttl !== undefined && !(Number.isInteger(ttl) && (ttl as number) >= 1 && (ttl as number) <= 3600)) return false;
+  return true;
+}
