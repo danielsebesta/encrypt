@@ -20,10 +20,10 @@ export const prerender = true;
         <h1 class="page-title">{t(dict, 'landing.paths.share.title')}</h1>
         <p class="page-lead">{t(dict, 'landing.paths.share.text')}</p>
       </div>
-      <img src="/encrypt_safe.svg" alt="" width="140" height="129" class="page-head__art" decoding="async" />
+      <img src="/encrypt_send.svg" alt="" width="236" height="293" class="page-head__art" decoding="async" />
     </header>
     <div class="panel">
-      <UltimateEncrypt client:idle locale={locale} dict={encryptDict} />
+      <UltimateEncrypt client:idle locale={locale} dict={encryptDict} resultArt={false} />
     </div>
   </div>
 </Layout>
