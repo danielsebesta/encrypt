@@ -26,8 +26,12 @@ export function aliasKey(alias: Alias): string {
   return `${alias.a}-${alias.n}-${alias.h}`;
 }
 
+/** The adjective agrees with the animal's grammatical gender, and each locale sets the word order. */
 export function aliasName(dict: Record<string, string>, alias: Alias): string {
-  return `${t(dict, `chat.alias.adj.${alias.a}`)} ${t(dict, `chat.alias.animal.${alias.n}`)}`;
+  const animal = t(dict, `chat.alias.animal.${alias.n}`);
+  const feminine = dict[`chat.alias.animal.${alias.n}.g`] === 'f';
+  const adj = (feminine && dict[`chat.alias.adj.${alias.a}.f`]) || t(dict, `chat.alias.adj.${alias.a}`);
+  return (dict['chat.alias.format'] || '{adj} {animal}').replace('{adj}', adj).replace('{animal}', animal);
 }
 
 export function aliasColor(alias: Alias): string {
