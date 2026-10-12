@@ -40,13 +40,13 @@
   const RATE_OPTIONAL_SHARE = 0.6;
   const LOCAL_ORIGIN = 'local';
 
-  // Quickdraw ships a warm paper look; tint the paper and grid toward the site's green.
-  THEMES.light.background = '#f4faf6';
-  THEMES.light.grid.dot = { minor: 'rgba(0, 96, 61, 0.2)', major: 'rgba(0, 96, 61, 0.36)' };
-  THEMES.light.grid.line = { minor: 'rgba(0, 96, 61, 0.09)', major: 'rgba(0, 96, 61, 0.18)' };
-  THEMES.dark.background = '#0c1411';
-  THEMES.dark.grid.dot = { minor: 'rgba(117, 229, 174, 0.16)', major: 'rgba(117, 229, 174, 0.3)' };
-  THEMES.dark.grid.line = { minor: 'rgba(117, 229, 174, 0.06)', major: 'rgba(117, 229, 174, 0.13)' };
+  // Quickdraw ships a warm paper look; use the site's neutral surfaces and a grey grid instead.
+  THEMES.light.background = '#fafafa';
+  THEMES.light.grid.dot = { minor: 'rgba(24, 24, 27, 0.18)', major: 'rgba(24, 24, 27, 0.32)' };
+  THEMES.light.grid.line = { minor: 'rgba(24, 24, 27, 0.07)', major: 'rgba(24, 24, 27, 0.14)' };
+  THEMES.dark.background = '#18181b';
+  THEMES.dark.grid.dot = { minor: 'rgba(244, 244, 245, 0.14)', major: 'rgba(244, 244, 245, 0.26)' };
+  THEMES.dark.grid.line = { minor: 'rgba(244, 244, 245, 0.05)', major: 'rgba(244, 244, 245, 0.1)' };
 
   const ICONS: Record<string, string> = {
     select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -1306,10 +1306,10 @@
   .wb-board {
     position: absolute;
     inset: 0;
-    background: #f4faf6;
+    background: #fafafa;
   }
   .wb-board:global([data-qd-theme='dark']) {
-    background: #0c1411;
+    background: #18181b;
   }
   .wb-board:focus-visible {
     outline: 2px solid var(--accent);
