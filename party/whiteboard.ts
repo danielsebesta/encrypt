@@ -47,7 +47,7 @@ export default class WhiteboardRoom {
     }
     if (!this.access.has(sender)) return;
     if (parsed.type === 'envelope' || parsed.type === 'envelope-to') {
-      if (!['doc', 'cursor', 'verify', 'verify-ack'].includes(parsed.kind) || typeof parsed.payload !== 'string' ||
+      if (!['doc', 'doc-part', 'cursor', 'verify', 'verify-ack'].includes(parsed.kind) || typeof parsed.payload !== 'string' ||
         parsed.payload.length < 16 || parsed.payload.length > 720000 || !/^[A-Za-z0-9_-]+$/.test(parsed.payload) ||
         typeof parsed.id !== 'string' || !/^[A-Za-z0-9:_-]{1,128}$/.test(parsed.id)) return;
       message = JSON.stringify({ type: 'envelope', kind: parsed.kind, payload: parsed.payload, id: parsed.id, from: sender.id });

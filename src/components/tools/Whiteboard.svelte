@@ -1,18 +1,18 @@
 <script lang="ts">
   import { roomCredentials, ReplayWindow } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
-  let accessToken = "";
-  let channelId = "";
-  const replay = new ReplayWindow();
-  import { onMount, onDestroy, tick } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
   import * as Y from 'yjs';
-  import { getStroke } from 'perfect-freehand';
+  import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
+  import type { Diff, ShapeRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
+  import '@quickdrawjs/core/quickdraw.css';
   import {
     deriveKeyFromPassword, encryptMessage, decryptMessage,
     encryptBytes, decryptBytes,
-
   } from '../../lib/whiteboardCrypto';
+  import { validShapeRecord, sanitizeScribbles } from '../../lib/whiteboardRecords';
+  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
 
   export let locale = 'en';
@@ -22,27 +22,82 @@
 
   export let dict: Record<string, string>;
 
-  type Tool = 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text' | 'select' | 'eraser';
+  let accessToken = "";
+  let channelId = "";
+  const replay = new ReplayWindow();
 
-  type Shape = {
-    id: string;
-    type: Tool extends 'pen' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text' ? Tool : never;
-    color: string;
-    thickness: number;
-    by: string;
-    points?: number[][];
-    x?: number; y?: number; w?: number; h?: number;
-    x1?: number; y1?: number; x2?: number; y2?: number;
-    text?: string;
-    fontSize?: number;
+  const DOC_FLUSH_MS = 200;
+  const CURSOR_SYNC_INTERVAL_MS = 150;
+  const CURSOR_MIN_MOVE = 4;
+  const HEARTBEAT_INTERVAL_MS = 45000;
+  // The relay closes sockets above 150 messages or 3 MB per 10 s; stay under that with headroom.
+  const RATE_WINDOW_MS = 10000;
+  const RATE_MAX_MESSAGES = 120;
+  const RATE_MAX_BYTES = 2_400_000;
+  const RATE_DOC_HEADROOM = 400_000;
+  const RATE_OPTIONAL_SHARE = 0.6;
+  const LOCAL_ORIGIN = 'local';
+
+  const ICONS: Record<string, string> = {
+    select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
+    hand: '<path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+    draw: '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
+    highlight: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+    eraser: '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
+    laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="m4.9 4.9 2.1 2.1"/><path d="m17 17 2.1 2.1"/>',
+    arrow: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
+    line: '<path d="M5 19 19 5"/>',
+    text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
+    note: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',
+    rectangle: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
+    ellipse: '<ellipse cx="12" cy="12" rx="9.5" ry="7.5"/>',
+    triangle: '<path d="M12 3.5 21.5 20h-19z"/>',
+    diamond: '<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>',
+    hexagon: '<path d="M7.25 3.5h9.5L21.5 12l-4.75 8.5h-9.5L2.5 12z"/>',
+    star: '<path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
+    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    duplicate: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/>',
+    front: '<path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/>',
+    back: '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
+    zoomIn: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    zoomOut: '<path d="M5 12h14"/>',
+    fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
+    menu: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+    fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+    exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    unlock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+    close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    'dash-draw': '<path d="M3 14c3-5 5 2 8-1.5s5-5 10-1"/>',
+    'dash-solid': '<path d="M4 12h16"/>',
+    'dash-dashed': '<path d="M4 12h3.5"/><path d="M10.25 12h3.5"/><path d="M16.5 12H20"/>',
+    'dash-dotted': '<path d="M4 12h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M20 12h.01"/>',
+    'fill-none': '<rect x="4" y="4" width="16" height="16" rx="3"/>',
+    'fill-semi': '<rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" fill-opacity=".3"/>',
+    'fill-solid': '<rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/>',
+    'fill-pattern': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4.5 11.5 11.5 4.5"/><path d="M5 19 19 5"/><path d="m12.5 19.5 7-7"/>',
   };
 
-  const COLORS = ['#0a0a0a','#ef4444','#f97316','#f59e0b','#00bc7d','#3b82f6','#8b5cf6','#ec4899'];
-  const THICKNESS = [1, 2, 4, 7, 12];
-  const DRAW_SYNC_INTERVAL_MS = 150;
-  const CURSOR_SYNC_INTERVAL_MS = 80;
-  const CURSOR_MIN_MOVE_PX = 8;
-  const HEARTBEAT_INTERVAL_MS = 45000;
+  const TOOLS: { id: ToolId; key: string }[] = [
+    { id: 'select', key: 'V' },
+    { id: 'hand', key: 'H' },
+    { id: 'draw', key: 'D' },
+    { id: 'highlight', key: 'I' },
+    { id: 'eraser', key: 'E' },
+    { id: 'laser', key: 'K' },
+    { id: 'arrow', key: 'A' },
+    { id: 'line', key: 'L' },
+    { id: 'geo', key: 'G' },
+    { id: 'text', key: 'T' },
+    { id: 'note', key: 'N' },
+  ];
+  const GEO_KEYS: Partial<Record<GeoId, string>> = { rectangle: 'R', ellipse: 'O' };
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
@@ -66,7 +121,6 @@
   let passwordInput = '';
   let passwordError = '';
   let serverPresence = 0;
-  let lastWrongPasswordNotice = 0;
 
   let onlineUsers: { id: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
   let myConnId = '';
@@ -77,30 +131,39 @@
   let shareDismissed = false;
 
   let ydoc: Y.Doc;
-  let yshapes: Y.Map<Shape>;
-  let undoMgr: Y.UndoManager;
-  let shapesVersion = 0;
+  let yrecords: Y.Map<ShapeRecord>;
+  const store = new Store();
+  let editor: Editor | null = null;
+  let pendingFit = false;
 
-  let tool: Tool = 'pen';
-  let currentColor = COLORS[0];
-  let currentThickness = THICKNESS[1];
-  let isDrawing = false;
-  let draftShape: Shape | null = null;
-  let draftSynced = false;
-  let lastDrawSyncMs = 0;
-  let selectedId: string | null = null;
-  let textInput: { x: number; y: number; value: string } | null = null;
-  let svgEl: SVGSVGElement;
-  let textInputEl: HTMLTextAreaElement | null = null;
+  let tool: ToolId = 'draw';
+  let geoKind: GeoId = 'rectangle';
+  let styles: Partial<Record<keyof Styles, string | null>> = {};
+  let selectionSize = 0;
+  let canUndo = false;
+  let canRedo = false;
+  let zoom = 1;
+  let camTick = 0;
+  let gridOn = true;
+  let shapeCount = 0;
+  let themeId: 'light' | 'dark' = 'light';
+  let styleOpen = false;
+  let menuOpen = false;
+  let isFullscreen = false;
+  let fullscreenSupported = false;
+  let rootEl: HTMLDivElement;
 
   type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; lastSeen: number };
   let cursors: Cursor[] = [];
+  const remoteScribbles = new Map<string, { list: ScribbleStroke[]; at: number }>();
   let lastCursorSent = 0;
-  let lastCursorX = -9999;
-  let lastCursorY = -9999;
+  let lastCursorX = -1e9;
+  let lastCursorY = -1e9;
+  let lastPointer: { x: number; y: number } | null = null;
+  let laserTimer: ReturnType<typeof setTimeout> | null = null;
   let pageHidden = false;
 
-  let passwordUsed = '';
+  let roomLocked = false;
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -109,14 +172,6 @@
   function genId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(8));
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  function isLightShade(hex: string): boolean {
-    if (!hex || hex[0] !== '#') return false;
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return (r * 0.299 + g * 0.587 + b * 0.114) > 200;
   }
 
   async function initRoom() {
@@ -152,7 +207,6 @@
       const access = await roomCredentials(pwd, roomId, 'whiteboard');
       accessToken = access.token; channelId = access.channel;
       cryptoKey = await deriveKeyFromPassword(pwd, roomId);
-      passwordUsed = pwd;
       needsPassword = false;
       setupYjs();
       connectWs();
@@ -162,49 +216,131 @@
     }
   }
 
-  let pendingUpdates: Uint8Array[] = [];
-  let updateFlushTimer: ReturnType<typeof setTimeout> | null = null;
-  const UPDATE_BATCH_MS = 150;
+  const sentLog: { at: number; bytes: number }[] = [];
 
-  function flushPendingUpdates() {
-    updateFlushTimer = null;
-    if (pendingUpdates.length === 0 || !cryptoKey || !ws || !verified) {
-      pendingUpdates = [];
+  function rateUsage() {
+    const cutoff = Date.now() - RATE_WINDOW_MS;
+    while (sentLog.length && sentLog[0].at < cutoff) sentLog.shift();
+    let bytes = 0;
+    for (const s of sentLog) bytes += s.bytes;
+    return { count: sentLog.length, bytes };
+  }
+
+  function socketSend(message: string, essential = false): boolean {
+    if (!ws || ws.readyState !== 1) return false;
+    if (!essential) {
+      const use = rateUsage();
+      if (use.count + 1 > RATE_MAX_MESSAGES * RATE_OPTIONAL_SHARE || use.bytes + message.length > RATE_MAX_BYTES * RATE_OPTIONAL_SHARE) return false;
+    }
+    sentLog.push({ at: Date.now(), bytes: message.length });
+    try { ws.send(message); return true; } catch { return false; }
+  }
+
+  // Quickdraw edits land in the store on every pointer move; changed ids are written to Yjs in throttled batches.
+  const dirty = new Set<string>();
+  let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleFlush(delay = DOC_FLUSH_MS) {
+    if (!flushTimer) flushTimer = setTimeout(flushToDoc, delay);
+  }
+
+  function flushToDoc() {
+    flushTimer = null;
+    if (!dirty.size || !ydoc) return;
+    const use = rateUsage();
+    if (use.count + 8 > RATE_MAX_MESSAGES || use.bytes + RATE_DOC_HEADROOM > RATE_MAX_BYTES) {
+      scheduleFlush(500);
       return;
     }
-    const merged = pendingUpdates.length === 1
-      ? pendingUpdates[0]
-      : Y.mergeUpdates(pendingUpdates);
-    pendingUpdates = [];
-    sendDocUpdate(merged);
+    ydoc.transact(() => {
+      for (const id of dirty) {
+        const rec = store.get(id);
+        if (rec && rec.typeName === 'shape') yrecords.set(id, rec);
+        else if (yrecords.has(id)) yrecords.delete(id);
+      }
+    }, LOCAL_ORIGIN);
+    dirty.clear();
   }
 
   function setupYjs() {
     ydoc = new Y.Doc();
-    yshapes = ydoc.getMap('shapes');
-    undoMgr = new Y.UndoManager(yshapes);
+    yrecords = ydoc.getMap('records');
 
-    yshapes.observeDeep(() => {
-      shapesVersion++;
+    store.listen((diff: Diff) => {
+      for (const id of Object.keys(diff.added)) dirty.add(id);
+      for (const id of Object.keys(diff.updated)) dirty.add(id);
+      for (const id of Object.keys(diff.removed)) dirty.add(id);
+      scheduleFlush();
+    }, { source: 'user' });
+
+    yrecords.observe((event, tr) => {
+      if (tr.origin === LOCAL_ORIGIN) return;
+      const wasEmpty = store.size === 0;
+      const diff: Diff = { added: {}, removed: {}, updated: {} };
+      event.changes.keys.forEach((change, key) => {
+        if (change.action === 'delete') {
+          const cur = store.get(key);
+          if (cur) diff.removed[key] = cur;
+          return;
+        }
+        const rec = yrecords.get(key);
+        if (validShapeRecord(rec, key)) diff.added[key] = rec;
+      });
+      store.applyDiff(diff, 'remote');
+      if (wasEmpty && Object.keys(diff.added).length) {
+        if (editor) editor.fitContent({ animate: 200 });
+        else pendingFit = true;
+      }
     });
 
-    // Yjs emits many updates per second while drawing; 50 ms batches cut Durable Object requests.
     ydoc.on('update', (update: Uint8Array, origin: any) => {
       if (origin === 'remote') return;
-      if (!cryptoKey || !ws || !verified) return;
-      pendingUpdates.push(update);
-      if (!updateFlushTimer) {
-        updateFlushTimer = setTimeout(flushPendingUpdates, UPDATE_BATCH_MS);
-      }
+      queueDocUpdate(update);
     });
   }
 
-  async function sendDocUpdate(update: Uint8Array) {
-    if (!cryptoKey || !ws) return;
-    try {
-      const payload = await encryptBytes(cryptoKey, update);
-      ws.send(JSON.stringify({ type: 'envelope', kind: 'doc', payload, id: genId() }));
-    } catch {}
+  // Doc messages go out in order and are paced to the relay's rate window, so a large board is split into parts instead of being dropped.
+  let docQueue: Promise<void> = Promise.resolve();
+  const assembler = new DocPartAssembler();
+  let syncProgress: { received: number; total: number } | null = null;
+
+  function queueDocUpdate(update: Uint8Array, to?: string) {
+    docQueue = docQueue.then(() => sendDocUpdate(update, to)).catch(() => {});
+  }
+
+  async function waitForBudget(bytes: number) {
+    for (;;) {
+      if (!ws) return;
+      const use = rateUsage();
+      if (use.count + 1 <= RATE_MAX_MESSAGES && use.bytes + bytes <= RATE_MAX_BYTES) return;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+  }
+
+  async function sendDocEnvelope(kind: 'doc' | 'doc-part', bytes: Uint8Array, to?: string) {
+    if (!cryptoKey) return;
+    const payload = await encryptBytes(cryptoKey, bytes);
+    const message = JSON.stringify(to
+      ? { type: 'envelope-to', to, kind, payload, id: genId() }
+      : { type: 'envelope', kind, payload, id: genId() });
+    await waitForBudget(message.length);
+    socketSend(message, true);
+  }
+
+  async function sendDocUpdate(update: Uint8Array, to?: string) {
+    if (!cryptoKey || !ws || !verified) return;
+    if (update.length <= DOC_PART_BYTES) {
+      await sendDocEnvelope('doc', update, to);
+      return;
+    }
+    const parts = splitDocUpdate(update);
+    if (!parts) return;
+    for (const part of parts) await sendDocEnvelope('doc-part', part, to);
+  }
+
+  function shouldAnswerSync(newcomer: string) {
+    if (!myConnId) return true;
+    return onlineUsers.every(u => u.id === newcomer || u.id >= myConnId);
   }
 
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
@@ -225,12 +361,14 @@
 
     ws.addEventListener('open', async () => {
       connected = true;
-      ws!.send(JSON.stringify({ type: 'join', token: accessToken }));
+      const rejoin = verified;
+      socketSend(JSON.stringify({ type: 'join', token: accessToken }), true);
       if (cryptoKey) {
         const verifyPayload = await encryptMessage(cryptoKey,
           JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
-        ws!.send(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }));
+        socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
       }
+      if (rejoin && ydoc && store.size) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
     ws.addEventListener('close', () => {
@@ -247,9 +385,7 @@
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
       if (pageHidden) return;
-      if (ws && ws.readyState === 1) {
-        try { ws.send(JSON.stringify({ type: 'ping', t: Date.now() })); } catch {}
-      }
+      socketSend(JSON.stringify({ type: 'ping', t: Date.now() }));
     }, HEARTBEAT_INTERVAL_MS);
   }
 
@@ -260,6 +396,7 @@
     if (data.type === 'init') {
       myConnId = data.connId || '';
       serverPresence = data.presence;
+      roomLocked = !!data.locked;
       if (verifying && serverPresence <= 1) {
         verified = true;
         verifying = false;
@@ -280,6 +417,8 @@
     if (data.type === 'peer-leave') {
       onlineUsers = onlineUsers.filter(u => u.id !== data.id);
       cursors = cursors.filter(c => c.id !== data.id);
+      assembler.drop(data.id);
+      if (remoteScribbles.delete(data.id)) pushRemoteScribbles();
       return;
     }
     if (data.type !== 'envelope') return;
@@ -293,7 +432,15 @@
         const text = await decryptMessage(cryptoKey, data.payload);
         const c = JSON.parse(text);
         if (verifying) { verified = true; verifying = false; }
-        upsertCursor(data.from || c.id, c.x, c.y, senderInfo(c).name, senderInfo(c).color, senderInfo(c).alias);
+        const from = typeof data.from === 'string' ? data.from : String(c?.id ?? '');
+        if (Number.isFinite(c?.x) && Number.isFinite(c?.y)) {
+          const who = senderInfo(c);
+          upsertCursor(from, c.x, c.y, who.name, who.color, who.alias);
+        }
+        if ('laser' in c) {
+          remoteScribbles.set(from, { list: sanitizeScribbles(c.laser), at: Date.now() });
+          pushRemoteScribbles();
+        }
         return;
       }
 
@@ -301,6 +448,16 @@
         const update = await decryptBytes(cryptoKey, data.payload);
         Y.applyUpdate(ydoc, update, 'remote');
         if (verifying) { verified = true; verifying = false; }
+        return;
+      }
+
+      if (data.kind === 'doc-part') {
+        const part = await decryptBytes(cryptoKey, data.payload);
+        if (verifying) { verified = true; verifying = false; }
+        const result = assembler.accept(String(data.from ?? ''), part);
+        if (!result) return;
+        syncProgress = result.update ? null : { received: result.received, total: result.total };
+        if (result.update) Y.applyUpdate(ydoc, result.update, 'remote');
         return;
       }
 
@@ -312,9 +469,11 @@
         if (verified && cryptoKey && ws) {
           const ack = await encryptMessage(cryptoKey,
             JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
-          ws.send(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }));
-          const state = Y.encodeStateAsUpdate(ydoc);
-          await sendDocUpdate(state);
+          socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
+          if (typeof data.from === 'string' && store.size && shouldAnswerSync(data.from)) {
+            flushToDoc();
+            queueDocUpdate(Y.encodeStateAsUpdate(ydoc), data.from);
+          }
         }
         return;
       }
@@ -328,9 +487,6 @@
       }
     } catch {
       // One failed decrypt may be a peer with a different password; the init timeout decides.
-      if (verified && Date.now() - lastWrongPasswordNotice > 10000) {
-        lastWrongPasswordNotice = Date.now();
-      }
     }
   }
 
@@ -347,309 +503,238 @@
       cursors[idx] = { id, x, y, name, color, alias: cursorAlias, lastSeen: now };
       cursors = cursors;
     } else {
-      cursors = [...cursors, { id, x, y, name, color, lastSeen: now }];
+      cursors = [...cursors, { id, x, y, name, color, alias: cursorAlias, lastSeen: now }];
     }
   }
 
-  let cursorCleanInterval: ReturnType<typeof setInterval>;
-
-  let roomLocked = false;
+  function pushRemoteScribbles() {
+    if (!editor) return;
+    const cutoff = Date.now() - 2500;
+    const all: ScribbleStroke[] = [];
+    for (const [id, entry] of remoteScribbles) {
+      if (entry.at < cutoff) remoteScribbles.delete(id);
+      else all.push(...entry.list);
+    }
+    editor.setRemoteScribbles(all);
+  }
 
   function toggleLock() {
-    if (!ws) return;
-    ws.send(JSON.stringify({ type: roomLocked ? 'unlock' : 'lock' }));
+    socketSend(JSON.stringify({ type: roomLocked ? 'unlock' : 'lock' }), true);
   }
 
-  function getSvgPoint(e: PointerEvent): { x: number; y: number; pressure: number } {
-    if (!svgEl) return { x: 0, y: 0, pressure: 0.5 };
-    const pt = svgEl.createSVGPoint();
-    pt.x = e.clientX; pt.y = e.clientY;
-    const ctm = svgEl.getScreenCTM();
-    if (!ctm) return { x: 0, y: 0, pressure: 0.5 };
-    const local = pt.matrixTransform(ctm.inverse());
-    return { x: Math.min(1600, Math.max(0, local.x)), y: Math.min(1000, Math.max(0, local.y)), pressure: e.pressure || 0.5 };
+  function peersPresent() {
+    return verified && !!cryptoKey && connected && serverPresence > 1 && !pageHidden;
   }
 
-  function pointerDown(e: PointerEvent) {
-    if (!verified || roomLocked) return;
-    if (e.button === 2) return;
-    (e.target as Element).setPointerCapture?.(e.pointerId);
-    const p = getSvgPoint(e);
-
-    if (tool === 'select' || tool === 'eraser') {
-      const hit = hitTest(p.x, p.y);
-      if (tool === 'eraser' && hit) {
-        deleteShape(hit);
-      } else {
-        selectedId = hit;
-      }
-      return;
-    }
-
-    if (tool === 'text') {
-      textInput = { x: p.x, y: p.y, value: '' };
-      tick().then(() => textInputEl?.focus());
-      return;
-    }
-
-    isDrawing = true;
-    draftSynced = false;
-    lastDrawSyncMs = 0;
-    const id = genId();
-    const base: Shape = {
-      id, type: tool as any,
-      color: currentColor, thickness: currentThickness,
-      by: identity.name,
-    };
-    if (tool === 'pen') {
-      base.points = [[p.x, p.y, p.pressure]];
-    } else if (tool === 'rect' || tool === 'ellipse') {
-      base.x = p.x; base.y = p.y; base.w = 0; base.h = 0;
-    } else if (tool === 'line' || tool === 'arrow') {
-      base.x1 = p.x; base.y1 = p.y; base.x2 = p.x; base.y2 = p.y;
-    }
-    draftShape = base;
-  }
-
-  function syncDraftToYjs() {
-    if (!draftShape) return;
-    const n = normalizeShape(draftShape);
-    if (!n) return;
-    yshapes.set(n.id, { ...n, points: n.points ? n.points.map(p => [...p]) : undefined });
-    draftSynced = true;
-    lastDrawSyncMs = Date.now();
-  }
-
-  function pointerMove(e: PointerEvent) {
-    const p = getSvgPoint(e);
-
-    const now = Date.now();
-    // Cursor at 20 Hz, only with peers and in the foreground; while drawing the stroke itself shows the position.
-    if (
-      verified && cryptoKey && ws && connected
-      && serverPresence > 1
-      && !pageHidden
-      && !isDrawing
-      && now - lastCursorSent > CURSOR_SYNC_INTERVAL_MS
-      && Math.hypot(p.x - lastCursorX, p.y - lastCursorY) > CURSOR_MIN_MOVE_PX
-    ) {
-      lastCursorSent = now;
-      lastCursorX = p.x;
-      lastCursorY = p.y;
-      sendCursor(p.x, p.y);
-    }
-
-    if (!isDrawing || !draftShape) return;
-
-    if (draftShape.type === 'pen') {
-      draftShape.points = [...(draftShape.points || []), [p.x, p.y, p.pressure]];
-      draftShape = draftShape;
-    } else if (draftShape.type === 'rect' || draftShape.type === 'ellipse') {
-      draftShape.w = p.x - (draftShape.x ?? 0);
-      draftShape.h = p.y - (draftShape.y ?? 0);
-      draftShape = draftShape;
-    } else if (draftShape.type === 'line' || draftShape.type === 'arrow') {
-      draftShape.x2 = p.x; draftShape.y2 = p.y;
-      draftShape = draftShape;
-    }
-
-    if (verified && now - lastDrawSyncMs > DRAW_SYNC_INTERVAL_MS) {
-      const significant = draftShape.type === 'pen'
-        ? (draftShape.points?.length ?? 0) >= 2
-        : draftShape.type === 'rect' || draftShape.type === 'ellipse'
-          ? Math.abs(draftShape.w ?? 0) + Math.abs(draftShape.h ?? 0) > 6
-          : draftShape.type === 'line' || draftShape.type === 'arrow'
-            ? Math.hypot((draftShape.x2 ?? 0) - (draftShape.x1 ?? 0), (draftShape.y2 ?? 0) - (draftShape.y1 ?? 0)) > 6
-            : false;
-      if (significant) syncDraftToYjs();
-    }
-  }
-
-  function pointerUp(e: PointerEvent) {
-    if (!isDrawing || !draftShape) { isDrawing = false; return; }
-    isDrawing = false;
-    const local = draftShape;
-    const wasSynced = draftSynced;
-    draftShape = null;
-    draftSynced = false;
-    const final = normalizeShape(local);
-    if (final) {
-      yshapes.set(final.id, final);
-    } else if (wasSynced && yshapes.has(local.id)) {
-      yshapes.delete(local.id);
-    }
-  }
-
-  function normalizeShape(s: Shape): Shape | null {
-    if (s.type === 'pen') {
-      if (!s.points || s.points.length < 2) return null;
-      return s;
-    }
-    if (s.type === 'rect' || s.type === 'ellipse') {
-      const x = (s.w ?? 0) < 0 ? (s.x ?? 0) + (s.w ?? 0) : (s.x ?? 0);
-      const y = (s.h ?? 0) < 0 ? (s.y ?? 0) + (s.h ?? 0) : (s.y ?? 0);
-      const w = Math.abs(s.w ?? 0);
-      const h = Math.abs(s.h ?? 0);
-      if (w < 2 && h < 2) return null;
-      return { ...s, x, y, w, h };
-    }
-    if (s.type === 'line' || s.type === 'arrow') {
-      const dx = (s.x2 ?? 0) - (s.x1 ?? 0);
-      const dy = (s.y2 ?? 0) - (s.y1 ?? 0);
-      if (dx * dx + dy * dy < 4) return null;
-      return s;
-    }
-    return s;
-  }
-
-  async function sendCursor(x: number, y: number) {
+  async function sendCursor(x: number, y: number, laser?: ScribbleStroke[]) {
     if (!cryptoKey || !ws) return;
     try {
-      const payload = await encryptMessage(cryptoKey, JSON.stringify({
-        id: identity.key, x, y, name: identity.name, color: identity.color, alias: aliasWire(alias),
-      }));
-      ws.send(JSON.stringify({ type: 'envelope', kind: 'cursor', payload, id: 'c-' + genId() }));
+      const body: Record<string, unknown> = {
+        id: identity.key, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10,
+        name: identity.name, color: identity.color, alias: aliasWire(alias),
+      };
+      if (laser) body.laser = laser;
+      const payload = await encryptMessage(cryptoKey, JSON.stringify(body));
+      if (!socketSend(JSON.stringify({ type: 'envelope', kind: 'cursor', payload, id: 'c-' + genId() }))) return;
+      lastCursorSent = Date.now();
+      lastCursorX = x;
+      lastCursorY = y;
     } catch {}
   }
 
-  function commitText() {
-    if (!textInput) return;
-    const v = textInput.value.trim();
-    if (!v) { textInput = null; return; }
-    const shape: Shape = {
-      id: genId(), type: 'text',
-      color: currentColor, thickness: currentThickness,
-      by: identity.name,
-      x: textInput.x, y: textInput.y, text: v,
-      fontSize: 14 + currentThickness * 2,
+  function onBoardPointerMove(e: PointerEvent) {
+    if (!editor) return;
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const p = editor.screenToPage(e.clientX - r.left, e.clientY - r.top);
+    lastPointer = p;
+    if (!peersPresent() || editor.tool === 'laser') return;
+    if (Date.now() - lastCursorSent < CURSOR_SYNC_INTERVAL_MS) return;
+    if (Math.hypot(p.x - lastCursorX, p.y - lastCursorY) * editor.camera.z < CURSOR_MIN_MOVE) return;
+    sendCursor(p.x, p.y);
+  }
+
+  function onScribbles() {
+    if (!editor || !peersPresent() || laserTimer) return;
+    const wait = Math.max(0, CURSOR_SYNC_INTERVAL_MS - (Date.now() - lastCursorSent));
+    laserTimer = setTimeout(() => {
+      laserTimer = null;
+      if (!editor) return;
+      const p = lastPointer ?? { x: lastCursorX, y: lastCursorY };
+      sendCursor(p.x, p.y, sanitizeScribbles(editor.getScribbles()));
+    }, wait);
+  }
+
+  function isDarkTheme() {
+    return document.documentElement.classList.contains('dark');
+  }
+
+  function syncUi() {
+    if (!editor) return;
+    tool = editor.tool;
+    geoKind = editor.geoKind;
+    styles = editor.currentStyles();
+    selectionSize = editor.selection.size;
+    canUndo = store.canUndo;
+    canRedo = store.canRedo;
+    gridOn = editor.grid !== 'none';
+    zoom = editor.camera.z;
+  }
+
+  function onBoardKeydown(e: KeyboardEvent) {
+    if (!editor || editor.editing || e.defaultPrevented) return;
+    const meta = e.ctrlKey || e.metaKey;
+    if (meta && e.key.toLowerCase() === 'y') { e.preventDefault(); store.redo(); return; }
+    if (meta || e.altKey) return;
+    if (!editor.selection.size && e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      const d = e.shiftKey ? 240 : 60;
+      editor.pan(e.key === 'ArrowLeft' ? d : e.key === 'ArrowRight' ? -d : 0, e.key === 'ArrowUp' ? d : e.key === 'ArrowDown' ? -d : 0);
+      return;
+    }
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(1.25); }
+    else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(0.8); }
+  }
+
+  function blockFileDrop(e: DragEvent) {
+    if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+  }
+
+  function board(node: HTMLDivElement) {
+    themeId = isDarkTheme() ? 'dark' : 'light';
+    const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
+    // Images would be relayed as data URLs that exceed the encrypted message limit.
+    ed.importImageBlobs = async () => {};
+    ed.pickImage = () => {};
+    ed.setTool(tool);
+    editor = ed;
+    const offs = [
+      ed.on('tool', syncUi),
+      ed.on('styles', syncUi),
+      ed.on('selection', syncUi),
+      ed.on('history', syncUi),
+      ed.on('grid', syncUi),
+      ed.on('change', () => { shapeCount = store.size; syncUi(); }),
+      ed.on('camera', () => { zoom = ed.camera.z; camTick++; }),
+      ed.on('scribbles', onScribbles),
+    ];
+    node.addEventListener('pointermove', onBoardPointerMove);
+    node.addEventListener('keydown', onBoardKeydown);
+    node.addEventListener('drop', blockFileDrop);
+    shapeCount = store.size;
+    syncUi();
+    if (pendingFit || store.size) { pendingFit = false; ed.fitContent(); }
+    return {
+      destroy() {
+        offs.forEach(off => off());
+        node.removeEventListener('pointermove', onBoardPointerMove);
+        node.removeEventListener('keydown', onBoardKeydown);
+        node.removeEventListener('drop', blockFileDrop);
+        ed.destroy();
+        if (editor === ed) editor = null;
+      },
     };
-    yshapes.set(shape.id, shape);
-    textInput = null;
   }
 
-  function deleteShape(id: string) {
-    if (yshapes.has(id)) yshapes.delete(id);
-    if (selectedId === id) selectedId = null;
+  function pickTool(id: ToolId) {
+    editor?.setTool(id);
+    styleOpen = false;
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    if (textInput) return;
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undoMgr?.undo();
-    } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-      e.preventDefault();
-      undoMgr?.redo();
-    } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-      e.preventDefault();
-      deleteShape(selectedId);
-    } else if (e.key === 'Escape') {
-      selectedId = null;
-      if (textInput) textInput = null;
-    } else if (e.key === '1') tool = 'pen';
-    else if (e.key === '2') tool = 'rect';
-    else if (e.key === '3') tool = 'ellipse';
-    else if (e.key === '4') tool = 'line';
-    else if (e.key === '5') tool = 'arrow';
-    else if (e.key === '6') tool = 'text';
-    else if (e.key === '7') tool = 'select';
-    else if (e.key === '8') tool = 'eraser';
+  function pickGeo(kind: GeoId) {
+    if (!editor) return;
+    editor.setGeoKind(kind);
+    editor.setTool('geo');
+  }
+
+  function setStyle<K extends keyof Styles>(key: K, value: Styles[K]) {
+    editor?.setStyle(key, value);
+  }
+
+  function zoomBy(mult: number) {
+    if (!editor) return;
+    const { w, h } = editor.viewSize();
+    editor.zoomAt(w / 2, h / 2, mult, { animate: 140 });
+  }
+
+  function zoomReset() {
+    if (!editor) return;
+    const { w, h } = editor.viewSize();
+    editor.zoomAt(w / 2, h / 2, 1 / editor.camera.z, { animate: 180 });
+  }
+
+  function zoomFit() {
+    editor?.fitContent({ animate: 220 });
+    menuOpen = false;
+  }
+
+  function focusBoard() {
+    editor?.container.focus({ preventScroll: true });
+  }
+
+  function deleteSelected() {
+    editor?.deleteSelection();
+    focusBoard();
   }
 
   function clearAll() {
-    if (!verified || roomLocked) return;
+    menuOpen = false;
+    if (!editor || !store.size) return;
     if (!confirm(t(dict, 'whiteboard.clearConfirm'))) return;
-    ydoc.transact(() => {
-      const ids = Array.from(yshapes.keys());
-      for (const id of ids) yshapes.delete(id);
-    });
+    editor.clearBoard();
+    focusBoard();
   }
 
-  function hitTest(x: number, y: number): string | null {
-    const ids = Array.from(yshapes.keys()).reverse();
-    for (const id of ids) {
-      const s = yshapes.get(id);
-      if (!s) continue;
-      if (shapeContains(s, x, y)) return id;
-    }
-    return null;
+  function toggleGrid() {
+    editor?.setGrid(gridOn ? 'none' : 'dots');
   }
 
-  function shapeContains(s: Shape, px: number, py: number): boolean {
-    const tol = Math.max(8, s.thickness * 1.5);
-    if (s.type === 'rect') {
-      return px >= (s.x ?? 0) - tol && px <= (s.x ?? 0) + (s.w ?? 0) + tol
-          && py >= (s.y ?? 0) - tol && py <= (s.y ?? 0) + (s.h ?? 0) + tol;
-    }
-    if (s.type === 'ellipse') {
-      const rx = (s.w ?? 0) / 2;
-      const ry = (s.h ?? 0) / 2;
-      const cx = (s.x ?? 0) + rx;
-      const cy = (s.y ?? 0) + ry;
-      if (rx < 1 || ry < 1) return false;
-      const dx = (px - cx) / (rx + tol);
-      const dy = (py - cy) / (ry + tol);
-      return dx * dx + dy * dy <= 1;
-    }
-    if (s.type === 'line' || s.type === 'arrow') {
-      return distToSegment(px, py, s.x1 ?? 0, s.y1 ?? 0, s.x2 ?? 0, s.y2 ?? 0) <= tol;
-    }
-    if (s.type === 'pen' && s.points) {
-      for (let i = 1; i < s.points.length; i++) {
-        const a = s.points[i - 1], b = s.points[i];
-        if (distToSegment(px, py, a[0], a[1], b[0], b[1]) <= tol) return true;
-      }
-      return false;
-    }
-    if (s.type === 'text') {
-      const fs = s.fontSize ?? 16;
-      const len = (s.text?.length ?? 1) * fs * 0.55;
-      return px >= (s.x ?? 0) - tol && px <= (s.x ?? 0) + len + tol
-          && py >= (s.y ?? 0) - fs - tol && py <= (s.y ?? 0) + tol;
-    }
-    return false;
+  async function exportPng() {
+    menuOpen = false;
+    if (!editor) return;
+    const blob = await editor.exportImage({ background: true, scale: 2 });
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
-    const dx = x2 - x1, dy = y2 - y1;
-    const len = dx * dx + dy * dy;
-    if (len === 0) return Math.hypot(px - x1, py - y1);
-    const tC = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len));
-    return Math.hypot(px - (x1 + tC * dx), py - (y1 + tC * dy));
+  async function toggleFullscreen() {
+    menuOpen = false;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await rootEl?.requestFullscreen();
+    } catch {}
   }
 
-  function penPathD(points: number[][], thickness: number): string {
-    const stroke = getStroke(points, {
-      size: Math.max(2, thickness * 1.6),
-      thinning: 0.55,
-      smoothing: 0.5,
-      streamline: 0.5,
-    });
-    if (!stroke.length) return '';
-    const d: (string | number)[] = ['M', stroke[0][0], stroke[0][1], 'Q'];
-    for (let i = 0; i < stroke.length; i++) {
-      const [x0, y0] = stroke[i];
-      const [x1, y1] = stroke[(i + 1) % stroke.length];
-      d.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
-    }
-    d.push('Z');
-    return d.join(' ');
+  function onFullscreenChange() {
+    isFullscreen = !!document.fullscreenElement && document.fullscreenElement === rootEl;
   }
 
-  function arrowHeadPath(x1: number, y1: number, x2: number, y2: number, t: number): string {
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    const len = Math.max(8, t * 4);
-    const a1 = angle - Math.PI / 6;
-    const a2 = angle + Math.PI / 6;
-    const hx1 = x2 - len * Math.cos(a1);
-    const hy1 = y2 - len * Math.sin(a1);
-    const hx2 = x2 - len * Math.cos(a2);
-    const hy2 = y2 - len * Math.sin(a2);
-    return `M ${x2} ${y2} L ${hx1} ${hy1} M ${x2} ${y2} L ${hx2} ${hy2}`;
+  function onWindowPointerDown(e: PointerEvent) {
+    const target = e.target as Element | null;
+    if (styleOpen && !target?.closest('[data-wb-style]')) styleOpen = false;
+    if (menuOpen && !target?.closest('[data-wb-menu]')) menuOpen = false;
   }
 
-  $: allShapes = (shapesVersion, ydoc ? Array.from(yshapes.values()) : []);
-  $: shapesArray = draftShape ? allShapes.filter(s => s.id !== draftShape!.id) : allShapes;
+  function onWindowKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Escape' || (!styleOpen && !menuOpen)) return;
+    const trigger = styleOpen ? 'wb-style-trigger' : 'wb-menu-trigger';
+    styleOpen = false;
+    menuOpen = false;
+    document.getElementById(trigger)?.focus();
+  }
+
+  function toScreen(x: number, y: number, _tick: number) {
+    return editor ? editor.pageToScreen(x, y) : { x: -9999, y: -9999 };
+  }
+
+  $: activeColor = (styles.color ?? null) as string | null;
+  $: swatch = THEMES[themeId].colors[(activeColor ?? 'black') as keyof typeof THEMES.light.colors].stroke;
+  const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 });
+  $: zoomLabel = percent.format(zoom);
 
   async function copyShareLink() {
     try {
@@ -682,10 +767,21 @@
     pageHidden = document.hidden;
   }
 
+  let cursorCleanInterval: ReturnType<typeof setInterval>;
+  let themeObserver: MutationObserver | null = null;
+
   onMount(() => {
     initRoom();
-    window.addEventListener('keydown', handleKeydown);
+    fullscreenSupported = !!document.fullscreenEnabled;
     document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    window.addEventListener('pointerdown', onWindowPointerDown, true);
+    window.addEventListener('keydown', onWindowKeydown);
+    themeObserver = new MutationObserver(() => {
+      themeId = isDarkTheme() ? 'dark' : 'light';
+      editor?.setTheme(themeId);
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     cursorCleanInterval = setInterval(() => {
       const cutoff = Date.now() - 4000;
       const before = cursors.length;
@@ -697,24 +793,28 @@
   onDestroy(() => {
     ws?.close();
     if (typeof window !== 'undefined') {
-      window.removeEventListener('keydown', handleKeydown);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
+      window.removeEventListener('pointerdown', onWindowPointerDown, true);
+      window.removeEventListener('keydown', onWindowKeydown);
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
     }
+    themeObserver?.disconnect();
     clearInterval(cursorCleanInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
-    if (updateFlushTimer) clearTimeout(updateFlushTimer);
+    if (flushTimer) clearTimeout(flushTimer);
+    if (laserTimer) clearTimeout(laserTimer);
     ydoc?.destroy();
   });
 </script>
 
-<div class="wb-container">
+<div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
   {#if wrongPassword}
     <div class="wb-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-danger" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <p class="status status--error" role="alert">{t(dict, 'whiteboard.wrongPassword')}</p>
         <p class="hint">{t(dict, 'whiteboard.wrongPasswordDetail')}</p>
         <button type="button" class="btn-secondary w-full" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'whiteboard.tryAgain')}</button>
@@ -723,9 +823,9 @@
 
   {:else if needsPassword}
     <div class="wb-center">
-      <div class="space-y-4 max-w-xs w-full">
+      <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-emerald-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-accent" aria-hidden="true">{@html ICONS.lock}</svg>
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
@@ -735,7 +835,6 @@
           aria-label={t(dict, 'whiteboard.password')}
           placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
           bind:value={passwordInput}
-          on:keydown={(e) => e.key === 'Enter' && submitPassword()}
           autocomplete="off"
           data-lpignore="true"
           data-1p-ignore
@@ -744,260 +843,264 @@
         {#if passwordError}
           <p class="status status--error" role="alert">{passwordError}</p>
         {/if}
-        <button class="btn w-full" on:click={submitPassword}>{t(dict, 'whiteboard.enterRoom')}</button>
-      </div>
+        <button type="submit" class="btn w-full">{t(dict, 'whiteboard.enterRoom')}</button>
+      </form>
     </div>
 
   {:else if verifying}
     <div class="wb-center">
-      <div class="text-center space-y-2">
-        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p class="hint">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
-      </div>
+      <p class="status status--busy" role="status">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
     </div>
 
   {:else}
-    <div class="wb-toolbar">
-      <div class="wb-tools">
-        {#each [
-          { t: 'pen' as Tool, icon: 'M12 19l7-7 3 3-7 7-3-3z', label: t(dict, 'whiteboard.toolPen') },
-          { t: 'rect' as Tool, icon: 'M3 5h18v14H3z', label: t(dict, 'whiteboard.toolRect') },
-          { t: 'ellipse' as Tool, icon: 'M12 5a7 7 0 0 1 0 14 7 7 0 0 1 0-14z', label: t(dict, 'whiteboard.toolEllipse') },
-          { t: 'line' as Tool, icon: 'M5 19L19 5', label: t(dict, 'whiteboard.toolLine') },
-          { t: 'arrow' as Tool, icon: 'M5 19L19 5M19 5h-7M19 5v7', label: t(dict, 'whiteboard.toolArrow') },
-          { t: 'text' as Tool, icon: 'M5 4v3h5.5v12h3V7H19V4H5z', label: t(dict, 'whiteboard.toolText') },
-          { t: 'select' as Tool, icon: 'M3 3l7 18 2-9 9-2L3 3z', label: t(dict, 'whiteboard.toolSelect') },
-          { t: 'eraser' as Tool, icon: 'M16 3l5 5L8 21H3v-5L16 3zM12 7l5 5', label: t(dict, 'whiteboard.toolEraser') },
-        ] as item}
-          <button
-            class="wb-tool-btn"
-            class:wb-tool-btn--active={tool === item.t}
-            on:click={() => { tool = item.t; selectedId = null; }}
-            title={item.label}
-            aria-label={item.label}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d={item.icon} />
-            </svg>
-          </button>
-        {/each}
-      </div>
-
-      <div class="wb-divider"></div>
-
-      <div class="wb-colors">
-        {#each COLORS as c}
-          <button
-            class="wb-color-btn"
-            class:wb-color-btn--active={currentColor === c}
-            style="background: {c}; {isLightShade(c) ? 'border-color: rgba(0,0,0,0.15);' : ''}"
-            on:click={() => currentColor = c}
-            aria-label={c}
-          ></button>
-        {/each}
-        <label
-          class="wb-color-btn wb-color-btn--custom"
-          class:wb-color-btn--active={!COLORS.includes(currentColor)}
-          style={!COLORS.includes(currentColor) ? `background: ${currentColor};` : ''}
-          aria-label={t(dict, 'whiteboard.customColor')}
-          title={t(dict, 'whiteboard.customColor')}
-        >
-          <input
-            type="color"
-            class="wb-color-input"
-            bind:value={currentColor}
-            aria-label={t(dict, 'whiteboard.customColor')}
-          />
-        </label>
-      </div>
-
-      <div class="wb-divider"></div>
-
-      <div class="wb-thicks">
-        {#each THICKNESS as th}
-          <button
-            class="wb-thick-btn"
-            class:wb-thick-btn--active={currentThickness === th}
-            on:click={() => currentThickness = th}
-            aria-label={`${th}px`}
-          >
-            <span class="wb-thick-dot" style="width: {Math.min(th + 2, 14)}px; height: {Math.min(th + 2, 14)}px"></span>
-          </button>
-        {/each}
-      </div>
-
-      <div class="wb-spacer"></div>
-
-      <button class="wb-icon-btn" on:click={() => undoMgr?.undo()} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-      </button>
-      <button class="wb-icon-btn" on:click={() => undoMgr?.redo()} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
-      </button>
-      <button class="wb-icon-btn" on:click={clearAll} aria-label={t(dict, 'whiteboard.clear')} title={t(dict, 'whiteboard.clear')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-      </button>
-      <button class="wb-icon-btn" on:click={toggleLock} class:wb-icon-btn--active={roomLocked} aria-label={t(dict, 'whiteboard.lock')} title={t(dict, 'whiteboard.lock')}>
-        {#if roomLocked}
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-        {/if}
-      </button>
-    </div>
-
     {#if sharePassword && !shareDismissed}
       <div class="wb-share-banner">
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between gap-2 mb-2">
           <span class="text-sm font-bold text-accent">{t(dict, 'whiteboard.sharePasswordWarning')}</span>
           <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS.close}</svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5 mb-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.roomLink')}</span>
           <code class="wb-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
-          <button class="wb-share-copy" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
-            {#if shareCopiedLink}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
+          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedLink} aria-hidden="true">{@html shareCopiedLink ? ICONS.check : ICONS.copy}</svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>
           <code class="wb-share-value">{sharePassword}</code>
-          <button class="wb-share-copy" on:click={copySharePassword} aria-label={t(dict, 'whiteboard.copyRoomPassword')}>
-            {#if shareCopiedPass}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
+          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copySharePassword} aria-label={t(dict, 'whiteboard.copyRoomPassword')}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedPass} aria-hidden="true">{@html shareCopiedPass ? ICONS.check : ICONS.copy}</svg>
           </button>
         </div>
       </div>
     {/if}
 
-    <div class="wb-canvas-wrap">
-      <svg
-        bind:this={svgEl}
-        class="wb-canvas"
-        class:wb-canvas--locked={roomLocked}
-        viewBox="0 0 1600 1000"
-        preserveAspectRatio="xMidYMid meet"
-        on:pointerdown={pointerDown}
-        on:pointermove={pointerMove}
-        on:pointerup={pointerUp}
-        on:pointercancel={pointerUp}
-        on:contextmenu|preventDefault
+    <div class="wb-stage">
+      <div
+        class="wb-board"
+        use:board
         role="application"
         aria-label={t(dict, 'whiteboard.canvasLabel')}
-      >
-        <defs>
-          <pattern id="wb-dots" width="40" height="40" patternUnits="userSpaceOnUse">
-            <circle cx="20" cy="20" r="1.5" fill="rgba(0,0,0,0.08)" />
-          </pattern>
-        </defs>
-        <rect width="1600" height="1000" fill="#ffffff" />
-        <rect width="1600" height="1000" fill="url(#wb-dots)" />
-        {#each shapesArray as s (s.id)}
-          {@const isSel = selectedId === s.id}
-          {#if s.type === 'pen' && s.points}
-            <path d={penPathD(s.points, s.thickness)} fill={s.color} stroke="none"/>
-            {#if isSel}
-              <path d={penPathD(s.points, s.thickness)} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
-            {/if}
-          {:else if s.type === 'rect'}
-            {@const rx = (s.w ?? 0) < 0 ? (s.x ?? 0) + (s.w ?? 0) : (s.x ?? 0)}
-            {@const ry = (s.h ?? 0) < 0 ? (s.y ?? 0) + (s.h ?? 0) : (s.y ?? 0)}
-            {@const rw = Math.abs(s.w ?? 0)}
-            {@const rh = Math.abs(s.h ?? 0)}
-            <rect x={rx} y={ry} width={rw} height={rh} fill="none" stroke={s.color} stroke-width={s.thickness} stroke-linejoin="round"/>
-            {#if isSel}
-              <rect x={rx - 4} y={ry - 4} width={rw + 8} height={rh + 8} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
-            {/if}
-          {:else if s.type === 'ellipse'}
-            <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2)} ry={Math.abs((s.h ?? 0) / 2)} fill="none" stroke={s.color} stroke-width={s.thickness}/>
-            {#if isSel}
-              <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2) + 4} ry={Math.abs((s.h ?? 0) / 2) + 4} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
-            {/if}
-          {:else if s.type === 'line'}
-            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round"/>
-            {#if isSel}
-              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="var(--accent)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
-            {/if}
-          {:else if s.type === 'arrow'}
-            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round"/>
-            <path d={arrowHeadPath(s.x1 ?? 0, s.y1 ?? 0, s.x2 ?? 0, s.y2 ?? 0, s.thickness)} stroke={s.color} stroke-width={s.thickness} fill="none" stroke-linecap="round"/>
-            {#if isSel}
-              <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="var(--accent)" stroke-width={(s.thickness ?? 2) + 4} stroke-dasharray="6 4" stroke-linecap="round" opacity="0.6"/>
-            {/if}
-          {:else if s.type === 'text'}
-            <text x={s.x} y={s.y} fill={s.color} font-size={s.fontSize} font-family="ui-sans-serif, system-ui, sans-serif" font-weight="500">{s.text}</text>
-            {#if isSel}
-              <rect x={(s.x ?? 0) - 4} y={(s.y ?? 0) - (s.fontSize ?? 16) - 2} width={(s.text?.length ?? 1) * (s.fontSize ?? 16) * 0.55 + 8} height={(s.fontSize ?? 16) + 8} fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
-            {/if}
-          {/if}
-        {/each}
+        aria-describedby="wb-keyboard-help"
+        aria-roledescription={t(dict, 'whiteboard.canvasRole')}
+      ></div>
+      <p id="wb-keyboard-help" class="sr-only">{t(dict, 'whiteboard.keyboardHelp')}</p>
 
-        {#if draftShape}
-          {@const s = draftShape}
-          {#if s.type === 'pen' && s.points && s.points.length > 1}
-            <path d={penPathD(s.points, s.thickness)} fill={s.color} stroke="none" opacity="0.85"/>
-          {:else if s.type === 'rect'}
-            <rect
-              x={(s.w ?? 0) < 0 ? (s.x ?? 0) + (s.w ?? 0) : (s.x ?? 0)}
-              y={(s.h ?? 0) < 0 ? (s.y ?? 0) + (s.h ?? 0) : (s.y ?? 0)}
-              width={Math.abs(s.w ?? 0)} height={Math.abs(s.h ?? 0)}
-              fill="none" stroke={s.color} stroke-width={s.thickness} opacity="0.85"/>
-          {:else if s.type === 'ellipse'}
-            <ellipse cx={(s.x ?? 0) + (s.w ?? 0) / 2} cy={(s.y ?? 0) + (s.h ?? 0) / 2} rx={Math.abs((s.w ?? 0) / 2)} ry={Math.abs((s.h ?? 0) / 2)} fill="none" stroke={s.color} stroke-width={s.thickness} opacity="0.85"/>
-          {:else if s.type === 'line'}
-            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round" opacity="0.85"/>
-          {:else if s.type === 'arrow'}
-            <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke={s.color} stroke-width={s.thickness} stroke-linecap="round" opacity="0.85"/>
-            <path d={arrowHeadPath(s.x1 ?? 0, s.y1 ?? 0, s.x2 ?? 0, s.y2 ?? 0, s.thickness)} stroke={s.color} stroke-width={s.thickness} fill="none" stroke-linecap="round" opacity="0.85"/>
-          {/if}
+      {#each cursors as c (c.id)}
+        {#if c.id !== myConnId && c.name !== identity.name}
+          {@const s = toScreen(c.x, c.y, camTick)}
+          <div class="wb-cursor" style="transform: translate({s.x}px, {s.y}px); --wb-peer: {c.color}" aria-hidden="true">
+            <svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1v17l4.5-4 3 7 3-1.4-3-6.6H15z" fill="var(--wb-peer)" stroke="white" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <span class="wb-cursor__name">{c.name}</span>
+          </div>
         {/if}
+      {/each}
 
-        {#each cursors as c (c.id)}
-          {#if c.id !== identity.key && c.name !== identity.name}
-            <g transform="translate({c.x}, {c.y})" pointer-events="none">
-              <path d="M0 0 L 0 18 L 5 14 L 8 21 L 11 19 L 8 13 L 14 13 Z" fill={c.color} stroke="white" stroke-width="1"/>
-              <text x="14" y="10" font-size="11" font-family="ui-sans-serif, system-ui, sans-serif" font-weight="600" fill={c.color}>{c.name}</text>
-            </g>
-          {/if}
-        {/each}
-      </svg>
-
-      {#if textInput}
-        <div class="wb-text-overlay">
-          <textarea
-            bind:this={textInputEl}
-            bind:value={textInput.value}
-            on:keydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitText(); } else if (e.key === 'Escape') { textInput = null; } }}
-            on:blur={commitText}
-            placeholder={t(dict, 'whiteboard.textPlaceholder')}
-            class="wb-text-input"
-            style="left: {textInput.x / 1600 * 100}%; top: {textInput.y / 1000 * 100}%; color: {currentColor};"
-          ></textarea>
+      <div class="wb-bar wb-bar--start">
+        <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.history')}>
+          <button type="button" class="wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.undo}</svg>
+          </button>
+          <button type="button" class="wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.redo}</svg>
+          </button>
         </div>
-      {/if}
-    </div>
+        <div class="wb-pill wb-zoom" role="group" aria-label={t(dict, 'whiteboard.zoom')}>
+          <button type="button" class="wb-btn" on:click={() => zoomBy(0.8)} aria-label={t(dict, 'whiteboard.zoomOut')} title={t(dict, 'whiteboard.zoomOut')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.zoomOut}</svg>
+          </button>
+          <button type="button" class="wb-btn wb-btn--text" on:click={zoomReset} aria-label={`${t(dict, 'whiteboard.zoomReset')} (${zoomLabel})`} title={t(dict, 'whiteboard.zoomReset')}>{zoomLabel}</button>
+          <button type="button" class="wb-btn" on:click={() => zoomBy(1.25)} aria-label={t(dict, 'whiteboard.zoomIn')} title={t(dict, 'whiteboard.zoomIn')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.zoomIn}</svg>
+          </button>
+          <button type="button" class="wb-btn" on:click={zoomFit} aria-label={t(dict, 'whiteboard.zoomFit')} title={`${t(dict, 'whiteboard.zoomFit')} (Shift+1)`}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>
+          </button>
+        </div>
+        {#if selectionSize > 0}
+          <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.selectionActions')}>
+            <button type="button" class="wb-btn" on:click={() => editor?.duplicateSelection()} aria-label={t(dict, 'whiteboard.duplicate')} title={`${t(dict, 'whiteboard.duplicate')} (Ctrl+D)`}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.duplicate}</svg>
+            </button>
+            <button type="button" class="wb-btn" on:click={() => editor?.bringToFront()} aria-label={t(dict, 'whiteboard.bringToFront')} title={`${t(dict, 'whiteboard.bringToFront')} (])`}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.front}</svg>
+            </button>
+            <button type="button" class="wb-btn" on:click={() => editor?.sendToBack()} aria-label={t(dict, 'whiteboard.sendToBack')} title={`${t(dict, 'whiteboard.sendToBack')} ([)`}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.back}</svg>
+            </button>
+            <button type="button" class="wb-btn wb-btn--danger" on:click={deleteSelected} aria-label={t(dict, 'whiteboard.delete')} title={`${t(dict, 'whiteboard.delete')} (Del)`}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>
+            </button>
+          </div>
+        {/if}
+      </div>
 
-    <div class="wb-footer">
-      <div class="flex items-center gap-2">
-        <span class="wb-status" class:wb-status--connected={connected}></span>
-        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : t(dict, 'whiteboard.connecting')}</span>
-        <div class="flex items-center -space-x-1.5">
-          <div class="wb-avatar wb-avatar--sm" style="background: {aliasGradient(alias)}" title={identity.name}>{myInitials}</div>
-          {#each onlineUsers as user}
-            <div class="wb-avatar wb-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
+      <div class="wb-bar wb-bar--end">
+        <div class="wb-pop" data-wb-style>
+          <button
+            id="wb-style-trigger"
+            type="button"
+            class="wb-pill wb-btn wb-btn--solo"
+            aria-expanded={styleOpen}
+            aria-controls="wb-style-panel"
+            aria-label={t(dict, 'whiteboard.style')}
+            title={t(dict, 'whiteboard.style')}
+            on:click={() => { styleOpen = !styleOpen; menuOpen = false; }}
+          >
+            <span class="wb-swatch" style="background: {swatch}"></span>
+          </button>
+          <div id="wb-style-panel" class="menu menu--end wb-panel" class:menu--open={styleOpen}>
+            <fieldset class="wb-field">
+              <legend class="wb-legend">{t(dict, 'whiteboard.color')}</legend>
+              <div class="wb-colors">
+                {#each COLOR_IDS as c}
+                  <button
+                    type="button"
+                    class="wb-color"
+                    aria-pressed={activeColor === c}
+                    aria-label={t(dict, `whiteboard.colors.${c}`)}
+                    title={t(dict, `whiteboard.colors.${c}`)}
+                    style="--wb-swatch: {THEMES[themeId].colors[c].stroke}"
+                    on:click={() => setStyle('color', c)}
+                  ></button>
+                {/each}
+              </div>
+            </fieldset>
+            <fieldset class="wb-field">
+              <legend class="wb-legend">{t(dict, 'whiteboard.size')}</legend>
+              <div class="wb-seg">
+                {#each SIZE_IDS as s, i}
+                  <button type="button" class="wb-btn" aria-pressed={styles.size === s} aria-label={t(dict, `whiteboard.sizes.${s}`)} title={t(dict, `whiteboard.sizes.${s}`)} on:click={() => setStyle('size', s)}>
+                    <span class="wb-dot" style="--wb-dot: {5 + i * 3}px"></span>
+                  </button>
+                {/each}
+              </div>
+            </fieldset>
+            <fieldset class="wb-field">
+              <legend class="wb-legend">{t(dict, 'whiteboard.dash')}</legend>
+              <div class="wb-seg">
+                {#each DASH_IDS as d}
+                  <button type="button" class="wb-btn" aria-pressed={styles.dash === d} aria-label={t(dict, `whiteboard.dashes.${d}`)} title={t(dict, `whiteboard.dashes.${d}`)} on:click={() => setStyle('dash', d)}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" class:wb-svg-bold={d === 'dotted'}>{@html ICONS[`dash-${d}`]}</svg>
+                  </button>
+                {/each}
+              </div>
+            </fieldset>
+            <fieldset class="wb-field">
+              <legend class="wb-legend">{t(dict, 'whiteboard.fill')}</legend>
+              <div class="wb-seg">
+                {#each FILL_IDS as f}
+                  <button type="button" class="wb-btn" aria-pressed={styles.fill === f} aria-label={t(dict, `whiteboard.fills.${f}`)} title={t(dict, `whiteboard.fills.${f}`)} on:click={() => setStyle('fill', f)}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[`fill-${f}`]}</svg>
+                  </button>
+                {/each}
+              </div>
+            </fieldset>
+            <fieldset class="wb-field">
+              <legend class="wb-legend">{t(dict, 'whiteboard.font')}</legend>
+              <div class="wb-seg">
+                {#each Object.keys(FONTS) as f}
+                  <button type="button" class="wb-btn wb-btn--font" aria-pressed={styles.font === f} aria-label={t(dict, `whiteboard.fonts.${f}`)} title={t(dict, `whiteboard.fonts.${f}`)} style="font-family: {FONTS[f as keyof typeof FONTS]}" on:click={() => setStyle('font', f as Styles['font'])}>Aa</button>
+                {/each}
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+        <div class="wb-pop" data-wb-menu>
+          <button
+            id="wb-menu-trigger"
+            type="button"
+            class="wb-pill wb-btn wb-btn--solo"
+            aria-expanded={menuOpen}
+            aria-controls="wb-menu"
+            aria-label={t(dict, 'whiteboard.menu')}
+            title={t(dict, 'whiteboard.menu')}
+            on:click={() => { menuOpen = !menuOpen; styleOpen = false; }}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.menu}</svg>
+          </button>
+          <div id="wb-menu" class="menu menu--end" class:menu--open={menuOpen}>
+            <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
+            </button>
+            <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
+            </button>
+            <button type="button" class="menu__item" role="switch" aria-checked={gridOn} on:click={toggleGrid}>
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.grid}</svg>{t(dict, 'whiteboard.grid')}
+              {#if gridOn}<svg class="wb-menu-icon wb-menu-check" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.check}</svg>{/if}
+            </button>
+            {#if fullscreenSupported}
+              <button type="button" class="menu__item" on:click={toggleFullscreen}>
+                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
+              </button>
+            {/if}
+            <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.clear')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="wb-dock-wrap">
+        {#if tool === 'geo'}
+          <div class="wb-pill wb-geo" role="group" aria-label={t(dict, 'whiteboard.geoKinds')}>
+            {#each GEO_IDS as g}
+              {@const label = t(dict, `whiteboard.geo.${g}`)}
+              <button type="button" class="wb-btn" aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[g]}</svg>
+              </button>
+            {/each}
+          </div>
+        {/if}
+        <div class="wb-pill wb-dock" role="toolbar" aria-label={t(dict, 'whiteboard.toolbar')} aria-orientation="horizontal">
+          {#each TOOLS as item}
+            {@const label = t(dict, `whiteboard.tool.${item.id}`)}
+            <button
+              type="button"
+              class="wb-btn wb-tool"
+              aria-pressed={tool === item.id}
+              aria-label={label}
+              title={`${label} (${item.key})`}
+              aria-keyshortcuts={item.key}
+              on:click={() => pickTool(item.id)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[item.id === 'geo' ? geoKind : item.id]}</svg>
+            </button>
           {/each}
         </div>
       </div>
-      <span class="wb-counter">{allShapes.length} {t(dict, 'whiteboard.shapes')}</span>
+    </div>
+
+    <div class="wb-footer">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="wb-status" class:wb-status--connected={connected} aria-hidden="true"></span>
+        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : t(dict, 'whiteboard.connecting')}</span>
+        <div class="flex items-center -space-x-1.5">
+          <div class="wb-avatar" style="background: {aliasGradient(alias)}" title={identity.name}>{myInitials}</div>
+          {#each onlineUsers as user (user.id)}
+            <div class="wb-avatar" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
+          {/each}
+        </div>
+        <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
+        {#if syncProgress}
+          <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
+        {/if}
+      </div>
+      <button
+        type="button"
+        class="btn-ghost btn-sm wb-lock"
+        aria-pressed={roomLocked}
+        title={t(dict, roomLocked ? 'whiteboard.unlockHint' : 'whiteboard.lockHint')}
+        on:click={toggleLock}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html roomLocked ? ICONS.lock : ICONS.unlock}</svg>
+        <span class="wb-lock__text">{t(dict, roomLocked ? 'whiteboard.locked' : 'whiteboard.lock')}</span>
+      </button>
     </div>
   {/if}
 </div>
@@ -1006,11 +1109,17 @@
   .wb-container {
     display: flex;
     flex-direction: column;
-    height: min(80dvh, 820px);
+    height: min(82dvh, 880px);
+    min-height: 420px;
     border-radius: 0.75rem;
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
+  }
+  .wb-container--fullscreen {
+    height: 100dvh;
+    border-radius: 0;
+    border: 0;
   }
 
   .wb-center {
@@ -1018,201 +1127,311 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 2rem 1rem;
   }
 
-  .wb-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid rgba(228, 228, 231, 0.5);
-    flex-wrap: wrap;
-  }
-  :global(.dark) .wb-toolbar { border-color: rgba(39, 39, 42, 0.4); }
-
-  .wb-tools, .wb-colors, .wb-thicks {
-    display: flex;
-    align-items: center;
-    gap: 0.2rem;
-  }
-
-  .wb-tool-btn, .wb-icon-btn {
-    width: 30px; height: 30px;
-    border-radius: 0.4rem;
-    display: flex; align-items: center; justify-content: center;
-    color: rgb(82, 82, 91);
-    transition: background 0.15s, color 0.15s;
-  }
-  :global(.dark) .wb-tool-btn, :global(.dark) .wb-icon-btn {
-    color: rgb(212, 212, 216);
-  }
-  .wb-tool-btn:hover, .wb-icon-btn:hover {
-    background: oklch(0.7019 0.1577 160.44 / 0.08);
-    color: var(--accent);
-  }
-  .wb-tool-btn--active, .wb-icon-btn--active {
-    background: oklch(0.7019 0.1577 160.44 / 0.14);
-    color: var(--accent);
-  }
-
-  .wb-divider {
-    width: 1px; height: 18px;
-    background: rgba(228, 228, 231, 0.7);
-    margin: 0 0.25rem;
-  }
-  :global(.dark) .wb-divider { background: rgba(63, 63, 70, 0.5); }
-
-  .wb-color-btn {
-    width: 20px; height: 20px;
-    border-radius: 9999px;
-    border: 2px solid transparent;
-    transition: transform 0.1s, border-color 0.15s;
-  }
-  .wb-color-btn:hover { transform: scale(1.1); }
-  .wb-color-btn--active {
-    border-color: var(--accent);
-    transform: scale(1.1);
-  }
-  .wb-color-btn--custom {
-    background: conic-gradient(
-      from 90deg,
-      #ef4444, #f97316, #f59e0b, #facc15, #84cc16,
-      #00bc7d, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444
-    );
+  .wb-stage {
+    flex: 1;
+    min-height: 0;
     position: relative;
     overflow: hidden;
-    cursor: pointer;
+    container-type: inline-size;
   }
-  .wb-color-input {
+
+  .wb-board {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-    border: 0;
-    padding: 0;
+  }
+  .wb-board:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 
-  .wb-thick-btn {
-    width: 22px; height: 22px;
-    border-radius: 0.35rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s;
+  .wb-bar {
+    position: absolute;
+    top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.375rem;
+    pointer-events: none;
+    z-index: 2;
   }
-  .wb-thick-btn:hover { background: oklch(0.7019 0.1577 160.44 / 0.08); }
-  .wb-thick-btn--active { background: oklch(0.7019 0.1577 160.44 / 0.14); }
-  .wb-thick-dot {
+  .wb-bar--start { left: 0.5rem; right: 6.5rem; }
+  .wb-bar--end { right: 0.5rem; z-index: 3; }
+
+  .wb-pill {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 0.625rem;
+    background: var(--bg);
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-float);
+    pointer-events: auto;
+  }
+
+  .wb-btn {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: var(--muted);
+    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  }
+  .wb-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .wb-btn svg.wb-svg-bold { stroke-width: 3; }
+  .wb-btn:not(:disabled):hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .wb-btn[aria-pressed="true"] {
+    background: var(--accent-weak);
+    color: var(--accent-strong);
+  }
+  .wb-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .wb-btn--danger:not(:disabled):hover { color: var(--danger); background: var(--danger-weak); }
+  .wb-btn--text {
+    width: auto;
+    min-width: 3.25rem;
+    padding: 0 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .wb-btn--font { font-size: 0.95rem; }
+  .wb-btn--solo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .wb-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+  }
+
+  .wb-pop { position: relative; pointer-events: auto; }
+
+  .wb-panel {
+    width: 15.5rem;
+    min-width: 0;
+    max-height: min(70dvh, 28rem);
+    overflow-y: auto;
+    gap: 0.5rem;
+    padding: 0.625rem;
+  }
+
+  .wb-field {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .wb-legend {
+    padding: 0;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .wb-colors {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+  }
+  .wb-color {
+    height: 32px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+  .wb-color::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    background: var(--wb-swatch);
+  }
+  .wb-color:hover { background: var(--surface-2); }
+  .wb-color[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+  .wb-seg {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+  }
+  .wb-seg .wb-btn { width: 100%; }
+  .wb-dot {
+    width: var(--wb-dot);
+    height: var(--wb-dot);
     border-radius: 9999px;
     background: currentColor;
-    color: rgb(82, 82, 91);
-  }
-  :global(.dark) .wb-thick-dot { color: rgb(212, 212, 216); }
-
-  .wb-spacer { flex: 1; }
-
-  .wb-canvas-wrap {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    background: var(--surface-2);
   }
 
-  .wb-canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    cursor: crosshair;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+  .menu__item:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
-  .wb-canvas--locked { cursor: not-allowed; }
+  .wb-menu-icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .wb-menu-check { margin-left: auto; color: var(--accent); }
+  .wb-menu-danger:not(:disabled):hover { color: var(--danger); }
 
-  .wb-text-overlay {
-    position: absolute; inset: 0;
-    pointer-events: none;
-  }
-  .wb-text-input {
+  .wb-dock-wrap {
     position: absolute;
-    transform: translate(0, -100%);
-    pointer-events: auto;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid var(--accent);
-    border-radius: 4px;
-    padding: 4px 6px;
-    font-size: 14px;
-    font-family: ui-sans-serif, system-ui, sans-serif;
-    min-width: 120px;
-    min-height: 28px;
-    resize: none;
-    outline: none;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.375rem;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .wb-dock {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+  .wb-geo { flex-wrap: wrap; justify-content: center; }
+
+  .wb-cursor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 1;
+    transition: transform 120ms linear;
+    will-change: transform;
+  }
+  .wb-cursor__name {
+    margin-top: 14px;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    background: var(--wb-peer);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-cursor { transition: none; }
+  }
+
+  @container (max-width: 560px) {
+    .wb-zoom { display: none; }
+    .wb-btn { width: 34px; height: 34px; }
   }
 
   .wb-share-banner {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid oklch(0.7019 0.1577 160.44 / 0.15);
-    background: oklch(0.7019 0.1577 160.44 / 0.04);
-  }
-  :global(.dark) .wb-share-banner {
-    background: oklch(0.7019 0.1577 160.44 / 0.06);
-    border-color: oklch(0.7019 0.1577 160.44 / 0.1);
+    border-bottom: 1px solid var(--accent-line);
+    background: var(--accent-weak);
   }
   .wb-share-value {
-    flex: 1; min-width: 0;
-    font-size: 12px; font-family: var(--font-mono);
-    color: rgb(63, 63, 70); background: rgba(244, 244, 245, 0.8);
-    padding: 4px 8px; border-radius: 6px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--text);
+    background: var(--bg);
+    padding: 4px 8px;
+    border-radius: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  :global(.dark) .wb-share-value {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.6);
-  }
-  .wb-share-copy {
-    flex-shrink: 0; padding: 2px;
-    color: rgb(161, 161, 170); transition: color 0.15s;
-  }
-  .wb-share-copy:hover { color: var(--accent); }
 
   .wb-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 0.85rem;
-    border-top: 1px solid rgba(228, 228, 231, 0.5);
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.85rem;
+    border-top: 1px solid var(--line-soft);
     font-size: 0.75rem;
-    color: rgb(113, 113, 122);
+    color: var(--muted);
   }
-  :global(.dark) .wb-footer { border-color: rgba(39, 39, 42, 0.4); color: rgb(161, 161, 170); }
 
   .wb-status {
-    width: 8px; height: 8px; border-radius: 9999px;
-    background: rgb(245, 158, 11);
+    width: 8px;
+    height: 8px;
+    flex: none;
+    border-radius: 9999px;
+    background: var(--warn);
     animation: wb-pulse 1.2s ease-in-out infinite;
   }
   .wb-status--connected {
     background: var(--accent);
-    box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.2);
     animation: none;
   }
   @keyframes wb-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-status { animation: none; }
+  }
 
   .wb-avatar {
-    width: 34px; height: 34px; border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 800; color: white;
-    flex-shrink: 0; letter-spacing: 0.02em;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  }
-  .wb-avatar--sm {
-    width: 24px; height: 24px; font-size: 0.75rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px var(--surface);
   }
 
   .wb-counter {
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .wb-lock[aria-pressed="true"] { color: var(--accent-strong); }
+  @media (max-width: 479px) {
+    .wb-lock { width: 2.25rem; padding: 0; }
+    .wb-lock__text {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
 </style>
