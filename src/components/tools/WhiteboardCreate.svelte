@@ -1,6 +1,7 @@
 <script lang="ts">
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
+  import PassphraseField from '../PassphraseField.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -113,23 +114,7 @@
 
   <div class="field">
     <label class="label" for="wb-pass">{t(dict, 'whiteboard.password')}</label>
-    <div class="passphrase">
-      <input
-        id="wb-pass"
-        class="input"
-        type="text"
-        bind:value={password}
-        placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
-        autocomplete="off"
-        data-lpignore="true"
-        data-1p-ignore
-        data-bwignore="true"
-        aria-describedby="wb-pass-hint"
-      />
-      <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { password = genPassphrase(); }} aria-label={t(dict, 'common.generatePassphrase')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-      </button>
-    </div>
+    <PassphraseField {dict} id="wb-pass" bind:value={password} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby="wb-pass-hint" generate={genPassphrase} />
     <p id="wb-pass-hint" class="hint">{t(dict, 'whiteboard.createDescription')}</p>
   </div>
 

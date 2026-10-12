@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
+  import PassphraseField from '../PassphraseField.svelte';
   import { RETENTION_SECONDS, checkRoomPassword, roomPasswordOk, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
 
   export let locale = 'en';
@@ -160,26 +161,7 @@
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitPassword}>
       <div class="field">
         <label class="label" for="chat-pass">{t(dict, 'chat.password')}</label>
-        <div class="passphrase">
-          <input
-            id="chat-pass"
-            class="input"
-            type="text"
-            bind:value={password}
-            placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
-            autocomplete="off"
-            autocapitalize="off"
-            spellcheck="false"
-            data-lpignore="true"
-            data-1p-ignore
-            data-bwignore="true"
-            aria-describedby="chat-pass-rules chat-pass-hint"
-            aria-invalid={passwordError ? 'true' : undefined}
-          />
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { password = genPassphrase(); passwordError = ''; }} aria-label={t(dict, 'common.generatePassphrase')} title={t(dict, 'common.generatePassphrase')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
+        <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby="chat-pass-rules chat-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
         <ul id="chat-pass-rules" class="pw-rules" aria-label={t(dict, 'chat.passwordRules')}>
           {#each rules as rule}
             <li class="pw-rules__item" class:pw-rules__item--ok={rule.ok}>
