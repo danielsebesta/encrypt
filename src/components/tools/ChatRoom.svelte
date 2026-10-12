@@ -11,7 +11,6 @@
   const replay = new ReplayWindow();
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
-  import Whiteboard from './Whiteboard.svelte';
   import {
     deriveKeyFromPassword,
     encryptMessage as sealMessage, decryptMessage,
@@ -325,7 +324,6 @@
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
-  let activeWhiteboard: WhiteboardInvite | null = null;
 
   const MAX_FILE = 50 * 1024 * 1024;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -1373,6 +1371,7 @@
   async function createWhiteboardInvite() {
     if (!cryptoKey || !ws || !connected || !verified) return;
     composerMenuOpen = false;
+    const child = window.open('about:blank', '_blank');
 
     const invite: WhiteboardInvite = {
       roomId: genWhiteboardRoomId(),
@@ -1395,7 +1394,7 @@
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
     ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
     addWhiteboardInviteMessage(invite, msgId, true);
-    activeWhiteboard = invite;
+    openWhiteboardNewTab(invite, child);
   }
 
   function getLiveSyncMessages(): LiveSyncMessage[] {
@@ -1477,15 +1476,10 @@
     }
   }
 
-  function openWhiteboardInline(invite: WhiteboardInvite) {
-    composerMenuOpen = false;
-    activeWhiteboard = invite;
-  }
-
-  function openWhiteboardNewTab(invite: WhiteboardInvite) {
+  function openWhiteboardNewTab(invite: WhiteboardInvite, opened?: Window | null) {
     composerMenuOpen = false;
     const url = getWhiteboardUrl(invite);
-    const child = typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
+    const child = opened !== undefined ? opened : typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
     if (child) {
       try {
         child.sessionStorage.setItem('whiteboard-password', invite.password);
@@ -3571,29 +3565,6 @@
       {/if}
 
       <div class="chat-thread">
-        {#if activeWhiteboard}
-          <div class="chat-whiteboard-panel">
-            <div class="chat-whiteboard-panel__bar">
-              <div class="min-w-0">
-                <p class="chat-whiteboard-panel__title">{t(dict, 'chat.whiteboardTitle')}</p>
-                <p class="chat-whiteboard-panel__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', activeWhiteboard.sender)}</p>
-              </div>
-              <div class="chat-whiteboard-panel__actions">
-                <button type="button" class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardOpenNewTab')} aria-label={t(dict, 'chat.whiteboardOpenNewTab')} on:click={() => openWhiteboardNewTab(activeWhiteboard!)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
-                </button>
-                <button type="button" class="chat-whiteboard-panel__button" title={t(dict, 'chat.whiteboardClose')} aria-label={t(dict, 'chat.whiteboardClose')} on:click={() => { activeWhiteboard = null; }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            </div>
-            <div class="chat-whiteboard-panel__surface">
-              {#key activeWhiteboard.roomId}
-                <Whiteboard locale={locale} dict={dict} roomId={activeWhiteboard.roomId} partyHost={partyHost} initialPassword={activeWhiteboard.password} />
-              {/key}
-            </div>
-          </div>
-        {/if}
         <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl} use:revealSpoilers>
       {#if messages.length === 0}
         <div class="empty max-w-sm mx-auto my-auto">
@@ -3642,10 +3613,8 @@
                     <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
                     <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
                     <div class="chat-whiteboard-card__actions">
-                      <button class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardInline(msg.whiteboard!)}>
-                        {t(dict, 'chat.whiteboardOpenInline')}
-                      </button>
-                      <button class="chat-whiteboard-card__btn" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
+                      <button type="button" class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
                         {t(dict, 'chat.whiteboardOpenNewTab')}
                       </button>
                     </div>
@@ -4139,14 +4108,14 @@
     display: none;
   }
   @container chat-body (min-width: 760px) {
-    .chat-body--call:not(:has(.chat-whiteboard-panel)) {
+    .chat-body--call {
       flex-direction: row;
     }
-    .chat-body--call:not(:has(.chat-whiteboard-panel)) > .call {
+    .chat-body--call > .call {
       flex: 1 1 auto;
       min-height: 0;
     }
-    .chat-body--call:not(:has(.chat-whiteboard-panel)) > .chat-thread {
+    .chat-body--call > .chat-thread {
       flex: 0 0 clamp(280px, 34%, 380px);
       min-height: 0;
       border-left: 1px solid var(--line-soft);
@@ -4168,7 +4137,6 @@
     border: 1px solid var(--line-soft);
     background: var(--surface);
   }
-  .chat-container:has(.chat-whiteboard-panel),
   .chat-container:has(.chat-body--call) {
     height: min(88dvh, 940px);
   }
@@ -4209,79 +4177,6 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-  }
-  .chat-whiteboard-panel {
-    flex: 1 1 72%;
-    min-height: 320px;
-    display: flex;
-    flex-direction: column;
-    border-bottom: 1px solid rgba(228, 228, 231, 0.55);
-    background: rgba(250, 250, 250, 0.72);
-  }
-  :global(.dark) .chat-whiteboard-panel {
-    border-color: rgba(39, 39, 42, 0.55);
-    background: rgba(9, 9, 11, 0.28);
-  }
-  .chat-whiteboard-panel__bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid rgba(228, 228, 231, 0.5);
-  }
-  :global(.dark) .chat-whiteboard-panel__bar { border-color: rgba(39, 39, 42, 0.45); }
-  .chat-whiteboard-panel__title {
-    font-size: 12px;
-    font-weight: 700;
-    color: rgb(39, 39, 42);
-  }
-  :global(.dark) .chat-whiteboard-panel__title { color: rgb(228, 228, 231); }
-  .chat-whiteboard-panel__meta {
-    font-size: 0.75rem;
-    color: rgb(113, 113, 122);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .chat-whiteboard-panel__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-  }
-  .chat-whiteboard-panel__button {
-    width: 30px;
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    color: rgb(113, 113, 122);
-    background: rgba(244, 244, 245, 0.85);
-    border: 1px solid rgba(228, 228, 231, 0.75);
-  }
-  .chat-whiteboard-panel__button:hover {
-    color: var(--accent);
-    background: oklch(0.7019 0.1577 160.44 / 0.08);
-    border-color: oklch(0.7019 0.1577 160.44 / 0.18);
-  }
-  :global(.dark) .chat-whiteboard-panel__button {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.65);
-    border-color: rgba(63, 63, 70, 0.45);
-  }
-  .chat-whiteboard-panel__surface {
-    flex: 1;
-    min-height: 0;
-  }
-  .chat-whiteboard-panel__surface :global(.wb-container) {
-    height: 100%;
-    max-height: none;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    backdrop-filter: none;
   }
   .chat-share-banner {
     padding: 0.5rem 0.75rem;
@@ -4747,8 +4642,11 @@
     margin-top: 0.55rem;
   }
   .chat-whiteboard-card__btn {
-    min-height: 28px;
-    padding: 0 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 32px;
+    padding: 0 0.65rem;
     border-radius: 0.45rem;
     font-size: 0.75rem;
     font-weight: 700;
