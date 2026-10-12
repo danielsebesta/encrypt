@@ -3,6 +3,8 @@
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
+  import WizardProgress from '../WizardProgress.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
   import { RETENTION_SECONDS, checkRoomPassword, roomPasswordOk, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
 
   export let locale = 'en';
@@ -73,15 +75,15 @@
   $: roomId = sanitizeRoomId(customRoomId.trim(), true);
   $: checks = checkRoomPassword(password, roomId);
   $: rules = [
-    { ok: checks.length, label: t(dict, 'chat.passwordRuleLength') },
-    { ok: checks.variety, label: t(dict, 'chat.passwordRuleVariety') },
-    { ok: checks.distinct, label: t(dict, 'chat.passwordRuleDistinct') },
+    { ok: checks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: checks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: checks.distinct, label: t(dict, 'common.passwordRuleDistinct') },
   ];
   $: retentionSeconds = RETENTION_STOPS[retentionIndex];
   $: retentionTime = retentionSeconds ? formatDuration(retentionSeconds, locale) : '';
   $: retentionLabel = retentionSeconds ? t(dict, 'chat.retentionTtl').replace('{time}', retentionTime) : t(dict, 'chat.modeLiveTitle');
   $: retentionHint = retentionSeconds ? t(dict, 'chat.retentionTtlHint').replace('{time}', retentionTime) : t(dict, 'chat.modeLiveHint');
-  $: stepText = t(dict, 'chat.wizardStep').replace('{current}', String(step)).replace('{total}', String(STEPS));
+  $: stepText = t(dict, 'common.wizardStep').replace('{current}', String(step)).replace('{total}', String(STEPS));
 
   async function goTo(next: number) {
     step = next;
@@ -102,7 +104,7 @@
   function submitPassword() {
     passwordError = '';
     if (!roomPasswordOk(password, roomId)) {
-      passwordError = t(dict, 'chat.passwordWeak');
+      passwordError = t(dict, 'common.passwordWeak');
       return;
     }
     goTo(3);
@@ -121,14 +123,7 @@
 </script>
 
 <div class="stack text-left">
-  <div class="wizard-progress">
-    <div class="wizard-progress__bars" aria-hidden="true">
-      {#each Array(STEPS) as _, i}
-        <span class="wizard-progress__bar" class:wizard-progress__bar--done={i < step}></span>
-      {/each}
-    </div>
-    <p class="hint" aria-live="polite">{stepText}</p>
-  </div>
+  <WizardProgress step={step} total={STEPS} label={stepText} />
 
   {#if step === 1}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitRoom}>
@@ -155,33 +150,22 @@
         {/if}
         <p id="chat-room-hint" class="hint">{t(dict, 'chat.customRoomIdHint')}</p>
       </div>
-      <button class="btn w-full" type="submit">{t(dict, 'chat.continue')}</button>
+      <button class="btn w-full" type="submit">{t(dict, 'common.continue')}</button>
     </form>
   {:else if step === 2}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitPassword}>
       <div class="field">
         <label class="label" for="chat-pass">{t(dict, 'chat.password')}</label>
         <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby="chat-pass-rules chat-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
-        <ul id="chat-pass-rules" class="pw-rules" aria-label={t(dict, 'chat.passwordRules')}>
-          {#each rules as rule}
-            <li class="pw-rules__item" class:pw-rules__item--ok={rule.ok}>
-              {#if rule.ok}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-              {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>
-              {/if}
-              <span>{rule.label}</span>
-            </li>
-          {/each}
-        </ul>
+        <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} />
         {#if passwordError}
           <p class="status status--error" role="alert">{passwordError}</p>
         {/if}
         <p id="chat-pass-hint" class="hint">{t(dict, 'chat.createDescription')}</p>
       </div>
       <div class="wizard-actions">
-        <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'chat.back')}</button>
-        <button class="btn" type="submit">{t(dict, 'chat.continue')}</button>
+        <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'common.back')}</button>
+        <button class="btn" type="submit">{t(dict, 'common.continue')}</button>
       </div>
     </form>
   {:else}
@@ -206,7 +190,7 @@
         <p id="chat-retention-hint" class="hint">{retentionHint}</p>
       </div>
       <div class="wizard-actions">
-        <button class="btn-secondary" type="button" on:click={() => goTo(2)}>{t(dict, 'chat.back')}</button>
+        <button class="btn-secondary" type="button" on:click={() => goTo(2)}>{t(dict, 'common.back')}</button>
         <button class="btn" type="submit">{t(dict, 'chat.createRoom')}</button>
       </div>
     </form>
@@ -214,50 +198,6 @@
 </div>
 
 <style>
-  .wizard-progress {
-    display: grid;
-    gap: 0.5rem;
-  }
-  .wizard-progress__bars {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.375rem;
-  }
-  .wizard-progress__bar {
-    height: 4px;
-    border-radius: 999px;
-    background: var(--line-soft);
-    transition: background-color var(--duration-fast) var(--ease-out);
-  }
-  .wizard-progress__bar--done {
-    background: var(--accent);
-  }
-  .wizard-actions {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.75rem;
-  }
-  .pw-rules {
-    display: grid;
-    gap: 0.25rem;
-    margin-top: 0.25rem;
-    font-size: 0.875rem;
-    color: var(--muted);
-  }
-  .pw-rules__item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .pw-rules__item svg {
-    flex: none;
-  }
-  .pw-rules__item--ok {
-    color: var(--text);
-  }
-  .pw-rules__item--ok svg {
-    color: var(--accent);
-  }
   .retention-value {
     font-size: 1.125rem;
     font-weight: 800;
