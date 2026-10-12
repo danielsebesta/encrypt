@@ -811,7 +811,7 @@
         <span class="label">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</span>
         <CopyButton text={openedText} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
       </div>
-      <div class="output output--ok min-h-20">{openedText}</div>
+      <div class="output output--ok">{openedText}</div>
       {#if previewTruncated}
         <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
       {/if}
@@ -922,7 +922,7 @@
           <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
         {/if}
       {:else if previewType === 'text'}
-        <div class="output output--scroll min-h-40 max-h-[70vh]">{openedText}</div>
+        <div class="output output--scroll max-h-[70vh]">{openedText}</div>
         {#if previewTruncated}
           <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
         {/if}
