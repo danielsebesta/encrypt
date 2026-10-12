@@ -1413,7 +1413,7 @@
   function getLiveSyncMessages(): LiveSyncMessage[] {
     if (roomConfig.mode !== 'live') return [];
     return messages
-      .filter((msg) => !msg.whiteboard && msg.sender && (msg.text || msg.file))
+      .filter((msg) => !msg.whiteboard && !msg.ttl && msg.sender && (msg.text || msg.file))
       .slice(-200)
       .map((msg) => ({
         id: msg.id,
@@ -1927,7 +1927,7 @@
       messages = [...messages, msg];
       typing = null;
       if (!fromHistory) scrollToBottom();
-      if (!fromHistory) storeLocalEnvelope({ ...data, id });
+      if (!fromHistory && !ttl) storeLocalEnvelope({ ...data, id });
 
       if (msg.file) autoPreview(msg);
 
@@ -1947,11 +1947,25 @@
     }
   }
 
+  // A trailing "!N" makes one message disappear after N seconds in any room mode.
+  const BURN_SUFFIX = /\s*!(\d{1,4})$/;
+  const BURN_MAX_SECONDS = 3600;
+
+  function parseBurnSuffix(raw: string): { text: string; ttl: number } | null {
+    const match = raw.match(BURN_SUFFIX);
+    if (!match) return null;
+    const ttl = Number(match[1]);
+    const text = raw.slice(0, match.index).trim();
+    if (!text || ttl < 1 || ttl > BURN_MAX_SECONDS) return null;
+    return { text, ttl };
+  }
+
   async function sendMessage() {
     if (!inputText.trim() || !cryptoKey || !ws) return;
 
-    const finalTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
-    const text = inputText.trim();
+    const burn = parseBurnSuffix(inputText.trim());
+    const finalTtl = burn ? burn.ttl : roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    const text = burn ? burn.text : inputText.trim();
     const msgId = genId();
     const createdAt = Date.now();
 
@@ -1974,7 +1988,7 @@
       persist: false,
       createdAt,
     }));
-    storeLocalEnvelope({ type: 'message', payload: encrypted, id: msgId, createdAt });
+    if (!finalTtl) storeLocalEnvelope({ type: 'message', payload: encrypted, id: msgId, createdAt });
     seenMessageIds.add(msgId);
 
     messages = [...messages, {
