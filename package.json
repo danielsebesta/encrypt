@@ -11,6 +11,8 @@
     "build": "astro build && node scripts/inject-csp-hashes.mjs && node scripts/generate-integrity-manifest.mjs && node scripts/merge-wrangler-routes.mjs",
     "preview": "astro preview",
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
+    "dev:upload": "wrangler dev --config workers/upload/wrangler.toml",
+    "deploy:upload": "wrangler deploy --config workers/upload/wrangler.toml",
     "astro": "astro"
   },
   "dependencies": {
