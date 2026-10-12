@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validShapeRecord, sanitizeScribbles } from '../src/lib/whiteboardRecords';
+import { validShapeRecord, sanitizeScribbles, validBoardChatItem } from '../src/lib/whiteboardRecords';
 import { splitDocUpdate, DocPartAssembler } from '../src/lib/whiteboardSync';
 
 const shape = (type: string, props: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
@@ -86,4 +86,17 @@ test('part assembly is kept per sender, bounded and expires', () => {
   const bad = parts[0].slice();
   bad[0] = 9;
   assert.equal(asm.accept('d', bad), null);
+});
+
+test('board chat items are bounded and well-formed', () => {
+  const ok = { id: 'abc123', text: 'hi **there**', alias: [1, 2, 3], at: 1_760_000_000_000 };
+  assert.equal(validBoardChatItem(ok), true);
+  assert.equal(validBoardChatItem({ ...ok, ttl: 5 }), true);
+  assert.equal(validBoardChatItem({ ...ok, ttl: 0 }), false);
+  assert.equal(validBoardChatItem({ ...ok, text: '   ' }), false);
+  assert.equal(validBoardChatItem({ ...ok, text: 'x'.repeat(2001) }), false);
+  assert.equal(validBoardChatItem({ ...ok, id: 'bad id!' }), false);
+  assert.equal(validBoardChatItem({ ...ok, alias: [1, 2] }), false);
+  assert.equal(validBoardChatItem({ ...ok, at: 'now' }), false);
+  assert.equal(validBoardChatItem(null), false);
 });
