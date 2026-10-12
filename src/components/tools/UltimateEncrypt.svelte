@@ -7,11 +7,15 @@
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
+  import WizardProgress from '../WizardProgress.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
+  import { checkRoomPassword } from '../../lib/chatRoomSettings';
+  import { tick } from 'svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
 
-  type Step = 'input' | 'confirm' | 'processing' | 'result';
+  type Step = 'input' | 'password' | 'confirm' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
 
   let step: Step = 'input';
@@ -308,6 +312,25 @@
     }
   }
 
+  $: passwordChecks = checkRoomPassword(password, '');
+  $: passwordRules = [
+    { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
+  ];
+  $: wizardStep = step === 'input' ? 1 : step === 'password' || step === 'confirm' || step === 'processing' ? 2 : 3;
+  $: wizardLabel = t(dict, 'common.wizardStep').replace('{current}', String(wizardStep)).replace('{total}', '3');
+
+  async function goToPassword() {
+    error = '';
+    if (files.length === 0 && !textInput.trim()) {
+      error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
+      return;
+    }
+    step = 'password';
+    await tick();
+    document.getElementById('ue-pass')?.focus();
+  }
+
   async function handleEncrypt() {
     error = '';
     resultUrl = '';
@@ -329,6 +352,11 @@
     if (!password) {
       error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
       pushDebug('Validation failed: missing password');
+      return;
+    }
+    if (!passwordChecks.length || !passwordChecks.variety) {
+      error = t(dict, 'common.passwordWeak');
+      pushDebug('Validation failed: weak password');
       return;
     }
 
@@ -357,7 +385,7 @@
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       pushDebug(`Encrypt failed: ${error}`);
-      step = 'input';
+      step = 'password';
     }
   }
 
@@ -656,6 +684,7 @@
   });
 </script>
 <div class="stack text-left">
+  <WizardProgress step={wizardStep} total={3} label={wizardLabel} />
   {#if step === 'input'}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="stack" on:paste={handlePaste}>
@@ -700,9 +729,24 @@
         </div>
       </div>
 
+      {#if error}
+        <p class="status status--error" role="alert">{error}</p>
+      {/if}
+
+      <button class="btn w-full" type="button" on:click={goToPassword} disabled={(!textInput.trim() && files.length === 0)}>
+        {t(dict, 'common.continue')}
+      </button>
+      {#if !textInput.trim() && files.length === 0}
+        <p class="hint text-center">{t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile')}</p>
+      {/if}
+    </div>
+
+  {:else if step === 'password'}
+    <form class="stack" method="dialog" on:submit|preventDefault={handleEncrypt}>
       <div class="field">
         <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-        <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-hint" generate={generatePassphrase} bind:revealed={passwordRevealed} />
+        <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-rules ue-pass-hint" invalid={!!error} generate={() => { error = ''; return generatePassphrase(); }} bind:revealed={passwordRevealed} />
+        <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
         <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 
@@ -710,18 +754,11 @@
         <p class="status status--error" role="alert">{error}</p>
       {/if}
 
-      <button
-        class="btn w-full"
-        type="button"
-        on:click={handleEncrypt}
-        disabled={(!textInput.trim() && files.length === 0)}
-      >
-        {t(dict, 'tools.ultimateEncrypt.encryptAndShare')}
-      </button>
-      {#if !textInput.trim() && files.length === 0}
-        <p class="hint text-center">{t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile')}</p>
-      {/if}
-    </div>
+      <div class="wizard-actions">
+        <button class="btn-secondary" type="button" on:click={() => { error = ''; step = 'input'; }}>{t(dict, 'common.back')}</button>
+        <button class="btn" type="submit">{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>
+      </div>
+    </form>
 
   {:else if step === 'confirm'}
     <div class="stack">
@@ -750,7 +787,7 @@
         {#if showManualTransferHelp && pendingHosts.length > 0}
           <button class="btn-secondary" type="button" on:click={confirmUpload}>{t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}</button>
         {/if}
-        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
+        <button type="button" class="btn-ghost" on:click={() => step = 'password'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
       </div>
     </div>
 
