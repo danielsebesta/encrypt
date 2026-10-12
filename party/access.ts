@@ -36,7 +36,7 @@ export class RoomAccess {
   private joined = new WeakSet<RoomConnection>();
   private windows = new WeakMap<RoomConnection, { start: number; count: number; bytes: number }>();
   private deadlines = new WeakMap<RoomConnection, ReturnType<typeof setTimeout>>();
-  constructor(private room: RoomHost) {}
+  constructor(private room: RoomHost, private maxMessages = 150) {}
   open(conn: RoomConnection) {
     this.deadlines.set(conn, setTimeout(() => {
       if (!this.has(conn)) conn.close(4003, 'AUTH_TIMEOUT');
@@ -57,7 +57,7 @@ export class RoomAccess {
     let window = this.windows.get(conn);
     if (!window || now - window.start > 10000) { window = { start: now, count: 0, bytes: 0 }; this.windows.set(conn, window); }
     window.count++; window.bytes += message.length;
-    if (window.count > 150 || window.bytes > 3 * 1024 * 1024) { conn.close(4008, 'RATE_LIMIT'); return false; }
+    if (window.count > this.maxMessages || window.bytes > 3 * 1024 * 1024) { conn.close(4008, 'RATE_LIMIT'); return false; }
     return true;
   }
   remove(conn: RoomConnection) {
