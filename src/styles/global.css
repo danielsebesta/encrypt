@@ -234,7 +234,7 @@ html.dark {
     /* ── Fields ── */
 
     .field {
-        @apply grid gap-1.5;
+        @apply grid grid-cols-1 content-start gap-1.5;
     }
 
     .label {
