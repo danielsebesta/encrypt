@@ -19,6 +19,7 @@
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { t } from '../../lib/t';
+  import { normalizeChatMode, chatModeTtlSeconds, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
 
   export let locale = 'en';
   export let roomId = '';
@@ -44,7 +45,7 @@
     whiteboard?: WhiteboardInvite;
   };
 
-  type ChatRoomMode = 'live' | 'ttl-10' | 'ttl-5';
+  type ChatRoomMode = ChatMode;
   type ChatAuthMode = 'password' | 'fragment';
 
   type RoomConfig = {
@@ -1199,16 +1200,8 @@
     updateServerQuality();
   }
 
-  const MODE_LABELS: Record<ChatRoomMode, string> = {
-    live: 'chat.modeLabelLive',
-    'ttl-10': 'chat.modeLabelTtl10',
-    'ttl-5': 'chat.modeLabelTtl5',
-  };
-
   function getRoomTtlSeconds(): number {
-    if (roomConfig.mode === 'ttl-10') return 10;
-    if (roomConfig.mode === 'ttl-5') return 5;
-    return 0;
+    return chatModeTtlSeconds(roomConfig.mode);
   }
 
   function shouldKeepParticipantHistory(): boolean {
@@ -1236,12 +1229,6 @@
     return locale && locale !== 'en' ? `/${locale}` : '';
   }
 
-  function normalizeChatRoomMode(value: unknown): ChatRoomMode {
-    if (value === 'live' || value === 'ttl-10' || value === 'ttl-5') return value;
-    if (value === 'burn') return 'ttl-10';
-    return 'live';
-  }
-
   function isChatAuthMode(value: unknown): value is ChatAuthMode {
     return value === 'password' || value === 'fragment';
   }
@@ -1251,7 +1238,7 @@
     const value = input as Partial<RoomConfig>;
     if (!isChatAuthMode(value.authMode)) return null;
     return {
-      mode: normalizeChatRoomMode(value.mode),
+      mode: normalizeChatMode(value.mode),
       authMode: value.authMode,
       createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
     };
@@ -1264,7 +1251,8 @@
   }
 
   function getRoomModeLabel(): string {
-    return t(dict, MODE_LABELS[roomConfig.mode]);
+    const ttl = getRoomTtlSeconds();
+    return ttl ? formatDuration(ttl, locale, 'short') : t(dict, 'chat.modeLabelLive');
   }
 
   function bytesToB64url(bytes: Uint8Array): string {
