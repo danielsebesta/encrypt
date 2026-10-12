@@ -1947,17 +1947,18 @@
     }
   }
 
-  // A trailing "!N" makes one message disappear after N seconds in any room mode.
-  const BURN_SUFFIX = /\s*!(\d{1,4})$/;
+  // A trailing "!N" makes one message disappear after N seconds in any room mode. Out-of-range or
+  // fractional values are clamped rather than ignored, so a typo never turns a private message permanent.
+  const BURN_SUFFIX = /\s*!(\d{1,9}(?:[.,]\d*)?)$/;
   const BURN_MAX_SECONDS = 3600;
 
   function parseBurnSuffix(raw: string): { text: string; ttl: number } | null {
     const match = raw.match(BURN_SUFFIX);
     if (!match) return null;
-    const ttl = Number(match[1]);
     const text = raw.slice(0, match.index).trim();
-    if (!text || ttl < 1 || ttl > BURN_MAX_SECONDS) return null;
-    return { text, ttl };
+    if (!text) return null;
+    const seconds = Number.parseFloat(match[1].replace(',', '.')) || 0;
+    return { text, ttl: Math.min(BURN_MAX_SECONDS, Math.max(1, Math.ceil(seconds))) };
   }
 
   async function sendMessage() {
