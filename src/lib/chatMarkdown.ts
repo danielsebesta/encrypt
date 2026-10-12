@@ -4,7 +4,7 @@ function esc(s: string): string {
 
 export function parseMarkdown(text: string): string {
   let html = esc(text);
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, _lang, code) =>
     `<pre class="chat-code-block"><code>${code.trim()}</code></pre>`);
   html = html.replace(/`([^`]+)`/g, '<code class="chat-code-inline">$1</code>');
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');

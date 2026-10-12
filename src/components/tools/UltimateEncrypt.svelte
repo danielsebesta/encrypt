@@ -14,6 +14,7 @@
 
   export let locale = 'en';
   export let dict: Record<string, string>;
+  export let resultArt = true;
 
   type Step = 'input' | 'password' | 'confirm' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
@@ -803,7 +804,7 @@
 
   {:else if step === 'result'}
     <div class="stack" role="status">
-      <img src="/encrypt_send.svg" alt="" width="236" height="293" class="state-art" decoding="async" />
+      {#if resultArt}<img src="/encrypt_send.svg" alt="" width="236" height="293" class="state-art" decoding="async" />{/if}
       {#if resultUrl || shortUrl}
         <div class="field">
           <div class="output-head">
