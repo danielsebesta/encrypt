@@ -383,6 +383,17 @@
     return html;
   }
 
+  // The message list re-renders on every timer tick, so each message keeps its parsed HTML until its text changes.
+  const markdownCache = new WeakMap<Message, { text: string; html: string }>();
+
+  function messageHtml(msg: Message): string {
+    const hit = markdownCache.get(msg);
+    if (hit && hit.text === msg.text) return hit.html;
+    const html = parseMarkdown(msg.text);
+    markdownCache.set(msg, { text: msg.text, html });
+    return html;
+  }
+
   function revealSpoilers(node: HTMLElement) {
     function toggleSpoiler(target: EventTarget | null) {
       if (!(target instanceof HTMLElement)) return false;
@@ -411,9 +422,15 @@
     };
   }
 
-  function scrollToBottom() {
+  // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so keep pinning until it settles.
+  function scrollToBottom(frames = 4) {
     requestAnimationFrame(() => {
-      if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (!messagesEl) return;
+      const before = messagesEl.scrollHeight;
+      messagesEl.scrollTop = before;
+      if (frames > 1) requestAnimationFrame(() => {
+        if (messagesEl && messagesEl.scrollHeight !== before) scrollToBottom(frames - 1);
+      });
     });
   }
 
@@ -1363,11 +1380,27 @@
       }));
   }
 
+  // Encrypted payloads grow by about a third and the relay drops anything above 720k characters, so history goes out in batches.
+  const SYNC_BATCH_BYTES = 480_000;
+
   async function sendLiveHistorySync() {
     if (roomConfig.mode !== 'live') return;
     const syncMessages = getLiveSyncMessages();
     if (syncMessages.length === 0) return;
-    await sendEncryptedControl({ type: 'chat-sync', messages: syncMessages }, 'sync');
+    const enc = new TextEncoder();
+    let batch: LiveSyncMessage[] = [];
+    let batchBytes = 0;
+    for (const msg of syncMessages) {
+      const bytes = enc.encode(JSON.stringify(msg)).length + 1;
+      if (batch.length && batchBytes + bytes > SYNC_BATCH_BYTES) {
+        await sendEncryptedControl({ type: 'chat-sync', messages: batch }, 'sync');
+        batch = [];
+        batchBytes = 0;
+      }
+      batch.push(msg);
+      batchBytes += bytes;
+    }
+    if (batch.length) await sendEncryptedControl({ type: 'chat-sync', messages: batch }, 'sync');
   }
 
   async function applyLiveHistorySync(syncMessages: unknown) {
@@ -3574,7 +3607,7 @@
                 {/if}
               {/if}
               {#if msg.text}
-                <p class="chat-text">{@html parseMarkdown(msg.text)}</p>
+                <p class="chat-text">{@html messageHtml(msg)}</p>
               {/if}
             </div>
             {#if msg.ttl > 0}
@@ -4337,6 +4370,8 @@
   .chat-bubble {
     max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 0.875rem;
     background: rgba(244, 244, 245, 0.8); align-self: flex-start;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 12rem auto 4rem;
   }
   :global(.dark) .chat-bubble { background: rgba(39, 39, 42, 0.5); }
   .chat-bubble--mine {
