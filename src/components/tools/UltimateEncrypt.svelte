@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
   import { encryptData, prependEclkMagic } from '../../lib/ghost/crypto';
+  import { MAX_UPLOAD_BYTES, MAX_FIRST_PARTY_BYTES, MAX_TRANSFER_BYTES } from '../../lib/httpLimits';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
@@ -16,7 +17,7 @@
   export let dict: Record<string, string>;
   export let resultArt = true;
 
-  type Step = 'input' | 'password' | 'confirm' | 'processing' | 'result';
+  type Step = 'input' | 'password' | 'confirm' | 'fallback' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
 
   let step: Step = 'input';
@@ -42,6 +43,9 @@
   let pendingUsedStego = false;
   let pendingHosts: HostInfo[] = [];
   let showManualTransferHelp = false;
+  let sendButtonEl: HTMLButtonElement | undefined;
+  let sendInstance: { host: string; country?: string } | null = null;
+  let failedSendHosts: string[] = [];
   let resultHasTemporaryUpload = false;
   let progressTitle = '';
   let progressDetail = '';
@@ -49,40 +53,17 @@
   let qrSvg = '';
 
   const INLINE_LIMIT = 10 * 1024;
-  const MAX_FILE = 50 * 1024 * 1024;
+  const MAX_FILE = MAX_UPLOAD_BYTES;
   const STEGO_THRESHOLD = 500 * 1024;
 
   interface HostInfo { id: string; name: string; maxBytes: number; }
 
   const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
   const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
-  const FIRST_PARTY_HOST: HostInfo = { id: 'eclk', name: 'encrypt.click upload', maxBytes: MAX_FILE };
+  const FIRST_PARTY_HOST: HostInfo = { id: 'eclk', name: 'encrypt.click upload', maxBytes: MAX_FIRST_PARTY_BYTES };
 
-  // Send is the secondary automatic fallback.
-  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: 5 * 1024 * 1024 * 1024 };
-  // Emergency binary hosts, tried only after Send fails.
-  const BINARY_HOSTS: HostInfo[] = [
-    { id: 'quax', name: 'qu.ax', maxBytes: 256 * 1024 * 1024 },
-    { id: 'x0at', name: 'x0.at', maxBytes: 512 * 1024 * 1024 },
-    { id: 'tmpfile', name: 'tmpfile.link', maxBytes: 100 * 1024 * 1024 },
-    { id: 'litterbox', name: 'Litterbox', maxBytes: 1024 * 1024 * 1024 },
-    { id: 'tempsh', name: 'temp.sh', maxBytes: 4 * 1024 * 1024 * 1024 },
-  ];
-
-  // Emergency image hosts for stego PNGs, tried only after Send fails.
-  const IMAGE_HOSTS: HostInfo[] = [
-    { id: 'sxcu', name: 'sxcu.net', maxBytes: 95 * 1024 * 1024 },
-    { id: 'freeimage', name: 'FreeImage.host', maxBytes: 64 * 1024 * 1024 },
-  ];
-
-  function shuffleArr<T>(arr: T[]): T[] {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
+  // Send is the automatic fallback; its own encryption layer adds a little overhead, which must still fit the relay limit.
+  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: MAX_TRANSFER_BYTES - 64 * 1024 };
 
   $: totalFileSize = files.reduce((s, f) => s + f.size, 0);
   $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
@@ -319,7 +300,7 @@
     { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
     { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
   ];
-  $: wizardStep = step === 'input' ? 1 : step === 'password' || step === 'confirm' || step === 'processing' ? 2 : 3;
+  $: wizardStep = step === 'input' ? 1 : step === 'password' || step === 'confirm' || step === 'fallback' || step === 'processing' ? 2 : 3;
   $: wizardLabel = t(dict, 'common.wizardStep').replace('{current}', String(wizardStep)).replace('{total}', '3');
 
   async function goToPassword() {
@@ -341,6 +322,8 @@
     stegoImageBlob = null;
     showManualTransferHelp = false;
     resultHasTemporaryUpload = false;
+    sendInstance = null;
+    failedSendHosts = [];
     setProgress('', '');
     debugLog = [];
 
@@ -374,15 +357,7 @@
         step = 'result';
       } else {
         await encryptGhostPrepare();
-        try {
-          await encryptGhostUpload();
-          step = 'result';
-        } catch (e: any) {
-          error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
-          showManualTransferHelp = true;
-          pushDebug(`Upload failed: ${error}`);
-          step = 'confirm';
-        }
+        await uploadGhost(firstPartyHosts());
       }
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
@@ -391,19 +366,73 @@
     }
   }
 
+  const firstPartyHosts = () => pendingHosts.filter(h => h.id === 'eclk');
+  const sendHosts = () => pendingHosts.filter(h => h.id === 'nologsend');
+
+  // Send is run by third parties, so it is only used after the sender agrees to a specific instance.
+  async function uploadGhost(hosts: HostInfo[]) {
+    try {
+      await encryptGhostUpload(hosts);
+      showManualTransferHelp = false;
+      step = 'result';
+      return;
+    } catch (e: any) {
+      error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+      pushDebug(`Upload failed: ${error}`);
+    }
+
+    const failedHost = hosts.some(h => h.id === 'nologsend') ? sendInstance?.host : undefined;
+    if (failedHost) failedSendHosts = [...failedSendHosts, failedHost];
+    if (sendHosts().length > 0 && await pickSendInstance()) {
+      error = failedHost ? t(dict, 'tools.ultimateEncrypt.fallback.failed').replace('{host}', failedHost) : '';
+      step = 'fallback';
+      await tick();
+      sendButtonEl?.focus();
+      return;
+    }
+    showManualTransferHelp = true;
+    step = 'confirm';
+  }
+
+  async function pickSendInstance(): Promise<boolean> {
+    sendInstance = null;
+    try {
+      const params = new URLSearchParams({ size: String(pendingUploadBytes?.length ?? 0), exclude: failedSendHosts.join(',') });
+      const res = await fetch(`/api/ghost/upload?${params}`);
+      const data = await res.json().catch(() => null) as any;
+      if (res.ok && typeof data?.instance?.host === 'string') {
+        sendInstance = { host: data.instance.host, country: data.instance.country };
+        pushDebug(`Offering Send instance ${sendInstance.host}`);
+        return true;
+      }
+      pushDebug(`No Send instance available: ${data?.error || `HTTP ${res.status}`}`);
+    } catch {
+      pushDebug('Send instance lookup failed');
+    }
+    return false;
+  }
+
+  function countryName(code?: string): string {
+    if (!code) return '';
+    try {
+      return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code;
+    } catch {
+      return code;
+    }
+  }
+
+  $: fallbackBody = t(dict, 'tools.ultimateEncrypt.fallback.body').split('{server}');
+
   async function confirmUpload() {
     step = 'processing';
     error = '';
-    try {
-      await encryptGhostUpload();
-      showManualTransferHelp = false;
-      step = 'result';
-    } catch (e: any) {
-      error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
-      showManualTransferHelp = true;
-      pushDebug(`Upload failed: ${error}`);
-      step = 'confirm';
-    }
+    await uploadGhost(firstPartyHosts());
+  }
+
+  async function uploadToSend() {
+    step = 'processing';
+    error = '';
+    await uploadGhost(sendHosts());
   }
 
   async function resolvePayload(): Promise<{ buffer: Uint8Array; filename: string }> {
@@ -511,14 +540,11 @@
 
     const firstPartyEligible = pendingUploadBytes!.length + 4 <= FIRST_PARTY_HOST.maxBytes ? [FIRST_PARTY_HOST] : [];
     const sendEligible = pendingUploadBytes!.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
-    const emergencyHosts = usedStego
-      ? shuffleArr(IMAGE_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes)
-      : shuffleArr(BINARY_HOSTS).filter(h => pendingUploadBytes!.length <= h.maxBytes);
-    pendingHosts = [...firstPartyEligible, ...sendEligible, ...emergencyHosts];
+    pendingHosts = [...firstPartyEligible, ...sendEligible];
     pushDebug(`Encrypted file ready. Hosts: ${pendingHosts.map(h => h.name).join(', ')}`);
   }
 
-  async function encryptGhostUpload() {
+  async function encryptGhostUpload(hosts: HostInfo[]) {
     if (!pendingUploadBytes) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoEncryptedData'));
     const uploadBytes = pendingUploadBytes;
     const uploadFilename = pendingUploadFilename;
@@ -531,10 +557,6 @@
     async function tryUploadHost(host: HostInfo): Promise<string | null> {
       try {
         pushDebug(`Uploading to ${host.name}`);
-        let fetchBody: Uint8Array = uploadBytes;
-        const headers: Record<string, string> = {};
-        let sendSecret = '';
-
         if (host.id === 'eclk') {
           const res = await fetch(FIRST_PARTY_UPLOAD_URL, {
             method: 'POST',
@@ -549,27 +571,28 @@
           return data?.success && data?.id ? `${FIRST_PARTY_DOWNLOAD_BASE_URL}/${encodeURIComponent(data.id)}` : null;
         }
 
-        if (host.id === 'nologsend') {
-          const { prepareSendUpload } = await import('../../lib/nologSend');
-          const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
-          fetchBody = prepared.encryptedBytes;
-          headers['X-Send-Metadata'] = prepared.metadataB64;
-          headers['X-Send-Auth'] = prepared.authHeader;
-          sendSecret = prepared.secretB64;
-        }
-
-        const res = await fetch(`/api/ghost/upload?services=${host.id}&stego=${usedStego}&filename=${encodeURIComponent(uploadFilename)}`, {
-          method: 'POST', body: fetchBody, headers,
+        const { prepareSendUpload } = await import('../../lib/nologSend');
+        const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
+        const res = await fetch('/api/ghost/upload', {
+          method: 'POST',
+          body: prepared.encryptedBytes,
+          headers: {
+            'X-Send-Metadata': prepared.metadataB64,
+            'X-Send-Auth': prepared.authHeader,
+            ...(sendInstance ? { 'X-Send-Instance': sendInstance.host } : {}),
+          },
         });
-        if (!res.ok) return null;
         const data = await res.json().catch(() => null) as any;
-        const url = data?.results?.[0]?.url;
-        if (!url) return null;
-        return sendSecret ? `${url}#${sendSecret}` : url;
+        const result = data?.results?.[0];
+        if (!res.ok || !result?.url) {
+          pushDebug(`Send network failed: ${result?.details?.join('; ') || data?.error || `HTTP ${res.status}`}`);
+          return null;
+        }
+        return `${result.url}#${prepared.secretB64}`;
       } catch { return null; }
     }
 
-    for (const host of pendingHosts) {
+    for (const host of hosts) {
       const url = await tryUploadHost(host);
       if (url) { uploadUrls.push(url); break; }
     }
@@ -791,6 +814,27 @@
           <button class="btn-secondary" type="button" on:click={confirmUpload}>{t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}</button>
         {/if}
         <button type="button" class="btn-ghost" on:click={() => step = 'password'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
+      </div>
+    </div>
+
+  {:else if step === 'fallback'}
+    <div class="stack">
+      <div class="status status--warn">
+        <div>
+          <p class="status__title">{t(dict, 'tools.ultimateEncrypt.fallback.title')}</p>
+          <p>{fallbackBody[0]}{#if sendInstance}<a href="https://{sendInstance.host}" target="_blank" rel="noopener noreferrer" class="font-semibold underline underline-offset-2">{sendInstance.host}</a>{#if sendInstance.country}{' '}({countryName(sendInstance.country)}){/if}{/if}{fallbackBody[1] ?? ''}</p>
+        </div>
+      </div>
+      {#if error}
+        <p class="status status--error" role="alert">{error}</p>
+      {/if}
+      <p class="hint">{t(dict, 'tools.ultimateEncrypt.fallback.availability')}</p>
+      <div class="actions">
+        <button class="btn" type="button" bind:this={sendButtonEl} on:click={uploadToSend}>{t(dict, 'tools.ultimateEncrypt.fallback.uploadBtn')}</button>
+        {#if localFileUrl}
+          <a href={localFileUrl} download={localFileName} class="btn-secondary max-w-full truncate">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</a>
+        {/if}
+        <button type="button" class="btn-ghost" on:click={() => step = 'password'}>{t(dict, 'tools.ultimateEncrypt.fallback.cancelBtn')}</button>
       </div>
     </div>
 

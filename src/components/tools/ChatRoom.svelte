@@ -17,6 +17,7 @@
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
+  import { MAX_UPLOAD_BYTES, MAX_FIRST_PARTY_BYTES, MAX_TRANSFER_BYTES } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
   import { normalizeChatMode, chatModeTtlSeconds, formatDuration, parseBurnSuffix, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
@@ -261,6 +262,7 @@
   let onlineUsers: { key: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
   let lastWrongPasswordNotice = 0;
   let uploading = false;
+  let fileError = '';
   let fileInputEl: HTMLInputElement;
   let sharePassword = '';
   let shareCopiedLink = false;
@@ -327,7 +329,7 @@
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
 
-  const MAX_FILE = 50 * 1024 * 1024;
+  const MAX_FILE = MAX_UPLOAD_BYTES;
   const TEXT_AS_FILE_LIMIT = 2000;
   const MAX_SDP_CHARS = 96_000;
   const MAX_ICE_CANDIDATE_CHARS = 4096;
@@ -353,15 +355,6 @@
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  }
-
-  function shuffleArr<T>(arr: T[]): T[] {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
   }
 
   // The message list re-renders on every timer tick, so each message keeps its parsed HTML until its text changes.
@@ -1941,21 +1934,25 @@
   function handleFileSelect(e: Event) {
     const target = e.target as HTMLInputElement;
     const file = target.files?.[0];
-    if (!file) return;
-    if (file.size > MAX_FILE) return;
-    sendFile(file);
     target.value = '';
+    if (!file) return;
+    if (file.size > MAX_FILE) {
+      fileError = t(dict, 'chat.fileTooLarge').replace('{max}', String(MAX_FILE / (1024 * 1024)));
+      return;
+    }
+    sendFile(file);
   }
 
   async function sendFile(file: File) {
     if (!cryptoKey || !ws || uploading) return;
     uploading = true;
+    fileError = '';
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
       const encrypted = await encryptData(buffer, passwordUsed, file.name);
 
-      // First-party R2 upload first; Send and public hosts are fallbacks only.
+      // First-party R2 upload first; Send is the fallback.
       const uploadUrls: string[] = [];
 
       async function tryHost(svc: string, body: Uint8Array, headers: Record<string, string> = {}): Promise<string | null> {
@@ -1971,7 +1968,7 @@
             return data?.success && data?.id ? `${FIRST_PARTY_DOWNLOAD_BASE_URL}/${encodeURIComponent(data.id)}` : null;
           }
 
-          const res = await fetch(`/api/ghost/upload?services=${svc}&stego=false&filename=ghost.bin`, {
+          const res = await fetch('/api/ghost/upload', {
             method: 'POST', body, headers,
           });
           if (!res.ok) return null;
@@ -1980,10 +1977,10 @@
         } catch { return null; }
       }
 
-      const firstPartyUrl = encrypted.length + 4 <= MAX_FILE ? await tryHost('eclk', encrypted) : null;
+      const firstPartyUrl = encrypted.length + 4 <= MAX_FIRST_PARTY_BYTES ? await tryHost('eclk', encrypted) : null;
       if (firstPartyUrl) uploadUrls.push(firstPartyUrl);
 
-      if (uploadUrls.length === 0) try {
+      if (uploadUrls.length === 0 && encrypted.length <= MAX_TRANSFER_BYTES - 64 * 1024) try {
         const prepared = await prepareSendUpload(encrypted, 'ghost.bin', 'application/octet-stream');
         const sendUrl = await tryHost('nologsend', prepared.encryptedBytes, {
           'X-Send-Metadata': prepared.metadataB64,
@@ -1993,13 +1990,9 @@
       } catch {}
 
       if (uploadUrls.length === 0) {
-        for (const svc of shuffleArr(['quax', 'x0at', 'tmpfile'])) {
-          const url = await tryHost(svc, encrypted);
-          if (url) { uploadUrls.push(url); break; }
-        }
+        fileError = t(dict, 'chat.fileUploadFailed');
+        return;
       }
-
-      if (uploadUrls.length === 0) return;
 
       const fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
       const msgId = genId();
@@ -3606,6 +3599,14 @@
 
         </div>
 
+        {#if fileError}
+          <div class="chat-file-error" role="alert">
+            <span>{fileError}</span>
+            <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { fileError = ''; }} aria-label={t(dict, 'chat.callDismiss')}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        {/if}
         <div class="chat-input">
           <div class="chat-attach-menu">
             <button
@@ -4408,6 +4409,14 @@
     padding: 0.5rem 0.75rem; margin-top: 0.25rem;
     border-radius: 0.5rem;
     background: rgba(239, 68, 68, 0.08);
+  }
+  .chat-file-error {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    padding: 0.375rem 0.75rem 0.375rem 1rem;
+    border-top: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
+    background: var(--danger-weak);
+    color: var(--danger);
+    font-size: 0.875rem;
   }
   .chat-input {
     display: flex; align-items: center; gap: 0.6rem;

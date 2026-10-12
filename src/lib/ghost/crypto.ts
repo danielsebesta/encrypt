@@ -1,5 +1,5 @@
 import { sealPassword, openPassword, passwordKey } from '../passwordEnvelope';
-const ECLK_MAGIC = new Uint8Array([0x45, 0x43, 0x4c, 0x4b]);
+export const ECLK_MAGIC = new Uint8Array([0x45, 0x43, 0x4c, 0x4b]);
 
 export function prependEclkMagic(data: Uint8Array): Uint8Array {
   const combined = new Uint8Array(ECLK_MAGIC.length + data.length);
