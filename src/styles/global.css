@@ -97,7 +97,6 @@ html.dark {
     --duration-dialog: 200ms;
     --z-nav: 10;
     --z-menu: 20;
-    --z-dialog: 30;
     --z-toast: 40;
 }
 
@@ -469,39 +468,6 @@ html.dark {
         @apply max-h-full max-w-full object-contain;
     }
 
-    /* ── Dialog ── */
-
-    .dialog {
-        @apply m-auto border-0 bg-transparent p-0;
-        max-width: min(28rem, calc(100vw - 2rem));
-        z-index: var(--z-dialog);
-    }
-
-    .dialog::backdrop {
-        background: rgb(0 0 0 / 0.5);
-    }
-
-    .dialog__panel {
-        @apply overflow-hidden rounded-xl border border-line bg-bg text-text;
-        box-shadow: var(--shadow-float);
-    }
-
-    .dialog__head {
-        @apply flex items-center justify-between gap-3 border-b border-line-soft py-3 pl-5 pr-3;
-    }
-
-    .dialog__title {
-        @apply m-0 text-base font-bold;
-    }
-
-    .dialog__body {
-        @apply grid gap-4 p-5 text-sm leading-relaxed text-muted;
-    }
-
-    .dialog__body h3 {
-        @apply mb-1 text-sm font-bold text-text;
-    }
-
     /* ── Empty state ── */
 
     .empty {
@@ -540,15 +506,53 @@ html.dark {
         @apply mt-3 grid gap-4;
     }
 
-    /* ── Help trigger ── */
+    /* ── About ── */
 
-    .help-trigger {
-        @apply ml-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-bg align-middle text-sm font-bold text-muted;
-        transition: color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+    .about {
+        @apply mt-10;
     }
 
-    .help-trigger:hover {
-        @apply border-accent text-accent;
+    .about__body {
+        @apply mt-3 cursor-pointer overflow-hidden text-base leading-relaxed text-muted;
+        max-height: 9.5rem;
+        mask-image: linear-gradient(to bottom, #000 50%, transparent);
+        -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent);
+    }
+
+    .about--open .about__body,
+    .about--fits .about__body {
+        @apply cursor-auto;
+        max-height: none;
+        mask-image: none;
+        -webkit-mask-image: none;
+    }
+
+    .about__body h3 {
+        @apply mt-6 text-base font-bold text-text;
+    }
+
+    .about__body h3:first-child {
+        @apply mt-0;
+    }
+
+    .about__body p + p {
+        @apply mt-3;
+    }
+
+    .about__body h3 + p {
+        @apply mt-1.5;
+    }
+
+    .about__toggle {
+        @apply mt-1 inline-flex min-h-11 items-center rounded-lg text-sm font-bold text-accent;
+    }
+
+    .about__toggle:hover {
+        @apply underline underline-offset-4;
+    }
+
+    .about--fits .about__toggle {
+        display: none;
     }
 
     /* ── Steps ── */

@@ -1,13 +1,12 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import ToolAbout from '../../components/tools/ToolAbout.astro';
 import ChatCreate from '../../components/tools/ChatCreate.svelte';
-import ToolHelp from '../../components/tools/ToolHelp.svelte';
 import { getTranslations, t, pickDict, type Locale } from '../../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const clientDict = pickDict(dict, ['chat', 'tools.help', 'common']);
-const chatHelpSections = ['what', 'messages', 'calls', 'files', 'safe', 'watchOut'];
+const clientDict = pickDict(dict, ['chat', 'common']);
 
 export const prerender = true;
 ---
@@ -18,22 +17,12 @@ export const prerender = true;
 >
   <div class="page page--narrow">
     <header class="page-head">
-      <h1 class="page-title">
-        {t(dict, 'chat.pageTitle')}
-        <ToolHelp client:idle dict={clientDict} prefix="chat" sections={chatHelpSections} />
-      </h1>
+      <h1 class="page-title">{t(dict, 'chat.pageTitle')}</h1>
       <p class="page-lead">{t(dict, 'chat.pageSubtitle')}</p>
     </header>
     <div class="panel">
       <ChatCreate client:idle locale={locale} dict={clientDict} />
     </div>
-    <details class="more mt-6">
-      <summary>{t(dict, 'chat.howItWorks')}</summary>
-      <ol class="steps more__body">
-        <li>{t(dict, 'chat.howStep1')}</li>
-        <li>{t(dict, 'chat.howStep2')}</li>
-        <li>{t(dict, 'chat.howStep3')}</li>
-      </ol>
-    </details>
+    <ToolAbout dict={dict} prefix="chat" />
   </div>
 </Layout>

@@ -28,7 +28,7 @@ Validate changes with `pnpm test`, `pnpm check` and `pnpm build`.
 
 ### Main systems
 
-- `src/components/tools/*.svelte` - interactive tool UIs (`ToolHelp.svelte` = `?` dialog)
+- `src/components/tools/*.svelte` - interactive tool UIs (`ToolAbout.astro` = expandable "How it works" text below a tool)
 - `src/pages/tools/*.astro` - tool pages, all on the same shell
 - `src/lib/tools.ts` - tool registry for navbar, home page and category wiring
 - `src/locales/{en,cs,de,es,fr,sk,pl}.json` - flat UI dictionaries
@@ -58,7 +58,7 @@ Validate changes with `pnpm test`, `pnpm check` and `pnpm build`.
 - Use only the tokens and component classes in `src/styles/global.css`; do not add parallel abstractions. Copy an existing tool page for the layout.
 - Never hardcode user-facing English in components or pages.
 - Put normal UI strings in `src/locales/*.json`.
-- Tool explainers live as short `tools.<name>.help.*` locale keys, shown via `ToolHelp`.
+- Tool explainers live as numbered `tools.<name>.about.<n>` paragraphs with optional `tools.<name>.about.<n>.title` headings, shown via `ToolAbout`. Keep them accurate to the code.
 - `en.json` is the source of truth for UI keys.
 - Keep all non-English locale files in sync with English.
 - Keep crypto logic in `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` or `party/`; UI work must not change key handling, data formats or network behavior.
@@ -70,7 +70,7 @@ Validate changes with `pnpm test`, `pnpm check` and `pnpm build`.
 1. Create the Svelte tool component in `src/components/tools/`
 2. Copy an existing page in `src/pages/tools/` and change the component import and the `tools.myTool` prefix
 3. Register it in `src/lib/tools.ts`
-4. Add locale keys to all 7 locale files: `nav.tool.myTool`, `tools.myTool.h1` (same text as the navigation label), `.subtitle`, `.meta.title`, `.meta.description`, `.help.what`, `.help.safe`, optional `.help.watchOut`
+4. Add locale keys to all 7 locale files: `nav.tool.myTool`, `tools.myTool.h1` (same text as the navigation label), `.subtitle`, `.meta.title`, `.meta.description`, `.about.1.title`, `.about.1` and further numbered sections
 
 ## Validation
 
