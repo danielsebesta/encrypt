@@ -280,6 +280,9 @@
   let callAudioMuted = false;
   let callVolume = 1;
   let callSettingsOpen = false;
+  let callChatOpen = true;
+  let callChatSeen = 0;
+  let callChatUnread = false;
   let callDebugEnabled = false;
   let callDebugEvents: CallDebugEvent[] = [];
   let localAudioLevel = 0;
@@ -507,6 +510,49 @@
     try {
       mediaSession.playbackState = enabled ? 'playing' : 'none';
     } catch {}
+  }
+
+  type TileFit = { count: number; ratio: number; max: number };
+
+  // Picks the column count that gives the largest tiles, so every participant fits the stage without scrolling.
+  function fitTiles(node: HTMLElement, options: TileFit) {
+    let current = options;
+    const gap = 8;
+    const apply = () => {
+      const w = node.clientWidth - 2;
+      const h = node.clientHeight - 2;
+      if (!w || !h) return;
+      const n = Math.max(1, current.count);
+      let best = 0;
+      for (let cols = 1; cols <= n; cols++) {
+        const rows = Math.ceil(n / cols);
+        const byWidth = (w - (cols - 1) * gap) / cols;
+        const byHeight = ((h - (rows - 1) * gap) / rows) * current.ratio;
+        best = Math.max(best, Math.min(byWidth, byHeight));
+      }
+      node.style.setProperty('--tile-w', `${Math.floor(Math.min(best, current.max))}px`);
+      node.style.setProperty('--tile-ratio', String(current.ratio));
+    };
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    apply();
+    return {
+      update(next: TileFit) { current = next; apply(); },
+      destroy() { observer.disconnect(); },
+    };
+  }
+
+  function closeCallSettingsOnOutside(event: PointerEvent) {
+    if (!callSettingsOpen) return;
+    const target = event.target as Element | null;
+    if (target?.closest('#chat-call-settings, [data-call-settings-trigger]')) return;
+    callSettingsOpen = false;
+  }
+
+  function closeCallSettingsOnEscape(event: KeyboardEvent) {
+    if (event.key !== 'Escape' || !callSettingsOpen) return;
+    callSettingsOpen = false;
+    document.querySelector<HTMLElement>('[data-call-settings-trigger]')?.focus();
   }
 
   function streamMedia(node: HTMLMediaElement, options: StreamMediaOptions) {
@@ -3117,6 +3163,8 @@
   $: localHasVisibleVideo = Boolean(localPreviewTrack);
   $: callHasVideo = localHasVisibleVideo || callPeers.some((peer) => Boolean(peer.stream?.getVideoTracks().length) && (peer.screenSharing || !peer.cameraOff));
   $: callHasScreenSharing = screenSharing || callPeers.some((peer) => peer.screenSharing);
+  $: if (callChatOpen || !callActive) callChatSeen = messages.length;
+  $: callChatUnread = callActive && !callChatOpen && messages.length > callChatSeen;
   $: callFullscreenMedia = getCallFullscreenMedia(callFullscreenTarget);
   $: if (callFullscreenTarget && !callFullscreenMedia) closeCallFullscreen(false);
   $: if (callActive && !callMediaSessionHandlersActive) {
@@ -3174,6 +3222,8 @@
     else window.removeEventListener('beforeunload', chatBeforeUnload);
   }
 </script>
+
+<svelte:window on:pointerdown|capture={closeCallSettingsOnOutside} on:keydown={closeCallSettingsOnEscape} />
 
 <div class="chat-container">
   {#if wrongPassword}
@@ -3306,7 +3356,7 @@
       </div>
     {/if}
 
-    <div class="chat-body" class:chat-body--call={callActive} class:chat-body--call-settings={callActive && callSettingsOpen}>
+    <div class="chat-body" class:chat-body--call={callActive} class:chat-body--chat-hidden={callActive && !callChatOpen}>
       {#if callActive || callError}
         <div class="call" class:call--error={!callActive && Boolean(callError)}>
           {#if callActive}
@@ -3315,11 +3365,14 @@
                 <span class="call__dot call__dot--{serverQuality}"></span>
                 <span>{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</span>
                 <span aria-hidden="true">·</span>
-                <span>{callPeers.length + 1} {t(dict, 'chat.callParticipants')}</span>
+                <span class="call__count" role="img" aria-label={`${callPeers.length + 1} ${t(dict, 'chat.callParticipants')}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span aria-hidden="true">{callPeers.length + 1}</span>
+                </span>
                 {#if serverLatencyMs !== null}<span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span>{/if}
               </div>
 
-              <div class="call__grid" class:call__grid--audio={!callHasVideo}>
+              <div class="call__grid" use:fitTiles={{ count: callPeers.length + 1, ratio: 16 / 10, max: callHasVideo ? 1280 : 280 }}>
                 <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurCallMediaWhenAway && blurred}>
                   {#if localDisplayStream && localHasVisibleVideo}
                     <video
@@ -3395,7 +3448,7 @@
                       {#if peer.screenSharing}
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
                       {/if}
-                      {#if peer.state !== 'connected'}<span class="call__name-state">{peer.state}</span>{/if}
+                      {#if peer.state !== 'connected'}<span class="call__name-state" class:call__name-state--failed={peer.state === 'failed'} role="img" aria-label={peer.state === 'failed' ? t(dict, 'chat.callConnectionFailed') : t(dict, 'chat.callPeerConnecting')} title={peer.state === 'failed' ? t(dict, 'chat.callConnectionFailed') : t(dict, 'chat.callPeerConnecting')}></span>{/if}
                     </div>
                   </div>
                 {/each}
@@ -3420,16 +3473,20 @@
               <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 10 4-4 4 4"/><path d="M12 6v7"/></svg>
               </button>
-              <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
+              <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.48.67 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.84 0-1.31.52-1.51 1Z"/></svg>
               </button>
+              <button type="button" class="call__btn call__btn--chat" class:call__btn--on={callChatOpen} title={callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={callChatOpen} on:click={() => { callChatOpen = !callChatOpen; }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
+              </button>
               <button type="button" class="call__btn call__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" y1="2" x2="2" y2="22"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 0 1 0-1.41C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
               </button>
             </div>
 
             {#if callSettingsOpen}
-              <div class="call__settings" id="chat-call-settings">
+              <div class="call__settings" id="chat-call-settings" role="dialog" aria-label={t(dict, 'chat.callAudioAndDevices')}>
                 <div class="call__settings-head">
                   <span>{t(dict, 'chat.callAudioAndDevices')}</span>
                   <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
@@ -3743,11 +3800,11 @@
   .call__stage {
     flex: 1;
     min-height: 0;
-    overflow: auto;
-    padding: 0.75rem;
+    overflow: hidden;
+    padding: 0.6rem 0.6rem 0;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
   .call__status {
     display: flex;
@@ -3769,18 +3826,19 @@
   .call__dot--poor,
   .call__dot--offline { background: #f23f43; }
   .call__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 0.6rem;
-    align-content: start;
-  }
-  .call__grid--audio {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    gap: 8px;
   }
   .call__tile {
     position: relative;
-    aspect-ratio: 16 / 10;
-    min-height: 110px;
+    width: var(--tile-w, 200px);
+    aspect-ratio: var(--tile-ratio, 1.6);
+    container-type: inline-size;
     border-radius: 0.75rem;
     overflow: hidden;
     background: #2b2d31;
@@ -3806,21 +3864,21 @@
     object-fit: contain;
   }
   .call__avatar {
-    width: 72px;
-    height: 72px;
+    width: clamp(36px, 28cqw, 88px);
+    aspect-ratio: 1;
     border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: clamp(0.8rem, 8cqw, 1.5rem);
     font-weight: 900;
     color: #fff;
   }
   .call__name {
     position: absolute;
-    left: 0.5rem;
-    bottom: 0.5rem;
-    max-width: calc(100% - 1rem);
+    left: 0.4rem;
+    bottom: 0.4rem;
+    max-width: calc(100% - 0.8rem);
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -3844,8 +3902,22 @@
     color: #23a55a;
   }
   .call__name-state {
-    color: #b5bac1;
-    font-weight: 400;
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #f0b232;
+    animation: call-pulse 1.2s ease-in-out infinite;
+  }
+  .call__name-state--failed {
+    background: #f23f43;
+    animation: none;
+  }
+  @keyframes call-pulse {
+    50% { opacity: 0.35; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .call__name-state { animation: none; }
   }
   .call__level {
     flex: none;
@@ -3882,16 +3954,23 @@
   .call__expand:focus-visible {
     opacity: 1;
   }
+  .call__count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
   .call__bar {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.6rem;
-    padding: 0.6rem 0.75rem 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem 0.6rem;
   }
   .call__btn {
-    width: 48px;
-    height: 48px;
+    position: relative;
+    width: 44px;
+    height: 44px;
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
@@ -3921,8 +4000,19 @@
     background: #fff;
   }
   .call__btn--leave {
+    width: 56px;
     background: #f23f43;
     color: #fff;
+  }
+  .call__badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #f23f43;
+    box-shadow: 0 0 0 2px #111214;
   }
   .call__btn--leave:hover:not(:disabled) {
     background: #da373c;
@@ -3937,19 +4027,21 @@
   }
   .call__settings {
     position: absolute;
-    left: 0.75rem;
-    right: 0.75rem;
-    bottom: 4.6rem;
-    max-height: calc(100% - 5.6rem);
-    z-index: 1;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-    padding: 0.75rem;
+    right: 0.6rem;
+    bottom: 3.9rem;
+    width: min(19rem, calc(100% - 1.2rem));
+    max-height: calc(100% - 4.5rem);
+    z-index: 2;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    padding: 0.5rem 0.65rem 0.65rem;
     border-radius: 0.75rem;
-    background: #2b2d31;
+    border: 1px solid #3f4147;
+    background: #232428;
     display: grid;
-    gap: 0.75rem;
-    font-size: 0.875rem;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
     overflow: auto;
+    overscroll-behavior: contain;
   }
   .call__settings-head {
     display: flex;
@@ -3961,11 +4053,29 @@
   .call__settings .check {
     color: #f2f3f5;
   }
+  .call__settings .label {
+    font-size: 0.75rem;
+    color: #b5bac1;
+  }
+  .call__settings .field {
+    gap: 0.25rem;
+  }
+  .call__settings .check {
+    min-height: 2rem;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+  }
+  .call__settings input[type="range"] {
+    height: 1.25rem;
+  }
   .call__settings .input {
     background: #1e1f22;
     border-color: #3f4147;
     color: #f2f3f5;
-    min-height: 2.5rem;
+    min-height: 2rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.8125rem;
   }
   .call__settings .btn-ghost {
     color: #b5bac1;
@@ -3979,8 +4089,7 @@
   }
   .call__fields {
     display: grid;
-    gap: 0.6rem;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.5rem;
   }
   .call__peers {
     display: grid;
@@ -4015,19 +4124,32 @@
     margin: 0.75rem;
   }
   .chat-body--call > .call {
-    flex: 0 1 auto;
-    max-height: 64%;
+    flex: 1 1 58%;
     min-height: 240px;
     overflow: hidden;
   }
-  @media (max-width: 860px) {
-    .chat-body--call > .call {
-      max-height: 56%;
+  .chat-body--call > .chat-thread {
+    flex: 1 1 42%;
+    min-height: 180px;
+  }
+  .chat-body--chat-hidden > .chat-thread {
+    display: none;
+  }
+  @container chat-body (min-width: 760px) {
+    .chat-body--call:not(:has(.chat-whiteboard-panel)) {
+      flex-direction: row;
     }
-    .call__btn {
-      width: 44px;
-      height: 44px;
+    .chat-body--call:not(:has(.chat-whiteboard-panel)) > .call {
+      flex: 1 1 auto;
+      min-height: 0;
     }
+    .chat-body--call:not(:has(.chat-whiteboard-panel)) > .chat-thread {
+      flex: 0 0 clamp(280px, 34%, 380px);
+      min-height: 0;
+      border-left: 1px solid var(--line-soft);
+    }
+  }
+  @media (hover: none) {
     .call__expand {
       opacity: 1;
     }
@@ -4036,13 +4158,15 @@
   .chat-container {
     display: flex;
     flex-direction: column;
+    container: chat-body / inline-size;
     height: min(75dvh, 700px);
     border-radius: 0.75rem;
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
   }
-  .chat-container:has(.chat-whiteboard-panel) {
+  .chat-container:has(.chat-whiteboard-panel),
+  .chat-container:has(.chat-body--call) {
     height: min(88dvh, 940px);
   }
   .chat-center {
