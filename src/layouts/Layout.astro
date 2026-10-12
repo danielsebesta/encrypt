@@ -20,7 +20,7 @@ const dict = getTranslations(locale);
 const {
   title = t(dict, 'meta.defaultTitle'),
   description = t(dict, 'meta.defaultDescription'),
-  ogImage = 'https://encrypt.click/og.png',
+  ogImage = 'https://encrypt.click/og.png?v=2',
   canonical,
   mainClass = '',
 } = Astro.props;
@@ -79,6 +79,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
+		<meta name="theme-color" media="(prefers-color-scheme: no-preference)" content="#00bc7d" />
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
 		<meta name="color-scheme" content="light dark" />
