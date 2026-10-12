@@ -8,6 +8,11 @@ overrides:
   '@fastify/busboy': 3.2.2
   sharp: 0.35.5
 
+patchedDependencies:
+  '@quickdrawjs/core':
+    hash: ab4b867eca4c3c7294832c23d22c354757b97aac331af1345a1f3385540f0599
+    path: patches/@quickdrawjs__core.patch
+
 importers:
 
   .:
@@ -23,7 +28,7 @@ importers:
         version: 9.0.1(@types/node@26.6.4)(astro@7.3.6(@types/node@26.6.4)(jiti@2.7.0)(less@4.6.4)(tsx@4.23.15)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(less@4.6.4)(svelte@5.57.2)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
       '@quickdrawjs/core':
         specifier: 0.2.0
-        version: 0.2.0
+        version: 0.2.0(patch_hash=ab4b867eca4c3c7294832c23d22c354757b97aac331af1345a1f3385540f0599)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.3(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(less@4.6.4)(tsx@4.23.15)(yaml@2.9.1))
@@ -3436,7 +3441,7 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
-  '@quickdrawjs/core@0.2.0': {}
+  '@quickdrawjs/core@0.2.0(patch_hash=ab4b867eca4c3c7294832c23d22c354757b97aac331af1345a1f3385540f0599)': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.12':
     optional: true
