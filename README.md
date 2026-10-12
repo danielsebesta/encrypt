@@ -62,7 +62,6 @@ Worker secrets:
 | `TURN_PROVIDER` | `cloudflare` |
 | `CLOUDFLARE_TURN_TOKEN_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Cloudflare Realtime TURN key |
 | `RATE_LIMIT_SECRET` | Optional, separate key for request budget hashing |
-| `FREEIMAGE_API_KEY` | Optional, one of the image upload hosts |
 
 Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
 

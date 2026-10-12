@@ -1,4 +1,8 @@
 export const MAX_TRANSFER_BYTES = 50 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 90 * 1024 * 1024;
+// First-party ciphertext: the largest upload plus encryption and ZIP overhead, still under the 100 MB request limit.
+export const MAX_FIRST_PARTY_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024;
+export const SLOW_TRANSFER_TIMEOUT_MS = 120_000;
 
 export async function readLimited(source: Request | Response, limit: number, timeoutMs = 30_000): Promise<Uint8Array> {
   const declared = Number(source.headers.get('content-length'));

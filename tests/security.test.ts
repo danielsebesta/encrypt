@@ -66,15 +66,15 @@ test('room capabilities are secret, separated by purpose and room, and do not ex
 });
 
 test('URL policy rejects local networks, nonstandard ports, credentials and deceptive hosts', () => {
-  for (const u of ['http://qu.ax/x', 'https://127.0.0.1/', 'https://[::1]/', 'https://qu.ax:8080/',
-    'https://qu.ax.evil.test/', 'https://evil.test@qu.ax/', 'file:///etc/passwd']) assert.equal(parseAllowedFetchUrl(u), null, u);
-  assert.ok(parseAllowedFetchUrl('https://qu.ax/file'));
+  for (const u of ['http://dl.encrypt.click/x', 'https://127.0.0.1/', 'https://[::1]/', 'https://dl.encrypt.click:8080/',
+    'https://dl.encrypt.click.evil.test/', 'https://evil.test@dl.encrypt.click/', 'file:///etc/passwd']) assert.equal(parseAllowedFetchUrl(u), null, u);
+  assert.ok(parseAllowedFetchUrl('https://dl.encrypt.click/file'));
 });
 
 test('redirects are revalidated before any request to the next target', async () => {
   const original = globalThis.fetch; const targets: string[] = [];
   globalThis.fetch = async (url) => { targets.push(String(url)); return new Response(null, { status: 302, headers: { Location: 'https://127.0.0.1/private' } }); };
-  try { await assert.rejects(fetchAllowedUrl(new URL('https://qu.ax/file'), {})); assert.equal(targets.length, 1); }
+  try { await assert.rejects(fetchAllowedUrl(new URL('https://dl.encrypt.click/file'), {})); assert.equal(targets.length, 1); }
   finally { globalThis.fetch = original; }
 });
 
@@ -98,7 +98,7 @@ test('verify endpoint refuses oversized, malformed and forbidden target lists wi
   const original = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error('Unexpected outbound request'); };
   try {
-    for (const body of [null, { urls: 'x' }, { urls: ['https://127.0.0.1'] }, { urls: Array(9).fill('https://qu.ax/x') }]) {
+    for (const body of [null, { urls: 'x' }, { urls: ['https://127.0.0.1'] }, { urls: Array(9).fill('https://dl.encrypt.click/x') }]) {
       const response = await verifyUrls({ request: new Request('https://encrypt.click/api/ghost/verify', { method: 'POST', body: JSON.stringify(body) }) } as any);
       assert.equal(response.status, 400);
     }
@@ -109,7 +109,7 @@ test('download proxy never serves active upstream content as a document', async 
   const original = globalThis.fetch;
   globalThis.fetch = async () => new Response('<svg onload="alert(1)"/>', { headers: { 'Content-Type': 'image/svg+xml' } });
   try {
-    const url = new URL('https://encrypt.click/api/ghost/fetch?url=https%3A%2F%2Fqu.ax%2Fx');
+    const url = new URL('https://encrypt.click/api/ghost/fetch?url=https%3A%2F%2Fdl.encrypt.click%2Fx');
     const response = await fetchFile({ url, request: new Request(url) } as any);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('Content-Type'), 'application/octet-stream');

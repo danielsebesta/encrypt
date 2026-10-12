@@ -1,4 +1,4 @@
-import { readLimited, MAX_TRANSFER_BYTES, fetchNoRedirect } from './httpLimits';
+import { readLimited, MAX_TRANSFER_BYTES, SLOW_TRANSFER_TIMEOUT_MS, fetchNoRedirect } from './httpLimits';
 import { parseAllowedFetchUrl } from './ghost/allowedFetch';
 const DEFAULT_NONCE = 'yRCdyQ1EMSA3mo4rqSkuNQ==';
 const KEY_LENGTH = 16;
@@ -487,7 +487,7 @@ export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Arra
 
   const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/upload`, {
     method: 'POST',
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(30_000 + Math.ceil(encryptedBytes.byteLength / 1024)),
     headers: {
       'Authorization': authHeader,
       'X-File-Metadata': metadataB64,
@@ -510,47 +510,12 @@ export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Arra
   return String(uploadInfo.url);
 }
 
-export async function uploadToSendHttp(baseUrl: string, data: Uint8Array, filename: string, fileType = 'application/octet-stream', onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT) {
-  const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
-  const keychain = new NologSendKeychain();
-  onDebug?.(`Send ${normalizedBaseUrl}: preparing ${filename} (${data.byteLength} bytes)`);
-  const metadata = await keychain.encryptMetadata({ name: filename, size: data.byteLength, type: fileType });
-  const verifierB64 = await keychain.authKeyB64();
-  onDebug?.(`Send ${normalizedBaseUrl}: metadata encrypted (${metadata.byteLength} bytes)`);
-  const encryptedBytes = await encryptSendBytes(data, keychain.rawSecret);
-  onDebug?.(`Send ${normalizedBaseUrl}: encrypted body prepared (${encryptedBytes.byteLength} bytes including envelope)`);
-
-  const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/upload`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(30_000),
-    headers: {
-      'Authorization': `send-v1 ${verifierB64}`,
-      'X-File-Metadata': arrayToB64(metadata),
-      'X-Time-Limit': String(timeLimit),
-      'X-Download-Limit': String(dlimit),
-      'Content-Type': 'application/octet-stream',
-    },
-    body: bytesToArrayBuffer(encryptedBytes),
-  });
-  onDebug?.(`Send ${normalizedBaseUrl}: HTTP upload response ${res.status} (timeLimit=${timeLimit}s, dlimit=${dlimit})`);
-  if (!res.ok) {
-    throw new Error(`Send upload failed: HTTP ${res.status}`);
-  }
-
-  const uploadInfo = await res.json() as any;
-  if (!uploadInfo?.url) {
-    throw new Error('Send upload failed: missing URL');
-  }
-  onDebug?.(`Send ${normalizedBaseUrl}: upload accepted (id=${uploadInfo.id}, url=${uploadInfo.url})`);
-  return `${uploadInfo.url}#${arrayToB64(keychain.rawSecret)}`;
-}
-
 async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKeychain, onDebug?: DebugFn) {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   const doFetch = async () => {
     const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/download/blob/${id}`, {
       headers: { Authorization: await keychain.authHeader() },
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(SLOW_TRANSFER_TIMEOUT_MS),
     });
     const nonce = parseNonce(res.headers.get('WWW-Authenticate'));
     return { res, nonce };
@@ -569,7 +534,7 @@ async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKey
     throw new Error(`Send download failed: HTTP ${res.status}`);
   }
 
-  const bytes = await readLimited(res, MAX_TRANSFER_BYTES);
+  const bytes = await readLimited(res, MAX_TRANSFER_BYTES, SLOW_TRANSFER_TIMEOUT_MS);
   onDebug?.(`Send ${normalizedBaseUrl}: encrypted blob downloaded (${bytes.byteLength} bytes)`);
   return bytes;
 }
