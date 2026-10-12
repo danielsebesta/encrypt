@@ -27,4 +27,4 @@ jobs:
       - run: pnpm test
       - run: pnpm check
       - run: pnpm build
-      - run: python3 scripts/scan-history.py
+      - run: node scripts/scan-history.mjs
