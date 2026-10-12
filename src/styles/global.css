@@ -140,8 +140,8 @@ html.dark {
     }
 
     ::selection {
-        background: var(--accent-weak);
-        color: var(--accent-strong);
+        background: var(--accent);
+        color: var(--on-accent);
     }
 
     button, summary, select, [role="button"] {
