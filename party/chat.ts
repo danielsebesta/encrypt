@@ -1,7 +1,7 @@
 import { issueTurnGrant } from "../src/lib/turnGrant";
+import { normalizeChatMode, type ChatMode } from "../src/lib/chatRoomSettings";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
-type ChatMode = "live" | "ttl-10" | "ttl-5";
 type AuthMode = "password" | "fragment";
 
 type RoomConfig = {
@@ -211,16 +211,10 @@ export default class ChatRoom {
     const authMode = value.authMode;
     if (!this.isAuthMode(authMode)) return null;
     return {
-      mode: this.normalizeChatMode(value.mode),
+      mode: normalizeChatMode(value.mode),
       authMode,
       createdAt: typeof value.createdAt === "number" ? value.createdAt : Date.now(),
     };
-  }
-
-  private normalizeChatMode(value: unknown): ChatMode {
-    if (value === "ttl-10" || value === "ttl-5" || value === "live") return value;
-    if (value === "burn") return "ttl-10";
-    return "live";
   }
 
   private isAuthMode(value: unknown): value is AuthMode {
