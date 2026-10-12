@@ -43,3 +43,17 @@ export function roomPasswordOk(password: string, roomName: string): boolean {
   const checks = checkRoomPassword(password, roomName);
   return checks.length && checks.variety && checks.distinct;
 }
+
+// A trailing "!N" makes one message disappear after N seconds in any room mode. Out-of-range or
+// fractional values are clamped rather than ignored, so a typo never turns a private message permanent.
+const BURN_SUFFIX = /\s*!(\d{1,9}(?:[.,]\d*)?)$/;
+const BURN_MAX_SECONDS = 3600;
+
+export function parseBurnSuffix(raw: string): { text: string; ttl: number } | null {
+  const match = raw.match(BURN_SUFFIX);
+  if (!match) return null;
+  const text = raw.slice(0, match.index).trim();
+  if (!text) return null;
+  const seconds = Number.parseFloat(match[1].replace(',', '.')) || 0;
+  return { text, ttl: Math.min(BURN_MAX_SECONDS, Math.max(1, Math.ceil(seconds))) };
+}
