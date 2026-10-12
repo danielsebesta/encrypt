@@ -28,17 +28,25 @@
   let channelId = "";
   const replay = new ReplayWindow();
 
-  const DOC_FLUSH_MS = 200;
-  const CURSOR_SYNC_INTERVAL_MS = 150;
+  const DOC_FLUSH_MS = 100;
+  const CURSOR_SYNC_INTERVAL_MS = 100;
   const CURSOR_MIN_MOVE = 4;
   const HEARTBEAT_INTERVAL_MS = 45000;
-  // The relay closes sockets above 150 messages or 3 MB per 10 s; stay under that with headroom.
+  // The whiteboard relay closes sockets above 300 messages or 3 MB per 10 s; stay under that with headroom.
   const RATE_WINDOW_MS = 10000;
-  const RATE_MAX_MESSAGES = 120;
+  const RATE_MAX_MESSAGES = 240;
   const RATE_MAX_BYTES = 2_400_000;
   const RATE_DOC_HEADROOM = 400_000;
   const RATE_OPTIONAL_SHARE = 0.6;
   const LOCAL_ORIGIN = 'local';
+
+  // Quickdraw ships a warm paper look; tint the paper and grid toward the site's green.
+  THEMES.light.background = '#f4faf6';
+  THEMES.light.grid.dot = { minor: 'rgba(0, 96, 61, 0.2)', major: 'rgba(0, 96, 61, 0.36)' };
+  THEMES.light.grid.line = { minor: 'rgba(0, 96, 61, 0.09)', major: 'rgba(0, 96, 61, 0.18)' };
+  THEMES.dark.background = '#0c1411';
+  THEMES.dark.grid.dot = { minor: 'rgba(117, 229, 174, 0.16)', major: 'rgba(117, 229, 174, 0.3)' };
+  THEMES.dark.grid.line = { minor: 'rgba(117, 229, 174, 0.06)', major: 'rgba(117, 229, 174, 0.13)' };
 
   const ICONS: Record<string, string> = {
     select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -628,9 +636,21 @@
     if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
   }
 
+  // Quickdraw zooms by exp(-deltaY * 0.012), so one mouse-wheel notch (deltaY ~100) shrinks the view to a third.
+  function onBoardWheel(e: WheelEvent) {
+    if (!editor || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
+    const delta = Math.max(-50, Math.min(50, e.deltaY * unit));
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    editor.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-delta * 0.005));
+  }
+
   function board(node: HTMLDivElement) {
     themeId = isDarkTheme() ? 'dark' : 'light';
     const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
+    node.dataset.qdTheme = themeId;
     // Images would be relayed as data URLs that exceed the encrypted message limit.
     ed.importImageBlobs = async () => {};
     ed.pickImage = () => {};
@@ -649,6 +669,7 @@
     node.addEventListener('pointermove', onBoardPointerMove);
     node.addEventListener('keydown', onBoardKeydown);
     node.addEventListener('drop', blockFileDrop);
+    node.addEventListener('wheel', onBoardWheel, { capture: true, passive: false });
     shapeCount = store.size;
     syncUi();
     if (pendingFit || store.size) { pendingFit = false; ed.fitContent(); }
@@ -658,6 +679,7 @@
         node.removeEventListener('pointermove', onBoardPointerMove);
         node.removeEventListener('keydown', onBoardKeydown);
         node.removeEventListener('drop', blockFileDrop);
+        node.removeEventListener('wheel', onBoardWheel, { capture: true });
         ed.destroy();
         if (editor === ed) editor = null;
       },
@@ -1284,6 +1306,10 @@
   .wb-board {
     position: absolute;
     inset: 0;
+    background: #f4faf6;
+  }
+  .wb-board:global([data-qd-theme='dark']) {
+    background: #0c1411;
   }
   .wb-board:focus-visible {
     outline: 2px solid var(--accent);
@@ -1474,7 +1500,7 @@
     gap: 2px;
     pointer-events: none;
     z-index: 1;
-    transition: transform 120ms linear;
+    transition: transform 100ms linear;
     will-change: transform;
   }
   .wb-cursor__name {

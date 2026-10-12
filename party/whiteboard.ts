@@ -11,7 +11,8 @@ export default class WhiteboardRoom {
   state: RoomState = { locked: false, lockedBy: null };
 
   constructor(private host: RoomHost) {
-    this.access = new RoomAccess(host);
+    // Live drawing and cursors send about 20 small messages a second per person.
+    this.access = new RoomAccess(host, 300);
   }
 
   onConnect(conn: RoomConnection) {
