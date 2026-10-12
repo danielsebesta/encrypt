@@ -102,6 +102,7 @@
   }
 
   let passwordRevealed = false;
+  let resultPasswordVisible = false;
 
   function useGeneratedPassphrase() {
     password = generatePassphrase();
@@ -644,6 +645,7 @@
 
   function reset() {
     step = 'input';
+    resultPasswordVisible = false;
     textInput = '';
     files = [];
     useGeneratedPassphrase();
@@ -841,7 +843,24 @@
           <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
           <CopyButton text={resultPassword || password} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
         </div>
-        <input id="ue-result-pass" class="input input--mono" type="text" readonly value={resultPassword || password} />
+        <div class="passphrase">
+          <input id="ue-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPassword || password} />
+          <button
+            type="button"
+            class="btn-ghost btn-sm btn-icon"
+            on:click={() => { resultPasswordVisible = !resultPasswordVisible; }}
+            aria-label={t(dict, 'common.showPassword')}
+            aria-pressed={resultPasswordVisible}
+            aria-controls="ue-result-pass"
+            title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
+          >
+            {#if resultPasswordVisible}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>
+            {/if}
+          </button>
+        </div>
         <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
 

@@ -336,7 +336,7 @@
   "tools.ultimateEncrypt.steganographyHelp": "Ten obraz zawiera zaszyfrowany link ukryty w pikselach.",
   "tools.ultimateEncrypt.downloadImage": "Pobierz obraz",
   "tools.ultimateEncrypt.qrAlt": "Kod QR dla zaszyfrowanego linku",
-  "tools.ultimateEncrypt.encryptAnother": "Zaszyfruj kolejną wiadomość",
+  "tools.ultimateEncrypt.encryptAnother": "Udostępnij coś innego",
   "tools.ultimateEncrypt.progressDefaultTitle": "Przygotowujemy Twój pakiet",
   "tools.ultimateEncrypt.progressDefaultDetail": "Szyfrowanie działa w przeglądarce.",
   "tools.ultimateEncrypt.progressPreparingTitle": "Przygotowujemy wiadomość",

@@ -336,7 +336,7 @@
   "tools.ultimateEncrypt.steganographyHelp": "Cette image contient le lien chiffre dans ses pixels.",
   "tools.ultimateEncrypt.downloadImage": "Telecharger l'image",
   "tools.ultimateEncrypt.qrAlt": "QR code pour le lien chiffre",
-  "tools.ultimateEncrypt.encryptAnother": "Chiffrer un autre message",
+  "tools.ultimateEncrypt.encryptAnother": "Partager autre chose",
   "tools.ultimateEncrypt.progressDefaultTitle": "Chiffrement",
   "tools.ultimateEncrypt.progressDefaultDetail": "Le chiffrement tourne dans le navigateur.",
   "tools.ultimateEncrypt.progressPreparingTitle": "Preparation",

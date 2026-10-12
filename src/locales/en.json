@@ -336,7 +336,7 @@
   "tools.ultimateEncrypt.steganographyHelp": "This image contains the encrypted link inside its pixels.",
   "tools.ultimateEncrypt.downloadImage": "Download image",
   "tools.ultimateEncrypt.qrAlt": "QR code for the encrypted link",
-  "tools.ultimateEncrypt.encryptAnother": "Encrypt another message",
+  "tools.ultimateEncrypt.encryptAnother": "Share something else",
   "tools.ultimateEncrypt.progressDefaultTitle": "Encrypting",
   "tools.ultimateEncrypt.progressDefaultDetail": "Encryption runs in your browser.",
   "tools.ultimateEncrypt.progressPreparingTitle": "Preparing",
