@@ -217,6 +217,15 @@ test('authenticated chat context rejects cross-room and stale control messages',
   assert.equal(validPayload({ ...chat, _sentAt: Date.now() - 2 * 3600_000 }, 'room'), true);
   assert.equal(validPayload({ ...chat, _sentAt: Date.now() - 25 * 3600_000 }, 'room'), false);
   assert.equal(validPayload({ ...chat, _sentAt: Date.now() - 25 * 3600_000 }, 'room', true), true);
+  const named = JSON.parse(stampPayload(JSON.stringify({ type: 'chat-message', text: 'hi', nick: 'Marek' }), 'room'));
+  assert.equal(validPayload(named, 'room'), true);
+  assert.equal(validPayload({ ...named, nick: 'Ma rek' }, 'room'), false);
+  assert.equal(validPayload({ ...named, nick: 'a'.repeat(25) }, 'room'), false);
+  assert.equal(validPayload({ ...named, nick: 7 }, 'room'), false);
+  const rename = JSON.parse(stampPayload(JSON.stringify({ type: 'rename', nick: 'Marek', prev: '1-2-3' }), 'room'));
+  assert.equal(validPayload(rename, 'room'), true);
+  assert.equal(validPayload({ ...rename, prev: 'x'.repeat(65) }, 'room'), false);
+  assert.equal(validPayload(rename, 'room', true), false);
 });
 
 test('legacy history migration removes fast verifiers and preserves undecryptable ciphertext', async () => {

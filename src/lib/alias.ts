@@ -71,3 +71,38 @@ export function loadAlias(room: string): Alias {
   } catch {}
   return alias;
 }
+
+export function saveAlias(room: string, alias: Alias): void {
+  try {
+    localStorage.setItem(`${STORAGE_PREFIX}${room}`, JSON.stringify(aliasWire(alias)));
+  } catch {}
+}
+
+export const PROFILE_HUES = [0, 28, 48, 140, 175, 215, 270, 325];
+
+export const NICKNAME_RE = /^[A-Za-z0-9_-]{1,24}$/;
+const NICKNAME_PREFIX = 'encrypt.click:nick:';
+
+export function parseNickname(value: unknown): string | null {
+  return typeof value === 'string' && NICKNAME_RE.test(value) ? value : null;
+}
+
+/** Trust and presence are tracked per label; the prefix keeps a nickname such as 1-2-3 apart from an alias key. */
+export function nicknameKey(nick: string): string {
+  return `nick:${nick.toLowerCase()}`;
+}
+
+export function loadNickname(room: string): string | null {
+  try {
+    return parseNickname(localStorage.getItem(`${NICKNAME_PREFIX}${room}`));
+  } catch {
+    return null;
+  }
+}
+
+export function saveNickname(room: string, nick: string | null): void {
+  try {
+    if (nick) localStorage.setItem(`${NICKNAME_PREFIX}${room}`, nick);
+    else localStorage.removeItem(`${NICKNAME_PREFIX}${room}`);
+  } catch {}
+}

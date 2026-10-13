@@ -1,9 +1,11 @@
 export const RETENTION_SECONDS = [5, 10, 30, 60, 300, 900, 3600, 86400] as const;
 
-export type ChatMode = 'live' | `ttl-${number}`;
+export type ChatMode = 'live' | 'persistent' | `ttl-${number}`;
 
-export function normalizeChatMode(value: unknown): ChatMode {
+// Saved rooms live in their own Durable Object class, so the persistent mode is only valid where that class asks for it.
+export function normalizeChatMode(value: unknown, allowPersistent = false): ChatMode {
   if (value === 'live') return 'live';
+  if (value === 'persistent') return allowPersistent ? 'persistent' : 'live';
   if (value === 'burn') return 'ttl-10';
   if (typeof value === 'string') {
     const match = /^ttl-(\d{1,6})$/.exec(value);
@@ -13,8 +15,18 @@ export function normalizeChatMode(value: unknown): ChatMode {
 }
 
 export function chatModeTtlSeconds(mode: ChatMode): number {
-  return mode === 'live' ? 0 : Number(mode.slice(4));
+  return mode.startsWith('ttl-') ? Number(mode.slice(4)) : 0;
 }
+
+export function chatModeKeepsHistory(mode: ChatMode): boolean {
+  return mode === 'live' || mode === 'persistent';
+}
+
+export const PERSISTENT_HISTORY_LIMIT = 1000;
+export const PERSISTENT_HISTORY_BYTES = 24 * 1024 * 1024;
+export const PERSISTENT_PAYLOAD_CHARS = 64_000;
+export const PERSISTENT_IDLE_DAYS = 90;
+export const ROOM_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
 
 const UNITS = [['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]] as const;
 

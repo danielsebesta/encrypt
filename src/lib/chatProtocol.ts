@@ -1,4 +1,6 @@
-const LIVE_TYPES = new Set(['typing', 'verify', 'verify-ack', 'chat-sync', 'call-signal', 'whiteboard-invite']);
+import { NICKNAME_RE } from './alias';
+
+const LIVE_TYPES = new Set(['typing', 'verify', 'verify-ack', 'chat-sync', 'call-signal', 'whiteboard-invite', 'rename']);
 const LIVE_MAX_AGE_MS = 60_000;
 const MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -17,6 +19,9 @@ export function validPayload(value: any, room: string, history = false): boolean
   if (typeof value.text !== 'undefined' && (typeof value.text !== 'string' || value.text.length > 200000)) return false;
   if (typeof value.sender !== 'undefined' && (typeof value.sender !== 'string' || value.sender.length > 128)) return false;
   if (value.alias !== undefined && !(Array.isArray(value.alias) && value.alias.length === 3 && value.alias.every((n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) < 360))) return false;
+  if (value.nick !== undefined && !(typeof value.nick === 'string' && NICKNAME_RE.test(value.nick))) return false;
+  if (value.fromNick !== undefined && !(typeof value.fromNick === 'string' && NICKNAME_RE.test(value.fromNick))) return false;
+  if (value.prev !== undefined && (typeof value.prev !== 'string' || value.prev.length > 64)) return false;
   if (value.ttl !== undefined && (!Number.isFinite(value.ttl) || value.ttl < 0 || value.ttl > 86400)) return false;
   if (value.file && (!Array.isArray(value.file.urls) || value.file.urls.length > 8 || value.file.urls.some((u: unknown) => typeof u !== 'string' || u.length > 4096))) return false;
   return true;

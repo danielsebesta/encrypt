@@ -11,8 +11,10 @@ export type RoomConnection = {
 export type RoomStorage = {
   get<T = unknown>(key: string): Promise<T | undefined>;
   put(key: string, value: unknown): Promise<void>;
+  put(entries: Record<string, unknown>): Promise<void>;
   delete(key: string): Promise<boolean>;
-  list(options?: { prefix?: string }): Promise<Map<string, unknown>>;
+  delete(keys: string[]): Promise<number>;
+  list(options?: { prefix?: string; limit?: number; startAfter?: string }): Promise<Map<string, unknown>>;
   deleteAll(): Promise<void>;
   setAlarm(scheduledTime: number): Promise<void>;
   deleteAlarm(): Promise<void>;

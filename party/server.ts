@@ -5,6 +5,7 @@ import { connectionRequest, type RoomConnection, type RoomHost } from './access'
 
 export type RealtimeEnv = {
   CHAT: DurableObjectNamespace<RoomServer>;
+  CHAT_PERSISTENT: DurableObjectNamespace<RoomServer>;
   WHITEBOARD: DurableObjectNamespace<RoomServer>;
   ROOM_TURN_SECRET?: string;
 };
@@ -17,7 +18,7 @@ type Room = {
   onAlarm?(): Promise<void> | void;
 };
 
-const ROUTE_RE = /^\/parties\/(main|whiteboard)\/([0-9a-f]{64})$/;
+const ROUTE_RE = /^\/parties\/(main|persistent|whiteboard)\/([0-9a-f]{64})$/;
 
 export abstract class RoomServer extends Server<RealtimeEnv> {
   static options = { hibernate: false };
@@ -46,15 +47,30 @@ export class ChatServer extends RoomServer {
   protected readonly room: ChatRoom = new ChatRoom(this.host());
 }
 
+// Saved rooms get their own class so live rooms keep their storage-free code path and stored history can be pinned to one jurisdiction.
+export class PersistentChatServer extends RoomServer {
+  protected readonly room: ChatRoom = new ChatRoom(this.host(), { persistent: true });
+}
+
 export class WhiteboardServer extends RoomServer {
   protected readonly room: WhiteboardRoom = new WhiteboardRoom(this.host());
+}
+
+// Stored history stays in the EU; local workerd has no jurisdictions, so development falls back to the plain namespace.
+function pinnedToEu(namespace: DurableObjectNamespace<RoomServer>): DurableObjectNamespace<RoomServer> {
+  try {
+    return namespace.jurisdiction('eu');
+  } catch {
+    return namespace;
+  }
 }
 
 export async function routeRealtimeRequest(request: Request, env: RealtimeEnv): Promise<Response | null> {
   const match = ROUTE_RE.exec(new URL(request.url).pathname);
   if (!match) return null;
   if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket', { status: 426 });
-  const namespace = match[1] === 'main' ? env.CHAT : env.WHITEBOARD;
+  const party = match[1];
+  const namespace = party === 'main' ? env.CHAT : party === 'persistent' ? pinnedToEu(env.CHAT_PERSISTENT) : env.WHITEBOARD;
   const stub = await getServerByName(namespace, match[2]);
   return stub.fetch(connectionRequest(request));
 }
