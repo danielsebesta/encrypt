@@ -1,5 +1,12 @@
 import { issueTurnGrant } from "../src/lib/turnGrant";
-import { normalizeChatMode, type ChatMode } from "../src/lib/chatRoomSettings";
+import {
+  normalizeChatMode,
+  PERSISTENT_HISTORY_BYTES,
+  PERSISTENT_HISTORY_LIMIT,
+  PERSISTENT_IDLE_DAYS,
+  PERSISTENT_PAYLOAD_CHARS,
+  type ChatMode,
+} from "../src/lib/chatRoomSettings";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
 type AuthMode = "password" | "fragment";
@@ -24,8 +31,28 @@ type ClientMessageEnvelope = {
   type: "message";
   id: string;
   payload: string;
-  persist: false;
+  persist: boolean;
   createdAt?: number;
+  serverSeq?: number;
+};
+
+type HistoryRecord = {
+  id: string;
+  payload: string;
+  createdAt: number;
+  seq: number;
+};
+
+// The epoch changes whenever history starts over, so a client's "since" cursor from a deleted room is never applied to a new one.
+type HistoryMeta = {
+  epoch: string;
+  seq: number;
+  count: number;
+  bytes: number;
+};
+
+export type ChatRoomOptions = {
+  persistent?: boolean;
 };
 
 const SERVER_INFO = {
@@ -37,8 +64,11 @@ const SERVER_INFO = {
 
 const CONFIG_KEY = "room-config";
 const HISTORY_PREFIX = "history:";
+const HISTORY_META_KEY = "history-meta";
+const HISTORY_BATCH_CHARS = 600_000;
 const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
 const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const PERSISTENT_IDLE_MS = PERSISTENT_IDLE_DAYS * 24 * 60 * 60 * 1000;
 const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const DEFAULT_CONFIG: RoomConfig = {
@@ -46,18 +76,29 @@ const DEFAULT_CONFIG: RoomConfig = {
   authMode: "fragment",
   createdAt: 0,
 };
+const PERSISTENT_CONFIG: RoomConfig = {
+  mode: "persistent",
+  authMode: "fragment",
+  createdAt: 0,
+};
+
+const historyKey = (seq: number) => `${HISTORY_PREFIX}${String(seq).padStart(12, "0")}`;
+const recordBytes = (record: HistoryRecord) => record.payload.length + record.id.length + 32;
 
 export default class ChatRoom {
   access: RoomAccess;
   private queue = Promise.resolve();
+  private readonly persistent: boolean;
+  private meta: HistoryMeta | null | undefined;
   state: RoomState = {
     locked: false,
     lockedBy: null,
     config: null,
   };
 
-  constructor(private host: RoomHost) {
+  constructor(private host: RoomHost, options: ChatRoomOptions = {}) {
     this.access = new RoomAccess(host);
+    this.persistent = options.persistent === true;
   }
 
   async onStart() {
@@ -66,8 +107,9 @@ export default class ChatRoom {
     if (storedConfig && this.state.config && JSON.stringify(storedConfig) !== JSON.stringify(this.state.config)) {
       await this.host.storage.put(CONFIG_KEY, this.state.config);
     }
+    if (this.persistent) return;
 
-    // Messages are no longer stored; drop history left by older versions.
+    // Live rooms store no messages; drop history left by older versions.
     const oldHistory = await this.host.storage.list({ prefix: HISTORY_PREFIX });
     if (oldHistory.size) {
       await Promise.all(Array.from(oldHistory.keys()).map((key) => this.host.storage.delete(key)));
@@ -128,15 +170,22 @@ export default class ChatRoom {
         if (!hadConfig) {
           this.broadcast(configMessage, [sender.id], true);
         }
-        this.sendHistory(sender);
+        await this.sendHistory(sender, parsed.since, parsed.epoch);
         break;
 
-      case "message":
+      case "message": {
         if (!this.isJoined(sender)) return;
         const envelope = this.normalizeClientMessage(parsed);
         if (!envelope) return;
-        this.broadcast(JSON.stringify(envelope), [sender.id]);
+        if (envelope.persist) {
+          const stored = await this.storeEnvelope(envelope);
+          this.broadcast(JSON.stringify({ ...envelope, createdAt: stored.createdAt, serverSeq: stored.seq }), [sender.id]);
+          sender.send(JSON.stringify({ type: "stored", id: envelope.id, serverSeq: stored.seq, createdAt: stored.createdAt, epoch: stored.epoch }));
+        } else {
+          this.broadcast(JSON.stringify(envelope), [sender.id]);
+        }
         break;
+      }
 
       case "typing":
         if (!this.isJoined(sender)) return;
@@ -157,6 +206,11 @@ export default class ChatRoom {
           this.state.lockedBy = null;
           this.broadcast(JSON.stringify({ type: "unlocked" }));
         }
+        break;
+
+      case "delete":
+        if (!this.persistent || !this.isJoined(sender)) return;
+        await this.deleteRoom();
         break;
 
       case "turn-grant": {
@@ -186,19 +240,21 @@ export default class ChatRoom {
     }
     if (wasJoined) this.broadcastPresence();
     if (this.getConnectionCount([conn.id]) === 0) {
-      void this.host.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS).catch(() => {});
+      const idle = this.persistent ? PERSISTENT_IDLE_MS : EMPTY_ROOM_TTL_MS;
+      void this.host.storage.setAlarm(Date.now() + idle).catch(() => {});
     }
   }
 
   async onAlarm() {
     if (this.getConnectionCount() > 0) return;
     this.state = { locked: false, lockedBy: null, config: null };
+    this.meta = null;
     await this.host.storage.deleteAll();
   }
 
   private async setRoomConfig(input: unknown) {
     const normalized = this.normalizeConfig(input) ?? {
-      ...DEFAULT_CONFIG,
+      ...(this.persistent ? PERSISTENT_CONFIG : DEFAULT_CONFIG),
       createdAt: Date.now(),
     };
     this.state.config = normalized;
@@ -208,12 +264,15 @@ export default class ChatRoom {
   private normalizeConfig(input: unknown): RoomConfig | null {
     if (!input || typeof input !== "object") return null;
     const value = input as Partial<RoomConfig> & { mode?: unknown };
+    const createdAt = typeof value.createdAt === "number" ? value.createdAt : Date.now();
+    // A saved room never takes a typed password: ciphertext that stays on the server must not be guessable offline.
+    if (this.persistent) return { ...PERSISTENT_CONFIG, createdAt };
     const authMode = value.authMode;
     if (!this.isAuthMode(authMode)) return null;
     return {
       mode: normalizeChatMode(value.mode),
       authMode,
-      createdAt: typeof value.createdAt === "number" ? value.createdAt : Date.now(),
+      createdAt,
     };
   }
 
@@ -229,13 +288,15 @@ export default class ChatRoom {
     if (typeof parsed.payload !== "string") return null;
     if (parsed.payload.length < 16 || parsed.payload.length > MAX_ENCRYPTED_PAYLOAD_CHARS) return null;
     if (!B64URL_RE.test(parsed.payload)) return null;
+    const persist = this.persistent && parsed.persist === true;
+    if (persist && parsed.payload.length > PERSISTENT_PAYLOAD_CHARS) return null;
     const createdAt = this.safeTimestamp(parsed.createdAt);
 
     return {
       type: "message",
       id: parsed.id,
       payload: parsed.payload,
-      persist: false,
+      persist,
       ...(createdAt ? { createdAt } : {}),
     };
   }
@@ -245,12 +306,76 @@ export default class ChatRoom {
     return Math.round(value);
   }
 
-  private sendHistory(conn: RoomConnection) {
-    conn.send(JSON.stringify({
-      type: "history",
-      config: this.state.config,
-      messages: [],
-    }));
+  private async historyMeta(): Promise<HistoryMeta | null> {
+    if (this.meta === undefined) this.meta = (await this.host.storage.get<HistoryMeta>(HISTORY_META_KEY)) ?? null;
+    return this.meta;
+  }
+
+  // The server numbers and timestamps stored messages itself, so a client cannot push real history out of the window.
+  private async storeEnvelope(envelope: ClientMessageEnvelope): Promise<{ seq: number; createdAt: number; epoch: string }> {
+    const meta = (await this.historyMeta()) ?? { epoch: crypto.randomUUID(), seq: 0, count: 0, bytes: 0 };
+    const record: HistoryRecord = { id: envelope.id, payload: envelope.payload, createdAt: Date.now(), seq: meta.seq + 1 };
+    meta.seq = record.seq;
+    meta.count += 1;
+    meta.bytes += recordBytes(record);
+    await this.host.storage.put({ [historyKey(record.seq)]: record, [HISTORY_META_KEY]: meta });
+    this.meta = meta;
+    await this.trimHistory(meta);
+    return { seq: record.seq, createdAt: record.createdAt, epoch: meta.epoch };
+  }
+
+  private async trimHistory(meta: HistoryMeta) {
+    const over = () => meta.count > PERSISTENT_HISTORY_LIMIT || meta.bytes > PERSISTENT_HISTORY_BYTES;
+    if (!over()) return;
+    while (over()) {
+      const oldest = await this.host.storage.list({ prefix: HISTORY_PREFIX, limit: 16 });
+      if (!oldest.size) { meta.count = 0; meta.bytes = 0; break; }
+      const drop: string[] = [];
+      for (const [key, value] of oldest) {
+        if (!over()) break;
+        drop.push(key);
+        meta.count -= 1;
+        meta.bytes -= recordBytes(value as HistoryRecord);
+      }
+      await this.host.storage.delete(drop);
+    }
+    meta.bytes = Math.max(0, meta.bytes);
+    await this.host.storage.put(HISTORY_META_KEY, meta);
+  }
+
+  private async sendHistory(conn: RoomConnection, since: unknown, epoch: unknown) {
+    const meta = this.persistent ? await this.historyMeta() : null;
+    if (!meta) {
+      conn.send(JSON.stringify({ type: "history", config: this.state.config, epoch: null, messages: [], more: false }));
+      return;
+    }
+    const resume = typeof since === "number" && Number.isInteger(since) && since > 0 && epoch === meta.epoch;
+    const stored = await this.host.storage.list({ prefix: HISTORY_PREFIX, ...(resume ? { startAfter: historyKey(since) } : {}) });
+    let batch: ClientMessageEnvelope[] = [];
+    let chars = 0;
+    const flush = (more: boolean) => {
+      conn.send(JSON.stringify({ type: "history", config: this.state.config, epoch: meta.epoch, messages: batch, more }));
+      batch = [];
+      chars = 0;
+    };
+    for (const value of stored.values()) {
+      const record = value as HistoryRecord;
+      if (batch.length && chars + record.payload.length > HISTORY_BATCH_CHARS) flush(true);
+      batch.push({ type: "message", id: record.id, payload: record.payload, persist: true, createdAt: record.createdAt, serverSeq: record.seq });
+      chars += record.payload.length;
+    }
+    flush(false);
+  }
+
+  private async deleteRoom() {
+    await this.host.storage.deleteAll();
+    this.meta = null;
+    this.state = { locked: false, lockedBy: null, config: null };
+    const notice = JSON.stringify({ type: "room-deleted" });
+    for (const conn of this.host.getConnections()) {
+      conn.send(notice);
+      conn.close(4010, "ROOM_DELETED");
+    }
   }
 
   private getConnectionCount(exclude: string[] = []): number {

@@ -1,25 +1,32 @@
 <script lang="ts">
   import { archiveLegacyHistory, migrateRoomHistory } from '../../lib/chatHistory';
   import { stampPayload, validPayload } from '../../lib/chatProtocol';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
   let verificationChallenge = '';
-  const encryptMessage = (key: CryptoKey, text: string) => sealMessage(key, stampPayload(text, channelId));
+  let roomIdentity: SigningIdentity | null = null;
+  // In a saved room every payload is signed before it is sealed, so members can tell who in the room wrote it.
+  const encryptMessage = async (key: CryptoKey, text: string) => {
+    const stamped = stampPayload(text, channelId);
+    return sealMessage(key, roomIdentity ? await signPayload(roomIdentity, stamped) : stamped);
+  };
   import { randomIndex } from "../../lib/random";
   import { roomCredentials, safeColor, ReplayWindow } from "../../lib/roomAccess";
-  import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
+  import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, parseNickname, nicknameKey, loadNickname, saveNickname, saveAlias, NICKNAME_RE, PROFILE_HUES, type Alias } from "../../lib/alias";
   let accessToken = "";
   let channelId = "";
   const replay = new ReplayWindow();
   import { onMount, onDestroy } from 'svelte';
   import PartySocket from 'partysocket';
   import {
-    deriveKeyFromPassword,
+    deriveKeyFromPassword, derivePersistentRoom,
     encryptMessage as sealMessage, decryptMessage,
+    signPayload, verifyPayload, safetyNumber, keyCode, type SigningIdentity,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_UPLOAD_BYTES, MAX_FIRST_PARTY_BYTES, MAX_TRANSFER_BYTES } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
-  import { normalizeChatMode, chatModeTtlSeconds, formatDuration, parseBurnSuffix, type ChatMode } from '../../lib/chatRoomSettings';
+  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
 
   export let locale = 'en';
@@ -35,6 +42,7 @@
     initials: string;
     color: string;
     alias?: Alias;
+    nick?: string;
     mine: boolean;
     time: number;
     ttl: number;
@@ -44,6 +52,20 @@
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     revealed?: boolean;
     whiteboard?: WhiteboardInvite;
+    pk?: string;
+    keyWarning?: boolean;
+  };
+
+  type Member = {
+    pk: string;
+    key: string;
+    name: string;
+    initials: string;
+    color: string;
+    alias?: Alias;
+    trusted: boolean;
+    safety: string;
+    code: string;
   };
 
   type ChatRoomMode = ChatMode;
@@ -62,6 +84,7 @@
     password?: string;
     text?: string;
     sender?: string;
+    nick?: string;
     color?: string;
     ttl?: number;
     file?: { name: string; size: number; urls?: string[]; url?: string };
@@ -84,6 +107,8 @@
     type: 'history';
     config?: RoomConfig | null;
     messages?: ServerEnvelope[];
+    epoch?: string | null;
+    more?: boolean;
   };
 
   type LiveSyncMessage = {
@@ -92,11 +117,12 @@
     sender: string;
     color: string;
     alias?: [number, number, number];
+    nick?: string;
     time: number;
     file?: { name: string; size: number; urls: string[] };
   };
 
-  type LocalHistoryEnvelope = Pick<ServerEnvelope, 'type' | 'id' | 'payload' | 'createdAt'>;
+  type LocalHistoryEnvelope = Pick<ServerEnvelope, 'type' | 'id' | 'payload' | 'createdAt' | 'serverSeq'>;
 
   type WhiteboardInvite = {
     roomId: string;
@@ -141,6 +167,7 @@
     fromName: string;
     fromColor: string;
     fromAlias?: [number, number, number];
+    fromNick?: string;
     to?: string;
     mode?: CallMode;
     reply?: boolean;
@@ -228,15 +255,22 @@
 
   let ws: PartySocket | null = null;
   let cryptoKey: CryptoKey | null = null;
-  const alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
-  const identity = { name: aliasName(dict, alias), color: aliasColor(alias) };
+  let alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
+  let nickname: string | null = typeof localStorage === 'undefined' ? null : loadNickname(roomId);
+  let identity = { name: nickname || aliasName(dict, alias), color: aliasColor(alias) };
+
+  function myLabelKey(): string {
+    return nickname ? nicknameKey(nickname) : aliasKey(alias);
+  }
 
   function senderInfo(p: any, fallbackName = '', fallbackColor = '') {
+    const nick = parseNickname(p?.nick ?? p?.fromNick) ?? undefined;
     const al = parseAlias(p?.alias ?? p?.fromAlias) ?? undefined;
     const raw = typeof p?.sender === 'string' ? p.sender : typeof p?.fromName === 'string' ? p.fromName : '';
-    const name = al ? aliasName(dict, al) : (raw.trim() || fallbackName || t(dict, 'chat.guest'));
+    const name = nick || (al ? aliasName(dict, al) : (raw.trim() || fallbackName || t(dict, 'chat.guest')));
     const color = al ? aliasColor(al) : safeColor(p?.color ?? p?.fromColor ?? fallbackColor);
-    return { name, color, alias: al, initials: getInitials(name), key: al ? aliasKey(al) : name };
+    const key = nick ? nicknameKey(nick) : al ? aliasKey(al) : name;
+    return { name, color, alias: al, nick, initials: getInitials(name), key };
   }
   let messages: Message[] = [];
   let inputText = '';
@@ -270,6 +304,29 @@
   let showSharePassword = false;
   let shareDismissed = false;
   let clientId = '';
+  let persistentRoom = false;
+  let shareLinkOnly = false;
+  let roomDeleted = false;
+  let deleteConfirm = false;
+  let membersOpen = false;
+  let unsupportedBrowser = false;
+  let profileOpen = false;
+  let profileEl: HTMLElement | null = null;
+  let nickInput = '';
+  let hueInput = 0;
+  let nickError = '';
+  let historyReady = false;
+  let shareQr = '';
+  let showShareQr = false;
+  let clock = Date.now();
+  const FILE_LIFETIME_MS = 24 * 60 * 60 * 1000;
+  let callStartedAt = 0;
+  let callStartKnown = false;
+  const callParticipants = new Set<string>();
+  let myKeyCode = '';
+  let trustTable: TrustTable = {};
+  const members = new Map<string, Member>();
+  let memberList: Member[] = [];
   let callActive = false;
   let callJoining = false;
   let callError = '';
@@ -1072,6 +1129,7 @@
       fromName: identity.name,
       fromColor: identity.color,
       fromAlias: aliasWire(alias),
+      fromNick: nickname || undefined,
       mode: 'audio',
       audio: !micMuted,
       video: screenSharing || !cameraOff,
@@ -1147,7 +1205,7 @@
   }
 
   function shouldKeepParticipantHistory(): boolean {
-    return roomConfig.mode === 'live';
+    return chatModeKeepsHistory(roomConfig.mode);
   }
 
   function genId(): string {
@@ -1180,7 +1238,7 @@
     const value = input as Partial<RoomConfig>;
     if (!isChatAuthMode(value.authMode)) return null;
     return {
-      mode: normalizeChatMode(value.mode),
+      mode: normalizeChatMode(value.mode, persistentRoom),
       authMode: value.authMode,
       createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
     };
@@ -1193,6 +1251,7 @@
   }
 
   function getRoomModeLabel(): string {
+    if (roomConfig.mode === 'persistent') return t(dict, 'chat.modeLabelPersistent');
     const ttl = getRoomTtlSeconds();
     return ttl ? formatDuration(ttl, locale, 'short') : t(dict, 'chat.modeLabelLive');
   }
@@ -1247,13 +1306,60 @@
   function storeLocalEnvelope(envelope: ServerEnvelope | LocalHistoryEnvelope) {
     if (!shouldKeepParticipantHistory() || !localHistoryKey || !envelope.id || !envelope.payload) return;
     const items = readLocalHistory();
-    if (items.some((item) => item.id === envelope.id)) return;
-    items.push({
-      type: 'message',
-      id: envelope.id,
-      payload: envelope.payload,
-      createdAt: typeof envelope.createdAt === 'number' ? envelope.createdAt : Date.now(),
-    });
+    const existing = items.find((item) => item.id === envelope.id);
+    if (existing) {
+      if (typeof envelope.serverSeq !== 'number' || existing.serverSeq === envelope.serverSeq) return;
+      existing.serverSeq = envelope.serverSeq;
+    } else {
+      items.push({
+        type: 'message',
+        id: envelope.id,
+        payload: envelope.payload,
+        createdAt: typeof envelope.createdAt === 'number' ? envelope.createdAt : Date.now(),
+        ...(typeof envelope.serverSeq === 'number' ? { serverSeq: envelope.serverSeq } : {}),
+      });
+    }
+    writeLocalHistory(items);
+  }
+
+  function localHistoryCursor(): { since: number; epoch: string | null } {
+    const since = readLocalHistory().reduce((max, item) => Math.max(max, item.serverSeq || 0), 0);
+    let epoch: string | null = null;
+    try { epoch = localStorage.getItem(`${localHistoryKey}:epoch`); } catch {}
+    return { since, epoch };
+  }
+
+  // A different epoch means the server history was wiped and started over, so the local copy belongs to a room that no longer exists.
+  function syncHistoryEpoch(epoch: unknown) {
+    if (!persistentRoom || !localHistoryKey || epoch === undefined) return;
+    const fresh = typeof epoch === 'string' ? epoch : null;
+    const { epoch: known, since } = localHistoryCursor();
+    if (known === fresh) return;
+    const firstSight = known === null && since === 0;
+    if (!firstSight) clearLocalHistory();
+    if (fresh) {
+      try { localStorage.setItem(`${localHistoryKey}:epoch`, fresh); } catch {}
+    }
+    if (firstSight) return;
+    messages = [];
+    seenMessageIds.clear();
+    addSystemMessage(t(dict, 'chat.historyReset'), 0, '!');
+  }
+
+  function clearLocalHistory() {
+    if (!localHistoryKey) return;
+    try {
+      localStorage.removeItem(localHistoryKey);
+      localStorage.removeItem(`${localHistoryKey}:epoch`);
+    } catch {}
+  }
+
+  function markStored(id: string, serverSeq: number, createdAt: number) {
+    const items = readLocalHistory();
+    const item = items.find((entry) => entry.id === id);
+    if (!item) return;
+    item.serverSeq = serverSeq;
+    item.createdAt = createdAt;
     writeLocalHistory(items);
   }
 
@@ -1352,6 +1458,7 @@
         sender: msg.sender,
         color: msg.color,
         alias: msg.alias ? aliasWire(msg.alias) : undefined,
+        nick: msg.nick,
         time: msg.time || Date.now(),
         file: msg.file ? { name: msg.file.name, size: msg.file.size, urls: msg.file.urls } : undefined,
       }));
@@ -1394,6 +1501,7 @@
         sender: who.name,
         initials: who.initials,
         alias: who.alias,
+        nick: who.nick,
         color: who.color,
         mine: false,
         time: createdAt,
@@ -1408,6 +1516,7 @@
         text: item.text || '',
         sender: who.name,
         alias: item.alias,
+        nick: who.nick,
         color: item.color || 'var(--accent)',
         ttl: 0,
         createdAt,
@@ -1455,12 +1564,21 @@
         if (pendingRoomConfig) roomConfig = pendingRoomConfig;
       } catch {}
     }
-    const fragmentKey = new URLSearchParams(location.hash.slice(1)).get('k');
-    const stored = fragmentKey && /^[A-Za-z0-9_-]{43}$/.test(fragmentKey) ? fragmentKey : sessionStorage.getItem('chat-password');
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const fragmentKey = fragment.get('k');
+    const stored = fragmentKey && ROOM_KEY_RE.test(fragmentKey) ? fragmentKey : sessionStorage.getItem('chat-password');
     const sharePass = sessionStorage.getItem('chat-share-password');
     if (sharePass) {
       sharePassword = sharePass;
       sessionStorage.removeItem('chat-share-password');
+    }
+    if (sessionStorage.getItem('chat-share-link')) {
+      shareLinkOnly = true;
+      sessionStorage.removeItem('chat-share-link');
+    }
+    if (fragmentKey && ROOM_KEY_RE.test(fragmentKey) && fragment.get('p') === '1') {
+      await enterPersistentRoom(fragmentKey);
+      return;
     }
     if (stored) {
       sessionStorage.removeItem('chat-password');
@@ -1563,7 +1681,8 @@
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
 
     joinedRoom = true;
-    ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig }));
+    const cursor = persistentRoom ? localHistoryCursor() : null;
+    ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig, ...(cursor ? { since: cursor.since, epoch: cursor.epoch } : {}) }));
 
     if (typeof activePeerCount === 'number') {
       startPasswordVerification(activePeerCount);
@@ -1574,7 +1693,7 @@
     }
 
     verificationChallenge = crypto.randomUUID();
-    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), clientId }));
+    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId }));
     ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
   }
 
@@ -1597,6 +1716,43 @@
       } else {
         connectWs();
       }
+    } catch {
+      passwordError = t(dict, 'chat.errorDeriveKey');
+      checkingRoom = false;
+      needsPassword = true;
+    }
+  }
+
+  async function enterPersistentRoom(key: string) {
+    persistentRoom = true;
+    currentAuthAttempt = 'fragment';
+    roomConfig = { mode: 'persistent', authMode: 'fragment', createdAt: pendingRoomConfig?.createdAt || Date.now() };
+    pendingRoomConfig = roomConfig;
+    try {
+      roomIdentity = await loadRoomIdentity(roomId);
+    } catch {
+      checkingRoom = false;
+      unsupportedBrowser = true;
+      return;
+    }
+    try {
+      trustTable = loadTrustTable(roomId);
+      const mine = myLabelKey();
+      if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
+        trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
+        saveTrustTable(roomId, trustTable);
+      }
+      myKeyCode = await keyCode(roomIdentity.publicKey);
+      const access = await derivePersistentRoom(key, roomId);
+      accessToken = access.token; channelId = access.channel;
+      cryptoKey = access.key;
+      passwordUsed = key;
+      localHistoryKey = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
+      localHistoryLoaded = false;
+      needsPassword = false;
+      checkingRoom = false;
+      await restoreLocalHistory();
+      connectWs();
     } catch {
       passwordError = t(dict, 'chat.errorDeriveKey');
       checkingRoom = false;
@@ -1660,6 +1816,7 @@
     serverConnectStartedAt = Date.now();
     ws = new PartySocket({
       host: partyHost || window.location.host,
+      party: persistentRoom ? 'persistent' : 'main',
       room: channelId,
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
@@ -1723,8 +1880,20 @@
       if (!cryptoKey) {
         if (config) await resolveRoomAccess(true);
       } else {
+        syncHistoryEpoch(data.epoch);
         await processHistory(data as HistoryEnvelope);
       }
+      return;
+    }
+    if (data.type === 'stored') {
+      if (typeof data.id === 'string' && typeof data.serverSeq === 'number') {
+        syncHistoryEpoch(data.epoch);
+        markStored(data.id, data.serverSeq, typeof data.createdAt === 'number' ? data.createdAt : Date.now());
+      }
+      return;
+    }
+    if (data.type === 'room-deleted') {
+      handleRoomDeleted();
       return;
     }
     if (data.type === 'pong') {
@@ -1751,6 +1920,9 @@
 
   async function processHistory(history: HistoryEnvelope) {
     const historyMessages = Array.isArray(history.messages) ? history.messages : [];
+    // In a live room the others may still be about to sync their history, so the empty state waits a moment for them.
+    if (persistentRoom || serverPresence <= 1) historyReady = true;
+    else setTimeout(() => { historyReady = true; }, 1500);
     if (!historyMessages.length) {
       if (verifying && serverPresence <= 1) markVerified();
       return;
@@ -1771,6 +1943,8 @@
       const plaintext = await decryptMessage(cryptoKey, data.payload);
       const parsed = JSON.parse(plaintext) as ChatPayload & Record<string, any>;
       if (!validPayload(parsed, channelId, fromHistory)) return false;
+      const signer = persistentRoom ? await verifyPayload(parsed) : null;
+      if (persistentRoom && !signer) return false;
       if (!replay.accept(parsed._id)) return true;
       if (!replay.accept(await sha256B64url(data.payload))) return true;
       if (typeof parsed.id === 'string' && seenMessageIds.has(parsed.id)) return true;
@@ -1789,12 +1963,13 @@
       if (parsed.type === 'verify') {
         if (fromHistory) return true;
         if (cryptoKey && ws && typeof parsed.challenge === 'string') {
-          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), clientId }));
+          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId }));
           ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
         }
         if (callActive) void sendCallSignal({ action: 'presence' });
         const joiner = senderInfo(parsed);
         addOnlineUser(joiner);
+        if (signer) noteMember(signer, joiner);
         void sendLiveHistorySync();
         messages = [...messages, {
           id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
@@ -1804,10 +1979,23 @@
         return true;
       }
 
+      if (parsed.type === 'rename') {
+        if (fromHistory) return true;
+        const who = senderInfo(parsed);
+        const prev = typeof parsed.prev === 'string' ? parsed.prev : '';
+        const before = onlineUsers.find((u) => u.key === prev);
+        onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
+        if (signer) noteMember(signer, who);
+        if (before && before.name !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', before.name).replace('{to}', who.name), 15);
+        return true;
+      }
+
       if (parsed.type === 'verify-ack') {
         if (fromHistory || parsed.challenge !== verificationChallenge) return true;
         if (verifying) markVerified();
-        addOnlineUser(senderInfo(parsed));
+        const acker = senderInfo(parsed);
+        addOnlineUser(acker);
+        if (signer) noteMember(signer, acker);
         return true;
       }
 
@@ -1835,25 +2023,29 @@
       const id = parsed.id || genId();
       const ttl = parsed.ttl || 0;
       const who = senderInfo(parsed, '', 'var(--accent)');
+      const mine = Boolean(signer && roomIdentity && signer === roomIdentity.publicKey);
+      const trusted = signer && !mine ? noteMember(signer, who) : true;
       const msg: Message = {
         id,
         text: parsed.text || '',
         sender: who.name,
         initials: who.initials,
         alias: who.alias,
+        nick: who.nick,
         color: who.color,
-        mine: false,
+        mine,
         time: parsed.createdAt || Date.now(),
         ttl,
         remaining: ttl,
         file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []) } : undefined,
         revealed: true,
+        ...(signer ? { pk: signer, keyWarning: !trusted } : {}),
       };
       seenMessageIds.add(id);
       messages = [...messages, msg];
       typing = null;
       if (!fromHistory) scrollToBottom();
-      if (!fromHistory && !ttl) storeLocalEnvelope({ ...data, id });
+      if (!ttl && (!fromHistory || (persistentRoom && typeof data.serverSeq === 'number'))) storeLocalEnvelope({ ...data, id });
 
       if (msg.file) autoPreview(msg);
 
@@ -1888,7 +2080,7 @@
       text,
       sender: identity.name,
       color: identity.color,
-      alias: aliasWire(alias),
+      alias: aliasWire(alias), nick: nickname || undefined,
       ttl: finalTtl,
       createdAt,
     };
@@ -1898,14 +2090,14 @@
       type: 'message',
       payload: encrypted,
       id: msgId,
-      persist: false,
+      persist: persistentRoom && !finalTtl,
       createdAt,
     }));
     if (!finalTtl) storeLocalEnvelope({ type: 'message', payload: encrypted, id: msgId, createdAt });
     seenMessageIds.add(msgId);
 
     messages = [...messages, {
-      id: msgId, text, sender: identity.name, initials: myInitials, alias,
+      id: msgId, text, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
       revealed: true,
@@ -2003,7 +2195,7 @@
         text: '',
         sender: identity.name,
         color: identity.color,
-        alias: aliasWire(alias),
+        alias: aliasWire(alias), nick: nickname || undefined,
         ttl: fileTtl,
         createdAt,
         file: { name: file.name, size: file.size, urls: uploadUrls },
@@ -2014,14 +2206,14 @@
         type: 'message',
         payload: encPayload,
         id: msgId,
-        persist: false,
+        persist: persistentRoom && !fileTtl,
         createdAt,
       }));
       storeLocalEnvelope({ type: 'message', payload: encPayload, id: msgId, createdAt });
       seenMessageIds.add(msgId);
 
       const ownMsg: Message = {
-        id: msgId, text: '', sender: identity.name, initials: myInitials, alias,
+        id: msgId, text: '', sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls },
@@ -2037,6 +2229,11 @@
 
   async function downloadChatFile(msg: Message) {
     if (!msg.file || !passwordUsed) return;
+    if (fileGone(msg)) {
+      msg.fileError = true;
+      messages = messages;
+      return;
+    }
     const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
 
     for (const fileUrl of msg.file.urls) {
@@ -2073,7 +2270,7 @@
     const now = Date.now();
     if (now - typingSent > 3000) {
       // Send typing indicator as encrypted message (no leaking to wrong-password users)
-      const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
+      const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined }));
       ws.send(JSON.stringify({ type: 'message', payload, id: 'typing-' + genId() }));
       typingSent = now;
     }
@@ -2406,11 +2603,13 @@
     };
 
     if (signal.action === 'presence') {
+      noteCallParticipant(signal.from, senderInfo(signal).name, false);
       showActiveCallNotice();
       return;
     }
 
     if (signal.action === 'join') {
+      noteCallParticipant(signal.from, senderInfo(signal).name, !signal.reply);
       if (!callActive) {
         showActiveCallNotice();
         return;
@@ -2431,6 +2630,7 @@
 
     if (signal.action === 'leave') {
       if (callActive) removeCallPeer(signal.from);
+      dropCallParticipant(signal.from);
       if (activeCallNotice?.from === signal.from) activeCallNotice = null;
       return;
     }
@@ -2658,6 +2858,7 @@
         audioOutputs: audioOutputDevices.length,
       });
       await sendCallSignal({ action: 'join', reply: false });
+      noteCallParticipant(clientId, identity.name, true);
     } catch (e: any) {
       callError = e?.message || t(dict, 'chat.callStartFailed');
       callDebug('call start failed', { error: callError });
@@ -2682,6 +2883,10 @@
       relayRttMs,
     });
     closeCallFullscreen(false);
+    if (callParticipants.has(clientId)) {
+      for (const id of [...callParticipants]) if (id !== clientId && !callPeerMap.has(id)) callParticipants.delete(id);
+      dropCallParticipant(clientId);
+    }
     for (const peer of callPeerMap.values()) peer.pc.close();
     callPeerMap.clear();
     pendingIce.clear();
@@ -3060,6 +3265,168 @@
     }
   }
 
+  function addSystemMessage(text: string, ttl: number, initials = '→', color = 'var(--accent)') {
+    messages = [...messages, { id: genId(), text, sender: '', initials, color, mine: false, time: Date.now(), ttl, remaining: ttl }];
+    scrollToBottom();
+  }
+
+  // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
+  function noteMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias }): boolean {
+    if (!trustTable[who.key]?.length) {
+      trustTable[who.key] = [pk];
+      saveTrustTable(roomId, trustTable);
+    }
+    const trusted = trustTable[who.key].includes(pk);
+    const member = members.get(pk);
+    if (member) {
+      if (member.trusted !== trusted || member.key !== who.key || member.name !== who.name) {
+        Object.assign(member, { trusted, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias });
+        memberList = [...members.values()];
+      }
+    } else {
+      const fresh: Member = { pk, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias, trusted, safety: '', code: '' };
+      members.set(pk, fresh);
+      memberList = [...members.values()];
+      void Promise.all([roomIdentity ? safetyNumber(roomIdentity.publicKey, pk) : Promise.resolve(''), keyCode(pk)]).then(([safety, code]) => {
+        fresh.safety = safety;
+        fresh.code = code;
+        memberList = [...members.values()];
+      });
+    }
+    return trusted;
+  }
+
+  function toggleProfile() {
+    if (profileOpen) {
+      profileOpen = false;
+      return;
+    }
+    nickInput = nickname || '';
+    hueInput = alias.h;
+    nickError = '';
+    profileOpen = true;
+    membersOpen = false;
+    deleteConfirm = false;
+    requestAnimationFrame(() => document.getElementById('chat-nickname')?.focus());
+  }
+
+  function closeProfileOnOutside(event: PointerEvent) {
+    if (!profileOpen || !profileEl || profileEl.contains(event.target as Node)) return;
+    profileOpen = false;
+  }
+
+  function closeProfileOnEscape(event: KeyboardEvent) {
+    if (event.key !== 'Escape' || !profileOpen) return;
+    profileOpen = false;
+    profileEl?.querySelector<HTMLElement>('button')?.focus();
+  }
+
+  async function applyProfile() {
+    const next = nickInput.trim();
+    if (next && !NICKNAME_RE.test(next)) {
+      nickError = t(dict, 'chat.nicknameInvalid');
+      return;
+    }
+    nickError = '';
+    profileOpen = false;
+    if ((next || null) === nickname && hueInput === alias.h) return;
+    const prev = myLabelKey();
+    nickname = next || null;
+    saveNickname(roomId, nickname);
+    alias = { ...alias, h: hueInput };
+    saveAlias(roomId, alias);
+    identity = { name: nickname || aliasName(dict, alias), color: aliasColor(alias) };
+    if (roomIdentity) {
+      const mine = myLabelKey();
+      if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
+        trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
+        saveTrustTable(roomId, trustTable);
+      }
+    }
+    if (!verified) return;
+    await sendEncryptedControl({ type: 'rename', sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, prev }, 'rename');
+  }
+
+  async function toggleShareQr() {
+    showShareQr = !showShareQr;
+    if (!showShareQr || shareQr) return;
+    try {
+      const { default: QRCode } = await import('qrcode');
+      shareQr = await QRCode.toString(window.location.href, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 220, color: { dark: '#105f3f', light: '#ffffff' } });
+    } catch {
+      shareQr = '';
+      showShareQr = false;
+    }
+  }
+
+  function fileGone(msg: Message): boolean {
+    return Boolean(msg.fileError) || clock - msg.time > FILE_LIFETIME_MS;
+  }
+
+  function fileTimeLeft(msg: Message): string {
+    const left = Math.max(0, FILE_LIFETIME_MS - (clock - msg.time));
+    const hours = Math.floor(left / 3_600_000);
+    if (hours >= 1) return t(dict, 'chat.fileExpiresInHours').replace('{n}', String(hours));
+    return t(dict, 'chat.fileExpiresInMinutes').replace('{n}', String(Math.max(1, Math.ceil(left / 60_000))));
+  }
+
+  function formatCallDuration(ms: number): string {
+    const total = Math.max(0, Math.round(ms / 1000));
+    const hours = Math.floor(total / 3600);
+    const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+    const seconds = String(total % 60).padStart(2, '0');
+    return hours ? `${hours}:${minutes}:${seconds}` : `${Number(minutes)}:${seconds}`;
+  }
+
+  // A join, or our own start, pins the moment a call began; a presence from a call already running only says that one exists.
+  function noteCallParticipant(id: string, name: string, started: boolean) {
+    if (!callStartedAt) {
+      callStartedAt = Date.now();
+      callStartKnown = started;
+      if (started) addSystemMessage(t(dict, 'chat.callStartedBy').replace('{name}', name), 0);
+    }
+    callParticipants.add(id);
+  }
+
+  function dropCallParticipant(id: string) {
+    if (!callParticipants.delete(id) || callParticipants.size || !callStartedAt) return;
+    const text = callStartKnown
+      ? t(dict, 'chat.callEndedAfter').replace('{duration}', formatCallDuration(Date.now() - callStartedAt))
+      : t(dict, 'chat.callEnded');
+    callStartedAt = 0;
+    callStartKnown = false;
+    addSystemMessage(text, 0, '←');
+  }
+
+  function trustKey(pk: string) {
+    const member = members.get(pk);
+    if (!member) return;
+    trustTable[member.key] = [...(trustTable[member.key] || []), pk];
+    saveTrustTable(roomId, trustTable);
+    member.trusted = true;
+    memberList = [...members.values()];
+    messages = messages.map((msg) => msg.pk === pk ? { ...msg, keyWarning: false } : msg);
+  }
+
+  function requestRoomDelete() {
+    if (!ws || ws.readyState !== 1) return;
+    deleteConfirm = false;
+    ws.send(JSON.stringify({ type: 'delete' }));
+  }
+
+  function handleRoomDeleted() {
+    clearLocalHistory();
+    forgetTrustTable(roomId);
+    roomDeleted = true;
+    deleteConfirm = false;
+    membersOpen = false;
+    verified = false;
+    verifying = false;
+    joinedRoom = false;
+    ws?.close();
+    ws = null;
+  }
+
   function addOnlineUser(user: { key: string; name: string; color: string; alias?: Alias; initials: string }) {
     if (!onlineUsers.find(u => u.key === user.key)) {
       onlineUsers = [...onlineUsers, user];
@@ -3068,6 +3435,7 @@
 
   function tick() {
     const now = Date.now();
+    if (now - clock >= 60_000) clock = now;
     let changed = false;
     const alive: Message[] = [];
     for (const msg of messages) {
@@ -3150,10 +3518,28 @@
   }
 </script>
 
-<svelte:window on:pointerdown|capture={closeCallSettingsOnOutside} on:keydown={closeCallSettingsOnEscape} />
+<svelte:window on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); }} />
 
 <div class="chat-container">
-  {#if wrongPassword}
+  {#if roomDeleted}
+    <div class="chat-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        <p class="text-base font-bold text-text">{t(dict, 'chat.roomDeleted')}</p>
+        <p class="hint">{t(dict, 'chat.roomDeletedDetail')}</p>
+        <a class="btn w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
+      </div>
+    </div>
+
+  {:else if unsupportedBrowser}
+    <div class="chat-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        <p class="status status--error" role="alert">{t(dict, 'chat.unsupportedBrowser')}</p>
+      </div>
+    </div>
+
+  {:else if wrongPassword}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
         <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
@@ -3211,7 +3597,28 @@
       <div class="flex items-center gap-2">
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
-          <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias)}" title={identity.name}>{myInitials}</div>
+          <div class="chat-profile" bind:this={profileEl}>
+            <button type="button" class="chat-avatar chat-avatar--sm chat-avatar--btn" style="background: {aliasGradient(alias)}" title="{identity.name} · {t(dict, 'chat.editProfile')}" aria-label="{identity.name} · {t(dict, 'chat.editProfile')}" aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
+              {myInitials}
+              <span class="chat-avatar__edit" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+            </button>
+            {#if profileOpen}
+              <form id="chat-profile-pop" class="chat-profile__pop" on:submit|preventDefault={applyProfile}>
+                <label class="chat-profile__label" for="chat-nickname">{t(dict, 'chat.yourName')}</label>
+                <div class="chat-profile__row">
+                  <input id="chat-nickname" class="input chat-profile__input" bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} autocomplete="off" autocapitalize="off" spellcheck="false" aria-invalid={nickError ? 'true' : undefined} aria-describedby="chat-nickname-hint" />
+                  <button type="submit" class="btn btn-sm">{t(dict, 'chat.nicknameSave')}</button>
+                </div>
+                <p id="chat-nickname-hint" class="chat-profile__hint" class:chat-profile__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
+                <p class="chat-profile__label" id="chat-profile-colour">{t(dict, 'chat.profileColour')}</p>
+                <div class="chat-profile__hues" role="radiogroup" aria-labelledby="chat-profile-colour">
+                  {#each (PROFILE_HUES.includes(alias.h) ? PROFILE_HUES : [alias.h, ...PROFILE_HUES]) as hue, i}
+                    <button type="button" class="chat-profile__hue" class:chat-profile__hue--active={hueInput === hue} style="background: {aliasGradient({ ...alias, h: hue })}" role="radio" aria-checked={hueInput === hue} aria-label={t(dict, 'chat.colourOption').replace('{n}', String(i + 1))} on:click={() => { hueInput = hue; }}></button>
+                  {/each}
+                </div>
+              </form>
+            {/if}
+          </div>
           {#each onlineUsers as user}
             <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
           {/each}
@@ -3230,18 +3637,77 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L8 9.76a16 16 0 0 0 6.24 6.24l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92Z"/></svg>
           {/if}
         </button>
+        {#if persistentRoom}
+          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; deleteConfirm = false; }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+          </button>
+          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.deleteRoom')} aria-label={t(dict, 'chat.deleteRoom')} aria-expanded={deleteConfirm} on:click={() => { deleteConfirm = !deleteConfirm; membersOpen = false; }} disabled={!connected || !verified}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+        {/if}
         <span class="chat-mode-badge" title={getRoomModeLabel()}>{getRoomModeLabel()}</span>
       </div>
     </div>
 
-    {#if sharePassword && !shareDismissed}
+    {#if deleteConfirm}
+      <div class="chat-call-banner" role="alertdialog" aria-label={t(dict, 'chat.deleteRoom')}>
+        <p class="chat-call-banner__title">{t(dict, 'chat.deleteRoomConfirm')}</p>
+        <div class="chat-call-banner__actions">
+          <button type="button" class="chat-call-decline" on:click={requestRoomDelete}>{t(dict, 'chat.deleteRoomYes')}</button>
+          <button type="button" class="btn-ghost btn-sm" on:click={() => { deleteConfirm = false; }}>{t(dict, 'chat.deleteRoomNo')}</button>
+        </div>
+      </div>
+    {/if}
+
+    {#if membersOpen}
+      <div class="chat-members">
+        <div class="chat-member">
+          <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias)}">{myInitials}</div>
+          <div class="min-w-0 flex-1">
+            <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
+            <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><code class="chat-member__code">{myKeyCode}</code></p>
+          </div>
+        </div>
+        {#if memberList.length === 0}
+          <p class="hint">{t(dict, 'chat.noMembersYet')}</p>
+        {/if}
+        {#each memberList as member (member.pk)}
+          <div class="chat-member" class:chat-member--warn={!member.trusted}>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}">{member.initials}</div>
+            <div class="min-w-0 flex-1">
+              <p class="chat-member__name">
+                {member.name}
+                {#if !member.trusted}<span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>{/if}
+              </p>
+              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><code class="chat-member__code">{member.code}</code></p>
+              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><code class="chat-member__code">{member.safety}</code></p>
+              {#if !member.trusted}
+                <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
+                <button type="button" class="btn-outline btn-sm" on:click={() => trustKey(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+        <p class="hint">{t(dict, 'chat.safetyNumberHint')}</p>
+      </div>
+    {/if}
+
+    {#if (sharePassword || shareLinkOnly) && !shareDismissed}
       <div class="chat-share-banner">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-bold text-accent">{t(dict, 'chat.sharePasswordWarning')}</span>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'chat.closeSharePanel')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <span class="text-sm font-bold text-accent">{t(dict, shareLinkOnly ? 'chat.shareLinkWarning' : 'chat.sharePasswordWarning')}</span>
+          <div class="flex items-center gap-0.5">
+            <button type="button" class="btn-ghost btn-sm btn-icon" on:click={toggleShareQr} aria-label={t(dict, showShareQr ? 'chat.hideQr' : 'chat.showQr')} title={t(dict, showShareQr ? 'chat.hideQr' : 'chat.showQr')} aria-pressed={showShareQr}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M19 14h2v2h-2z"/><path d="M14 19h2v2h-2z"/><path d="M19 19h2v2h-2z"/></svg>
+            </button>
+            <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'chat.closeSharePanel')}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
+        {#if showShareQr && shareQr}
+          <div class="ue-qr mb-2" role="img" aria-label={t(dict, 'chat.qrAlt')}>{@html shareQr}</div>
+        {/if}
         <div class="flex items-center gap-1.5 mb-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.roomLink')}</span>
           <code class="chat-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
@@ -3253,6 +3719,7 @@
             {/if}
           </button>
         </div>
+        {#if sharePassword}
         <div class="flex items-center gap-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.password')}</span>
           <code class="chat-share-value">{showSharePassword ? sharePassword : '•'.repeat(Math.min(sharePassword.length, 16))}</code>
@@ -3267,6 +3734,7 @@
             {/if}
           </button>
         </div>
+        {/if}
       </div>
     {/if}
 
@@ -3499,16 +3967,19 @@
 
       <div class="chat-thread">
         <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl} use:revealSpoilers>
-      {#if messages.length === 0}
+      {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
           <img src="/encrypt_chill.svg" alt="" width="135" height="116" class="state-art mb-2" decoding="async" />
-          <p class="empty__title">{t(dict, 'chat.emptyRoomNotice')}</p>
-          <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
-          <p class="hint">{t(dict, 'chat.emptyRoomNotice3')}</p>
+          <p class="empty__title">{t(dict, serverPresence > 1 ? 'chat.emptyRoomNoticeOthers' : 'chat.emptyRoomNotice')}</p>
+          <p class="text-text">{t(dict, persistentRoom ? 'chat.emptyRoomNotice2Persistent' : 'chat.emptyRoomNotice2')}</p>
+          <p class="hint">{persistentRoom ? t(dict, 'chat.emptyRoomNoticePersistent').replace('{days}', String(PERSISTENT_IDLE_DAYS)) : t(dict, 'chat.emptyRoomNotice3')}</p>
         </div>
       {/if}
 
       {#each messages as msg (msg.id)}
+        {#if !msg.sender}
+          <p class="chat-system">{msg.text}</p>
+        {:else}
         <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
           <div class="flex items-start gap-2">
             {#if !msg.mine}
@@ -3517,21 +3988,25 @@
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
                 <span class="chat-sender" style="color: {msg.mine ? 'var(--accent)' : safeColor(msg.color)}">{msg.sender}</span>
+                {#if msg.keyWarning}
+                  <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; deleteConfirm = false; }}>{t(dict, 'chat.keyNew')}</button>
+                {/if}
               </div>
               {#if msg.file}
-                <div class="chat-file" class:chat-file--error={msg.fileError}>
+                {@const gone = fileGone(msg)}
+                <div class="chat-file" class:chat-file--error={gone}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   <div class="flex-1 min-w-0">
                     <span class="chat-file__name">{msg.file.name}</span>
                     <span class="chat-file__size">
-                      {#if msg.fileError}
+                      {#if gone}
                         {t(dict, 'chat.fileExpired')}
                       {:else}
-                        {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`}
+                        {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`} · {fileTimeLeft(msg)}
                       {/if}
                     </span>
                   </div>
-                  {#if !msg.fileError}
+                  {#if !gone}
                     <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </button>
@@ -3588,6 +4063,7 @@
             {/if}
           </div>
         </div>
+        {/if}
       {/each}
 
       {#if typing}
@@ -4107,6 +4583,87 @@
     border-bottom: 1px solid rgba(228, 228, 231, 0.5);
   }
   :global(.dark) .chat-header { border-color: rgba(39, 39, 42, 0.4); }
+  .chat-profile { position: relative; }
+  .chat-avatar--btn {
+    position: relative;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    overflow: visible;
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .chat-avatar--btn:hover { transform: scale(1.08); }
+  .chat-avatar__edit {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    border-radius: 9999px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .chat-profile__pop {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 30;
+    width: min(18rem, calc(100vw - 2rem));
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.75rem;
+    border-radius: 0.875rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  }
+  .chat-profile__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .chat-profile__row {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .chat-profile__input {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    min-height: 2.25rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+    font-size: 0.9rem;
+  }
+  .chat-profile__hint {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  .chat-profile__hint--error { color: var(--danger); }
+  .chat-profile__hues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chat-profile__hue {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+  .chat-profile__hue--active {
+    border-color: var(--text);
+    box-shadow: inset 0 0 0 2px var(--surface);
+  }
   .chat-body {
     flex: 1;
     min-height: 0;
@@ -4162,6 +4719,58 @@
     color: oklch(0.84 0.13 160.44);
     border-color: oklch(0.7019 0.1577 160.44 / 0.16);
     background: oklch(0.7019 0.1577 160.44 / 0.09);
+  }
+  .chat-members {
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid rgba(228, 228, 231, 0.5);
+  }
+  :global(.dark) .chat-members { border-color: rgba(39, 39, 42, 0.4); }
+  .chat-member {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+  .chat-member--warn {
+    padding: 0.5rem;
+    border-radius: 0.6rem;
+    background: rgba(240, 178, 50, 0.12);
+  }
+  .chat-member__name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .chat-member__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+  }
+  .chat-member__code {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: var(--text);
+  }
+  .chat-key-warn {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.35rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(122, 75, 0);
+    background: rgb(253, 230, 138);
+  }
+  :global(.dark) .chat-key-warn {
+    color: rgb(253, 230, 138);
+    background: rgba(240, 178, 50, 0.22);
   }
   .chat-call-banner {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
@@ -4330,6 +4939,16 @@
   }
   .chat-avatar--sm {
     width: 24px; height: 24px; border-radius: 9999px; font-size: 0.75rem;
+  }
+  .chat-system {
+    align-self: center;
+    max-width: 85%;
+    padding: 0.1rem 0.75rem;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted);
+    word-break: break-word;
   }
   .chat-bubble {
     max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 0.875rem;

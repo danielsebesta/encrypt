@@ -1,9 +1,9 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import { DurableObject } from 'cloudflare:workers';
-import { ChatServer, WhiteboardServer, routeRealtimeRequest, type RealtimeEnv } from '../party/server';
+import { ChatServer, PersistentChatServer, WhiteboardServer, routeRealtimeRequest, type RealtimeEnv } from '../party/server';
 import { localeResponse } from './lib/locale';
 
-export { ChatServer, WhiteboardServer };
+export { ChatServer, PersistentChatServer, WhiteboardServer };
 
 type Env = RealtimeEnv & {
   SECURITY_BUDGET: DurableObjectNamespace<SecurityBudget>;
