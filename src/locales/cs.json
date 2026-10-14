@@ -653,7 +653,7 @@
   "chat.callUnmuteAllAudio": "Zapnout všechny zvuky",
   "chat.callDeafen": "Neslyšet hovor",
   "chat.callUndeafen": "Znovu slyšet hovor",
-  "chat.callBlurMediaWhenAway": "Rozmazat kamery mimo okno",
+  "chat.blurWhenAway": "Rozmazat chat a kamery mimo okno",
   "chat.callVolume": "Hlasitost hovoru",
   "chat.callParticipantAudio": "Zvuk účastníků",
   "chat.callSpeaking": "Mluví",

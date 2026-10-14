@@ -653,7 +653,7 @@
   "chat.callUnmuteAllAudio": "Unmute all sound",
   "chat.callDeafen": "Deafen",
   "chat.callUndeafen": "Undeafen",
-  "chat.callBlurMediaWhenAway": "Blur cameras when away",
+  "chat.blurWhenAway": "Blur chat and cameras when away",
   "chat.callVolume": "Call volume",
   "chat.callParticipantAudio": "Participant audio",
   "chat.callSpeaking": "Speaking",

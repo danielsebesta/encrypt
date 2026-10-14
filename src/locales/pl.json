@@ -653,7 +653,7 @@
   "chat.callUnmuteAllAudio": "Włącz wszystkie dźwięki",
   "chat.callDeafen": "Wyłącz odsłuch rozmowy",
   "chat.callUndeafen": "Włącz odsłuch rozmowy",
-  "chat.callBlurMediaWhenAway": "Rozmywaj obraz z kamer poza oknem",
+  "chat.blurWhenAway": "Rozmywaj czat i obraz z kamer poza oknem",
   "chat.callVolume": "Głośność połączenia",
   "chat.callParticipantAudio": "Dźwięk uczestników",
   "chat.callSpeaking": "Mówi",
