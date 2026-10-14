@@ -153,6 +153,9 @@
     cameraOff: boolean;
     screenSharing: boolean;
     makingOffer: boolean;
+    restartTimer?: ReturnType<typeof setTimeout>;
+    restartAttempts: number;
+    lastRestartAt: number;
     volume: number;
     audioMuted: boolean;
     audioLevel: number;
@@ -161,7 +164,7 @@
 
   type CallSignal = {
     type: 'call-signal';
-    action: 'join' | 'presence' | 'offer' | 'answer' | 'ice' | 'leave' | 'media';
+    action: 'join' | 'presence' | 'offer' | 'answer' | 'ice' | 'leave' | 'media' | 'restart';
     callId: string;
     from: string;
     fromName: string;
@@ -391,6 +394,9 @@
   const MAX_SDP_CHARS = 96_000;
   const MAX_ICE_CANDIDATE_CHARS = 4096;
   const MAX_PENDING_ICE_PER_PEER = 64;
+  const ICE_DISCONNECT_GRACE_MS = 2000;
+  const ICE_RESTART_RETRY_MS = [4000, 6000, 10000, 15000];
+  const ICE_RESTART_DEDUPE_MS = 3000;
   const LOCAL_HISTORY_LIMIT = 1000;
   const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v3:';
   const CALL_DEBUG_STORAGE_KEY = 'encrypt.click:call-debug';
@@ -1829,6 +1835,7 @@
       recordServerLatencySample(serverConnectStartedAt);
       if (cryptoKey) await announceJoined();
       sendServerPing();
+      restartDisconnectedPeers();
     });
     ws.addEventListener('close', () => {
       connected = false;
@@ -2348,6 +2355,8 @@
       cameraOff: false,
       screenSharing: false,
       makingOffer: false,
+      restartAttempts: 0,
+      lastRestartAt: 0,
       volume: 1,
       audioMuted: false,
       audioLevel: 0,
@@ -2429,6 +2438,15 @@
         iceConnectionState: pc.iceConnectionState,
         signalingState: pc.signalingState,
       });
+      if (peerMediaConnected(pc)) {
+        clearPeerRestart(current);
+        current.restartAttempts = 0;
+      } else if (pc.iceConnectionState === 'failed') {
+        clearPeerRestart(current);
+        schedulePeerRestart(peerId, 0);
+      } else if (pc.iceConnectionState === 'disconnected') {
+        schedulePeerRestart(peerId, isCallOfferer(peerId) ? ICE_DISCONNECT_GRACE_MS : ICE_DISCONNECT_GRACE_MS * 2);
+      }
       syncCallPeers();
       void refreshRelayStats();
     };
@@ -2441,6 +2459,7 @@
   function removeCallPeer(peerId: string) {
     const peer = callPeerMap.get(peerId);
     if (!peer) return;
+    clearPeerRestart(peer);
     peer.pc.close();
     callPeerMap.delete(peerId);
     pendingIce.delete(peerId);
@@ -2483,14 +2502,78 @@
     });
   }
 
-  async function createAndSendOffer(peer: CallPeer, waitForStable = false) {
+  function isCallOfferer(peerId: string): boolean {
+    return clientId < peerId;
+  }
+
+  function peerMediaConnected(pc: RTCPeerConnection): boolean {
+    return pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed';
+  }
+
+  function clearPeerRestart(peer: CallPeer) {
+    if (peer.restartTimer) clearTimeout(peer.restartTimer);
+    peer.restartTimer = undefined;
+  }
+
+  function schedulePeerRestart(peerId: string, delayMs: number) {
+    const peer = callPeerMap.get(peerId);
+    if (!peer || peer.restartTimer) return;
+    peer.restartTimer = setTimeout(() => {
+      const current = callPeerMap.get(peerId);
+      if (!current) return;
+      current.restartTimer = undefined;
+      if (!callActive || current.pc.connectionState === 'closed' || peerMediaConnected(current.pc)) return;
+      void restartPeerIce(current);
+    }, delayMs);
+  }
+
+  async function applyFreshIceServers(peer: CallPeer) {
+    try {
+      const servers = await loadIceServers();
+      if (callPeerMap.get(peer.id) !== peer || !servers.length) return;
+      peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: servers });
+    } catch {}
+  }
+
+  async function restartPeerIce(peer: CallPeer) {
+    const attempt = peer.restartAttempts++;
+    callDebug('ice restart', {
+      peer: shortPeerId(peer.id),
+      attempt,
+      offerer: isCallOfferer(peer.id),
+      iceConnectionState: peer.pc.iceConnectionState,
+      signalingState: peer.pc.signalingState,
+    });
+    schedulePeerRestart(peer.id, ICE_RESTART_RETRY_MS[Math.min(attempt, ICE_RESTART_RETRY_MS.length - 1)]);
+    await applyFreshIceServers(peer);
+    if (callPeerMap.get(peer.id) !== peer || !ws || ws.readyState !== 1) return;
+    if (isCallOfferer(peer.id)) {
+      await createAndSendOffer(peer, false, true);
+    } else {
+      await sendCallSignal({ action: 'restart', to: peer.id });
+    }
+  }
+
+  function restartDisconnectedPeers() {
+    if (!callActive) return;
+    for (const peer of callPeerMap.values()) {
+      if (peerMediaConnected(peer.pc) || peer.pc.iceConnectionState === 'new') continue;
+      clearPeerRestart(peer);
+      schedulePeerRestart(peer.id, 500);
+    }
+  }
+
+  async function createAndSendOffer(peer: CallPeer, waitForStable = false, iceRestart = false) {
     if (peer.makingOffer) return;
     if (peer.pc.signalingState !== 'stable') {
-      if (!waitForStable || !(await waitForStableSignaling(peer.pc))) return;
+      if (iceRestart && peer.pc.signalingState === 'have-local-offer') {
+        await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
+      } else if (!waitForStable || !(await waitForStableSignaling(peer.pc))) return;
     }
+    if (iceRestart) peer.lastRestartAt = Date.now();
     peer.makingOffer = true;
     try {
-      const offer = await peer.pc.createOffer();
+      const offer = await peer.pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
       await peer.pc.setLocalDescription(offer);
       const sdp = sanitizeRelayDescription(peer.pc.localDescription);
       if (!sdp) throw new Error(t(dict, 'chat.callConnectionFailed'));
@@ -2500,7 +2583,7 @@
         sdp,
       });
     } catch (e: any) {
-      callError = e?.message || t(dict, 'chat.callConnectionFailed');
+      if (!iceRestart) callError = e?.message || t(dict, 'chat.callConnectionFailed');
     } finally {
       peer.makingOffer = false;
       syncCallPeers();
@@ -2652,6 +2735,15 @@
 
     if (signal.action === 'ice') {
       await handleIce(signal);
+      return;
+    }
+
+    if (signal.action === 'restart') {
+      const peer = callPeerMap.get(signal.from);
+      if (!peer || !isCallOfferer(peer.id)) return;
+      if (Date.now() - peer.lastRestartAt < ICE_RESTART_DEDUPE_MS) return;
+      await applyFreshIceServers(peer);
+      await createAndSendOffer(peer, false, true);
       return;
     }
 
@@ -2887,7 +2979,10 @@
       for (const id of [...callParticipants]) if (id !== clientId && !callPeerMap.has(id)) callParticipants.delete(id);
       dropCallParticipant(clientId);
     }
-    for (const peer of callPeerMap.values()) peer.pc.close();
+    for (const peer of callPeerMap.values()) {
+      clearPeerRestart(peer);
+      peer.pc.close();
+    }
     callPeerMap.clear();
     pendingIce.clear();
     callPeers = [];

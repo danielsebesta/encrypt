@@ -6,8 +6,8 @@ import { fetchNoRedirect } from '../../lib/httpLimits';
 export const prerender = false;
 
 const TURN_HOST = 'turn.encrypt.click';
-const TURN_TTL_SECONDS = 5 * 60;
-const CLOUDFLARE_TURN_TTL_SECONDS = 5 * 60;
+const TURN_TTL_SECONDS = 4 * 60 * 60;
+const CLOUDFLARE_TURN_TTL_SECONDS = 4 * 60 * 60;
 const METERED_API_TTL_SECONDS = 45 * 60;
 
 let meteredCache: { iceServers: RTCIceServer[]; expiresAt: number } | null = null;
@@ -76,7 +76,7 @@ function envNumber(env: Record<string, unknown>, key: string, fallback: number):
 }
 
 function clampTurnTtl(ttl: number): number {
-  return Math.max(60, Math.min(300, Math.round(ttl)));
+  return Math.max(300, Math.min(12 * 60 * 60, Math.round(ttl)));
 }
 
 function assertIceServers(value: unknown, source: string): RTCIceServer[] {
