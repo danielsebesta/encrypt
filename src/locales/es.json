@@ -653,7 +653,7 @@
   "chat.callUnmuteAllAudio": "Activar todo el sonido",
   "chat.callDeafen": "Silenciar el audio de la llamada",
   "chat.callUndeafen": "Restaurar el audio de la llamada",
-  "chat.callBlurMediaWhenAway": "Desenfocar las cámaras fuera de la ventana",
+  "chat.blurWhenAway": "Desenfocar el chat y las cámaras fuera de la ventana",
   "chat.callVolume": "Volumen de llamada",
   "chat.callParticipantAudio": "Audio de los participantes",
   "chat.callSpeaking": "Hablando",

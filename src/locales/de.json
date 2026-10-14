@@ -653,7 +653,7 @@
   "chat.callUnmuteAllAudio": "Alle Töne einschalten",
   "chat.callDeafen": "Ton aus",
   "chat.callUndeafen": "Ton an",
-  "chat.callBlurMediaWhenAway": "Kameras bei Abwesenheit weichzeichnen",
+  "chat.blurWhenAway": "Chat und Kameras bei Abwesenheit weichzeichnen",
   "chat.callVolume": "Anruflautstärke",
   "chat.callParticipantAudio": "Teilnehmer-Audio",
   "chat.callSpeaking": "Spricht",

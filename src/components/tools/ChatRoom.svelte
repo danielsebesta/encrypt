@@ -15,7 +15,7 @@
   let accessToken = "";
   let channelId = "";
   const replay = new ReplayWindow();
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick as settled } from 'svelte';
   import PartySocket from 'partysocket';
   import {
     deriveKeyFromPassword, derivePersistentRoom,
@@ -351,11 +351,16 @@
   let callDebugEvents: CallDebugEvent[] = [];
   let localAudioLevel = 0;
   let localSpeaking = false;
-  let blurCallMediaWhenAway = true;
+  const BLUR_WHEN_AWAY_STORAGE_KEY = 'chat-blur-when-away';
+  let blurWhenAway = (() => {
+    try { return localStorage.getItem(BLUR_WHEN_AWAY_STORAGE_KEY) !== '0'; } catch { return true; }
+  })();
+  let stickToBottom = true;
   let audioInputDevices: MediaDeviceInfo[] = [];
   let videoInputDevices: MediaDeviceInfo[] = [];
   let audioOutputDevices: MediaDeviceInfo[] = [];
   let selectedAudioInputId = '';
+  let micProcessing: { context: AudioContext; raw: MediaStreamTrack } | null = null;
   let selectedVideoInputId = '';
   let selectedAudioOutputId = '';
   let canSelectAudioOutput = false;
@@ -397,6 +402,8 @@
   const ICE_DISCONNECT_GRACE_MS = 2000;
   const ICE_RESTART_RETRY_MS = [4000, 6000, 10000, 15000];
   const ICE_RESTART_DEDUPE_MS = 3000;
+  const CAMERA_MAX_BITRATE = 1_200_000;
+  const SCREEN_MAX_BITRATE = 2_500_000;
   const LOCAL_HISTORY_LIMIT = 1000;
   const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v3:';
   const CALL_DEBUG_STORAGE_KEY = 'encrypt.click:call-debug';
@@ -432,15 +439,27 @@
   }
 
   // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so keep pinning until it settles.
-  function scrollToBottom(frames = 4) {
+  // Background tabs pause requestAnimationFrame, so pin once right after the DOM update too.
+  function scrollToBottom(force = false, frames = 4) {
+    if (!force && !stickToBottom) return;
+    stickToBottom = true;
+    void settled().then(() => {
+      if (messagesEl && stickToBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
     requestAnimationFrame(() => {
-      if (!messagesEl) return;
+      if (!messagesEl || !stickToBottom) return;
       const before = messagesEl.scrollHeight;
       messagesEl.scrollTop = before;
       if (frames > 1) requestAnimationFrame(() => {
-        if (messagesEl && messagesEl.scrollHeight !== before) scrollToBottom(frames - 1);
+        if (messagesEl && messagesEl.scrollHeight !== before) scrollToBottom(false, frames - 1);
       });
     });
+  }
+
+  function updateStickToBottom() {
+    if (!messagesEl) return;
+    const distance = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
+    stickToBottom = distance <= messagesEl.clientHeight;
   }
 
   function getStreamMediaOptions(options: StreamMediaOptions) {
@@ -1383,7 +1402,7 @@
     for (const envelope of [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
       await processServerEnvelope(envelope as ServerEnvelope, true);
     }
-    scrollToBottom();
+    scrollToBottom(true);
   }
 
   function getWhiteboardUrl(invite: WhiteboardInvite): string {
@@ -1421,7 +1440,7 @@
       whiteboard: invite,
       revealed: true,
     }];
-    scrollToBottom();
+    scrollToBottom(mine);
   }
 
   async function createWhiteboardInvite() {
@@ -1939,7 +1958,7 @@
       await processServerEnvelope(envelope, true);
     }
     if (verifying) markVerified();
-    scrollToBottom();
+    scrollToBottom(true);
   }
 
   async function processServerEnvelope(data: ServerEnvelope, fromHistory = false): Promise<boolean> {
@@ -2111,7 +2130,7 @@
     }];
 
     inputText = '';
-    scrollToBottom();
+    scrollToBottom(true);
   }
 
   async function handleSend() {
@@ -2135,11 +2154,62 @@
     const file = target.files?.[0];
     target.value = '';
     if (!file) return;
+    void queueFile(file);
+  }
+
+  function pastedFileName(file: File): string {
+    if (file.name && file.name !== 'image.png') return file.name;
+    const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+    const stamp = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
+    return `${stamp}.${ext}`;
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    if (!cryptoKey || !connected || uploading) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input, textarea, [contenteditable]') && !target.classList.contains('chat-input-field')) return;
+    const file = Array.from(e.clipboardData?.files ?? [])[0];
+    if (!file) return;
+    e.preventDefault();
+    void queueFile(new File([file], pastedFileName(file), { type: file.type }));
+  }
+
+  let dragDepth = 0;
+
+  function draggingFiles(e: DragEvent): boolean {
+    return Boolean(cryptoKey && connected && !uploading && e.dataTransfer?.types.includes('Files'));
+  }
+
+  function handleDragEnter(e: DragEvent) {
+    if (!draggingFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+  }
+
+  function handleDragOver(e: DragEvent) {
+    if (!draggingFiles(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDragLeave() {
+    dragDepth = Math.max(0, dragDepth - 1);
+  }
+
+  async function handleDrop(e: DragEvent) {
+    dragDepth = 0;
+    const files = Array.from(e.dataTransfer?.files ?? []);
+    if (!files.length || !draggingFiles(e)) return;
+    e.preventDefault();
+    for (const file of files) await queueFile(file);
+  }
+
+  async function queueFile(file: File) {
     if (file.size > MAX_FILE) {
       fileError = t(dict, 'chat.fileTooLarge').replace('{max}', String(MAX_FILE / (1024 * 1024)));
       return;
     }
-    sendFile(file);
+    await sendFile(file);
   }
 
   async function sendFile(file: File) {
@@ -2227,7 +2297,7 @@
         revealed: true,
       };
       messages = [...messages, ownMsg];
-      scrollToBottom();
+      scrollToBottom(true);
       autoPreview(ownMsg);
     } finally {
       uploading = false;
@@ -2418,6 +2488,7 @@
       const current = callPeerMap.get(peerId);
       if (!current) return;
       current.state = pc.connectionState;
+      if (pc.connectionState === 'connected') void tunePeerSenders(current);
       callDebug('peer connection state', {
         peer: shortPeerId(peerId),
         connectionState: pc.connectionState,
@@ -2811,10 +2882,58 @@
     localStream = localStream;
   }
 
+  // Rumble filter, then a gentle compressor that evens out loudness and a limiter that caps an overdriven mic.
+  function processMicTrack(raw: MediaStreamTrack): MediaStreamTrack {
+    const AudioContextCtor = getAudioContextConstructor();
+    if (!AudioContextCtor) return raw;
+    try {
+      const context = new AudioContextCtor();
+      const source = context.createMediaStreamSource(new MediaStream([raw]));
+      const highpass = context.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 80;
+      const compressor = context.createDynamicsCompressor();
+      compressor.threshold.value = -24;
+      compressor.knee.value = 12;
+      compressor.ratio.value = 4;
+      compressor.attack.value = 0.005;
+      compressor.release.value = 0.25;
+      const limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = -6;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.001;
+      limiter.release.value = 0.1;
+      const destination = context.createMediaStreamDestination();
+      source.connect(highpass).connect(compressor).connect(limiter).connect(destination);
+      void context.resume().catch(() => {});
+      const track = destination.stream.getAudioTracks()[0];
+      if (!track) {
+        void context.close().catch(() => {});
+        return raw;
+      }
+      micProcessing = { context, raw };
+      return track;
+    } catch {
+      return raw;
+    }
+  }
+
+  function stopMicProcessing() {
+    if (!micProcessing) return;
+    micProcessing.raw.onended = null;
+    if (micProcessing.raw.readyState !== 'ended') micProcessing.raw.stop();
+    void micProcessing.context.close().catch(() => {});
+    micProcessing = null;
+  }
+
   function stopLocalTracks(kind: 'audio' | 'video') {
     if (!localStream) return;
     const tracks = kind === 'audio' ? localStream.getAudioTracks() : localStream.getVideoTracks();
-    if (kind === 'audio') stopLocalAudioMonitor();
+    if (kind === 'audio') {
+      stopLocalAudioMonitor();
+      stopMicProcessing();
+    }
     for (const track of tracks) {
       track.onended = null;
       localStream.removeTrack(track);
@@ -2880,6 +2999,7 @@
     }
 
     await Promise.all(renegotiations);
+    await Promise.all([...callPeerMap.values()].map(tunePeerSenders));
   }
 
   async function setOutgoingVideoTrack(track: MediaStreamTrack | null) {
@@ -2903,6 +3023,33 @@
     }
 
     await Promise.all(renegotiations);
+    await Promise.all([...callPeerMap.values()].map(tunePeerSenders));
+  }
+
+  async function tuneSender(sender: RTCRtpSender | null, kind: 'audio' | 'video') {
+    if (!sender?.track) return;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings?.length) return;
+      const screen = kind === 'video' && sender.track === screenTrack;
+      for (const encoding of params.encodings) {
+        encoding.priority = kind === 'audio' ? 'high' : 'low';
+        encoding.networkPriority = kind === 'audio' ? 'high' : 'low';
+        if (kind === 'video') {
+          encoding.maxBitrate = screen ? SCREEN_MAX_BITRATE : CAMERA_MAX_BITRATE;
+          if (screen) encoding.maxFramerate = 15;
+        }
+      }
+      if (kind === 'video') {
+        (params as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = screen ? 'maintain-resolution' : 'balanced';
+      }
+      await sender.setParameters(params);
+    } catch {}
+  }
+
+  async function tunePeerSenders(peer: CallPeer) {
+    await tuneSender(peer.audioSender, 'audio');
+    await tuneSender(peer.videoSender, 'video');
   }
 
   function getCurrentOutgoingVideoTrack(): MediaStreamTrack | null {
@@ -2991,6 +3138,7 @@
     if (localStream) {
       for (const track of localStream.getTracks()) track.stop();
     }
+    stopMicProcessing();
     if (screenTrack) {
       screenTrack.onended = null;
       screenTrack.stop();
@@ -3039,20 +3187,21 @@
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: getAudioConstraints(), video: false });
-      const track = stream.getAudioTracks()[0];
-      if (!track) throw new Error(t(dict, 'chat.callMicrophoneStartFailed'));
+      const raw = stream.getAudioTracks()[0];
+      if (!raw) throw new Error(t(dict, 'chat.callMicrophoneStartFailed'));
 
       stopLocalTracks('audio');
+      const track = processMicTrack(raw);
       ensureLocalStream().addTrack(track);
       touchLocalStream();
       micMuted = false;
       callError = '';
 
-      const deviceId = track.getSettings().deviceId;
+      const deviceId = raw.getSettings().deviceId;
       if (deviceId) selectedAudioInputId = deviceId;
-      track.onended = () => {
+      raw.onended = () => {
         micMuted = true;
-        stopLocalAudioMonitor();
+        stopLocalTracks('audio');
         void setOutgoingAudioTrack(null).then(() => sendCallSignal({ action: 'media' }));
       };
 
@@ -3131,8 +3280,9 @@
     callAudioMuted = nextMuted;
   }
 
-  async function setBlurCallMediaWhenAway(nextBlur: boolean) {
-    blurCallMediaWhenAway = nextBlur;
+  function setBlurWhenAway(nextBlur: boolean) {
+    blurWhenAway = nextBlur;
+    try { localStorage.setItem(BLUR_WHEN_AWAY_STORAGE_KEY, nextBlur ? '1' : '0'); } catch {}
   }
 
   async function setCallVolume(value: number | string) {
@@ -3183,6 +3333,7 @@
 
       if (screenTrack) await stopScreenShare(false);
 
+      if ('contentHint' in track) track.contentHint = 'detail';
       screenTrack = track;
       screenSharing = true;
       callError = '';
@@ -3319,6 +3470,7 @@
     if (!blurred) {
       document.title = 'encrypt.click/chat';
       sendServerPing();
+      scrollToBottom();
     }
   }
 
@@ -3613,7 +3765,7 @@
   }
 </script>
 
-<svelte:window on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); }} />
+<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); }} />
 
 <div class="chat-container">
   {#if roomDeleted}
@@ -3724,6 +3876,13 @@
         <button type="button" class="btn-ghost btn-sm chat-copy-link" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           <span>{shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}</span>
+        </button>
+        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.blurWhenAway')} aria-label={t(dict, 'chat.blurWhenAway')} aria-pressed={blurWhenAway} on:click={() => setBlurWhenAway(!blurWhenAway)}>
+          {#if blurWhenAway}
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+          {:else}
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          {/if}
         </button>
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
@@ -3866,7 +4025,7 @@
               </div>
 
               <div class="call__grid" use:fitTiles={{ count: callPeers.length + 1, ratio: 16 / 10, max: callHasVideo ? 1280 : 280 }}>
-                <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurCallMediaWhenAway && blurred}>
+                <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurWhenAway && blurred}>
                   {#if localDisplayStream && localHasVisibleVideo}
                     <video
                       class="call__video"
@@ -3901,7 +4060,7 @@
                 </div>
 
                 {#each callPeers as peer (peer.id)}
-                  <div class="call__tile" class:call__tile--speaking={peer.speaking && !peer.muted} class:call__tile--blurred={blurCallMediaWhenAway && blurred}>
+                  <div class="call__tile" class:call__tile--speaking={peer.speaking && !peer.muted} class:call__tile--blurred={blurWhenAway && blurred}>
                     {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
                       <video
                         class="call__video"
@@ -4026,8 +4185,8 @@
                   <span>{t(dict, 'chat.callDeafen')}</span>
                 </label>
                 <label class="check">
-                  <input type="checkbox" checked={blurCallMediaWhenAway} on:change={(e) => setBlurCallMediaWhenAway((e.currentTarget as HTMLInputElement).checked)} />
-                  <span>{t(dict, 'chat.callBlurMediaWhenAway')}</span>
+                  <input type="checkbox" checked={blurWhenAway} on:change={(e) => setBlurWhenAway((e.currentTarget as HTMLInputElement).checked)} />
+                  <span>{t(dict, 'chat.blurWhenAway')}</span>
                 </label>
                 {#if callPeers.length > 0}
                   <div class="call__peers">
@@ -4060,8 +4219,8 @@
         </div>
       {/if}
 
-      <div class="chat-thread">
-        <div class="chat-messages" class:chat-messages--blurred={blurred} bind:this={messagesEl} use:revealSpoilers>
+      <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
+        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} use:revealSpoilers>
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
           <img src="/encrypt_chill.svg" alt="" width="135" height="116" class="state-art mb-2" decoding="async" />
@@ -5025,6 +5184,7 @@
     transition: filter 0.3s;
   }
   .chat-messages--blurred { filter: blur(8px); }
+  .chat-thread--drop { outline: 2px dashed var(--accent); outline-offset: -6px; border-radius: 0.75rem; }
   .chat-avatar {
     width: 34px; height: 34px; border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
