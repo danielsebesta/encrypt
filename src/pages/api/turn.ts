@@ -1,11 +1,10 @@
-import { env as workerEnv } from 'cloudflare:workers';
+import { runtimeEnv as platformEnv } from '../../platform/env';
 import { verifyTurnGrant } from '../../lib/turnGrant';
 import type { APIRoute } from 'astro';
 import { fetchNoRedirect } from '../../lib/httpLimits';
 
 export const prerender = false;
 
-const TURN_HOST = 'turn.encrypt.click';
 // One hour limits what a leaked credential is worth; calls rotate to fresh credentials well before it runs out.
 const TURN_TTL_SECONDS = 60 * 60;
 const CLOUDFLARE_TURN_TTL_SECONDS = 60 * 60;
@@ -32,7 +31,16 @@ type TurnProviderAttempt = {
 };
 
 function runtimeEnv(_locals: unknown): Record<string, unknown> {
-  return workerEnv as Record<string, unknown>;
+  return platformEnv();
+}
+
+// A self-hosted coturn is reached at TURN_URLS, or on port 3478 of TURN_HOST over UDP and TCP.
+function coturnUrls(env: Record<string, unknown>): string[] {
+  const listed = envString(env, 'TURN_URLS').split(',').map((url) => url.trim()).filter((url) => /^turns?:/.test(url));
+  if (listed.length) return listed;
+  const host = envString(env, 'TURN_HOST');
+  const port = envString(env, 'TURN_PORT') || '3478';
+  return host ? [`turn:${host}:${port}?transport=udp`, `turn:${host}:${port}?transport=tcp`] : [];
 }
 
 function envString(env: Record<string, unknown>, key: string): string {
@@ -94,17 +102,14 @@ function assertIceServers(value: unknown, source: string): RTCIceServer[] {
   return iceServers as RTCIceServer[];
 }
 
-async function loadEncryptOneIceServers(secret: string): Promise<TurnProviderResult> {
+async function loadEncryptOneIceServers(secret: string, urls: string[]): Promise<TurnProviderResult> {
   const expiresAt = Math.floor(Date.now() / 1000) + TURN_TTL_SECONDS;
   const username = `${expiresAt}:${crypto.randomUUID()}`;
   const credential = await hmacSha1Base64(secret, username);
 
   return {
     iceServers: [{
-      urls: [
-        `turn:${TURN_HOST}:3478?transport=udp`,
-        `turn:${TURN_HOST}:3478?transport=tcp`,
-      ],
+      urls,
       username,
       credential,
     }],
@@ -260,8 +265,8 @@ export const GET: APIRoute = async ({ locals, request }) => {
     tryProvider(
       'encrypt-1',
       useEncryptOne,
-      secret ? [] : ['TURN_AUTH_SECRET'],
-      () => loadEncryptOneIceServers(secret),
+      [...(secret ? [] : ['TURN_AUTH_SECRET']), ...(coturnUrls(env).length ? [] : ['TURN_HOST'])],
+      () => loadEncryptOneIceServers(secret, coturnUrls(env)),
     ),
     tryProvider(
       'metered',

@@ -1,7 +1,4 @@
-export const SITE_ORIGIN = 'https://encrypt.click';
-export const UPLOAD_ORIGIN = 'https://upload.encrypt.click';
 export const PASS_HEADER = 'X-Upload-Pass';
-export const PASS_MESSAGE = 'upload-pass';
 export const PASS_TTL_MS = 60 * 60 * 1000;
 
 const GB = 1000 ** 3;

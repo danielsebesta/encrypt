@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { ClientLedger, PASS_ALLOWANCE, PASS_TTL_MS, SUSPICION, browserFetch, issuePass, suspicious, verifyPass, type SqlLike } from '../src/lib/uploadPass';
-import { handleRequest, type Env, type Reservation } from '../workers/upload/src/handler';
+import { createApp } from '../src/server/app';
+import { runBudgetCommand } from '../src/server/budget';
+import { createChallenge, verifySolution, powDifficulty, type PowChallenge } from '../src/server/pow';
+import type { BlobStore, Platform } from '../src/platform/types';
 
 const SECRET = 'test-secret';
 const GB = 1000 ** 3;
@@ -91,141 +94,150 @@ test('the hourly count slides instead of resetting on the hour', () => {
   assert.equal(ledger.check({ ...base, now: hourStart + 3600_000 + 3000_000 }), 'ok');
 });
 
-function fakeEnv(reservation: Reservation, extra: Partial<Env> = {}) {
-  const calls = { reserve: [] as any[], release: [] as any[], stored: [] as number[] };
-  const budget = {
-    reserve: async (...args: any[]) => { calls.reserve.push(args); return reservation; },
-    release: async (...args: any[]) => { calls.release.push(args); },
-    status: async () => ({ available: true }),
-  };
-  const env = {
-    BUDGET: { idFromName: () => 'id', get: () => budget },
-    BUCKET: {
-      put: async (_key: string, stream: ReadableStream<Uint8Array>) => {
-        let size = 0;
-        for await (const chunk of stream) size += chunk.length;
-        calls.stored.push(size);
-      },
+function memoryBlobs(): BlobStore & { stored: Map<string, Uint8Array> } {
+  const stored = new Map<string, Uint8Array>();
+  return {
+    stored,
+    async put(id, body, size) {
+      const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+      if (bytes.length !== size) throw new Error('size mismatch');
+      stored.set(id, bytes);
     },
-    ...extra,
-  } as unknown as Env;
-  return { env, calls };
+    async get(id) {
+      const bytes = stored.get(id);
+      return bytes ? { body: new Blob([bytes as BlobPart]).stream(), size: bytes.length, uploaded: Date.now() } : null;
+    },
+    async delete(id) { stored.delete(id); },
+  };
 }
 
-const configured = { UPLOAD_PASS_SECRET: SECRET, TURNSTILE_SITE_KEY: 'site-key', TURNSTILE_SECRET_KEY: 'turnstile-secret' };
+function platform(env: Record<string, string> = { UPLOAD_PASS_SECRET: SECRET }) {
+  const scopes = new Map<string, SqlLike>();
+  const blobs = memoryBlobs();
+  const value: Platform = {
+    env,
+    clientIp: (request) => request.headers.get('X-Test-IP') ?? '2001:db8:0:1::5',
+    budget: async <T>(scope: string, command: any) => {
+      if (!scopes.has(scope)) scopes.set(scope, sqlite());
+      return runBudgetCommand(scopes.get(scope)!, command) as T;
+    },
+    blobs,
+    realtime: async () => new Response('Expected WebSocket', { status: 426 }),
+  };
+  return { value, blobs, app: createApp(value) };
+}
+
+const render = async () => new Response('page');
+const browser = { 'Sec-Fetch-Site': 'same-origin', 'Sec-Fetch-Mode': 'cors' };
 const envelope = (size = 64) => {
   const body = new Uint8Array(size);
   body.set([69, 67, 76, 75, 69, 67, 80, 50, 0, 9, 39, 192]);
   return body;
 };
 
-function upload(body: Uint8Array, headers: Record<string, string> = {}) {
-  return new Request('https://upload.encrypt.click/', {
-    method: 'POST',
-    body: body as BodyInit,
-    headers: { Origin: 'https://encrypt.click', 'Content-Length': String(body.length), 'CF-Connecting-IP': '2001:db8:0:1::5', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', ...headers },
-  });
+function upload(body: Uint8Array, headers: Record<string, string> = browser) {
+  return new Request('https://example.test/upload', { method: 'POST', body: body as BodyInit, headers: { 'Content-Length': String(body.length), ...headers } });
 }
 
-(globalThis as any).FixedLengthStream ??= class extends TransformStream<Uint8Array, Uint8Array> {
-  constructor(_length: number) { super(); }
-};
+async function solve(challenge: PowChallenge) {
+  for (let number = 0; number <= challenge.maxnumber; number++) {
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${challenge.salt}${number}`)));
+    if (Array.from(digest, b => b.toString(16).padStart(2, '0')).join('') === challenge.challenge) {
+      return { algorithm: challenge.algorithm, challenge: challenge.challenge, number, salt: challenge.salt, signature: challenge.signature };
+    }
+  }
+  throw new Error('unsolved');
+}
 
-test('preflight allows the pass header for the main site only', async () => {
-  const res = await handleRequest(new Request('https://upload.encrypt.click/', { method: 'OPTIONS' }), fakeEnv('ok').env);
-  assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://encrypt.click');
-  assert.match(res.headers.get('Access-Control-Allow-Headers') ?? '', /X-Upload-Pass/);
-});
-
-test('suspicious uploads get a Turnstile challenge when it is configured and a 429 otherwise', async () => {
-  const challenged = await handleRequest(upload(envelope()), fakeEnv('challenge', configured).env);
-  assert.equal(challenged.status, 428);
-  assert.deepEqual(await challenged.json(), { challenge: 'turnstile' });
-  assert.equal(challenged.headers.get('Access-Control-Allow-Origin'), 'https://encrypt.click');
-
-  const limited = await handleRequest(upload(envelope()), fakeEnv('challenge').env);
-  assert.equal(limited.status, 429);
-  assert.equal(limited.headers.get('Retry-After'), '3600');
-  assert.equal(limited.headers.get('Access-Control-Allow-Origin'), 'https://encrypt.click');
-
-  const capped = await handleRequest(upload(envelope()), fakeEnv('client', configured).env);
-  assert.equal(capped.status, 429);
-  assert.ok(Number(capped.headers.get('Retry-After')) > 0);
-});
-
-test('the worker passes browser signals and a verified pass to the budget', async () => {
-  const { pass } = await issuePass(SECRET, '2001:db8:0:1::/64');
-  const { env, calls } = fakeEnv('ok', configured);
-  const res = await handleRequest(upload(envelope(), { 'X-Upload-Pass': pass, 'CF-Connecting-IP': '2001:db8:0:1:aaaa::9' }), env);
+test('a same-origin upload is stored and downloads as the bare ciphertext', async () => {
+  const { app, blobs } = platform();
+  const body = envelope(80);
+  const res = await app.fetch(upload(body), render);
   assert.equal(res.status, 200);
-  assert.deepEqual(calls.reserve[0][2], { browser: true, pass: pass.split('.')[2] });
-  assert.deepEqual(calls.stored, [64]);
-
-  const { env: scriptEnv, calls: scriptCalls } = fakeEnv('ok', configured);
-  await handleRequest(upload(envelope(), { 'X-Upload-Pass': pass, 'CF-Connecting-IP': '2001:db8:0:2::1', 'Sec-Fetch-Site': '', 'Sec-Fetch-Mode': '' }), scriptEnv);
-  assert.deepEqual(scriptCalls.reserve[0][2], { browser: false, pass: null });
+  const { id } = await res.json() as { id: string };
+  assert.equal(blobs.stored.get(id)?.length, 80);
+  const dl = await app.fetch(new Request(`https://example.test/dl/${id}`, { headers: browser }), render);
+  assert.equal(dl.status, 200);
+  assert.match(dl.headers.get('Content-Disposition')!, /attachment/);
+  assert.match(dl.headers.get('Content-Security-Policy')!, /sandbox/);
+  assert.deepEqual(new Uint8Array(await dl.arrayBuffer()), body.slice(4));
+  assert.equal((await app.fetch(new Request('https://example.test/dl/not-an-id', { headers: browser }), render)).status, 404);
 });
 
 test('only password envelopes and stego PNGs are stored', async () => {
+  const { app, blobs } = platform();
+  const zip = new Uint8Array(64);
+  zip.set([69, 67, 76, 75, 80, 75, 3, 4]);
+  assert.equal((await app.fetch(upload(zip), render)).status, 400);
+  assert.equal(blobs.stored.size, 0);
   const png = new Uint8Array(64);
   png.set([69, 67, 76, 75, 137, 80, 78, 71, 13, 10, 26, 10]);
-  assert.equal((await handleRequest(upload(png), fakeEnv('ok').env)).status, 200);
-
-  const other = new Uint8Array(64);
-  other.set([69, 67, 76, 75, 1, 2, 3, 4, 5, 6, 7, 8]);
-  const { env, calls } = fakeEnv('ok');
-  const res = await handleRequest(upload(other), env);
-  assert.equal(res.status, 400);
-  assert.equal(calls.release.length, 1);
-  assert.equal(calls.stored.length, 0);
+  assert.equal((await app.fetch(upload(png), render)).status, 200);
 });
 
-test('the challenge page exists only when configured and is locked to Turnstile and the main site', async () => {
-  const missing = await handleRequest(new Request('https://upload.encrypt.click/challenge'), fakeEnv('ok').env);
-  assert.equal(missing.status, 404);
-
-  const page = await handleRequest(new Request('https://upload.encrypt.click/challenge?lang=cs&theme=dark&size=compact'), fakeEnv('ok', configured).env);
-  assert.equal(page.status, 200);
-  const csp = page.headers.get('Content-Security-Policy') ?? '';
-  assert.match(csp, /default-src 'none'/);
-  assert.match(csp, /script-src 'nonce-[0-9a-f]+' https:\/\/challenges\.cloudflare\.com;/);
-  assert.match(csp, /frame-src https:\/\/challenges\.cloudflare\.com;/);
-  assert.match(csp, /frame-ancestors https:\/\/encrypt\.click$/);
-  const html = await page.text();
-  assert.match(html, /"language":"cs"/);
-  assert.match(html, /"size":"compact"/);
-  assert.match(html, /postMessage\(message, origin\)/);
-  assert.match(html, /const origin = "https:\/\/encrypt\.click"/);
-
-  const injected = await handleRequest(new Request('https://upload.encrypt.click/challenge?lang=%3C/script%3E'), fakeEnv('ok', configured).env);
-  assert.doesNotMatch(await injected.text(), /<\/script><\/script>/);
+test('scripted uploads must prove work, and without a secret they are refused', async () => {
+  const res = await platform().app.fetch(upload(envelope(), {}), render);
+  assert.equal(res.status, 428);
+  assert.deepEqual(await res.json(), { challenge: 'pow' });
+  const refused = await platform({}).app.fetch(upload(envelope(), {}), render);
+  assert.equal(refused.status, 429);
+  assert.equal(refused.headers.get('Retry-After'), '3600');
 });
 
-test('a solved challenge returns a pass bound to the solver\'s /64', async () => {
-  const realFetch = globalThis.fetch;
-  const sent: FormData[] = [];
-  globalThis.fetch = (async (_url: string, init: RequestInit) => {
-    sent.push(init.body as FormData);
-    return Response.json({ success: true, action: 'upload', hostname: 'upload.encrypt.click' });
-  }) as typeof fetch;
-  try {
-    const verify = (headers: Record<string, string>) => handleRequest(new Request('https://upload.encrypt.click/challenge/verify', {
-      method: 'POST',
-      body: JSON.stringify({ token: 'tok' }),
-      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '2001:db8:0:1::5', ...headers },
-    }), fakeEnv('ok', configured).env);
+test("a solved challenge buys a pass for the solver's /64 and cannot be redeemed twice", async () => {
+  const { app } = platform();
+  const issued = await (await app.fetch(new Request('https://example.test/upload/challenge', { headers: browser }), render)).json() as PowChallenge;
+  assert.equal(issued.maxnumber, powDifficulty(1));
+  const solution = await solve(await createChallenge(SECRET, 500));
+  const redeem = () => app.fetch(new Request('https://example.test/upload/pass', {
+    method: 'POST', body: JSON.stringify({ solution }), headers: { 'Content-Type': 'application/json', ...browser },
+  }), render);
+  const first = await redeem();
+  assert.equal(first.status, 200);
+  const { pass } = await first.json() as { pass: string };
+  assert.equal((await redeem()).status, 403);
+  assert.equal((await app.fetch(upload(envelope(), { 'X-Upload-Pass': pass }), render)).status, 200);
+  assert.equal((await app.fetch(upload(envelope(), { 'X-Upload-Pass': pass, 'X-Test-IP': '2001:db8:0:2::5' }), render)).status, 428);
+});
 
-    assert.equal((await verify({ Origin: 'https://evil.example' })).status, 403);
-    const res = await verify({ Origin: 'https://upload.encrypt.click' });
-    assert.equal(res.status, 200);
-    assert.equal(sent[0].get('secret'), 'turnstile-secret');
-    assert.equal(sent[0].get('remoteip'), '2001:db8:0:1::5');
-    const { pass } = await res.json() as { pass: string };
-    assert.ok(await verifyPass(pass, SECRET, '2001:db8:0:1::/64'));
+test('proof-of-work solutions are bound to their signature and expiry, and difficulty doubles', async () => {
+  const solution = await solve(await createChallenge(SECRET, 300));
+  assert.ok(await verifySolution(SECRET, solution));
+  assert.equal(await verifySolution('other', solution), null);
+  assert.equal(await verifySolution(SECRET, { ...solution, number: solution.number + 1 }), null);
+  assert.equal(await verifySolution(SECRET, solution, Date.now() + 11 * 60 * 1000), null);
+  assert.equal(powDifficulty(3), powDifficulty(1) * 4);
+});
 
-    globalThis.fetch = (async () => Response.json({ success: true, action: 'upload', hostname: 'elsewhere.example' })) as unknown as typeof fetch;
-    assert.equal((await verify({ Origin: 'https://upload.encrypt.click' })).status, 403);
-  } finally {
-    globalThis.fetch = realFetch;
-  }
+test('cross-site requests and over-budget clients are turned away before any route runs', async () => {
+  const { app } = platform();
+  assert.equal((await app.fetch(new Request('https://example.test/upload', { method: 'POST', headers: { 'Sec-Fetch-Site': 'cross-site' } }), render)).status, 403);
+  assert.equal((await app.fetch(new Request('https://example.test/%61pi/turn', { headers: { 'Sec-Fetch-Site': 'cross-site' } }), render)).status, 403);
+  let last = 0;
+  for (let i = 0; i < 31; i++) last = (await app.fetch(new Request('https://example.test/upload/status', { headers: browser }), render)).status;
+  assert.equal(last, 429);
+  assert.equal(await (await app.fetch(new Request('https://example.test/cs/'), render)).text(), 'page');
+});
+
+test('websocket upgrades are guarded like every other realtime request', async () => {
+  const { app } = platform();
+  const room = `https://example.test/parties/main/${'a'.repeat(64)}`;
+  assert.equal(await app.guardRealtime(new Request(room, { headers: browser })), null);
+  assert.equal((await app.guardRealtime(new Request(room, { headers: { 'Sec-Fetch-Site': 'cross-site' } })))?.status, 403);
+  assert.equal((await app.guardRealtime(new Request('https://example.test/chat/x')))?.status, 404);
+  assert.equal((await app.fetch(new Request(room, { headers: browser }), render)).status, 426);
+});
+
+
+test('the browser solver finds what the server checks', async () => {
+  const { solvePow } = await import('../src/lib/pow');
+  const challenge = await createChallenge(SECRET, 50_000);
+  const seen: number[] = [];
+  const solution = await solvePow(challenge, (share) => seen.push(share), new AbortController().signal);
+  assert.ok(solution);
+  assert.ok(await verifySolution(SECRET, solution));
+  assert.equal(seen.at(-1), 1);
+  const aborted = new AbortController();
+  aborted.abort();
+  assert.equal(await solvePow({ ...challenge, challenge: '0'.repeat(64) }, () => {}, aborted.signal), null);
 });

@@ -125,7 +125,7 @@ export default class ChatRoom {
       return;
     }
 
-    void this.host.storage.deleteAlarm().catch(() => {});
+    this.pushBackCleanup();
     conn.setState({ joined: false });
     this.access.open(conn);
 
@@ -240,14 +240,21 @@ export default class ChatRoom {
       this.broadcast(JSON.stringify({ type: "unlocked" }));
     }
     if (wasJoined) this.broadcastPresence();
-    if (this.getConnectionCount([conn.id]) === 0) {
-      const idle = this.persistent ? PERSISTENT_IDLE_MS : EMPTY_ROOM_TTL_MS;
-      void this.host.storage.setAlarm(Date.now() + idle).catch(() => {});
-    }
+    if (this.getConnectionCount([conn.id]) === 0) this.pushBackCleanup();
+  }
+
+  // The cleanup alarm stays scheduled even while people are connected, so a crash or a restart that never runs
+  // onClose still deletes the room once it has been idle long enough.
+  private pushBackCleanup() {
+    const idle = this.persistent ? PERSISTENT_IDLE_MS : EMPTY_ROOM_TTL_MS;
+    void this.host.storage.setAlarm(Date.now() + idle).catch(() => {});
   }
 
   async onAlarm() {
-    if (this.getConnectionCount() > 0) return;
+    if (this.getConnectionCount() > 0) {
+      this.pushBackCleanup();
+      return;
+    }
     this.state = { locked: false, lockedBy: null, config: null };
     this.meta = null;
     await this.host.storage.deleteAll();

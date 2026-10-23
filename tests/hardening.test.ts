@@ -127,3 +127,24 @@ test('room keys are bound to the room mode so a server cannot switch it', async 
   await assert.rejects(decryptMessage(live, sealed));
   await assert.rejects(decryptMessage(legacy, sealed));
 });
+
+test('link shortening is off unless configured and only wraps receive links on this site', async () => {
+  const { POST } = await import('../src/pages/api/shorten');
+  const { setRuntimeEnv } = await import('../src/platform/env');
+  const call = (url: string) => POST({ request: new Request('https://self.example/api/shorten', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }) } as any);
+  setRuntimeEnv({});
+  assert.equal((await call('https://self.example/u/?p=abc')).status, 404);
+  setRuntimeEnv({ SHORTENER_URL: 'https://short.example/api/shorten' });
+  assert.equal((await call('https://other.example/u/?p=abc')).status, 400);
+  assert.equal((await call('https://self.example/chat/x?p=abc')).status, 400);
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ short_url: 'https://short.example/xyz' })) as typeof fetch;
+  try {
+    const res = await call('https://self.example/u/?p=abc');
+    assert.equal(res.status, 200);
+    assert.equal((await res.json() as { shorturl: string }).shorturl, 'https://short.example/xyz');
+  } finally {
+    globalThis.fetch = original;
+    setRuntimeEnv({});
+  }
+});

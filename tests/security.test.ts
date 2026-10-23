@@ -126,7 +126,7 @@ function fakeRoom(name: string) {
   const host = { name, env: {}, getConnections: () => connections.values(), storage: {
     get: async (key: string) => stored.get(key), put: async (key: string, value: unknown) => { stored.set(key, value); },
     delete: async (key: string) => stored.delete(key), list: async () => new Map(), deleteAll: async () => stored.clear(),
-    setAlarm: async (time: number) => { alarms.push(time); }, deleteAlarm: async () => { alarms.length = 0; },
+    setAlarm: async (time: number) => { alarms.length = 0; alarms.push(time); }, deleteAlarm: async () => { alarms.length = 0; },
   } } as any;
   function conn(id: string) {
     const c = { id, state: null as any, messages: [] as any[], closed: 0,
@@ -155,7 +155,7 @@ for (const Server of [Chat, Whiteboard]) test(`${Server.name}: unauthorized lock
   server.onClose(bad as any); server.onClose(waiting as any); server.onClose(good as any);
 });
 
-test('empty chat rooms schedule their own storage cleanup and cancel it on return', async () => {
+test('chat rooms always keep a cleanup alarm that moves with activity and only deletes an empty room', async () => {
   const token = 'a'.repeat(64);
   const room = fakeRoom(await accessChannel(token));
   const server = new Chat(room.host);
@@ -163,12 +163,14 @@ test('empty chat rooms schedule their own storage cleanup and cancel it on retur
   server.onConnect(first as any);
   await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password' } }), first as any);
   assert.equal(room.stored.size, 1);
+  assert.equal(room.alarms.length, 1);
   room.drop(first); server.onClose(first as any);
   assert.equal(room.alarms.length, 1);
   const again = room.conn('again');
   server.onConnect(again as any);
-  await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(room.alarms.length, 0);
+  await server.onAlarm();
+  assert.equal(room.stored.size, 1);
+  assert.equal(room.alarms.length, 1);
   room.drop(again); server.onClose(again as any);
   await server.onAlarm();
   assert.equal(room.stored.size, 0);

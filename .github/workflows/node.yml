@@ -1,0 +1,39 @@
+name: Node and Docker build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ASTRO_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:node
+      - name: Smoke test the Node server
+        run: |
+          DATA_DIR="$RUNNER_TEMP/data" PORT=8080 node dist/node/server.mjs &
+          for i in $(seq 30); do curl -fs http://127.0.0.1:8080/healthz && break; sleep 1; done
+          node scripts/smoke-node.mjs http://127.0.0.1:8080
+      - name: Build the image
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: docker build --build-arg COMMIT_SHA="$COMMIT_SHA" -t encrypt-click:ci .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name encrypt -p 8081:8080 -p 3478:3478/udp -e PUBLIC_URL=http://127.0.0.1:8081 encrypt-click:ci
+          for i in $(seq 30); do curl -fs http://127.0.0.1:8081/healthz && break; sleep 1; done
+          node scripts/smoke-node.mjs http://127.0.0.1:8081 127.0.0.1:3478
+      - if: failure()
+        run: docker logs encrypt || true

@@ -158,48 +158,63 @@ Node 24.21 (`.nvmrc`) and pnpm 10 through corepack.
 
 ```bash
 pnpm install
-pnpm dev       # the site at http://localhost:4321, without chat and whiteboard rooms
-pnpm build
-pnpm preview   # the built Worker at http://localhost:4321, rooms included
-pnpm test      # unit tests
-pnpm check     # astro check
+pnpm dev          # the site at http://localhost:4321, without chat and whiteboard rooms
+pnpm build        # Cloudflare build
+pnpm preview      # the built Worker at http://localhost:4321, rooms included
+pnpm build:node   # Node build into dist/, server at dist/node/server.mjs
+pnpm start:node   # run the Node build (DATA_DIR=./data, PORT=8080)
+pnpm test         # unit tests
+pnpm check        # astro check
 ```
 
 ## 🏗️ How it is built
 
-Astro 7 pages, Svelte 5 for the interactive tools, Tailwind CSS 4, one Cloudflare Worker with Durable Objects for the rooms (PartyServer) and a second small Worker for ciphertext uploads.
+Astro 7 pages, Svelte 5 for the interactive tools and Tailwind CSS 4. The same code deploys to Cloudflare Workers or to any long-running Node.js host, including a single Docker image: everything platform-specific sits behind one small interface.
 
 ```mermaid
 flowchart TB
   subgraph Browser["🖥️ Your browser"]
-    UI["Astro pages + Svelte tools"] --> WC["Web Crypto<br/>AES-GCM · PBKDF2"]
+    UI["Astro pages + Svelte tools"] --> WC["Web Crypto<br/>AES-GCM · PBKDF2 · Ed25519"]
   end
-  subgraph CF["☁️ Cloudflare"]
-    W["Worker: encrypt-click"] --- SB[("SecurityBudget")]
-    W --- CH[("Chat rooms")]
-    W --- WB[("Whiteboard rooms")]
-    U["Worker: encrypt-uploader"] --- UB[("UploadBudget")]
-    U --- R2[("R2 bucket<br/>1-day lifecycle")]
+  subgraph Core["📦 Platform-neutral core"]
+    APP["src/server: routing, guards,<br/>/upload, /dl, proof-of-work"]
+    ROOMS["party: chat and whiteboard rooms"]
   end
-  WC -- "ciphertext only" --> W
-  WC -- "ciphertext only" --> U
-  W -. "with consent" .-> SEND["📦 Send instances"]
+  subgraph CF["☁️ Cloudflare adapter"]
+    W["Worker"] --- DO[("Durable Objects<br/>rooms · budgets")]
+    W --- R2[("R2, 1-day lifecycle")]
+  end
+  subgraph NODE["🐳 Node adapter"]
+    N["Node server + ws"] --- SQL[("SQLite<br/>rooms · budgets")]
+    N --- FS[("Files, 1-day sweep")]
+  end
+  WC -- "ciphertext only, same origin" --> APP
+  APP --> W
+  APP --> N
+  ROOMS --> DO
+  ROOMS --> SQL
+  APP -. "with consent" .-> SEND["📦 Send instances"]
 
   classDef brand fill:#e9fcf1,stroke:#007a4f,color:#00603d,stroke-width:2px;
   classDef neutral fill:#f4f4f5,stroke:#71717a,color:#18181b;
-  class UI,WC,W,U brand;
-  class SB,CH,WB,UB,R2,SEND neutral;
+  class UI,WC,APP,ROOMS,W,N brand;
+  class DO,R2,SQL,FS,SEND neutral;
   style Browser fill:none,stroke:#71717a,stroke-dasharray:5 5
+  style Core fill:none,stroke:#71717a,stroke-dasharray:5 5
   style CF fill:none,stroke:#71717a,stroke-dasharray:5 5
+  style NODE fill:none,stroke:#71717a,stroke-dasharray:5 5
 ```
 
+- **Platforms.** `src/platform/types.ts` is the contract: settings, the visitor's address, budgets on SQLite, blob storage and realtime rooms. `src/adapters/cloudflare/` implements it with Durable Objects and R2, `src/adapters/node/` with `ws`, `node:sqlite` and files on disk. Everything else, including every URL the browser uses, is the same on both.
 - **Design system.** Tokens and component classes live in `src/styles/global.css`. Every page uses only those.
-- **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The Worker picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
+- **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The server picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
 - **Crypto.** `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
 - **Whiteboard.** Drawing uses `@quickdrawjs/core` with a small patch in `patches/` that makes pen pressure drive the stroke width. The tests in `tests/pen-pressure.test.ts` fail if the patch is lost.
-- **Transfer limits.** Upload sizes and timeouts are defined once in `src/lib/httpLimits.ts`, and both Workers read them from there.
+- **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. Only encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
 
 ## ☁️ Deploy
+
+### Cloudflare
 
 Production deploys from GitHub Actions on every push to `main` ([`deploy.yml`](.github/workflows/deploy.yml)), after tests, type check and build. `pnpm run deploy` does the same from a machine logged in with `wrangler login`. The build writes assets to `dist/client` and the Worker config to `dist/server/wrangler.json`; `scripts/merge-wrangler-routes.mjs` copies the custom domains and the `run_worker_first` patterns from `wrangler.toml` into it. Deploy assets and Worker together, because the CSP hashes in `_headers` are computed from the built scripts.
 
@@ -207,7 +222,7 @@ Repository secrets for the workflow:
 
 | Secret | Purpose |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | API token from the "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_API_TOKEN` | API token from the "Edit Cloudflare Workers" template, with R2 access for the upload bucket |
 | `CLOUDFLARE_ACCOUNT_ID` | Account id |
 
 Worker secrets:
@@ -218,24 +233,15 @@ Worker secrets:
 | `TURN_PROVIDER` | `cloudflare` |
 | `CLOUDFLARE_TURN_TOKEN_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Cloudflare Realtime TURN key |
 | `RATE_LIMIT_SECRET` | Optional, separate key for request budget hashing |
+| `UPLOAD_PASS_SECRET` | Optional, separate key for upload passes and proof-of-work challenges; otherwise derived from the keys above |
 
 Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
 
-Durable Object classes: `SECURITY_BUDGET` (shared per-minute request budgets; the expensive APIs fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main/<room>` and `/parties/whiteboard/<room>`). The per-client and global ceilings are in `src/worker.ts`. `/api/*` and `/parties/*` reject cross-site browser requests.
+Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT`, `CHAT_PERSISTENT` and `WHITEBOARD` (rooms at `/parties/main|persistent|whiteboard/<room>`), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction with a lifecycle rule that deletes objects after one day (pass `--jurisdiction eu` to every `wrangler r2` command). `SHORTENER_URL` in `wrangler.toml` enables short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
 
-### Upload Worker
+### Self-host with Docker
 
-Ciphertext uploads go to a separate Worker in [`workers/upload`](workers/upload) at `upload.encrypt.click`. It streams each file into an R2 bucket and refuses anything that does not start with the encrypt.click signature, comes from another origin or exceeds the size limit.
-
-```bash
-pnpm run dev:upload      # local Worker with a simulated bucket
-pnpm run deploy:upload   # wrangler deploy for workers/upload
-```
-
-- **Bucket.** `encrypt-r2` with a lifecycle rule that deletes objects and aborts incomplete multipart uploads after one day. Downloads are served from the bucket's custom domain, `dl.encrypt.click`. If the bucket lives in the EU jurisdiction, pass `--jurisdiction eu` to every `wrangler r2` command.
-- **Cost cap.** A Durable Object (`UploadBudget`) reserves capacity before a single byte is read, so concurrent uploads cannot overshoot: 1000 GB and 500 000 uploads per month, 100 GB per day for everyone, 5 GB per day for one client. Clients are told apart by an IP hash with a salt that is deleted the next day. The constants are at the top of `workers/upload/src/index.ts`, sized to keep R2 under about one dollar a month.
-- **When it is full.** The Worker answers 503 (or 429 for one client), and the share form offers to upload to a named Send instance instead. `GET /status` reports current usage.
-- **Not capped.** Reads from `dl.encrypt.click` are served by R2 directly, so add a rate-limit rule there and a billing alert at Cloudflare.
+The same code also runs as a single Node.js server. `pnpm run build:node` builds it into `dist/`, and the [`Dockerfile`](Dockerfile) packs it with Caddy for HTTPS and coturn for call relays, so one `docker run` with `DOMAIN` set is a complete instance. See [`docs/self-hosting.md`](docs/self-hosting.md).
 
 ## 📝 Operational notes
 

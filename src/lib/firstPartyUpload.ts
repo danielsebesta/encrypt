@@ -1,8 +1,6 @@
 import { mount, unmount } from 'svelte';
 import { prependEclkMagic } from './ghost/crypto';
-import { PASS_HEADER, UPLOAD_ORIGIN } from './uploadPass';
-
-export const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
+import { PASS_HEADER } from './uploadPass';
 
 type Dict = Record<string, string>;
 
@@ -51,15 +49,16 @@ export async function sendWithUploadPass(url: string, init: { method: string; bo
   const res = await send(heldPass());
   if (res.status !== 428) return res;
   const reply = await res.clone().json().catch(() => null) as any;
-  if (reply?.challenge !== 'turnstile') return res;
+  if (reply?.challenge !== 'pow') return res;
   held = null;
   const pass = await challenge(dict);
   return pass ? send(pass) : res;
 }
 
+/** Uploads ciphertext to this site's own storage; the download link lives on the same origin. */
 export async function uploadFirstParty(body: Uint8Array, dict: Dict): Promise<{ id: string; url: string } | null> {
   try {
-    const res = await sendWithUploadPass(UPLOAD_ORIGIN, {
+    const res = await sendWithUploadPass('/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream' },
       body: prependEclkMagic(body),
@@ -67,7 +66,7 @@ export async function uploadFirstParty(body: Uint8Array, dict: Dict): Promise<{ 
     if (!res.ok) return null;
     const data = await res.json().catch(() => null) as any;
     if (!data?.success || typeof data.id !== 'string') return null;
-    return { id: data.id, url: `${FIRST_PARTY_DOWNLOAD_BASE_URL}/${encodeURIComponent(data.id)}` };
+    return { id: data.id, url: `${location.origin}/dl/${encodeURIComponent(data.id)}` };
   } catch {
     return null;
   }

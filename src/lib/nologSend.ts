@@ -679,8 +679,20 @@ export function isBareSendUrl(urlString: string) {
   }
 }
 
+// Files on this site's own storage are fetched directly; everything else goes through the allowlisted proxy.
+function sameOriginDownload(urlString: string): boolean {
+  if (typeof location === 'undefined') return false;
+  try {
+    const url = new URL(urlString);
+    return url.origin === location.origin && /^\/dl\/[0-9a-f-]{36}$/.test(url.pathname) && !url.search && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
 /** The proxy gets only the HMAC key Send checks on download; the content key in the fragment stays in the browser. */
 export async function ghostFetch(urlString: string): Promise<Response> {
+  if (sameOriginDownload(urlString)) return fetch(urlString, { cache: 'no-store' });
   if (!isSendUrl(urlString)) return fetch(`/api/ghost/fetch?url=${encodeURIComponent(urlString)}`);
   const { secret } = parseSendDownloadUrl(urlString);
   const bare = urlString.slice(0, urlString.indexOf('#'));
