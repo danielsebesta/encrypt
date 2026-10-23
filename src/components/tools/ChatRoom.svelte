@@ -18,15 +18,16 @@
   import { onMount, onDestroy, tick as settled } from 'svelte';
   import PartySocket from 'partysocket';
   import {
-    deriveKeyFromPassword, derivePersistentRoom,
+    deriveKeyFromPassword, deriveRoomKey, derivePersistentRoom,
     encryptMessage as sealMessage, decryptMessage,
     signPayload, verifyPayload, safetyNumber, keyCode, type SigningIdentity,
   } from '../../lib/chatCrypto';
-  import { encryptData, decryptData, prependEclkMagic } from '../../lib/ghost/crypto';
+  import { encryptData, decryptData } from '../../lib/ghost/crypto';
+  import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_UPLOAD_BYTES, MAX_FIRST_PARTY_BYTES, MAX_TRANSFER_BYTES } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
-  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
+  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
 
   export let locale = 'en';
@@ -54,6 +55,7 @@
     whiteboard?: WhiteboardInvite;
     pk?: string;
     keyWarning?: boolean;
+    payload?: string;
   };
 
   type Member = {
@@ -75,6 +77,7 @@
     mode: ChatRoomMode;
     authMode: ChatAuthMode;
     createdAt: number;
+    v?: 2;
   };
 
   type ChatPayload = {
@@ -109,17 +112,6 @@
     messages?: ServerEnvelope[];
     epoch?: string | null;
     more?: boolean;
-  };
-
-  type LiveSyncMessage = {
-    id: string;
-    text: string;
-    sender: string;
-    color: string;
-    alias?: [number, number, number];
-    nick?: string;
-    time: number;
-    file?: { name: string; size: number; urls: string[] };
   };
 
   type LocalHistoryEnvelope = Pick<ServerEnvelope, 'type' | 'id' | 'payload' | 'createdAt' | 'serverSeq'>;
@@ -328,6 +320,11 @@
   const callParticipants = new Set<string>();
   let myKeyCode = '';
   let trustTable: TrustTable = {};
+  let trustRoom = roomId;
+  let keyConfig: RoomConfig | null = null;
+  let pendingPassword = '';
+  let roomMissing = false;
+  let configChanged = false;
   const members = new Map<string, Member>();
   let memberList: Member[] = [];
   let callActive = false;
@@ -399,16 +396,17 @@
   const MAX_SDP_CHARS = 96_000;
   const MAX_ICE_CANDIDATE_CHARS = 4096;
   const MAX_PENDING_ICE_PER_PEER = 64;
+  const MAX_CALL_PEERS = 16;
   const ICE_DISCONNECT_GRACE_MS = 2000;
   const ICE_RESTART_RETRY_MS = [4000, 6000, 10000, 15000];
   const ICE_RESTART_DEDUPE_MS = 3000;
+  const TURN_ROTATE_MARGIN_S = 600;
   const CAMERA_MAX_BITRATE = 1_200_000;
   const SCREEN_MAX_BITRATE = 2_500_000;
   const LOCAL_HISTORY_LIMIT = 1000;
   const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v3:';
+  const MODE_PREFIX = 'encrypt.click:chat-mode:';
   const CALL_DEBUG_STORAGE_KEY = 'encrypt.click:call-debug';
-  const FIRST_PARTY_UPLOAD_URL = 'https://upload.encrypt.click';
-  const FIRST_PARTY_DOWNLOAD_BASE_URL = 'https://dl.encrypt.click';
   const SERVER_FALLBACK_NAME = 'encrypt-1';
   const SERVER_FALLBACK_REGION = 'AMS-NL';
   const CALL_ID = `call:${roomId}`;
@@ -1041,7 +1039,7 @@
   function startRelayStatsMonitor() {
     if (relayStatsInterval) clearInterval(relayStatsInterval);
     relayStatsInterval = setInterval(() => {
-      if (callActive && Date.now() >= iceServersExpiresAt) void loadIceServers().catch(() => {});
+      if (callActive && Date.now() >= iceServersExpiresAt) void rotateCallCredentials();
       if (typeof document !== 'undefined' && document.hidden) return;
       void refreshRelayStats();
     }, 2500);
@@ -1073,11 +1071,16 @@
     if (!isSupportedSdpType(description.type)) return undefined;
     if (!description.sdp) return description.type === 'rollback' ? { type: description.type } : undefined;
     if (description.sdp.length > MAX_SDP_CHARS) return undefined;
-    const lines = description.sdp.split('\r\n').filter((line) => {
+    const lines = description.sdp.split(/\r?\n/).filter((line) => {
       if (!line.startsWith('a=candidate:')) return true;
       return isRelayCandidateString(line);
-    });
+    }).map((line) => line.startsWith('a=candidate:') ? withoutRelatedAddress(line) : line);
     return { type: description.type, sdp: lines.join('\r\n') };
+  }
+
+  // A relay candidate may still name the host address it was allocated from; the peer only needs the relay address.
+  function withoutRelatedAddress(candidate: string): string {
+    return candidate.replace(/ raddr \S+ rport \d+/, ' raddr 0.0.0.0 rport 0');
   }
 
   function isRelayCandidate(candidate: RTCIceCandidate): boolean {
@@ -1117,7 +1120,7 @@
       }
       iceServers = data.iceServers;
       iceServersFetchedAt = Date.now();
-      iceServersExpiresAt = iceServersFetchedAt + Math.max(30, (data.ttl ?? 300) - 60) * 1000;
+      iceServersExpiresAt = iceServersFetchedAt + Math.max(30, (data.ttl ?? 300) - TURN_ROTATE_MARGIN_S) * 1000;
       callDebug('turn config loaded', {
         turnReady: data.turnReady,
         ttl: data.ttl ?? null,
@@ -1138,10 +1141,10 @@
     return iceServers;
   }
 
-  async function sendEncryptedControl(payload: Record<string, unknown>, idPrefix: string) {
+  async function sendEncryptedControl(payload: Record<string, unknown>) {
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
     const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
-    ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: `${idPrefix}-${genId()}` }));
+    ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: genId() }));
   }
 
   async function sendCallSignal(partial: Partial<CallSignal>) {
@@ -1170,7 +1173,7 @@
       video: signal.video,
       screen: signal.screen,
     });
-    await sendEncryptedControl(signal as unknown as Record<string, unknown>, 'call');
+    await sendEncryptedControl(signal as unknown as Record<string, unknown>);
   }
 
   function updateServerQuality() {
@@ -1240,14 +1243,15 @@
 
   function genAutoPassword(): string {
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-    const arr = crypto.getRandomValues(new Uint8Array(20));
-    const chars = Array.from(arr, b => alphabet[b % alphabet.length]);
-    return [0, 5, 10, 15].map(i => chars.slice(i, i + 5).join('')).join('-');
+    for (;;) {
+      const chars = Array.from({ length: 20 }, () => alphabet[randomIndex(alphabet.length)]);
+      const password = [0, 5, 10, 15].map(i => chars.slice(i, i + 5).join('')).join('-');
+      if (roomPasswordOk(password, '')) return password;
+    }
   }
 
   function genWhiteboardRoomId(): string {
-    const base = `chat-${roomId || 'room'}-${genId()}`.toLowerCase();
-    return base.replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 80).replace(/^-|-$/g, '');
+    return `chat-${genId()}${genId()}`;
   }
 
   function getLocalePrefix(): string {
@@ -1266,11 +1270,17 @@
       mode: normalizeChatMode(value.mode, persistentRoom),
       authMode: value.authMode,
       createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
+      ...(value.v === 2 ? { v: 2 as const } : {}),
     };
   }
 
+  // Once the key is derived the settings it was made for are final; later server reports can only match them.
   function applyRoomConfig(input: unknown): RoomConfig | null {
     const normalized = normalizeRoomConfig(input);
+    if (keyConfig) {
+      if (normalized && !sameConfig(normalized, keyConfig)) handleConfigMismatch();
+      return keyConfig;
+    }
     if (normalized) roomConfig = normalized;
     return normalized;
   }
@@ -1388,19 +1398,13 @@
     writeLocalHistory(items);
   }
 
-  async function storeLocalPayload(payload: ChatPayload, id: string, createdAt: number) {
-    if (!cryptoKey || !shouldKeepParticipantHistory()) return;
-    const encrypted = await encryptMessage(cryptoKey, JSON.stringify({ ...payload, id, createdAt }));
-    storeLocalEnvelope({ type: 'message', id, payload: encrypted, createdAt });
-  }
-
   async function restoreLocalHistory() {
     if (localHistoryLoaded || !cryptoKey || !shouldKeepParticipantHistory()) return;
     localHistoryLoaded = true;
     const items = readLocalHistory();
     if (!items.length) return;
     for (const envelope of [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
-      await processServerEnvelope(envelope as ServerEnvelope, true);
+      await processServerEnvelope(envelope as ServerEnvelope, true, 'local');
     }
     scrollToBottom(true);
   }
@@ -1456,7 +1460,7 @@
       alias,
       createdAt: Date.now(),
     };
-    const msgId = `whiteboard-${genId()}`;
+    const msgId = genId();
     const payload: ChatPayload = {
       type: 'whiteboard-invite',
       id: msgId,
@@ -1472,84 +1476,46 @@
     openWhiteboardNewTab(invite, child);
   }
 
-  function getLiveSyncMessages(): LiveSyncMessage[] {
+  // Peers hand over the original signed ciphertexts, so synced history is verified exactly like live messages
+  // and nobody can put words into another member's mouth while passing history along.
+  function getLiveSyncPayloads(): string[] {
     if (roomConfig.mode !== 'live') return [];
     return messages
-      .filter((msg) => !msg.whiteboard && !msg.ttl && msg.sender && (msg.text || msg.file))
+      .filter((msg) => !msg.whiteboard && !msg.ttl && msg.payload && (msg.text || msg.file))
       .slice(-200)
-      .map((msg) => ({
-        id: msg.id,
-        text: msg.text,
-        sender: msg.sender,
-        color: msg.color,
-        alias: msg.alias ? aliasWire(msg.alias) : undefined,
-        nick: msg.nick,
-        time: msg.time || Date.now(),
-        file: msg.file ? { name: msg.file.name, size: msg.file.size, urls: msg.file.urls } : undefined,
-      }));
+      .map((msg) => msg.payload!);
   }
 
   // Encrypted payloads grow by about a third and the relay drops anything above 720k characters, so history goes out in batches.
-  const SYNC_BATCH_BYTES = 480_000;
+  const SYNC_BATCH_BYTES = 360_000;
 
   async function sendLiveHistorySync() {
     if (roomConfig.mode !== 'live') return;
-    const syncMessages = getLiveSyncMessages();
-    if (syncMessages.length === 0) return;
-    const enc = new TextEncoder();
-    let batch: LiveSyncMessage[] = [];
+    const payloads = getLiveSyncPayloads();
+    if (payloads.length === 0) return;
+    let batch: string[] = [];
     let batchBytes = 0;
-    for (const msg of syncMessages) {
-      const bytes = enc.encode(JSON.stringify(msg)).length + 1;
-      if (batch.length && batchBytes + bytes > SYNC_BATCH_BYTES) {
-        await sendEncryptedControl({ type: 'chat-sync', messages: batch }, 'sync');
+    for (const payload of payloads) {
+      if (batch.length && batchBytes + payload.length > SYNC_BATCH_BYTES) {
+        await sendEncryptedControl({ type: 'chat-sync', payloads: batch });
         batch = [];
         batchBytes = 0;
       }
-      batch.push(msg);
-      batchBytes += bytes;
+      batch.push(payload);
+      batchBytes += payload.length;
     }
-    if (batch.length) await sendEncryptedControl({ type: 'chat-sync', messages: batch }, 'sync');
+    if (batch.length) await sendEncryptedControl({ type: 'chat-sync', payloads: batch });
   }
 
-  async function applyLiveHistorySync(syncMessages: unknown) {
-    if (roomConfig.mode !== 'live' || !Array.isArray(syncMessages)) return;
-    const incoming: Message[] = [];
-    for (const item of syncMessages as LiveSyncMessage[]) {
-      if (!item?.id || seenMessageIds.has(item.id)) continue;
-      const who = senderInfo(item, '', 'var(--accent)');
-      const createdAt = item.time || Date.now();
-      seenMessageIds.add(item.id);
-      incoming.push({
-        id: item.id,
-        text: item.text || '',
-        sender: who.name,
-        initials: who.initials,
-        alias: who.alias,
-        nick: who.nick,
-        color: who.color,
-        mine: false,
-        time: createdAt,
-        ttl: 0,
-        remaining: 0,
-        file: item.file,
-        revealed: true,
-      });
-      await storeLocalPayload({
-        type: 'chat-message',
-        id: item.id,
-        text: item.text || '',
-        sender: who.name,
-        alias: item.alias,
-        nick: who.nick,
-        color: item.color || 'var(--accent)',
-        ttl: 0,
-        createdAt,
-        file: item.file,
-      }, item.id, createdAt);
+  async function applyLiveHistorySync(payloads: unknown) {
+    if (roomConfig.mode !== 'live' || !Array.isArray(payloads)) return;
+    const before = messages.length;
+    for (const payload of payloads.slice(0, 500)) {
+      if (typeof payload !== 'string' || payload.length > 720_000 || !/^[A-Za-z0-9_-]+$/.test(payload)) continue;
+      await processServerEnvelope({ type: 'message', payload } as ServerEnvelope, true, 'sync');
     }
-    if (incoming.length) {
-      messages = [...messages, ...incoming].sort((a, b) => a.time - b.time);
+    if (messages.length !== before) {
+      messages = [...messages].sort((a, b) => a.time - b.time);
       scrollToBottom();
     }
   }
@@ -1645,7 +1611,10 @@
     currentAuthAttempt = null;
     passwordInput = '';
     passwordUsed = '';
+    pendingPassword = '';
     cryptoKey = null;
+    if (!persistentRoom) keyConfig = null;
+    roomMissing = false;
     verified = false;
     verifying = false;
     joinedRoom = false;
@@ -1691,6 +1660,7 @@
         joinedRoom = false;
         if (currentAuthAttempt === 'fragment') {
           cryptoKey = null;
+          keyConfig = null;
           passwordUsed = '';
           currentAuthAttempt = null;
           needsPassword = true;
@@ -1719,7 +1689,7 @@
 
     verificationChallenge = crypto.randomUUID();
     const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId }));
-    ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: 'verify-' + genId() }));
+    ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: genId() }));
   }
 
   async function enterWithPassword(pwd: string, options: { share?: boolean; activePeerCount?: number; authMode?: ChatAuthMode } = {}) {
@@ -1728,19 +1698,19 @@
       currentAuthAttempt = options.authMode || 'password';
       const access = await roomCredentials(pwd, roomId, 'chat');
       accessToken = access.token; channelId = access.channel;
-      cryptoKey = await deriveKeyFromPassword(pwd, roomId);
-      passwordUsed = pwd;
-      localHistoryKey = await buildLocalHistoryKey(pwd);
-      localHistoryLoaded = false;
-      needsPassword = false;
-      checkingRoom = false;
+      if (!(await setupIdentity(`chat:${channelId}`))) return;
+      pendingPassword = pwd;
       if (options.share && !sharePassword) sharePassword = pwd;
-      await restoreLocalHistory();
-      if (ws && ws.readyState === 1) {
-        await announceJoined(options.activePeerCount ?? serverPresence);
-      } else {
-        connectWs();
+      needsPassword = false;
+      checkingRoom = true;
+      if (pendingRoomConfig) {
+        await unlockRoom(pendingRoomConfig);
+        return;
       }
+      // Everyone but the creator learns the room mode from the server first, because the key depends on it.
+      ws?.close();
+      ws = null;
+      connectWs();
     } catch {
       passwordError = t(dict, 'chat.errorDeriveKey');
       checkingRoom = false;
@@ -1748,26 +1718,95 @@
     }
   }
 
+  function sameConfig(a: RoomConfig, b: RoomConfig): boolean {
+    return a.mode === b.mode && (a.v ?? 1) === (b.v ?? 1);
+  }
+
+  function rememberedMode(): string | null {
+    try { return localStorage.getItem(`${MODE_PREFIX}${channelId}`); } catch { return null; }
+  }
+
+  function configStamp(config: RoomConfig): string {
+    return `${config.v ?? 1}:${config.mode}`;
+  }
+
+  // Rooms are only ever created through the create form, with its password rules and an explicit mode.
+  async function openWithConfig(config: RoomConfig | null) {
+    if (!pendingPassword || cryptoKey) return;
+    if (!config) {
+      pendingPassword = '';
+      roomMissing = true;
+      checkingRoom = false;
+      ws?.close();
+      ws = null;
+      return;
+    }
+    const known = rememberedMode();
+    if (known && known !== configStamp(config)) {
+      handleConfigMismatch();
+      return;
+    }
+    await unlockRoom(config);
+  }
+
+  async function unlockRoom(config: RoomConfig) {
+    const pwd = pendingPassword;
+    pendingPassword = '';
+    keyConfig = config;
+    roomConfig = config;
+    cryptoKey = config.v === 2 ? await deriveRoomKey(pwd, roomId, config.mode) : await deriveKeyFromPassword(pwd, roomId);
+    passwordUsed = pwd;
+    try { localStorage.setItem(`${MODE_PREFIX}${channelId}`, configStamp(config)); } catch {}
+    localHistoryKey = await buildLocalHistoryKey(pwd);
+    localHistoryLoaded = false;
+    needsPassword = false;
+    checkingRoom = false;
+    await restoreLocalHistory();
+    if (ws && ws.readyState === 1) {
+      await announceJoined(serverPresence);
+    } else if (!ws) {
+      connectWs();
+    }
+  }
+
+  // A server that reports different settings than the key was made for is either lying or serving another room.
+  function handleConfigMismatch() {
+    configChanged = true;
+    pendingPassword = '';
+    checkingRoom = false;
+    verifying = false;
+    cleanupCall();
+    ws?.close();
+    ws = null;
+  }
+
+  async function setupIdentity(room: string): Promise<boolean> {
+    try {
+      roomIdentity = await loadRoomIdentity(room);
+    } catch {
+      checkingRoom = false;
+      unsupportedBrowser = true;
+      return false;
+    }
+    trustRoom = room;
+    trustTable = loadTrustTable(trustRoom);
+    const mine = myLabelKey();
+    if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
+      trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
+      saveTrustTable(trustRoom, trustTable);
+    }
+    myKeyCode = await keyCode(roomIdentity.publicKey);
+    return true;
+  }
+
   async function enterPersistentRoom(key: string) {
     persistentRoom = true;
     currentAuthAttempt = 'fragment';
     roomConfig = { mode: 'persistent', authMode: 'fragment', createdAt: pendingRoomConfig?.createdAt || Date.now() };
     pendingRoomConfig = roomConfig;
+    keyConfig = roomConfig;
+    if (!(await setupIdentity(roomId))) return;
     try {
-      roomIdentity = await loadRoomIdentity(roomId);
-    } catch {
-      checkingRoom = false;
-      unsupportedBrowser = true;
-      return;
-    }
-    try {
-      trustTable = loadTrustTable(roomId);
-      const mine = myLabelKey();
-      if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
-        trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
-        saveTrustTable(roomId, trustTable);
-      }
-      myKeyCode = await keyCode(roomIdentity.publicKey);
       const access = await derivePersistentRoom(key, roomId);
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
@@ -1885,6 +1924,10 @@
       serverName = data.server?.name || SERVER_FALLBACK_NAME;
       serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
       const config = applyRoomConfig(data.config);
+      if (!cryptoKey && pendingPassword) {
+        await openWithConfig(config);
+        return;
+      }
       if (!cryptoKey) {
         await resolveRoomAccess(Boolean(config));
         return;
@@ -1898,7 +1941,8 @@
     }
     if (data.type === 'room-config') {
       const config = applyRoomConfig(data.config);
-      if (!cryptoKey && config) await resolveRoomAccess(true);
+      if (!cryptoKey && pendingPassword && config) await openWithConfig(config);
+      else if (!cryptoKey && config) await resolveRoomAccess(true);
       return;
     }
     if (data.type === 'history') {
@@ -1919,7 +1963,7 @@
       return;
     }
     if (data.type === 'room-deleted') {
-      handleRoomDeleted();
+      if (persistentRoom) handleRoomDeleted();
       return;
     }
     if (data.type === 'pong') {
@@ -1961,7 +2005,8 @@
     scrollToBottom(true);
   }
 
-  async function processServerEnvelope(data: ServerEnvelope, fromHistory = false): Promise<boolean> {
+  // origin 'local' is this browser's own stored copy, 'sync' is history a peer handed over in a live room.
+  async function processServerEnvelope(data: ServerEnvelope, fromHistory = false, origin: 'local' | 'sync' | null = null): Promise<boolean> {
     if (!cryptoKey) return false;
 
 
@@ -1969,8 +2014,11 @@
       const plaintext = await decryptMessage(cryptoKey, data.payload);
       const parsed = JSON.parse(plaintext) as ChatPayload & Record<string, any>;
       if (!validPayload(parsed, channelId, fromHistory)) return false;
-      const signer = persistentRoom ? await verifyPayload(parsed) : null;
-      if (persistentRoom && !signer) return false;
+      const signer = await verifyPayload(parsed);
+      // Every room signs every payload. Only this browser's own copies from before signing existed may lack one.
+      if (!signer && !(origin === 'local' && !persistentRoom)) return false;
+      // A signed sender is named only by a validated alias or nickname; free-form names and colors would let a member pass as someone else.
+      if (signer) for (const field of ['sender', 'color', 'fromName', 'fromColor']) delete parsed[field];
       if (!replay.accept(parsed._id)) return true;
       if (!replay.accept(await sha256B64url(data.payload))) return true;
       if (typeof parsed.id === 'string' && seenMessageIds.has(parsed.id)) return true;
@@ -1990,8 +2038,9 @@
         if (fromHistory) return true;
         if (cryptoKey && ws && typeof parsed.challenge === 'string') {
           const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId }));
-          ws.send(JSON.stringify({ type: 'message', payload: ack, id: 'vack-' + genId() }));
+          ws.send(JSON.stringify({ type: 'message', payload: ack, id: genId() }));
         }
+        if (signer && !bindClient(parsed.clientId, signer)) return true;
         if (callActive) void sendCallSignal({ action: 'presence' });
         const joiner = senderInfo(parsed);
         addOnlineUser(joiner);
@@ -2008,7 +2057,8 @@
       if (parsed.type === 'rename') {
         if (fromHistory) return true;
         const who = senderInfo(parsed);
-        const prev = typeof parsed.prev === 'string' ? parsed.prev : '';
+        const claimed = typeof parsed.prev === 'string' ? parsed.prev : '';
+        const prev = signer && !trustTable[claimed]?.includes(signer) ? '' : claimed;
         const before = onlineUsers.find((u) => u.key === prev);
         onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
         if (signer) noteMember(signer, who);
@@ -2018,6 +2068,7 @@
 
       if (parsed.type === 'verify-ack') {
         if (fromHistory || parsed.challenge !== verificationChallenge) return true;
+        if (signer && !bindClient(parsed.clientId, signer)) return true;
         if (verifying) markVerified();
         const acker = senderInfo(parsed);
         addOnlineUser(acker);
@@ -2026,7 +2077,7 @@
       }
 
       if (parsed.type === 'chat-sync') {
-        await applyLiveHistorySync(parsed.messages);
+        await applyLiveHistorySync(parsed.payloads);
         return true;
       }
 
@@ -2041,6 +2092,7 @@
 
       if (parsed.type === 'call-signal') {
         if (fromHistory) return true;
+        if (signer && (!bindClient(parsed.from, signer) || !noteMember(signer, senderInfo(parsed)))) return true;
         await handleCallSignal(parsed as CallSignal);
         return true;
       }
@@ -2066,12 +2118,13 @@
         file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []) } : undefined,
         revealed: true,
         ...(signer ? { pk: signer, keyWarning: !trusted } : {}),
+        payload: data.payload,
       };
       seenMessageIds.add(id);
       messages = [...messages, msg];
       typing = null;
       if (!fromHistory) scrollToBottom();
-      if (!ttl && (!fromHistory || (persistentRoom && typeof data.serverSeq === 'number'))) storeLocalEnvelope({ ...data, id });
+      if (!ttl && (!fromHistory || origin === 'sync' || (persistentRoom && typeof data.serverSeq === 'number'))) storeLocalEnvelope({ ...data, id });
 
       if (msg.file) autoPreview(msg);
 
@@ -2126,7 +2179,7 @@
       id: msgId, text, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
-      revealed: true,
+      revealed: true, payload: encrypted,
     }];
 
     inputText = '';
@@ -2227,19 +2280,11 @@
       async function tryHost(svc: string, body: Uint8Array, headers: Record<string, string> = {}): Promise<string | null> {
         try {
           if (svc === 'eclk') {
-            const res = await fetch(FIRST_PARTY_UPLOAD_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/octet-stream' },
-              body: prependEclkMagic(body),
-            });
-            if (!res.ok) return null;
-            const data = await res.json().catch(() => null);
-            return data?.success && data?.id ? `${FIRST_PARTY_DOWNLOAD_BASE_URL}/${encodeURIComponent(data.id)}` : null;
+            const uploaded = await uploadFirstParty(body, dict);
+            return uploaded?.url ?? null;
           }
 
-          const res = await fetch('/api/ghost/upload', {
-            method: 'POST', body, headers,
-          });
+          const res = await sendWithUploadPass('/api/ghost/upload', { method: 'POST', body, headers }, dict);
           if (!res.ok) return null;
           const data = await res.json();
           return data?.results?.[0]?.url || null;
@@ -2254,6 +2299,7 @@
         const sendUrl = await tryHost('nologsend', prepared.encryptedBytes, {
           'X-Send-Metadata': prepared.metadataB64,
           'X-Send-Auth': prepared.authHeader,
+          'X-Send-Region': 'eu',
         });
         if (sendUrl) uploadUrls.push(`${sendUrl}#${prepared.secretB64}`);
       } catch {}
@@ -2294,7 +2340,7 @@
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls },
-        revealed: true,
+        revealed: true, payload: encPayload,
       };
       messages = [...messages, ownMsg];
       scrollToBottom(true);
@@ -2311,11 +2357,11 @@
       messages = messages;
       return;
     }
-    const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
+    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
 
     for (const fileUrl of msg.file.urls) {
       try {
-        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(fileUrl)}`);
+        const res = await ghostFetch(fileUrl);
         if (!res.ok) continue;
         let bytes = new Uint8Array(await res.arrayBuffer());
 
@@ -2327,7 +2373,7 @@
         const blob = new Blob([data], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = name || msg.file!.name;
+        a.href = url; a.download = msg.file!.name || name;
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
         return;
@@ -2348,7 +2394,7 @@
     if (now - typingSent > 3000) {
       // Send typing indicator as encrypted message (no leaking to wrong-password users)
       const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined }));
-      ws.send(JSON.stringify({ type: 'message', payload, id: 'typing-' + genId() }));
+      ws.send(JSON.stringify({ type: 'message', payload, id: genId() }));
       typingSent = now;
     }
   }
@@ -2477,10 +2523,11 @@
         peer: shortPeerId(peerId),
         candidate: describeCandidateForDebug(event.candidate),
       });
+      const candidate = event.candidate.toJSON();
       void sendCallSignal({
         action: 'ice',
         to: peerId,
-        candidate: event.candidate.toJSON(),
+        candidate: { ...candidate, candidate: withoutRelatedAddress(candidate.candidate ?? '') },
       });
     };
 
@@ -2596,6 +2643,27 @@
       if (!callActive || current.pc.connectionState === 'closed' || peerMediaConnected(current.pc)) return;
       void restartPeerIce(current);
     }, delayMs);
+  }
+
+  // TURN refuses to refresh an allocation once its credential has expired, so a running call moves every peer to
+  // fresh credentials ahead of time; an ICE restart keeps media on the old path until the new one is ready.
+  let rotatingCredentials = false;
+  async function rotateCallCredentials() {
+    if (rotatingCredentials) return;
+    rotatingCredentials = true;
+    try {
+      const servers = await loadIceServers();
+      if (!callActive || !servers.length) return;
+      for (const peer of callPeerMap.values()) {
+        peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: servers });
+        if (isCallOfferer(peer.id)) await createAndSendOffer(peer, false, true);
+        else await sendCallSignal({ action: 'restart', to: peer.id });
+      }
+      callDebug('turn credentials rotated', { peers: callPeerMap.size });
+    } catch {
+    } finally {
+      rotatingCredentials = false;
+    }
   }
 
   async function applyFreshIceServers(peer: CallPeer) {
@@ -2768,6 +2836,7 @@
         showActiveCallNotice();
         return;
       }
+      if (!callPeerMap.has(signal.from) && callPeerMap.size >= MAX_CALL_PEERS) return;
 
       const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
       peer.muted = signal.audio === false;
@@ -2793,6 +2862,8 @@
       if (signal.action === 'offer') showActiveCallNotice();
       return;
     }
+
+    if (!callPeerMap.has(signal.from) && callPeerMap.size >= MAX_CALL_PEERS) return;
 
     if (signal.action === 'offer') {
       await answerOffer(signal);
@@ -3474,7 +3545,7 @@
     }
   }
 
-  const IMAGE_EXTS = new Set(['png','jpg','jpeg','gif','webp','svg','bmp','ico']);
+  const IMAGE_EXTS = new Set(['png','jpg','jpeg','gif','webp','bmp','ico']);
   const TEXT_EXTS = new Set(['txt','md','json','csv','log','xml','yaml','yml','toml','ini','env','cfg','conf','html','css','js','ts','py','sh','sql','go','rs','c','h','cpp','java','rb','php','swift','kt']);
   const PREVIEW_TEXT_LIMIT = 500;
 
@@ -3488,18 +3559,18 @@
 
     if (!IMAGE_EXTS.has(ext) && !TEXT_EXTS.has(ext)) return;
 
-    const { isSendUrl, decryptSendBlob } = await import('../../lib/nologSend');
+    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
 
     for (const fileUrl of msg.file.urls) {
       try {
-        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(fileUrl)}`);
+        const res = await ghostFetch(fileUrl);
         if (!res.ok) continue;
         let bytes = new Uint8Array(await res.arrayBuffer());
         if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
         const { data } = await decryptData(bytes, passwordUsed);
 
         if (IMAGE_EXTS.has(ext)) {
-          const mimeMap: Record<string, string> = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml', bmp:'image/bmp', ico:'image/x-icon' };
+          const mimeMap: Record<string, string> = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', bmp:'image/bmp', ico:'image/x-icon' };
           const blob = new Blob([data], { type: mimeMap[ext] || 'image/png' });
           msg.preview = { type: 'image', url: URL.createObjectURL(blob) };
         } else {
@@ -3518,12 +3589,36 @@
   }
 
   // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
+  // In a saved room a connection id belongs to the first key that used it, so nobody can speak for another member's call or presence.
+  const clientSigners = new Map<string, string>();
+
+  function bindClient(id: unknown, signer: string): boolean {
+    if (typeof id !== 'string' || !id) return false;
+    const bound = clientSigners.get(id);
+    if (bound) return bound === signer;
+    clientSigners.set(id, signer);
+    return true;
+  }
+
+  // Folds case, accents, spacing and the usual l/I/1, o/0 swaps so a near-identical name cannot borrow someone's trust.
+  function lookalike(name: string): string {
+    return name.normalize('NFKD').replace(/[̀-ͯ\s._-]/g, '').toLowerCase()
+      .replace(/[i1|]/g, 'l').replace(/0/g, 'o').replace(/5/g, 's').replace(/rn/g, 'm');
+  }
+
   function noteMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias }): boolean {
     if (!trustTable[who.key]?.length) {
+      const folded = lookalike(who.name);
+      const clash = [...members.values()].some((m) => m.trusted && m.pk !== pk && m.key !== who.key && lookalike(m.name) === folded)
+        || (roomIdentity !== null && pk !== roomIdentity.publicKey && who.key !== myLabelKey() && lookalike(identity.name) === folded);
+      if (clash) return recordMember(pk, who, false);
       trustTable[who.key] = [pk];
-      saveTrustTable(roomId, trustTable);
+      saveTrustTable(trustRoom, trustTable);
     }
-    const trusted = trustTable[who.key].includes(pk);
+    return recordMember(pk, who, trustTable[who.key].includes(pk));
+  }
+
+  function recordMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias }, trusted: boolean): boolean {
     const member = members.get(pk);
     if (member) {
       if (member.trusted !== trusted || member.key !== who.key || member.name !== who.name) {
@@ -3587,11 +3682,11 @@
       const mine = myLabelKey();
       if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
         trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
-        saveTrustTable(roomId, trustTable);
+        saveTrustTable(trustRoom, trustTable);
       }
     }
     if (!verified) return;
-    await sendEncryptedControl({ type: 'rename', sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, prev }, 'rename');
+    await sendEncryptedControl({ type: 'rename', sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, prev });
   }
 
   async function toggleShareQr() {
@@ -3649,7 +3744,7 @@
     const member = members.get(pk);
     if (!member) return;
     trustTable[member.key] = [...(trustTable[member.key] || []), pk];
-    saveTrustTable(roomId, trustTable);
+    saveTrustTable(trustRoom, trustTable);
     member.trusted = true;
     memberList = [...members.values()];
     messages = messages.map((msg) => msg.pk === pk ? { ...msg, keyWarning: false } : msg);
@@ -3662,8 +3757,9 @@
   }
 
   function handleRoomDeleted() {
+    cleanupCall();
     clearLocalHistory();
-    forgetTrustTable(roomId);
+    forgetTrustTable(trustRoom);
     roomDeleted = true;
     deleteConfirm = false;
     membersOpen = false;
@@ -3786,6 +3882,27 @@
       </div>
     </div>
 
+  {:else if configChanged}
+    <div class="chat-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        <p class="status status--error" role="alert">{t(dict, 'chat.configChanged')}</p>
+        <p class="hint">{t(dict, 'chat.configChangedDetail')}</p>
+        <a class="btn-secondary w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
+      </div>
+    </div>
+
+  {:else if roomMissing}
+    <div class="chat-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <img src="/encrypt_magnify.svg" alt="" width="78" height="133" class="state-art" decoding="async" />
+        <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
+        <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
+        <a class="btn w-full" href={`${getLocalePrefix()}/chat?room=${encodeURIComponent(roomId)}`}>{t(dict, 'chat.roomMissingCreate')}</a>
+        <button type="button" class="btn-secondary w-full" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
+      </div>
+    </div>
+
   {:else if wrongPassword}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
@@ -3891,10 +4008,10 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L8 9.76a16 16 0 0 0 6.24 6.24l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92Z"/></svg>
           {/if}
         </button>
-        {#if persistentRoom}
           <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; deleteConfirm = false; }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
           </button>
+        {#if persistentRoom}
           <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.deleteRoom')} aria-label={t(dict, 'chat.deleteRoom')} aria-expanded={deleteConfirm} on:click={() => { deleteConfirm = !deleteConfirm; membersOpen = false; }} disabled={!connected || !verified}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           </button>

@@ -56,6 +56,18 @@ export function languageChoiceHref(locale: Locale, to: string): string {
   return `${CHOICE_PREFIX}${locale}?to=${encodeURIComponent(to)}`;
 }
 
+// The URL parser drops tabs and newlines, so `/\t/evil.tld` only turns protocol-relative after parsing; compare origins on the parsed result.
+export function sameOriginTarget(to: string | null, origin: string): string {
+  const home = new URL('/', origin).href;
+  if (!to || !to.startsWith('/')) return home;
+  try {
+    const target = new URL(to, origin);
+    return target.origin === origin ? new URL(target.pathname + target.search, origin).href : home;
+  } catch {
+    return home;
+  }
+}
+
 /**
  * Server-side language handling for one request:
  * - `/_lang/<code>?to=<path>` stores the choice in a cookie and continues to the same-origin path;
@@ -69,11 +81,9 @@ export function localeResponse(request: Request): Response | null {
   if (path.startsWith(CHOICE_PREFIX)) {
     const code = path.slice(CHOICE_PREFIX.length).replace(/\/$/, '');
     if (!isLocale(code)) return new Response('Not found', { status: 404 });
-    const to = url.searchParams.get('to') ?? '/';
-    const safe = to.startsWith('/') && !to.startsWith('//') && !to.includes('\\') ? to : '/';
     return new Response(null, {
       status: 303,
-      headers: { Location: new URL(safe, url.origin).href, 'Set-Cookie': langCookie(code), 'Cache-Control': 'no-store' },
+      headers: { Location: sameOriginTarget(url.searchParams.get('to'), url.origin), 'Set-Cookie': langCookie(code), 'Cache-Control': 'no-store' },
     });
   }
 

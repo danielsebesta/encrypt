@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
@@ -79,12 +79,19 @@
     return Array.from({ length: 12 }, () => alphabet[randomIndex(alphabet.length)]).join('');
   }
 
+  // A room page that found no room sends people here with its name, so creating always goes through this form.
+  onMount(() => {
+    const requested = new URLSearchParams(location.search).get('room');
+    if (requested) customRoomId = sanitizeRoomId(requested, true);
+  });
+
   $: steps = keep === 'persistent' ? 2 : 3;
   $: roomId = sanitizeRoomId(customRoomId.trim(), true);
   $: checks = checkRoomPassword(password, roomId);
   $: rules = [
     { ok: checks.length, label: t(dict, 'common.passwordRuleLength') },
     { ok: checks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: checks.strength, label: t(dict, 'common.passwordRuleStrength') },
     { ok: checks.distinct, label: t(dict, 'common.passwordRuleDistinct') },
   ];
   $: retentionSeconds = RETENTION_SECONDS[retentionIndex];
@@ -123,7 +130,7 @@
     const typedPassword = password.trim();
     const mode: ChatMode = keep === 'ttl' ? `ttl-${retentionSeconds}` : 'live';
     sessionStorage.setItem('chat-password', typedPassword);
-    sessionStorage.setItem('chat-room-config', JSON.stringify({ mode, authMode: 'password', createdAt: Date.now() }));
+    sessionStorage.setItem('chat-room-config', JSON.stringify({ mode, authMode: 'password', createdAt: Date.now(), v: 2 }));
     sessionStorage.setItem('chat-share-password', typedPassword);
     window.location.href = `${window.location.origin}/chat/${roomId}`;
   }

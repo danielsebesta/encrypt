@@ -34,6 +34,22 @@ export async function deriveKeyFromPassword(password: string, roomId: string, it
 }
 
 
+/**
+ * Version 2 room keys bind the room mode (live, or how long messages last) into the derivation, so a server that
+ * reports a different mode only gets clients that cannot read the room, never a quiet downgrade.
+ */
+export async function deriveRoomKey(password: string, roomId: string, mode: string): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', bytesToArrayBuffer(enc.encode(password)), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat:v2:${mode}:${roomId}`)), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
 export async function hashChatChain(prevHash: string, record: unknown): Promise<string> {
   return arrayToB64url(await sha256Bytes(`${prevHash}\n${stableStringify(record)}`));
 }

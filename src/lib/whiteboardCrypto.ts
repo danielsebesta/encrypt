@@ -1,5 +1,3 @@
-import { encryptMessage, decryptMessage } from './chatCrypto';
-
 const PBKDF2_ITERATIONS = 600_000;
 
 export async function deriveKeyFromPassword(password: string, roomId: string): Promise<CryptoKey> {
@@ -21,16 +19,7 @@ export async function deriveKeyFromPassword(password: string, roomId: string): P
   );
 }
 
-export async function encryptBytes(key: CryptoKey, bytes: Uint8Array): Promise<string> {
-  return encryptMessage(key, bytesToB64(bytes));
-}
-
-export async function decryptBytes(key: CryptoKey, payload: string): Promise<Uint8Array> {
-  const text = await decryptMessage(key, payload);
-  return b64ToBytes(text);
-}
-
-function bytesToB64(arr: Uint8Array): string {
+export function bytesToB64(arr: Uint8Array): string {
   let binary = '';
   const chunk = 0x8000;
   for (let i = 0; i < arr.length; i += chunk) {
@@ -39,11 +28,9 @@ function bytesToB64(arr: Uint8Array): string {
   return btoa(binary);
 }
 
-function b64ToBytes(str: string): Uint8Array {
+export function b64ToBytes(str: string): Uint8Array {
   const binary = atob(str);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
-
-export { encryptMessage, decryptMessage };

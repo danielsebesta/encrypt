@@ -50,8 +50,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (parsed.hash || parsed.username || parsed.password || (!isLocal && (parsed.protocol !== 'https:' || parsed.port))) {
     return json({ error: 'Only HTTPS links without secrets in fragments can be shortened' }, 400);
   }
-  if (!isLocal && hostname !== 'encrypt.click' && !hostname.endsWith('.encrypt.click')) {
+  if (!isLocal && hostname !== 'encrypt.click') {
     return json({ error: 'URL must be on encrypt.click' }, 400);
+  }
+  // Only receive links are shortened, so the short domain cannot wrap arbitrary uploads or pages.
+  if (!/^\/u\/?$/.test(parsed.pathname) || !parsed.searchParams.get('p')) {
+    return json({ error: 'Only receive links can be shortened' }, 400);
   }
 
   const urlToShorten = isLocal ? `https://encrypt.click${parsed.pathname}${parsed.search}` : targetUrl;

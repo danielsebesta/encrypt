@@ -18,11 +18,13 @@ export function safeColor(value: unknown): string {
     ? value : 'hsl(160, 65%, 55%)';
 }
 
+// Oldest entries are evicted instead of refusing everything once full; by then chat messages are past their age limit anyway.
 export class ReplayWindow {
   private seen = new Set<string>();
+  constructor(private capacity = 50_000) {}
   accept(value: string) {
     if (this.seen.has(value)) return false;
-    if (this.seen.size >= 10000) throw new Error('Session message limit reached; reconnect with a new room');
+    if (this.seen.size >= this.capacity) this.seen.delete(this.seen.values().next().value!);
     this.seen.add(value);
     return true;
   }

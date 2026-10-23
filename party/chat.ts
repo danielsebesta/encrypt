@@ -15,6 +15,7 @@ type RoomConfig = {
   mode: ChatMode;
   authMode: AuthMode;
   createdAt: number;
+  v?: 2;
 };
 
 type RoomState = {
@@ -273,6 +274,7 @@ export default class ChatRoom {
       mode: normalizeChatMode(value.mode),
       authMode,
       createdAt,
+      ...(value.v === 2 ? { v: 2 as const } : {}),
     };
   }
 

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { fetchSendEncryptedBlob, isSendUrl } from '../../../lib/nologSend';
+import { fetchSendEncryptedBlob, isBareSendUrl, isSendUrl, SEND_AUTH_KEY_HEADER, validSendAuthKey } from '../../../lib/nologSend';
 import { ECLK_MAGIC, stripEclkMagic } from '../../../lib/ghost/crypto';
 
 export const prerender = false;
@@ -33,7 +33,7 @@ function stripMagicLimited(body: ReadableStream<Uint8Array>, limit: number): Rea
   }));
 }
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, request }) => {
   const targetUrl = url.searchParams.get('url');
   if (!targetUrl) {
     return new Response(JSON.stringify({ error: 'Missing url parameter' }), {
@@ -50,9 +50,12 @@ export const GET: APIRoute = async ({ url }) => {
     });
   }
 
+  const authKey = request.headers.get(SEND_AUTH_KEY_HEADER);
+  const sendAuth = validSendAuthKey(authKey) && isBareSendUrl(targetUrl);
+
   try {
-    if (isSendUrl(targetUrl)) {
-      const data = await fetchSendEncryptedBlob(targetUrl);
+    if (sendAuth || isSendUrl(targetUrl)) {
+      const data = await fetchSendEncryptedBlob(targetUrl, undefined, sendAuth ? authKey! : undefined);
       return new Response(bytesToArrayBuffer(data), {
         status: 200,
         headers: {

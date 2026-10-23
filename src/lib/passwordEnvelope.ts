@@ -1,4 +1,5 @@
 const MAGIC = new Uint8Array([69, 67, 80, 50, 0, 9, 39, 192]); // ECP2, PBKDF2-SHA256 600000
+export const PASSWORD_ENVELOPE_MAGIC = MAGIC;
 export const PASSWORD_ENVELOPE_OVERHEAD = 52;
 
 export async function passwordKey(password: string, salt: Uint8Array, iterations = 600_000): Promise<CryptoKey> {
