@@ -89,8 +89,10 @@ test('part assembly is kept per sender, bounded and expires', () => {
 });
 
 test('board chat items are bounded and well-formed', () => {
-  const ok = { id: 'abc123', text: 'hi **there**', alias: [1, 2, 3], at: 1_760_000_000_000 };
+  const ok = { id: 'abc123', text: 'hi **there**', alias: [1, 2, 3], at: 1_760_000_000_000, _pk: 'k'.repeat(43), _sig: 's'.repeat(86) };
   assert.equal(validBoardChatItem(ok), true);
+  assert.equal(validBoardChatItem({ ...ok, _sig: undefined }), false);
+  assert.equal(validBoardChatItem({ ...ok, _pk: 'short' }), false);
   assert.equal(validBoardChatItem({ ...ok, ttl: 5 }), true);
   assert.equal(validBoardChatItem({ ...ok, ttl: 0 }), false);
   assert.equal(validBoardChatItem({ ...ok, text: '   ' }), false);

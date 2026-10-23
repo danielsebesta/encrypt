@@ -6,8 +6,9 @@ import { fetchNoRedirect } from '../../lib/httpLimits';
 export const prerender = false;
 
 const TURN_HOST = 'turn.encrypt.click';
-const TURN_TTL_SECONDS = 4 * 60 * 60;
-const CLOUDFLARE_TURN_TTL_SECONDS = 4 * 60 * 60;
+// One hour limits what a leaked credential is worth; calls rotate to fresh credentials well before it runs out.
+const TURN_TTL_SECONDS = 60 * 60;
+const CLOUDFLARE_TURN_TTL_SECONDS = 60 * 60;
 const METERED_API_TTL_SECONDS = 45 * 60;
 
 let meteredCache: { iceServers: RTCIceServer[]; expiresAt: number } | null = null;

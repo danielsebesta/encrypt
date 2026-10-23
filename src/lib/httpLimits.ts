@@ -4,6 +4,28 @@ export const MAX_UPLOAD_BYTES = 90 * 1024 * 1024;
 export const MAX_FIRST_PARTY_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024;
 export const SLOW_TRANSFER_TIMEOUT_MS = 120_000;
 
+// One IPv6 host usually owns a whole /64, so per-address budgets would let it rotate addresses freely.
+export function clientPrefix(ip: string): string {
+  if (!ip.includes(':')) return ip;
+  const [head, tail = ''] = ip.toLowerCase().split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const groups = ip.includes('::') ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill('0'), ...right] : left;
+  return `${groups.slice(0, 4).map(g => g.replace(/^0+(?=.)/, '')).join(':')}::/64`;
+}
+
+// Astro routes on the repeatedly decoded path, so the guards must see the same path or /%61pi/ would slip past them.
+export function routingPath(pathname: string): string | null {
+  let path = pathname;
+  for (let i = 0; i < 10; i++) {
+    let decoded: string;
+    try { decoded = decodeURI(path); } catch { return null; }
+    if (decoded === path) break;
+    path = decoded;
+  }
+  return path.replace(/\/{2,}/g, '/');
+}
+
 export async function readLimited(source: Request | Response, limit: number, timeoutMs = 30_000): Promise<Uint8Array> {
   const declared = Number(source.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > limit) {

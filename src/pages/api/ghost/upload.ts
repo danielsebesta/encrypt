@@ -43,8 +43,8 @@ function failedRecently(instance: SendInstance): boolean {
 }
 
 // EU first, then the rest; instances that failed recently go last.
-function orderedSendInstances(fileSize: number): SendInstance[] {
-  const eligible = SEND_INSTANCES.filter(i => fileSize <= i.maxBytes);
+function orderedSendInstances(fileSize: number, euOnly = false): SendInstance[] {
+  const eligible = SEND_INSTANCES.filter(i => fileSize <= i.maxBytes && (!euOnly || i.region === 'eu'));
   const ordered = [...shuffle(eligible.filter(i => i.region === 'eu')), ...shuffle(eligible.filter(i => i.region !== 'eu'))];
   return [...ordered.filter(i => !failedRecently(i)), ...ordered.filter(failedRecently)];
 }
@@ -61,11 +61,11 @@ async function isReachable(instance: SendInstance): Promise<boolean> {
 
 // The client keeps the Send secret and appends it to the returned URL itself.
 // A pinned instance is the one the sender agreed to, so there is no failover to others.
-async function uploadToSendNetwork(encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, pinned?: SendInstance): Promise<string> {
+async function uploadToSendNetwork(encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, pinned?: SendInstance, euOnly = false): Promise<string> {
   const failures: string[] = [];
   const candidates = pinned
     ? [pinned].filter(i => encryptedBytes.byteLength <= i.maxBytes)
-    : orderedSendInstances(encryptedBytes.byteLength).slice(0, MAX_ATTEMPTS);
+    : orderedSendInstances(encryptedBytes.byteLength, euOnly).slice(0, MAX_ATTEMPTS);
 
   for (const instance of candidates) {
     try {
@@ -105,13 +105,15 @@ export const POST: APIRoute = async ({ request }) => {
   const requestedInstance = request.headers.get('X-Send-Instance');
   const pinned = requestedInstance ? SEND_INSTANCES.find(i => i.label === requestedInstance) : undefined;
   if (requestedInstance && !pinned) return json({ error: 'Unknown Send instance' }, 400);
+  // Chat uploads happen without a consent step, so they stay on EU instances.
+  const euOnly = request.headers.get('X-Send-Region') === 'eu';
 
   try {
     const buffer = await readLimited(request, MAX_TRANSFER_BYTES, SLOW_TRANSFER_TIMEOUT_MS);
     if (buffer.byteLength === 0) return json({ error: 'File missing' }, 400);
 
     try {
-      const url = await uploadToSendNetwork(buffer, sendMetadataB64, sendAuth, pinned);
+      const url = await uploadToSendNetwork(buffer, sendMetadataB64, sendAuth, pinned, euOnly);
       return json({ results: [{ service: 'nologsend', url }] }, 200);
     } catch (e: any) {
       const message = e?.message || 'Upload failed';

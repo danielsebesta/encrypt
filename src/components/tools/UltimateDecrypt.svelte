@@ -5,7 +5,7 @@
   import { decrypt } from '../../lib/aesGcm';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
-  import { decryptSendBlob, isSendUrl } from '../../lib/nologSend';
+  import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
@@ -74,7 +74,7 @@
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
     const map: Record<string, string> = {
       png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-      webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+      webp: 'image/webp', bmp: 'image/bmp', ico: 'image/x-icon',
       mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mov: 'video/quicktime',
       mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac',
       m4a: 'audio/mp4', opus: 'audio/opus',
@@ -657,7 +657,7 @@
         pushDebug(`Trying download source ${url}`);
         let fileBytes: Uint8Array;
 
-        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
+        const res = await ghostFetch(url);
         pushDebug(`Proxy fetch response HTTP ${res.status} for ${url}`);
         if (!res.ok) {
           lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
