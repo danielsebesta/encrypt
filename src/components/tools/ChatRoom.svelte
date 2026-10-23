@@ -753,7 +753,8 @@
   function getRelayProvider(url: string): RelayProvider {
     const host = getTurnHost(url).toLowerCase();
     if (host.includes('cloudflare.com')) return 'cloudflare';
-    if (host === 'turn.encrypt.click' || host.endsWith('.encrypt.click')) return 'encrypt-1';
+    const site = typeof location === 'undefined' ? '' : location.hostname.replace(/^www\./, '');
+    if (site && (host === site || host.endsWith(`.${site}`))) return 'encrypt-1';
     if (host.includes('metered.ca') || host.includes('metered.live')) return 'metered';
     return host ? 'turn' : 'unknown';
   }

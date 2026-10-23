@@ -19,6 +19,15 @@ redact_query_string = true
 [assets]
 run_worker_first = ["/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/", "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*", "/_lang/*"]
 
+[vars]
+SHORTENER_URL = "https://l.encrypt.click/api/shorten"
+
+# Uploaded ciphertext, served same-origin from /dl/<id>; a lifecycle rule deletes objects after one day.
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "encrypt-r2"
+jurisdiction = "eu"
+
 [[durable_objects.bindings]]
 name = "SECURITY_BUDGET"
 class_name = "SecurityBudget"

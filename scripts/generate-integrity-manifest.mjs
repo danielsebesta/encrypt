@@ -64,7 +64,7 @@ async function walk(dir) {
   return files;
 }
 
-const commitSha = process.env.CF_PAGES_COMMIT_SHA || git(['rev-parse', 'HEAD'], 'unknown');
+const commitSha = process.env.BUILD_COMMIT_SHA || process.env.CF_PAGES_COMMIT_SHA || git(['rev-parse', 'HEAD'], 'unknown');
 const branch = process.env.CF_PAGES_BRANCH || git(['branch', '--show-current'], DEFAULT_BRANCH) || DEFAULT_BRANCH;
 const files = {};
 const routes = {};

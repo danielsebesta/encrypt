@@ -11,13 +11,14 @@
     "build": "astro build && node scripts/inject-csp-hashes.mjs && node scripts/generate-integrity-manifest.mjs && node scripts/merge-wrangler-routes.mjs",
     "preview": "astro preview",
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
-    "dev:upload": "wrangler dev --config workers/upload/wrangler.toml",
-    "deploy:upload": "wrangler deploy --config workers/upload/wrangler.toml",
+    "build:node": "node scripts/build-node.mjs",
+    "start:node": "node dist/node/server.mjs",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
     "@astrojs/cloudflare": "^14.3.4",
+    "@astrojs/node": "^11.1.9",
     "@astrojs/svelte": "^9.0.1",
     "@quickdrawjs/core": "0.2.0",
     "@tailwindcss/vite": "^4.3.3",
@@ -34,6 +35,7 @@
     "tailwindcss": "^4.3.3",
     "tlock-js": "^0.9.0",
     "ulid": "^3.0.2",
+    "ws": "8.22.0",
     "yjs": "^13.6.33"
   },
   "packageManager": "pnpm@10.33.3",
@@ -55,6 +57,8 @@
     "@cloudflare/workers-types": "^5.20261007.1",
     "@types/node": "^26.6.4",
     "@types/qrcode": "^1.5.6",
+    "@types/ws": "8.18.2",
+    "esbuild": "0.28.2",
     "tsx": "^4.20.0",
     "typescript": "~6.0.3",
     "vite": "^8.3.3",
