@@ -1658,9 +1658,9 @@
         if (pendingRoomConfig) roomConfig = pendingRoomConfig;
       } catch {}
     }
-    const fragment = new URLSearchParams(location.hash.slice(1));
-    const fragmentKey = fragment.get('k');
-    const stored = fragmentKey && ROOM_KEY_RE.test(fragmentKey) ? fragmentKey : sessionStorage.getItem('chat-password');
+    linkKey = takeLinkKey();
+    const fragmentKey = linkKey?.key ?? null;
+    const stored = fragmentKey ?? sessionStorage.getItem('chat-password');
     const sharePass = sessionStorage.getItem('chat-share-password');
     if (sharePass) {
       sharePassword = sharePass;
@@ -1670,8 +1670,8 @@
       shareLinkOnly = true;
       sessionStorage.removeItem('chat-share-link');
     }
-    if (fragmentKey && ROOM_KEY_RE.test(fragmentKey) && fragment.get('p') === '1') {
-      await enterPersistentRoom(fragmentKey);
+    if (linkKey?.persistent) {
+      await enterPersistentRoom(linkKey.key);
       return;
     }
     if (stored) {
@@ -1683,9 +1683,42 @@
     }
   }
 
+  // A room key from the link leaves the address bar at once, so it does not linger in the URL bar, synced history,
+  // session restore or a shared screen; this tab keeps it for reloads and rebuilds the link only when asked to share.
+  const LINK_KEY_PREFIX = 'chat-link-key:';
+  let linkKey: { key: string; persistent: boolean } | null = null;
+
+  function takeLinkKey(): { key: string; persistent: boolean } | null {
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const fromLink = fragment.get('k');
+    if (fromLink && ROOM_KEY_RE.test(fromLink)) {
+      const found = { key: fromLink, persistent: fragment.get('p') === '1' };
+      try { sessionStorage.setItem(`${LINK_KEY_PREFIX}${roomId}`, JSON.stringify(found)); } catch {}
+      history.replaceState(history.state, '', location.pathname + location.search);
+      return found;
+    }
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(`${LINK_KEY_PREFIX}${roomId}`) || 'null');
+      if (saved && typeof saved.key === 'string' && ROOM_KEY_RE.test(saved.key)) return { key: saved.key, persistent: saved.persistent === true };
+    } catch {}
+    return null;
+  }
+
+  function forgetLinkKey() {
+    try { sessionStorage.removeItem(`${LINK_KEY_PREFIX}${roomId}`); } catch {}
+  }
+
+  function roomLink(key: { key: string; persistent: boolean } | null): string {
+    if (typeof window === 'undefined') return '';
+    const base = `${location.origin}${location.pathname}`;
+    return key ? `${base}#k=${key.key}${key.persistent ? '&p=1' : ''}` : base;
+  }
+
+  $: shareUrl = roomLink(linkKey);
+
   async function copyShareLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       shareCopiedLink = true;
       setTimeout(() => { shareCopiedLink = false; }, 1500);
     } catch {}
@@ -3891,7 +3924,7 @@
     if (!showShareQr || shareQr) return;
     try {
       const { default: QRCode } = await import('qrcode');
-      shareQr = await QRCode.toString(window.location.href, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 220, color: { dark: '#105f3f', light: '#ffffff' } });
+      shareQr = await QRCode.toString(shareUrl, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 220, color: { dark: '#105f3f', light: '#ffffff' } });
     } catch {
       shareQr = '';
       showShareQr = false;
@@ -3955,6 +3988,7 @@
 
   function handleRoomDeleted() {
     cleanupCall();
+    forgetLinkKey();
     clearLocalHistory();
     forgetTrustTable(trustRoom);
     roomDeleted = true;
@@ -4278,7 +4312,7 @@
         {/if}
         <div class="flex items-center gap-1.5 mb-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.roomLink')}</span>
-          <code class="chat-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
+          <code class="chat-share-value">{shareUrl}</code>
           <button type="button" class="chat-share-copy" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
             {#if shareCopiedLink}
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
