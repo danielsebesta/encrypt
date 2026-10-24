@@ -8,7 +8,8 @@ COPY patches ./patches
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 ARG COMMIT_SHA=unknown
-RUN BUILD_COMMIT_SHA="$COMMIT_SHA" pnpm run build:node
+ARG SOURCE_DATE_EPOCH
+RUN BUILD_COMMIT_SHA="$COMMIT_SHA" SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" pnpm run build:node
 
 FROM caddy:2 AS caddy
 

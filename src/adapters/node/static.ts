@@ -194,11 +194,12 @@ export class StaticSite {
     return new StaticSite(assets, parseHeaders(await read('_headers')), parseRedirects(await read('_redirects')));
   }
 
-  /** The file at exactly `publicPath`, for prerendered error pages. */
-  read(publicPath: string): Response | null {
+  /** The file at exactly `publicPath`, for prerendered error pages, with the headers that apply to `requestPath`. */
+  read(publicPath: string, requestPath = publicPath): Response | null {
     const asset = this.assets.get(publicPath);
     if (!asset) return null;
-    return new Response(Readable.toWeb(createReadStream(asset.file)) as ReadableStream<Uint8Array>, { headers: { 'Content-Type': asset.type } });
+    const headers = matchHeaders(this.headerRules, requestPath, new Headers({ 'Content-Type': asset.type }));
+    return new Response(Readable.toWeb(createReadStream(asset.file)) as ReadableStream<Uint8Array>, { headers });
   }
 
   /** A redirect or file response, or null when the request belongs to the server-rendered app. */

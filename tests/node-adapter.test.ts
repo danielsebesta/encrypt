@@ -266,7 +266,12 @@ test('static files serve with headers, ETags, ranges and HEAD, and nothing outsi
   const page = site.read('/dir/index.html')!;
   assert.equal(page.headers.get('content-type'), 'text/html; charset=utf-8');
   assert.equal(await page.text(), '<h1>dir</h1>');
+  assert.equal(page.headers.get('x-frame-options'), 'DENY');
   assert.equal(site.read('/missing.html'), null);
+  const notFound = site.read('/index.html', '/a.txt')!;
+  assert.equal(notFound.headers.get('x-frame-options'), 'DENY');
+  assert.equal(notFound.headers.get('cache-control'), 'no-cache');
+  await notFound.body?.cancel();
 });
 
 test('blob store keeps exactly the declared size and forgets uploads after a day', async () => {
