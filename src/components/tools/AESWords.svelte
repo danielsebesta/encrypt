@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks } from '../../lib/aesGcm';
+  import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks, MAX_WORD_BYTES } from '../../lib/aesGcm';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
   export let locale = 'en';
@@ -19,7 +19,7 @@
     try {
       const { default: dictionary } = await import('../../lib/dictionary.json');
       if (mode === 'encrypt') {
-        const encryptedData = await encrypt(inputText, password);
+        const encryptedData = await encrypt(inputText, password, MAX_WORD_BYTES);
         const chunks = to14BitChunks(encryptedData);
         const words = chunks.map(index => dictionary[index]);
         result = words.join(' ');

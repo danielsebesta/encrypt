@@ -1,5 +1,7 @@
 import { parseAlias } from './alias';
-import { encryptMessage, decryptMessage, signPayload, verifyPayload, type SigningIdentity } from './chatCrypto';
+import { signPayload, verifyPayload, type SigningIdentity } from './chatCrypto';
+import { padPayload, validPad } from './padding';
+import { openBoardMessage, sealBoardMessage } from './whiteboardCrypto';
 import type { TrustTable } from './chatIdentity';
 
 export const WHITEBOARD_KINDS = ['doc', 'doc-part', 'chat', 'cursor', 'verify', 'verify-ack'] as const;
@@ -22,16 +24,16 @@ export function validEnvelope(value: unknown, kind: unknown, room: string, now =
   if (typeof kind !== 'string' || !(WHITEBOARD_KINDS as readonly string[]).includes(kind) || v._kind !== kind) return false;
   if (!room || v._room !== room || typeof v._id !== 'string' || !ID_RE.test(v._id)) return false;
   if (typeof v._sentAt !== 'number' || !Number.isFinite(v._sentAt)) return false;
-  if (v._sentAt > now + FUTURE_SKEW_MS || now - v._sentAt > LIVE_MAX_AGE_MS) return false;
+  if (v._sentAt > now + FUTURE_SKEW_MS || now - v._sentAt > LIVE_MAX_AGE_MS || !validPad(v._pad)) return false;
   if (ALIAS_KINDS.has(kind) && !parseAlias(v.alias)) return false;
   if ((kind === 'doc' || kind === 'doc-part') && typeof v.data !== 'string') return false;
   if (kind === 'chat' && (!v.item || typeof v.item !== 'object')) return false;
   return true;
 }
 
-/** Stamp, then sign with the member's board key, then encrypt with the room key. */
+/** Stamp and pad, then sign with the member's board key, then encrypt under a fresh subkey of the room key. */
 export async function sealEnvelope(key: CryptoKey, identity: SigningIdentity, kind: WhiteboardKind, body: Record<string, unknown>, room: string): Promise<string> {
-  return encryptMessage(key, await signPayload(identity, JSON.stringify(stampEnvelope(kind, body, room))));
+  return sealBoardMessage(key, await signPayload(identity, padPayload(JSON.stringify(stampEnvelope(kind, body, room)))));
 }
 
 export type OpenedEnvelope = { body: Record<string, unknown>; signer: string };
@@ -40,7 +42,7 @@ export type OpenedEnvelope = { body: Record<string, unknown>; signer: string };
 export async function openEnvelope(key: CryptoKey, payload: string, kind: unknown, room: string, now = Date.now()): Promise<OpenedEnvelope | null> {
   let body: unknown;
   try {
-    body = JSON.parse(await decryptMessage(key, payload));
+    body = JSON.parse(await openBoardMessage(key, payload));
   } catch {
     return null;
   }
