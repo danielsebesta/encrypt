@@ -78,7 +78,7 @@ Everything is set with environment variables.
 | 3478 | UDP, TCP | TURN. |
 | 49152-49251 | UDP | TURN relay range. |
 
-Calls connect browsers directly. When both sides sit behind strict NATs or firewalls, the media goes through the relay instead, and every relayed participant holds one port from the range, so 100 ports carry about 50 relayed participants at once. Widen the range for bigger instances; with host networking that costs nothing. Media stays end-to-end encrypted (DTLS-SRTP), and the relay never reaches private, loopback or reserved addresses.
+Calls connect browsers directly. When both sides sit behind strict NATs or firewalls, the media goes through the relay instead, and every relayed participant holds one port from the range, so 100 ports carry about 50 relayed participants at once. Widen the range for bigger instances; with host networking that costs nothing. Media stays end-to-end encrypted: every audio and video frame is sealed in the browser with AES-256-GCM under keys only the call members hold, inside DTLS-SRTP, and the relay never reaches private, loopback or reserved addresses.
 
 ## HTTPS options
 
