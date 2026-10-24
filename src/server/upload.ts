@@ -1,5 +1,5 @@
 import { MAX_FIRST_PARTY_BYTES, clientPrefix, readJsonLimited } from '../lib/httpLimits';
-import { PASSWORD_ENVELOPE_MAGIC } from '../lib/passwordEnvelope';
+import { PASSWORD_ENVELOPE_MAGICS } from '../lib/passwordEnvelope';
 import { PASS_HEADER, browserFetch, issuePass, verifyPass } from '../lib/uploadPass';
 import type { Platform, UploadLimits } from '../platform/types';
 import type { Reservation } from './budget';
@@ -10,8 +10,8 @@ const GB = 1000 ** 3;
 const MAGIC_BYTES = new Uint8Array([69, 67, 76, 75]);
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 // Everything our clients upload is a password envelope or, for small shares, a stego PNG that wraps one.
-const FORMATS = [PASSWORD_ENVELOPE_MAGIC, PNG_SIGNATURE];
-const HEAD_BYTES = MAGIC_BYTES.length + 8;
+const FORMATS = [...PASSWORD_ENVELOPE_MAGICS, PNG_SIGNATURE];
+const HEAD_BYTES = MAGIC_BYTES.length + Math.max(...FORMATS.map(format => format.length));
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const enc = new TextEncoder();

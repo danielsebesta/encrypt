@@ -1,16 +1,17 @@
 <script lang="ts">
   import { archiveLegacyHistory, migrateRoomHistory } from '../../lib/chatHistory';
   import { stampPayload, validPayload } from '../../lib/chatProtocol';
+  import { padPayload, SIGNATURE_BYTES } from '../../lib/padding';
   import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
   let verificationChallenge = '';
   let roomIdentity: SigningIdentity | null = null;
-  // In a saved room every payload is signed before it is sealed, so members can tell who in the room wrote it.
+  // Every payload is padded to a size bucket and signed before it is sealed, so members can tell who in the room wrote it.
   const encryptMessage = async (key: CryptoKey, text: string) => {
-    const stamped = stampPayload(text, channelId);
+    const stamped = padPayload(stampPayload(text, channelId), roomIdentity ? SIGNATURE_BYTES : 0);
     return sealMessage(key, roomIdentity ? await signPayload(roomIdentity, stamped) : stamped);
   };
   import { randomIndex } from "../../lib/random";
-  import { roomCredentials, safeColor, ReplayWindow } from "../../lib/roomAccess";
+  import { roomCredentials, roomSecret, safeColor, ReplayWindow, type RoomSecret } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, parseNickname, nicknameKey, loadNickname, saveNickname, saveAlias, NICKNAME_RE, PROFILE_HUES, type Alias } from "../../lib/alias";
   let accessToken = "";
   let channelId = "";
@@ -18,16 +19,16 @@
   import { onMount, onDestroy, tick as settled } from 'svelte';
   import PartySocket from 'partysocket';
   import {
-    deriveKeyFromPassword, deriveRoomKey, derivePersistentRoom,
+    deriveKeyFromPassword, deriveRoomKey, roomMessageKey, derivePersistentRoom,
     encryptMessage as sealMessage, decryptMessage,
     signPayload, verifyPayload, safetyNumber, keyCode, type SigningIdentity,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
   import { prepareSendUpload } from '../../lib/nologSend';
-  import { MAX_UPLOAD_BYTES, MAX_FIRST_PARTY_BYTES, MAX_TRANSFER_BYTES } from '../../lib/httpLimits';
+  import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
-  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
+  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
 
   export let locale = 'en';
@@ -77,7 +78,7 @@
     mode: ChatRoomMode;
     authMode: ChatAuthMode;
     createdAt: number;
-    v?: 2;
+    v?: 2 | 3;
   };
 
   type ChatPayload = {
@@ -323,6 +324,8 @@
   let trustRoom = roomId;
   let keyConfig: RoomConfig | null = null;
   let pendingPassword = '';
+  let pendingSecret: RoomSecret | null = null;
+  let legacyLookup = false;
   let roomMissing = false;
   let configChanged = false;
   const members = new Map<string, Member>();
@@ -1271,7 +1274,7 @@
       mode: normalizeChatMode(value.mode, persistentRoom),
       authMode: value.authMode,
       createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
-      ...(value.v === 2 ? { v: 2 as const } : {}),
+      ...(value.v === 2 || value.v === 3 ? { v: value.v } : {}),
     };
   }
 
@@ -1307,9 +1310,11 @@
     const key = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
     try {
       archiveLegacyHistory(localStorage);
-      const legacyKey = await deriveKeyFromPassword(password, roomId, 200_000);
-      await migrateRoomHistory(localStorage, roomId, key,
-        async cipher => encryptMessage(cryptoKey!, await decryptMessage(legacyKey, cipher)), LOCAL_HISTORY_LIMIT);
+      let legacyKey: Promise<CryptoKey> | null = null;
+      await migrateRoomHistory(localStorage, roomId, key, async cipher => {
+        legacyKey ??= deriveKeyFromPassword(password, roomId, 200_000);
+        return encryptMessage(cryptoKey!, await decryptMessage(await legacyKey, cipher));
+      }, LOCAL_HISTORY_LIMIT);
     } catch { /* Storage may be disabled or full; chat remains usable. */ }
     return key;
   }
@@ -1613,6 +1618,7 @@
     passwordInput = '';
     passwordUsed = '';
     pendingPassword = '';
+    pendingSecret = null;
     cryptoKey = null;
     if (!persistentRoom) keyConfig = null;
     roomMissing = false;
@@ -1697,14 +1703,17 @@
     try {
       clearRoomConfigWaitTimeout();
       currentAuthAttempt = options.authMode || 'password';
-      const access = await roomCredentials(pwd, roomId, 'chat');
-      accessToken = access.token; channelId = access.channel;
+      const secret = await roomSecret(pwd, roomId, 'chat');
+      accessToken = secret.token; channelId = secret.channel;
       if (!(await setupIdentity(`chat:${channelId}`))) return;
       pendingPassword = pwd;
+      pendingSecret = secret;
       if (options.share && !sharePassword) sharePassword = pwd;
       needsPassword = false;
       checkingRoom = true;
       if (pendingRoomConfig) {
+        pendingRoomConfig = { ...pendingRoomConfig, v: 3 };
+        roomConfig = pendingRoomConfig;
         await unlockRoom(pendingRoomConfig);
         return;
       }
@@ -1727,35 +1736,57 @@
     try { return localStorage.getItem(`${MODE_PREFIX}${channelId}`); } catch { return null; }
   }
 
-  function configStamp(config: RoomConfig): string {
-    return `${config.v ?? 1}:${config.mode}`;
-  }
-
   // Rooms are only ever created through the create form, with its password rules and an explicit mode.
   async function openWithConfig(config: RoomConfig | null) {
-    if (!pendingPassword || cryptoKey) return;
-    if (!config) {
+    if (!pendingPassword || cryptoKey || legacyLookup) return;
+    const next = roomLookup(config, Boolean(pendingSecret), rememberedMode());
+    if (next === 'legacy') {
+      await openLegacyRoom();
+    } else if (next === 'missing') {
       pendingPassword = '';
       roomMissing = true;
       checkingRoom = false;
       ws?.close();
       ws = null;
-      return;
-    }
-    const known = rememberedMode();
-    if (known && known !== configStamp(config)) {
+    } else if (next === 'mismatch') {
       handleConfigMismatch();
-      return;
+    } else if (config) {
+      await unlockRoom(config);
     }
-    await unlockRoom(config);
+  }
+
+  // Rooms created before version 3 live under the PBKDF2 access value; they are looked up only when the new one is empty.
+  async function openLegacyRoom() {
+    const pwd = pendingPassword;
+    legacyLookup = true;
+    pendingSecret = null;
+    ws?.close();
+    ws = null;
+    try {
+      const access = await roomCredentials(pwd, roomId, 'chat');
+      if (pendingPassword !== pwd) return;
+      accessToken = access.token; channelId = access.channel;
+      if (!(await setupIdentity(`chat:${channelId}`))) return;
+      connectWs();
+    } catch {
+      pendingPassword = '';
+      passwordError = t(dict, 'chat.errorDeriveKey');
+      checkingRoom = false;
+      needsPassword = true;
+    } finally {
+      legacyLookup = false;
+    }
   }
 
   async function unlockRoom(config: RoomConfig) {
     const pwd = pendingPassword;
+    const secret = pendingSecret;
     pendingPassword = '';
+    pendingSecret = null;
     keyConfig = config;
     roomConfig = config;
-    cryptoKey = config.v === 2 ? await deriveRoomKey(pwd, roomId, config.mode) : await deriveKeyFromPassword(pwd, roomId);
+    cryptoKey = secret ? await roomMessageKey(secret.base, config.mode)
+      : config.v === 2 ? await deriveRoomKey(pwd, roomId, config.mode) : await deriveKeyFromPassword(pwd, roomId);
     passwordUsed = pwd;
     try { localStorage.setItem(`${MODE_PREFIX}${channelId}`, configStamp(config)); } catch {}
     localHistoryKey = await buildLocalHistoryKey(pwd);
@@ -2292,10 +2323,10 @@
         } catch { return null; }
       }
 
-      const firstPartyUrl = encrypted.length + 4 <= MAX_FIRST_PARTY_BYTES ? await tryHost('eclk', encrypted) : null;
+      const firstPartyUrl = encrypted.length <= FIRST_PARTY_ENVELOPE_LIMIT ? await tryHost('eclk', encrypted) : null;
       if (firstPartyUrl) uploadUrls.push(firstPartyUrl);
 
-      if (uploadUrls.length === 0 && encrypted.length <= MAX_TRANSFER_BYTES - 64 * 1024) try {
+      if (uploadUrls.length === 0 && encrypted.length <= SEND_ENVELOPE_LIMIT) try {
         const prepared = await prepareSendUpload(encrypted, 'ghost.bin', 'application/octet-stream');
         const sendUrl = await tryHost('nologsend', prepared.encryptedBytes, {
           'X-Send-Metadata': prepared.metadataB64,
@@ -4052,7 +4083,7 @@
                 {#if !member.trusted}<span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>{/if}
               </p>
               <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><code class="chat-member__code">{member.code}</code></p>
-              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><code class="chat-member__code">{member.safety}</code></p>
+              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><code class="chat-member__code chat-member__safety">{#each member.safety.split(' ') as group}<span>{group}</span>{/each}</code></p>
               {#if !member.trusted}
                 <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
                 <button type="button" class="btn-outline btn-sm" on:click={() => trustKey(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
@@ -5126,6 +5157,11 @@
     font-size: 0.85rem;
     letter-spacing: 0.08em;
     color: var(--text);
+  }
+  .chat-member__safety {
+    display: grid;
+    grid-template-columns: repeat(4, max-content);
+    gap: 0.1rem 0.6rem;
   }
   .chat-key-warn {
     display: inline-flex;

@@ -6,6 +6,8 @@ import { createApp } from '../src/server/app';
 import { runBudgetCommand } from '../src/server/budget';
 import { createChallenge, verifySolution, powDifficulty, type PowChallenge } from '../src/server/pow';
 import type { BlobStore, Platform } from '../src/platform/types';
+import { sealPassword } from '../src/lib/passwordEnvelope';
+import { prependEclkMagic } from '../src/lib/ghost/crypto';
 
 const SECRET = 'test-secret';
 const GB = 1000 ** 3;
@@ -173,6 +175,20 @@ test('only password envelopes and stego PNGs are stored', async () => {
   const png = new Uint8Array(64);
   png.set([69, 67, 76, 75, 137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal((await app.fetch(upload(png), render)).status, 200);
+});
+
+test('version 3 and version 2 envelopes are both accepted, unknown envelope layouts are not', async () => {
+  const { app, blobs } = platform();
+  const sealed = prependEclkMagic(await sealPassword(new Uint8Array(100), 'secret'));
+  assert.equal((await app.fetch(upload(sealed), render)).status, 200);
+  assert.equal((await app.fetch(upload(envelope()), render)).status, 200);
+  const future = sealed.slice();
+  future[8] = 2;
+  assert.equal((await app.fetch(upload(future), render)).status, 400);
+  const bare = new Uint8Array(64);
+  bare.set([69, 67, 76, 75, 69, 67, 80, 51]);
+  assert.equal((await app.fetch(upload(bare), render)).status, 400);
+  assert.equal(blobs.stored.size, 2);
 });
 
 test('scripted uploads must prove work, and without a secret they are refused', async () => {

@@ -174,7 +174,7 @@ Astro 7 pages, Svelte 5 for the interactive tools and Tailwind CSS 4. The same c
 ```mermaid
 flowchart TB
   subgraph Browser["🖥️ Your browser"]
-    UI["Astro pages + Svelte tools"] --> WC["Web Crypto<br/>AES-GCM · PBKDF2 · Ed25519"]
+    UI["Astro pages + Svelte tools"] --> WC["Web Crypto + WebAssembly<br/>AES-GCM · Argon2id · HKDF · Ed25519"]
   end
   subgraph Core["📦 Platform-neutral core"]
     APP["src/server: routing, guards,<br/>/upload, /dl, proof-of-work"]

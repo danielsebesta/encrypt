@@ -1,4 +1,5 @@
 import { accessChannel } from './roomAccess';
+import { hkdfAesKey } from './kdf';
 
 const PBKDF2_ITERATIONS = 600_000;
 const ED25519 = { name: 'Ed25519' };
@@ -48,6 +49,11 @@ export async function deriveRoomKey(password: string, roomId: string, mode: stri
     false,
     ['encrypt', 'decrypt'],
   );
+}
+
+/** Version 3 message key, from the room secret's HKDF base; the mode stays bound into the key as in version 2. */
+export function roomMessageKey(base: CryptoKey, mode: string): Promise<CryptoKey> {
+  return hkdfAesKey(base, `encrypt.click/chat/v3/messages:${mode}`);
 }
 
 export async function hashChatChain(prevHash: string, record: unknown): Promise<string> {
@@ -132,9 +138,15 @@ function digitGroups(bytes: Uint8Array, groups: number): string {
   return out.join(' ');
 }
 
-/** The same 20 digits on both sides when each holds the other's real public key. */
+/** The same 60 digits on both sides when each holds the other's real public key: twelve 5-byte chunks of SHA-512, each mod 100000. */
 export async function safetyNumber(a: string, b: string): Promise<string> {
-  return digitGroups(await sha256Bytes(`encrypt.click:chat-safety:${[a, b].sort().join(':')}`), 4);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(`encrypt.click:safety-v2:${[a, b].sort().join(':')}`)));
+  const groups: string[] = [];
+  for (let i = 0; i < 60; i += 5) {
+    const chunk = digest[i] * 2 ** 32 + (((digest[i + 1] << 24) | (digest[i + 2] << 16) | (digest[i + 3] << 8) | digest[i + 4]) >>> 0);
+    groups.push(String(chunk % 100000).padStart(5, '0'));
+  }
+  return groups.join(' ');
 }
 
 export async function keyCode(publicKey: string): Promise<string> {
