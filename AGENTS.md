@@ -68,7 +68,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - Tool explainers live as numbered `tools.<name>.about.<n>` paragraphs with optional `tools.<name>.about.<n>.title` headings, shown via `ToolAbout`. Keep them accurate to the code.
 - `en.json` is the source of truth for UI keys.
 - Keep all non-English locale files in sync with English.
-- Keep crypto logic in `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` or `party/`; UI work must not change key handling, data formats or network behavior.
+- Keep crypto logic in the crypto modules (`src/lib/crypto.ts`, `chatCrypto.ts`, `chatRatchet.ts`, `chatIntegrity.ts`, `chatPq.ts`, `callCrypto.ts`, `kdf.ts`, `passwordEnvelope.ts`, `padding.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/`) or `party/`; UI work must not change key handling, data formats or network behavior.
 - Do not add unnecessary comments.
 - Commit messages carry no co-author or tool attribution trailers.
 
