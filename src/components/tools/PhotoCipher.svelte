@@ -1,5 +1,6 @@
 <script lang="ts">
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
+  import { PASSWORD_ENVELOPE_OVERHEAD } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
 
@@ -12,7 +13,6 @@
   const MAGIC = 'PCP2';
   const PUBLIC_SEED = 0x50435032;
   const HEADER_SIZE = 8;
-  const CRYPTO_OVERHEAD = 52;
   const MAX_FILE = 10 * 1024 * 1024;
   const MIN_DIM = 800;
   const MAX_DIM = 2048;
@@ -95,9 +95,12 @@
     return out;
   }
 
+  function cipherCapacity(blocks: number): number {
+    return Math.floor(blocks / (8 * REP)) - HEADER_SIZE;
+  }
+
   function maxChars(w: number, h: number): number {
-    const total = Math.floor(w / BLOCK) * Math.floor(h / BLOCK);
-    return Math.max(0, Math.floor(total / (8 * REP)) - HEADER_SIZE - CRYPTO_OVERHEAD);
+    return Math.max(0, cipherCapacity(Math.floor(w / BLOCK) * Math.floor(h / BLOCK)) - PASSWORD_ENVELOPE_OVERHEAD);
   }
 
   function normalizeToCanvas(img: HTMLImageElement, forEncode: boolean): HTMLCanvasElement {
@@ -182,7 +185,7 @@
 
       status = t(dict, 'tools.photoCipher.encrypting');
       let cipher: Uint8Array;
-      try { cipher = await encrypt(message, password); }
+      try { cipher = await encrypt(message, password, cipherCapacity(total)); }
       catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); processing = false; return; }
 
       const magic = new TextEncoder().encode(MAGIC);

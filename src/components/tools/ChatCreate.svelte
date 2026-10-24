@@ -130,7 +130,7 @@
     const typedPassword = password.trim();
     const mode: ChatMode = keep === 'ttl' ? `ttl-${retentionSeconds}` : 'live';
     sessionStorage.setItem('chat-password', typedPassword);
-    sessionStorage.setItem('chat-room-config', JSON.stringify({ mode, authMode: 'password', createdAt: Date.now(), v: 2 }));
+    sessionStorage.setItem('chat-room-config', JSON.stringify({ mode, authMode: 'password', createdAt: Date.now(), v: 3 }));
     sessionStorage.setItem('chat-share-password', typedPassword);
     window.location.href = `${window.location.origin}/chat/${roomId}`;
   }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { roomCredentials, ReplayWindow, safeColor } from "../../lib/roomAccess";
+  import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
   import PartySocket from 'partysocket';
@@ -7,7 +7,7 @@
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
   import type { Diff, ShapeRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import { deriveKeyFromPassword, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
   import { validShapeRecord, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
   import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
   import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
@@ -238,9 +238,9 @@
 
   async function enterWithPassword(pwd: string) {
     try {
-      const access = await roomCredentials(pwd, roomId, 'whiteboard');
+      const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
-      cryptoKey = await deriveKeyFromPassword(pwd, roomId);
+      cryptoKey = access.key;
       if (!boardKey) {
         boardKey = await loadRoomIdentity(`whiteboard:${roomId}`);
         myPk = boardKey.publicKey;
@@ -1355,7 +1355,7 @@
                     {#if !member.trusted}<span class="wb-key-warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
                   </p>
                   <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{memberCodes[member.pk]?.code ?? ''}</code></p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><code class="wb-member__code">{memberCodes[member.pk]?.safety ?? ''}</code></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><code class="wb-member__code wb-member__safety">{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</code></p>
                   {#if !member.trusted}
                     <p class="hint">{t(dict, 'whiteboard.keyNewHint')}</p>
                     <button type="button" class="btn-outline btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
@@ -1878,6 +1878,11 @@
     font-size: 0.8125rem;
     letter-spacing: 0.08em;
     color: var(--text);
+  }
+  .wb-member__safety {
+    display: grid;
+    grid-template-columns: repeat(4, max-content);
+    gap: 0.1rem 0.5rem;
   }
   .wb-member .btn-outline { justify-self: start; }
   .wb-people__hint {

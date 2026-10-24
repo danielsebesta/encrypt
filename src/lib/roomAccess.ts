@@ -1,4 +1,19 @@
-export async function roomCredentials(password: string, name: string, scope: 'chat' | 'whiteboard') {
+import { ARGON2_V3, argon2id, hkdfBytes, hkdfKey, labelSalt } from './kdf';
+
+export type RoomScope = 'chat' | 'whiteboard';
+export type RoomSecret = { token: string; channel: string; base: CryptoKey };
+
+/**
+ * Version 3: one Argon2id run per join, with a salt fixed by scope and room name, then HKDF splits the result into the
+ * access token the server checks and a base the message keys come from, which never leaves the browser.
+ */
+export async function roomSecret(password: string, name: string, scope: RoomScope): Promise<RoomSecret> {
+  const base = await hkdfKey(await argon2id(password, await labelSalt(`encrypt.click:${scope}:v3:${name}`), ARGON2_V3));
+  const token = hex(await hkdfBytes(base, `encrypt.click/${scope}/v3/access`));
+  return { token, channel: await accessChannel(token), base };
+}
+
+export async function roomCredentials(password: string, name: string, scope: RoomScope) {
   const enc = new TextEncoder();
   const material = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
   const bytes = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000,

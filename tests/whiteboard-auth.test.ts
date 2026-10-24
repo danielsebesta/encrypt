@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateSigningIdentity, signPayload, encryptMessage, importRoomKey, generateRoomKey } from '../src/lib/chatCrypto';
+import { generateSigningIdentity, signPayload } from '../src/lib/chatCrypto';
+import { hkdfKey } from '../src/lib/kdf';
 import type { TrustTable } from '../src/lib/chatIdentity';
 import {
   stampEnvelope, validEnvelope, sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem,
@@ -8,10 +9,11 @@ import {
 } from '../src/lib/whiteboardProtocol';
 import { validBoardChatItem } from '../src/lib/whiteboardRecords';
 import { DOC_PART_BYTES } from '../src/lib/whiteboardSync';
-import { bytesToB64, b64ToBytes } from '../src/lib/whiteboardCrypto';
+import { bytesToB64, b64ToBytes, boardMessageBase, sealBoardMessage } from '../src/lib/whiteboardCrypto';
 import { roomPasswordOk } from '../src/lib/chatRoomSettings';
 
 const ROOM = 'channel-a';
+const boardKey = async () => boardMessageBase(await hkdfKey(crypto.getRandomValues(new Uint8Array(32))));
 const alias = [1, 2, 3];
 
 test('stamps bind room, kind, time and a unique id', () => {
@@ -53,8 +55,8 @@ test('stamp validation rejects other rooms, kinds, stale, future and malformed p
 });
 
 test('sealed envelopes open only with the right key, kind and room and a valid signature', async () => {
-  const key = await importRoomKey(await generateRoomKey());
-  const other = await importRoomKey(await generateRoomKey());
+  const key = await boardKey();
+  const other = await boardKey();
   const me = await generateSigningIdentity();
   const sealed = await sealEnvelope(key, me, 'cursor', { x: 4, y: 5, alias }, ROOM);
 
@@ -67,11 +69,11 @@ test('sealed envelopes open only with the right key, kind and room and a valid s
   assert.equal(await openEnvelope(key, sealed, 'cursor', ROOM, Date.now() + LIVE_MAX_AGE_MS + 1000), null);
   assert.equal(await openEnvelope(key, 'not-a-payload', 'cursor', ROOM), null);
 
-  const unsigned = await encryptMessage(key, JSON.stringify(stampEnvelope('cursor', { x: 1, y: 1, alias }, ROOM)));
+  const unsigned = await sealBoardMessage(key, JSON.stringify(stampEnvelope('cursor', { x: 1, y: 1, alias }, ROOM)));
   assert.equal(await openEnvelope(key, unsigned, 'cursor', ROOM), null);
 
   const signed = JSON.parse(await signPayload(me, JSON.stringify(stampEnvelope('cursor', { x: 1, y: 1, alias }, ROOM))));
-  const tampered = await encryptMessage(key, JSON.stringify({ ...signed, alias: [4, 5, 6] }));
+  const tampered = await sealBoardMessage(key, JSON.stringify({ ...signed, alias: [4, 5, 6] }));
   assert.equal(await openEnvelope(key, tampered, 'cursor', ROOM), null);
 });
 
@@ -136,7 +138,7 @@ test('lookalike folds case, accents, spacing and common character swaps', () => 
 });
 
 test('a full signed doc part still fits under the relay payload cap', async () => {
-  const key = await importRoomKey(await generateRoomKey());
+  const key = await boardKey();
   const me = await generateSigningIdentity();
   const part = new Uint8Array(DOC_PART_BYTES + 13).map((_, i) => (i * 7) % 256);
   const sealed = await sealEnvelope(key, me, 'doc-part', { data: bytesToB64(part) }, 'c'.repeat(64));

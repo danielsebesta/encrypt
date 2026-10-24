@@ -22,6 +22,24 @@ export function chatModeKeepsHistory(mode: ChatMode): boolean {
   return mode === 'live' || mode === 'persistent';
 }
 
+export type RoomVersionStamp = { mode: string; v?: number };
+
+export function configStamp(config: RoomVersionStamp): string {
+  return `${config.v ?? 1}:${config.mode}`;
+}
+
+export type RoomLookup = 'open' | 'legacy' | 'missing' | 'mismatch';
+
+/**
+ * What a joiner does with the settings the server reports. The version 3 channel is tried first and may only hold a
+ * version 3 room; an empty one sends the joiner on to the PBKDF2 channel of older rooms, and only an empty one there is missing.
+ */
+export function roomLookup(config: RoomVersionStamp | null, v3Channel: boolean, remembered: string | null): RoomLookup {
+  if (!config) return v3Channel ? 'legacy' : 'missing';
+  if ((config.v === 3) !== v3Channel || (remembered && remembered !== configStamp(config))) return 'mismatch';
+  return 'open';
+}
+
 export const PERSISTENT_HISTORY_LIMIT = 1000;
 export const PERSISTENT_HISTORY_BYTES = 24 * 1024 * 1024;
 export const PERSISTENT_PAYLOAD_CHARS = 64_000;
@@ -37,7 +55,7 @@ export function formatDuration(seconds: number, locale: string, unitDisplay: 'lo
 
 export const MIN_ROOM_PASSWORD_LENGTH = 16;
 const PASSPHRASE_WORDS = 5;
-// Anything stored or relayed under a password can be guessed offline at one PBKDF2-600k derivation per try,
+// Anything stored or relayed under a password can be guessed offline at one Argon2id derivation (64 MiB, 3 passes) per try,
 // so the floor is set where that stays out of reach even for a well-funded attacker.
 const MIN_PASSWORD_BITS = 64;
 const COMMON = ['password', 'passwort', 'heslo', 'haslo', 'contrasena', 'motdepasse', 'qwert', 'qwertz', 'azerty', 'asdf', 'yxcv', 'zxcv',
