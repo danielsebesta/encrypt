@@ -40,7 +40,8 @@
   "pnpm": {
     "overrides": {
       "@fastify/busboy": "3.2.2",
-      "sharp": "0.35.5"
+      "sharp": "0.35.5",
+      "undici@>=7.0.0 <7.30.1": "7.30.1"
     },
     "packageExtensions": {
       "drand-client@1.2.5": {
