@@ -8,7 +8,7 @@
 <br>
 
 **Free, open-source privacy tools that run in your browser.**<br>
-Share encrypted files, chat, draw and use a dozen crypto utilities. No account, no trackers.
+Share encrypted files, chat, draw and hide messages in images, audio or time. No account, no trackers.
 
 <br>
 
@@ -64,8 +64,8 @@ A shared canvas, synced live and encrypted end to end. Pressure-sensitive pen, s
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-tools-dark.webp">
   <img src="docs/readme/art-tools-light.webp" alt="" height="120">
 </picture>
-<br><b>14 tools</b><br>
-Bcrypt, JWT, RSA, SSH and PGP keys, time-lock capsules, steganography and more. All of them run locally.
+<br><b>5 privacy tools</b><br>
+AES words, time-lock capsules, steganography, photo and spectral ciphers. All of them run locally.
 </td>
 </tr>
 </table>
@@ -99,13 +99,6 @@ Bcrypt, JWT, RSA, SSH and PGP keys, time-lock capsules, steganography and more. 
 
 *The heart and the two waves were drawn with a pen: line width follows pressure from a hairline to a bold stroke.*
 
-### Everyday crypto, without sending anything anywhere
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/tools-dark.webp">
-  <img src="docs/readme/tools-light.webp" alt="The list of all developer and privacy tools" width="100%">
-</picture>
-
 ## 🛡️ Privacy model
 
 ```mermaid
@@ -136,17 +129,13 @@ flowchart LR
 
 The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security.txt](https://encrypt.click/.well-known/security.txt).
 
-## 🧰 All tools
+## 🧰 Privacy tools
 
-| 🔐 Privacy | 🛠️ Developer |
-| --- | --- |
-| **AES words**: encrypted payloads as easy-to-copy groups of words | **UUID and ULID** generator |
-| **Time capsule**: time-lock encryption with [drand](https://drand.love/) | **Token generator** |
-| **Steganography**: an encrypted message hidden in a PNG | **Bcrypt** hash and verify |
-| **Photo cipher**: a hidden message that survives chat-app compression | **HMAC** signer |
-| **Spectral cipher**: an image hidden in a WAV spectrogram | **RSA**, **SSH** and **PGP** key pairs |
-| | **JWT** decoder |
-| | **Base64** |
+- **AES words**: encrypted payloads as easy-to-copy groups of words
+- **Time capsule**: time-lock encryption with [drand](https://drand.love/)
+- **Steganography**: an encrypted message hidden in a PNG
+- **Photo cipher**: a hidden message that survives chat-app compression
+- **Spectral cipher**: an image hidden in a WAV spectrogram
 
 ## 🌍 Languages
 
