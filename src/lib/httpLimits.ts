@@ -2,6 +2,9 @@ export const MAX_TRANSFER_BYTES = 50 * 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 90 * 1024 * 1024;
 // First-party ciphertext: the largest upload plus encryption and ZIP overhead, still under the 100 MB request limit.
 export const MAX_FIRST_PARTY_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024;
+// Largest envelope each upload path takes: first-party storage adds a 4-byte marker, Send its own encryption layer.
+export const FIRST_PARTY_ENVELOPE_LIMIT = MAX_FIRST_PARTY_BYTES - 4;
+export const SEND_ENVELOPE_LIMIT = MAX_TRANSFER_BYTES - 64 * 1024;
 export const SLOW_TRANSFER_TIMEOUT_MS = 120_000;
 
 // One IPv6 host usually owns a whole /64, so per-address budgets would let it rotate addresses freely.

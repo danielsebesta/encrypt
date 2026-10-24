@@ -4,7 +4,7 @@
   import { encrypt, decrypt } from '../../lib/aesGcm';
   import { encryptData } from '../../lib/ghost/crypto';
   import { sendWithUploadPass, uploadFirstParty } from '../../lib/firstPartyUpload';
-  import { MAX_UPLOAD_BYTES, MAX_FIRST_PARTY_BYTES, MAX_TRANSFER_BYTES } from '../../lib/httpLimits';
+  import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
@@ -59,10 +59,9 @@
 
   interface HostInfo { id: string; name: string; maxBytes: number; }
 
-  const FIRST_PARTY_HOST: HostInfo = { id: 'eclk', name: 'encrypt.click upload', maxBytes: MAX_FIRST_PARTY_BYTES };
+  const FIRST_PARTY_HOST: HostInfo = { id: 'eclk', name: 'encrypt.click upload', maxBytes: FIRST_PARTY_ENVELOPE_LIMIT };
 
-  // Send is the automatic fallback; its own encryption layer adds a little overhead, which must still fit the relay limit.
-  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: MAX_TRANSFER_BYTES - 64 * 1024 };
+  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: SEND_ENVELOPE_LIMIT };
 
   $: totalFileSize = files.reduce((s, f) => s + f.size, 0);
   $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
@@ -543,7 +542,7 @@
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);
     localFileUrl = URL.createObjectURL(encBlob);
 
-    const firstPartyEligible = pendingUploadBytes!.length + 4 <= FIRST_PARTY_HOST.maxBytes ? [FIRST_PARTY_HOST] : [];
+    const firstPartyEligible = pendingUploadBytes!.length <= FIRST_PARTY_HOST.maxBytes ? [FIRST_PARTY_HOST] : [];
     const sendEligible = pendingUploadBytes!.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
     pendingHosts = [...firstPartyEligible, ...sendEligible];
     pushDebug(`Encrypted file ready. Hosts: ${pendingHosts.map(h => h.name).join(', ')}`);
