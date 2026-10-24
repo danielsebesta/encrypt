@@ -16,6 +16,13 @@ function git(args, fallback) {
   }
 }
 
+function sourceDate(commitSha) {
+  const epoch = process.env.SOURCE_DATE_EPOCH;
+  if (epoch && /^\d+$/.test(epoch)) return new Date(Number(epoch) * 1000).toISOString();
+  const committed = git(['show', '-s', '--format=%cI', commitSha === 'unknown' ? 'HEAD' : commitSha], '');
+  return committed ? new Date(committed).toISOString() : null;
+}
+
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
@@ -69,6 +76,14 @@ const branch = process.env.CF_PAGES_BRANCH || git(['branch', '--show-current'], 
 const files = {};
 const routes = {};
 
+async function lockfileDigest() {
+  try {
+    return sha256(Buffer.from((await readFile('pnpm-lock.yaml', 'utf8')).replace(/\r\n/g, '\n')));
+  } catch {
+    return null;
+  }
+}
+
 for (const filePath of (await walk(DIST_DIR)).sort()) {
   const publicPath = toPublicPath(filePath);
   const buffer = await readFile(filePath);
@@ -100,7 +115,11 @@ const manifest = {
   branch,
   expectedBranch: DEFAULT_BRANCH,
   commitSha,
-  builtAt: new Date().toISOString(),
+  sourceDate: sourceDate(commitSha),
+  build: {
+    node: process.version,
+    lockfileSha256: await lockfileDigest(),
+  },
   rootDigest,
   routes,
   files,

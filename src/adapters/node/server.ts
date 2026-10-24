@@ -121,7 +121,7 @@ const app = createApp(platform);
 
 const errorPage = async (url: string) => {
   const { pathname } = new URL(url);
-  const page = site.read(pathname) ?? site.read('/404.html');
+  const page = site.read(pathname) ?? site.read('/404.html', pathname);
   if (!page) throw new Error('No prerendered error page');
   return page;
 };
