@@ -1,0 +1,29 @@
+# Self-hosted encrypt.click: see docs/self-hosting.md. Point DOMAIN's DNS at this host before the first start.
+services:
+  encrypt:
+    build: .
+    image: encrypt-click
+    restart: unless-stopped
+    # Host networking exposes 80, 443, 3478 and the TURN relay range without proxying thousands of UDP ports.
+    network_mode: host
+    environment:
+      DOMAIN: encrypt.example.com
+      # ACME_EMAIL: admin@example.com
+      # TURN_MIN_PORT: "49152"
+      # TURN_MAX_PORT: "49251"
+      # UPLOAD_MONTHLY_GB: "200"
+    volumes:
+      - encrypt-data:/data
+    # Without host networking (Docker Desktop, or when you prefer port mappings), remove network_mode above and use:
+    # ports:
+    #   - "80:80"
+    #   - "443:443"
+    #   - "443:443/udp"
+    #   - "3478:3478/udp"
+    #   - "3478:3478/tcp"
+    #   - "49152-49251:49152-49251/udp"
+    # environment:
+    #   TURN_EXTERNAL_IP: 203.0.113.10
+
+volumes:
+  encrypt-data:

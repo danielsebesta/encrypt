@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { roomCredentials, ReplayWindow } from "../../lib/roomAccess";
+  import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
   import PartySocket from 'partysocket';
@@ -7,13 +7,13 @@
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
   import type { Diff, ShapeRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import {
-    deriveKeyFromPassword, encryptMessage, decryptMessage,
-    encryptBytes, decryptBytes,
-  } from '../../lib/whiteboardCrypto';
-  import { validShapeRecord, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, type BoardChatItem } from '../../lib/whiteboardRecords';
+  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { validShapeRecord, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
+  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
+  import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
-  import { parseBurnSuffix } from '../../lib/chatRoomSettings';
+  import { parseBurnSuffix, roomPasswordOk } from '../../lib/chatRoomSettings';
   import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
 
@@ -117,13 +117,23 @@
   const identity = { name: aliasName(dict, alias), color: aliasColor(alias), key: aliasKey(alias) };
   let myInitials = getInitials(identity.name);
 
+  // Every payload is signed, so a sender is named only by a validated alias; free-form names and colors would let a member pass as someone else.
   function senderInfo(p: any) {
     const al = parseAlias(p?.alias) ?? undefined;
-    const raw = typeof p?.sender === 'string' ? p.sender : typeof p?.name === 'string' ? p.name : '';
-    const name = al ? aliasName(dict, al) : (raw.trim() || t(dict, 'whiteboard.guest'));
-    const color = al ? aliasColor(al) : (typeof p?.color === 'string' ? p.color : 'var(--accent)');
-    return { name, color, alias: al, key: al ? aliasKey(al) : name };
+    const name = al ? aliasName(dict, al) : t(dict, 'whiteboard.guest');
+    return { name, color: al ? aliasColor(al) : safeColor(undefined), alias: al, key: al ? aliasKey(al) : 'guest' };
   }
+
+  let boardKey: SigningIdentity | null = null;
+  let myPk = '';
+  let myKeyCode = '';
+  let trust: BoardTrust | null = null;
+  const connectionKeys = new ConnectionKeys();
+  let memberList: BoardMember[] = [];
+  let memberCodes: Record<string, { code: string; safety: string }> = {};
+  let peopleOpen = false;
+  let canCreate = false;
+  let boardMissing = false;
 
   let connected = false;
   let verified = false;
@@ -134,7 +144,7 @@
   let passwordError = '';
   let serverPresence = 0;
 
-  let onlineUsers: { id: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
+  let onlineUsers: { id: string; name: string; initials: string; color: string; alias?: Alias; pk: string; warn: boolean }[] = [];
   let myConnId = '';
 
   let sharePassword = '';
@@ -147,7 +157,7 @@
   let yrecords: Y.Map<ShapeRecord>;
   let ychat: Y.Array<BoardChatItem>;
 
-  type ChatView = { id: string; html: string; name: string; color: string; mine: boolean; at: number; expiresAt?: number };
+  type ChatView = { id: string; html: string; name: string; color: string; mine: boolean; at: number; expiresAt?: number; pk: string; warn: boolean };
   let chatOpen = false;
   let chatInput = '';
   let chatSaved: ChatView[] = [];
@@ -177,7 +187,7 @@
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
 
-  type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; lastSeen: number };
+  type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; pk: string; warn: boolean; lastSeen: number };
   let cursors: Cursor[] = [];
   const remoteScribbles = new Map<string, { list: ScribbleStroke[]; at: number }>();
   let lastCursorSent = 0;
@@ -228,9 +238,18 @@
 
   async function enterWithPassword(pwd: string) {
     try {
-      const access = await roomCredentials(pwd, roomId, 'whiteboard');
+      const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
-      cryptoKey = await deriveKeyFromPassword(pwd, roomId);
+      cryptoKey = access.key;
+      if (!boardKey) {
+        boardKey = await loadRoomIdentity(`whiteboard:${roomId}`);
+        myPk = boardKey.publicKey;
+        const trustRoom = `whiteboard:${roomId}`;
+        trust = new BoardTrust(loadTrustTable(trustRoom), { pk: myPk, key: identity.key, name: identity.name }, (table) => saveTrustTable(trustRoom, table), onTrustChange);
+        myKeyCode = await keyCode(myPk);
+      }
+      canCreate = roomPasswordOk(pwd, roomId);
+      boardMissing = false;
       needsPassword = false;
       setupYjs();
       connectWs();
@@ -290,11 +309,7 @@
     ydoc = new Y.Doc();
     yrecords = ydoc.getMap('records');
     ychat = ydoc.getArray('chat');
-    ychat.observe((event, tr) => {
-      const before = chatSaved.length;
-      chatSaved = ychat.toArray().filter(validBoardChatItem).map(toChatView);
-      if (tr.origin !== LOCAL_ORIGIN && chatSaved.length > before) noteIncomingChat(chatSaved.length - before);
-    });
+    ychat.observe((event, tr) => { void refreshSavedChat(tr.origin !== LOCAL_ORIGIN); });
 
     store.listen((diff: Diff) => {
       for (const id of Object.keys(diff.added)) dirty.add(id);
@@ -347,13 +362,18 @@
     }
   }
 
+  function seal(kind: WhiteboardKind, body: Record<string, unknown>): Promise<string> | null {
+    return cryptoKey && boardKey ? sealEnvelope(cryptoKey, boardKey, kind, body, channelId) : null;
+  }
+
+  // Parts are stamped only once the rate budget allows sending them, so a long sync never goes out with a stale stamp.
   async function sendDocEnvelope(kind: 'doc' | 'doc-part', bytes: Uint8Array, to?: string) {
-    if (!cryptoKey) return;
-    const payload = await encryptBytes(cryptoKey, bytes);
+    await waitForBudget(Math.ceil(bytes.length * 16 / 9) + 1024);
+    const payload = await seal(kind, { data: bytesToB64(bytes) });
+    if (!payload) return;
     const message = JSON.stringify(to
       ? { type: 'envelope-to', to, kind, payload, id: genId() }
       : { type: 'envelope', kind, payload, id: genId() });
-    await waitForBudget(message.length);
     socketSend(message, true);
   }
 
@@ -393,11 +413,8 @@
       connected = true;
       const rejoin = verified;
       socketSend(JSON.stringify({ type: 'join', token: accessToken }), true);
-      if (cryptoKey) {
-        const verifyPayload = await encryptMessage(cryptoKey,
-          JSON.stringify({ type: 'verify', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
-        socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
-      }
+      const verifyPayload = await seal('verify', { alias: aliasWire(alias) });
+      if (verifyPayload) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
       if (rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
@@ -428,6 +445,14 @@
       serverPresence = data.presence;
       roomLocked = !!data.locked;
       if (verifying && serverPresence <= 1) {
+        // Nobody here means the board does not exist yet; only a password that passes the room policy may create it.
+        if (!canCreate) {
+          verifying = false;
+          boardMissing = true;
+          needsPassword = true;
+          ws?.close();
+          return;
+        }
         verified = true;
         verifying = false;
       } else if (verifying && serverPresence > 1) {
@@ -452,47 +477,46 @@
       return;
     }
     if (data.type !== 'envelope') return;
-    if (!cryptoKey) return;
-    if (typeof data.payload !== 'string' || data.payload.length > 720000) return;
+    if (!cryptoKey || !trust) return;
+    if (typeof data.payload !== 'string' || data.payload.length > 720000 || typeof data.from !== 'string' || !data.from) return;
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data.payload));
     if (!replay.accept(Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''))) return;
 
+    // Decrypt, check the room, kind and age stamp, verify the signature, then hold the relay connection to its first key.
+    const opened = await openEnvelope(cryptoKey, data.payload, data.kind, channelId);
+    if (!opened || !replay.accept(opened.body._id as string) || !connectionKeys.bind(data.from, opened.signer)) return;
+    const { body, signer } = opened;
+    const from: string = data.from;
+    if (verifying) { verified = true; verifying = false; }
+
     try {
       if (data.kind === 'cursor') {
-        const text = await decryptMessage(cryptoKey, data.payload);
-        const c = JSON.parse(text);
-        if (verifying) { verified = true; verifying = false; }
-        const from = typeof data.from === 'string' ? data.from : String(c?.id ?? '');
-        if (Number.isFinite(c?.x) && Number.isFinite(c?.y)) {
-          const who = senderInfo(c);
-          upsertCursor(from, c.x, c.y, who.name, who.color, who.alias);
-        }
-        if ('laser' in c) {
-          remoteScribbles.set(from, { list: sanitizeScribbles(c.laser), at: Date.now() });
+        const who = senderInfo(body);
+        const warn = !trust.note(signer, who.key, who.name);
+        if (Number.isFinite(body.x) && Number.isFinite(body.y)) upsertCursor(from, body.x as number, body.y as number, who, signer, warn);
+        if ('laser' in body) {
+          remoteScribbles.set(from, { list: sanitizeScribbles(body.laser), at: Date.now() });
           pushRemoteScribbles();
         }
         return;
       }
 
       if (data.kind === 'doc') {
-        const update = await decryptBytes(cryptoKey, data.payload);
-        Y.applyUpdate(ydoc, update, 'remote');
-        if (verifying) { verified = true; verifying = false; }
+        Y.applyUpdate(ydoc, b64ToBytes(body.data as string), 'remote');
         return;
       }
 
       if (data.kind === 'chat') {
-        const item = JSON.parse(await decryptMessage(cryptoKey, data.payload));
-        if (!validBoardChatItem(item) || !item.ttl || chatBurning.some((m) => m.id === item.id)) return;
-        chatBurning = [...chatBurning, { ...toChatView(item), expiresAt: Date.now() + item.ttl * 1000 }];
+        const item = body.item;
+        if (!validBoardChatItem(item) || !item.ttl || item._pk !== signer || chatBurning.some((m) => m.id === item.id)) return;
+        if (await verifyBoardItem(item, channelId) !== signer) return;
+        chatBurning = [...chatBurning, { ...toChatView(item, signer), expiresAt: Date.now() + item.ttl * 1000 }];
         noteIncomingChat(1);
         return;
       }
 
       if (data.kind === 'doc-part') {
-        const part = await decryptBytes(cryptoKey, data.payload);
-        if (verifying) { verified = true; verifying = false; }
-        const result = assembler.accept(String(data.from ?? ''), part);
+        const result = assembler.accept(from, b64ToBytes(body.data as string));
         if (!result) return;
         syncProgress = result.update ? null : { received: result.received, total: result.total };
         if (result.update) Y.applyUpdate(ydoc, result.update, 'remote');
@@ -500,50 +524,71 @@
       }
 
       if (data.kind === 'verify') {
-        const text = await decryptMessage(cryptoKey, data.payload);
-        const parsed = JSON.parse(text);
-        if (verifying) { verified = true; verifying = false; }
-        addOnlineUser(data.from || senderInfo(parsed).key, senderInfo(parsed));
-        if (verified && cryptoKey && ws) {
-          const ack = await encryptMessage(cryptoKey,
-            JSON.stringify({ type: 'verify-ack', sender: identity.name, color: identity.color, alias: aliasWire(alias) }));
-          socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
-          if (typeof data.from === 'string' && (store.size || ychat.length) && shouldAnswerSync(data.from)) {
+        const who = senderInfo(body);
+        addOnlineUser(from, who, signer, !trust.note(signer, who.key, who.name));
+        if (verified && ws) {
+          const ack = await seal('verify-ack', { alias: aliasWire(alias) });
+          if (ack) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
+          if ((store.size || ychat.length) && shouldAnswerSync(from)) {
             flushToDoc();
-            queueDocUpdate(Y.encodeStateAsUpdate(ydoc), data.from);
+            queueDocUpdate(Y.encodeStateAsUpdate(ydoc), from);
           }
         }
         return;
       }
 
       if (data.kind === 'verify-ack') {
-        const text = await decryptMessage(cryptoKey, data.payload);
-        const parsed = JSON.parse(text);
-        if (verifying) { verified = true; verifying = false; }
-        addOnlineUser(data.from || senderInfo(parsed).key, senderInfo(parsed));
+        const who = senderInfo(body);
+        addOnlineUser(from, who, signer, !trust.note(signer, who.key, who.name));
         return;
       }
-    } catch {
-      // One failed decrypt may be a peer with a different password; the init timeout decides.
-    }
+    } catch {}
   }
 
-  function addOnlineUser(id: string, who: { name: string; color: string; alias?: Alias; key: string }) {
-    if (!onlineUsers.find(u => u.id === id || u.name === who.name)) {
-      onlineUsers = [...onlineUsers, { id: id || who.key, name: who.name, initials: getInitials(who.name), color: who.color, alias: who.alias }];
-    }
+  type Who = { name: string; color: string; alias?: Alias; key: string };
+
+  function addOnlineUser(id: string, who: Who, pk: string, warn: boolean) {
+    const user = { id, name: who.name, initials: getInitials(who.name), color: who.color, alias: who.alias, pk, warn };
+    onlineUsers = [...onlineUsers.filter(u => u.id !== id && u.pk !== pk), user];
   }
 
-  function upsertCursor(id: string, x: number, y: number, name: string, color: string, cursorAlias?: Alias) {
-    const now = Date.now();
+  function upsertCursor(id: string, x: number, y: number, who: Who, pk: string, warn: boolean) {
+    const next: Cursor = { id, x, y, name: who.name, color: who.color, alias: who.alias, pk, warn, lastSeen: Date.now() };
     const idx = cursors.findIndex(c => c.id === id);
     if (idx >= 0) {
-      cursors[idx] = { id, x, y, name, color, alias: cursorAlias, lastSeen: now };
+      cursors[idx] = next;
       cursors = cursors;
     } else {
-      cursors = [...cursors, { id, x, y, name, color, alias: cursorAlias, lastSeen: now }];
+      cursors = [...cursors, next];
     }
   }
+
+  function onTrustChange() {
+    if (!trust) return;
+    memberList = [...trust.members.values()];
+    for (const m of memberList) {
+      if (memberCodes[m.pk]) continue;
+      memberCodes[m.pk] = { code: '', safety: '' };
+      void Promise.all([keyCode(m.pk), safetyNumber(myPk, m.pk)]).then(([code, safety]) => {
+        memberCodes = { ...memberCodes, [m.pk]: { code, safety } };
+      });
+    }
+  }
+
+  function trustMember(pk: string) {
+    if (!trust?.accept(pk)) return;
+    const clear = <T extends { pk: string; warn: boolean }>(list: T[]) => list.map((x) => x.pk === pk ? { ...x, warn: false } : x);
+    chatSaved = clear(chatSaved);
+    chatBurning = clear(chatBurning);
+    cursors = clear(cursors);
+    onlineUsers = clear(onlineUsers);
+  }
+
+  function memberAlias(member: BoardMember): Alias | undefined {
+    return parseAlias(member.key.split('-').map(Number)) ?? undefined;
+  }
+
+  $: keyWarnings = memberList.filter((m) => !m.trusted).length;
 
   function pushRemoteScribbles() {
     if (!editor) return;
@@ -565,15 +610,12 @@
   }
 
   async function sendCursor(x: number, y: number, laser?: ScribbleStroke[]) {
-    if (!cryptoKey || !ws) return;
+    if (!ws) return;
     try {
-      const body: Record<string, unknown> = {
-        id: identity.key, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10,
-        name: identity.name, color: identity.color, alias: aliasWire(alias),
-      };
+      const body: Record<string, unknown> = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, alias: aliasWire(alias) };
       if (laser) body.laser = laser;
-      const payload = await encryptMessage(cryptoKey, JSON.stringify(body));
-      if (!socketSend(JSON.stringify({ type: 'envelope', kind: 'cursor', payload, id: 'c-' + genId() }))) return;
+      const payload = await seal('cursor', body);
+      if (!payload || !socketSend(JSON.stringify({ type: 'envelope', kind: 'cursor', payload, id: 'c-' + genId() }))) return;
       lastCursorSent = Date.now();
       lastCursorX = x;
       lastCursorY = y;
@@ -786,6 +828,11 @@
       document.getElementById('wb-chat-trigger')?.focus();
       return;
     }
+    if (e.key === 'Escape' && peopleOpen && (e.target as Element | null)?.closest?.('#wb-people')) {
+      peopleOpen = false;
+      document.getElementById('wb-people-trigger')?.focus();
+      return;
+    }
     if (e.key !== 'Escape' || (!styleOpen && !menuOpen)) return;
     const trigger = styleOpen ? 'wb-style-trigger' : 'wb-menu-trigger';
     styleOpen = false;
@@ -793,9 +840,46 @@
     document.getElementById(trigger)?.focus();
   }
 
-  function toChatView(item: BoardChatItem): ChatView {
+  function toChatView(item: BoardChatItem, signer: string): ChatView {
     const who = senderInfo(item);
-    return { id: item.id, html: parseMarkdown(item.text), name: who.name, color: who.color, mine: who.key === identity.key, at: item.at };
+    const mine = signer === myPk;
+    const warn = !mine && !!trust && !trust.note(signer, who.key, who.name);
+    return { id: item.id, html: parseMarkdown(item.text), name: who.name, color: who.color, mine, at: item.at, pk: signer, warn };
+  }
+
+  // Saved messages travel inside the shared document, relayed by whoever syncs it, so each one is checked against its author's own signature.
+  const itemSigners = new Map<string, Promise<string | null>>();
+  let chatRefresh = 0;
+  let chatRemoteSeen = false;
+
+  function itemSigner(item: BoardChatItem): Promise<string | null> {
+    let signer = itemSigners.get(item._sig);
+    if (!signer) {
+      if (itemSigners.size > 2000) itemSigners.clear();
+      signer = verifyBoardItem(item, channelId);
+      itemSigners.set(item._sig, signer);
+    }
+    return signer;
+  }
+
+  async function refreshSavedChat(remote: boolean) {
+    const run = ++chatRefresh;
+    chatRemoteSeen ||= remote;
+    const items = ychat.toArray().filter(validBoardChatItem);
+    const signers = await Promise.all(items.map(itemSigner));
+    if (run !== chatRefresh) return;
+    const before = chatSaved.length;
+    const seen = new Set<string>();
+    const next: ChatView[] = [];
+    items.forEach((item, i) => {
+      const signer = signers[i];
+      if (!signer || seen.has(item.id)) return;
+      seen.add(item.id);
+      next.push(toChatView(item, signer));
+    });
+    chatSaved = next;
+    if (chatRemoteSeen && next.length > before) noteIncomingChat(next.length - before);
+    chatRemoteSeen = false;
   }
 
   async function noteIncomingChat(count: number) {
@@ -808,6 +892,7 @@
     chatOpen = !chatOpen;
     styleOpen = false;
     menuOpen = false;
+    peopleOpen = false;
     if (!chatOpen) return;
     chatUnread = 0;
     await tick();
@@ -815,18 +900,30 @@
     chatInputEl?.focus();
   }
 
+  async function togglePeople() {
+    peopleOpen = !peopleOpen;
+    chatOpen = false;
+    styleOpen = false;
+    menuOpen = false;
+    if (!peopleOpen) return;
+    await tick();
+    document.getElementById('wb-people')?.querySelector<HTMLElement>('button')?.focus();
+  }
+
   async function sendChat() {
     const raw = chatInput.trim().slice(0, BOARD_CHAT_MAX_TEXT);
-    if (!raw || !ydoc || !cryptoKey) return;
+    if (!raw || !ydoc || !boardKey) return;
     const burn = parseBurnSuffix(raw);
-    const item: BoardChatItem = { id: genId(), text: burn ? burn.text : raw, alias: aliasWire(alias), at: Date.now() };
+    const draft: UnsignedBoardChatItem = { id: genId(), text: burn ? burn.text : raw, alias: aliasWire(alias), at: Date.now() };
+    if (burn) draft.ttl = burn.ttl;
     chatInput = '';
+    let item: BoardChatItem;
+    try { item = await signBoardItem(boardKey, draft, channelId); } catch { return; }
     if (burn) {
-      item.ttl = burn.ttl;
-      chatBurning = [...chatBurning, { ...toChatView(item), expiresAt: Date.now() + burn.ttl * 1000 }];
+      chatBurning = [...chatBurning, { ...toChatView(item, myPk), expiresAt: Date.now() + burn.ttl * 1000 }];
       try {
-        const payload = await encryptMessage(cryptoKey, JSON.stringify(item));
-        socketSend(JSON.stringify({ type: 'envelope', kind: 'chat', payload, id: 'chat-' + genId() }), true);
+        const payload = await seal('chat', { item });
+        if (payload) socketSend(JSON.stringify({ type: 'envelope', kind: 'chat', payload, id: 'chat-' + genId() }), true);
       } catch {}
     } else {
       ydoc.transact(() => {
@@ -950,6 +1047,10 @@
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
+        {#if boardMissing}
+          <p class="status status--warn" role="alert">{t(dict, 'whiteboard.boardMissing')}</p>
+          <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+        {/if}
         <input
           type="password"
           class="input w-full"
@@ -1014,11 +1115,11 @@
       <p id="wb-keyboard-help" class="sr-only">{t(dict, 'whiteboard.keyboardHelp')}</p>
 
       {#each cursors as c (c.id)}
-        {#if c.id !== myConnId && c.name !== identity.name}
+        {#if c.id !== myConnId && c.pk !== myPk}
           {@const s = toScreen(c.x, c.y, camTick)}
           <div class="wb-cursor" style="transform: translate({s.x}px, {s.y}px); --wb-peer: {c.color}" aria-hidden="true">
             <svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1v17l4.5-4 3 7 3-1.4-3-6.6H15z" fill="var(--wb-peer)" stroke="white" stroke-width="1.4" stroke-linejoin="round"/></svg>
-            <span class="wb-cursor__name">{c.name}</span>
+            <span class="wb-cursor__name">{c.name}{#if c.warn}<span class="wb-key-mark">!</span>{/if}</span>
           </div>
         {/if}
       {/each}
@@ -1194,7 +1295,12 @@
           <ol class="wb-chat__list" bind:this={chatListEl} use:revealSpoilers aria-live="polite">
             {#each chatView as m (m.id)}
               <li class="wb-chat__msg" class:wb-chat__msg--mine={m.mine}>
-                <span class="wb-chat__name" style="color: {m.color}">{m.name}</span>
+                <span class="wb-chat__name" style="color: {m.color}">
+                  {m.name}
+                  {#if m.warn}
+                    <button type="button" class="wb-key-warn" title={t(dict, 'whiteboard.keyNewHint')} on:click={togglePeople}>{t(dict, 'whiteboard.keyNew')}</button>
+                  {/if}
+                </span>
                 <span class="wb-chat__text">{@html m.html}</span>
                 {#if m.expiresAt}
                   <span class="wb-chat__timer" title={t(dict, 'whiteboard.chatDisappears')}>{Math.max(0, Math.ceil((m.expiresAt - chatNow) / 1000))} s</span>
@@ -1221,6 +1327,46 @@
               <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.send}</svg>
             </button>
           </form>
+        </section>
+      {/if}
+
+      {#if peopleOpen}
+        <section id="wb-people" class="wb-chat wb-people" aria-label={t(dict, 'whiteboard.people')}>
+          <header class="wb-chat__head">
+            <h2 class="wb-chat__title">{t(dict, 'whiteboard.people')}</h2>
+            <button type="button" class="wb-btn" on:click={togglePeople} aria-label={t(dict, 'whiteboard.peopleClose')} title={t(dict, 'whiteboard.peopleClose')}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.close}</svg>
+            </button>
+          </header>
+          <ul class="wb-chat__list">
+            <li class="wb-member">
+              <span class="wb-avatar" style="background: {aliasGradient(alias)}">{myInitials}</span>
+              <div class="min-w-0 flex-1">
+                <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
+                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{myKeyCode}</code></p>
+              </div>
+            </li>
+            {#each memberList as member (member.pk)}
+              <li class="wb-member" class:wb-member--warn={!member.trusted}>
+                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}">{getInitials(member.name)}</span>
+                <div class="min-w-0 flex-1">
+                  <p class="wb-member__name">
+                    {member.name}
+                    {#if !member.trusted}<span class="wb-key-warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
+                  </p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{memberCodes[member.pk]?.code ?? ''}</code></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><code class="wb-member__code wb-member__safety">{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</code></p>
+                  {#if !member.trusted}
+                    <p class="hint">{t(dict, 'whiteboard.keyNewHint')}</p>
+                    <button type="button" class="btn-outline btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
+                  {/if}
+                </div>
+              </li>
+            {:else}
+              <li class="wb-chat__empty">{t(dict, 'whiteboard.noPeopleYet')}</li>
+            {/each}
+          </ul>
+          <p class="hint wb-people__hint">{t(dict, 'whiteboard.safetyNumberHint')}</p>
         </section>
       {/if}
 
@@ -1258,12 +1404,24 @@
       <div class="flex items-center gap-2 min-w-0">
         <span class="wb-status" class:wb-status--connected={connected} aria-hidden="true"></span>
         <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : t(dict, 'whiteboard.connecting')}</span>
-        <div class="flex items-center -space-x-1.5">
-          <div class="wb-avatar" style="background: {aliasGradient(alias)}" title={identity.name}>{myInitials}</div>
-          {#each onlineUsers as user (user.id)}
-            <div class="wb-avatar" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
-          {/each}
-        </div>
+        <button
+          id="wb-people-trigger"
+          type="button"
+          class="wb-people-trigger"
+          aria-expanded={peopleOpen}
+          aria-controls="wb-people"
+          aria-label={keyWarnings ? `${t(dict, 'whiteboard.people')} (${t(dict, 'whiteboard.keyWarnings').replace('{n}', String(keyWarnings))})` : t(dict, 'whiteboard.people')}
+          title={t(dict, 'whiteboard.people')}
+          on:click={togglePeople}
+        >
+          <span class="flex items-center -space-x-1.5">
+            <span class="wb-avatar" style="background: {aliasGradient(alias)}">{myInitials}</span>
+            {#each onlineUsers as user (user.id)}
+              <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}">{user.initials}</span>
+            {/each}
+          </span>
+          {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
+        </button>
         <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
         {#if syncProgress}
           <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
@@ -1652,6 +1810,85 @@
     padding-left: 6px;
     color: var(--muted);
   }
+  .wb-key-warn {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.25rem;
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    background: var(--warn-weak);
+    color: var(--warn);
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  button.wb-key-warn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .wb-key-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: var(--warn);
+    color: var(--bg);
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .wb-chat.wb-people {
+    top: auto;
+    right: auto;
+    left: 0.5rem;
+    bottom: 0.5rem;
+    max-height: calc(100% - 1rem);
+  }
+  .wb-member {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text);
+  }
+  .wb-member--warn {
+    padding: 0.5rem;
+    border-radius: 0.625rem;
+    background: var(--warn-weak);
+  }
+  .wb-member > div { display: grid; gap: 0.25rem; }
+  .wb-member__name {
+    font-weight: 700;
+    word-break: break-word;
+  }
+  .wb-member__line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.375rem;
+  }
+  .wb-member__code {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    color: var(--text);
+  }
+  .wb-member__safety {
+    display: grid;
+    grid-template-columns: repeat(4, max-content);
+    gap: 0.1rem 0.5rem;
+  }
+  .wb-member .btn-outline { justify-self: start; }
+  .wb-people__hint {
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--line-soft);
+  }
   .wb-chat__form {
     display: flex;
     align-items: center;
@@ -1733,6 +1970,21 @@
     color: white;
     flex-shrink: 0;
     box-shadow: 0 0 0 2px var(--surface);
+  }
+  .wb-avatar--warn { box-shadow: 0 0 0 2px var(--warn); }
+  .wb-people-trigger {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0 0.25rem;
+    border-radius: 0.5rem;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+  .wb-people-trigger:hover,
+  .wb-people-trigger[aria-expanded="true"] { background: var(--surface-2); }
+  .wb-people-trigger:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   .wb-counter {

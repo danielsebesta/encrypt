@@ -1,17 +1,19 @@
 import { sealPassword, openPassword } from './passwordEnvelope';
 
-export async function encrypt(text: string, password: string): Promise<Uint8Array> {
-  return sealPassword(new TextEncoder().encode(text), password);
+export const MAX_WORD_BYTES = 16 * 1024 * 1024;
+
+export async function encrypt(text: string, password: string, maxLength?: number): Promise<Uint8Array> {
+  return sealPassword(new TextEncoder().encode(text), password, { maxLength });
 }
 
 export async function decrypt(data: Uint8Array, password: string): Promise<string> {
   return new TextDecoder().decode(await openPassword(data, password));
 }
 
-/** Uses the legacy uint16 length, or zero followed by uint32 for larger payloads. */
+/** Prefixes a uint16 length, or zero followed by a uint32 for payloads over 65535 bytes. */
 export function to14BitChunks(data: Uint8Array): number[] {
   const length = data.byteLength;
-  if (length > 16 * 1024 * 1024) throw new Error('Input too large');
+  if (length > MAX_WORD_BYTES) throw new Error('Input too large');
   const prefix = length > 65535 ? 6 : 2;
   const combined = new Uint8Array(length + prefix);
   combined[0] = prefix === 6 ? 0 : (length >> 8) & 0xff;

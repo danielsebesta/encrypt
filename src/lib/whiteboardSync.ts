@@ -46,7 +46,13 @@ export class DocPartAssembler {
 
     let a = this.assemblies.get(key);
     if (!a) {
-      if (this.assemblies.size >= MAX_ASSEMBLIES) return null;
+      // One unfinished update per sender, and the stalest one makes room, so a member cannot stall everyone else's sync.
+      this.drop(from);
+      if (this.assemblies.size >= MAX_ASSEMBLIES) {
+        let stalest: string | null = null;
+        for (const [k, other] of this.assemblies) if (!stalest || other.at < this.assemblies.get(stalest)!.at) stalest = k;
+        if (stalest) this.assemblies.delete(stalest);
+      }
       a = { parts: new Array(total), got: 0, bytes: 0, at: now };
       this.assemblies.set(key, a);
     }
