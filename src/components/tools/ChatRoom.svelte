@@ -1,15 +1,23 @@
 <script lang="ts">
   import { archiveLegacyHistory, migrateRoomHistory } from '../../lib/chatHistory';
   import { stampPayload, validPayload } from '../../lib/chatProtocol';
-  import { padPayload, SIGNATURE_BYTES } from '../../lib/padding';
-  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
+  import { padPayload, SIGNATURE_BYTES, PQ_SIGNATURE_BYTES } from '../../lib/padding';
+  import { loadRoomIdentity, loadRoomPqSeed, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
+  import { ForwardSecrecySession, MAX_SYNC_ITEMS, PENDING, validEphemeralKey, type FsMember } from '../../lib/chatRatchet';
+  import { HistoryChains, loadChainState, saveChainState, forgetChainState, validHead, type ChainHead, type ChainIssue } from '../../lib/chatIntegrity';
+  import type { PqIdentity, PqKeyring } from '../../lib/chatPq';
   let verificationChallenge = '';
   let roomIdentity: SigningIdentity | null = null;
-  // Every payload is padded to a size bucket and signed before it is sealed, so members can tell who in the room wrote it.
-  const encryptMessage = async (key: CryptoKey, text: string) => {
-    const stamped = padPayload(stampPayload(text, channelId), roomIdentity ? SIGNATURE_BYTES : 0);
-    return sealMessage(key, roomIdentity ? await signPayload(roomIdentity, stamped) : stamped);
-  };
+  let pqIdentity: PqIdentity | null = null;
+  // Every payload is stamped and signed, in saved rooms with ML-DSA-44 next to Ed25519, so members can tell who in the room wrote it.
+  async function signForRoom(payload: Record<string, unknown>, pad: boolean): Promise<string> {
+    if (!roomIdentity) throw new Error('No room identity');
+    const pq = persistentRoom && pqIdentity ? pqIdentity : undefined;
+    const stamped = stampPayload(JSON.stringify(payload), channelId);
+    return signPayload(roomIdentity, pad ? padPayload(stamped, SIGNATURE_BYTES + (pq ? PQ_SIGNATURE_BYTES : 0)) : stamped, pq);
+  }
+  // Padding hides how long a payload is before it is sealed under the room key.
+  const encryptMessage = async (key: CryptoKey, text: string) => sealMessage(key, await signForRoom(JSON.parse(text), true));
   import { randomIndex } from "../../lib/random";
   import { roomCredentials, roomSecret, safeColor, ReplayWindow, type RoomSecret } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, parseNickname, nicknameKey, loadNickname, saveNickname, saveAlias, NICKNAME_RE, PROFILE_HUES, type Alias } from "../../lib/alias";
@@ -20,15 +28,16 @@
   import PartySocket from 'partysocket';
   import {
     deriveKeyFromPassword, deriveRoomKey, roomMessageKey, derivePersistentRoom,
-    encryptMessage as sealMessage, decryptMessage,
-    signPayload, verifyPayload, safetyNumber, keyCode, type SigningIdentity,
+    encryptMessage as sealMessage, decryptMessage, arrayToB64url,
+    signPayload, verifyPayload, verifySigned, signerId, safetyNumber, keyCode, chainHash,
+    roomForwardSecret, legacyRoomForwardSecret, forwardLocalKey, sealLocal, openLocal, type SigningIdentity,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
-  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
+  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
@@ -51,14 +60,15 @@
     time: number;
     ttl: number;
     remaining: number;
-    file?: { name: string; size: number; urls: string[] };
+    file?: { name: string; size: number; urls: string[]; key?: string };
     fileError?: boolean;
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     revealed?: boolean;
     whiteboard?: WhiteboardInvite;
     pk?: string;
     keyWarning?: boolean;
-    payload?: string;
+    legacySig?: boolean;
+    signed?: string;
   };
 
   type Member = {
@@ -93,7 +103,7 @@
     nick?: string;
     color?: string;
     ttl?: number;
-    file?: { name: string; size: number; urls?: string[]; url?: string };
+    file?: { name: string; size: number; urls?: string[]; url?: string; key?: string };
     createdAt?: number;
   };
 
@@ -117,7 +127,21 @@
     more?: boolean;
   };
 
-  type LocalHistoryEnvelope = Pick<ServerEnvelope, 'type' | 'id' | 'payload' | 'createdAt' | 'serverSeq'>;
+  // Version 2 entries hold the verified, signed plaintext sealed under the local key; older ones the room-key ciphertext.
+  type LocalHistoryEnvelope = { type: 'message'; id: string; payload?: string; v?: 2; sealed?: string; createdAt?: number; serverSeq?: number };
+
+  type Origin = 'local' | 'sync' | null;
+  type ProcessContext = {
+    fromHistory: boolean;
+    origin: Origin;
+    serverSeq?: number;
+    createdAt?: number;
+    wire?: string;
+    signed?: string;
+    localSealed?: boolean;
+    fsSender?: string;
+  };
+  type Signer = { id: string; ed: string; legacy: boolean };
 
   type WhiteboardInvite = {
     roomId: string;
@@ -337,6 +361,25 @@
   let configChanged = false;
   const members = new Map<string, Member>();
   let memberList: Member[] = [];
+  let mySignerId = '';
+  let pqKeys: PqKeyring | null = null;
+  let fsSession: ForwardSecrecySession | null = null;
+  let localKey: CryptoKey | null = null;
+  let chainStateKey = '';
+  let chains = new HistoryChains();
+  let ownHead: ChainHead | null = null;
+  let joinCursor: { since: number; epoch: string | null } = { since: 0, epoch: null };
+  let historyStarted = false;
+  let historyLoaded = false;
+  let trimmedLoad = false;
+  const loadSeen = new Set<string>();
+  const pendingHeads = new Map<string, ChainHead & { name: string }>();
+  const chainNotices = new Set<string>();
+  let lastPresenceCount = 0;
+  let inbound: Promise<void> = Promise.resolve();
+  let callSignals: Promise<void> = Promise.resolve();
+  let wantTimer: ReturnType<typeof setTimeout> | undefined;
+  let outdatedPeerNoticed = false;
   let callActive = false;
   let callJoining = false;
   let callError = '';
@@ -1426,7 +1469,7 @@
         .filter((item): item is LocalHistoryEnvelope =>
           item?.type === 'message' &&
           typeof item.id === 'string' &&
-          typeof item.payload === 'string'
+          (typeof item.payload === 'string' || (item.v === 2 && typeof item.sealed === 'string'))
         )
         .slice(-LOCAL_HISTORY_LIMIT);
     } catch {
@@ -1441,21 +1484,23 @@
     } catch {}
   }
 
-  function storeLocalEnvelope(envelope: ServerEnvelope | LocalHistoryEnvelope) {
-    if (!shouldKeepParticipantHistory() || !localHistoryKey || !envelope.id || !envelope.payload) return;
+  // Saved rooms drop the ML-DSA signature from the local copy: it was checked on arrival and would fill the storage quota,
+  // while the Ed25519 signature still covers the ML-DSA key hash and the history chain fields.
+  async function storeLocalSigned(id: string, signed: string, createdAt: number, serverSeq?: number) {
+    if (!shouldKeepParticipantHistory() || !localHistoryKey || !localKey || !id || !signed) return;
+    let text = signed;
+    if (persistentRoom) {
+      const { _pq, ...rest } = JSON.parse(signed);
+      text = JSON.stringify(rest);
+    }
+    const sealed = await sealLocal(localKey, id, text);
     const items = readLocalHistory();
-    const existing = items.find((item) => item.id === envelope.id);
+    const existing = items.find((item) => item.id === id);
     if (existing) {
-      if (typeof envelope.serverSeq !== 'number' || existing.serverSeq === envelope.serverSeq) return;
-      existing.serverSeq = envelope.serverSeq;
+      if (typeof serverSeq !== 'number' || existing.serverSeq === serverSeq) return;
+      existing.serverSeq = serverSeq;
     } else {
-      items.push({
-        type: 'message',
-        id: envelope.id,
-        payload: envelope.payload,
-        createdAt: typeof envelope.createdAt === 'number' ? envelope.createdAt : Date.now(),
-        ...(typeof envelope.serverSeq === 'number' ? { serverSeq: envelope.serverSeq } : {}),
-      });
+      items.push({ type: 'message', id, v: 2, sealed, createdAt, ...(typeof serverSeq === 'number' ? { serverSeq } : {}) });
     }
     writeLocalHistory(items);
   }
@@ -1490,6 +1535,9 @@
       localStorage.removeItem(localHistoryKey);
       localStorage.removeItem(`${localHistoryKey}:epoch`);
     } catch {}
+    if (chainStateKey) forgetChainState(localStorage, chainStateKey);
+    chains = new HistoryChains();
+    ownHead = null;
   }
 
   function markStored(id: string, serverSeq: number, createdAt: number) {
@@ -1506,8 +1554,16 @@
     localHistoryLoaded = true;
     const items = readLocalHistory();
     if (!items.length) return;
-    for (const envelope of [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
-      await processServerEnvelope(envelope as ServerEnvelope, true, 'local');
+    for (const item of [...items].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))) {
+      if (item.v === 2 && item.sealed) {
+        const text = localKey ? await openLocal(localKey, item.id, item.sealed) : null;
+        if (!text) continue;
+        try {
+          await processSigned(JSON.parse(text), { fromHistory: true, origin: 'local', signed: text, localSealed: true, serverSeq: item.serverSeq, createdAt: item.createdAt });
+        } catch {}
+      } else if (item.payload) {
+        await processServerEnvelope({ type: 'message', id: item.id, payload: item.payload, createdAt: item.createdAt, serverSeq: item.serverSeq }, true, 'local');
+      }
     }
     scrollToBottom(true);
   }
@@ -1573,49 +1629,129 @@
       color: invite.color,
       createdAt: invite.createdAt,
     };
-    const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
-    ws.send(JSON.stringify({ type: 'message', payload: encrypted, id: msgId }));
+    await sendContent(payload, false, invite.createdAt);
     addWhiteboardInviteMessage(invite, msgId, true);
     openWhiteboardNewTab(invite, child);
   }
 
-  // Peers hand over the original signed ciphertexts, so synced history is verified exactly like live messages
-  // and nobody can put words into another member's mouth while passing history along.
-  function getLiveSyncPayloads(): string[] {
-    if (roomConfig.mode !== 'live') return [];
-    return messages
-      .filter((msg) => !msg.whiteboard && !msg.ttl && msg.payload && (msg.text || msg.file))
-      .slice(-200)
-      .map((msg) => msg.payload!);
+  async function withChainLock<T>(task: () => Promise<T>): Promise<T> {
+    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+    return locks ? locks.request(`encrypt.click:chat-chain:${chainStateKey}`, task) : task();
   }
 
-  // Encrypted payloads grow by about a third and the relay drops anything above 720k characters, so history goes out in batches.
-  const SYNC_BATCH_BYTES = 360_000;
+  function bestHead(...heads: (ChainHead | null)[]): ChainHead | null {
+    return heads.reduce<ChainHead | null>((best, head) => head && (!best || head.n > best.n) ? head : best, null);
+  }
 
-  async function sendLiveHistorySync() {
-    if (roomConfig.mode !== 'live') return;
-    const payloads = getLiveSyncPayloads();
-    if (payloads.length === 0) return;
-    let batch: string[] = [];
-    let batchBytes = 0;
-    for (const payload of payloads) {
-      if (batch.length && batchBytes + payload.length > SYNC_BATCH_BYTES) {
-        await sendEncryptedControl({ type: 'chat-sync', payloads: batch });
-        batch = [];
-        batchBytes = 0;
-      }
-      batch.push(payload);
-      batchBytes += payload.length;
+  /**
+   * Seals and sends one content payload. Rooms without server history wrap the signed payload in the sender's forward
+   * secrecy chain; a stored message in a saved room takes the next place in this browser's history chain. Tabs of the same
+   * browser share that chain, so the counter is taken and the message sent under one lock.
+   */
+  async function sendContent(payload: ChatPayload, persist: boolean, createdAt: number): Promise<string> {
+    const send = (wire: string) => ws!.send(JSON.stringify({ type: 'message', payload: wire, id: payload.id, persist: persistentRoom && persist, createdAt }));
+    if (fsSession) {
+      const signed = await signForRoom(payload, false);
+      send(await encryptMessage(cryptoKey!, JSON.stringify(await fsSession.seal(signed))));
+      return signed;
     }
-    if (batch.length) await sendEncryptedControl({ type: 'chat-sync', payloads: batch });
+    if (!persistentRoom || !persist || !roomIdentity) {
+      const signed = await signForRoom(payload, true);
+      send(await sealMessage(cryptoKey!, signed));
+      return signed;
+    }
+    const me = roomIdentity.publicKey;
+    return withChainLock(async () => {
+      const head = bestHead(ownHead, loadChainState(localStorage, chainStateKey).mine, chains.head(me));
+      const n = (head?.n ?? 0) + 1;
+      const ph = head?.h ?? '';
+      const signed = await signForRoom({ ...payload, _n: n, _ph: ph }, true);
+      const wire = await sealMessage(cryptoKey!, signed);
+      if (wire.length > PERSISTENT_PAYLOAD_CHARS) throw new Error('Message too large');
+      const h = await chainHash(JSON.parse(signed));
+      ownHead = { n, h };
+      chains.observe(me, { n, h, ph });
+      saveChainState(localStorage, chainStateKey, ownHead, chains);
+      send(wire);
+      return signed;
+    });
   }
 
-  async function applyLiveHistorySync(payloads: unknown) {
-    if (roomConfig.mode !== 'live' || !Array.isArray(payloads)) return;
+  function announcedHead(): ChainHead | null {
+    if (!persistentRoom || !chainStateKey || !roomIdentity) return null;
+    return bestHead(ownHead, loadChainState(localStorage, chainStateKey).mine, chains.head(roomIdentity.publicKey));
+  }
+
+  // Keys travel inside the signed room channel: the ephemeral key for forward secrecy, in saved rooms the ML-DSA key and
+  // the latest place in this browser's history chain, so others can tell when the server held messages back.
+  function presenceFields(): Record<string, unknown> {
+    const head = announcedHead();
+    return {
+      sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId,
+      ...(fsSession ? { fs: fsSession.publicKey } : {}),
+      ...(persistentRoom && pqIdentity ? { pq: pqIdentity.publicKey } : {}),
+      ...(head ? { head } : {}),
+    };
+  }
+
+  async function sendPresence(want: string[] = []) {
+    await sendEncryptedControl({ type: 'presence', ...presenceFields(), ...(want.length ? { want: want.slice(0, 64) } : {}) });
+  }
+
+  function scheduleWant() {
+    if (wantTimer) return;
+    wantTimer = setTimeout(() => {
+      wantTimer = undefined;
+      const want = fsSession?.wanted() ?? [];
+      if (want.length) void sendPresence(want);
+    }, 1500);
+  }
+
+  // After someone leaves, everyone still here answers with a presence: in rooms without server history that is the roll call
+  // for the new sender chains, in saved rooms it shows each member's latest history head to the others.
+  async function onMemberLeft() {
+    if (fsSession) await fsSession.memberLeft();
+    if (fsSession || persistentRoom) await sendPresence();
+  }
+
+  function fsMember(parsed: any, signer: string): FsMember | null {
+    return validEphemeralKey(parsed.fs) && typeof parsed.clientId === 'string' ? { clientId: parsed.clientId, pk: signer, pub: parsed.fs } : null;
+  }
+
+  // Messages kept here are signed plaintext, and a newcomer gets them sealed for it alone under a fresh pairwise key:
+  // the signatures still verify, but nothing that crossed the relay earlier becomes readable with that newcomer's keys.
+  const SYNC_BATCH_CHARS = 300_000;
+
+  async function sendLiveHistorySync(member: FsMember) {
+    if (roomConfig.mode !== 'live' || !fsSession) return;
+    const items = messages
+      .filter((msg) => !msg.whiteboard && !msg.ttl && !msg.legacySig && msg.pk && msg.signed && (msg.text || msg.file))
+      .slice(-200)
+      .map((msg) => msg.signed!);
+    let batch: string[] = [];
+    let chars = 0;
+    for (const item of items) {
+      if (batch.length && (chars + item.length > SYNC_BATCH_CHARS || batch.length >= MAX_SYNC_ITEMS)) {
+        await sendEncryptedControl(await fsSession.sealSync(member, batch));
+        batch = [];
+        chars = 0;
+      }
+      batch.push(item);
+      chars += item.length;
+    }
+    if (batch.length) await sendEncryptedControl(await fsSession.sealSync(member, batch));
+  }
+
+  async function applyLiveHistorySync(items: string[]) {
+    if (roomConfig.mode !== 'live') return;
     const before = messages.length;
-    for (const payload of payloads.slice(0, 500)) {
-      if (typeof payload !== 'string' || payload.length > 720_000 || !/^[A-Za-z0-9_-]+$/.test(payload)) continue;
-      await processServerEnvelope({ type: 'message', payload } as ServerEnvelope, true, 'sync');
+    for (const text of items) {
+      if (text.length > SYNC_BATCH_CHARS) continue;
+      try {
+        const value = JSON.parse(text);
+        if (value?.type !== 'chat-message' || value.ttl) continue;
+        await processSigned(value, { fromHistory: true, origin: 'sync', signed: text });
+      } catch {}
     }
     if (messages.length !== before) {
       messages = [...messages].sort((a, b) => a.time - b.time);
@@ -1717,6 +1853,7 @@
     pendingPassword = '';
     pendingSecret = null;
     cryptoKey = null;
+    dropForwardSecrecy();
     if (!persistentRoom) keyConfig = null;
     roomMissing = false;
     verified = false;
@@ -1764,6 +1901,7 @@
         joinedRoom = false;
         if (currentAuthAttempt === 'fragment') {
           cryptoKey = null;
+          dropForwardSecrecy();
           keyConfig = null;
           passwordUsed = '';
           currentAuthAttempt = null;
@@ -1781,6 +1919,11 @@
 
     joinedRoom = true;
     const cursor = persistentRoom ? localHistoryCursor() : null;
+    joinCursor = cursor ?? { since: 0, epoch: null };
+    historyStarted = false;
+    historyLoaded = false;
+    trimmedLoad = false;
+    loadSeen.clear();
     ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig, ...(cursor ? { since: cursor.since, epoch: cursor.epoch } : {}) }));
 
     if (typeof activePeerCount === 'number') {
@@ -1792,7 +1935,7 @@
     }
 
     verificationChallenge = crypto.randomUUID();
-    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId }));
+    const verifyPayload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify', challenge: verificationChallenge, ...presenceFields() }));
     ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: genId() }));
   }
 
@@ -1884,6 +2027,16 @@
     roomConfig = config;
     cryptoKey = secret ? await roomMessageKey(secret.base, config.mode)
       : config.v === 2 ? await deriveRoomKey(pwd, roomId, config.mode) : await deriveKeyFromPassword(pwd, roomId);
+    const fsSecret = secret ? await roomForwardSecret(secret.base, config.mode) : await legacyRoomForwardSecret(pwd, roomId, config.mode);
+    localKey = await forwardLocalKey(fsSecret);
+    fsSession?.destroy();
+    fsSession = await ForwardSecrecySession.create({
+      channel: channelId,
+      self: { pk: roomIdentity!.publicKey, clientId },
+      secret: fsSecret,
+      send: (payload) => sendEncryptedControl(payload),
+    });
+    fsSecret.fill(0);
     passwordUsed = pwd;
     try { localStorage.setItem(`${MODE_PREFIX}${channelId}`, configStamp(config)); } catch {}
     localHistoryKey = await buildLocalHistoryKey(pwd);
@@ -1898,12 +2051,21 @@
     }
   }
 
+  function dropForwardSecrecy() {
+    fsSession?.destroy();
+    fsSession = null;
+    localKey = null;
+    clearTimeout(wantTimer);
+    wantTimer = undefined;
+  }
+
   // A server that reports different settings than the key was made for is either lying or serving another room.
   function handleConfigMismatch() {
     configChanged = true;
     pendingPassword = '';
     checkingRoom = false;
     verifying = false;
+    dropForwardSecrecy();
     cleanupCall();
     ws?.close();
     ws = null;
@@ -1917,15 +2079,24 @@
       unsupportedBrowser = true;
       return false;
     }
+    mySignerId = signerId(roomIdentity.publicKey, pqIdentity?.keyHash ?? null);
     trustRoom = room;
     trustTable = loadTrustTable(trustRoom);
     const mine = myLabelKey();
-    if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
-      trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
+    if (!trustTable[mine]?.includes(mySignerId)) {
+      trustTable[mine] = [...(trustTable[mine] || []), mySignerId];
       saveTrustTable(trustRoom, trustTable);
     }
-    myKeyCode = await keyCode(roomIdentity.publicKey);
+    myKeyCode = await keyCode(mySignerId);
     return true;
+  }
+
+  // The ML-DSA code is only loaded for saved rooms.
+  async function setupPqIdentity(room: string, sealKey: CryptoKey) {
+    const pq = await import('../../lib/chatPq');
+    pqIdentity = await pq.pqIdentity(await loadRoomPqSeed(room, sealKey));
+    pqKeys = new pq.PqKeyring();
+    await pqKeys.add(pqIdentity.publicKey);
   }
 
   async function enterPersistentRoom(key: string) {
@@ -1934,13 +2105,19 @@
     roomConfig = { mode: 'persistent', authMode: 'fragment', createdAt: pendingRoomConfig?.createdAt || Date.now() };
     pendingRoomConfig = roomConfig;
     keyConfig = roomConfig;
-    if (!(await setupIdentity(roomId))) return;
     try {
       const access = await derivePersistentRoom(key, roomId);
+      await setupPqIdentity(roomId, access.localKey);
+      if (!(await setupIdentity(roomId))) return;
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
+      localKey = access.localKey;
       passwordUsed = key;
       localHistoryKey = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
+      chainStateKey = `encrypt.click:chat-chain:v1:${roomId}:${channelId}`;
+      const stored = loadChainState(localStorage, chainStateKey);
+      chains = new HistoryChains(stored.senders);
+      ownHead = stored.mine;
       localHistoryLoaded = false;
       needsPassword = false;
       checkingRoom = false;
@@ -2017,9 +2194,12 @@
       connectionTimeout: 8000,
       maxRetries: Infinity,
     });
+    let opened = false;
     ws.addEventListener('open', async () => {
       connected = true;
       recordServerLatencySample(serverConnectStartedAt);
+      if (opened) await fsSession?.reconnected();
+      opened = true;
       if (cryptoKey) await announceJoined();
       sendServerPing();
       restartDisconnectedPeers();
@@ -2034,7 +2214,11 @@
     ws.addEventListener('error', () => {
       // A socket error is a network problem, not a wrong password; the handshake timeout decides that.
     });
-    ws.addEventListener('message', handleServerMessage);
+    // Messages are handled one at a time in arrival order: a chain key has to be in place before the messages sealed with it,
+    // and a sender's history chain can only be checked in the order the server delivered it.
+    ws.addEventListener('message', (event) => {
+      inbound = inbound.then(() => handleServerMessage(event)).catch(() => {});
+    });
 
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
@@ -2050,6 +2234,7 @@
     if (data.type === 'init') {
       serverPresence = typeof data.presence === 'number' ? data.presence : 0;
       serverRawPresence = typeof data.rawPresence === 'number' ? data.rawPresence : serverPresence;
+      lastPresenceCount = serverPresence;
       serverName = data.server?.name || SERVER_FALLBACK_NAME;
       serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
       const config = applyRoomConfig(data.config);
@@ -2108,13 +2293,60 @@
     if (data.type === 'presence') {
       serverPresence = typeof data.count === 'number' ? data.count : 0;
       serverRawPresence = typeof data.rawCount === 'number' ? data.rawCount : serverPresence;
+      const left = serverPresence < lastPresenceCount;
+      lastPresenceCount = serverPresence;
       if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
         markVerified();
       }
+      if (left && verified) await onMemberLeft();
+      return;
+    }
+    if (data.type === 'member-keys') {
+      if (persistentRoom) await acceptMemberKeys(data.keys);
       return;
     }
     if (data.type !== 'message') return;
     await processServerEnvelope(data as ServerEnvelope);
+  }
+
+  // The room's key directory holds each member's ML-DSA public key sealed under the room key, so the server cannot tell
+  // whose it is or link a returning member to it. This browser adds its own only while it is missing.
+  async function acceptMemberKeys(keys: unknown) {
+    if (!pqKeys || !pqIdentity || !cryptoKey || !Array.isArray(keys)) return;
+    let listed = false;
+    for (const sealed of keys.slice(0, 256)) {
+      if (typeof sealed !== 'string') continue;
+      try {
+        if (await pqKeys.add(await decryptMessage(cryptoKey, sealed)) === pqIdentity.keyHash) listed = true;
+      } catch {}
+    }
+    if (!listed) ws?.send(JSON.stringify({ type: 'member-key', key: await sealMessage(cryptoKey, pqIdentity.publicKey) }));
+  }
+
+  function noteChainIssue(sender: string, issue: ChainIssue, name: string) {
+    const id = `${sender}:${issue}`;
+    if (chainNotices.has(id)) return;
+    chainNotices.add(id);
+    addSystemMessage(t(dict, `chat.chain.${issue}`).replace('{name}', name), 0, '!');
+  }
+
+  function checkAnnouncedHead(sender: string, head: unknown, name: string) {
+    if (!persistentRoom || !validHead(head) || !roomIdentity || sender === roomIdentity.publicKey) return;
+    if (!historyLoaded) {
+      pendingHeads.set(sender, { ...head, name });
+      return;
+    }
+    if (trimmedLoad && !loadSeen.has(sender)) return;
+    const issue = chains.announced(sender, head);
+    if (issue) noteChainIssue(sender, issue, name);
+  }
+
+  async function observeChain(sender: string, parsed: any, h: string, serverSeq: number | undefined, name: string) {
+    const relaxed = trimmedLoad && !historyLoaded && !loadSeen.has(sender);
+    if (!historyLoaded) loadSeen.add(sender);
+    const issue = chains.observe(sender, { n: parsed._n, h, ph: parsed._ph, ...(typeof serverSeq === 'number' ? { seq: serverSeq } : {}) }, relaxed);
+    saveChainState(localStorage, chainStateKey, ownHead, chains);
+    if (issue) noteChainIssue(sender, issue, name);
   }
 
   async function processHistory(history: HistoryEnvelope) {
@@ -2122,143 +2354,39 @@
     // In a live room the others may still be about to sync their history, so the empty state waits a moment for them.
     if (persistentRoom || serverPresence <= 1) historyReady = true;
     else setTimeout(() => { historyReady = true; }, 1500);
+    // A server sequence that does not continue from this browser's cursor means messages left the server in between,
+    // normally because a saved room keeps only its latest 1000; a sender's first message after that may skip ahead.
+    if (persistentRoom && !historyStarted) {
+      historyStarted = true;
+      const since = history.epoch && history.epoch === joinCursor.epoch ? joinCursor.since : 0;
+      const first = historyMessages.reduce((min, m) => typeof m.serverSeq === 'number' ? Math.min(min, m.serverSeq) : min, Infinity);
+      trimmedLoad = Number.isFinite(first) && first > since + 1;
+      if (trimmedLoad && since > 0) addSystemMessage(t(dict, 'chat.historyTrimmed'), 0, '!');
+    }
+    for (const envelope of [...historyMessages].sort((a, b) => (a.serverSeq || 0) - (b.serverSeq || 0))) {
+      await processServerEnvelope(envelope, true);
+    }
+    if (!history.more) {
+      historyLoaded = true;
+      for (const [sender, head] of pendingHeads) checkAnnouncedHead(sender, head, head.name);
+      pendingHeads.clear();
+    }
     if (!historyMessages.length) {
       if (verifying && serverPresence <= 1) markVerified();
       return;
-    }
-
-    for (const envelope of [...historyMessages].sort((a, b) => (a.serverSeq || 0) - (b.serverSeq || 0))) {
-      await processServerEnvelope(envelope, true);
     }
     if (verifying) markVerified();
     scrollToBottom(true);
   }
 
   // origin 'local' is this browser's own stored copy, 'sync' is history a peer handed over in a live room.
-  async function processServerEnvelope(data: ServerEnvelope, fromHistory = false, origin: 'local' | 'sync' | null = null): Promise<boolean> {
+  async function processServerEnvelope(data: ServerEnvelope, fromHistory = false, origin: Origin = null): Promise<boolean> {
     if (!cryptoKey) return false;
-
-
+    let plaintext: string;
+    let parsed: any;
     try {
-      const plaintext = await decryptMessage(cryptoKey, data.payload);
-      const parsed = JSON.parse(plaintext) as ChatPayload & Record<string, any>;
-      if (!validPayload(parsed, channelId, fromHistory)) return false;
-      const signer = await verifyPayload(parsed);
-      // Every room signs every payload. Only this browser's own copies from before signing existed may lack one.
-      if (!signer && !(origin === 'local' && !persistentRoom)) return false;
-      // A signed sender is named only by a validated alias or nickname; free-form names and colors would let a member pass as someone else.
-      if (signer) for (const field of ['sender', 'color', 'fromName', 'fromColor']) delete parsed[field];
-      if (!replay.accept(parsed._id)) return true;
-      if (!replay.accept(await sha256B64url(data.payload))) return true;
-      if (typeof parsed.id === 'string' && seenMessageIds.has(parsed.id)) return true;
-      if (typeof parsed.id === 'string') seenMessageIds.add(parsed.id);
-      parsed.color = safeColor(parsed.color);
-
-      if (parsed.type === 'typing') {
-        if (fromHistory) return true;
-        const who = senderInfo(parsed);
-        typing = { sender: who.name, initials: who.initials, color: who.color, alias: who.alias };
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => { typing = null; }, 3000);
-        return true;
-      }
-
-      if (parsed.type === 'verify') {
-        if (fromHistory) return true;
-        if (cryptoKey && ws && typeof parsed.challenge === 'string') {
-          const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, sender: identity.name, color: identity.color, alias: aliasWire(alias), nick: nickname || undefined, clientId }));
-          ws.send(JSON.stringify({ type: 'message', payload: ack, id: genId() }));
-        }
-        if (signer && !bindClient(parsed.clientId, signer)) return true;
-        if (callActive) void sendCallSignal({ action: 'presence' });
-        const joiner = senderInfo(parsed);
-        addOnlineUser(joiner);
-        if (signer) noteMember(signer, joiner);
-        void sendLiveHistorySync();
-        messages = [...messages, {
-          id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
-          color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
-        }];
-        scrollToBottom();
-        return true;
-      }
-
-      if (parsed.type === 'rename') {
-        if (fromHistory) return true;
-        const who = senderInfo(parsed);
-        const claimed = typeof parsed.prev === 'string' ? parsed.prev : '';
-        const prev = signer && !trustTable[claimed]?.includes(signer) ? '' : claimed;
-        const before = onlineUsers.find((u) => u.key === prev);
-        onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
-        if (signer) noteMember(signer, who);
-        if (before && before.name !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', before.name).replace('{to}', who.name), 15);
-        return true;
-      }
-
-      if (parsed.type === 'verify-ack') {
-        if (fromHistory || parsed.challenge !== verificationChallenge) return true;
-        if (signer && !bindClient(parsed.clientId, signer)) return true;
-        if (verifying) markVerified();
-        const acker = senderInfo(parsed);
-        addOnlineUser(acker);
-        if (signer) noteMember(signer, acker);
-        return true;
-      }
-
-      if (parsed.type === 'chat-sync') {
-        await applyLiveHistorySync(parsed.payloads);
-        return true;
-      }
-
-      if (parsed.type === 'whiteboard-invite') {
-        if (fromHistory) return true;
-        const id = parsed.id || `whiteboard-${genId()}`;
-        const invite = normalizeWhiteboardInvite(parsed);
-        if (!invite) return true;
-        addWhiteboardInviteMessage(invite, id, false);
-        return true;
-      }
-
-      if (parsed.type === 'call-signal') {
-        if (fromHistory) return true;
-        if (signer && (!bindClient(parsed.from, signer) || !noteMember(signer, senderInfo(parsed)))) return true;
-        await handleCallSignal(parsed as CallSignal);
-        return true;
-      }
-
-
-      const id = parsed.id || genId();
-      const ttl = parsed.ttl || 0;
-      const who = senderInfo(parsed, '', 'var(--accent)');
-      const mine = Boolean(signer && roomIdentity && signer === roomIdentity.publicKey);
-      const trusted = signer && !mine ? noteMember(signer, who) : true;
-      const msg: Message = {
-        id,
-        text: parsed.text || '',
-        sender: who.name,
-        initials: who.initials,
-        alias: who.alias,
-        nick: who.nick,
-        color: who.color,
-        mine,
-        time: parsed.createdAt || Date.now(),
-        ttl,
-        remaining: ttl,
-        file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []) } : undefined,
-        revealed: true,
-        ...(signer ? { pk: signer, keyWarning: !trusted } : {}),
-        payload: data.payload,
-      };
-      seenMessageIds.add(id);
-      messages = [...messages, msg];
-      typing = null;
-      if (!fromHistory) scrollToBottom();
-      if (!ttl && (!fromHistory || origin === 'sync' || (persistentRoom && typeof data.serverSeq === 'number'))) storeLocalEnvelope({ ...data, id });
-
-      if (msg.file) autoPreview(msg);
-
-      if (blurred) document.title = `(!) encrypt.click/chat`;
-      return true;
+      plaintext = await decryptMessage(cryptoKey, data.payload);
+      parsed = JSON.parse(plaintext);
     } catch {
       // One failed decrypt may be a peer with a different password; the init timeout decides.
       if (!fromHistory && verified && Date.now() - lastWrongPasswordNotice > 10000) {
@@ -2271,6 +2399,239 @@
       }
       return false;
     }
+    try {
+      return await processSigned(parsed, { fromHistory, origin, serverSeq: data.serverSeq, createdAt: data.createdAt, wire: data.payload, signed: plaintext });
+    } catch {
+      return false;
+    }
+  }
+
+  // Saved rooms want both signatures. The ML-DSA key comes from the key directory, from the payload itself when it carries
+  // the full key, or for this browser's own sealed copies from the Ed25519-signed key hash, as ML-DSA was checked on arrival.
+  async function authenticate(parsed: any, localSealed: boolean): Promise<Signer | null> {
+    if (!persistentRoom) {
+      const ed = await verifyPayload(parsed);
+      return ed ? { id: ed, ed, legacy: false } : null;
+    }
+    if (localSealed) {
+      if (parsed._pq !== undefined) return null;
+      const ed = await verifyPayload(parsed);
+      const pq = typeof parsed._pqk === 'string' ? parsed._pqk : null;
+      return ed ? { id: signerId(ed, pq), ed, legacy: !pq } : null;
+    }
+    if (pqKeys && typeof parsed._pqk === 'string' && !pqKeys.has(parsed._pqk) && parsed.pq !== undefined) await pqKeys.add(parsed.pq, parsed._pqk);
+    const result = await verifySigned(parsed, pqKeys?.verify);
+    if (result) return { id: signerId(result.ed, result.pq), ed: result.ed, legacy: !result.pq };
+    // A known ML-DSA key with a bad signature is rejected; an unknown one leaves only Ed25519, like a payload from an older version.
+    if (typeof parsed._pqk !== 'string' || pqKeys?.has(parsed._pqk)) return null;
+    const { _pq, ...classic } = parsed;
+    const ed = await verifyPayload(classic);
+    return ed ? { id: ed, ed, legacy: true } : null;
+  }
+
+  function noteOutdatedPeer() {
+    if (outdatedPeerNoticed) return;
+    outdatedPeerNoticed = true;
+    addSystemMessage(t(dict, 'chat.outdatedPeer'), 0, '!');
+  }
+
+  // The inner payload must be signed by the same member whose chain sealed it.
+  async function openForwardSecret(sender: string, outer: unknown): Promise<boolean> {
+    if (!fsSession) return true;
+    const inner = await fsSession.open(sender, outer);
+    if (inner === PENDING) scheduleWant();
+    if (typeof inner !== 'string') return true;
+    try {
+      return await processSigned(JSON.parse(inner), { fromHistory: false, origin: null, signed: inner, fsSender: sender });
+    } catch {
+      return false;
+    }
+  }
+
+  async function processSigned(parsed: any, ctx: ProcessContext): Promise<boolean> {
+    const { fromHistory, origin } = ctx;
+    if (!validPayload(parsed, channelId, fromHistory)) return false;
+    const auth = await authenticate(parsed, Boolean(ctx.localSealed));
+    // Every room signs every payload. Only this browser's own copies from before signing existed may lack one.
+    if (!auth && !(origin === 'local' && !persistentRoom && !ctx.localSealed)) return false;
+    const signer = auth?.id ?? null;
+    if (ctx.fsSender !== undefined && signer !== ctx.fsSender) return false;
+    const content = parsed.type === 'chat-message' || parsed.type === 'whiteboard-invite' || parsed.type === undefined;
+    if (ctx.fsSender !== undefined && !content) return false;
+    // A saved-room payload signed by Ed25519 alone comes from a client without ML-DSA: its text is shown under a
+    // warning, but it can never join the member list, a call or the history chain.
+    if (auth?.legacy && parsed.type !== 'chat-message') return false;
+    const chainH = persistentRoom && auth && !auth.legacy && parsed._n !== undefined && origin !== 'local' ? await chainHash(parsed) : '';
+    // A signed sender is named only by a validated alias or nickname; free-form names and colors would let a member pass as someone else.
+    if (signer) for (const field of ['sender', 'color', 'fromName', 'fromColor']) delete parsed[field];
+    if (!replay.accept(parsed._id)) return true;
+    if (ctx.wire && !replay.accept(await sha256B64url(ctx.wire))) return true;
+    if (typeof parsed.id === 'string' && seenMessageIds.has(parsed.id)) return true;
+    if (typeof parsed.id === 'string') seenMessageIds.add(parsed.id);
+    parsed.color = safeColor(parsed.color);
+
+    // Rooms without server history carry content only inside a sender's forward secrecy chain.
+    if (fsSession && content && origin === null && ctx.fsSender === undefined) {
+      noteOutdatedPeer();
+      return true;
+    }
+
+    if (parsed.type === 'fs') {
+      if (fromHistory || !signer) return true;
+      return openForwardSecret(signer, parsed);
+    }
+
+    if (parsed.type === 'fs-key') {
+      if (fromHistory || !fsSession || !signer || !bindClient(parsed.clientId, signer)) return true;
+      const released = await fsSession.acceptGrant(signer, parsed);
+      const member = fsMember(parsed, signer);
+      if (member) await fsSession.memberSeen(member);
+      for (const item of released) await openForwardSecret(item.sender, item.outer);
+      return true;
+    }
+
+    if (parsed.type === 'presence') {
+      if (fromHistory || !signer || !auth || !bindClient(parsed.clientId, signer)) return true;
+      const who = senderInfo(parsed);
+      addOnlineUser(who);
+      noteMember(signer, who);
+      const member = fsMember(parsed, signer);
+      if (fsSession && member) {
+        if (Array.isArray(parsed.want) && parsed.want.includes(roomIdentity?.publicKey)) await fsSession.memberWants(member);
+        else await fsSession.memberSeen(member);
+      }
+      checkAnnouncedHead(auth.ed, parsed.head, who.name);
+      return true;
+    }
+
+    if (parsed.type === 'typing') {
+      if (fromHistory) return true;
+      const who = senderInfo(parsed);
+      typing = { sender: who.name, initials: who.initials, color: who.color, alias: who.alias };
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => { typing = null; }, 3000);
+      return true;
+    }
+
+    if (parsed.type === 'verify') {
+      if (fromHistory) return true;
+      if (cryptoKey && ws && typeof parsed.challenge === 'string') {
+        const ack = await encryptMessage(cryptoKey, JSON.stringify({ type: 'verify-ack', challenge: parsed.challenge, ...presenceFields() }));
+        ws.send(JSON.stringify({ type: 'message', payload: ack, id: genId() }));
+      }
+      if (signer && !bindClient(parsed.clientId, signer)) return true;
+      if (callActive) void sendCallSignal({ action: 'presence' });
+      const joiner = senderInfo(parsed);
+      addOnlineUser(joiner);
+      if (signer) noteMember(signer, joiner);
+      const member = signer ? fsMember(parsed, signer) : null;
+      if (fsSession && member) {
+        await fsSession.memberJoined(member);
+        void sendLiveHistorySync(member);
+      }
+      if (auth) checkAnnouncedHead(auth.ed, parsed.head, joiner.name);
+      messages = [...messages, {
+        id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
+        color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
+      }];
+      scrollToBottom();
+      return true;
+    }
+
+    if (parsed.type === 'rename') {
+      if (fromHistory) return true;
+      const who = senderInfo(parsed);
+      const claimed = typeof parsed.prev === 'string' ? parsed.prev : '';
+      const prev = signer && !trustTable[claimed]?.includes(signer) ? '' : claimed;
+      const before = onlineUsers.find((u) => u.key === prev);
+      onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
+      if (signer) noteMember(signer, who);
+      if (before && before.name !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', before.name).replace('{to}', who.name), 15);
+      return true;
+    }
+
+    if (parsed.type === 'verify-ack') {
+      if (fromHistory) return true;
+      if (signer && !bindClient(parsed.clientId, signer)) return true;
+      const acker = senderInfo(parsed);
+      const member = signer ? fsMember(parsed, signer) : null;
+      if (fsSession && member) await fsSession.memberSeen(member);
+      if (auth) checkAnnouncedHead(auth.ed, parsed.head, acker.name);
+      if (parsed.challenge !== verificationChallenge) return true;
+      if (verifying) markVerified();
+      addOnlineUser(acker);
+      if (signer) noteMember(signer, acker);
+      return true;
+    }
+
+    if (parsed.type === 'chat-sync') {
+      if (fromHistory || !fsSession || !signer || !bindClient(parsed.clientId, signer)) return true;
+      const items = await fsSession.openSync(signer, parsed);
+      if (items) await applyLiveHistorySync(items);
+      return true;
+    }
+
+    if (parsed.type === 'whiteboard-invite') {
+      if (fromHistory) return true;
+      const id = parsed.id || `whiteboard-${genId()}`;
+      const invite = normalizeWhiteboardInvite(parsed);
+      if (!invite) return true;
+      addWhiteboardInviteMessage(invite, id, false);
+      return true;
+    }
+
+    if (parsed.type === 'call-signal') {
+      if (fromHistory) return true;
+      if (signer && (!bindClient(parsed.from, signer) || !noteMember(signer, senderInfo(parsed)))) return true;
+      // Call signals keep their own order without holding up the chat while a call is being negotiated.
+      callSignals = callSignals.then(() => handleCallSignal(parsed as CallSignal)).catch(() => {});
+      return true;
+    }
+
+    if (!content) return true;
+
+    const id = parsed.id || genId();
+    const ttl = parsed.ttl || 0;
+    const who = senderInfo(parsed, '', 'var(--accent)');
+    const mine = Boolean(auth && roomIdentity && auth.ed === roomIdentity.publicKey);
+    const legacySig = Boolean(auth?.legacy) && !mine;
+    const trusted = signer && !mine && !legacySig ? noteMember(signer, who) : true;
+    if (chainH && auth) await observeChain(auth.ed, parsed, chainH, ctx.serverSeq, who.name);
+    const msg: Message = {
+      id,
+      text: parsed.text || '',
+      sender: who.name,
+      initials: who.initials,
+      alias: who.alias,
+      nick: who.nick,
+      color: who.color,
+      mine,
+      time: parsed.createdAt || Date.now(),
+      ttl,
+      remaining: ttl,
+      file: parsed.file ? {
+        name: parsed.file.name,
+        size: parsed.file.size,
+        urls: parsed.file.urls || (parsed.file.url ? [parsed.file.url] : []),
+        ...(typeof parsed.file.key === 'string' ? { key: parsed.file.key } : {}),
+      } : undefined,
+      revealed: true,
+      ...(signer ? { pk: signer, keyWarning: legacySig || !trusted, legacySig } : {}),
+      ...(ctx.signed && signer ? { signed: ctx.signed } : {}),
+    };
+    seenMessageIds.add(id);
+    messages = [...messages, msg];
+    typing = null;
+    if (!fromHistory) scrollToBottom();
+    const keep = !fromHistory || origin === 'sync' || (persistentRoom && typeof ctx.serverSeq === 'number');
+    if (!ttl && signer && ctx.signed && origin !== 'local' && keep) {
+      void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time, ctx.serverSeq).catch(() => {});
+    }
+
+    if (msg.file) autoPreview(msg);
+
+    if (blurred) document.title = `(!) encrypt.click/chat`;
+    return true;
   }
 
   async function sendMessage() {
@@ -2293,22 +2654,21 @@
       createdAt,
     };
 
-    const encrypted = await encryptMessage(cryptoKey, JSON.stringify(payload));
-    ws.send(JSON.stringify({
-      type: 'message',
-      payload: encrypted,
-      id: msgId,
-      persist: persistentRoom && !finalTtl,
-      createdAt,
-    }));
-    if (!finalTtl) storeLocalEnvelope({ type: 'message', payload: encrypted, id: msgId, createdAt });
+    let signed: string;
+    try {
+      signed = await sendContent(payload, !finalTtl, createdAt);
+    } catch {
+      fileError = t(dict, 'chat.sendFailed');
+      return;
+    }
+    if (!finalTtl) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
     seenMessageIds.add(msgId);
 
     messages = [...messages, {
       id: msgId, text, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
-      revealed: true, payload: encrypted,
+      revealed: true, pk: mySignerId, signed,
     }];
 
     inputText = '';
@@ -2401,7 +2761,9 @@
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
-      const encrypted = await encryptData(buffer, passwordUsed, file.name);
+      // Each file gets a random key that travels only inside the message, so it is exactly as protected as the message itself.
+      const fileKey = arrayToB64url(crypto.getRandomValues(new Uint8Array(32)));
+      const encrypted = await encryptData(buffer, fileKey, file.name);
 
       // First-party R2 upload first; Send is the fallback.
       const uploadUrls: string[] = [];
@@ -2450,26 +2812,25 @@
         alias: aliasWire(alias), nick: nickname || undefined,
         ttl: fileTtl,
         createdAt,
-        file: { name: file.name, size: file.size, urls: uploadUrls },
+        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey },
       };
 
-      const encPayload = await encryptMessage(cryptoKey!, JSON.stringify(payload));
-      ws!.send(JSON.stringify({
-        type: 'message',
-        payload: encPayload,
-        id: msgId,
-        persist: persistentRoom && !fileTtl,
-        createdAt,
-      }));
-      storeLocalEnvelope({ type: 'message', payload: encPayload, id: msgId, createdAt });
+      let signed: string;
+      try {
+        signed = await sendContent(payload, !fileTtl, createdAt);
+      } catch {
+        fileError = t(dict, 'chat.sendFailed');
+        return;
+      }
+      if (!fileTtl) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
       seenMessageIds.add(msgId);
 
       const ownMsg: Message = {
         id: msgId, text: '', sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
-        file: { name: file.name, size: file.size, urls: uploadUrls },
-        revealed: true, payload: encPayload,
+        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey },
+        revealed: true, pk: mySignerId, signed,
       };
       messages = [...messages, ownMsg];
       scrollToBottom(true);
@@ -2480,7 +2841,8 @@
   }
 
   async function downloadChatFile(msg: Message) {
-    if (!msg.file || !passwordUsed) return;
+    const fileSecret = msg.file?.key || passwordUsed;
+    if (!msg.file || !fileSecret) return;
     if (fileGone(msg)) {
       msg.fileError = true;
       messages = messages;
@@ -2498,7 +2860,7 @@
           bytes = await decryptSendBlob(bytes, fileUrl);
         }
 
-        const { data, name } = await decryptData(bytes, passwordUsed);
+        const { data, name } = await decryptData(bytes, fileSecret);
         const blob = new Blob([data], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -3751,7 +4113,8 @@
   }
 
   async function autoPreview(msg: Message) {
-    if (!msg.file || !passwordUsed) return;
+    const fileSecret = msg.file?.key || passwordUsed;
+    if (!msg.file || !fileSecret) return;
     const ext = getFileExt(msg.file.name);
 
     if (!IMAGE_EXTS.has(ext) && !TEXT_EXTS.has(ext)) return;
@@ -3764,7 +4127,7 @@
         if (!res.ok) continue;
         let bytes = new Uint8Array(await res.arrayBuffer());
         if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
-        const { data } = await decryptData(bytes, passwordUsed);
+        const { data } = await decryptData(bytes, fileSecret);
 
         if (IMAGE_EXTS.has(ext)) {
           const mimeMap: Record<string, string> = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', bmp:'image/bmp', ico:'image/x-icon' };
@@ -3804,10 +4167,17 @@
   }
 
   function noteMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias }): boolean {
+    // A saved-room member trusted before ML-DSA existed keeps that trust the first time its Ed25519 key shows up with one.
+    const [ed, pq] = pk.split('.');
+    const known = trustTable[who.key];
+    if (pq && known?.includes(ed) && !known.some((key) => key.startsWith(`${ed}.`))) {
+      trustTable[who.key] = known.map((key) => key === ed ? pk : key);
+      saveTrustTable(trustRoom, trustTable);
+    }
     if (!trustTable[who.key]?.length) {
       const folded = lookalike(who.name);
       const clash = [...members.values()].some((m) => m.trusted && m.pk !== pk && m.key !== who.key && lookalike(m.name) === folded)
-        || (roomIdentity !== null && pk !== roomIdentity.publicKey && who.key !== myLabelKey() && lookalike(identity.name) === folded);
+        || (mySignerId !== '' && pk !== mySignerId && who.key !== myLabelKey() && lookalike(identity.name) === folded);
       if (clash) return recordMember(pk, who, false);
       trustTable[who.key] = [pk];
       saveTrustTable(trustRoom, trustTable);
@@ -3826,7 +4196,7 @@
       const fresh: Member = { pk, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias, trusted, safety: '', code: '' };
       members.set(pk, fresh);
       memberList = [...members.values()];
-      void Promise.all([roomIdentity ? safetyNumber(roomIdentity.publicKey, pk) : Promise.resolve(''), keyCode(pk)]).then(([safety, code]) => {
+      void Promise.all([mySignerId ? safetyNumber(mySignerId, pk) : Promise.resolve(''), keyCode(pk)]).then(([safety, code]) => {
         fresh.safety = safety;
         fresh.code = code;
         memberList = [...members.values()];
@@ -3875,10 +4245,10 @@
     alias = { ...alias, h: hueInput };
     saveAlias(roomId, alias);
     identity = { name: nickname || aliasName(dict, alias), color: aliasColor(alias) };
-    if (roomIdentity) {
+    if (mySignerId) {
       const mine = myLabelKey();
-      if (!trustTable[mine]?.includes(roomIdentity.publicKey)) {
-        trustTable[mine] = [...(trustTable[mine] || []), roomIdentity.publicKey];
+      if (!trustTable[mine]?.includes(mySignerId)) {
+        trustTable[mine] = [...(trustTable[mine] || []), mySignerId];
         saveTrustTable(trustRoom, trustTable);
       }
     }
@@ -3957,6 +4327,7 @@
     cleanupCall();
     clearLocalHistory();
     forgetTrustTable(trustRoom);
+    dropForwardSecrecy();
     roomDeleted = true;
     deleteConfirm = false;
     membersOpen = false;
@@ -4030,6 +4401,7 @@
   onDestroy(() => {
     if (callActive) void sendCallSignal({ action: 'leave' });
     cleanupCall();
+    dropForwardSecrecy();
     setCallMediaSessionHandlers(false);
     ws?.close();
     clearInterval(tickInterval);
@@ -4561,7 +4933,9 @@
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
                 <span class="chat-sender" style="color: {msg.mine ? 'var(--accent)' : safeColor(msg.color)}">{msg.sender}</span>
-                {#if msg.keyWarning}
+                {#if msg.legacySig}
+                  <span class="chat-key-warn" title={t(dict, 'chat.keyLegacyHint')}>{t(dict, 'chat.keyLegacy')}<span class="sr-only"> {t(dict, 'chat.keyLegacyHint')}</span></span>
+                {:else if msg.keyWarning}
                   <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; deleteConfirm = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
               </div>

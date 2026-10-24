@@ -12,6 +12,8 @@ export const PAD_MIN_BYTES = 512;
 export const PAD_MAX_CHARS = 65536;
 // signPayload appends ,"_pk":"<43 chars>" and ,"_sig":"<86 chars>" after the padding is in place.
 export const SIGNATURE_BYTES = 52 + 96;
+// and in saved rooms also ,"_pqk":"<43 chars>" and ,"_pq":"<3227 chars>", the ML-DSA-44 key hash and signature.
+export const PQ_SIGNATURE_BYTES = 53 + 3236;
 
 const utf8Length = (text: string) => new TextEncoder().encode(text).length;
 

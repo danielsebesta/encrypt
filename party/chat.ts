@@ -26,6 +26,12 @@ type RoomState = {
 
 type ChatConnectionState = {
   joined: boolean;
+  keyed?: boolean;
+};
+
+type MemberKeyRecord = {
+  key: string;
+  at: number;
 };
 
 type ClientMessageEnvelope = {
@@ -66,6 +72,10 @@ const SERVER_INFO = {
 const CONFIG_KEY = "room-config";
 const HISTORY_PREFIX = "history:";
 const HISTORY_META_KEY = "history-meta";
+const MEMBER_KEY_PREFIX = "member-key:";
+const MAX_MEMBER_KEYS = 128;
+// An ML-DSA-44 public key (1750 base64url characters) sealed by the client under the room key: 12 + 1750 + 16 bytes.
+const MEMBER_KEY_RE = /^[A-Za-z0-9_-]{2371}$/;
 const HISTORY_BATCH_CHARS = 600_000;
 const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
 const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -171,8 +181,18 @@ export default class ChatRoom {
         if (!hadConfig) {
           this.broadcast(configMessage, [sender.id], true);
         }
+        if (this.persistent) await this.sendMemberKeys(sender);
         await this.sendHistory(sender, parsed.since, parsed.epoch);
         break;
+
+      case "member-key": {
+        const state = sender.state as ChatConnectionState | null;
+        if (!this.persistent || !this.isJoined(sender) || state?.keyed) return;
+        if (typeof parsed.key !== "string" || !MEMBER_KEY_RE.test(parsed.key)) return;
+        sender.setState({ joined: true, keyed: true });
+        await this.storeMemberKey(parsed.key);
+        break;
+      }
 
       case "message": {
         if (!this.isJoined(sender)) return;
@@ -374,6 +394,27 @@ export default class ChatRoom {
       chars += record.payload.length;
     }
     flush(false);
+  }
+
+  // Saved-room messages name their ML-DSA key only by hash, so the room keeps the public keys of members who are offline,
+  // sealed under the room key. Clients file each key under the hash of its own bytes, so an entry can only verify what that key signed.
+  private async storeMemberKey(key: string) {
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)));
+    const name = `${MEMBER_KEY_PREFIX}${Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+    await this.host.storage.put(name, { key, at: Date.now() } satisfies MemberKeyRecord);
+    const stored = await this.host.storage.list({ prefix: MEMBER_KEY_PREFIX });
+    if (stored.size <= MAX_MEMBER_KEYS) return;
+    const oldest = [...stored.entries()]
+      .sort(([, a], [, b]) => (a as MemberKeyRecord).at - (b as MemberKeyRecord).at)
+      .slice(0, stored.size - MAX_MEMBER_KEYS)
+      .map(([id]) => id);
+    await this.host.storage.delete(oldest);
+  }
+
+  private async sendMemberKeys(conn: RoomConnection) {
+    const stored = await this.host.storage.list({ prefix: MEMBER_KEY_PREFIX });
+    const keys = [...stored.values()].map((record) => (record as MemberKeyRecord).key).filter((key) => typeof key === "string" && MEMBER_KEY_RE.test(key));
+    conn.send(JSON.stringify({ type: "member-keys", keys }));
   }
 
   private async deleteRoom() {
