@@ -29,6 +29,8 @@
   import { t } from '../../lib/t';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, PERSISTENT_IDLE_DAYS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
+  import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
+  import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
 
   export let locale = 'en';
   export let roomId = '';
@@ -152,11 +154,13 @@
     audioMuted: boolean;
     audioLevel: number;
     speaking: boolean;
+    mediaPub?: string;
+    sharedKeyId?: number;
   };
 
   type CallSignal = {
     type: 'call-signal';
-    action: 'join' | 'presence' | 'offer' | 'answer' | 'ice' | 'leave' | 'media' | 'restart';
+    action: 'join' | 'presence' | 'offer' | 'answer' | 'ice' | 'leave' | 'media' | 'restart' | 'media-key' | 'media-key-request';
     callId: string;
     from: string;
     fromName: string;
@@ -171,6 +175,9 @@
     audio?: boolean;
     video?: boolean;
     screen?: boolean;
+    pub?: string;
+    keyId?: number;
+    wrapped?: string;
   };
 
   type TurnConfig = {
@@ -412,6 +419,16 @@
   const CALL_ID = `call:${roomId}`;
   const callPeerMap = new Map<string, CallPeer>();
   const pendingIce = new Map<string, RTCIceCandidateInit[]>();
+  const MEDIA_KEY_ROTATE_DEBOUNCE_MS = 250;
+  const MEDIA_KEY_REQUEST_MS = 2000;
+  let frameCrypto: CallFrameEncryption | null = null;
+  let callKeyPair: CallKeyPair | null = null;
+  let mediaKeys: MediaKeySchedule | null = null;
+  let mediaKeyRotateTimer: ReturnType<typeof setTimeout> | undefined;
+  const wrapKeys = new Map<string, { pub: string; key: Promise<CryptoKey> }>();
+  const mediaKeySenders = new Set<string>();
+  const mediaKeyRequestedAt = new Map<string, number>();
+  const mediaKeySharedAt = new Map<string, number>();
   let lastRelayDebugKey = '';
   let localAudioMonitor: AudioLevelMonitor | null = null;
   const peerAudioMonitors = new Map<string, AudioLevelMonitor>();
@@ -1163,6 +1180,7 @@
       audio: !micMuted,
       video: screenSharing || !cameraOff,
       screen: screenSharing,
+      ...(callKeyPair ? { pub: callKeyPair.publicKey } : {}),
       ...partial,
     };
     callDebug('call signal out', {
@@ -1175,6 +1193,85 @@
       screen: signal.screen,
     });
     await sendEncryptedControl(signal as unknown as Record<string, unknown>);
+  }
+
+  // Media keys travel inside the room channel and are sealed again for one recipient, so room members outside the call,
+  // or who have left it, cannot unwrap them.
+  function getWrapKey(peerId: string, pub: string): Promise<CryptoKey> {
+    const cached = wrapKeys.get(peerId);
+    if (cached?.pub === pub) return cached.key;
+    if (!callKeyPair) return Promise.reject(new Error('No call key'));
+    const key = deriveWrapKey(callKeyPair, pub);
+    wrapKeys.set(peerId, { pub, key });
+    key.catch(() => { if (wrapKeys.get(peerId)?.key === key) wrapKeys.delete(peerId); });
+    return key;
+  }
+
+  function notePeerMediaPub(peer: CallPeer, pub: string | undefined): boolean {
+    if (!pub || peer.mediaPub === pub) return false;
+    if (peer.mediaPub) frameCrypto?.dropPeer(peer.id);
+    peer.mediaPub = pub;
+    peer.sharedKeyId = undefined;
+    return true;
+  }
+
+  async function shareMediaKey(peerId: string) {
+    const peer = callPeerMap.get(peerId);
+    const key = mediaKeys?.latest;
+    if (!callActive || !peer?.mediaPub || !key) return;
+    const raw = key.raw.slice();
+    try {
+      const wrapped = await wrapMediaKey(await getWrapKey(peerId, peer.mediaPub), raw, mediaKeyContext(CALL_ID, clientId, peerId, key.id));
+      if (callPeerMap.get(peerId) !== peer) return;
+      peer.sharedKeyId = key.id;
+      await sendCallSignal({ action: 'media-key', to: peerId, keyId: key.id, wrapped });
+      callDebug('media key out', { peer: shortPeerId(peerId), keyId: key.id });
+    } catch {
+    } finally {
+      raw.fill(0);
+    }
+  }
+
+  async function acceptMediaKey(signal: CallSignal) {
+    const target = frameCrypto;
+    if (!target || !callKeyPair || !isMediaKeyId(signal.keyId) || !isCallPublicKey(signal.pub)) return;
+    if (!mediaKeySenders.has(signal.from) && mediaKeySenders.size >= MAX_CALL_PEERS) return;
+    try {
+      const raw = await unwrapMediaKey(await getWrapKey(signal.from, signal.pub), signal.wrapped, mediaKeyContext(CALL_ID, signal.from, clientId, signal.keyId));
+      if (!raw) return;
+      if (frameCrypto !== target) {
+        raw.fill(0);
+        return;
+      }
+      mediaKeySenders.add(signal.from);
+      target.setReceiveKey(signal.from, signal.keyId, raw);
+      callDebug('media key in', { peer: shortPeerId(signal.from), keyId: signal.keyId });
+    } catch {}
+  }
+
+  function requestMediaKey(peerId: string) {
+    if (!callActive || !callPeerMap.has(peerId)) return;
+    const now = Date.now();
+    if (now - (mediaKeyRequestedAt.get(peerId) ?? 0) < MEDIA_KEY_REQUEST_MS) return;
+    mediaKeyRequestedAt.set(peerId, now);
+    void sendCallSignal({ action: 'media-key-request', to: peerId });
+  }
+
+  // Whoever stays after someone leaves moves to a fresh key, so the one who left cannot read what follows.
+  function scheduleMediaKeyRotation() {
+    if (!callActive || mediaKeyRotateTimer) return;
+    mediaKeyRotateTimer = setTimeout(() => {
+      mediaKeyRotateTimer = undefined;
+      if (!callActive || !mediaKeys) return;
+      const key = mediaKeys.rotate();
+      callDebug('media key rotated', { keyId: key.id, peers: callPeerMap.size });
+      for (const peer of callPeerMap.values()) void shareMediaKey(peer.id);
+    }, MEDIA_KEY_ROTATE_DEBOUNCE_MS);
+  }
+
+  function failCallEncryption() {
+    if (!callActive) return;
+    void endCall(true).then(() => { callError = t(dict, 'chat.callE2eeFailed'); });
   }
 
   function updateServerQuality() {
@@ -2447,12 +2544,16 @@
       iceServers,
       iceTransportPolicy: 'relay',
       bundlePolicy: 'max-bundle',
+      ...frameCrypto?.peerConfig(),
     });
 
     const audioTrack = getCurrentOutgoingAudioTrack();
     const videoTrack = getCurrentOutgoingVideoTrack();
-    const audioTransceiver = addCallTransceiver(pc, 'audio', audioTrack, audioTrack ? localStream : null);
-    const videoTransceiver = addCallTransceiver(pc, 'video', videoTrack, getCallVideoStream(videoTrack));
+    const addedAudio = addCallTransceiver(pc, 'audio', audioTrack, audioTrack ? localStream : null);
+    const addedVideo = addCallTransceiver(pc, 'video', videoTrack, getCallVideoStream(videoTrack));
+    frameCrypto?.secure(pc, peerId);
+    const audioTransceiver = frameCrypto?.guard(addedAudio) ?? null;
+    const videoTransceiver = frameCrypto?.guard(addedVideo) ?? null;
 
     peer = {
       id: peerId,
@@ -2488,6 +2589,7 @@
     });
 
     pc.ontrack = (event) => {
+      frameCrypto?.secure(pc, peerId);
       const current = callPeerMap.get(peerId);
       if (!current) return;
       const stream = current.stream ?? new MediaStream();
@@ -2576,6 +2678,11 @@
   }
 
   function removeCallPeer(peerId: string) {
+    frameCrypto?.dropPeer(peerId);
+    mediaKeySenders.delete(peerId);
+    wrapKeys.delete(peerId);
+    mediaKeyRequestedAt.delete(peerId);
+    mediaKeySharedAt.delete(peerId);
     const peer = callPeerMap.get(peerId);
     if (!peer) return;
     clearPeerRestart(peer);
@@ -2583,6 +2690,7 @@
     callPeerMap.delete(peerId);
     pendingIce.delete(peerId);
     stopPeerAudioMonitor(peerId);
+    scheduleMediaKeyRotation();
     syncCallPeers();
     void refreshRelayStats();
   }
@@ -2656,7 +2764,7 @@
       const servers = await loadIceServers();
       if (!callActive || !servers.length) return;
       for (const peer of callPeerMap.values()) {
-        peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: servers });
+        peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: servers, ...frameCrypto?.peerConfig() });
         if (isCallOfferer(peer.id)) await createAndSendOffer(peer, false, true);
         else await sendCallSignal({ action: 'restart', to: peer.id });
       }
@@ -2671,7 +2779,7 @@
     try {
       const servers = await loadIceServers();
       if (callPeerMap.get(peer.id) !== peer || !servers.length) return;
-      peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: servers });
+      peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: servers, ...frameCrypto?.peerConfig() });
     } catch {}
   }
 
@@ -2713,6 +2821,7 @@
     if (iceRestart) peer.lastRestartAt = Date.now();
     peer.makingOffer = true;
     try {
+      frameCrypto?.secure(peer.pc, peer.id);
       const offer = await peer.pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
       await peer.pc.setLocalDescription(offer);
       const sdp = sanitizeRelayDescription(peer.pc.localDescription);
@@ -2735,13 +2844,16 @@
     const remoteSdp = sanitizeRelayDescription(signal.sdp);
     if (!remoteSdp) return;
     const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
+    notePeerMediaPub(peer, signal.pub);
     try {
       if (peer.pc.signalingState !== 'stable') {
         await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
       }
       await peer.pc.setRemoteDescription(remoteSdp);
+      frameCrypto?.secure(peer.pc, peer.id);
       await flushPendingIce(signal.from);
       await applyPeerOutgoingTracks(peer);
+      if (peer.sharedKeyId !== mediaKeys?.latest?.id) await shareMediaKey(peer.id);
       const answer = await peer.pc.createAnswer();
       await peer.pc.setLocalDescription(answer);
       const sdp = sanitizeRelayDescription(peer.pc.localDescription);
@@ -2764,6 +2876,7 @@
     if (!peer || peer.pc.signalingState !== 'have-local-offer') return;
     try {
       await peer.pc.setRemoteDescription(remoteSdp);
+      frameCrypto?.secure(peer.pc, peer.id);
       await flushPendingIce(signal.from);
     } catch (e: any) {
       callError = e?.message || t(dict, 'chat.callConnectionFailed');
@@ -2804,6 +2917,7 @@
   async function handleCallSignal(signal: CallSignal) {
     if (!signal || signal.from === clientId || signal.callId !== CALL_ID) return;
     if (signal.to && signal.to !== clientId) return;
+    if (signal.action !== 'leave' && !isCallPublicKey(signal.pub)) return;
     callDebug('call signal in', {
       action: signal.action,
       from: shortPeerId(signal.from),
@@ -2840,6 +2954,7 @@
       if (!callPeerMap.has(signal.from) && callPeerMap.size >= MAX_CALL_PEERS) return;
 
       const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
+      notePeerMediaPub(peer, signal.pub);
       peer.muted = signal.audio === false;
       peer.cameraOff = signal.video === false;
       peer.screenSharing = signal.screen === true;
@@ -2848,6 +2963,7 @@
       if (!signal.reply && clientId > signal.from) {
         await sendCallSignal({ action: 'join', to: signal.from, reply: true });
       }
+      await shareMediaKey(peer.id);
       if (clientId < signal.from) await createAndSendOffer(peer);
       return;
     }
@@ -2865,6 +2981,22 @@
     }
 
     if (!callPeerMap.has(signal.from) && callPeerMap.size >= MAX_CALL_PEERS) return;
+
+    const known = callPeerMap.get(signal.from);
+    if (known && signal.action !== 'offer' && notePeerMediaPub(known, signal.pub)) void shareMediaKey(known.id);
+
+    if (signal.action === 'media-key') {
+      await acceptMediaKey(signal);
+      return;
+    }
+
+    if (signal.action === 'media-key-request') {
+      const now = Date.now();
+      if (!known || now - (mediaKeySharedAt.get(signal.from) ?? 0) < MEDIA_KEY_REQUEST_MS / 2) return;
+      mediaKeySharedAt.set(signal.from, now);
+      await shareMediaKey(signal.from);
+      return;
+    }
 
     if (signal.action === 'offer') {
       await answerOffer(signal);
@@ -3019,6 +3151,14 @@
     return localStream?.getAudioTracks()[0] ?? null;
   }
 
+  // A sender that cannot take the frame transform never gets a track, so no frame leaves unencrypted.
+  function addSecuredTrack(peer: CallPeer, track: MediaStreamTrack, stream: MediaStream): RTCRtpSender | null {
+    const sender = peer.pc.addTrack(track, stream);
+    if (frameCrypto?.attachSender(sender, track.kind === 'video' ? 'video' : 'audio')) return sender;
+    try { peer.pc.removeTrack(sender); } catch {}
+    return null;
+  }
+
   async function applyPeerOutgoingTracks(peer: CallPeer): Promise<boolean> {
     const audioTrack = getCurrentOutgoingAudioTrack();
     const videoTrack = getCurrentOutgoingVideoTrack();
@@ -3031,8 +3171,8 @@
       peer.audioSender = peer.audioTransceiver.sender;
       await peer.audioSender.replaceTrack(audioTrack);
     } else if (audioTrack && localStream) {
-      peer.audioSender = peer.pc.addTrack(audioTrack, localStream);
-      needsOffer = true;
+      peer.audioSender = addSecuredTrack(peer, audioTrack, localStream);
+      needsOffer = Boolean(peer.audioSender) || needsOffer;
     }
 
     needsOffer = setCallTransceiverDirection(peer.videoTransceiver, Boolean(videoTrack)) || needsOffer;
@@ -3043,8 +3183,8 @@
       peer.videoSender = peer.videoTransceiver.sender;
       await peer.videoSender.replaceTrack(videoTrack);
     } else if (videoTrack && videoStream) {
-      peer.videoSender = peer.pc.addTrack(videoTrack, videoStream);
-      needsOffer = true;
+      peer.videoSender = addSecuredTrack(peer, videoTrack, videoStream);
+      needsOffer = Boolean(peer.videoSender) || needsOffer;
     }
 
     return needsOffer;
@@ -3063,8 +3203,8 @@
         peer.audioSender = peer.audioTransceiver.sender;
         await peer.audioSender.replaceTrack(track);
       } else if (track && stream) {
-        peer.audioSender = peer.pc.addTrack(track, stream);
-        renegotiations.push(createAndSendOffer(peer, true));
+        peer.audioSender = addSecuredTrack(peer, track, stream);
+        if (peer.audioSender) renegotiations.push(createAndSendOffer(peer, true));
       }
 
       if (needsOffer) renegotiations.push(createAndSendOffer(peer, true));
@@ -3087,8 +3227,8 @@
         peer.videoSender = peer.videoTransceiver.sender;
         await peer.videoSender.replaceTrack(track);
       } else if (track && stream) {
-        peer.videoSender = peer.pc.addTrack(track, stream);
-        renegotiations.push(createAndSendOffer(peer, true));
+        peer.videoSender = addSecuredTrack(peer, track, stream);
+        if (peer.videoSender) renegotiations.push(createAndSendOffer(peer, true));
       }
 
       if (needsOffer) renegotiations.push(createAndSendOffer(peer, true));
@@ -3140,6 +3280,11 @@
       callError = t(dict, 'chat.callUnsupported');
       return;
     }
+    const transformMode = frameTransformMode();
+    if (!transformMode) {
+      callError = t(dict, 'chat.callE2eeUnsupported');
+      return;
+    }
 
     callJoining = true;
     callError = '';
@@ -3155,6 +3300,14 @@
 
     try {
       await loadIceServers(true);
+      try {
+        callKeyPair = await createCallKeyPair();
+        frameCrypto = new CallFrameEncryption(transformMode, { onMissingKey: requestMediaKey, onError: failCallEncryption });
+      } catch {
+        throw new Error(t(dict, 'chat.callE2eeFailed'));
+      }
+      mediaKeys = new MediaKeySchedule((key) => frameCrypto?.setSendKey(key));
+      mediaKeys.start();
       localStream = new MediaStream();
       micMuted = true;
       cameraOff = true;
@@ -3164,6 +3317,7 @@
       startRelayStatsMonitor();
       await refreshDevices();
       callDebug('call started', {
+        frameTransform: transformMode,
         audioInputs: audioInputDevices.length,
         videoInputs: videoInputDevices.length,
         audioOutputs: audioOutputDevices.length,
@@ -3204,6 +3358,17 @@
     }
     callPeerMap.clear();
     pendingIce.clear();
+    clearTimeout(mediaKeyRotateTimer);
+    mediaKeyRotateTimer = undefined;
+    mediaKeys?.wipe();
+    mediaKeys = null;
+    frameCrypto?.close();
+    frameCrypto = null;
+    callKeyPair = null;
+    wrapKeys.clear();
+    mediaKeySenders.clear();
+    mediaKeyRequestedAt.clear();
+    mediaKeySharedAt.clear();
     callPeers = [];
     stopAllAudioMonitors();
     stopRelayStatsMonitor();
@@ -4138,6 +4303,11 @@
                 <span class="call__count" role="img" aria-label={`${callPeers.length + 1} ${t(dict, 'chat.callParticipants')}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                   <span aria-hidden="true">{callPeers.length + 1}</span>
+                </span>
+                <span aria-hidden="true">·</span>
+                <span class="call__count" title={t(dict, 'chat.callE2eeTitle')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                  <span>{t(dict, 'chat.callE2ee')}</span>
                 </span>
                 {#if serverLatencyMs !== null}<span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span>{/if}
               </div>
