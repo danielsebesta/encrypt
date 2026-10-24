@@ -49,4 +49,25 @@ if (!headers.includes(PLACEHOLDER)) {
 headers = headers.replace(PLACEHOLDER, sorted.join(' '));
 await writeFile(HEADERS_PATH, headers);
 
-console.log(`Injected ${sorted.length} CSP script hashes into dist/client/_headers`);
+// Server-rendered pages share the layout, so the middleware gets the same list instead of nonce-tagging every <script.
+async function walkJs(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...await walkJs(fullPath));
+    else if (entry.isFile() && /\.m?js$/.test(entry.name)) files.push(fullPath);
+  }
+  return files;
+}
+
+let serverFiles = 0;
+for (const filePath of await walkJs(path.resolve('dist/server'))) {
+  const source = await readFile(filePath, 'utf8');
+  if (!source.includes(PLACEHOLDER)) continue;
+  await writeFile(filePath, source.replaceAll(PLACEHOLDER, sorted.join(' ')));
+  serverFiles++;
+}
+if (serverFiles === 0) throw new Error(`Missing ${PLACEHOLDER} in the server build`);
+
+console.log(`Injected ${sorted.length} CSP script hashes into dist/client/_headers and ${serverFiles} server file(s)`);

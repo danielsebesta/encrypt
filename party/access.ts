@@ -27,6 +27,17 @@ export type RoomHost = {
   getConnections(): Iterable<RoomConnection>;
 };
 
+/** The lifecycle every platform drives a room through. */
+export type Room = {
+  onStart?(): Promise<void> | void;
+  onConnect(conn: RoomConnection): void;
+  onMessage(message: string, conn: RoomConnection): Promise<void> | void;
+  onClose(conn: RoomConnection): void;
+  onAlarm?(): Promise<void> | void;
+};
+
+export const ROOM_ROUTE_RE = /^\/parties\/(main|persistent|whiteboard)\/([0-9a-f]{64})$/;
+
 // Connection IDs are assigned here so a client cannot pick one that collides with an existing socket.
 export function connectionRequest(request: Request): Request {
   const url = new URL(request.url);

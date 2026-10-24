@@ -366,9 +366,11 @@ async function encryptSendBytes(data: Uint8Array, key: Uint8Array) {
 class NologSendKeychain {
   rawSecret: Uint8Array;
   private nonceValue = DEFAULT_NONCE;
+  private rawAuthKey?: Uint8Array;
 
-  constructor(secretKeyB64?: string) {
+  constructor(secretKeyB64?: string, authKeyB64?: string) {
     this.rawSecret = secretKeyB64 ? b64ToArray(secretKeyB64) : crypto.getRandomValues(new Uint8Array(KEY_LENGTH));
+    if (authKeyB64) this.rawAuthKey = b64ToArray(authKeyB64);
   }
 
   get nonce() {
@@ -384,6 +386,9 @@ class NologSendKeychain {
   }
 
   private async deriveAuthKey() {
+    if (this.rawAuthKey) {
+      return crypto.subtle.importKey('raw', bytesToArrayBuffer(this.rawAuthKey), { name: 'HMAC', hash: 'SHA-256' }, true, ['sign']);
+    }
     const secretKey = await this.importSecretKey();
     return crypto.subtle.deriveKey(
       {
@@ -443,13 +448,13 @@ function normalizeSendBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/g, '');
 }
 
-function parseSendDownloadUrl(urlString: string) {
+function parseSendDownloadUrl(urlString: string, requireSecret = true) {
   const url = parseAllowedFetchUrl(urlString);
   if (!url) throw new Error('Invalid Send URL');
   const match = url.pathname.match(/\/download\/([0-9a-fA-F]{10,16})\/?$/);
   const secret = url.hash.slice(1);
 
-  if (!match || !secret) {
+  if (!match || (requireSecret ? !secret : !!secret)) {
     throw new Error('Invalid Send URL');
   }
 
@@ -539,9 +544,9 @@ async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKey
   return bytes;
 }
 
-export async function fetchSendEncryptedBlob(urlString: string, onDebug?: DebugFn): Promise<Uint8Array> {
-  const { baseUrl, id, secret } = parseSendDownloadUrl(urlString);
-  const keychain = new NologSendKeychain(secret);
+export async function fetchSendEncryptedBlob(urlString: string, onDebug?: DebugFn, authKeyB64?: string): Promise<Uint8Array> {
+  const { baseUrl, id, secret } = parseSendDownloadUrl(urlString, !authKeyB64);
+  const keychain = new NologSendKeychain(secret || undefined, authKeyB64);
   onDebug?.(`Send ${baseUrl}: fetching encrypted blob ${id}`);
   return fetchSendBlob(baseUrl, id, keychain, onDebug);
 }
@@ -654,8 +659,40 @@ export async function downloadFromSendUrl(urlString: string, onDebug?: DebugFn) 
   return decryptedBytes;
 }
 
-export async function downloadFromSendServer(urlString: string, onDebug?: DebugFn) {
-  return downloadFromSendUrl(urlString, onDebug);
+export const SEND_AUTH_KEY_HEADER = 'X-Send-Auth-Key';
+
+export function validSendAuthKey(value: string | null): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{86}$/.test(value);
+}
+
+/** A Send download URL with its fragment already removed, as the proxy receives it. */
+export function isBareSendUrl(urlString: string) {
+  try {
+    parseSendDownloadUrl(urlString, false);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Files on this site's own storage are fetched directly; Send downloads go through the proxy.
+function sameOriginDownload(urlString: string): boolean {
+  if (typeof location === 'undefined') return false;
+  try {
+    const url = new URL(urlString);
+    return url.origin === location.origin && /^\/dl\/[0-9a-f-]{36}$/.test(url.pathname) && !url.search && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
+/** The proxy gets only the HMAC key Send checks on download; the content key in the fragment stays in the browser. */
+export async function ghostFetch(urlString: string): Promise<Response> {
+  if (sameOriginDownload(urlString)) return fetch(urlString, { cache: 'no-store' });
+  const { secret } = parseSendDownloadUrl(urlString);
+  const bare = urlString.slice(0, urlString.indexOf('#'));
+  const authKey = await new NologSendKeychain(secret).authKeyB64();
+  return fetch(`/api/ghost/fetch?url=${encodeURIComponent(bare)}`, { headers: { [SEND_AUTH_KEY_HEADER]: authKey } });
 }
 
 export function isSendUrl(urlString: string) {
