@@ -66,11 +66,18 @@ test('a hybrid payload counts only with both signatures valid over the same byte
   assert.equal(await verifySigned(swapped, ring.verify), null);
 });
 
-test('an Ed25519-only payload is reported without a post-quantum key so a saved room can flag it', async () => {
+test('an Ed25519-only payload does not verify as a saved-room message', async () => {
   const old = await generateSigningIdentity();
   const value = JSON.parse(await signPayload(old, stamped({})));
-  assert.deepEqual(await verifySigned(value, new PqKeyring().verify), { ed: old.publicKey, pq: null });
+  assert.equal(await verifyPayload(value), old.publicKey);
+  assert.equal(await verifySigned(value, new PqKeyring().verify), null);
+  assert.equal(await verifySigned(value), null);
   assert.equal(await verifySigned({ ...value, _pq: 'A'.repeat(3227) }, new PqKeyring().verify), null);
+  const alice = await member();
+  const ring = new PqKeyring();
+  await ring.add(alice.pq.publicKey);
+  const { _pq, ...stripped } = JSON.parse(await signPayload(alice.ed, stamped({}), alice.pq));
+  assert.equal(await verifySigned(stripped, ring.verify), null);
 });
 
 test('a local copy without the ML-DSA signature still verifies with Ed25519 and keeps the key hash it was signed with', async () => {
@@ -127,6 +134,8 @@ test('payload fields for keys and chains are checked for shape', () => {
   assert.equal(ok({ n: 1.5 }), false);
   assert.equal(ok({ file: { name: 'a', size: 1, urls: [], key: 'H'.repeat(43) } }), true);
   assert.equal(ok({ file: { name: 'a', size: 1, urls: [], key: 'short' } }), false);
+  assert.equal(ok({ file: { name: 'a', size: 1, urls: [] } }), false);
+  assert.equal(ok({ file: { name: 'a', size: 1, url: 'https://example.test/x', key: 'H'.repeat(43) } }), false);
 });
 
 function fakeRoom(name: string) {
@@ -192,7 +201,7 @@ test('a saved room keeps sealed member keys for offline members: one per connect
   const liveServer = new Chat(live.host);
   const l = live.conn('l');
   liveServer.onConnect(l as any);
-  await liveServer.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password' } }), l as any);
+  await liveServer.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } }), l as any);
   await liveServer.onMessage(JSON.stringify({ type: 'member-key', key: first }), l as any);
   assert.equal(l.messages.some((m) => m.type === 'member-keys'), false);
   assert.equal([...live.stored.keys()].some((k) => k.startsWith('member-key:')), false);

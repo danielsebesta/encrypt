@@ -6,7 +6,7 @@ import { challengeResponse, challengeSecret, handleUploadRoute } from './upload'
 
 // Per-client and global request ceilings per minute, kept per route in that route's own budget scope.
 const LIMITS: Record<string, [number, number]> = {
-  '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120], '/api/ghost/verify': [20, 120],
+  '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120],
   '/api/turn': [12, 120], '/api/shorten': [20, 120], '/api/drand': [120, 1200], '/parties': [60, 600],
   '/upload': [20, 600], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
   '/dl': [120, 1_000_000],

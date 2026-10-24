@@ -64,15 +64,6 @@ export async function readJsonLimited(request: Request, limit = 16384): Promise<
   return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readLimited(request, limit, 10_000)));
 }
 
-export async function mapConcurrent<T, R>(items: T[], count: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  await Promise.all(Array.from({ length: Math.min(count, items.length) }, async () => {
-    while (next < items.length) { const i = next++; results[i] = await fn(items[i]); }
-  }));
-  return results;
-}
-
 export async function fetchNoRedirect(input: string | URL, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(input, { ...init, redirect: 'manual' });
   if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {

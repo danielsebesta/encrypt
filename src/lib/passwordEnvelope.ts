@@ -1,24 +1,17 @@
 import { ARGON2_V3, argon2id, equalBytes, hkdfAesKey, hkdfBytes, hkdfKey, type Argon2Params } from './kdf';
 import { padme } from './padding';
 
-const ECP2_MAGIC = new Uint8Array([69, 67, 80, 50, 0, 9, 39, 192]); // ECP2, PBKDF2-SHA256 600000
 const ECP3_MAGIC = new Uint8Array([69, 67, 80, 51, 1]); // ECP3, header layout 1
 const HEADER = 72;
 const TAG = 16;
 const LENGTH = 4;
 
-/** Leading bytes of the marked envelope formats; new envelopes are always the first. */
-export const PASSWORD_ENVELOPE_MAGICS: readonly Uint8Array[] = [ECP3_MAGIC, ECP2_MAGIC];
-/** Fixed bytes a version 3 envelope adds to its plaintext, before padding. */
+/** Leading bytes of every password envelope. */
+export const PASSWORD_ENVELOPE_MAGIC: Readonly<Uint8Array> = ECP3_MAGIC;
+/** Fixed bytes an envelope adds to its plaintext, before padding. */
 export const PASSWORD_ENVELOPE_OVERHEAD = HEADER + LENGTH + TAG;
 
 export type SealOptions = { maxLength?: number; params?: Argon2Params };
-
-export async function passwordKey(password: string, salt: Uint8Array, iterations = 600_000): Promise<CryptoKey> {
-  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' }, material,
-    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-}
 
 /** Total envelope size for a plaintext: Padmé over the length-prefixed data, never past maxLength when the data alone fits. */
 export function sealedLength(plaintext: number, maxLength = Infinity): number {
@@ -73,7 +66,8 @@ export async function sealPassword(data: Uint8Array | Uint8Array[], password: st
 
 const startsWith = (data: Uint8Array, prefix: Uint8Array) => data.length >= prefix.length && prefix.every((byte, i) => data[i] === byte);
 
-async function openV3(data: Uint8Array, password: string): Promise<Uint8Array> {
+export async function openPassword(data: Uint8Array, password: string): Promise<Uint8Array> {
+  if (!startsWith(data, ECP3_MAGIC)) throw new Error('Unsupported encrypted data');
   if (data.length < HEADER + LENGTH + TAG) throw new Error('Truncated encrypted data');
   const header = data.subarray(0, HEADER);
   const view = new DataView(header.buffer, header.byteOffset, HEADER);
@@ -85,21 +79,4 @@ async function openV3(data: Uint8Array, password: string): Promise<Uint8Array> {
   const length = new DataView(plain.buffer).getUint32(0);
   if (length > plain.length - LENGTH) throw new Error('Invalid padding');
   return plain.subarray(LENGTH, LENGTH + length);
-}
-
-export type OpenedEnvelope = { plaintext: Uint8Array; version: 1 | 2 | 3 };
-
-export async function openPasswordEnvelope(data: Uint8Array, password: string): Promise<OpenedEnvelope> {
-  if (startsWith(data, ECP3_MAGIC)) return { plaintext: await openV3(data, password), version: 3 };
-  if (data.length < 44) throw new Error('Truncated encrypted data');
-  const modern = startsWith(data, ECP2_MAGIC);
-  const offset = modern ? 8 : 0;
-  const key = await passwordKey(password, data.slice(offset, offset + 16), modern ? 600_000 : 100_000);
-  const plaintext = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: data.slice(offset + 16, offset + 28),
-    ...(modern ? { additionalData: ECP2_MAGIC } : {}) }, key, data.slice(offset + 28)));
-  return { plaintext, version: modern ? 2 : 1 };
-}
-
-export async function openPassword(data: Uint8Array, password: string): Promise<Uint8Array> {
-  return (await openPasswordEnvelope(data, password)).plaintext;
 }

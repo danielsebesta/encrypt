@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import * as nodeCrypto from 'node:crypto';
 import { ARGON2_V3, argon2ParamsOk, argon2id, equalBytes, hkdfAesKey, hkdfBytes, hkdfKey, labelSalt } from '../src/lib/kdf';
 import { padme, padPayload, validPad, PAD_MAX_CHARS, PAD_MIN_BYTES, SIGNATURE_BYTES } from '../src/lib/padding';
-import { PASSWORD_ENVELOPE_OVERHEAD, openPassword, openPasswordEnvelope, passwordKey, sealPassword, sealedLength } from '../src/lib/passwordEnvelope';
+import { PASSWORD_ENVELOPE_OVERHEAD, openPassword, sealPassword, sealedLength } from '../src/lib/passwordEnvelope';
 import { encrypt, decrypt, to14BitChunks } from '../src/lib/aesGcm';
 import { encryptData, decryptData } from '../src/lib/ghost/crypto';
 import { SEND_ENVELOPE_LIMIT, FIRST_PARTY_ENVELOPE_LIMIT } from '../src/lib/httpLimits';
-import { accessChannel, roomCredentials, roomSecret } from '../src/lib/roomAccess';
+import { accessChannel, roomSecret } from '../src/lib/roomAccess';
 import {
-  roomMessageKey, deriveRoomKey, encryptMessage, decryptMessage, importRoomKey,
+  roomMessageKey, encryptMessage, decryptMessage, importRoomKey,
   generateSigningIdentity, signPayload, safetyNumber, keyCode,
 } from '../src/lib/chatCrypto';
 import { roomLookup, configStamp } from '../src/lib/chatRoomSettings';
@@ -21,6 +21,12 @@ const enc = new TextEncoder();
 const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString('hex');
 const PASSWORD = 'Kyber-Zebra-Moth-Lamp-Fern42';
 const utf8 = (text: string) => enc.encode(text).length;
+
+async function pbkdf2Key(password: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' }, material,
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+}
 
 test('Argon2id matches an independent implementation and refuses unsafe settings', async () => {
   const salt = enc.encode('encrypt.click v3');
@@ -79,9 +85,7 @@ test('version 3 envelopes round trip, pad to Padmé sizes and keep their Argon2i
     assert.deepEqual([...sealed.slice(0, 5)], [69, 67, 80, 51, 1]);
     const view = new DataView(sealed.buffer);
     assert.deepEqual([view.getUint32(5), view.getUint16(9), sealed[11]], [65536, 3, 1]);
-    const opened = await openPasswordEnvelope(sealed, 'secret');
-    assert.equal(opened.version, 3);
-    assert.deepEqual(opened.plaintext, data);
+    assert.deepEqual(await openPassword(sealed, 'secret'), data);
   }
   const first = await encrypt('Příliš 🔒', 'secret');
   assert.notDeepEqual(first.slice(12, 72), (await encrypt('Příliš 🔒', 'secret')).slice(12, 72));
@@ -108,18 +112,15 @@ test('version 3 envelopes reject wrong passwords, forged commitments, tampering 
   await assert.rejects(openPassword(sealed.slice(0, -1), 'secret'));
 });
 
-test('ECP2 and legacy envelopes still open, and new ones are always ECP3', async () => {
+test('ECP2 and magic-less PBKDF2 envelopes are refused, and new ones are always ECP3', async () => {
   const magic = new Uint8Array([69, 67, 80, 50, 0, 9, 39, 192]);
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const seal2 = async (payload: Uint8Array) => {
-    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: magic }, await passwordKey('secret', salt), payload as BufferSource));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: magic }, await pbkdf2Key('secret', salt, 600_000), payload as BufferSource));
     return new Uint8Array([...magic, ...salt, ...iv, ...ct]);
   };
-  const text = await seal2(enc.encode('old text'));
-  assert.equal(await decrypt(text, 'secret'), 'old text');
-  assert.equal((await openPasswordEnvelope(text, 'secret')).version, 2);
-  await assert.rejects(decrypt(text, 'wrong'));
+  await assert.rejects(decrypt(await seal2(enc.encode('old text')), 'secret'), /Unsupported/);
 
   const data = new Uint8Array(3000).fill(9);
   const meta = enc.encode(JSON.stringify({ name: 'a.bin', size: data.length }));
@@ -127,11 +128,12 @@ test('ECP2 and legacy envelopes still open, and new ones are always ECP3', async
   new DataView(payload.buffer).setUint32(1, meta.length);
   payload.set(meta, 5);
   payload.set(data, 5 + meta.length);
-  assert.deepEqual(await decryptData(await seal2(payload), 'secret'), { data, name: 'a.bin' });
+  await assert.rejects(decryptData(await seal2(payload), 'secret'), /Unsupported/);
 
-  const legacyKey = await passwordKey('secret', salt, 100_000);
-  const legacy = new Uint8Array([...salt, ...iv, ...new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, legacyKey, enc.encode('older')))]);
-  assert.equal((await openPasswordEnvelope(legacy, 'secret')).version, 1);
+  const legacyKey = await pbkdf2Key('secret', salt, 100_000);
+  const legacy = new Uint8Array([...salt, ...iv, ...new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, legacyKey, payload as BufferSource))]);
+  await assert.rejects(openPassword(legacy, 'secret'), /Unsupported/);
+  await assert.rejects(decryptData(legacy, 'secret'), /Unsupported/);
 
   assert.deepEqual([...(await encryptData(data, 'secret', 'a.bin')).slice(0, 4)], [69, 67, 80, 51]);
 });
@@ -178,9 +180,6 @@ test('version 3 chat rooms derive once, bind the mode into the key and keep the 
   assert.equal(a.token, 'e7acad0f4eca76eae286cac0a2884f069ff5201226d1105f563b0b0f3ed8af25');
   assert.equal(a.channel, '3688a677f276b26fc77b7501538ebf45d40c80608ba80d1dc9adf03c485da373');
   assert.equal(a.channel, await accessChannel(a.token));
-  const legacy = await roomCredentials(PASSWORD, 'room', 'chat');
-  assert.notEqual(a.token, legacy.token);
-  assert.notEqual(a.channel, legacy.channel);
   for (const [password, room, scope] of [['other-Password-123', 'room', 'chat'], [PASSWORD, 'room2', 'chat'], [PASSWORD, 'room', 'whiteboard']] as const) {
     assert.notEqual((await roomSecret(password, room, scope)).channel, a.channel);
   }
@@ -191,34 +190,27 @@ test('version 3 chat rooms derive once, bind the mode into the key and keep the 
   const again = await roomSecret(PASSWORD, 'room', 'chat');
   assert.equal(await decryptMessage(await roomMessageKey(again.base, 'ttl-10'), sealed), 'hello');
   await assert.rejects(decryptMessage(live, sealed));
-  await assert.rejects(decryptMessage(await deriveRoomKey(PASSWORD, 'room', 'ttl-10'), sealed));
   const fromToken = await importRoomKey(Buffer.from(a.token, 'hex').toString('base64url'));
   await assert.rejects(decryptMessage(fromToken, sealed));
   assert.notEqual(hex(await hkdfBytes(a.base, 'encrypt.click/chat/v3/messages:ttl-10')), a.token);
 });
 
-test('joiners try the version 3 channel first, then the legacy one, and keep the settings locked', () => {
+test('joiners open only version 3 rooms, refuse version 2 and unversioned settings and keep the mode locked', () => {
   const v3 = { mode: 'live', v: 3 };
-  const v2 = { mode: 'ttl-60', v: 2 };
-  const v1 = { mode: 'live' };
-  assert.equal(roomLookup(null, true, null), 'legacy');
-  assert.equal(roomLookup(null, false, null), 'missing');
-  assert.equal(roomLookup(v3, true, null), 'open');
-  assert.equal(roomLookup(v3, true, '3:live'), 'open');
-  assert.equal(roomLookup(v3, true, '3:ttl-60'), 'mismatch');
-  assert.equal(roomLookup(v2, true, null), 'mismatch');
-  assert.equal(roomLookup(v2, false, null), 'open');
-  assert.equal(roomLookup(v1, false, '1:live'), 'open');
-  assert.equal(roomLookup(v2, false, '1:ttl-60'), 'mismatch');
-  assert.equal(roomLookup(v3, false, null), 'mismatch');
-  assert.deepEqual([configStamp(v3), configStamp(v2), configStamp(v1)], ['3:live', '2:ttl-60', '1:live']);
+  assert.equal(roomLookup(null, null), 'missing');
+  assert.equal(roomLookup(v3, null), 'open');
+  assert.equal(roomLookup(v3, '3:live'), 'open');
+  assert.equal(roomLookup(v3, '3:ttl-60'), 'mismatch');
+  assert.equal(roomLookup({ mode: 'ttl-60', v: 2 }, null), 'mismatch');
+  assert.equal(roomLookup({ mode: 'live' }, null), 'mismatch');
+  assert.equal(configStamp(v3), '3:live');
 });
 
 test('whiteboard messages each get their own HKDF subkey, and the old format is dropped', async () => {
   const access = await deriveBoardAccess(PASSWORD, 'room');
   assert.equal(access.token, '06f0778e12d00ff9762cb678421339866b4d43fe7946af421c119d89fc2ac582');
   assert.equal(access.channel, await accessChannel(access.token));
-  assert.notEqual(access.channel, (await roomCredentials(PASSWORD, 'room', 'whiteboard')).channel);
+  assert.notEqual(access.channel, (await roomSecret(PASSWORD, 'room', 'chat')).channel);
 
   const base = await boardMessageBase(await hkdfKey(crypto.getRandomValues(new Uint8Array(32))));
   const one = await sealBoardMessage(base, 'cursor');

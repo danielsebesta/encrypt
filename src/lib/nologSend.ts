@@ -659,10 +659,6 @@ export async function downloadFromSendUrl(urlString: string, onDebug?: DebugFn) 
   return decryptedBytes;
 }
 
-export async function downloadFromSendServer(urlString: string, onDebug?: DebugFn) {
-  return downloadFromSendUrl(urlString, onDebug);
-}
-
 export const SEND_AUTH_KEY_HEADER = 'X-Send-Auth-Key';
 
 export function validSendAuthKey(value: string | null): value is string {
@@ -679,7 +675,7 @@ export function isBareSendUrl(urlString: string) {
   }
 }
 
-// Files on this site's own storage are fetched directly; everything else goes through the allowlisted proxy.
+// Files on this site's own storage are fetched directly; Send downloads go through the proxy.
 function sameOriginDownload(urlString: string): boolean {
   if (typeof location === 'undefined') return false;
   try {
@@ -693,7 +689,6 @@ function sameOriginDownload(urlString: string): boolean {
 /** The proxy gets only the HMAC key Send checks on download; the content key in the fragment stays in the browser. */
 export async function ghostFetch(urlString: string): Promise<Response> {
   if (sameOriginDownload(urlString)) return fetch(urlString, { cache: 'no-store' });
-  if (!isSendUrl(urlString)) return fetch(`/api/ghost/fetch?url=${encodeURIComponent(urlString)}`);
   const { secret } = parseSendDownloadUrl(urlString);
   const bare = urlString.slice(0, urlString.indexOf('#'));
   const authKey = await new NologSendKeychain(secret).authKeyB64();

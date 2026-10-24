@@ -37,11 +37,6 @@
     return () => { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s >>> 0; };
   }
 
-  async function getSeed(pw: string): Promise<number> {
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-    return new DataView(hash).getUint32(0) || 1;
-  }
-
   function shuffledOrder(count: number, seed: number): number[] {
     const arr = Array.from({ length: count }, (_, i) => i);
     const rng = xorshift32(seed);
@@ -207,8 +202,7 @@
       }
 
       status = t(dict, 'tools.photoCipher.embedding');
-      const seed = PUBLIC_SEED;
-      const order = shuffledOrder(total, seed);
+      const order = shuffledOrder(total, PUBLIC_SEED);
 
       await new Promise(r => setTimeout(r, 0));
       for (let i = 0; i < expanded.length; i++) {
@@ -251,26 +245,19 @@
       }
 
       status = t(dict, 'tools.photoCipher.extracting');
-      function extract(seed: number): number[] {
-        const order = shuffledOrder(total, seed);
-        const data: number[] = [];
-        for (let i = 0; i < Math.floor(total / REP); i++) {
-          let ones = 0;
-          for (let r = 0; r < REP; r++) {
-            const idx = order[i * REP + r];
-            ones += qimExtract(px, idx % bxCount, Math.floor(idx / bxCount), norm.width);
-          }
-          data.push(ones > REP / 2 ? 1 : 0);
+      // The layout is public; password guesses must pass the envelope's Argon2id.
+      const order = shuffledOrder(total, PUBLIC_SEED);
+      const data: number[] = [];
+      for (let i = 0; i < Math.floor(total / REP); i++) {
+        let ones = 0;
+        for (let r = 0; r < REP; r++) {
+          const idx = order[i * REP + r];
+          ones += qimExtract(px, idx % bxCount, Math.floor(idx / bxCount), norm.width);
         }
-        return data;
+        data.push(ones > REP / 2 ? 1 : 0);
       }
-      // New files use a public layout; password guesses must pass AES-GCM's KDF.
-      let data = extract(PUBLIC_SEED);
       if (new TextDecoder().decode(bitsToBytes(data.slice(0, 32))) !== MAGIC) {
-        data = extract(await getSeed(password));
-        if (new TextDecoder().decode(bitsToBytes(data.slice(0, 32))) !== 'PCPH') {
-          status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
-        }
+        status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
       }
 
       const lenBytes = bitsToBytes(data.slice(32, 64));

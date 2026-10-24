@@ -137,7 +137,7 @@ try {
   const b = await socket(path);
   check('first socket gets init', (await a.next('init')).type === 'init');
   check('second socket gets init', (await b.next('init')).type === 'init');
-  a.send({ type: 'join', token, config: { mode: 'live', authMode: 'fragment' } });
+  a.send({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } });
   await a.next('room-config');
   b.send({ type: 'join', token });
   // The first join's room-config also reaches sockets that have not joined yet, so wait until the room counts both.

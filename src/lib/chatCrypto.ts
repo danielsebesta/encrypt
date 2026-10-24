@@ -1,7 +1,6 @@
 import { accessChannel } from './roomAccess';
 import { hkdfAesKey, hkdfBytes } from './kdf';
 
-const PBKDF2_ITERATIONS = 600_000;
 const ED25519 = { name: 'Ed25519' };
 const SIGNATURE_RE = /^[A-Za-z0-9_-]{86}$/;
 const PUBLIC_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
@@ -17,43 +16,10 @@ export async function generateRoomKey(): Promise<string> {
   return arrayToB64url(key);
 }
 
-export async function deriveKeyFromPassword(password: string, roomId: string, iterations = PBKDF2_ITERATIONS): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', bytesToArrayBuffer(enc.encode(password)), 'PBKDF2', false, ['deriveKey']
-  );
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat:${roomId}`)),
-      iterations,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
-
 /**
- * Version 2 room keys bind the room mode (live, or how long messages last) into the derivation, so a server that
- * reports a different mode only gets clients that cannot read the room, never a quiet downgrade.
+ * The message key comes from the room secret's HKDF base with the room mode (live, or how long messages last) bound in,
+ * so a server that reports a different mode only gets clients that cannot read the room, never a quiet downgrade.
  */
-export async function deriveRoomKey(password: string, roomId: string, mode: string): Promise<CryptoKey> {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey('raw', bytesToArrayBuffer(enc.encode(password)), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat:v2:${mode}:${roomId}`)), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt'],
-  );
-}
-
-/** Version 3 message key, from the room secret's HKDF base; the mode stays bound into the key as in version 2. */
 export function roomMessageKey(base: CryptoKey, mode: string): Promise<CryptoKey> {
   return hkdfAesKey(base, `encrypt.click/chat/v3/messages:${mode}`);
 }
@@ -61,17 +27,6 @@ export function roomMessageKey(base: CryptoKey, mode: string): Promise<CryptoKey
 /** The secret forward secrecy mixes into every pairwise key, so a broken key exchange alone never opens a message. */
 export function roomForwardSecret(base: CryptoKey, mode: string): Promise<Uint8Array> {
   return hkdfBytes(base, `encrypt.click/chat/v3/forward-secrecy:${mode}`);
-}
-
-// Rooms from before version 3 have no HKDF base, so their secret costs a password hash as slow as their room key.
-export async function legacyRoomForwardSecret(password: string, roomId: string, mode: string): Promise<Uint8Array> {
-  const enc = new TextEncoder();
-  const material = await crypto.subtle.importKey('raw', bytesToArrayBuffer(enc.encode(password)), 'PBKDF2', false, ['deriveBits']);
-  return new Uint8Array(await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', iterations: PBKDF2_ITERATIONS, salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat:fs:${mode}:${roomId}`)) },
-    material,
-    256,
-  ));
 }
 
 export async function forwardLocalKey(secret: Uint8Array): Promise<CryptoKey> {
@@ -192,18 +147,13 @@ export async function verifyPayload(value: unknown): Promise<string | null> {
 }
 
 /**
- * Hybrid check: a payload that names an ML-DSA key needs a valid signature under it as well as under its Ed25519 key.
- * One without is reported with pq null, so the caller decides what an Ed25519-only payload is worth.
+ * Hybrid check: the payload has to name an ML-DSA key and carry valid signatures under it and under its Ed25519 key,
+ * both over the same bytes. Anything signed with Ed25519 alone, or by an ML-DSA key the verifier does not know, fails.
  */
-export async function verifySigned(value: unknown, pq?: PqVerifier): Promise<{ ed: string; pq: string | null } | null> {
+export async function verifySigned(value: unknown, pq?: PqVerifier): Promise<{ ed: string; pq: string } | null> {
   if (!value || typeof value !== 'object') return null;
   const { _pq, ...rest } = value as Record<string, unknown>;
   const hash = rest._pqk;
-  if (hash === undefined) {
-    if (_pq !== undefined) return null;
-    const ed = await verifyPayload(rest);
-    return ed ? { ed, pq: null } : null;
-  }
   if (!pq || !validPublicKey(hash) || typeof _pq !== 'string' || !PQ_SIGNATURE_RE.test(_pq)) return null;
   const ed = await verifyPayload(rest);
   if (!ed) return null;

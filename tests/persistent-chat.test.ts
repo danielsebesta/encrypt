@@ -83,6 +83,29 @@ test('live rooms never store persistent mode or messages, saved rooms never stor
   assert.deepEqual((saved.stored.get('room-config') as any).authMode, 'fragment');
 });
 
+test('password rooms keep only version 3 settings and ignore stored settings in any older format', async () => {
+  const room = fakeRoom(await accessChannel(token));
+  const server = new Chat(room.host);
+  const a = room.conn('a');
+  server.onConnect(a as any);
+  await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'ttl-60', authMode: 'password', v: 2, createdAt: 5 } }), a as any);
+  assert.deepEqual({ ...(room.stored.get('room-config') as any), createdAt: 0 }, { mode: 'live', authMode: 'password', createdAt: 0, v: 3 });
+
+  for (const old of [{ mode: 'ttl-60', authMode: 'password', v: 2, createdAt: 1 }, { mode: 'live', authMode: 'fragment', createdAt: 1 }, { mode: 'burn', authMode: 'password', createdAt: 1 }]) {
+    const stale = fakeRoom(await accessChannel(token));
+    stale.stored.set('room-config', old);
+    const staleServer = new Chat(stale.host);
+    await staleServer.onStart();
+    assert.equal(staleServer.state.config, null, JSON.stringify(old));
+  }
+
+  const current = fakeRoom(await accessChannel(token));
+  current.stored.set('room-config', { mode: 'ttl-60', authMode: 'password', v: 3, createdAt: 1 });
+  const currentServer = new Chat(current.host);
+  await currentServer.onStart();
+  assert.deepEqual(currentServer.state.config, { mode: 'ttl-60', authMode: 'password', createdAt: 1, v: 3 });
+});
+
 test('saved rooms keep flagged envelopes with a server sequence and replay them on join', async () => {
   const room = fakeRoom(await accessChannel(token));
   const server = new Chat(room.host, { persistent: true });

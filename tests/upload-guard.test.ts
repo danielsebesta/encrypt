@@ -133,7 +133,7 @@ const render = async () => new Response('page');
 const browser = { 'Sec-Fetch-Site': 'same-origin', 'Sec-Fetch-Mode': 'cors' };
 const envelope = (size = 64) => {
   const body = new Uint8Array(size);
-  body.set([69, 67, 76, 75, 69, 67, 80, 50, 0, 9, 39, 192]);
+  body.set([69, 67, 76, 75, 69, 67, 80, 51, 1]);
   return body;
 };
 
@@ -177,11 +177,14 @@ test('only password envelopes and stego PNGs are stored', async () => {
   assert.equal((await app.fetch(upload(png), render)).status, 200);
 });
 
-test('version 3 and version 2 envelopes are both accepted, unknown envelope layouts are not', async () => {
+test('version 3 envelopes are accepted, version 2 and unknown envelope layouts are not', async () => {
   const { app, blobs } = platform();
   const sealed = prependEclkMagic(await sealPassword(new Uint8Array(100), 'secret'));
   assert.equal((await app.fetch(upload(sealed), render)).status, 200);
   assert.equal((await app.fetch(upload(envelope()), render)).status, 200);
+  const ecp2 = new Uint8Array(64);
+  ecp2.set([69, 67, 76, 75, 69, 67, 80, 50, 0, 9, 39, 192]);
+  assert.equal((await app.fetch(upload(ecp2), render)).status, 400);
   const future = sealed.slice();
   future[8] = 2;
   assert.equal((await app.fetch(upload(future), render)).status, 400);
