@@ -208,7 +208,7 @@ flowchart TB
 - **Platforms.** `src/platform/types.ts` is the contract: settings, the visitor's address, budgets on SQLite, blob storage and realtime rooms. `src/adapters/cloudflare/` implements it with Durable Objects and R2, `src/adapters/node/` with `ws`, `node:sqlite` and files on disk. Everything else, including every URL the browser uses, is the same on both.
 - **Design system.** Tokens and component classes live in `src/styles/global.css`. Every page uses only those.
 - **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The server picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
-- **Crypto.** `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
+- **Crypto.** `src/lib/passwordEnvelope.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
 - **Whiteboard.** Drawing uses `@quickdrawjs/core` with a small patch in `patches/` that makes pen pressure drive the stroke width. The tests in `tests/pen-pressure.test.ts` fail if the patch is lost.
 - **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. Only encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
 
@@ -267,7 +267,7 @@ The same goes for the `encrypt-click-dist` artifact of a deploy run (client file
 
 ## 📝 Operational notes
 
-- Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires at least 12 characters or the generated passphrase. Without a password the full `#k=…` link carries a random 256-bit secret; never send that link through a shortener.
+- Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires a password of at least 16 characters that passes a strength check. A saved room has no password: its `#k=…&p=1` link carries a random 256-bit key; never send that link through a shortener.
 - TURN credentials are valid for five minutes and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
 - The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host; `scripts/verify-deployment.mjs` and the attestations above are the independent check. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
 - Empty chat rooms delete their stored configuration after seven days.

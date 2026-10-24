@@ -16,9 +16,6 @@ export class SecurityBudget extends DurableObject {
   run(command: BudgetCommand): unknown {
     return runBudgetCommand(this.ctx.storage.sql, command);
   }
-
-  // Older deployments scheduled a cleanup alarm; budgets now prune themselves.
-  async alarm() {}
 }
 
 function r2Blobs(bucket: R2Bucket): BlobStore {

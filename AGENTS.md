@@ -37,7 +37,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - `src/lib/tools.ts` - tool registry for navbar, home page and category wiring
 - `src/locales/{en,cs,de,es,fr,sk,pl}.json` - flat UI dictionaries
 - `src/lib/alias.ts` - language-neutral participant aliases and colors for rooms
-- `src/lib/ghost/` and `src/pages/api/ghost/` - encrypted upload crypto, stego, fetch, verification
+- `src/lib/ghost/` and `src/pages/api/ghost/` - encrypted upload crypto, stego, Send upload relay and fetch
 - `party/` - chat and whiteboard room logic, written against `RoomHost`/`RoomStorage` so it runs on both targets (`party/server.ts` is the Cloudflare glue)
 - `src/server/` - platform-neutral request handling: `app.ts` (routing, cross-site and rate-limit guards), `upload.ts` (same-origin `/upload` and `/dl/<id>`), `budget.ts` (rate limits and quotas on SQLite), `pow.ts` (proof-of-work challenges)
 - `src/platform/` - the `Platform` contract every target implements, and the runtime env shared with Astro endpoints
@@ -68,7 +68,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - Tool explainers live as numbered `tools.<name>.about.<n>` paragraphs with optional `tools.<name>.about.<n>.title` headings, shown via `ToolAbout`. Keep them accurate to the code.
 - `en.json` is the source of truth for UI keys.
 - Keep all non-English locale files in sync with English.
-- Keep crypto logic in the crypto modules (`src/lib/crypto.ts`, `chatCrypto.ts`, `chatRatchet.ts`, `chatIntegrity.ts`, `chatPq.ts`, `callCrypto.ts`, `kdf.ts`, `passwordEnvelope.ts`, `padding.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/`) or `party/`; UI work must not change key handling, data formats or network behavior.
+- Keep crypto logic in the crypto modules (`src/lib/aesGcm.ts`, `chatCrypto.ts`, `chatRatchet.ts`, `chatIntegrity.ts`, `chatPq.ts`, `callCrypto.ts`, `kdf.ts`, `passwordEnvelope.ts`, `padding.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/`) or `party/`; UI work must not change key handling, data formats or network behavior.
 - Do not add unnecessary comments.
 - Commit messages carry no co-author or tool attribution trailers.
 

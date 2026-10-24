@@ -9,14 +9,10 @@ import {
 } from "../src/lib/chatRoomSettings";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
-type AuthMode = "password" | "fragment";
-
-type RoomConfig = {
-  mode: ChatMode;
-  authMode: AuthMode;
-  createdAt: number;
-  v?: 2 | 3;
-};
+// Password rooms are format version 3; a saved room's key comes from the fragment of its link.
+type PasswordConfig = { mode: ChatMode; authMode: "password"; createdAt: number; v: 3 };
+type SavedConfig = { mode: "persistent"; authMode: "fragment"; createdAt: number };
+type RoomConfig = PasswordConfig | SavedConfig;
 
 type RoomState = {
   locked: boolean;
@@ -82,12 +78,13 @@ const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PERSISTENT_IDLE_MS = PERSISTENT_IDLE_DAYS * 24 * 60 * 60 * 1000;
 const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
-const DEFAULT_CONFIG: RoomConfig = {
+const DEFAULT_CONFIG: PasswordConfig = {
   mode: "live",
-  authMode: "fragment",
+  authMode: "password",
   createdAt: 0,
+  v: 3,
 };
-const PERSISTENT_CONFIG: RoomConfig = {
+const PERSISTENT_CONFIG: SavedConfig = {
   mode: "persistent",
   authMode: "fragment",
   createdAt: 0,
@@ -113,18 +110,7 @@ export default class ChatRoom {
   }
 
   async onStart() {
-    const storedConfig = await this.host.storage.get<RoomConfig>(CONFIG_KEY);
-    this.state.config = this.normalizeConfig(storedConfig);
-    if (storedConfig && this.state.config && JSON.stringify(storedConfig) !== JSON.stringify(this.state.config)) {
-      await this.host.storage.put(CONFIG_KEY, this.state.config);
-    }
-    if (this.persistent) return;
-
-    // Live rooms store no messages; drop history left by older versions.
-    const oldHistory = await this.host.storage.list({ prefix: HISTORY_PREFIX });
-    if (oldHistory.size) {
-      await Promise.all(Array.from(oldHistory.keys()).map((key) => this.host.storage.delete(key)));
-    }
+    this.state.config = this.normalizeConfig(await this.host.storage.get<RoomConfig>(CONFIG_KEY));
   }
 
   onConnect(conn: RoomConnection) {
@@ -142,10 +128,8 @@ export default class ChatRoom {
     conn.send(JSON.stringify({
       type: "init",
       presence: this.getJoinedConnectionCount(),
-      rawPresence: this.getConnectionCount(),
       locked: this.state.locked,
       config: this.state.config,
-      historyCount: 0,
       server: SERVER_INFO,
     }));
   }
@@ -291,22 +275,12 @@ export default class ChatRoom {
 
   private normalizeConfig(input: unknown): RoomConfig | null {
     if (!input || typeof input !== "object") return null;
-    const value = input as Partial<RoomConfig> & { mode?: unknown };
+    const value = input as Record<string, unknown>;
     const createdAt = typeof value.createdAt === "number" ? value.createdAt : Date.now();
     // A saved room never takes a typed password: ciphertext that stays on the server must not be guessable offline.
     if (this.persistent) return { ...PERSISTENT_CONFIG, createdAt };
-    const authMode = value.authMode;
-    if (!this.isAuthMode(authMode)) return null;
-    return {
-      mode: normalizeChatMode(value.mode),
-      authMode,
-      createdAt,
-      ...(value.v === 2 || value.v === 3 ? { v: value.v } : {}),
-    };
-  }
-
-  private isAuthMode(value: unknown): value is AuthMode {
-    return value === "password" || value === "fragment";
+    if (value.authMode !== "password" || value.v !== 3) return null;
+    return { mode: normalizeChatMode(value.mode), authMode: "password", createdAt, v: 3 };
   }
 
   private normalizeClientMessage(input: unknown): ClientMessageEnvelope | null {
@@ -450,7 +424,6 @@ export default class ChatRoom {
     const msg = JSON.stringify({
       type: "presence",
       count: this.getJoinedConnectionCount(),
-      rawCount: this.getConnectionCount(),
     });
     this.broadcast(msg, undefined, true);
   }

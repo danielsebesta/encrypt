@@ -2,26 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encrypt, decrypt, to14BitChunks, from14BitChunks } from '../src/lib/aesGcm';
 import { encryptData, decryptData } from '../src/lib/ghost/crypto';
-import { passwordKey } from '../src/lib/passwordEnvelope';
-import { roomCredentials, accessChannel, safeColor, ReplayWindow } from '../src/lib/roomAccess';
-import { parseAllowedFetchUrl, fetchAllowedUrl } from '../src/lib/ghost/allowedFetch';
-import { readLimited, mapConcurrent } from '../src/lib/httpLimits';
+import { accessChannel, safeColor, ReplayWindow } from '../src/lib/roomAccess';
+import { parseAllowedFetchUrl } from '../src/lib/ghost/allowedFetch';
+import { readLimited } from '../src/lib/httpLimits';
 import { issueTurnGrant, verifyTurnGrant } from '../src/lib/turnGrant';
 import { stampPayload, validPayload } from '../src/lib/chatProtocol';
-import { archiveLegacyHistory, migrateRoomHistory } from '../src/lib/chatHistory';
 import Chat from '../party/chat';
 import Whiteboard from '../party/whiteboard';
 import { RoomAccess, connectionRequest } from '../party/access';
-import { POST as verifyUrls } from '../src/pages/api/ghost/verify';
 import { GET as fetchFile } from '../src/pages/api/ghost/fetch';
-
-async function legacySeal(payload: Uint8Array) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await passwordKey('secret', salt, 100000);
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, payload as BufferSource));
-  return new Uint8Array([...salt, ...iv, ...ct]);
-}
+import { SEND_AUTH_KEY_HEADER } from '../src/lib/nologSend';
 
 test('new text encryption round trips Unicode, randomizes output and authenticates every part', async () => {
   const first = await encrypt('Příliš 🔒', 'secret');
@@ -34,16 +24,10 @@ test('new text encryption round trips Unicode, randomizes output and authenticat
   }
 });
 
-test('legacy text and file ciphertext remain readable, including metadata overflow recovery', async () => {
-  assert.equal(await decrypt(await legacySeal(new TextEncoder().encode('old text')), 'secret'), 'old text');
+test('file metadata round trips long and non-ASCII names', async () => {
   for (const name of ['a.txt', 'a'.repeat(240) + '.txt', 'ž'.repeat(300) + '.txt']) {
     const data = new Uint8Array(20000).fill(7);
-    const meta = new TextEncoder().encode(JSON.stringify({ name, size: data.length }));
-    const payload = new Uint8Array([meta.length, ...meta, ...data]);
-    const result = await decryptData(await legacySeal(payload), 'secret');
-    assert.equal(result.name, name); assert.deepEqual(result.data, data);
-    const modern = await decryptData(await encryptData(data, 'secret', name), 'secret');
-    assert.deepEqual(modern, result);
+    assert.deepEqual(await decryptData(await encryptData(data, 'secret', name), 'secret'), { data, name });
   }
 });
 
@@ -56,26 +40,10 @@ test('word format preserves both sides of the old 16-bit boundary', () => {
   assert.throws(() => from14BitChunks(to14BitChunks(new Uint8Array(100)).slice(0, 3)));
 });
 
-test('room capabilities are secret, separated by purpose and room, and do not expose encryption material', async () => {
-  const a = await roomCredentials('password', 'room', 'chat');
-  assert.equal(a.channel, await accessChannel(a.token));
-  assert.notEqual(a.token, a.channel);
-  assert.notEqual(a.channel, (await roomCredentials('other', 'room', 'chat')).channel);
-  assert.notEqual(a.channel, (await roomCredentials('password', 'room', 'whiteboard')).channel);
-  assert.notEqual(a.channel, (await roomCredentials('password', 'another', 'chat')).channel);
-});
-
 test('URL policy rejects local networks, nonstandard ports, credentials and deceptive hosts', () => {
-  for (const u of ['http://dl.encrypt.click/x', 'https://127.0.0.1/', 'https://[::1]/', 'https://dl.encrypt.click:8080/',
-    'https://dl.encrypt.click.evil.test/', 'https://evil.test@dl.encrypt.click/', 'file:///etc/passwd']) assert.equal(parseAllowedFetchUrl(u), null, u);
-  assert.ok(parseAllowedFetchUrl('https://dl.encrypt.click/file'));
-});
-
-test('redirects are revalidated before any request to the next target', async () => {
-  const original = globalThis.fetch; const targets: string[] = [];
-  globalThis.fetch = async (url) => { targets.push(String(url)); return new Response(null, { status: 302, headers: { Location: 'https://127.0.0.1/private' } }); };
-  try { await assert.rejects(fetchAllowedUrl(new URL('https://dl.encrypt.click/file'), {})); assert.equal(targets.length, 1); }
-  finally { globalThis.fetch = original; }
+  for (const u of ['http://upload.nolog.cz/x', 'https://127.0.0.1/', 'https://[::1]/', 'https://upload.nolog.cz:8080/',
+    'https://upload.nolog.cz.evil.test/', 'https://evil.test@upload.nolog.cz/', 'file:///etc/passwd', 'https://dl.encrypt.click/file']) assert.equal(parseAllowedFetchUrl(u), null, u);
+  assert.ok(parseAllowedFetchUrl('https://upload.nolog.cz/file'));
 });
 
 test('bounded reader cancels chunked bodies that exceed the cap', async () => {
@@ -86,31 +54,12 @@ test('bounded reader cancels chunked bodies that exceed the cap', async () => {
   await assert.rejects(readLimited(new Response('x', { headers: { 'content-length': '100' } }), 10));
 });
 
-test('outbound concurrency is bounded while result order stays stable', async () => {
-  let active = 0, peak = 0;
-  const results = await mapConcurrent([1, 2, 3, 4, 5], 2, async n => {
-    active++; peak = Math.max(active, peak); await new Promise(r => setTimeout(r, 2)); active--; return n * 2;
-  });
-  assert.deepEqual(results, [2, 4, 6, 8, 10]); assert.equal(peak, 2);
-});
-
-test('verify endpoint refuses oversized, malformed and forbidden target lists without outbound I/O', async () => {
-  const original = globalThis.fetch;
-  globalThis.fetch = async () => { throw new Error('Unexpected outbound request'); };
-  try {
-    for (const body of [null, { urls: 'x' }, { urls: ['https://127.0.0.1'] }, { urls: Array(9).fill('https://dl.encrypt.click/x') }]) {
-      const response = await verifyUrls({ request: new Request('https://encrypt.click/api/ghost/verify', { method: 'POST', body: JSON.stringify(body) }) } as any);
-      assert.equal(response.status, 400);
-    }
-  } finally { globalThis.fetch = original; }
-});
-
 test('download proxy never serves active upstream content as a document', async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async () => new Response('<svg onload="alert(1)"/>', { headers: { 'Content-Type': 'image/svg+xml' } });
   try {
-    const url = new URL('https://encrypt.click/api/ghost/fetch?url=https%3A%2F%2Fdl.encrypt.click%2Fx');
-    const response = await fetchFile({ url, request: new Request(url) } as any);
+    const url = new URL(`https://encrypt.click/api/ghost/fetch?url=${encodeURIComponent('https://upload.nolog.cz/download/0123456789abcdef/')}`);
+    const response = await fetchFile({ url, request: new Request(url, { headers: { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) } }) } as any);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('Content-Type'), 'application/octet-stream');
     assert.match(response.headers.get('Content-Disposition')!, /attachment/);
@@ -144,7 +93,7 @@ for (const Server of [Chat, Whiteboard]) test(`${Server.name}: unauthorized lock
   const bad = room.conn('bad'), good = room.conn('good'), waiting = room.conn('waiting');
   server.onConnect(bad as any); server.onConnect(good as any); server.onConnect(waiting as any);
   await server.onMessage(JSON.stringify({ type: 'lock' }), bad as any);
-  await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password' } }), good as any);
+  await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } }), good as any);
   assert.equal(good.closed, 0);
   await server.onMessage(JSON.stringify({ type: 'lock' }), good as any);
   assert.ok(good.messages.some(m => m.type === 'locked'));
@@ -161,7 +110,7 @@ test('chat rooms always keep a cleanup alarm that moves with activity and only d
   const server = new Chat(room.host);
   const first = room.conn('first');
   server.onConnect(first as any);
-  await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password' } }), first as any);
+  await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } }), first as any);
   assert.equal(room.stored.size, 1);
   assert.equal(room.alarms.length, 1);
   room.drop(first); server.onClose(first as any);
@@ -228,18 +177,4 @@ test('authenticated chat context rejects cross-room and stale control messages',
   assert.equal(validPayload(rename, 'room'), true);
   assert.equal(validPayload({ ...rename, prev: 'x'.repeat(65) }, 'room'), false);
   assert.equal(validPayload(rename, 'room', true), false);
-});
-
-test('legacy history migration removes fast verifiers and preserves undecryptable ciphertext', async () => {
-  const entries = new Map<string, string>();
-  const storage = { clear: () => entries.clear(), get length() { return entries.size; }, key: (i: number) => [...entries.keys()][i],
-    getItem: (key: string) => entries.get(key) ?? null, setItem: (key: string, value: string) => entries.set(key, value), removeItem: (key: string) => entries.delete(key) } as Storage;
-  storage.setItem('encrypt.click:chat-history:v2:room:fast-password-verifier', JSON.stringify([{ payload: 'old' }, { payload: 'other-password' }]));
-  archiveLegacyHistory(storage);
-  assert.ok([...entries.keys()].every(key => !key.includes('fast-password-verifier')));
-  await migrateRoomHistory(storage, 'room', 'modern', async cipher => {
-    if (cipher === 'other-password') throw new Error('wrong key'); return 'new-ciphertext';
-  }, 100);
-  assert.deepEqual(JSON.parse(storage.getItem('modern')!), [{ payload: 'new-ciphertext' }]);
-  assert.ok([...entries.values()].some(value => value.includes('other-password')));
 });

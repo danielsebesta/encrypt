@@ -6,7 +6,6 @@ export type ChatMode = 'live' | 'persistent' | `ttl-${number}`;
 export function normalizeChatMode(value: unknown, allowPersistent = false): ChatMode {
   if (value === 'live') return 'live';
   if (value === 'persistent') return allowPersistent ? 'persistent' : 'live';
-  if (value === 'burn') return 'ttl-10';
   if (typeof value === 'string') {
     const match = /^ttl-(\d{1,6})$/.exec(value);
     if (match && (RETENTION_SECONDS as readonly number[]).includes(Number(match[1]))) return value as ChatMode;
@@ -25,18 +24,18 @@ export function chatModeKeepsHistory(mode: ChatMode): boolean {
 export type RoomVersionStamp = { mode: string; v?: number };
 
 export function configStamp(config: RoomVersionStamp): string {
-  return `${config.v ?? 1}:${config.mode}`;
+  return `${config.v}:${config.mode}`;
 }
 
-export type RoomLookup = 'open' | 'legacy' | 'missing' | 'mismatch';
+export type RoomLookup = 'open' | 'missing' | 'mismatch';
 
 /**
- * What a joiner does with the settings the server reports. The version 3 channel is tried first and may only hold a
- * version 3 room; an empty one sends the joiner on to the PBKDF2 channel of older rooms, and only an empty one there is missing.
+ * What a joiner does with the settings the server reports: a channel without settings holds no room, and a room whose
+ * format or mode differs from what this browser saw there before is refused rather than joined.
  */
-export function roomLookup(config: RoomVersionStamp | null, v3Channel: boolean, remembered: string | null): RoomLookup {
-  if (!config) return v3Channel ? 'legacy' : 'missing';
-  if ((config.v === 3) !== v3Channel || (remembered && remembered !== configStamp(config))) return 'mismatch';
+export function roomLookup(config: RoomVersionStamp | null, remembered: string | null): RoomLookup {
+  if (!config) return 'missing';
+  if (config.v !== 3 || (remembered && remembered !== configStamp(config))) return 'mismatch';
   return 'open';
 }
 

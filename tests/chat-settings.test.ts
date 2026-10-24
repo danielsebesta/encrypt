@@ -6,7 +6,7 @@ test('room modes accept only the offered retention steps', () => {
   assert.equal(normalizeChatMode('live'), 'live');
   assert.equal(normalizeChatMode('ttl-30'), 'ttl-30');
   assert.equal(normalizeChatMode('ttl-86400'), 'ttl-86400');
-  assert.equal(normalizeChatMode('burn'), 'ttl-10');
+  assert.equal(normalizeChatMode('burn'), 'live');
   assert.equal(normalizeChatMode('ttl-7'), 'live');
   assert.equal(normalizeChatMode('ttl-999999'), 'live');
   assert.equal(normalizeChatMode({}), 'live');

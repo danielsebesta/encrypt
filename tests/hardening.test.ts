@@ -117,15 +117,22 @@ test('a forwarded auth key signs Send challenges exactly like the full secret', 
   assert.equal(upstreamAuth, expected);
 });
 
-test('room keys are bound to the room mode so a server cannot switch it', async () => {
-  const { deriveRoomKey, deriveKeyFromPassword, encryptMessage, decryptMessage } = await import('../src/lib/chatCrypto');
-  const live = await deriveRoomKey('Kyber-Zebra-Moth-Lamp-Fern42', 'room', 'live');
-  const burn = await deriveRoomKey('Kyber-Zebra-Moth-Lamp-Fern42', 'room', 'ttl-10');
-  const legacy = await deriveKeyFromPassword('Kyber-Zebra-Moth-Lamp-Fern42', 'room');
-  const sealed = await encryptMessage(burn, 'hello');
-  assert.equal(await decryptMessage(await deriveRoomKey('Kyber-Zebra-Moth-Lamp-Fern42', 'room', 'ttl-10'), sealed), 'hello');
-  await assert.rejects(decryptMessage(live, sealed));
-  await assert.rejects(decryptMessage(legacy, sealed));
+test('the download proxy takes only a bare Send URL with an auth key, never a URL that carries the content key', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error('Unexpected outbound request'); }) as typeof fetch;
+  const call = (target: string, headers: Record<string, string> = {}) => {
+    const url = new URL(`https://encrypt.click/api/ghost/fetch?url=${encodeURIComponent(target)}`);
+    return fetchFile({ url, request: new Request(url, { headers }) } as any);
+  };
+  try {
+    const full = 'https://upload.nolog.cz/download/0123456789abcdef/#c2VjcmV0c2VjcmV0c2VjcmV0';
+    assert.equal((await call(full)).status, 400);
+    assert.equal((await call(full, { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) })).status, 400);
+    assert.equal((await call(full.slice(0, full.indexOf('#')))).status, 400);
+    assert.equal((await call('https://dl.encrypt.click/x', { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) })).status, 400);
+    assert.equal((await call('https://upload.nolog.cz/file', { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) })).status, 400);
+  } finally { globalThis.fetch = original; }
+  await assert.rejects(ghostFetch('https://dl.encrypt.click/x'));
 });
 
 test('link shortening is off unless configured and only wraps receive links on this site', async () => {

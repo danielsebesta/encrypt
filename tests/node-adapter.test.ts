@@ -130,7 +130,7 @@ test('a room alarm left by an earlier process fires on start and clears an empty
   const file = path.join(tempDir(), 'rooms.sqlite');
   const name = await accessChannel(token);
   let db = new RoomDatabase(file);
-  await db.storage(`main:${name}`).put('room-config', { mode: 'live', authMode: 'fragment', createdAt: 1 });
+  await db.storage(`main:${name}`).put('room-config', { mode: 'live', authMode: 'password', createdAt: 1, v: 3 });
   await db.storage(`main:${name}`).setAlarm(Date.now() - 1000);
   db.close();
   db = new RoomDatabase(file);

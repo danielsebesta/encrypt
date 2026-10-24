@@ -5,10 +5,10 @@ import {
   ROTATE_AFTER_MS, PENDING, type FsSealed,
 } from '../src/lib/chatRatchet';
 import {
-  forwardLocalKey, sealLocal, openLocal, roomForwardSecret, legacyRoomForwardSecret, generateSigningIdentity, signPayload, verifyPayload,
+  forwardLocalKey, sealLocal, openLocal, roomForwardSecret, generateSigningIdentity, signPayload, verifyPayload,
 } from '../src/lib/chatCrypto';
 import { hkdfKey } from '../src/lib/kdf';
-import { stampPayload, validPayload } from '../src/lib/chatProtocol';
+import { isContent, relayedContentOk, stampPayload, validPayload } from '../src/lib/chatProtocol';
 
 const random = (n = 32) => crypto.getRandomValues(new Uint8Array(n));
 const hex = (n: number) => Array.from(random(n), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -286,15 +286,23 @@ test('history handed to a newcomer opens only for that newcomer', async () => {
   assert.equal(await bob.session.openSync(alice.pk, sync), null);
 });
 
-test('the forward secrecy secret depends on the room secret and mode, and old rooms derive one from the password', async () => {
+test('rooms with forward secrecy refuse content sealed only under the room key', () => {
+  const plain = { type: 'chat-message', id: 'm1', text: 'hi' };
+  assert.equal(relayedContentOk(plain, true, false), false);
+  assert.equal(relayedContentOk({ type: 'whiteboard-invite' }, true, false), false);
+  assert.equal(relayedContentOk(plain, true, true), true);
+  assert.equal(relayedContentOk({ type: 'presence' }, true, false), true);
+  assert.equal(relayedContentOk(plain, false, false), true);
+  assert.equal(isContent({ id: 'm1', text: 'untyped' }), false);
+});
+
+test('the forward secrecy secret depends on the room secret and mode', async () => {
   const base = await hkdfKey(random());
   const live = await roomForwardSecret(base, 'live');
   assert.equal(live.length, 32);
   assert.notDeepEqual(live, await roomForwardSecret(base, 'ttl-60'));
   assert.deepEqual(live, await roomForwardSecret(base, 'live'));
-  const legacy = await legacyRoomForwardSecret('correct horse battery staple', 'room', 'live');
-  assert.deepEqual(legacy, await legacyRoomForwardSecret('correct horse battery staple', 'room', 'live'));
-  assert.notDeepEqual(legacy, await legacyRoomForwardSecret('correct horse battery staple', 'room', 'ttl-60'));
+  assert.notDeepEqual(live, await roomForwardSecret(await hkdfKey(random()), 'live'));
 });
 
 test('local history keeps the signed plaintext under its own key, so a reload still verifies it and nothing else opens it', async () => {
