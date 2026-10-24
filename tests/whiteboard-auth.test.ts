@@ -148,12 +148,21 @@ test('a full signed doc part still fits under the relay payload cap', async () =
 });
 
 test('boards opened from a chat invite get a password that may create them', () => {
+  // Mirrors genAutoPassword in ChatRoom.svelte, which draws again until the policy passes.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-  for (let n = 0; n < 500; n++) {
+  const draw = () => {
     const bytes = crypto.getRandomValues(new Uint32Array(20));
     const chars = Array.from(bytes, (b) => alphabet[b % alphabet.length]);
-    const password = [0, 5, 10, 15].map((i) => chars.slice(i, i + 5).join('')).join('-');
-    assert.equal(roomPasswordOk(password, `chat-${n.toString(16).padStart(32, '0')}`), true, password);
+    return [0, 5, 10, 15].map((i) => chars.slice(i, i + 5).join('')).join('-');
+  };
+  let firstTry = 0;
+  for (let n = 0; n < 500; n++) {
+    const room = `chat-${n.toString(16).padStart(32, '0')}`;
+    let password = draw();
+    if (roomPasswordOk(password, room)) firstTry++;
+    for (let tries = 0; !roomPasswordOk(password, room) && tries < 20; tries++) password = draw();
+    assert.equal(roomPasswordOk(password, room), true, password);
   }
+  assert.ok(firstTry >= 490, `only ${firstTry} of 500 passed on the first draw`);
   assert.equal(roomPasswordOk('hunter2', 'board'), false);
 });
