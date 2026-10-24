@@ -10,6 +10,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Referrer-Policy', 'no-referrer');
   headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  // Cross-origin isolation keeps the page in its own process, out of reach of Spectre-style reads from other sites.
+  headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
   headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
