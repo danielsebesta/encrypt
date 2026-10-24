@@ -42,7 +42,7 @@ Before opening a pull request run `pnpm test`, `pnpm check`, `pnpm build` and `p
 
 1. Create the Svelte component in `src/components/tools/` using only the classes from `src/styles/global.css`: input, options behind a disclosure, one primary button, status, result with copy or download.
 2. Copy any file in `src/pages/tools/` and change the component import and the `tools.<name>` prefix.
-3. Register the slug in `src/lib/tools.ts` under `developer` or `privacy`.
+3. Register the slug in `src/lib/tools.ts` under `privacy`.
 4. Add to all seven locale files: `nav.tool.<name>`, `tools.<name>.h1` (same text as the navigation label), `.subtitle`, `.meta.title`, `.meta.description`, `.help.what`, `.help.safe` and optionally `.help.watchOut`.
 
 ## Pull requests

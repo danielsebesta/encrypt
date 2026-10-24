@@ -20,8 +20,8 @@ test('cookie and path readers only accept supported codes', () => {
   assert.equal(localeFromCookie('theme=dark; ec-lang=pl'), 'pl');
   assert.equal(localeFromCookie('ec-lang=xx'), null);
   assert.equal(localeFromCookie(null), null);
-  assert.equal(localeInPath('/cs/tools/jwt'), 'cs');
-  assert.equal(localeInPath('/tools/jwt'), null);
+  assert.equal(localeInPath('/cs/tools/aes-words'), 'cs');
+  assert.equal(localeInPath('/tools/aes-words'), null);
   assert.equal(localeInPath('/'), null);
 });
 
@@ -30,8 +30,8 @@ test('unprefixed pages redirect to the browser language on first visit', () => {
   assert.equal(res?.status, 302);
   assert.equal(res?.headers.get('Location'), 'https://encrypt.click/cs/');
   assert.equal(res?.headers.get('Vary'), 'Accept-Language, Cookie');
-  const tool = localeResponse(page('/tools/jwt?x=1', { 'Accept-Language': 'de' }));
-  assert.equal(tool?.headers.get('Location'), 'https://encrypt.click/de/tools/jwt?x=1');
+  const tool = localeResponse(page('/tools/aes-words?x=1', { 'Accept-Language': 'de' }));
+  assert.equal(tool?.headers.get('Location'), 'https://encrypt.click/de/tools/aes-words?x=1');
 });
 
 test('English browsers and English cookies are served without redirect', () => {
@@ -55,10 +55,10 @@ test('localized links, assets, APIs and non-GET requests are left alone', () => 
 });
 
 test('the choice endpoint sets the cookie and continues to a same-origin path only', () => {
-  assert.equal(languageChoiceHref('de', '/de/tools/jwt'), '/_lang/de?to=%2Fde%2Ftools%2Fjwt');
-  const res = localeResponse(page('/_lang/de?to=%2Fde%2Ftools%2Fjwt'));
+  assert.equal(languageChoiceHref('de', '/de/tools/aes-words'), '/_lang/de?to=%2Fde%2Ftools%2Faes-words');
+  const res = localeResponse(page('/_lang/de?to=%2Fde%2Ftools%2Faes-words'));
   assert.equal(res?.status, 303);
-  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/de/tools/jwt');
+  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/de/tools/aes-words');
   assert.match(res?.headers.get('Set-Cookie') ?? '', /^ec-lang=de; Path=\/; Max-Age=\d+; SameSite=Lax; Secure; HttpOnly$/);
   const open = localeResponse(page('/_lang/de?to=https%3A%2F%2Fevil.example%2F'));
   assert.equal(open?.headers.get('Location'), 'https://encrypt.click/');

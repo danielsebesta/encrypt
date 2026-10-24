@@ -49,15 +49,9 @@ importers:
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
-      jwt-decode:
-        specifier: ^4.0.0
-        version: 4.0.0
       lz-string:
         specifier: ^1.5.0
         version: 1.5.0
-      openpgp:
-        specifier: ^6.3.2
-        version: 6.3.2
       partyserver:
         specifier: 0.5.10
         version: 0.5.10(@cloudflare/workers-types@5.20261007.1)
@@ -76,9 +70,6 @@ importers:
       tlock-js:
         specifier: ^0.9.0
         version: 0.9.0
-      ulid:
-        specifier: ^3.0.2
-        version: 3.0.2
       ws:
         specifier: 8.22.0
         version: 8.22.0
@@ -1813,10 +1804,6 @@ packages:
   jsonc-parser@3.3.1:
     resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
 
-  jwt-decode@4.0.0:
-    resolution: {integrity: sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==}
-    engines: {node: '>=18'}
-
   kleur@4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
@@ -2125,15 +2112,6 @@ packages:
 
   oniguruma-to-es@4.3.6:
     resolution: {integrity: sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA==}
-
-  openpgp@6.3.2:
-    resolution: {integrity: sha512-wcZTzHz41LV8Y48zH/JlD1JT8YdNmpWOuMAjQ/podvvCwsjBEU37K3znJh4UQcj3hksE5z9TzvhbUbwzsGvlLQ==}
-    engines: {node: '>= 18.0.0', typescript: '>= 5.0.0'}
-    peerDependencies:
-      '@openpgp/web-stream-tools': ~0.3.0
-    peerDependenciesMeta:
-      '@openpgp/web-stream-tools':
-        optional: true
 
   p-limit@2.3.0:
     resolution: {integrity: sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==}
@@ -2470,10 +2448,6 @@ packages:
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
-
-  ulid@3.0.2:
-    resolution: {integrity: sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w==}
-    hasBin: true
 
   ultrahtml@1.7.0:
     resolution: {integrity: sha512-2xRd0VHoAQE4M+vF/DvFFB7pUV0ZxTW1TLi7lHQWnF/Sb5TPeEUV/l+hxcNnGO00ZXGnR0voCMmYRKQf+rvJ2g==}
@@ -4442,8 +4416,6 @@ snapshots:
 
   jsonc-parser@3.3.1: {}
 
-  jwt-decode@4.0.0: {}
-
   kleur@4.1.5: {}
 
   less@4.6.4:
@@ -4708,8 +4680,6 @@ snapshots:
       oniguruma-parser: 0.12.2
       regex: 6.1.0
       regex-recursion: 6.0.2
-
-  openpgp@6.3.2: {}
 
   p-limit@2.3.0:
     dependencies:
@@ -5076,8 +5046,6 @@ snapshots:
   typescript@6.0.3: {}
 
   ufo@1.6.4: {}
-
-  ulid@3.0.2: {}
 
   ultrahtml@1.7.0: {}
 

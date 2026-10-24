@@ -25,7 +25,7 @@ test('worker guards see the same decoded path Astro routes on', () => {
 
 test('language choice only continues to same-origin paths', () => {
   const origin = 'https://encrypt.click';
-  assert.equal(sameOriginTarget('/cs/tools/hmac?x=1', origin), 'https://encrypt.click/cs/tools/hmac?x=1');
+  assert.equal(sameOriginTarget('/cs/tools/aes-words?x=1', origin), 'https://encrypt.click/cs/tools/aes-words?x=1');
   for (const evil of ['/\t/evil.tld', '/\n/evil.tld', '//evil.tld', '/\\evil.tld', 'https://evil.tld', 'javascript:alert(1)', null]) {
     assert.equal(sameOriginTarget(evil, origin), 'https://encrypt.click/', String(evil));
   }
