@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { generateRSAKeyPair } from '../../lib/rsaKeys';
+  import { DEFAULT_RSA_BITS, generateRSAKeyPair } from '../../lib/rsaKeys';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
 
-  let bits = 2048;
+  let bits = DEFAULT_RSA_BITS;
   let isGenerating = false;
   let error = '';
   let keyPair: { publicKey: string, privateKey: string } | null = null;
@@ -28,8 +28,8 @@
   <div class="field">
     <label class="label" for="rsa-bits">{t(dict, 'tools.rsa.keyBitLength')}</label>
     <select id="rsa-bits" bind:value={bits} class="input">
-      <option value={1024}>{t(dict, 'tools.rsa.bit1024')}</option>
       <option value={2048}>{t(dict, 'tools.rsa.bit2048')}</option>
+      <option value={3072}>{t(dict, 'tools.rsa.bit3072')}</option>
       <option value={4096}>{t(dict, 'tools.rsa.bit4096')}</option>
     </select>
   </div>

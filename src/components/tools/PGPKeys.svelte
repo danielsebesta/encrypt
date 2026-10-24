@@ -8,6 +8,7 @@
   let name = '';
   let email = '';
   let passphrase = '';
+  let keyType: 'curve25519' | 'rsa' = 'curve25519';
   let rsaBits = 4096;
   let isGenerating = false;
   let keyPair: { publicKey: string; privateKey: string } | null = null;
@@ -23,7 +24,7 @@
     isGenerating = true;
     try {
       const { generatePGPKeyPair } = await import('../../lib/pgpKeys');
-      keyPair = await generatePGPKeyPair({ name: name.trim(), email: email.trim(), passphrase, rsaBits });
+      keyPair = await generatePGPKeyPair({ name: name.trim(), email: email.trim(), passphrase, type: keyType, rsaBits });
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.pgpKeys.failedToGenerate');
     } finally {
@@ -53,12 +54,21 @@
           <input id="pgp-pass" class="input" type="password" bind:value={passphrase} autocomplete="new-password" placeholder={t(dict, 'tools.pgpKeys.passphrasePlaceholder')} />
         </div>
         <div class="field">
-          <label class="label" for="pgp-bits">{t(dict, 'tools.pgpKeys.rsaStrength')}</label>
-          <select id="pgp-bits" bind:value={rsaBits} class="input">
-            <option value={2048}>{t(dict, 'tools.pgpKeys.bit2048')}</option>
-            <option value={4096}>{t(dict, 'tools.pgpKeys.bit4096')}</option>
+          <label class="label" for="pgp-type">{t(dict, 'tools.pgpKeys.keyType')}</label>
+          <select id="pgp-type" bind:value={keyType} class="input">
+            <option value="curve25519">{t(dict, 'tools.pgpKeys.typeCurve25519')}</option>
+            <option value="rsa">{t(dict, 'tools.pgpKeys.typeRsa')}</option>
           </select>
         </div>
+        {#if keyType === 'rsa'}
+          <div class="field">
+            <label class="label" for="pgp-bits">{t(dict, 'tools.pgpKeys.rsaStrength')}</label>
+            <select id="pgp-bits" bind:value={rsaBits} class="input">
+              <option value={2048}>{t(dict, 'tools.pgpKeys.bit2048')}</option>
+              <option value={4096}>{t(dict, 'tools.pgpKeys.bit4096')}</option>
+            </select>
+          </div>
+        {/if}
       </div>
     </div>
   </details>
