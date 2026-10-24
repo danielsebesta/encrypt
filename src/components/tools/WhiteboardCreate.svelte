@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
   import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
@@ -82,9 +82,15 @@
   $: rules = [
     { ok: checks.length, label: t(dict, 'common.passwordRuleLength') },
     { ok: checks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: checks.strength, label: t(dict, 'common.passwordRuleStrength') },
     { ok: checks.distinct, label: t(dict, 'common.passwordRuleDistinct') },
   ];
   $: stepText = t(dict, 'common.wizardStep').replace('{current}', String(step)).replace('{total}', String(STEPS));
+
+  onMount(() => {
+    const name = new URLSearchParams(window.location.search).get('name');
+    if (name) customRoomId = sanitizeRoomId(name, true);
+  });
 
   async function goTo(next: number) {
     step = next;
@@ -107,7 +113,7 @@
     const typed = password.trim();
     sessionStorage.setItem('whiteboard-password', typed);
     sessionStorage.setItem('whiteboard-share-password', typed);
-    window.location.href = `${window.location.origin}/whiteboard/${roomId}`;
+    window.location.href = `${window.location.origin}${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard/${roomId}`;
   }
 </script>
 

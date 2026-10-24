@@ -1,5 +1,6 @@
 import { COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
 import type { ShapeRecord, ScribbleStroke } from '@quickdrawjs/core';
+import { validPublicKey } from './chatCrypto';
 
 export const SHAPE_TYPES = ['draw', 'highlight', 'geo', 'arrow', 'line', 'text', 'note'] as const;
 
@@ -90,16 +91,17 @@ export function sanitizeScribbles(list: unknown): ScribbleStroke[] {
 export const BOARD_CHAT_MAX_TEXT = 2000;
 export const BOARD_CHAT_KEEP = 200;
 
-export type BoardChatItem = { id: string; text: string; alias: [number, number, number]; at: number; ttl?: number };
+export type BoardChatItem = { id: string; text: string; alias: [number, number, number]; at: number; ttl?: number; _pk: string; _sig: string };
+export type UnsignedBoardChatItem = Omit<BoardChatItem, '_pk' | '_sig'>;
 
-/** Board chat messages from peers: short ids, bounded text, a wire alias and a sane timestamp. */
+/** Board chat messages from peers: short ids, bounded text, a wire alias, a sane timestamp and the author's signature fields. */
 export function validBoardChatItem(value: unknown): value is BoardChatItem {
   if (!isPlainObject(value)) return false;
-  const { id, text, alias, at, ttl } = value;
+  const { id, text, alias, at, ttl, _pk, _sig } = value;
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(id)) return false;
   if (typeof text !== 'string' || !text.trim() || text.length > BOARD_CHAT_MAX_TEXT) return false;
   if (!Array.isArray(alias) || alias.length !== 3 || !alias.every((n) => Number.isInteger(n) && n >= 0 && n < 360)) return false;
   if (!finite(at, 1e13) || at <= 0) return false;
   if (ttl !== undefined && !(Number.isInteger(ttl) && (ttl as number) >= 1 && (ttl as number) <= 3600)) return false;
-  return true;
+  return validPublicKey(_pk) && typeof _sig === 'string' && /^[A-Za-z0-9_-]{86}$/.test(_sig);
 }

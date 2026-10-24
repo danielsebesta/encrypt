@@ -1,7 +1,7 @@
 import { Server, getServerByName, type Connection } from 'partyserver';
 import ChatRoom from './chat';
 import WhiteboardRoom from './whiteboard';
-import { connectionRequest, type RoomConnection, type RoomHost } from './access';
+import { ROOM_ROUTE_RE, connectionRequest, type Room, type RoomHost } from './access';
 
 export type RealtimeEnv = {
   CHAT: DurableObjectNamespace<RoomServer>;
@@ -9,16 +9,6 @@ export type RealtimeEnv = {
   WHITEBOARD: DurableObjectNamespace<RoomServer>;
   ROOM_TURN_SECRET?: string;
 };
-
-type Room = {
-  onStart?(): Promise<void> | void;
-  onConnect(conn: RoomConnection): void;
-  onMessage(message: string, conn: RoomConnection): Promise<void> | void;
-  onClose(conn: RoomConnection): void;
-  onAlarm?(): Promise<void> | void;
-};
-
-const ROUTE_RE = /^\/parties\/(main|persistent|whiteboard)\/([0-9a-f]{64})$/;
 
 export abstract class RoomServer extends Server<RealtimeEnv> {
   static options = { hibernate: false };
@@ -66,7 +56,7 @@ function pinnedToEu(namespace: DurableObjectNamespace<RoomServer>): DurableObjec
 }
 
 export async function routeRealtimeRequest(request: Request, env: RealtimeEnv): Promise<Response | null> {
-  const match = ROUTE_RE.exec(new URL(request.url).pathname);
+  const match = ROOM_ROUTE_RE.exec(new URL(request.url).pathname);
   if (!match) return null;
   if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket', { status: 426 });
   const party = match[1];

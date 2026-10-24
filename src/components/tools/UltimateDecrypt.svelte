@@ -1,11 +1,10 @@
 <script lang="ts">
   import { readLimited } from '../../lib/httpLimits';
   import { onMount } from 'svelte';
-  import LZString from 'lz-string';
   import { decrypt } from '../../lib/aesGcm';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
-  import { decryptSendBlob, isSendUrl } from '../../lib/nologSend';
+  import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
@@ -74,7 +73,7 @@
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
     const map: Record<string, string> = {
       png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-      webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+      webp: 'image/webp', bmp: 'image/bmp', ico: 'image/x-icon',
       mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mov: 'video/quicktime',
       mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac',
       m4a: 'audio/mp4', opus: 'audio/opus',
@@ -548,17 +547,6 @@
       pushDebug(`Stego+decrypt failed: ${e?.message || 'unknown'}`);
     }
 
-    try {
-      const text = await decrypt(buffer, password);
-      pushDebug(`Decrypted as raw AES text (${text.length} chars)`);
-      openedText = text;
-      previewType = 'text';
-      setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyText'));
-      return;
-    } catch {
-      pushDebug('Raw AES text decrypt also failed');
-    }
-
     throw new Error(t(dict, 'tools.ultimateDecrypt.errorDecryptFailed'));
   }
 
@@ -572,25 +560,11 @@
     const compressed = Uint8Array.from(atob(compressedB64), c => c.charCodeAt(0));
     pushDebug(`Outer payload base64-decoded to ${compressed.byteLength} bytes`);
 
-    let json: string;
-    try {
-      const decompressed = await gunzipBytes(compressed);
-      json = new TextDecoder().decode(decompressed);
-      pushDebug(`Outer payload gunzipped to ${decompressed.byteLength} bytes`);
-    } catch {
-      const legacy = LZString.decompressFromBase64(compressedB64) ?? LZString.decompressFromUTF16(compressedB64);
-      json = legacy || compressedB64;
-      pushDebug(legacy ? 'Outer payload opened with legacy LZ fallback' : 'Outer payload was not gzipped, using plaintext JSON fallback');
-    }
+    const decompressed = await gunzipBytes(compressed);
+    pushDebug(`Outer payload gunzipped to ${decompressed.byteLength} bytes`);
 
-    const data = JSON.parse(json) as any;
+    const data = JSON.parse(new TextDecoder().decode(decompressed)) as any;
     pushDebug(`Outer payload parsed: mode=${data.mode || 'unknown'}, version=${data.v ?? 'unknown'}`);
-
-    if (!data.v && !data.mode && (data.kind === 'text' || data.kind === 'file')) {
-      pushDebug('Legacy URL payload detected');
-      await handleInlinePayload(data);
-      return;
-    }
 
     if (data.v !== 1) {
       throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
@@ -643,7 +617,7 @@
   }
 
   async function handleGhostPayload(data: any) {
-    const urls: string[] = data.urls || (data.url ? [data.url] : []);
+    const urls: string[] = Array.isArray(data.urls) ? data.urls.filter((url: unknown): url is string => typeof url === 'string') : [];
     const isStego: boolean = data.stego ?? false;
     pushDebug(`Ghost payload opened: urls=${urls.length}, stego=${isStego}`);
 
@@ -657,7 +631,7 @@
         pushDebug(`Trying download source ${url}`);
         let fileBytes: Uint8Array;
 
-        const res = await fetch(`/api/ghost/fetch?url=${encodeURIComponent(url)}`);
+        const res = await ghostFetch(url);
         pushDebug(`Proxy fetch response HTTP ${res.status} for ${url}`);
         if (!res.ok) {
           lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');

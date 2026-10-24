@@ -1,14 +1,23 @@
 <script lang="ts">
-  import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks } from '../../lib/aesGcm';
+  import { encrypt, decrypt as decryptMsg, to14BitChunks, from14BitChunks, MAX_WORD_BYTES } from '../../lib/aesGcm';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
   export let locale = 'en';
   export let dict: Record<string, string>;
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
+  let style: 'words' | 'chat' = 'words';
   let inputText = '';
   let password = '';
   let result = '';
   let error = '';
+  async function chatCodec() {
+    const [{ createChatCodec }, { default: table }, { PASSWORD_ENVELOPE_MAGIC }] = await Promise.all([
+      import('../../lib/chatWords'),
+      import('../../lib/chatTable.json'),
+      import('../../lib/passwordEnvelope'),
+    ]);
+    return createChatCodec(table, { prefix: PASSWORD_ENVELOPE_MAGIC });
+  }
   async function handleProcess() {
     error = '';
     result = '';
@@ -17,9 +26,18 @@
       return;
     }
     try {
+      if (style === 'chat') {
+        const codec = await chatCodec();
+        if (mode === 'encrypt') {
+          result = codec.encode(await encrypt(inputText, password, MAX_WORD_BYTES));
+        } else {
+          result = await decryptMsg(codec.decode(inputText), password);
+        }
+        return;
+      }
       const { default: dictionary } = await import('../../lib/dictionary.json');
       if (mode === 'encrypt') {
-        const encryptedData = await encrypt(inputText, password);
+        const encryptedData = await encrypt(inputText, password, MAX_WORD_BYTES);
         const chunks = to14BitChunks(encryptedData);
         const words = chunks.map(index => dictionary[index]);
         result = words.join(' ');
@@ -64,6 +82,13 @@
         autocomplete="off"
         autocapitalize="off"
       ></textarea>
+    </div>
+    <div class="field">
+      <label for="cipher-style" class="label">{t(dict, 'tools.aesWords.style')}</label>
+      <select id="cipher-style" bind:value={style} class="input">
+        <option value="words">{t(dict, 'tools.aesWords.style.words')}</option>
+        <option value="chat">{t(dict, 'tools.aesWords.style.chat')}</option>
+      </select>
     </div>
     <div class="field">
       <label for="cipher-password" class="label">{t(dict, 'tools.aesWords.secretPassword')}</label>

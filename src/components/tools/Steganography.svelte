@@ -57,7 +57,7 @@
       let msgBytes: Uint8Array;
       try {
         status = t(dict, 'tools.steganography.encryptingMessage');
-        msgBytes = await encrypt(message, password);
+        msgBytes = await encrypt(message, password, Math.floor(data.length * 0.75 / 8) - 8);
       } catch (e) {
         status = t(dict, 'tools.steganography.encryptionFailed');
         return;

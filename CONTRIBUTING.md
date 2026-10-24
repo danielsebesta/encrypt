@@ -19,7 +19,7 @@ Before opening a pull request run `pnpm test`, `pnpm check`, `pnpm build` and `p
 
 - **No hardcoded user-facing text.** Every string goes to `src/locales/*.json`. `en.json` is the source of truth; add the key to all seven files in the same change.
 - **Use the design system.** Tokens and component classes are in `src/styles/global.css`; copy an existing tool page for the layout. Do not add parallel styles or one-off components.
-- **Keep crypto where it is.** `src/lib/crypto.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and `party/`. A UI change must not touch key handling, data formats or network behavior; if it has to, say so in the pull request.
+- **Keep crypto where it is.** `src/lib/passwordEnvelope.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and `party/`. A UI change must not touch key handling, data formats or network behavior; if it has to, say so in the pull request.
 - **Accessibility is part of done.** Every control has a label, icon-only buttons have `aria-label`, errors use `role="alert"`, results use `role="status"`, inputs are 16 px, and a page works at 320 px, with the keyboard, and in both themes.
 - **Commits are yours.** Write them in your own name, one concern per commit, no tool or bot co-author trailers.
 
@@ -34,7 +34,7 @@ Before opening a pull request run `pnpm test`, `pnpm check`, `pnpm build` and `p
 | `src/lib/locale.ts` | Server-side language negotiation used by `src/worker.ts` |
 | `src/lib/alias.ts` | Language-neutral participant aliases and colors |
 | `src/styles/global.css` | Tokens and component classes |
-| `src/lib/ghost/`, `src/pages/api/ghost/` | Encrypted upload, fetch and verification |
+| `src/lib/ghost/`, `src/pages/api/ghost/` | Encrypted upload, Send relay and fetch |
 | `party/` | Chat and whiteboard rooms, PartyServer Durable Objects |
 | `tests/` | Unit tests, run with `pnpm test` |
 
@@ -42,7 +42,7 @@ Before opening a pull request run `pnpm test`, `pnpm check`, `pnpm build` and `p
 
 1. Create the Svelte component in `src/components/tools/` using only the classes from `src/styles/global.css`: input, options behind a disclosure, one primary button, status, result with copy or download.
 2. Copy any file in `src/pages/tools/` and change the component import and the `tools.<name>` prefix.
-3. Register the slug in `src/lib/tools.ts` under `developer` or `privacy`.
+3. Register the slug in `src/lib/tools.ts` under `privacy`.
 4. Add to all seven locale files: `nav.tool.<name>`, `tools.<name>.h1` (same text as the navigation label), `.subtitle`, `.meta.title`, `.meta.description`, `.help.what`, `.help.safe` and optionally `.help.watchOut`.
 
 ## Pull requests

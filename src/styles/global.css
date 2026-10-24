@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../";
+@source "../../public";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {

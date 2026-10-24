@@ -122,24 +122,15 @@
 
   function tryDecodeCompact(input: string) {
     const raw = input.trim();
-    if (!raw || raw.includes('\n') || raw.startsWith('timecapsule:v1')) return null;
+    if (!raw || raw.includes('\n')) return null;
     try {
       const b64 = raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(raw.length / 4) * 4, '=');
-      // Try LZ-String first (primary website format)
       const json = LZString.decompressFromBase64(b64);
-      if (json) {
-        const obj = JSON.parse(json) as { v: number; r?: number; t?: number; c: string };
-        if (obj.v === 1 && obj.c) return obj;
-      }
-    } catch {}
-    // Fall back to plain base64 (standalone/legacy format)
-    try {
-      const b64 = raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(raw.length / 4) * 4, '=');
-      const plain = decodeURIComponent(escape(atob(b64)));
-      const obj = JSON.parse(plain) as { v: number; r?: number; t?: number; c: string };
-      if (obj.v === 1 && obj.c) return obj;
-    } catch {}
-    return null;
+      const obj = json ? JSON.parse(json) as { v: number; r?: number; t?: number; c: string } : null;
+      return obj?.v === 1 && typeof obj.c === 'string' && obj.c ? obj : null;
+    } catch {
+      return null;
+    }
   }
 
   async function handleEncrypt() {
@@ -220,31 +211,6 @@
     }
   }
 
-  function parseMetadata(input: string) {
-    const lines = input.trim().split('\n');
-    if (!lines[0] || !lines[0].startsWith('timecapsule:v1')) {
-      return { round: null, notBefore: null, armored: input.trim() };
-    }
-    let round: number | null = null;
-    let notBefore: string | null = null;
-    let i = 1;
-    for (; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) {
-        i++;
-        break;
-      }
-      if (line.startsWith('round=')) {
-        const v = Number(line.slice('round='.length));
-        if (!isNaN(v)) round = v;
-      } else if (line.startsWith('not_before=')) {
-        notBefore = line.slice('not_before='.length);
-      }
-    }
-    const armored = lines.slice(i).join('\n').trim();
-    return { round, notBefore, armored };
-  }
-
   async function handleDecrypt() {
     decryptError = '';
     decrypted = '';
@@ -256,30 +222,18 @@
     }
 
     decryptLoading = true;
+    const compact = tryDecodeCompact(input);
     try {
+      if (!compact) throw new Error('Invalid capsule');
       const { timelockDecrypt, client } = await getTlock();
-      const compact = tryDecodeCompact(input);
-      if (compact) {
-        const buf = await timelockDecrypt(compact.c, client);
-        decrypted = new TextDecoder().decode(buf);
-        return;
-      }
-
-      const meta = parseMetadata(input);
-      const buf = await timelockDecrypt(meta.armored, client);
+      const buf = await timelockDecrypt(compact.c, client);
       decrypted = new TextDecoder().decode(buf);
-    } catch (e: any) {
-      const compactMeta = tryDecodeCompact(decryptInput);
-      if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t) && compactMeta.t > Math.floor(Date.now() / 1000)) {
-        startCountdown(compactMeta.t);
+    } catch {
+      const unlock = compact?.t && Number.isFinite(compact.t) ? compact.t : null;
+      if (unlock && unlock > Math.floor(Date.now() / 1000)) {
+        startCountdown(unlock);
       } else {
-        let label = t(dict, 'tools.timeCapsule.unlockTimeUtcLabel');
-        if (compactMeta && compactMeta.t && Number.isFinite(compactMeta.t)) {
-          label = new Date(compactMeta.t * 1000).toISOString();
-        } else {
-          const meta = parseMetadata(decryptInput);
-          label = meta.notBefore || label;
-        }
+        const label = unlock ? new Date(unlock * 1000).toISOString() : t(dict, 'tools.timeCapsule.unlockTimeUtcLabel');
         decryptError = t(dict, 'tools.timeCapsule.tooEarly').replace('{time}', label);
       }
     } finally {

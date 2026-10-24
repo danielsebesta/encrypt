@@ -1,0 +1,51 @@
+// The contract between the platform-neutral server code and each deployment target (Cloudflare Workers, Node).
+
+export interface SqlLike {
+  exec(query: string, ...bindings: any[]): { toArray(): any[] };
+}
+
+export interface StoredBlob {
+  body: ReadableStream<Uint8Array>;
+  size: number;
+  uploaded: number;
+}
+
+/** Ciphertext uploads. Ids are random UUIDs chosen by the caller; objects older than a day count as gone. */
+export interface BlobStore {
+  put(id: string, body: ReadableStream<Uint8Array>, size: number): Promise<void>;
+  get(id: string): Promise<StoredBlob | null>;
+  delete(id: string): Promise<void>;
+}
+
+export interface UploadLimits {
+  monthlyBytes: number;
+  monthlyUploads: number;
+  dailyBytes: number;
+  dailyBytesPerClient: number;
+  maxFileBytes: number;
+}
+
+export type BudgetCommand =
+  | { op: 'rate'; key: string; limit: number; globalLimit: number }
+  | { op: 'relay'; client: string; bytes: number; browser: boolean; pass: string | null; dailyCap: number }
+  | { op: 'salt' }
+  | { op: 'reserve'; client: string; bytes: number; browser: boolean; pass: string | null; limits: UploadLimits }
+  | { op: 'release'; client: string; bytes: number; limits: UploadLimits }
+  | { op: 'status'; limits: UploadLimits }
+  | { op: 'spend'; nonce: string; expires: number }
+  | { op: 'challenges'; client: string };
+
+export interface Platform {
+  /** Secrets and settings: Worker bindings on Cloudflare, process.env on Node. */
+  env: Record<string, string | undefined>;
+  /** The visitor's address as the platform reports it, before any /64 grouping. */
+  clientIp(request: Request): string;
+  /**
+   * Runs one budget command against the SQLite database of `scope`. Commands for one scope must never interleave:
+   * a Durable Object per scope on Cloudflare, a synchronous SQLite call on Node.
+   */
+  budget<T = unknown>(scope: string, command: BudgetCommand): Promise<T>;
+  blobs: BlobStore;
+  /** Hands a /parties/<party>/<room> request to the realtime rooms; Node upgrades sockets itself and answers 426 here. */
+  realtime(request: Request): Promise<Response>;
+}
