@@ -39,10 +39,10 @@ function pipe(options: unknown, viaMessage = false) {
   let nextRead: Promise<Frame | null> | null = null;
   return {
     state,
-    async push(frame: Frame): Promise<Frame | null> {
+    async push(frame: Frame, expectFrame = true): Promise<Frame | null> {
       writer.write(frame).catch(() => {});
       nextRead ??= reader.read().then((result) => result.value ?? null);
-      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 80));
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), expectFrame ? 5000 : 80));
       const winner = await Promise.race([nextRead, timeout]);
       if (winner !== null) nextRead = null;
       return winner;
@@ -54,7 +54,7 @@ test('the worker seals outgoing frames, opens incoming ones and drops anything i
   const encrypt = pipe({ mode: 'encrypt', kind: 'video' });
   const decrypt = pipe({ mode: 'decrypt', kind: 'video', peerId: 'alice' });
 
-  assert.equal(await encrypt.push({ data: bytes(300, 1).buffer, type: 'key' }), null, 'no plaintext leaves before a key is set');
+  assert.equal(await encrypt.push({ data: bytes(300, 1).buffer, type: 'key' }, false), null, 'no plaintext leaves before a key is set');
 
   const key = createMediaKey();
   send({ op: 'send-key', keyId: key.id, raw: key.raw.slice().buffer });
@@ -74,12 +74,12 @@ test('the worker seals outgoing frames, opens incoming ones and drops anything i
 
   const tampered = sealedBytes.slice();
   tampered[50] ^= 1;
-  assert.equal(await decrypt.push({ data: tampered.buffer, type: 'delta' }), null);
-  assert.equal(await decrypt.push({ data: bytes(120, 3).buffer, type: 'delta' }), null, 'unencrypted frames are dropped');
+  assert.equal(await decrypt.push({ data: tampered.buffer, type: 'delta' }, false), null);
+  assert.equal(await decrypt.push({ data: bytes(120, 3).buffer, type: 'delta' }, false), null, 'unencrypted frames are dropped');
 
   const stranger = await importFrameKey(createMediaKey().raw, (key.id + 9) & 0xff);
   const foreign = await encryptFrame(stranger, bytes(80, 4), 3);
-  assert.equal(await decrypt.push({ data: foreign.buffer as ArrayBuffer, type: 'delta' }), null);
+  assert.equal(await decrypt.push({ data: foreign.buffer as ArrayBuffer, type: 'delta' }, false), null);
   assert.ok(posted.some((message) => message.op === 'missing' && message.peerId === 'alice'));
 
   const delta = await encrypt.push({ data: bytes(90, 5).buffer, type: 'delta' });
@@ -101,11 +101,11 @@ test('the worker seals outgoing frames, opens incoming ones and drops anything i
   send({ op: 'drop-peer', peerId: 'alice' });
   await settle();
   const afterDrop = await encrypt.push({ data: bytes(60, 8).buffer, type: 'delta' });
-  assert.equal(await decrypt.push({ data: afterDrop!.data, type: 'delta' }), null);
+  assert.equal(await decrypt.push({ data: afterDrop!.data, type: 'delta' }, false), null);
 
   send({ op: 'wipe' });
   await settle();
-  assert.equal(await encrypt.push({ data: bytes(60, 9).buffer, type: 'delta' }), null, 'a wiped worker sends nothing');
+  assert.equal(await encrypt.push({ data: bytes(60, 9).buffer, type: 'delta' }, false), null, 'a wiped worker sends nothing');
 });
 
 test('streams handed over by the legacy Chrome path get the same treatment, and bad options never pass frames', async () => {
@@ -122,7 +122,7 @@ test('streams handed over by the legacy Chrome path get the same treatment, and 
   assert.deepEqual(new Uint8Array((await decrypt.push({ data: sealed!.data }))!.data), original);
 
   const broken = pipe({ mode: 'decrypt', kind: 'audio' });
-  assert.equal(await broken.push({ data: sealed!.data.slice(0) }), null);
+  assert.equal(await broken.push({ data: sealed!.data.slice(0) }, false), null);
   const unknownMode = pipe({ mode: 'passthrough', kind: 'audio' }, true);
-  assert.equal(await unknownMode.push({ data: original.slice().buffer }), null);
+  assert.equal(await unknownMode.push({ data: original.slice().buffer }, false), null);
 });
