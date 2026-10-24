@@ -1,10 +1,14 @@
 // @ts-check
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, passthroughImageService } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import svelte from '@astrojs/svelte';
 import cloudflare from '@astrojs/cloudflare';
 import { getAdapter as nodeAdapter } from '@astrojs/node';
+
+// Astro invents a random key on every build to encrypt server-island props, which this site does not use. A fixed one keeps the output reproducible.
+process.env.ASTRO_KEY ||= createHash('sha256').update('encrypt.click/astro-key').digest('base64');
 
 const target = process.env.DEPLOY_TARGET || 'cloudflare';
 if (target !== 'cloudflare' && target !== 'node') throw new Error(`Unknown DEPLOY_TARGET "${target}"`);

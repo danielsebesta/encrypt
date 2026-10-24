@@ -137,6 +137,26 @@ docker compose up -d --build
 
 On `docker stop` the server closes room connections cleanly and the browsers reconnect when it is back. Stored data carries over between versions.
 
+## Verifying a build
+
+`pnpm run build:node` and the Docker build write `dist/client/build-integrity.json` with the commit and the SHA-256 of every served file, and the server publishes it at `/build-integrity.json`. The same script that checks encrypt.click checks your instance, or a friend's, against the public source:
+
+```bash
+git clone https://github.com/danielsebesta/encrypt.git && cd encrypt
+git checkout <commit from https://your.host/build-integrity.json>
+corepack enable && pnpm install --frozen-lockfile
+pnpm run build:node
+node scripts/verify-deployment.mjs https://your.host
+```
+
+The script compares every listed file, the response headers from `_headers` (including the CSP script hashes) and the `_redirects` rules with what the host really serves, prints `OK` or each mismatch, and exits 1 on any mismatch. `--dist` points it at another build output, `--verbose` lists every file.
+
+- **Same commit, same operating system.** The client files are byte-identical when built from the same commit with the same `pnpm-lock.yaml` on Linux (the official deployment is built on Ubuntu with the Node version in `.nvmrc`). On Windows the bundler lays the files out differently, so build in WSL or Docker: `docker run --rm -v "$PWD":/src -w /src node:24 sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm run build:node"`. Pass the commit and its date to `docker build` as `--build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)` so the image records them.
+- **Line endings.** The repository forces LF in `.gitattributes`, so a Windows checkout hashes like a Linux one.
+- **Ignored on purpose.** The GitHub star count in the footer (fetched while building), Astro's island ids (derived from the build path) and the bot-detection script Cloudflare appends to pages differ between honest builds. The report names each such page; any other difference is a mismatch.
+- **What it proves.** That the static files served right now are the ones this commit builds, and that the security headers are the committed ones. It cannot see the server code behind `/api` and `/parties`, or anything an intermediary adds to responses beyond the cases above.
+- **Provenance.** On encrypt.click the deploy workflow signs the build with GitHub's build provenance. `gh attestation verify build-integrity.json --repo danielsebesta/encrypt` shows that a downloaded manifest, or the `encrypt-click-dist` and `encrypt-click-node-dist` archives from a workflow run, came out of this repository's workflow at a given commit. The Docker job in `node.yml` also attests the digest of the image it built; the image is not published anywhere, so that attestation names the CI build and cannot be checked against a registry.
+
 ## Differences from encrypt.click on Cloudflare
 
 - **One instance.** All rooms live in one process. Run exactly one container per data volume; a second copy would split rooms between processes.

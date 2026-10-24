@@ -243,11 +243,33 @@ Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute req
 
 The same code also runs as a single Node.js server. `pnpm run build:node` builds it into `dist/`, and the [`Dockerfile`](Dockerfile) packs it with Caddy for HTTPS and coturn for call relays, so one `docker run` with `DOMAIN` set is a complete instance. See [`docs/self-hosting.md`](docs/self-hosting.md).
 
+## 🔍 Verify what is served
+
+Every build publishes `/build-integrity.json`: the commit it was built from and the SHA-256 of every file. `scripts/verify-deployment.mjs` rebuilds nothing; it compares a build you made yourself with what a site serves, file by file, plus the response headers (CSP included) and redirects.
+
+```bash
+git clone https://github.com/danielsebesta/encrypt.git && cd encrypt
+git checkout "$(curl -s https://encrypt.click/build-integrity.json | jq -r .commitSha)"
+corepack enable && pnpm install --frozen-lockfile && pnpm build
+node scripts/verify-deployment.mjs https://encrypt.click
+```
+
+It prints `OK` and exits 0, or lists every mismatch and exits 1. Use the Node version from `.nvmrc` and build on Linux (WSL or Docker on Windows): the same commit gives the same client files there, in any directory, apart from three harmless differences that the report names and ignores: the GitHub star count in the footer, Astro's island ids (they depend on the build path) and the bot-detection script Cloudflare appends to pages.
+
+The deploy workflow also signs the build. The manifest a site serves was produced by this repository's workflow if this succeeds:
+
+```bash
+curl -sO https://encrypt.click/build-integrity.json
+gh attestation verify build-integrity.json --repo danielsebesta/encrypt
+```
+
+The same goes for the `encrypt-click-dist` artifact of a deploy run (client files and Worker bundle) and for the Docker build in `node.yml`. The check covers every static file the site serves. It cannot cover API responses or what Cloudflare itself serves under `/cdn-cgi/`. See [`docs/self-hosting.md`](docs/self-hosting.md#verifying-a-build) for self-hosted instances.
+
 ## 📝 Operational notes
 
 - Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires at least 12 characters or the generated passphrase. Without a password the full `#k=…` link carries a random 256-bit secret; never send that link through a shortener.
 - TURN credentials are valid for five minutes and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
-- The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
+- The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host; `scripts/verify-deployment.mjs` and the attestations above are the independent check. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
 - Empty chat rooms delete their stored configuration after seven days.
 
 ## 🤝 Contributing
