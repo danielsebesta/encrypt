@@ -8,7 +8,8 @@ import {
 } from '@huggingface/transformers';
 import { assertOffline } from './cache';
 import { PACKS, type ChatLanguage } from './packs';
-import { createStegoCodec, type StegoCodec } from './stego';
+import type { ChatCipherProgress } from './progress';
+import { createStegoCodec, type StegoCodec, type StegoProgress } from './stego';
 
 let configured = false;
 
@@ -25,8 +26,8 @@ function configureEnv() {
 
 export interface LmSession {
   lang: ChatLanguage;
-  encodeCover(data: Uint8Array): Promise<string>;
-  decodeCover(text: string): Promise<Uint8Array>;
+  encodeCover(data: Uint8Array, onProgress?: StegoProgress): Promise<string>;
+  decodeCover(text: string, onProgress?: StegoProgress): Promise<Uint8Array>;
 }
 
 type Loaded = {
@@ -95,9 +96,13 @@ async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
   return { model, tokenizer, stego };
 }
 
-export async function openLmSession(lang: ChatLanguage): Promise<LmSession> {
+export async function openLmSession(
+  lang: ChatLanguage,
+  onProgress?: ChatCipherProgress,
+): Promise<LmSession> {
   let session = loaded.get(lang);
   if (!session) {
+    onProgress?.('loadModel');
     session = await loadOnnx(lang);
     loaded.set(lang, session);
   }
@@ -105,14 +110,14 @@ export async function openLmSession(lang: ChatLanguage): Promise<LmSession> {
 
   return {
     lang,
-    async encodeCover(data) {
-      const tokens = await stego.encode(data);
+    async encodeCover(data, onStego) {
+      const tokens = await stego.encode(data, onStego);
       return tokenizer.decode(tokens, { skip_special_tokens: true }).trim();
     },
-    async decodeCover(text) {
+    async decodeCover(text, onStego) {
       const encoded = tokenizer.encode(text.trim(), { add_special_tokens: false });
       const tokens = Array.from(encoded as number[]);
-      return stego.decode(tokens);
+      return stego.decode(tokens, onStego);
     },
   };
 }
