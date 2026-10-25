@@ -48,3 +48,7 @@ skills-lock.json
 audit-fixes.json
 
 DESIGN.md
+
+# Chat cipher model packs (prepare → .models-staging, upload to R2 encrypt-models)
+public/models/
+.models-staging/

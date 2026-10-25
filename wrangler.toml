@@ -16,8 +16,9 @@ enabled = false
 redact_query_string = true
 
 # Unprefixed pages pass through the worker so the language can be chosen server-side; assets and localized pages are served directly.
+# /models/* is Chat cipher language packs from the encrypt-models R2 bucket (too large for Worker assets).
 [assets]
-run_worker_first = ["/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/", "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*", "/_lang/*"]
+run_worker_first = ["/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/", "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*", "/_lang/*", "/models/*"]
 
 [vars]
 SHORTENER_URL = "https://l.encrypt.click/api/shorten"
@@ -26,6 +27,12 @@ SHORTENER_URL = "https://l.encrypt.click/api/shorten"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "encrypt-r2"
+jurisdiction = "eu"
+
+# Chat cipher ONNX packs + ORT WASM (prepared by scripts/prepare-chat-cipher-models.mjs).
+[[r2_buckets]]
+binding = "MODELS"
+bucket_name = "encrypt-models"
 jurisdiction = "eu"
 
 [[durable_objects.bindings]]

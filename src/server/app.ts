@@ -2,6 +2,7 @@ import { localeResponse } from '../lib/locale';
 import { MAX_TRANSFER_BYTES, clientPrefix, routingPath } from '../lib/httpLimits';
 import { PASS_HEADER, RELAY_DAILY_BYTES_PER_CLIENT, browserFetch, verifyPass, type Charge } from '../lib/uploadPass';
 import type { Platform } from '../platform/types';
+import { serveModel } from './models';
 import { challengeResponse, challengeSecret, handleUploadRoute } from './upload';
 
 // Per-client and global request ceilings per minute, kept per route in that route's own budget scope.
@@ -78,6 +79,7 @@ export function createApp(platform: Platform) {
       const path = routingPath(new URL(request.url).pathname);
       if (path === null) return new Response('Bad request', { status: 400 });
       if (path === '/healthz') return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
+      if (path.startsWith('/models/')) return serveModel(request, platform.models, path);
       const route = routeOf(path);
       if (route !== null) {
         if (crossSite(request)) return new Response('Forbidden', { status: 403 });
