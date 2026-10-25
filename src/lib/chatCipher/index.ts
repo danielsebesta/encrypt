@@ -19,6 +19,20 @@ export type { ChatCipherErrorKey } from './errors';
 export { PACKS, PACK_ORDER, packList, packTotalBytes, isPackId, ensurePack, getPackStatus };
 export { chatCipherErrorKey, chatCipherErrorRetryable } from './errors';
 
+export type { AcceleratorProbe, LmRuntimeInfo } from './lm';
+
+/** Probe WebGPU before encrypt; returns null offline / if the LM module fails to import. */
+export async function probeAccelerator() {
+  const { probeAccelerator: probe } = await import('./lm');
+  return probe();
+}
+
+/** Device used by a loaded pack session, or null before the first run. */
+export async function getLmRuntime(lang: ChatLanguage) {
+  const { getLmRuntime: runtime } = await import('./lm');
+  return runtime(lang);
+}
+
 /** Clear cached pack files and any loaded ONNX session for this language. */
 export async function resetLanguagePack(lang: ChatLanguage): Promise<void> {
   await clearPack(lang);

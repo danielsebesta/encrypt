@@ -36,15 +36,35 @@ function bitsFromBytes(data: Uint8Array): number[] {
   return bits;
 }
 
-function topIndices(logits: Float32Array, k: number, ban: Set<number>): number[] {
-  const scored: { i: number; v: number }[] = [];
+/** True if `a` should rank after `b` when sorting by logit desc, then index asc. */
+function ranksAfter(a: { i: number; v: number }, b: { i: number; v: number }): boolean {
+  return a.v < b.v || (a.v === b.v && a.i > b.i);
+}
+
+/**
+ * Same order as a full sort by (logit desc, index asc), but O(V·k) without allocating V rows.
+ * Exported for determinism tests against the naive sort.
+ */
+export function topIndices(logits: Float32Array, k: number, ban: Set<number>): number[] {
+  const best: { i: number; v: number }[] = [];
   for (let i = 0; i < logits.length; i++) {
     if (ban.has(i)) continue;
-    scored.push({ i, v: logits[i]! });
+    const row = { i, v: logits[i]! };
+    if (best.length < k) {
+      best.push(row);
+      if (best.length === k) best.sort((a, b) => b.v - a.v || a.i - b.i);
+      continue;
+    }
+    if (ranksAfter(row, best[k - 1]!)) continue;
+    let at = k - 1;
+    while (at > 0 && ranksAfter(best[at - 1]!, row)) {
+      best[at] = best[at - 1]!;
+      at--;
+    }
+    best[at] = row;
   }
-  scored.sort((a, b) => b.v - a.v || a.i - b.i);
-  if (scored.length < k) throw new Error('Model vocabulary too small for stego top-k');
-  return scored.slice(0, k).map(s => s.i);
+  if (best.length < k) throw new Error('Model vocabulary too small for stego top-k');
+  return best.map(s => s.i);
 }
 
 export function createStegoCodec(next: NextLogits, options: StegoOptions): StegoCodec {

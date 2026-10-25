@@ -9,14 +9,18 @@
     decryptFromChat,
     encryptToChat,
     ensurePack,
+    getLmRuntime,
     getPackStatus,
     isPackId,
     packList,
     packTotalBytes,
     PACKS,
+    probeAccelerator,
     resetLanguagePack,
+    type AcceleratorProbe,
     type ChatCipherErrorKey,
     type ChatCipherPhase,
+    type LmRuntimeInfo,
     type PackId,
     type PackStatus,
   } from '../../lib/chatCipher';
@@ -42,13 +46,54 @@
   let pack: PackStatus = PACKS[modelId].bundled
     ? { state: 'bundled' }
     : { state: 'missing', bytes: packTotalBytes(PACKS[modelId]) };
+  let accelProbe: AcceleratorProbe | null = null;
+  let accelRuntime: LmRuntimeInfo | null = null;
 
   $: model = PACKS[modelId];
   $: modelBytes = packTotalBytes(model);
+  $: accelText = formatAccel(accelProbe, accelRuntime);
 
   onMount(() => {
     void refreshPack(modelId);
+    void refreshAccel();
   });
+
+  async function refreshAccel() {
+    try {
+      accelProbe = await probeAccelerator();
+      accelRuntime = await getLmRuntime(modelId);
+    } catch {
+      accelProbe = { status: 'unsupported', name: '' };
+      accelRuntime = null;
+    }
+  }
+
+  function formatAccel(probe: AcceleratorProbe | null, runtime: LmRuntimeInfo | null): string {
+    if (runtime) {
+      const kv = runtime.kv
+        ? t(dict, 'tools.chatCipher.accel.kvOn')
+        : t(dict, 'tools.chatCipher.accel.kvOff');
+      if (runtime.device === 'webgpu') {
+        const name = runtime.adapterName || 'WebGPU';
+        return `${t(dict, 'tools.chatCipher.accel.runningWebgpu').replace('{name}', name)} · ${kv}`;
+      }
+      if (runtime.fallback === 'timeout') {
+        return `${t(dict, 'tools.chatCipher.accel.fallbackTimeout')} · ${kv}`;
+      }
+      if (runtime.fallback === 'error') {
+        return `${t(dict, 'tools.chatCipher.accel.fallbackError')} · ${kv}`;
+      }
+      return `${t(dict, 'tools.chatCipher.accel.runningWasm')} · ${kv}`;
+    }
+    if (!probe) return t(dict, 'tools.chatCipher.accel.checking');
+    if (probe.status === 'ready') {
+      return probe.name
+        ? t(dict, 'tools.chatCipher.accel.ready').replace('{name}', probe.name)
+        : t(dict, 'tools.chatCipher.accel.readyGeneric');
+    }
+    if (probe.status === 'no-adapter') return t(dict, 'tools.chatCipher.accel.noAdapter');
+    return t(dict, 'tools.chatCipher.accel.unsupported');
+  }
 
   async function refreshPack(next: PackId) {
     try {
@@ -68,8 +113,12 @@
     modelId = next;
     result = '';
     stream = '';
+    accelRuntime = null;
     clearError();
     void refreshPack(next);
+    void getLmRuntime(next).then(info => {
+      accelRuntime = info;
+    });
   }
 
   function onModelSelect(event: Event) {
@@ -113,6 +162,7 @@
     clearError();
     result = '';
     stream = '';
+    accelRuntime = null;
     try {
       await resetLanguagePack(modelId);
     } catch {
@@ -122,9 +172,14 @@
     await download();
   }
 
-  function setProgress(phase: ChatCipherPhase, info?: { done: number; total: number; preview?: string }) {
+  function setProgress(
+    phase: ChatCipherPhase,
+    info?: { done?: number; total?: number; preview?: string; backend?: 'webgpu' | 'wasm' },
+  ) {
     const pct =
-      info && info.total > 0 ? Math.min(100, Math.round((100 * info.done) / info.total)) : null;
+      info && info.total && info.total > 0 && typeof info.done === 'number'
+        ? Math.min(100, Math.round((100 * info.done) / info.total))
+        : null;
     progressPct = phase === 'cover' ? pct : null;
     if (phase === 'seal') {
       progressTitle = t(dict, 'tools.chatCipher.progress.sealTitle');
@@ -132,7 +187,12 @@
       stream = '';
     } else if (phase === 'loadModel') {
       progressTitle = t(dict, 'tools.chatCipher.progress.loadTitle');
-      progressDetail = t(dict, 'tools.chatCipher.progress.loadDetail');
+      progressDetail =
+        info?.backend === 'webgpu'
+          ? t(dict, 'tools.chatCipher.progress.loadWebgpu')
+          : info?.backend === 'wasm'
+            ? t(dict, 'tools.chatCipher.progress.loadWasm')
+            : t(dict, 'tools.chatCipher.progress.loadDetail');
       stream = '';
     } else if (phase === 'cover') {
       progressTitle =
@@ -180,8 +240,10 @@
           ? await encryptToChat(inputText, password, modelId, setProgress)
           : await decryptFromChat(inputText, password, modelId, setProgress);
       stream = '';
+      accelRuntime = await getLmRuntime(modelId);
     } catch (e: unknown) {
       showError(e);
+      accelRuntime = await getLmRuntime(modelId);
     } finally {
       busy = false;
       progressTitle = '';
@@ -269,6 +331,13 @@
           <div class="model-card__wide">
             <dt>{t(dict, 'tools.chatCipher.model.license')}</dt>
             <dd>{model.license}</dd>
+          </div>
+          <div class="model-card__wide">
+            <dt>{t(dict, 'tools.chatCipher.accel.label')}</dt>
+            <dd
+              class:accel--gpu={accelRuntime?.device === 'webgpu' || (!accelRuntime && accelProbe?.status === 'ready')}
+              class:accel--cpu={accelRuntime?.device === 'wasm' || (!!accelProbe && accelProbe.status !== 'ready' && !accelRuntime)}
+            >{accelText}</dd>
           </div>
         </dl>
       </div>
@@ -440,6 +509,14 @@
 
   .model-card__wide {
     grid-column: 1 / -1;
+  }
+
+  .accel--gpu {
+    color: var(--accent-strong);
+  }
+
+  .accel--cpu {
+    color: var(--warn);
   }
 
   @media (max-width: 420px) {
