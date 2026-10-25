@@ -1,6 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createStegoCodec } from '../src/lib/chatCipher/stego';
+import { createStegoCodec, topIndices } from '../src/lib/chatCipher/stego';
+
+function naiveTopIndices(logits: Float32Array, k: number, ban: Set<number>): number[] {
+  const scored: { i: number; v: number }[] = [];
+  for (let i = 0; i < logits.length; i++) {
+    if (ban.has(i)) continue;
+    scored.push({ i, v: logits[i]! });
+  }
+  scored.sort((a, b) => b.v - a.v || a.i - b.i);
+  return scored.slice(0, k).map(s => s.i);
+}
+
+test('fast top-k matches a full sort including ties', () => {
+  const logits = new Float32Array(64);
+  for (let i = 0; i < logits.length; i++) logits[i] = Math.sin(i * 1.7) * 3;
+  logits[3] = logits[9] = 10; // tie on value → lower index wins
+  const ban = new Set([0, 1, 2]);
+  assert.deepEqual(topIndices(logits, 8, ban), naiveTopIndices(logits, 8, ban));
+});
+
 
 /** Tiny deterministic LM: logits prefer id = (sum(context)+1) % vocab, with a smooth falloff. */
 function mockLogits(vocab: number): (context: number[]) => Float32Array {

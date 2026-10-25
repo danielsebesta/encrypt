@@ -2,7 +2,12 @@
 
 export type ChatCipherPhase = 'seal' | 'loadModel' | 'cover' | 'open';
 
-export type ChatCipherProgress = (
-  phase: ChatCipherPhase,
-  info?: { done: number; total: number; preview?: string },
-) => void;
+export type ChatCipherProgressInfo = {
+  done?: number;
+  total?: number;
+  preview?: string;
+  /** Which ONNX device is being loaded / was selected. */
+  backend?: 'webgpu' | 'wasm';
+};
+
+export type ChatCipherProgress = (phase: ChatCipherPhase, info?: ChatCipherProgressInfo) => void;
