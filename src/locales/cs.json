@@ -900,5 +900,18 @@
   "tools.chatCipher.about.4.title": "Stažení a soukromí",
   "tools.chatCipher.about.4": "Balíčky se berou jen z encrypt.click, ne z cizích modelových hostitelů. Po stažení zůstanou v mezipaměti prohlížeče. Šifrování a dešifrování síť nevolají. Smazání dat webu balíček odstraní.",
   "tools.chatCipher.about.5.title": "Dobré vědět",
-  "tools.chatCipher.about.5": "Běžnému čtenáři to vypadá jako chat, ale kdo nástroj zná, pozná generovaný text. Používej dlouhou frázi. Odesílatel i příjemce musí zvolit stejný jazyk. Další jazyky zatím nejsou."
+  "tools.chatCipher.about.5": "Běžnému čtenáři to vypadá jako chat, ale kdo nástroj zná, pozná generovaný text. Používej dlouhou frázi. Odesílatel i příjemce musí zvolit stejný jazyk. Další jazyky zatím nejsou.",
+  "tools.chatCipher.progress.workingBtn": "Pracuji…",
+  "tools.chatCipher.progress.startingTitle": "Startuji…",
+  "tools.chatCipher.progress.startingDetail": "Připravuji šifrování / dešifrování.",
+  "tools.chatCipher.progress.sealTitle": "Pečetím heslem…",
+  "tools.chatCipher.progress.sealDetail": "Protáhnu frázi přes PBKDF2. Může to trvat pár sekund.",
+  "tools.chatCipher.progress.loadTitle": "Načítám jazykový model…",
+  "tools.chatCipher.progress.loadDetail": "Poprvé se model načte do této karty. Další běhy jsou rychlejší.",
+  "tools.chatCipher.progress.writeTitle": "Píšu krycí chat…",
+  "tools.chatCipher.progress.readTitle": "Čtu krycí chat…",
+  "tools.chatCipher.progress.coverDetail": "Model jde slovo po slovu.",
+  "tools.chatCipher.progress.coverPct": "{pct} % — pořád offline, na CPU to jen trvá.",
+  "tools.chatCipher.progress.openTitle": "Otevírám pečeť…",
+  "tools.chatCipher.progress.openDetail": "Kontroluji heslo a AES značku."
 }

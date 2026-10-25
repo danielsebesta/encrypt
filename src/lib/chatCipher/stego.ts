@@ -2,9 +2,11 @@
 
 export type NextLogits = (context: number[]) => Float32Array | Promise<Float32Array>;
 
+export type StegoProgress = (done: number, total: number) => void;
+
 export interface StegoCodec {
-  encode(data: Uint8Array): Promise<number[]>;
-  decode(tokens: number[]): Promise<Uint8Array>;
+  encode(data: Uint8Array, onProgress?: StegoProgress): Promise<number[]>;
+  decode(tokens: number[], onProgress?: StegoProgress): Promise<Uint8Array>;
 }
 
 export interface StegoOptions {
@@ -52,7 +54,7 @@ export function createStegoCodec(next: NextLogits, options: StegoOptions): Stego
   const ban = new Set(options.ban ?? []);
   const maxTokens = options.maxTokens ?? 4096;
 
-  async function encode(data: Uint8Array): Promise<number[]> {
+  async function encode(data: Uint8Array, onProgress?: StegoProgress): Promise<number[]> {
     if (data.byteLength > 64 * 1024) throw new Error('Message too large');
     const payload: number[] = [];
     writeVarint(payload, data.byteLength);
@@ -63,6 +65,9 @@ export function createStegoCodec(next: NextLogits, options: StegoOptions): Stego
     let bitAt = 0;
     const context = options.start.slice();
     const out = context.slice();
+    const total = Math.max(1, Math.ceil(bits.length / bitsPer));
+    let done = 0;
+    onProgress?.(0, total);
 
     while (bitAt < bits.length) {
       if (out.length - options.start.length >= maxTokens) throw new Error('Cover text would be too long');
@@ -75,14 +80,20 @@ export function createStegoCodec(next: NextLogits, options: StegoOptions): Stego
       const token = ids[choice]!;
       context.push(token);
       out.push(token);
+      done++;
+      if (done === total || done % 4 === 0) onProgress?.(done, total);
     }
+    onProgress?.(total, total);
     return out.slice(options.start.length);
   }
 
-  async function decode(tokens: number[]): Promise<Uint8Array> {
+  async function decode(tokens: number[], onProgress?: StegoProgress): Promise<Uint8Array> {
     if (!tokens.length) throw new Error('No cover tokens');
     const bits: number[] = [];
     const context = options.start.slice();
+    const total = tokens.length;
+    onProgress?.(0, total);
+    let done = 0;
     for (const token of tokens) {
       const logits = await next(context);
       const ids = topIndices(logits, topK, ban);
@@ -90,7 +101,10 @@ export function createStegoCodec(next: NextLogits, options: StegoOptions): Stego
       if (choice < 0) throw new Error('Cover text does not match this language pack');
       for (let b = bitsPer - 1; b >= 0; b--) bits.push((choice >> b) & 1);
       context.push(token);
+      done++;
+      if (done === total || done % 4 === 0) onProgress?.(done, total);
     }
+    onProgress?.(total, total);
 
     const available = bits.length >> 3;
     let length = 0;

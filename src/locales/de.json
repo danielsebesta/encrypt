@@ -900,5 +900,18 @@
   "tools.chatCipher.about.4.title": "Download and privacy",
   "tools.chatCipher.about.4": "Packs are fetched only from encrypt.click, never from third-party model hosts in the browser. After download they stay in this browser’s cache. Encrypt and decrypt do not contact the network. Clearing site data removes the pack.",
   "tools.chatCipher.about.5.title": "Good to know",
-  "tools.chatCipher.about.5": "The cover looks like chat to a casual reader, but anyone who knows this tool can tell it is generated. Use a long passphrase. Sender and receiver must pick the same language. Other languages are not supported yet."
+  "tools.chatCipher.about.5": "The cover looks like chat to a casual reader, but anyone who knows this tool can tell it is generated. Use a long passphrase. Sender and receiver must pick the same language. Other languages are not supported yet.",
+  "tools.chatCipher.progress.workingBtn": "Working…",
+  "tools.chatCipher.progress.startingTitle": "Starting…",
+  "tools.chatCipher.progress.startingDetail": "Preparing encrypt / decrypt.",
+  "tools.chatCipher.progress.sealTitle": "Sealing with your password…",
+  "tools.chatCipher.progress.sealDetail": "Stretching the passphrase (PBKDF2). This can take a few seconds.",
+  "tools.chatCipher.progress.loadTitle": "Loading language model…",
+  "tools.chatCipher.progress.loadDetail": "First run loads the model into this tab. Later runs are faster.",
+  "tools.chatCipher.progress.writeTitle": "Writing chat cover…",
+  "tools.chatCipher.progress.readTitle": "Reading chat cover…",
+  "tools.chatCipher.progress.coverDetail": "Stepping through the model one word at a time.",
+  "tools.chatCipher.progress.coverPct": "{pct}% — still offline, just slow on CPU.",
+  "tools.chatCipher.progress.openTitle": "Opening the sealed message…",
+  "tools.chatCipher.progress.openDetail": "Checking the password and AES tag."
 }

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
+  import ProgressPulse from '../ProgressPulse.svelte';
   import {
     decryptFromChat,
     encryptToChat,
@@ -9,6 +10,7 @@
     getPackStatus,
     packTotalBytes,
     PACKS,
+    type ChatCipherPhase,
     type ChatLanguage,
     type PackStatus,
   } from '../../lib/chatCipher';
@@ -23,6 +25,8 @@
   let result = '';
   let error = '';
   let busy = false;
+  let progressTitle = '';
+  let progressDetail = '';
   let pack: PackStatus = PACKS[lang].bundled
     ? { state: 'bundled' }
     : { state: 'missing', bytes: packTotalBytes(PACKS[lang]) };
@@ -65,6 +69,30 @@
     }
   }
 
+  function setProgress(phase: ChatCipherPhase, info?: { done: number; total: number }) {
+    const pct =
+      info && info.total > 0 ? Math.min(100, Math.round((100 * info.done) / info.total)) : null;
+    if (phase === 'seal') {
+      progressTitle = t(dict, 'tools.chatCipher.progress.sealTitle');
+      progressDetail = t(dict, 'tools.chatCipher.progress.sealDetail');
+    } else if (phase === 'loadModel') {
+      progressTitle = t(dict, 'tools.chatCipher.progress.loadTitle');
+      progressDetail = t(dict, 'tools.chatCipher.progress.loadDetail');
+    } else if (phase === 'cover') {
+      progressTitle =
+        mode === 'encrypt'
+          ? t(dict, 'tools.chatCipher.progress.writeTitle')
+          : t(dict, 'tools.chatCipher.progress.readTitle');
+      progressDetail =
+        pct == null
+          ? t(dict, 'tools.chatCipher.progress.coverDetail')
+          : t(dict, 'tools.chatCipher.progress.coverPct').replace('{pct}', String(pct));
+    } else if (phase === 'open') {
+      progressTitle = t(dict, 'tools.chatCipher.progress.openTitle');
+      progressDetail = t(dict, 'tools.chatCipher.progress.openDetail');
+    }
+  }
+
   async function handleProcess() {
     error = '';
     result = '';
@@ -77,15 +105,19 @@
       return;
     }
     busy = true;
+    progressTitle = t(dict, 'tools.chatCipher.progress.startingTitle');
+    progressDetail = t(dict, 'tools.chatCipher.progress.startingDetail');
     try {
       result =
         mode === 'encrypt'
-          ? await encryptToChat(inputText, password, lang)
-          : await decryptFromChat(inputText, password, lang);
+          ? await encryptToChat(inputText, password, lang, setProgress)
+          : await decryptFromChat(inputText, password, lang, setProgress);
     } catch (e: unknown) {
       error = e instanceof Error && e.message ? e.message : t(dict, 'tools.chatCipher.errorGeneric');
     } finally {
       busy = false;
+      progressTitle = '';
+      progressDetail = '';
     }
   }
 
@@ -118,7 +150,7 @@
       {:else if pack.state === 'ready'}
         <p class="status">{t(dict, 'tools.chatCipher.pack.ready')}</p>
       {:else if pack.state === 'downloading'}
-        <p class="status">{t(dict, 'tools.chatCipher.pack.downloading').replace('{received}', formatBytes(pack.received)).replace('{total}', formatBytes(pack.total))}</p>
+        <p class="status status--busy" role="status">{t(dict, 'tools.chatCipher.pack.downloading').replace('{received}', formatBytes(pack.received)).replace('{total}', formatBytes(pack.total))}</p>
       {:else if pack.state === 'error'}
         <p class="status status--error" role="alert">{pack.message}</p>
         <button type="button" class="btn" on:click={download}>{t(dict, 'tools.chatCipher.pack.retry')}</button>
@@ -138,6 +170,7 @@
         spellcheck="false"
         autocomplete="off"
         autocapitalize="off"
+        disabled={busy}
       ></textarea>
     </div>
 
@@ -154,12 +187,21 @@
         autocapitalize="off"
         data-lpignore="true"
         data-1p-ignore
+        disabled={busy}
       />
     </div>
 
     <button type="button" class="btn w-full" disabled={busy || (pack.state !== 'bundled' && pack.state !== 'ready')} on:click={handleProcess}>
-      {mode === 'encrypt' ? t(dict, 'tools.chatCipher.encryptBtn') : t(dict, 'tools.chatCipher.decryptBtn')}
+      {#if busy}
+        {t(dict, 'tools.chatCipher.progress.workingBtn')}
+      {:else}
+        {mode === 'encrypt' ? t(dict, 'tools.chatCipher.encryptBtn') : t(dict, 'tools.chatCipher.decryptBtn')}
+      {/if}
     </button>
+
+    {#if busy}
+      <ProgressPulse title={progressTitle} detail={progressDetail} />
+    {/if}
 
     {#if error}
       <p class="status status--error" role="alert">{error}</p>
