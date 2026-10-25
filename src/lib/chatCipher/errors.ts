@@ -25,7 +25,9 @@ const RULES: Array<{ key: ChatCipherErrorKey; test: (message: string, name: stri
   {
     key: 'tools.chatCipher.errorModel',
     test: (m) =>
-      /local_files_only|from_pretrained|ONNX|tokenizer|model vocabulary|Pack is not an ONNX/i.test(m),
+      /local_files_only|from_pretrained|ONNX|tokenizer|model vocabulary|Pack is not an ONNX|Missing the following inputs|model execution/i.test(
+        m,
+      ),
   },
   {
     key: 'tools.chatCipher.errorCoverMismatch',

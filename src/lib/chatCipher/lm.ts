@@ -114,16 +114,42 @@ async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
       : null) ??
     (typeof tokenizer.eos_token_id === 'number' ? tokenizer.eos_token_id : 0);
 
+  const config = (
+    model as unknown as {
+      config?: { model_type?: string; n_positions?: number; max_position_embeddings?: number };
+    }
+  ).config;
+  const window =
+    (typeof config?.n_positions === 'number' && config.n_positions > 0 ? config.n_positions : null) ??
+    (typeof config?.max_position_embeddings === 'number' && config.max_position_embeddings > 0
+      ? config.max_position_embeddings
+      : 2048);
+  // Kecal's GPT-2 ONNX export requires mask + positions; Falcon accepts input_ids alone.
+  const gpt2Inputs = config?.model_type === 'gpt2';
+
   const stego = createStegoCodec(
     async context => {
-      const inputIds = new Tensor(
-        'int64',
-        BigInt64Array.from(context.map(n => BigInt(n))),
-        [1, context.length],
-      );
-      const out = await model({ input_ids: inputIds });
+      const tokens = context.length > window ? context.slice(context.length - window) : context;
+      const len = tokens.length;
+      const ids = BigInt64Array.from(tokens.map(n => BigInt(n)));
+      const feeds: Record<string, Tensor> = {
+        input_ids: new Tensor('int64', ids, [1, len]),
+      };
+      if (gpt2Inputs) {
+        feeds.attention_mask = new Tensor(
+          'int64',
+          BigInt64Array.from({ length: len }, () => 1n),
+          [1, len],
+        );
+        feeds.position_ids = new Tensor(
+          'int64',
+          BigInt64Array.from({ length: len }, (_, i) => BigInt(i)),
+          [1, len],
+        );
+      }
+      const out = await model(feeds);
       const logits = out.logits as Tensor;
-      const seq = logits.dims[1] ?? context.length;
+      const seq = logits.dims[1] ?? len;
       const vocab = logits.dims[2] ?? logits.dims[1]!;
       const data = logits.data as Float32Array;
       const offset = (seq - 1) * vocab;
