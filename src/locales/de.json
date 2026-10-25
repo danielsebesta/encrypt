@@ -876,7 +876,7 @@
   "tools.chatCipher.model.size": "Download size",
   "tools.chatCipher.model.parameters": "Parameters",
   "tools.chatCipher.model.context": "Context",
-  "tools.chatCipher.model.layers": "Layers × width",
+  "tools.chatCipher.model.layers": "Layers Ã— width",
   "tools.chatCipher.model.vocab": "Vocabulary",
   "tools.chatCipher.model.author": "Author",
   "tools.chatCipher.model.source": "Download host",
