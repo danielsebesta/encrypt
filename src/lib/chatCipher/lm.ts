@@ -54,14 +54,31 @@ async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
   if (pack.engine !== 'onnx') throw new Error('Pack is not an ONNX model');
 
   const modelId = pack.base.replace(/\/$/, '');
-  const tokenizer = await AutoTokenizer.from_pretrained(modelId, { local_files_only: true });
-  const webgpu = await preferWebGpu();
-  const dtype = pack.dtype ?? 'q8';
-  const model = await AutoModelForCausalLM.from_pretrained(modelId, {
-    local_files_only: true,
-    dtype,
-    device: webgpu ? 'webgpu' : 'wasm',
-  });
+  let tokenizer: PreTrainedTokenizer;
+  let model: PreTrainedModel;
+  try {
+    tokenizer = await AutoTokenizer.from_pretrained(modelId, { local_files_only: true });
+    const webgpu = await preferWebGpu();
+    const dtype = pack.dtype ?? 'q8';
+    // Prefer WebGPU when available; fall back to WASM if the GPU path cannot start.
+    try {
+      model = await AutoModelForCausalLM.from_pretrained(modelId, {
+        local_files_only: true,
+        dtype,
+        device: webgpu ? 'webgpu' : 'wasm',
+      });
+    } catch (first) {
+      if (!webgpu) throw first;
+      model = await AutoModelForCausalLM.from_pretrained(modelId, {
+        local_files_only: true,
+        dtype,
+        device: 'wasm',
+      });
+    }
+  } catch (e: unknown) {
+    const detail = e instanceof Error && e.message ? e.message : String(e);
+    throw new Error(`ONNX model failed to load: ${detail}`, { cause: e });
+  }
 
   const ban: number[] = [];
   for (const key of ['pad_token_id', 'bos_token_id', 'unk_token_id'] as const) {
@@ -120,4 +137,9 @@ export async function openLmSession(
       return stego.decode(tokens, onStego);
     },
   };
+}
+
+/** Drop an in-memory ONNX session so the next open reloads from cache. */
+export function dropLmSession(lang: ChatLanguage): void {
+  loaded.delete(lang);
 }
