@@ -4,5 +4,5 @@ export type ChatCipherPhase = 'seal' | 'loadModel' | 'cover' | 'open';
 
 export type ChatCipherProgress = (
   phase: ChatCipherPhase,
-  info?: { done: number; total: number },
+  info?: { done: number; total: number; preview?: string },
 ) => void;

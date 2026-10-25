@@ -2,7 +2,7 @@
 
 export type NextLogits = (context: number[]) => Float32Array | Promise<Float32Array>;
 
-export type StegoProgress = (done: number, total: number) => void;
+export type StegoProgress = (done: number, total: number, token?: number) => void;
 
 export interface StegoCodec {
   encode(data: Uint8Array, onProgress?: StegoProgress): Promise<number[]>;
@@ -81,9 +81,8 @@ export function createStegoCodec(next: NextLogits, options: StegoOptions): Stego
       context.push(token);
       out.push(token);
       done++;
-      if (done === total || done % 4 === 0) onProgress?.(done, total);
+      onProgress?.(done, total, token);
     }
-    onProgress?.(total, total);
     return out.slice(options.start.length);
   }
 
@@ -102,9 +101,8 @@ export function createStegoCodec(next: NextLogits, options: StegoOptions): Stego
       for (let b = bitsPer - 1; b >= 0; b--) bits.push((choice >> b) & 1);
       context.push(token);
       done++;
-      if (done === total || done % 4 === 0) onProgress?.(done, total);
+      onProgress?.(done, total, token);
     }
-    onProgress?.(total, total);
 
     const available = bits.length >> 3;
     let length = 0;
