@@ -2,6 +2,7 @@ import { localeResponse } from '../lib/locale';
 import { MAX_TRANSFER_BYTES, clientPrefix, routingPath } from '../lib/httpLimits';
 import { PASS_HEADER, RELAY_DAILY_BYTES_PER_CLIENT, browserFetch, verifyPass, type Charge } from '../lib/uploadPass';
 import type { Platform } from '../platform/types';
+import { withCloudflareScriptNonce } from './csp';
 import { serveModel } from './models';
 import { challengeResponse, challengeSecret, handleUploadRoute } from './upload';
 
@@ -93,7 +94,8 @@ export function createApp(platform: Platform) {
         const handled = await handleUploadRoute(request, path, platform);
         if (handled) return handled;
       }
-      return localeResponse(request) ?? render(request);
+      const response = localeResponse(request) ?? (await render(request));
+      return withCloudflareScriptNonce(response);
     },
 
     async guardRealtime(request: Request): Promise<Response | null> {

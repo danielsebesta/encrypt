@@ -15,10 +15,17 @@ logpush = false
 enabled = false
 redact_query_string = true
 
-# Unprefixed pages pass through the worker so the language can be chosen server-side; assets and localized pages are served directly.
+# HTML pages pass through the worker so locale redirects and a per-request CSP nonce for Cloudflare's
+# bot-detection inject can run. Fingerprinted assets under /_astro and /fonts stay on the asset path.
 # /models/* is Chat cipher language packs from the encrypt-models R2 bucket (too large for Worker assets).
 [assets]
-run_worker_first = ["/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/", "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*", "/_lang/*", "/models/*"]
+run_worker_first = [
+  "/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/",
+  "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*",
+  "/_lang/*", "/models/*",
+  "/cs", "/cs/", "/cs/*", "/de", "/de/", "/de/*", "/es", "/es/", "/es/*",
+  "/fr", "/fr/", "/fr/*", "/sk", "/sk/", "/sk/*", "/pl", "/pl/", "/pl/*",
+]
 
 [vars]
 SHORTENER_URL = "https://l.encrypt.click/api/shorten"
