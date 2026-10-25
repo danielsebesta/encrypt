@@ -36,35 +36,53 @@ function bitsFromBytes(data: Uint8Array): number[] {
   return bits;
 }
 
-/** True if `a` should rank after `b` when sorting by logit desc, then index asc. */
-function ranksAfter(a: { i: number; v: number }, b: { i: number; v: number }): boolean {
-  return a.v < b.v || (a.v === b.v && a.i > b.i);
-}
-
 /**
- * Same order as a full sort by (logit desc, index asc), but O(V·k) without allocating V rows.
- * Exported for determinism tests against the naive sort.
+ * Same order as a full sort by (logit desc, index asc), but zero heap allocations
+ * per token and O(V·k) traversal.
  */
 export function topIndices(logits: Float32Array, k: number, ban: Set<number>): number[] {
-  const best: { i: number; v: number }[] = [];
+  const bestIdx = new Int32Array(k).fill(-1);
+  const bestVal = new Float32Array(k).fill(-Infinity);
+  let count = 0;
+
   for (let i = 0; i < logits.length; i++) {
     if (ban.has(i)) continue;
-    const row = { i, v: logits[i]! };
-    if (best.length < k) {
-      best.push(row);
-      if (best.length === k) best.sort((a, b) => b.v - a.v || a.i - b.i);
+    const v = logits[i]!;
+    if (count < k) {
+      bestIdx[count] = i;
+      bestVal[count] = v;
+      count++;
+      if (count === k) {
+        for (let a = 0; a < k - 1; a++) {
+          for (let b = a + 1; b < k; b++) {
+            if (bestVal[b] > bestVal[a] || (bestVal[b] === bestVal[a] && bestIdx[b] < bestIdx[a])) {
+              const tv = bestVal[a]!; bestVal[a] = bestVal[b]!; bestVal[b] = tv;
+              const ti = bestIdx[a]!; bestIdx[a] = bestIdx[b]!; bestIdx[b] = ti;
+            }
+          }
+        }
+      }
       continue;
     }
-    if (ranksAfter(row, best[k - 1]!)) continue;
+
+    const lastVal = bestVal[k - 1]!;
+    if (v < lastVal || (v === lastVal && i > bestIdx[k - 1]!)) continue;
+
     let at = k - 1;
-    while (at > 0 && ranksAfter(best[at - 1]!, row)) {
-      best[at] = best[at - 1]!;
+    while (at > 0) {
+      const prevVal = bestVal[at - 1]!;
+      const prevIdx = bestIdx[at - 1]!;
+      if (prevVal > v || (prevVal === v && prevIdx < i)) break;
+      bestVal[at] = prevVal;
+      bestIdx[at] = prevIdx;
       at--;
     }
-    best[at] = row;
+    bestVal[at] = v;
+    bestIdx[at] = i;
   }
-  if (best.length < k) throw new Error('Model vocabulary too small for stego top-k');
-  return best.map(s => s.i);
+
+  if (count < k) throw new Error('Model vocabulary too small for stego top-k');
+  return Array.from(bestIdx);
 }
 
 export function createStegoCodec(next: NextLogits, options: StegoOptions): StegoCodec {
