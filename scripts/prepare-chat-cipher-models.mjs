@@ -45,11 +45,16 @@ const enFiles = [
   'onnx/model_q4f16.onnx_data',
 ];
 
+/** All ORT WASM entrypoints transformers.js may pick (jsep / asyncify / jspi / plain). */
 const ortNames = [
-  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.asyncify.mjs',
+  'ort-wasm-simd-threaded.asyncify.wasm',
   'ort-wasm-simd-threaded.jsep.mjs',
-  'ort-wasm-simd-threaded.wasm',
+  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.jspi.mjs',
+  'ort-wasm-simd-threaded.jspi.wasm',
   'ort-wasm-simd-threaded.mjs',
+  'ort-wasm-simd-threaded.wasm',
 ];
 
 async function download(url) {
