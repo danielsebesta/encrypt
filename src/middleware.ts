@@ -1,10 +1,13 @@
 import { defineMiddleware } from 'astro:middleware';
+import { withCloudflareScriptNonce } from './server/csp';
 
 const SCRIPT_HASHES = '__CSP_SCRIPT_HASHES__';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
-  if (context.isPrerendered) return response;
+  // Static HTML keeps _headers CSP (script hashes). Still append a nonce so Cloudflare's
+  // bot-detection inject can run; ASSETS responses are covered in createApp instead.
+  if (context.isPrerendered) return withCloudflareScriptNonce(response);
   const headers = new Headers(response.headers);
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
