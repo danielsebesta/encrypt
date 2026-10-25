@@ -53,8 +53,16 @@ function configureEnv() {
   const wasm = env.backends?.onnx?.wasm;
   if (wasm) {
     wasm.wasmPaths = `${typeof location !== 'undefined' ? location.origin : ''}/models/ort/`;
-    // Multi-thread ORT workers hang in some Chromium embeds; single-thread is reliable enough for Kecal/Falcon.
-    wasm.numThreads = 1;
+    // Multi-threaded WASM when SharedArrayBuffer is available in crossOriginIsolated context.
+    const canMultiThread =
+      typeof crossOriginIsolated !== 'undefined' &&
+      crossOriginIsolated &&
+      typeof SharedArrayBuffer !== 'undefined';
+    const cores =
+      typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number'
+        ? navigator.hardwareConcurrency
+        : 4;
+    wasm.numThreads = canMultiThread ? Math.min(4, Math.max(1, cores)) : 1;
     wasm.proxy = false;
   }
   configured = true;
@@ -115,6 +123,16 @@ export async function probeAccelerator(): Promise<AcceleratorProbe> {
     const raw = await gpu.requestAdapter();
     if (!raw) return { status: 'no-adapter', name: '' };
     const adapter = raw as GpuAdapterLike;
+    // Verify the adapter can actually acquire a functional device
+    // (guards against experimental stubs like in Firefox/Zen that pass requestAdapter but fail execution).
+    if (typeof (raw as { requestDevice?: () => Promise<{ destroy?: () => void }> }).requestDevice === 'function') {
+      try {
+        const dev = await (raw as { requestDevice: () => Promise<{ destroy?: () => void }> }).requestDevice();
+        if (dev && typeof dev.destroy === 'function') dev.destroy();
+      } catch {
+        return { status: 'unsupported', name: '' };
+      }
+    }
     // Older Chromium: info may need requestAdapterInfo().
     if (!adapter.info && typeof adapter.requestAdapterInfo === 'function') {
       try {
@@ -189,7 +207,7 @@ async function loadOnnx(lang: PackId, onProgress?: ChatCipherProgress): Promise<
     if (probe.status === 'ready') {
       onProgress?.('loadModel', { backend: 'webgpu' });
       try {
-        model = await withTimeout(load('webgpu'), 20_000, 'WebGPU model load');
+        model = await withTimeout(load('webgpu'), 4_000, 'WebGPU model load');
         device = 'webgpu';
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -246,11 +264,11 @@ async function loadOnnx(lang: PackId, onProgress?: ChatCipherProgress): Promise<
   // Warm the session so the first cover token is not a cold GPU/WASM compile.
   try {
     const warm: Record<string, unknown> = {
-      input_ids: new Tensor('int64', BigInt64Array.from([BigInt(startId)]), [1, 1]),
+      input_ids: new Tensor('int64', new BigInt64Array([BigInt(startId)]), [1, 1]),
     };
     if (gpt2Inputs) {
-      warm.attention_mask = new Tensor('int64', BigInt64Array.from([1n]), [1, 1]);
-      warm.position_ids = new Tensor('int64', BigInt64Array.from([0n]), [1, 1]);
+      warm.attention_mask = new Tensor('int64', new BigInt64Array([1n]), [1, 1]);
+      warm.position_ids = new Tensor('int64', new BigInt64Array([0n]), [1, 1]);
     }
     await model(warm as never);
   } catch {
@@ -287,7 +305,13 @@ function createCachedScorer(
 
   const run = async (feed: number[], absStart: number, usePast: PastCache | null) => {
     const len = feed.length;
-    const ids = BigInt64Array.from(feed.map(n => BigInt(n)));
+    let ids: BigInt64Array;
+    if (len === 1) {
+      ids = new BigInt64Array([BigInt(feed[0]!)]);
+    } else {
+      ids = new BigInt64Array(len);
+      for (let i = 0; i < len; i++) ids[i] = BigInt(feed[i]!);
+    }
     const feeds: Record<string, unknown> = {
       input_ids: new Tensor('int64', ids, [1, len]),
       // Only the last position is used for stego; skip full-seq LM-head when the export allows it.
@@ -296,16 +320,18 @@ function createCachedScorer(
     if (gpt2Inputs) {
       const pastLen = usePast ? usePast.get_seq_length() : 0;
       const maskLen = pastLen + len;
-      feeds.attention_mask = new Tensor(
-        'int64',
-        BigInt64Array.from({ length: maskLen }, () => 1n),
-        [1, maskLen],
-      );
-      feeds.position_ids = new Tensor(
-        'int64',
-        BigInt64Array.from({ length: len }, (_, i) => BigInt(absStart + i)),
-        [1, len],
-      );
+      const mask = new BigInt64Array(maskLen);
+      mask.fill(1n);
+      feeds.attention_mask = new Tensor('int64', mask, [1, maskLen]);
+
+      let pos: BigInt64Array;
+      if (len === 1) {
+        pos = new BigInt64Array([BigInt(absStart)]);
+      } else {
+        pos = new BigInt64Array(len);
+        for (let i = 0; i < len; i++) pos[i] = BigInt(absStart + i);
+      }
+      feeds.position_ids = new Tensor('int64', pos, [1, len]);
     }
     if (usePast) feeds.past_key_values = usePast;
     const out = (await model(feeds as never)) as Record<string, unknown> & { logits: Tensor };
@@ -315,7 +341,7 @@ function createCachedScorer(
     const data = logits.data as Float32Array;
     const offset = (seq - 1) * vocab;
     return {
-      logits: data.slice(offset, offset + vocab),
+      logits: data.subarray(offset, offset + vocab),
       past: extractPast(out, usePast),
     };
   };
