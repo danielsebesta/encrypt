@@ -66,6 +66,8 @@
       errorKey = fallback;
     }
     error = t(dict, errorKey);
+    const detail = e instanceof Error && e.message ? e.message : '';
+    if (detail && typeof console !== 'undefined') console.error('[chat-cipher]', detail, e);
   }
 
   function formatBytes(n: number): string {
