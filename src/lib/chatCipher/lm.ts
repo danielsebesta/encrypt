@@ -7,7 +7,7 @@ import {
   type PreTrainedTokenizer,
 } from '@huggingface/transformers';
 import { assertOffline } from './cache';
-import { PACKS, type ChatLanguage } from './packs';
+import { PACKS, type PackId } from './packs';
 import type { ChatCipherProgress } from './progress';
 import { createStegoCodec, type StegoCodec, type StegoProgress } from './stego';
 
@@ -29,9 +29,11 @@ function configureEnv() {
   configured = true;
 }
 
+export type CoverProgress = (done: number, total: number, preview?: string) => void;
+
 export interface LmSession {
-  lang: ChatLanguage;
-  encodeCover(data: Uint8Array, onProgress?: StegoProgress): Promise<string>;
+  lang: PackId;
+  encodeCover(data: Uint8Array, onProgress?: CoverProgress): Promise<string>;
   decodeCover(text: string, onProgress?: StegoProgress): Promise<Uint8Array>;
 }
 
@@ -41,7 +43,7 @@ type Loaded = {
   stego: StegoCodec;
 };
 
-const loaded = new Map<ChatLanguage, Loaded>();
+const loaded = new Map<PackId, Loaded>();
 
 async function preferWebGpu(): Promise<boolean> {
   try {
@@ -68,7 +70,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
+async function loadOnnx(lang: PackId): Promise<Loaded> {
   configureEnv();
   await assertOffline(lang);
   const pack = PACKS[lang];
@@ -107,6 +109,8 @@ async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
     const id = (tokenizer as unknown as Record<string, unknown>)[key];
     if (typeof id === 'number' && id >= 0) ban.push(id);
   }
+  // Keep cover paste-friendly: no newlines/tabs that indent lines in chat UIs.
+  ban.push(...layoutBreakTokenIds(tokenizer));
 
   const startId =
     (typeof tokenizer.bos_token_id === 'number' && tokenizer.bos_token_id >= 0
@@ -162,7 +166,7 @@ async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
 }
 
 export async function openLmSession(
-  lang: ChatLanguage,
+  lang: PackId,
   onProgress?: ChatCipherProgress,
 ): Promise<LmSession> {
   let session = loaded.get(lang);
@@ -176,8 +180,14 @@ export async function openLmSession(
   return {
     lang,
     async encodeCover(data, onStego) {
-      const tokens = await stego.encode(data, onStego);
-      return tokenizer.decode(tokens, { skip_special_tokens: true }).trim();
+      const grown: number[] = [];
+      const tokens = await stego.encode(data, (done, total, token) => {
+        if (typeof token === 'number') grown.push(token);
+        const preview =
+          grown.length > 0 ? tokenizer.decode(grown, { skip_special_tokens: true }) : '';
+        onStego?.(done, total, preview);
+      });
+      return tidyCover(tokenizer.decode(tokens, { skip_special_tokens: true }));
     },
     async decodeCover(text, onStego) {
       const encoded = tokenizer.encode(text.trim(), { add_special_tokens: false });
@@ -187,7 +197,44 @@ export async function openLmSession(
   };
 }
 
+/** Newline/tab pieces make chat UIs look indented; ban them from top-k choices. */
+function layoutBreakTokenIds(tokenizer: PreTrainedTokenizer): number[] {
+  const bans = new Set<number>();
+  const vocab =
+    (tokenizer as unknown as { model?: { vocab?: Record<string, number> } }).model?.vocab ??
+    (tokenizer as unknown as { vocab?: Record<string, number> }).vocab;
+  const ids =
+    vocab && typeof vocab === 'object'
+      ? Object.values(vocab).filter((id): id is number => typeof id === 'number')
+      : Array.from(
+          {
+            length: Math.min(
+              typeof (tokenizer as unknown as { vocab_size?: number }).vocab_size === 'number'
+                ? (tokenizer as unknown as { vocab_size: number }).vocab_size
+                : 0,
+              64_000,
+            ),
+          },
+          (_, id) => id,
+        );
+  for (const id of ids) {
+    try {
+      // Decode so GPT-2-style Ċ / similar markers become real control chars.
+      const piece = tokenizer.decode([id], { skip_special_tokens: false });
+      if (/[\n\r\t\f\v\u2028\u2029]/.test(piece)) bans.add(id);
+    } catch {
+      /* ignore undecodable ids */
+    }
+  }
+  return [...bans];
+}
+
+/** Strip control whitespace that chat UIs render as indent; keep ordinary spaces for tokenization. */
+function tidyCover(text: string): string {
+  return text.replace(/[\t\f\v\u2028\u2029]+/g, '').replace(/\r\n?/g, '\n').trim();
+}
+
 /** Drop an in-memory ONNX session so the next open reloads from cache. */
-export function dropLmSession(lang: ChatLanguage): void {
+export function dropLmSession(lang: PackId): void {
   loaded.delete(lang);
 }

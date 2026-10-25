@@ -1,13 +1,22 @@
 import { encrypt as aesEncrypt, decrypt as aesDecrypt } from '../aesGcm';
 import { assertOffline, clearPack, ensurePack, getPackStatus, type PackStatus } from './cache';
 import { createCzechCodec } from './csTable';
-import { PACKS, packTotalBytes, type ChatLanguage } from './packs';
+import {
+  PACK_ORDER,
+  PACKS,
+  isPackId,
+  packList,
+  packTotalBytes,
+  type ChatLanguage,
+  type PackId,
+  type PackManifest,
+} from './packs';
 import type { ChatCipherProgress } from './progress';
 
-export type { ChatLanguage, PackStatus, ChatCipherProgress };
+export type { ChatLanguage, PackId, PackManifest, PackStatus, ChatCipherProgress };
 export type { ChatCipherPhase } from './progress';
 export type { ChatCipherErrorKey } from './errors';
-export { PACKS, packTotalBytes, clearPack, ensurePack, getPackStatus };
+export { PACKS, PACK_ORDER, packList, packTotalBytes, isPackId, ensurePack, getPackStatus };
 export { chatCipherErrorKey, chatCipherErrorRetryable } from './errors';
 
 /** Clear cached pack files and any loaded ONNX session for this language. */
@@ -37,7 +46,9 @@ export async function encryptToChat(
   }
   const { openLmSession } = await import('./lm');
   const session = await openLmSession(lang, onProgress);
-  return session.encodeCover(sealed, (done, total) => onProgress?.('cover', { done, total }));
+  return session.encodeCover(sealed, (done, total, preview) =>
+    onProgress?.('cover', { done, total, preview }),
+  );
 }
 
 export async function decryptFromChat(
