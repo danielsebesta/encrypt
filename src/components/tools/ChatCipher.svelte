@@ -4,12 +4,16 @@
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import {
+    chatCipherErrorKey,
+    chatCipherErrorRetryable,
     decryptFromChat,
     encryptToChat,
     ensurePack,
     getPackStatus,
     packTotalBytes,
     PACKS,
+    resetLanguagePack,
+    type ChatCipherErrorKey,
     type ChatCipherPhase,
     type ChatLanguage,
     type PackStatus,
@@ -24,6 +28,7 @@
   let password = '';
   let result = '';
   let error = '';
+  let errorKey: ChatCipherErrorKey | '' = '';
   let busy = false;
   let progressTitle = '';
   let progressDetail = '';
@@ -43,11 +48,24 @@
     }
   }
 
+  function clearError() {
+    error = '';
+    errorKey = '';
+  }
+
   function setLang(next: ChatLanguage) {
     lang = next;
     result = '';
-    error = '';
+    clearError();
     void refreshPack(next);
+  }
+
+  function showError(e: unknown, fallback: ChatCipherErrorKey = 'tools.chatCipher.errorGeneric') {
+    errorKey = chatCipherErrorKey(e);
+    if (errorKey === 'tools.chatCipher.errorGeneric' && fallback !== 'tools.chatCipher.errorGeneric') {
+      errorKey = fallback;
+    }
+    error = t(dict, errorKey);
   }
 
   function formatBytes(n: number): string {
@@ -57,16 +75,27 @@
   }
 
   async function download() {
-    error = '';
+    clearError();
     try {
       await ensurePack(lang, status => {
         pack = status;
       });
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : t(dict, 'tools.chatCipher.errorPack');
-      pack = { state: 'error', message };
-      error = message;
+      showError(e, 'tools.chatCipher.errorPack');
+      pack = { state: 'error', message: error };
     }
+  }
+
+  async function redownloadPack() {
+    clearError();
+    result = '';
+    try {
+      await resetLanguagePack(lang);
+    } catch {
+      /* still try a fresh download */
+    }
+    pack = { state: 'missing', bytes: packTotalBytes(PACKS[lang]) };
+    await download();
   }
 
   function setProgress(phase: ChatCipherPhase, info?: { done: number; total: number }) {
@@ -94,14 +123,16 @@
   }
 
   async function handleProcess() {
-    error = '';
+    clearError();
     result = '';
     if (!inputText || !password) {
-      error = t(dict, 'tools.chatCipher.errorBoth');
+      errorKey = 'tools.chatCipher.errorBoth';
+      error = t(dict, errorKey);
       return;
     }
     if (pack.state !== 'bundled' && pack.state !== 'ready') {
-      error = t(dict, 'tools.chatCipher.errorNeedPack');
+      errorKey = 'tools.chatCipher.errorNeedPack';
+      error = t(dict, errorKey);
       return;
     }
     busy = true;
@@ -113,7 +144,7 @@
           ? await encryptToChat(inputText, password, lang, setProgress)
           : await decryptFromChat(inputText, password, lang, setProgress);
     } catch (e: unknown) {
-      error = e instanceof Error && e.message ? e.message : t(dict, 'tools.chatCipher.errorGeneric');
+      showError(e);
     } finally {
       busy = false;
       progressTitle = '';
@@ -125,7 +156,7 @@
     mode = mode === 'encrypt' ? 'decrypt' : 'encrypt';
     inputText = '';
     result = '';
-    error = '';
+    clearError();
   }
 </script>
 
@@ -204,7 +235,17 @@
     {/if}
 
     {#if error}
-      <p class="status status--error" role="alert">{error}</p>
+      <div class="status status--error" role="alert">
+        <div>
+          <p class="status__title">{error}</p>
+          {#if errorKey && chatCipherErrorRetryable(errorKey)}
+            <p class="status__detail">{t(dict, 'tools.chatCipher.errorRetryHint')}</p>
+            <button type="button" class="btn-ghost btn-sm" on:click={redownloadPack}>
+              {t(dict, 'tools.chatCipher.errorRetryPack')}
+            </button>
+          {/if}
+        </div>
+      </div>
     {/if}
     {#if result}
       <div class="field">

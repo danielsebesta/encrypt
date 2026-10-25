@@ -1,12 +1,23 @@
 import { encrypt as aesEncrypt, decrypt as aesDecrypt } from '../aesGcm';
-import { assertOffline, ensurePack, getPackStatus, type PackStatus } from './cache';
+import { assertOffline, clearPack, ensurePack, getPackStatus, type PackStatus } from './cache';
 import { createCzechCodec } from './csTable';
 import { PACKS, packTotalBytes, type ChatLanguage } from './packs';
 import type { ChatCipherProgress } from './progress';
 
 export type { ChatLanguage, PackStatus, ChatCipherProgress };
 export type { ChatCipherPhase } from './progress';
-export { PACKS, packTotalBytes, ensurePack, getPackStatus };
+export type { ChatCipherErrorKey } from './errors';
+export { PACKS, packTotalBytes, clearPack, ensurePack, getPackStatus };
+export { chatCipherErrorKey, chatCipherErrorRetryable } from './errors';
+
+/** Clear cached pack files and any loaded ONNX session for this language. */
+export async function resetLanguagePack(lang: ChatLanguage): Promise<void> {
+  await clearPack(lang);
+  if (PACKS[lang].engine === 'onnx') {
+    const { dropLmSession } = await import('./lm');
+    dropLmSession(lang);
+  }
+}
 
 /** Legacy table codec (tests / offline fixtures). Live CS uses neural Kecal via ONNX. */
 export { createCzechCodec };
@@ -46,5 +57,13 @@ export async function decryptFromChat(
     sealed = await session.decodeCover(cover, (done, total) => onProgress?.('cover', { done, total }));
   }
   onProgress?.('open');
-  return aesDecrypt(sealed, password);
+  try {
+    return await aesDecrypt(sealed, password);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (/Wrong password|OperationError|authentication|integrity/i.test(message) || (e instanceof Error && e.name === 'OperationError')) {
+      throw new Error('Wrong password', { cause: e });
+    }
+    throw e;
+  }
 }

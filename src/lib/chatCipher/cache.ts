@@ -90,3 +90,12 @@ export async function assertOffline(lang: ChatLanguage): Promise<void> {
   if (status.state === 'bundled' || status.state === 'ready') return;
   throw new Error('Download the language pack before encrypting or decrypting');
 }
+
+/** Drop a downloaded pack from Cache Storage so the next ensurePack fetches fresh files. */
+export async function clearPack(lang: ChatLanguage): Promise<void> {
+  const pack = PACKS[lang];
+  if (pack.bundled) return;
+  inflight.delete(lang);
+  if (typeof caches === 'undefined') return;
+  await caches.delete(cacheName(pack));
+}
