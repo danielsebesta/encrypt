@@ -41,6 +41,8 @@ export async function serveModel(
   headers.set('Content-Type', MODEL_TYPES[ext] || object.httpMetadata?.contentType || 'application/octet-stream');
   headers.set('Cache-Control', 'public, max-age=31536000, immutable');
   headers.set('X-Content-Type-Options', 'nosniff');
+  // Pages send COEP require-corp; workers fetching these need an explicit CORP.
+  headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   if (object.size != null) headers.set('Content-Length', String(object.size));
   if (object.httpEtag) headers.set('ETag', object.httpEtag);
   if (request.method === 'HEAD') return new Response(null, { status: 200, headers });

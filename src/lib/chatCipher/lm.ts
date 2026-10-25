@@ -20,7 +20,12 @@ function configureEnv() {
   env.useBrowserCache = true;
   // Oversized ORT WASM is not in the Worker assets bundle; serve from same-origin /models/ort/.
   const wasm = env.backends?.onnx?.wasm;
-  if (wasm) wasm.wasmPaths = `${typeof location !== 'undefined' ? location.origin : ''}/models/ort/`;
+  if (wasm) {
+    wasm.wasmPaths = `${typeof location !== 'undefined' ? location.origin : ''}/models/ort/`;
+    // Multi-thread ORT workers hang in some Chromium embeds; single-thread is reliable enough for Kecal/Falcon.
+    wasm.numThreads = 1;
+    wasm.proxy = false;
+  }
   configured = true;
 }
 
@@ -47,6 +52,22 @@ async function preferWebGpu(): Promise<boolean> {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      err => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
   configureEnv();
   await assertOffline(lang);
@@ -60,20 +81,21 @@ async function loadOnnx(lang: ChatLanguage): Promise<Loaded> {
     tokenizer = await AutoTokenizer.from_pretrained(modelId, { local_files_only: true });
     const webgpu = await preferWebGpu();
     const dtype = pack.dtype ?? 'q8';
-    // Prefer WebGPU when available; fall back to WASM if the GPU path cannot start.
-    try {
-      model = await AutoModelForCausalLM.from_pretrained(modelId, {
+    const load = (device: 'webgpu' | 'wasm') =>
+      AutoModelForCausalLM.from_pretrained(modelId, {
         local_files_only: true,
         dtype,
-        device: webgpu ? 'webgpu' : 'wasm',
+        device,
       });
-    } catch (first) {
-      if (!webgpu) throw first;
-      model = await AutoModelForCausalLM.from_pretrained(modelId, {
-        local_files_only: true,
-        dtype,
-        device: 'wasm',
-      });
+    // WebGPU can hang forever on some GPUs/drivers; race a timeout then fall back to WASM.
+    if (webgpu) {
+      try {
+        model = await withTimeout(load('webgpu'), 20_000, 'WebGPU model load');
+      } catch {
+        model = await load('wasm');
+      }
+    } else {
+      model = await load('wasm');
     }
   } catch (e: unknown) {
     const detail = e instanceof Error && e.message ? e.message : String(e);
