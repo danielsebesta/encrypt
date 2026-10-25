@@ -22,7 +22,7 @@ const icons = {
 } as const;
 
 export const tools: ToolDefinition[] = [
-  { slug: 'aes-words',    i18nPrefix: 'tools.aesWords',      navLabelKey: 'nav.tool.aesWords',      category: 'privacy', icon: icons.lock },
+  { slug: 'chat-cipher',  i18nPrefix: 'tools.chatCipher',    navLabelKey: 'nav.tool.chatCipher',    category: 'privacy', icon: icons.chat },
   { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'privacy', icon: icons.clock },
   { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy', icon: icons.image },
   { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'privacy', icon: icons.camera },

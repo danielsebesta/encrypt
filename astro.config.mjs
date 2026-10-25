@@ -38,7 +38,24 @@ export default defineConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()],
+    plugins: [
+      tailwindcss(),
+      // onnxruntime-web ships a >25 MiB WASM file; Cloudflare Workers assets cap at 25 MiB.
+      // Chat cipher loads that runtime from /models/ort/ (R2 / prepare script), not from the bundle.
+      {
+        name: 'strip-oversized-wasm',
+        generateBundle(_options, bundle) {
+          for (const [fileName, item] of Object.entries(bundle)) {
+            if (item.type !== 'asset' || !fileName.endsWith('.wasm')) continue;
+            const bytes =
+              typeof item.source === 'string'
+                ? item.source.length
+                : item.source?.byteLength ?? 0;
+            if (bytes > 20 * 1024 * 1024) delete bundle[fileName];
+          }
+        },
+      },
+    ],
     server: {
       allowedHosts: [],
     },
@@ -46,7 +63,13 @@ export default defineConfig({
     ...(target === 'node' ? { ssr: { noExternal: true } } : {}),
     optimizeDeps: {
       include: ['lz-string', 'tlock-js'],
-      exclude: ['svelte', 'svelte/internal', 'svelte/internal/client']
+      exclude: [
+        'svelte',
+        'svelte/internal',
+        'svelte/internal/client',
+        '@huggingface/transformers',
+        'onnxruntime-web',
+      ],
     },
     resolve: {
       dedupe: ['svelte']
