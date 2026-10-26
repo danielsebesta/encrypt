@@ -7,7 +7,7 @@
   "common.generatePassphrase": "Generate passphrase",
   "common.showPassword": "Show password",
   "common.hidePassword": "Hide password",
-  "nav.privacy": "Privacy",
+  "nav.experiments": "Experiments",
   "nav.github": "GitHub repository",
   "nav.toggleTheme": "Toggle theme",
   "nav.language": "Language",
