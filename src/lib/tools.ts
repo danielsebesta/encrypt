@@ -1,4 +1,4 @@
-export type ToolCategory = 'privacy';
+export type ToolCategory = 'experiments';
 
 export type ToolDefinition = {
   slug: string;
@@ -10,7 +10,7 @@ export type ToolDefinition = {
 
 // Lucide SVG inner content (24x24 viewBox, stroke-based)
 const icons = {
-  privacy: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  flask: '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>',
   chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
   lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
@@ -22,19 +22,19 @@ const icons = {
 } as const;
 
 export const tools: ToolDefinition[] = [
-  { slug: 'chat-cipher',  i18nPrefix: 'tools.chatCipher',    navLabelKey: 'nav.tool.chatCipher',    category: 'privacy', icon: icons.chat },
-  { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'privacy', icon: icons.clock },
-  { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'privacy', icon: icons.image },
-  { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'privacy', icon: icons.camera },
-  { slug: 'spectral-cipher', i18nPrefix: 'tools.spectralCipher', navLabelKey: 'nav.tool.spectralCipher', category: 'privacy', icon: icons.audioWaveform },
+  { slug: 'chat-cipher',  i18nPrefix: 'tools.chatCipher',    navLabelKey: 'nav.tool.chatCipher',    category: 'experiments', icon: icons.chat },
+  { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'experiments', icon: icons.clock },
+  { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'experiments', icon: icons.image },
+  { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'experiments', icon: icons.camera },
+  { slug: 'spectral-cipher', i18nPrefix: 'tools.spectralCipher', navLabelKey: 'nav.tool.spectralCipher', category: 'experiments', icon: icons.audioWaveform },
 ];
 
 export const categoryI18nKeys: Record<ToolCategory, string> = {
-  privacy: 'nav.privacy',
+  experiments: 'nav.experiments',
 };
 
 export const categoryIcons: Record<ToolCategory, string> = {
-  privacy: icons.privacy,
+  experiments: icons.flask,
 };
 
 export const chatIcon = icons.chat;
@@ -42,7 +42,7 @@ export const sendIcon = '<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M
 export const whiteboardIcon = '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>';
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {
-  const categories: ToolCategory[] = ['privacy'];
+  const categories: ToolCategory[] = ['experiments'];
 
   return categories.map(cat => ({
     name: t(dict, categoryI18nKeys[cat]),
