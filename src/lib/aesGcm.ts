@@ -1,4 +1,4 @@
-import { sealPassword, openPassword } from './passwordEnvelope';
+import { sealPassword, openPassword, openPasswordWithSurplus } from './passwordEnvelope';
 
 export const MAX_WORD_BYTES = 16 * 1024 * 1024;
 
@@ -8,6 +8,10 @@ export async function encrypt(text: string, password: string, maxLength?: number
 
 export async function decrypt(data: Uint8Array, password: string): Promise<string> {
   return new TextDecoder().decode(await openPassword(data, password));
+}
+
+export async function decryptWithSurplus(data: Uint8Array, password: string): Promise<string> {
+  return new TextDecoder().decode(await openPasswordWithSurplus(data, password));
 }
 
 /** Prefixes a uint16 length, or zero followed by a uint32 for payloads over 65535 bytes. */

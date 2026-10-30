@@ -36,7 +36,7 @@ const RULES: Array<{ key: ChatCipherErrorKey; test: (message: string, name: stri
   {
     key: 'tools.chatCipher.errorCoverCorrupt',
     test: (m) =>
-      /Truncated cover|Extra cover|No cover tokens|Invalid cover|No words|Unknown word/i.test(m),
+      /Truncated cover|Truncated encrypted|Extra cover|No cover tokens|Invalid cover/i.test(m),
   },
   {
     key: 'tools.chatCipher.errorTooLong',

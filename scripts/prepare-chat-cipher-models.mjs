@@ -1,15 +1,15 @@
 /**
  * Stages Chat cipher language packs and optionally uploads them to R2 `encrypt-models`.
  *
- * CS: danielsebesta/kecal → local ONNX q8 (~38 MB) from ../chat-model/hf/kecal-web
  * EN: onnx-community/Falcon-H1-Tiny-90M-Instruct-ONNX q4f16 only (~94 MB)
+ * CS needs no model: its word table ships in public/chat-cipher (built by ../chat-model/table).
  *
  *   node scripts/prepare-chat-cipher-models.mjs
  *   node scripts/prepare-chat-cipher-models.mjs --upload
  *   pnpm run deploy
  */
 import { createHash } from 'crypto';
-import { mkdir, writeFile, readFile, readdir, stat, copyFile, access } from 'fs/promises';
+import { mkdir, writeFile, readFile, readdir, stat, copyFile } from 'fs/promises';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
@@ -17,24 +17,14 @@ import { globSync } from 'node:fs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const staging = join(root, '.models-staging');
-const csDir = join(staging, 'models/chat-cipher/cs/1');
 const enDir = join(staging, 'models/chat-cipher/en/2');
 const ortDir = join(staging, 'models/ort');
 const upload = process.argv.includes('--upload');
 const bucket = 'encrypt-models';
 
-const kecalWeb = join(root, '..', 'chat-model', 'hf', 'kecal-web');
 const enRepo = 'onnx-community/Falcon-H1-Tiny-90M-Instruct-ONNX';
 const enRevision = 'main';
-
-const csFiles = [
-  'config.json',
-  'generation_config.json',
-  'tokenizer.json',
-  'tokenizer_config.json',
-  'vocab.json',
-  'onnx/model_quantized.onnx',
-];
+const generatedPath = join(root, 'src/lib/chatCipher/packs.generated.json');
 
 const enFiles = [
   'config.json',
@@ -72,29 +62,6 @@ async function write(path, buf) {
   return { sha256, bytes: buf.byteLength };
 }
 
-async function exists(path) {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-const csManifest = [];
-if (!(await exists(join(kecalWeb, 'onnx/model_quantized.onnx')))) {
-  throw new Error(
-    `Missing Kecal web pack at ${kecalWeb}. Build it first (export + quantize in chat-model).`,
-  );
-}
-for (const path of csFiles) {
-  const buf = await readFile(join(kecalWeb, path));
-  const meta = await write(join(csDir, path), buf);
-  csManifest.push({ path, ...meta });
-}
-const csTotal = csManifest.reduce((s, f) => s + f.bytes, 0);
-console.log('CS Kecal pack', (csTotal / (1024 * 1024)).toFixed(1), 'MB');
-
 const enManifest = [];
 for (const path of enFiles) {
   const buf = await download(`https://huggingface.co/${enRepo}/resolve/${enRevision}/${path}`);
@@ -121,17 +88,11 @@ for (const name of ortNames) {
 }
 
 await writeFile(
-  join(csDir, 'manifest.json'),
-  JSON.stringify({ repo: 'danielsebesta/kecal', revision: 'local-onnx-q8', files: csManifest }, null, 2),
-);
-await writeFile(
   join(enDir, 'manifest.json'),
   JSON.stringify({ repo: enRepo, revision: enRevision, files: enManifest }, null, 2),
 );
-await writeFile(
-  join(root, 'src/lib/chatCipher/packs.generated.json'),
-  JSON.stringify({ cs: csManifest, en: enManifest }, null, 2),
-);
+const generated = JSON.parse(await readFile(generatedPath, 'utf8'));
+await writeFile(generatedPath, JSON.stringify({ ...generated, en: enManifest }, null, 2));
 console.log('staging ready →', staging);
 
 if (!upload) {
