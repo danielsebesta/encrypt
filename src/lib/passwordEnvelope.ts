@@ -5,6 +5,7 @@ const ECP3_MAGIC = new Uint8Array([69, 67, 80, 51, 1]); // ECP3, header layout 1
 const HEADER = 72;
 const TAG = 16;
 const LENGTH = 4;
+const FIXED_HEADER = 12;
 
 /** Leading bytes of every password envelope. */
 export const PASSWORD_ENVELOPE_MAGIC: Readonly<Uint8Array> = ECP3_MAGIC;
@@ -66,7 +67,31 @@ export async function sealPassword(data: Uint8Array | Uint8Array[], password: st
 
 const startsWith = (data: Uint8Array, prefix: Uint8Array) => data.length >= prefix.length && prefix.every((byte, i) => data[i] === byte);
 
-export async function openPassword(data: Uint8Array, password: string): Promise<Uint8Array> {
+/** Header bytes shared by every envelope sealed with the default settings: magic, layout version and Argon2id settings. */
+function fixedHeader(): Uint8Array {
+  const fixed = new Uint8Array(FIXED_HEADER);
+  const view = new DataView(fixed.buffer);
+  fixed.set(ECP3_MAGIC);
+  view.setUint32(5, ARGON2_V3.memory);
+  view.setUint16(9, ARGON2_V3.iterations);
+  fixed[11] = ARGON2_V3.parallelism;
+  return fixed;
+}
+
+/** What remains of a default envelope without its constant bytes. It looks random, so a carrier shows no repeating pattern. */
+export function stripFixedHeader(sealed: Uint8Array): Uint8Array {
+  if (!startsWith(sealed, fixedHeader())) throw new Error('Unsupported encrypted data');
+  return sealed.subarray(FIXED_HEADER);
+}
+
+export function restoreFixedHeader(body: Uint8Array): Uint8Array {
+  const sealed = new Uint8Array(FIXED_HEADER + body.length);
+  sealed.set(fixedHeader());
+  sealed.set(body, FIXED_HEADER);
+  return sealed;
+}
+
+async function openingKey(data: Uint8Array, password: string): Promise<CryptoKey> {
   if (!startsWith(data, ECP3_MAGIC)) throw new Error('Unsupported encrypted data');
   if (data.length < HEADER + LENGTH + TAG) throw new Error('Truncated encrypted data');
   const header = data.subarray(0, HEADER);
@@ -74,9 +99,36 @@ export async function openPassword(data: Uint8Array, password: string): Promise<
   const params = { memory: view.getUint32(5), iterations: view.getUint16(9), parallelism: header[11] };
   const { key, commitment } = await envelopeKeys(password, header.slice(12, 28), params);
   if (!equalBytes(commitment, header.subarray(40, 72))) throw new Error('Wrong password');
-  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: header.slice(28, 40), additionalData: header.slice() },
-    key, data.subarray(HEADER) as BufferSource));
+  return key;
+}
+
+async function openBody(data: Uint8Array, end: number, key: CryptoKey): Promise<Uint8Array> {
+  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: data.slice(28, 40), additionalData: data.slice(0, HEADER) },
+    key, data.subarray(HEADER, end) as BufferSource));
   const length = new DataView(plain.buffer).getUint32(0);
   if (length > plain.length - LENGTH) throw new Error('Invalid padding');
   return plain.subarray(LENGTH, LENGTH + length);
+}
+
+export async function openPassword(data: Uint8Array, password: string): Promise<Uint8Array> {
+  return openBody(data, data.length, await openingKey(data, password));
+}
+
+/**
+ * For carriers that cannot mark where the envelope ends and yield a few extra bytes. Only a holder of the password can
+ * tell the length, which keeps a cover from being confirmed without it. Tries every Padmé size that fits, longest first;
+ * envelopes sealed with maxLength are not supported.
+ */
+export async function openPasswordWithSurplus(data: Uint8Array, password: string): Promise<Uint8Array> {
+  const key = await openingKey(data, password);
+  for (let end = data.length; end >= HEADER + LENGTH + TAG; end--) {
+    const inner = end - HEADER - TAG;
+    if (padme(inner) !== inner) continue;
+    try {
+      return await openBody(data, end, key);
+    } catch {
+      /* not this size */
+    }
+  }
+  throw new Error('Wrong password');
 }

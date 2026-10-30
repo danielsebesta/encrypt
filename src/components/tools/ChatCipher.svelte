@@ -7,6 +7,7 @@
     chatCipherErrorKey,
     chatCipherErrorRetryable,
     decryptFromChat,
+    dropRetiredPacks,
     encryptToChat,
     ensurePack,
     getLmRuntime,
@@ -17,6 +18,7 @@
     PACKS,
     probeAccelerator,
     resetLanguagePack,
+    warmLanguagePack,
     type AcceleratorProbe,
     type ChatCipherErrorKey,
     type ChatCipherPhase,
@@ -56,9 +58,12 @@
   onMount(() => {
     void refreshPack(modelId);
     void refreshAccel();
+    void warmLanguagePack(modelId);
+    void dropRetiredPacks().catch(() => {});
   });
 
   async function refreshAccel() {
+    if (PACKS[modelId].engine !== 'onnx') return;
     try {
       accelProbe = await probeAccelerator();
       accelRuntime = await getLmRuntime(modelId);
@@ -116,9 +121,8 @@
     accelRuntime = null;
     clearError();
     void refreshPack(next);
-    void getLmRuntime(next).then(info => {
-      accelRuntime = info;
-    });
+    void refreshAccel();
+    void warmLanguagePack(next);
   }
 
   function onModelSelect(event: Event) {
@@ -168,8 +172,11 @@
     } catch {
       /* still try a fresh download */
     }
-    pack = { state: 'missing', bytes: packTotalBytes(PACKS[modelId]) };
+    pack = PACKS[modelId].bundled
+      ? { state: 'bundled' }
+      : { state: 'missing', bytes: packTotalBytes(PACKS[modelId]) };
     await download();
+    void warmLanguagePack(modelId);
   }
 
   function setProgress(
@@ -300,18 +307,20 @@
             <dt>{t(dict, 'tools.chatCipher.model.size')}</dt>
             <dd>{formatBytes(modelBytes)}</dd>
           </div>
-          <div>
-            <dt>{t(dict, 'tools.chatCipher.model.parameters')}</dt>
-            <dd>{model.parameters}</dd>
-          </div>
-          <div>
-            <dt>{t(dict, 'tools.chatCipher.model.context')}</dt>
-            <dd>{formatParams(model.context)}</dd>
-          </div>
-          <div>
-            <dt>{t(dict, 'tools.chatCipher.model.layers')}</dt>
-            <dd>{model.layers} × {formatParams(model.hiddenSize)}</dd>
-          </div>
+          {#if model.engine === 'onnx'}
+            <div>
+              <dt>{t(dict, 'tools.chatCipher.model.parameters')}</dt>
+              <dd>{model.parameters}</dd>
+            </div>
+            <div>
+              <dt>{t(dict, 'tools.chatCipher.model.context')}</dt>
+              <dd>{formatParams(model.context)}</dd>
+            </div>
+            <div>
+              <dt>{t(dict, 'tools.chatCipher.model.layers')}</dt>
+              <dd>{model.layers} × {formatParams(model.hiddenSize)}</dd>
+            </div>
+          {/if}
           <div>
             <dt>{t(dict, 'tools.chatCipher.model.vocab')}</dt>
             <dd>{formatParams(model.vocabSize)}</dd>
@@ -332,13 +341,15 @@
             <dt>{t(dict, 'tools.chatCipher.model.license')}</dt>
             <dd>{model.license}</dd>
           </div>
-          <div class="model-card__wide">
-            <dt>{t(dict, 'tools.chatCipher.accel.label')}</dt>
-            <dd
-              class:accel--gpu={accelRuntime?.device === 'webgpu' || (!accelRuntime && accelProbe?.status === 'ready')}
-              class:accel--cpu={accelRuntime?.device === 'wasm' || (!!accelProbe && accelProbe.status !== 'ready' && !accelRuntime)}
-            >{accelText}</dd>
-          </div>
+          {#if model.engine === 'onnx'}
+            <div class="model-card__wide">
+              <dt>{t(dict, 'tools.chatCipher.accel.label')}</dt>
+              <dd
+                class:accel--gpu={accelRuntime?.device === 'webgpu' || (!accelRuntime && accelProbe?.status === 'ready')}
+                class:accel--cpu={accelRuntime?.device === 'wasm' || (!!accelProbe && accelProbe.status !== 'ready' && !accelRuntime)}
+              >{accelText}</dd>
+            </div>
+          {/if}
         </dl>
       </div>
     </div>

@@ -1,4 +1,7 @@
-import { PACKS, cacheName, packTotalBytes, type ChatLanguage, type PackManifest } from './packs';
+import { PACKS, PACK_ORDER, cacheName, packTotalBytes, type ChatLanguage, type PackManifest } from './packs';
+
+const ONNX_RUNTIME_CACHE = 'transformers-cache';
+const RETIRED_MODEL_PATH = '/models/chat-cipher/cs/';
 
 export type PackStatus =
   | { state: 'bundled' }
@@ -79,7 +82,7 @@ export async function ensurePack(
   }
 }
 
-async function sha256Hex(buf: ArrayBuffer): Promise<string> {
+export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const dig = await crypto.subtle.digest('SHA-256', buf);
   return [...new Uint8Array(dig)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -89,6 +92,21 @@ export async function assertOffline(lang: ChatLanguage): Promise<void> {
   const status = await getPackStatus(lang);
   if (status.state === 'bundled' || status.state === 'ready') return;
   throw new Error('Download the language pack before encrypting or decrypting');
+}
+
+/** Frees what earlier versions left in this browser, such as the 38 MB Czech neural model. */
+export async function dropRetiredPacks(): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  const current = new Set(PACK_ORDER.map(id => cacheName(PACKS[id])));
+  const names = await caches.keys();
+  for (const name of names) {
+    if (name.startsWith('chat-cipher-') && !current.has(name)) await caches.delete(name);
+  }
+  if (!names.includes(ONNX_RUNTIME_CACHE)) return;
+  const shared = await caches.open(ONNX_RUNTIME_CACHE);
+  for (const request of await shared.keys()) {
+    if (new URL(request.url).pathname.startsWith(RETIRED_MODEL_PATH)) await shared.delete(request);
+  }
 }
 
 /** Drop a downloaded pack from Cache Storage so the next ensurePack fetches fresh files. */

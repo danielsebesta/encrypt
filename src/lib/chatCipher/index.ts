@@ -1,6 +1,7 @@
-import { encrypt as aesEncrypt, decrypt as aesDecrypt } from '../aesGcm';
-import { assertOffline, clearPack, ensurePack, getPackStatus, type PackStatus } from './cache';
-import { createCzechCodec } from './csTable';
+import { encrypt as aesEncrypt, decrypt as aesDecrypt, decryptWithSurplus } from '../aesGcm';
+import { restoreFixedHeader, stripFixedHeader } from '../passwordEnvelope';
+import { assertOffline, clearPack, dropRetiredPacks, ensurePack, getPackStatus, type PackStatus } from './cache';
+import { dropCoverCodec, loadCoverCodec } from './coverTable';
 import {
   PACK_ORDER,
   PACKS,
@@ -16,7 +17,7 @@ import type { ChatCipherProgress } from './progress';
 export type { ChatLanguage, PackId, PackManifest, PackStatus, ChatCipherProgress };
 export type { ChatCipherPhase } from './progress';
 export type { ChatCipherErrorKey } from './errors';
-export { PACKS, PACK_ORDER, packList, packTotalBytes, isPackId, ensurePack, getPackStatus };
+export { PACKS, PACK_ORDER, packList, packTotalBytes, isPackId, ensurePack, getPackStatus, dropRetiredPacks };
 export { chatCipherErrorKey, chatCipherErrorRetryable } from './errors';
 
 export type { AcceleratorProbe, LmRuntimeInfo } from './lm';
@@ -27,10 +28,17 @@ export async function probeAccelerator() {
   return probe();
 }
 
-/** Device used by a loaded pack session, or null before the first run. */
+/** Device used by a loaded pack session, or null before the first run or for a pack without a model. */
 export async function getLmRuntime(lang: ChatLanguage) {
+  if (PACKS[lang].engine !== 'onnx') return null;
   const { getLmRuntime: runtime } = await import('./lm');
   return runtime(lang);
+}
+
+/** Readies what needs no permission to fetch, so the first click is instant. A failure resurfaces on that click. */
+export async function warmLanguagePack(lang: ChatLanguage): Promise<void> {
+  if (PACKS[lang].engine !== 'table') return;
+  await loadCoverCodec().catch(() => {});
 }
 
 /** Clear cached pack files and any loaded ONNX session for this language. */
@@ -39,11 +47,10 @@ export async function resetLanguagePack(lang: ChatLanguage): Promise<void> {
   if (PACKS[lang].engine === 'onnx') {
     const { dropLmSession } = await import('./lm');
     dropLmSession(lang);
+  } else {
+    dropCoverCodec();
   }
 }
-
-/** Legacy table codec (tests / offline fixtures). Live CS uses neural Kecal via ONNX. */
-export { createCzechCodec };
 
 export async function encryptToChat(
   text: string,
@@ -52,12 +59,15 @@ export async function encryptToChat(
   onProgress?: ChatCipherProgress,
 ): Promise<string> {
   await assertOffline(lang);
+  if (PACKS[lang].engine === 'table') {
+    const codec = await loadCoverCodec();
+    onProgress?.('seal');
+    const sealed = await aesEncrypt(text, password);
+    onProgress?.('cover');
+    return codec.encode(stripFixedHeader(sealed), undefined, (done, total) => onProgress?.('cover', { done, total }));
+  }
   onProgress?.('seal');
   const sealed = await aesEncrypt(text, password);
-  if (PACKS[lang].engine === 'table') {
-    onProgress?.('cover', { done: 1, total: 1 });
-    return createCzechCodec().encode(sealed);
-  }
   const { openLmSession } = await import('./lm');
   const session = await openLmSession(lang, onProgress);
   return session.encodeCover(sealed, (done, total, preview) =>
@@ -72,17 +82,18 @@ export async function decryptFromChat(
   onProgress?: ChatCipherProgress,
 ): Promise<string> {
   await assertOffline(lang);
-  let sealed: Uint8Array;
-  if (PACKS[lang].engine === 'table') {
-    onProgress?.('cover', { done: 1, total: 1 });
-    sealed = createCzechCodec().decode(cover);
-  } else {
+  try {
+    if (PACKS[lang].engine === 'table') {
+      const codec = await loadCoverCodec();
+      onProgress?.('cover');
+      const body = await codec.decode(cover, (done, total) => onProgress?.('cover', { done, total }));
+      onProgress?.('open');
+      return await decryptWithSurplus(restoreFixedHeader(body), password);
+    }
     const { openLmSession } = await import('./lm');
     const session = await openLmSession(lang, onProgress);
-    sealed = await session.decodeCover(cover, (done, total) => onProgress?.('cover', { done, total }));
-  }
-  onProgress?.('open');
-  try {
+    const sealed = await session.decodeCover(cover, (done, total) => onProgress?.('cover', { done, total }));
+    onProgress?.('open');
     return await aesDecrypt(sealed, password);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
