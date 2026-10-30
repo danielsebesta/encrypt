@@ -6,7 +6,6 @@ import type { BlobStore, BudgetCommand, Platform } from '../../platform/types';
 export type CloudflareEnv = RealtimeEnv & {
   SECURITY_BUDGET: DurableObjectNamespace<SecurityBudget>;
   BUCKET: R2Bucket;
-  MODELS?: R2Bucket;
   [name: string]: unknown;
 };
 
@@ -55,19 +54,5 @@ export function cloudflarePlatform(env: CloudflareEnv): Platform {
       Promise.resolve(env.SECURITY_BUDGET.get(env.SECURITY_BUDGET.idFromName(scope)).run(command)) as Promise<T>,
     blobs: r2Blobs(env.BUCKET),
     realtime: async (request) => (await routeRealtimeRequest(request, env)) ?? new Response('Not found', { status: 404 }),
-    models: env.MODELS
-      ? {
-          async get(key) {
-            const object = await env.MODELS!.get(key);
-            if (!object) return null;
-            return {
-              body: object.body,
-              size: object.size,
-              httpEtag: object.httpEtag,
-              httpMetadata: object.httpMetadata,
-            };
-          },
-        }
-      : null,
   };
 }

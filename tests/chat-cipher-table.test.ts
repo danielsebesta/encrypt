@@ -4,13 +4,13 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createCoverCodec, parseCoverTable } from '../src/lib/chatCipher/tableCodec';
-import { PACKS } from '../src/lib/chatCipher/packs';
+import { COVER_TABLE_SHA256, COVER_TABLE_URL } from '../src/lib/chatCipher/coverTable';
 import { chatCipherErrorKey } from '../src/lib/chatCipher/errors';
 import { foldWord } from '../src/lib/chatNoise';
 import { openPasswordWithSurplus, restoreFixedHeader, sealPassword, stripFixedHeader } from '../src/lib/passwordEnvelope';
 import { ARGON2_V3 } from '../src/lib/kdf';
 
-const packed = readFileSync(new URL('../public/chat-cipher/cs/2/table.bin', import.meta.url));
+const packed = readFileSync(new URL(`../public${COVER_TABLE_URL}`, import.meta.url));
 const table = parseCoverTable(gunzipSync(packed));
 const codec = createCoverCodec(table);
 
@@ -23,11 +23,8 @@ function seeded(seed: number) {
 
 const bytes = (length: number, rand: () => number) => Uint8Array.from({ length }, () => Math.floor(rand() * 256));
 
-test('the table on disk is the one the pack manifest pins', () => {
-  const file = PACKS.cs.files[0]!;
-  assert.equal(createHash('sha256').update(packed).digest('hex'), file.sha256);
-  assert.equal(packed.length, file.bytes);
-  assert.equal(table.words.length, PACKS.cs.vocabSize);
+test('the table on disk is the one the code pins', () => {
+  assert.equal(createHash('sha256').update(packed).digest('hex'), COVER_TABLE_SHA256);
 });
 
 test('words fold to unique spellings and leave out the banned list', () => {

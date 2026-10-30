@@ -57,7 +57,7 @@ function pair(bytes: Uint8Array, at: number, count: number): Uint16Array {
 
 export function parseCoverTable(bytes: Uint8Array): CoverTable {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'ECT1') throw new Error('Invalid language pack');
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'ECT1') throw new Error('Invalid word table');
   const keep = view.getUint32(4, true);
   const levelCount = view.getUint32(8, true);
   const wordBytes = view.getUint32(12, true);
@@ -87,7 +87,7 @@ export function parseCoverTable(bytes: Uint8Array): CoverTable {
     at += rows * 2;
     const starts = new Uint32Array(rows + 1);
     for (let i = 0; i < rows; i++) starts[i + 1] = starts[i] + sizes[i];
-    if (starts[rows] !== entries) throw new Error('Invalid language pack');
+    if (starts[rows] !== entries) throw new Error('Invalid word table');
     const deltas = pair(bytes, at, entries);
     at += entries * 2;
     const levelWords = new Uint16Array(entries);
@@ -432,7 +432,7 @@ export function createCoverCodec(table: CoverTable): CoverCodec {
         const token = tokens[index];
         const { ids, cum } = distribution(history);
         const slot = token === null ? (ids[0] === EOL ? 0 : -1) : slotOf(token, ids);
-        if (slot < 0) throw new Error('Cover text does not match this language pack');
+        if (slot < 0) throw new Error('Cover text does not match the word table');
         const range = high - low + 1;
         high = low + Math.floor((range * cum[slot + 1]) / TOTAL) - 1;
         low += Math.floor((range * cum[slot]) / TOTAL);

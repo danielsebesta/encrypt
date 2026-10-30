@@ -19,7 +19,7 @@ const clientDict = toolClientDict(dict, 'tools.chatCipher');
       <p class="page-lead">{t(dict, 'tools.chatCipher.subtitle')}</p>
     </header>
     <div class="panel">
-      <ChatCipherView client:idle locale={locale} dict={clientDict} />
+      <ChatCipherView client:idle dict={clientDict} />
     </div>
     <ToolAbout dict={dict} prefix="tools.chatCipher" />
   </div>
