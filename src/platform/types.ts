@@ -48,6 +48,4 @@ export interface Platform {
   blobs: BlobStore;
   /** Hands a /parties/<party>/<room> request to the realtime rooms; Node upgrades sockets itself and answers 426 here. */
   realtime(request: Request): Promise<Response>;
-  /** Optional R2 (or equivalent) store for Chat cipher language packs under /models/*. */
-  models?: import('../server/models').ModelStore | null;
 }

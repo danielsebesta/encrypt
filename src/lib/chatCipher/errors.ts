@@ -3,12 +3,8 @@
 export type ChatCipherErrorKey =
   | 'tools.chatCipher.errorGeneric'
   | 'tools.chatCipher.errorBoth'
-  | 'tools.chatCipher.errorNeedPack'
-  | 'tools.chatCipher.errorPack'
-  | 'tools.chatCipher.errorPackChecksum'
-  | 'tools.chatCipher.errorPackCache'
-  | 'tools.chatCipher.errorBackend'
-  | 'tools.chatCipher.errorModel'
+  | 'tools.chatCipher.errorTable'
+  | 'tools.chatCipher.errorTableChecksum'
   | 'tools.chatCipher.errorPassword'
   | 'tools.chatCipher.errorCoverMismatch'
   | 'tools.chatCipher.errorCoverCorrupt'
@@ -16,22 +12,8 @@ export type ChatCipherErrorKey =
 
 const RULES: Array<{ key: ChatCipherErrorKey; test: (message: string, name: string) => boolean }> = [
   {
-    key: 'tools.chatCipher.errorBackend',
-    test: (m) =>
-      /no available backend|ort-wasm|onnxruntime|webgpu|wasmPaths|Failed to fetch dynamically imported module|backend found/i.test(
-        m,
-      ),
-  },
-  {
-    key: 'tools.chatCipher.errorModel',
-    test: (m) =>
-      /local_files_only|from_pretrained|ONNX|tokenizer|model vocabulary|Pack is not an ONNX|Missing the following inputs|model execution/i.test(
-        m,
-      ),
-  },
-  {
     key: 'tools.chatCipher.errorCoverMismatch',
-    test: (m) => /does not match this language pack/i.test(m),
+    test: (m) => /does not match the word table/i.test(m),
   },
   {
     key: 'tools.chatCipher.errorCoverCorrupt',
@@ -43,20 +25,12 @@ const RULES: Array<{ key: ChatCipherErrorKey; test: (message: string, name: stri
     test: (m) => /Message too large|Cover text would be too long|Input too large/i.test(m),
   },
   {
-    key: 'tools.chatCipher.errorPackChecksum',
-    test: (m) => /checksum mismatch/i.test(m),
+    key: 'tools.chatCipher.errorTableChecksum',
+    test: (m) => /checksum mismatch|Invalid word table/i.test(m),
   },
   {
-    key: 'tools.chatCipher.errorPackCache',
-    test: (m) => /Cache API unavailable/i.test(m),
-  },
-  {
-    key: 'tools.chatCipher.errorNeedPack',
-    test: (m) => /Download the language pack/i.test(m),
-  },
-  {
-    key: 'tools.chatCipher.errorPack',
-    test: (m) => /Could not download language pack|language pack/i.test(m),
+    key: 'tools.chatCipher.errorTable',
+    test: (m) => /Could not download the word table|Failed to fetch|NetworkError|Load failed/i.test(m),
   },
   {
     key: 'tools.chatCipher.errorPassword',
@@ -76,13 +50,7 @@ export function chatCipherErrorKey(error: unknown): ChatCipherErrorKey {
   return 'tools.chatCipher.errorGeneric';
 }
 
-/** True when clearing the pack cache / redownload might help. */
+/** True when fetching the word table again might help. */
 export function chatCipherErrorRetryable(key: ChatCipherErrorKey): boolean {
-  return (
-    key === 'tools.chatCipher.errorBackend' ||
-    key === 'tools.chatCipher.errorModel' ||
-    key === 'tools.chatCipher.errorPack' ||
-    key === 'tools.chatCipher.errorPackChecksum' ||
-    key === 'tools.chatCipher.errorPackCache'
-  );
+  return key === 'tools.chatCipher.errorTable' || key === 'tools.chatCipher.errorTableChecksum';
 }
