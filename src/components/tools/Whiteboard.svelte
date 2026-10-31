@@ -5,10 +5,11 @@
   import PartySocket from 'partysocket';
   import * as Y from 'yjs';
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
-  import type { Diff, ShapeRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
+  import type { Diff, ShapeRecord, AssetRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
   import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
-  import { validShapeRecord, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
+  import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, BOARD_ASSET_BYTES, type BoardAsset, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
+  import { encodeBoardImage } from '../../lib/whiteboardImages';
   import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
   import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
   import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
@@ -61,6 +62,7 @@
     line: '<path d="M5 19 19 5"/>',
     text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
     note: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',
+    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
     rectangle: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
     ellipse: '<ellipse cx="12" cy="12" rx="9.5" ry="7.5"/>',
     triangle: '<path d="M12 3.5 21.5 20h-19z"/>',
@@ -159,6 +161,7 @@
 
   let ydoc: Y.Doc;
   let yrecords: Y.Map<ShapeRecord>;
+  let yassets: Y.Map<BoardAsset>;
   let ychat: Y.Array<BoardChatItem>;
 
   type ChatView = { id: string; html: string; name: string; color: string; mine: boolean; at: number; expiresAt?: number; pk: string; warn: boolean };
@@ -191,6 +194,7 @@
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
   let importInput: HTMLInputElement;
+  let imageInput: HTMLInputElement;
   let notice: { text: string; error: boolean } | null = null;
   let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -294,27 +298,137 @@
     if (!flushTimer) flushTimer = setTimeout(flushToDoc, delay);
   }
 
-  function flushToDoc() {
-    flushTimer = null;
+  function flushToDoc(force = false) {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
     if (!dirty.size || !ydoc) return;
     const use = rateUsage();
-    if (use.count + 8 > RATE_MAX_MESSAGES || use.bytes + RATE_DOC_HEADROOM > RATE_MAX_BYTES) {
+    if (!force && (use.count + 8 > RATE_MAX_MESSAGES || use.bytes + RATE_DOC_HEADROOM > RATE_MAX_BYTES)) {
       scheduleFlush(500);
       return;
     }
+    const refused = new Set<string>();
     ydoc.transact(() => {
       for (const id of dirty) {
         const rec = store.get(id);
-        if (rec && rec.typeName === 'shape') yrecords.set(id, rec);
-        else if (yrecords.has(id)) yrecords.delete(id);
+        if (rec && rec.typeName === 'shape') {
+          if (rec.type === 'image' && !shareAsset(rec.props.assetId, refused)) continue;
+          yrecords.set(id, rec);
+        } else if (!rec) {
+          const old = yrecords.get(id);
+          if (old) {
+            yrecords.delete(id);
+            if (old.type === 'image') releaseAsset(old.props.assetId);
+          } else if (yassets.has(id)) {
+            yassets.delete(id);
+          }
+        }
       }
     }, LOCAL_ORIGIN);
     dirty.clear();
+    if (refused.size) dropRefusedImages(refused);
+  }
+
+  function boardAssetBytes(): number {
+    let total = 0;
+    for (const a of yassets.values()) total += assetBytes(a.data);
+    return total;
+  }
+
+  function toAssetRecord(id: string, a: BoardAsset): AssetRecord {
+    return { id, typeName: 'asset', src: `data:${a.mime};base64,${a.data}`, w: a.width, h: a.height };
+  }
+
+  function fromAssetRecord(rec: AssetRecord): BoardAsset | null {
+    const match = /^data:(image\/[a-z]+);base64,(.+)$/.exec(rec.src);
+    return match ? { mime: match[1], width: rec.w, height: rec.h, data: match[2] } : null;
+  }
+
+  // A picture goes into the document with the first shape that shows it, and only while the board stays under its cap.
+  function shareAsset(assetId: unknown, refused: Set<string>): boolean {
+    if (typeof assetId !== 'string' || refused.has(assetId)) return false;
+    if (yassets.has(assetId)) return true;
+    const rec = store.asset(assetId);
+    if (!rec) return true;
+    const asset = fromAssetRecord(rec);
+    if (!asset || !validAssetRecord(asset, assetId) || boardAssetBytes() + assetBytes(asset.data) > BOARD_ASSET_BYTES) {
+      refused.add(assetId);
+      return false;
+    }
+    yassets.set(assetId, asset);
+    return true;
+  }
+
+  // The local copy stays in the store, so undo can bring the picture back.
+  function releaseAsset(assetId: unknown) {
+    if (typeof assetId !== 'string' || !yassets.has(assetId)) return;
+    for (const r of yrecords.values()) if (r.type === 'image' && r.props.assetId === assetId) return;
+    yassets.delete(assetId);
+  }
+
+  function boardFullNotice() {
+    showNotice(t(dict, 'whiteboard.imageBoardFull').replace('{size}', String(BOARD_ASSET_BYTES / 1024 / 1024)));
+  }
+
+  function dropRefusedImages(refused: Set<string>) {
+    const ids = store.shapes().filter((s) => s.type === 'image' && refused.has(s.props.assetId)).map((s) => s.id);
+    store.remove([...ids, ...refused], 'remote');
+    boardFullNotice();
+  }
+
+  async function insertImages(blobs: Blob[], at?: { x: number; y: number }) {
+    const images = blobs.filter((b) => b.type.startsWith('image/'));
+    if (!editor || !ydoc || !images.length) return;
+    const placed: string[] = [];
+    for (const blob of images) {
+      let asset: BoardAsset;
+      try {
+        asset = await encodeBoardImage(blob);
+      } catch {
+        showNotice(t(dict, 'whiteboard.imageUnreadable'));
+        continue;
+      }
+      if (!editor) return;
+      if (boardAssetBytes() + assetBytes(asset.data) > BOARD_ASSET_BYTES) {
+        boardFullNotice();
+        break;
+      }
+      const vp = editor.viewportPageBounds();
+      const scale = Math.min(1, (vp.w * 0.6) / asset.width, (vp.h * 0.6) / asset.height);
+      const w = Math.max(8, asset.width * scale);
+      const h = Math.max(8, asset.height * scale);
+      const cx = at ? at.x : vp.x + vp.w / 2;
+      const cy = at ? at.y : vp.y + vp.h / 2;
+      const stamp = genId();
+      const assetId = `asset:${stamp}`;
+      const shapeId = `shape:${stamp}`;
+      store.transact(() => {
+        store.put(toAssetRecord(assetId, asset));
+        store.put({ id: shapeId, typeName: 'shape', type: 'image', x: cx - w / 2, y: cy - h / 2, rot: 0, z: store.maxZ() + 1, props: { w, h, assetId } });
+      });
+      flushToDoc(true);
+      if (store.get(shapeId)) placed.push(shapeId);
+      if (at) at = { x: at.x + 24, y: at.y + 24 };
+    }
+    if (placed.length && editor) {
+      editor.setTool('select');
+      editor.setSelection(placed);
+    }
+  }
+
+  function chooseImage() {
+    imageInput?.click();
+  }
+
+  function onImagePicked() {
+    const files = imageInput?.files ? [...imageInput.files] : [];
+    if (imageInput) imageInput.value = '';
+    void insertImages(files);
   }
 
   function setupYjs() {
     ydoc = new Y.Doc();
     yrecords = ydoc.getMap('records');
+    yassets = ydoc.getMap('assets');
     ychat = ydoc.getArray('chat');
     ychat.observe((event, tr) => { void refreshSavedChat(tr.origin !== LOCAL_ORIGIN); });
 
@@ -327,7 +441,7 @@
 
     yrecords.observe((event, tr) => {
       if (tr.origin === LOCAL_ORIGIN) return;
-      const wasEmpty = store.size === 0;
+      const wasEmpty = store.shapes().length === 0;
       const diff: Diff = { added: {}, removed: {}, updated: {} };
       event.changes.keys.forEach((change, key) => {
         if (change.action === 'delete') {
@@ -343,6 +457,21 @@
         if (editor) editor.fitContent({ animate: 200 });
         else pendingFit = true;
       }
+    });
+
+    yassets.observe((event, tr) => {
+      if (tr.origin === LOCAL_ORIGIN) return;
+      const diff: Diff = { added: {}, removed: {}, updated: {} };
+      event.changes.keys.forEach((change, key) => {
+        if (change.action === 'delete') {
+          const cur = store.asset(key);
+          if (cur && !store.shapes().some((s) => s.type === 'image' && s.props.assetId === key)) diff.removed[key] = cur;
+          return;
+        }
+        const asset = yassets.get(key);
+        if (!store.asset(key) && validAssetRecord(asset, key)) diff.added[key] = toAssetRecord(key, asset);
+      });
+      store.applyDiff(diff, 'remote');
     });
 
     ydoc.on('update', (update: Uint8Array, origin: any) => {
@@ -706,9 +835,9 @@
     themeId = isDarkTheme() ? 'dark' : 'light';
     const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
     node.dataset.qdTheme = themeId;
-    // Images would be relayed as data URLs that exceed the encrypted message limit.
-    ed.importImageBlobs = async () => {};
-    ed.pickImage = () => {};
+    // Pictures are re-encoded here and embedded in the encrypted document; nothing goes to an upload service.
+    ed.importImageBlobs = insertImages;
+    ed.pickImage = chooseImage;
     ed.setTool(tool);
     editor = ed;
     const offs = [
@@ -717,7 +846,7 @@
       ed.on('selection', syncUi),
       ed.on('history', syncUi),
       ed.on('grid', syncUi),
-      ed.on('change', () => { shapeCount = store.size; syncUi(); }),
+      ed.on('change', () => { shapeCount = store.shapes().length; syncUi(); }),
       ed.on('camera', () => { zoom = ed.camera.z; camTick++; }),
       ed.on('scribbles', onScribbles),
     ];
@@ -727,7 +856,7 @@
     node.addEventListener('wheel', onBoardWheel, { capture: true, passive: false });
     node.addEventListener('mousedown', blockMiddleClick);
     node.addEventListener('auxclick', blockMiddleClick);
-    shapeCount = store.size;
+    shapeCount = store.shapes().length;
     syncUi();
     if (pendingFit || store.size) { pendingFit = false; ed.fitContent(); }
     return {
@@ -844,15 +973,20 @@
     const parsed = parseBoardBackup(await file.text());
     if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
     const probe = new Y.Doc();
+    let added = 0;
     try {
       Y.applyUpdate(probe, parsed.update);
+      for (const [key, asset] of probe.getMap<BoardAsset>('assets')) {
+        if (!yassets.has(key) && validAssetRecord(asset, key)) added += assetBytes(asset.data);
+      }
     } catch {
       showNotice(t(dict, 'whiteboard.importInvalid'));
       return;
     } finally {
       probe.destroy();
     }
-    flushToDoc();
+    if (boardAssetBytes() + added > BOARD_ASSET_BYTES) { boardFullNotice(); return; }
+    flushToDoc(true);
     Y.applyUpdate(ydoc, parsed.update, IMPORT_ORIGIN);
     editor?.fitContent({ animate: 200 });
     showNotice(t(dict, 'whiteboard.importDone'), false);
@@ -1433,6 +1567,7 @@
         </section>
       {/if}
 
+      <input bind:this={imageInput} type="file" accept="image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" on:change={onImagePicked} />
       <input bind:this={importInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={importBoard} />
       {#if notice}
         <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
@@ -1469,6 +1604,9 @@
               <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[item.id === 'geo' ? geoKind : item.id]}</svg>
             </button>
           {/each}
+          <button type="button" class="wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.image}</svg>
+          </button>
         </div>
       </div>
     </div>

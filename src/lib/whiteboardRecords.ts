@@ -2,7 +2,7 @@ import { COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickd
 import type { ShapeRecord, ScribbleStroke } from '@quickdrawjs/core';
 import { validPublicKey } from './chatCrypto';
 
-export const SHAPE_TYPES = ['draw', 'highlight', 'geo', 'arrow', 'line', 'text', 'note'] as const;
+export const SHAPE_TYPES = ['draw', 'highlight', 'geo', 'arrow', 'line', 'text', 'note', 'image'] as const;
 
 const MAX_COORD = 1e7;
 const MAX_TEXT = 20000;
@@ -28,6 +28,7 @@ const REQUIRED: Record<string, string[]> = {
   line: ['dx', 'dy', 'color', 'size', 'dash'],
   text: ['text', 'color', 'size'],
   note: ['text', 'color', 'size'],
+  image: ['w', 'h', 'assetId'],
 };
 
 const finite = (n: unknown, max = MAX_COORD): n is number => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= max;
@@ -38,7 +39,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
-/** Accepts only shape records the renderer can draw safely; images and assets are not synced. */
+/** Accepts only shape records the renderer can draw safely; an image shape names its picture by asset id. */
 export function validShapeRecord(rec: unknown, key: string): rec is ShapeRecord {
   if (!isPlainObject(rec) || rec.id !== key || typeof key !== 'string' || !ID_RE.test(key)) return false;
   if (rec.typeName !== 'shape' || !SHAPE_TYPES.includes(rec.type as any)) return false;
@@ -52,7 +53,10 @@ export function validShapeRecord(rec: unknown, key: string): rec is ShapeRecord 
       for (const n of v) if (!finite(n)) return false;
       continue;
     }
-    if (k === 'assetId') return false;
+    if (k === 'assetId') {
+      if (rec.type !== 'image' || typeof v !== 'string' || !ID_RE.test(v)) return false;
+      continue;
+    }
     if (ENUMS[k]) {
       if (typeof v !== 'string' || !ENUMS[k].includes(v)) return false;
       continue;
@@ -62,9 +66,34 @@ export function validShapeRecord(rec: unknown, key: string): rec is ShapeRecord 
     if (!finite(v)) return false;
   }
   for (const k of REQUIRED[rec.type as string]) if (!(k in props)) return false;
-  if (rec.type === 'geo' && !((props.w as number) > 0 && (props.h as number) > 0)) return false;
+  if ((rec.type === 'geo' || rec.type === 'image') && !((props.w as number) > 0 && (props.h as number) > 0)) return false;
   if ('w' in props && (props.w as number) < 0) return false;
   if ('scale' in props && !((props.scale as number) > 0)) return false;
+  return true;
+}
+
+export const IMAGE_MAX_EDGE = 1600;
+export const IMAGE_TARGET_BYTES = 400 * 1024;
+export const BOARD_ASSET_BYTES = 12 * 1024 * 1024;
+const IMAGE_MAX_BYTES = 512 * 1024;
+const IMAGE_MAGIC: Record<string, string> = { 'image/webp': 'UklGR', 'image/jpeg': '/9j/', 'image/png': 'iVBORw0KGgo' };
+const B64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** A picture embedded in the board document as base64, so it travels and is stored like any other encrypted edit. */
+export type BoardAsset = { mime: string; width: number; height: number; data: string };
+
+export function assetBytes(data: string): number {
+  return Math.floor(data.length * 3 / 4) - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0);
+}
+
+/** Raster pictures only, at most IMAGE_MAX_EDGE on a side, whose bytes start like the type they claim. */
+export function validAssetRecord(value: unknown, key: string): value is BoardAsset {
+  if (!isPlainObject(value) || typeof key !== 'string' || !ID_RE.test(key)) return false;
+  if (Object.keys(value).some((k) => !['mime', 'width', 'height', 'data'].includes(k))) return false;
+  const { mime, width, height, data } = value;
+  if (typeof mime !== 'string' || !IMAGE_MAGIC[mime]) return false;
+  for (const n of [width, height]) if (!Number.isInteger(n) || (n as number) < 1 || (n as number) > IMAGE_MAX_EDGE) return false;
+  if (typeof data !== 'string' || data.length % 4 || assetBytes(data) > IMAGE_MAX_BYTES || !data.startsWith(IMAGE_MAGIC[mime]) || !B64_RE.test(data)) return false;
   return true;
 }
 
