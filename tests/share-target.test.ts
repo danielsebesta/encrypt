@@ -59,6 +59,7 @@ test('without the service worker the server drops the shared body and sends the 
     budget: async () => { budgeted = true; return true as never; },
     blobs: { put: async () => {}, get: async () => null, delete: async () => {} },
     realtime: async () => new Response(null, { status: 426 }),
+    waitUntil: () => {},
   };
   const app = createApp(platform);
   let pulled = false;
