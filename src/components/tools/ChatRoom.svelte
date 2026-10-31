@@ -40,6 +40,7 @@
   import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
   import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
   import { longPress } from '../../lib/longPress';
+  import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
   import ChatQuote from './ChatQuote.svelte';
@@ -457,6 +458,12 @@
   const reactionBook = new ReactionBook();
   const reactionLog: { target: string; signed: string }[] = [];
   const REACTION_LOG_LIMIT = 500;
+  let unread = 0;
+  let baseTitle = '';
+  let notifySupported = false;
+  let notifyOn = false;
+  let shownNotification: Notification | null = null;
+  const notifyBurst = new NotificationBurst(showNotification);
 
   const MAX_FILE = MAX_UPLOAD_BYTES;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -2553,8 +2560,58 @@
 
     if (msg.file) autoPreview(msg);
 
-    if (blurred) document.title = `(!) encrypt.click/chat`;
+    if (!fromHistory && !mine) noteUnread();
     return true;
+  }
+
+  // A hidden tab counts what arrived in its title and app badge; a notification, when turned on, says only that something did.
+  function noteUnread() {
+    if (!document.hidden && document.hasFocus()) return;
+    unread++;
+    document.title = titleWithUnread(baseTitle, unread);
+    navigator.setAppBadge?.(unread).catch(() => {});
+    if (notifyOn && document.hidden) notifyBurst.note();
+  }
+
+  function clearUnread() {
+    notifyBurst.cancel();
+    shownNotification?.close();
+    shownNotification = null;
+    if (!unread) return;
+    unread = 0;
+    document.title = baseTitle;
+    navigator.clearAppBadge?.().catch(() => {});
+  }
+
+  function showNotification() {
+    if (!notifyOn || !document.hidden || !unread || Notification.permission !== 'granted') return;
+    try {
+      shownNotification?.close();
+      const notification = new Notification(t(dict, 'chat.notifyTitle'), { body: t(dict, 'chat.notifyBody'), tag: 'encrypt.click-chat' });
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+      shownNotification = notification;
+    } catch {}
+  }
+
+  async function toggleNotifications() {
+    if (notifyOn) {
+      notifyOn = false;
+      notifyBurst.reset();
+      saveNotifyPref(localStorage, roomId, false);
+      return;
+    }
+    if (!notifySupported) return;
+    let permission = Notification.permission;
+    if (permission === 'default') permission = await Notification.requestPermission().catch(() => 'denied' as NotificationPermission);
+    if (permission !== 'granted') {
+      fileError = t(dict, 'chat.notifyDenied');
+      return;
+    }
+    notifyOn = true;
+    saveNotifyPref(localStorage, roomId, true);
   }
 
   async function sendMessage() {
@@ -4085,7 +4142,7 @@
     if (typeof document === 'undefined') return;
     blurred = document.hidden || !document.hasFocus();
     if (!blurred) {
-      document.title = 'encrypt.click/chat';
+      clearUnread();
       sendServerPing();
       scrollToBottom();
     }
@@ -4388,6 +4445,9 @@
 
   onMount(() => {
     clientId = genId();
+    baseTitle = document.title;
+    notifySupported = 'Notification' in window;
+    notifyOn = notifySupported && Notification.permission === 'granted' && loadNotifyPref(localStorage, roomId);
     callDebugEnabled = getCallDebugEnabledFromStorage();
     callDebug('debug enabled', {
       client: shortPeerId(clientId),
@@ -4404,6 +4464,7 @@
   });
 
   onDestroy(() => {
+    if (typeof document !== 'undefined') clearUnread();
     if (callActive) void sendCallSignal({ action: 'leave' });
     cleanupCall();
     dropForwardSecrecy();
@@ -4574,6 +4635,15 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           {/if}
         </button>
+        {#if notifySupported}
+          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.notifications')} aria-label={t(dict, 'chat.notifications')} aria-pressed={notifyOn} on:click={toggleNotifications}>
+            {#if notifyOn}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>
+            {/if}
+          </button>
+        {/if}
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
