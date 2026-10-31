@@ -134,6 +134,36 @@ test('saved rooms keep flagged envelopes with a server sequence and replay them 
   assert.deepEqual(stale.messages.filter(m => m.type === 'history')[0].messages.map((m: any) => m.id), ['m1', 'm2']);
 });
 
+test('live rooms tag each connection on what it relays and name the tag when it closes, saved rooms do not', async () => {
+  const live = fakeRoom(await accessChannel(token));
+  const server = new Chat(live.host);
+  const a = await joined(server, live, 'a');
+  const b = await joined(server, live, 'b');
+  await send(server, a, 'm1', false);
+  await send(server, a, 'm2', false);
+  const relayed = b.messages.filter(m => m.type === 'message');
+  assert.equal(typeof relayed[0].from, 'string');
+  assert.equal(relayed[0].from, relayed[1].from);
+  live.drop(a);
+  server.onClose(a as any);
+  const presence = b.messages.filter(m => m.type === 'presence').at(-1);
+  assert.deepEqual(presence, { type: 'presence', count: 1, left: relayed[0].from });
+  const again = await joined(server, live, 'a');
+  await send(server, again, 'm3', false);
+  assert.notEqual(b.messages.filter(m => m.type === 'message').at(-1).from, relayed[0].from);
+
+  const saved = fakeRoom(await accessChannel(token));
+  const savedServer = new Chat(saved.host, { persistent: true });
+  const c = await joined(savedServer, saved, 'c');
+  const d = await joined(savedServer, saved, 'd');
+  await send(savedServer, c, 'm1');
+  await send(savedServer, c, 'm2', false);
+  assert.ok(d.messages.filter(m => m.type === 'message').every(m => m.from === undefined));
+  saved.drop(c);
+  savedServer.onClose(c as any);
+  assert.deepEqual(d.messages.filter(m => m.type === 'presence').at(-1), { type: 'presence', count: 1 });
+});
+
 test('history is capped on the server and the oldest messages go first', async () => {
   const room = fakeRoom(await accessChannel(token));
   const server = new Chat(room.host, { persistent: true });

@@ -38,7 +38,17 @@
   import { t } from '../../lib/t';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
-  import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
+  import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
+  import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
+  import { longPress } from '../../lib/longPress';
+  import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
+  import ChatMessageActions from './ChatMessageActions.svelte';
+  import ChatReactions from './ChatReactions.svelte';
+  import ChatQuote from './ChatQuote.svelte';
+  import ChatVoiceRecorder from './ChatVoiceRecorder.svelte';
+  import ChatVoiceMessage from './ChatVoiceMessage.svelte';
+  import { formatClock, validVoiceDuration, voiceFileName, voiceTypeOf, type VoiceRecording } from '../../lib/voiceMessage';
+  import { buildChatHistoryExport, chatHistoryExportJson, chatHistoryFileName } from '../../lib/chatHistoryExport';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
   import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from '../../lib/hybridKem';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
@@ -61,7 +71,7 @@
     time: number;
     ttl: number;
     remaining: number;
-    file?: { name: string; size: number; urls: string[]; key: string };
+    file?: ChatFile;
     fileError?: boolean;
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     revealed?: boolean;
@@ -69,7 +79,10 @@
     pk?: string;
     keyWarning?: boolean;
     signed?: string;
+    replyTo?: string;
   };
+
+  type ChatFile = { name: string; size: number; urls: string[]; key: string; voice?: true; duration?: number };
 
   type Member = {
     pk: string;
@@ -102,8 +115,12 @@
     alias?: [number, number, number];
     nick?: string;
     ttl?: number;
-    file?: { name: string; size: number; urls: string[]; key: string };
+    file?: ChatFile;
     createdAt?: number;
+    replyTo?: string;
+    target?: string;
+    emoji?: ReactionEmoji;
+    remove?: true;
   };
 
   type ServerEnvelope = {
@@ -116,6 +133,7 @@
     hash?: string;
     createdAt?: number;
     serverSeq?: number;
+    from?: string;
   };
 
   type HistoryEnvelope = {
@@ -139,6 +157,7 @@
     signed?: string;
     localSealed?: boolean;
     fsSender?: string;
+    conn?: string;
   };
   type Signer = { id: string; ed: string };
 
@@ -181,6 +200,7 @@
     mediaPub?: string;
     mediaKem?: string;
     sharedKeyId?: number;
+    keyTicket: number;
   };
 
   type CallSignal = {
@@ -329,6 +349,8 @@
   let shareCopiedPass = false;
   let showSharePassword = false;
   let shareDismissed = false;
+  let exportFlash = false;
+  let exportFlashTimer: ReturnType<typeof setTimeout> | null = null;
   let clientId = '';
   let persistentRoom = false;
   let shareLinkOnly = false;
@@ -437,6 +459,21 @@
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
+  let voiceRecording = false;
+  let inputEl: HTMLInputElement;
+  let replyTarget: Message | null = null;
+  let actionMenuFor: string | null = null;
+  let highlightedId = '';
+  let reactionTick = 0;
+  const reactionBook = new ReactionBook();
+  const reactionLog: { target: string; signed: string }[] = [];
+  const REACTION_LOG_LIMIT = 500;
+  let unread = 0;
+  let baseTitle = '';
+  let notifySupported = false;
+  let notifyOn = false;
+  let shownNotification: Notification | null = null;
+  const notifyBurst = new NotificationBurst(showNotification);
 
   const MAX_FILE = MAX_UPLOAD_BYTES;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -475,6 +512,7 @@
   let messagesEl: HTMLElement;
 
   $: myInitials = getInitials(identity.name);
+  $: messageIndex = new Map(messages.map((msg) => [msg.id, msg]));
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -1246,7 +1284,7 @@
 
   async function shareMediaKey(peerId: string) {
     const peer = callPeerMap.get(peerId);
-    const key = mediaKeys?.latest;
+    const key = peer ? mediaKeys?.keyFor(peer.keyTicket) : null;
     if (!callActive || !callKeyPair || !peer?.mediaPub || !peer.mediaKem || !key) return;
     const raw = key.raw.slice();
     let seal: KemSeal | null = null;
@@ -1255,6 +1293,7 @@
       const wrapped = await wrapMediaKey(await deriveWrapKey(callKeyPair, peer.mediaPub, seal.secret), raw, mediaKeyContext(CALL_ID, clientId, peerId, key.id));
       if (callPeerMap.get(peerId) !== peer) return;
       peer.sharedKeyId = key.id;
+      if (mediaKeys?.latest === key) mediaKeys.markShared();
       await sendCallSignal({ action: 'media-key', to: peerId, keyId: key.id, wrapped, e: seal.ciphertext });
       callDebug('media key out', { peer: shortPeerId(peerId), keyId: key.id });
     } catch {
@@ -1294,13 +1333,15 @@
     void sendCallSignal({ action: 'media-key-request', to: peerId });
   }
 
-  // Whoever stays after someone leaves moves to a fresh key, so the one who left cannot read what follows.
+  // Whoever stays after someone leaves moves to a fresh key, so the one who left cannot read what follows, and a newcomer
+  // gets only a key made after it joined, so it cannot read what came before.
   function scheduleMediaKeyRotation() {
     if (!callActive || mediaKeyRotateTimer) return;
     mediaKeyRotateTimer = setTimeout(() => {
       mediaKeyRotateTimer = undefined;
       if (!callActive || !mediaKeys) return;
       const key = mediaKeys.rotate();
+      if (callPeerMap.size) mediaKeys.markShared();
       callDebug('media key rotated', { keyId: key.id, peers: callPeerMap.size });
       for (const peer of callPeerMap.values()) void shareMediaKey(peer.id);
     }, MEDIA_KEY_ROTATE_DEBOUNCE_MS);
@@ -1496,6 +1537,9 @@
     if (firstSight) return;
     messages = [];
     seenMessageIds.clear();
+    reactionBook.clear();
+    reactionLog.length = 0;
+    reactionTick++;
     addSystemMessage(t(dict, 'chat.historyReset'), 0, '!');
   }
 
@@ -1674,8 +1718,8 @@
 
   // After someone leaves, everyone still here answers with a presence: in rooms without server history that is the roll call
   // for the new sender chains, in saved rooms it shows each member's latest history head to the others.
-  async function onMemberLeft() {
-    if (fsSession) await fsSession.memberLeft();
+  async function onMemberLeft(gone?: string) {
+    if (fsSession) await fsSession.memberLeft(gone);
     if (fsSession || persistentRoom) await sendPresence();
   }
 
@@ -1689,10 +1733,11 @@
 
   async function sendLiveHistorySync(member: FsMember) {
     if (roomConfig.mode !== 'live' || !fsSession) return;
-    const items = messages
+    const shared = messages
       .filter((msg) => !msg.whiteboard && !msg.ttl && msg.pk && msg.signed && (msg.text || msg.file))
-      .slice(-200)
-      .map((msg) => msg.signed!);
+      .slice(-200);
+    const ids = new Set(shared.map((msg) => msg.id));
+    const items = [...shared.map((msg) => msg.signed!), ...reactionLog.filter((entry) => ids.has(entry.target)).map((entry) => entry.signed)];
     let batch: string[] = [];
     let chars = 0;
     for (const item of items) {
@@ -1714,7 +1759,7 @@
       if (text.length > SYNC_BATCH_CHARS) continue;
       try {
         const value = JSON.parse(text);
-        if (value?.type !== 'chat-message' || value.ttl) continue;
+        if ((value?.type !== 'chat-message' && value?.type !== 'reaction') || value.ttl) continue;
         await processSigned(value, { fromHistory: true, origin: 'sync', signed: text });
       } catch {}
     }
@@ -2207,10 +2252,11 @@
       serverPresence = typeof data.count === 'number' ? data.count : 0;
       const left = serverPresence < lastPresenceCount;
       lastPresenceCount = serverPresence;
+      const gone = typeof data.left === 'string' ? departedClient(data.left) : undefined;
       if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
         markVerified();
       }
-      if (left && verified) await onMemberLeft();
+      if (left && verified) await onMemberLeft(gone);
       return;
     }
     if (data.type === 'member-keys') {
@@ -2312,7 +2358,8 @@
       return false;
     }
     try {
-      return await processSigned(parsed, { fromHistory, origin, serverSeq: data.serverSeq, createdAt: data.createdAt, wire: data.payload, signed: plaintext });
+      const conn = !fromHistory && typeof data.from === 'string' ? data.from : undefined;
+      return await processSigned(parsed, { fromHistory, origin, serverSeq: data.serverSeq, createdAt: data.createdAt, wire: data.payload, signed: plaintext, conn });
     } catch {
       return false;
     }
@@ -2356,6 +2403,7 @@
     if (!auth) return false;
     const signer = auth.id;
     if (ctx.fsSender !== undefined && signer !== ctx.fsSender) return false;
+    if (ctx.conn && typeof parsed.clientId === 'string' && bindClient(parsed.clientId, signer)) noteConnection(ctx.conn, parsed.clientId);
     const content = isContent(parsed);
     if (ctx.fsSender !== undefined && !content) return false;
     if (origin === null && !relayedContentOk(parsed, Boolean(fsSession), ctx.fsSender !== undefined)) return false;
@@ -2485,6 +2533,14 @@
     const mine = Boolean(roomIdentity && auth.ed === roomIdentity.publicKey);
     const trusted = mine || noteMember(signer, who);
     if (chainH) await observeChain(auth.ed, parsed, chainH, ctx.serverSeq, who.name);
+    const keep = !fromHistory || origin === 'sync' || (persistentRoom && typeof ctx.serverSeq === 'number');
+    if (parsed.type === 'reaction') {
+      applyReaction(id, parsed, signer, who.name, ctx.signed);
+      if (!ttl && ctx.signed && origin !== 'local' && keep) {
+        void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt, ctx.serverSeq).catch(() => {});
+      }
+      return true;
+    }
     const msg: Message = {
       id,
       text: parsed.text || '',
@@ -2497,25 +2553,78 @@
       time: parsed.createdAt || Date.now(),
       ttl,
       remaining: ttl,
-      file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls, key: parsed.file.key } : undefined,
+      file: parsed.file ? {
+        name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls, key: parsed.file.key,
+        ...(parsed.file.voice === true && validVoiceDuration(parsed.file.duration) ? { voice: true as const, duration: parsed.file.duration } : {}),
+      } : undefined,
       revealed: true,
       pk: signer,
       keyWarning: !trusted,
       ...(ctx.signed ? { signed: ctx.signed } : {}),
+      ...(validMessageRef(parsed.replyTo) ? { replyTo: parsed.replyTo } : {}),
     };
     seenMessageIds.add(id);
     messages = [...messages, msg];
     typing = null;
     if (!fromHistory) scrollToBottom();
-    const keep = !fromHistory || origin === 'sync' || (persistentRoom && typeof ctx.serverSeq === 'number');
     if (!ttl && ctx.signed && origin !== 'local' && keep) {
       void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time, ctx.serverSeq).catch(() => {});
     }
 
     if (msg.file) autoPreview(msg);
 
-    if (blurred) document.title = `(!) encrypt.click/chat`;
+    if (!fromHistory && !mine) noteUnread();
     return true;
+  }
+
+  // A hidden tab counts what arrived in its title and app badge; a notification, when turned on, says only that something did.
+  function noteUnread() {
+    if (!document.hidden && document.hasFocus()) return;
+    unread++;
+    document.title = titleWithUnread(baseTitle, unread);
+    navigator.setAppBadge?.(unread).catch(() => {});
+    if (notifyOn && document.hidden) notifyBurst.note();
+  }
+
+  function clearUnread() {
+    notifyBurst.cancel();
+    shownNotification?.close();
+    shownNotification = null;
+    if (!unread) return;
+    unread = 0;
+    document.title = baseTitle;
+    navigator.clearAppBadge?.().catch(() => {});
+  }
+
+  function showNotification() {
+    if (!notifyOn || !document.hidden || !unread || Notification.permission !== 'granted') return;
+    try {
+      shownNotification?.close();
+      const notification = new Notification(t(dict, 'chat.notifyTitle'), { body: t(dict, 'chat.notifyBody'), tag: 'encrypt.click-chat' });
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+      shownNotification = notification;
+    } catch {}
+  }
+
+  async function toggleNotifications() {
+    if (notifyOn) {
+      notifyOn = false;
+      notifyBurst.reset();
+      saveNotifyPref(localStorage, roomId, false);
+      return;
+    }
+    if (!notifySupported) return;
+    let permission = Notification.permission;
+    if (permission === 'default') permission = await Notification.requestPermission().catch(() => 'denied' as NotificationPermission);
+    if (permission !== 'granted') {
+      fileError = t(dict, 'chat.notifyDenied');
+      return;
+    }
+    notifyOn = true;
+    saveNotifyPref(localStorage, roomId, true);
   }
 
   async function sendMessage() {
@@ -2526,6 +2635,7 @@
     const text = burn ? burn.text : inputText.trim();
     const msgId = genId();
     const createdAt = Date.now();
+    const replyTo = replyTarget?.id;
 
     const payload: ChatPayload = {
       type: 'chat-message',
@@ -2534,6 +2644,7 @@
       alias: aliasWire(alias), nick: nickname || undefined,
       ttl: finalTtl,
       createdAt,
+      ...(replyTo ? { replyTo } : {}),
     };
 
     let signed: string;
@@ -2551,10 +2662,75 @@
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
       revealed: true, pk: mySignerId, signed,
+      ...(replyTo ? { replyTo } : {}),
     }];
 
     inputText = '';
+    replyTarget = null;
     scrollToBottom(true);
+  }
+
+  // Replies and reactions travel inside the signed, encrypted payload like any message, so the relay cannot tell them apart.
+  function applyReaction(id: string, parsed: any, reactor: string, name: string, signed?: string) {
+    const changed = reactionBook.apply({ id, target: parsed.target, emoji: parsed.emoji, remove: parsed.remove === true, reactor, name, at: parsed._sentAt });
+    if (signed && !parsed.ttl) {
+      reactionLog.push({ target: parsed.target, signed });
+      if (reactionLog.length > REACTION_LOG_LIMIT) reactionLog.shift();
+    }
+    if (changed) reactionTick++;
+  }
+
+  function myReactions(target: string, _tick: number): ReactionEmoji[] {
+    return REACTION_EMOJI.filter((emoji) => reactionBook.has(target, emoji, mySignerId));
+  }
+
+  async function toggleReaction(target: Message, emoji: ReactionEmoji) {
+    if (!cryptoKey || !ws || !connected) return;
+    const remove = reactionBook.has(target.id, emoji, mySignerId);
+    const ttl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    const id = genId();
+    const createdAt = Date.now();
+    const payload: ChatPayload = {
+      type: 'reaction', id, target: target.id, emoji, ...(remove ? { remove: true as const } : {}),
+      alias: aliasWire(alias), nick: nickname || undefined, ttl, createdAt,
+    };
+    let signed: string;
+    try {
+      signed = await sendContent(payload, !ttl, createdAt);
+    } catch {
+      fileError = t(dict, 'chat.sendFailed');
+      return;
+    }
+    seenMessageIds.add(id);
+    if (!ttl) void storeLocalSigned(id, signed, createdAt).catch(() => {});
+    applyReaction(id, JSON.parse(signed), mySignerId, identity.name, signed);
+  }
+
+  function startReply(msg: Message) {
+    replyTarget = msg;
+    actionMenuFor = null;
+    void settled().then(() => inputEl?.focus());
+  }
+
+  function quoteOf(id: string | undefined, index: Map<string, Message>): { name: string; color: string; text: string } {
+    const target = id ? index.get(id) : undefined;
+    if (!target) return { name: '', color: '', text: t(dict, 'chat.replyUnavailable') };
+    const text = target.text ? plainSnippet(target.text)
+      : target.file?.voice ? `${t(dict, 'chat.voiceMessage')} · ${formatClock(target.file.duration ?? 0)}`
+      : target.file ? target.file.name
+      : target.whiteboard ? t(dict, 'chat.whiteboardTitle')
+      : '';
+    return { name: target.sender, color: target.mine ? 'var(--accent)' : safeColor(target.color), text };
+  }
+
+  function jumpTo(id: string | undefined) {
+    if (!id || !messageIndex.has(id)) return;
+    const el = document.getElementById(`chat-msg-${id}`);
+    if (!el) return;
+    stickToBottom = false;
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    highlightedId = id;
+    setTimeout(() => { if (highlightedId === id) highlightedId = ''; }, 1600);
   }
 
   async function handleSend() {
@@ -2636,7 +2812,16 @@
     await sendFile(file);
   }
 
-  async function sendFile(file: File) {
+  async function sendVoice(recording: VoiceRecording) {
+    const file = new File([recording.blob], voiceFileName(recording.type, new Date()), { type: recording.type });
+    if (file.size > MAX_FILE) {
+      fileError = t(dict, 'chat.fileTooLarge').replace('{max}', String(MAX_FILE / (1024 * 1024)));
+      return;
+    }
+    await sendFile(file, recording.seconds);
+  }
+
+  async function sendFile(file: File, voiceSeconds?: number) {
     if (!cryptoKey || !ws || uploading) return;
     uploading = true;
     fileError = '';
@@ -2683,6 +2868,7 @@
       }
 
       const fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+      const voiceMeta = voiceSeconds === undefined ? {} : { voice: true as const, duration: voiceSeconds };
       const msgId = genId();
       const createdAt = Date.now();
       const payload: ChatPayload = {
@@ -2692,7 +2878,7 @@
         alias: aliasWire(alias), nick: nickname || undefined,
         ttl: fileTtl,
         createdAt,
-        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey },
+        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
       };
 
       let signed: string;
@@ -2709,7 +2895,7 @@
         id: msgId, text: '', sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
-        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey },
+        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
         revealed: true, pk: mySignerId, signed,
       };
       messages = [...messages, ownMsg];
@@ -2718,6 +2904,27 @@
     } finally {
       uploading = false;
     }
+  }
+
+  async function fetchChatFile(msg: Message): Promise<Uint8Array | null> {
+    if (!msg.file || fileGone(msg)) return null;
+    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
+    for (const fileUrl of msg.file.urls) {
+      try {
+        const res = await ghostFetch(fileUrl);
+        if (!res.ok) continue;
+        let bytes = new Uint8Array(await res.arrayBuffer());
+        if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
+        return (await decryptData(bytes, msg.file.key)).data;
+      } catch { continue; }
+    }
+    return null;
+  }
+
+  async function loadVoice(msg: Message): Promise<Blob | null> {
+    const data = await fetchChatFile(msg);
+    if (!data || !msg.file) return null;
+    return new Blob([data as BlobPart], { type: voiceTypeOf(msg.file.name) });
   }
 
   async function downloadChatFile(msg: Message) {
@@ -2849,8 +3056,12 @@
       audioMuted: false,
       audioLevel: 0,
       speaking: false,
+      keyTicket: 0,
     };
+    const admission = mediaKeys?.admit();
+    if (admission) peer.keyTicket = admission.ticket;
     callPeerMap.set(peerId, peer);
+    if (admission?.rotate) scheduleMediaKeyRotation();
     callDebug('peer created', {
       peer: shortPeerId(peerId),
       connectionState: pc.connectionState,
@@ -3976,7 +4187,7 @@
     if (typeof document === 'undefined') return;
     blurred = document.hidden || !document.hasFocus();
     if (!blurred) {
-      document.title = 'encrypt.click/chat';
+      clearUnread();
       sendServerPing();
       scrollToBottom();
     }
@@ -4028,6 +4239,31 @@
   // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
   // In a saved room a connection id belongs to the first key that used it, so nobody can speak for another member's call or presence.
   const clientSigners = new Map<string, string>();
+
+  // The relay tags each connection in rooms without server history, so a departure names the member who left.
+  const connClients = new Map<string, string>();
+  const clientConns = new Map<string, string>();
+
+  function noteConnection(tag: string, id: string) {
+    const previous = clientConns.get(id);
+    if (previous === tag) return;
+    if (previous) connClients.delete(previous);
+    if (connClients.size >= 256) {
+      const [oldest, client] = connClients.entries().next().value as [string, string];
+      connClients.delete(oldest);
+      if (clientConns.get(client) === oldest) clientConns.delete(client);
+    }
+    connClients.set(tag, id);
+    clientConns.set(id, tag);
+  }
+
+  function departedClient(tag: string): string | undefined {
+    const id = connClients.get(tag);
+    connClients.delete(tag);
+    if (!id || clientConns.get(id) !== tag) return undefined;
+    clientConns.delete(id);
+    return id;
+  }
 
   function bindClient(id: unknown, signer: string): boolean {
     if (typeof id !== 'string' || !id) return false;
@@ -4193,6 +4429,27 @@
     ws.send(JSON.stringify({ type: 'delete' }));
   }
 
+  // Only what this tab has already decrypted: no server fetch and no attachment ciphertext or keys.
+  function exportHistory() {
+    if (!shouldKeepParticipantHistory()) return;
+    if (messages.length === 0) {
+      fileError = t(dict, 'chat.exportEmpty');
+      return;
+    }
+    fileError = '';
+    const doc = buildChatHistoryExport(roomId, messages);
+    const blob = new Blob([chatHistoryExportJson(doc)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = chatHistoryFileName(roomId);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (exportFlashTimer) clearTimeout(exportFlashTimer);
+    exportFlash = true;
+    exportFlashTimer = setTimeout(() => { exportFlash = false; exportFlashTimer = null; }, 1500);
+  }
+
   function handleRoomDeleted() {
     cleanupCall();
     forgetLinkKey();
@@ -4225,7 +4482,7 @@
       if (msg.time === 0) { alive.push(msg); continue; }
       const elapsed = (now - msg.time) / 1000;
       const rem = Math.max(0, msg.ttl - elapsed);
-      if (rem <= 0) { changed = true; continue; }
+      if (rem <= 0) { changed = true; reactionBook.forget(msg.id); continue; }
       if (rem !== msg.remaining) { msg.remaining = rem; changed = true; }
       alive.push(msg);
     }
@@ -4254,6 +4511,9 @@
 
   onMount(() => {
     clientId = genId();
+    baseTitle = document.title;
+    notifySupported = 'Notification' in window;
+    notifyOn = notifySupported && Notification.permission === 'granted' && loadNotifyPref(localStorage, roomId);
     callDebugEnabled = getCallDebugEnabledFromStorage();
     callDebug('debug enabled', {
       client: shortPeerId(clientId),
@@ -4270,6 +4530,7 @@
   });
 
   onDestroy(() => {
+    if (typeof document !== 'undefined') clearUnread();
     if (callActive) void sendCallSignal({ action: 'leave' });
     cleanupCall();
     dropForwardSecrecy();
@@ -4277,6 +4538,7 @@
     ws?.close();
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (exportFlashTimer) clearTimeout(exportFlashTimer);
     clearVerificationTimeout();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -4440,6 +4702,15 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           {/if}
         </button>
+        {#if notifySupported}
+          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.notifications')} aria-label={t(dict, 'chat.notifications')} aria-pressed={notifyOn} on:click={toggleNotifications}>
+            {#if notifyOn}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>
+            {/if}
+          </button>
+        {/if}
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
             <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
@@ -4450,6 +4721,15 @@
           <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; deleteConfirm = false; }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
           </button>
+        {#if shouldKeepParticipantHistory()}
+          <button type="button" class="btn-ghost btn-sm btn-icon" title={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} aria-label={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} on:click={exportHistory} disabled={!verified}>
+            {#if exportFlash}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            {/if}
+          </button>
+        {/if}
         {#if persistentRoom}
           <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.deleteRoom')} aria-label={t(dict, 'chat.deleteRoom')} aria-expanded={deleteConfirm} on:click={() => { deleteConfirm = !deleteConfirm; membersOpen = false; }} disabled={!connected || !verified}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -4796,7 +5076,14 @@
         {#if !msg.sender}
           <p class="chat-system">{msg.text}</p>
         {:else}
-        <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
+        <div
+          class="chat-bubble"
+          class:chat-bubble--mine={msg.mine}
+          class:chat-bubble--menu={actionMenuFor === msg.id}
+          class:chat-bubble--highlight={highlightedId === msg.id}
+          id={`chat-msg-${msg.id}`}
+          use:longPress={() => { actionMenuFor = msg.id; }}
+        >
           <div class="flex items-start gap-2">
             {#if !msg.mine}
               <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}">{msg.initials}</div>
@@ -4807,8 +5094,26 @@
                 {#if msg.keyWarning}
                   <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; deleteConfirm = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
+                {#if verified}
+                  <ChatMessageActions
+                    {dict}
+                    open={actionMenuFor === msg.id}
+                    align={msg.mine ? 'end' : 'start'}
+                    mine={actionMenuFor === msg.id ? myReactions(msg.id, reactionTick) : []}
+                    ontoggle={(open) => { actionMenuFor = open ? msg.id : actionMenuFor === msg.id ? null : actionMenuFor; }}
+                    onreply={() => startReply(msg)}
+                    onreact={(emoji) => toggleReaction(msg, emoji)}
+                  />
+                {/if}
               </div>
-              {#if msg.file}
+              {#if msg.replyTo}
+                {@const quote = quoteOf(msg.replyTo, messageIndex)}
+                <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
+              {/if}
+              {#if msg.file?.voice}
+                {@const gone = fileGone(msg)}
+                <ChatVoiceMessage {dict} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
+              {:else if msg.file}
                 {@const gone = fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -4863,6 +5168,7 @@
               {#if msg.text}
                 <p class="chat-text">{@html messageHtml(msg)}</p>
               {/if}
+              <ChatReactions {dict} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
             </div>
             {#if msg.ttl > 0}
               <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
@@ -4899,7 +5205,14 @@
             </button>
           </div>
         {/if}
+        {#if replyTarget}
+          {@const quote = quoteOf(replyTarget.id, messageIndex)}
+          <div class="chat-reply-bar">
+            <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} oncancel={() => { replyTarget = null; inputEl?.focus(); }} />
+          </div>
+        {/if}
         <div class="chat-input">
+          {#if !voiceRecording}
           <div class="chat-attach-menu">
             <button
               type="button"
@@ -4931,15 +5244,18 @@
               </div>
             {/if}
           </div>
+          {/if}
           <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
+          {#if !voiceRecording}
           <input
             type="text"
             class="chat-input-field"
             aria-label={t(dict, 'chat.messagePlaceholder')}
             placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
             bind:value={inputText}
+            bind:this={inputEl}
             on:input={handleTyping}
-            on:keydown={(e) => e.key === 'Enter' && handleSend()}
+            on:keydown={(e) => { if (e.key === 'Enter') handleSend(); else if (e.key === 'Escape' && replyTarget) replyTarget = null; }}
             on:focus={() => { composerMenuOpen = false; }}
             disabled={!connected || uploading}
             autocomplete="off"
@@ -4947,9 +5263,13 @@
             data-lpignore="true"
             data-1p-ignore
           />
+          {/if}
+          <ChatVoiceRecorder {dict} bind:recording={voiceRecording} disabled={!connected || !verified || uploading} onrecorded={sendVoice} onerror={(message) => { fileError = message; }} />
+          {#if !voiceRecording}
           <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
+          {/if}
         </div>
       </div>
     </div>
@@ -5785,6 +6105,9 @@
     background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   :global(.dark) .chat-bubble--mine { background: oklch(0.7019 0.1577 160.44 / 0.15); }
+  .chat-bubble--menu { content-visibility: visible; position: relative; z-index: 5; }
+  .chat-bubble--highlight { box-shadow: 0 0 0 2px var(--accent-line); }
+  .chat-reply-bar { padding: 0.4rem 0.75rem 0; }
   .chat-sender-row {
     display: flex;
     align-items: center;
