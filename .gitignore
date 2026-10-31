@@ -28,6 +28,7 @@ pnpm-debug.log*
 .vscode/
 
 # temp / backup files
+tmp/
 *.bak
 *.off
 check_results*

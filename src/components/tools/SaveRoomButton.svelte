@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../../lib/t';
+  import PasskeyExplain from './PasskeyExplain.svelte';
   import {
     LABEL_MAX, forgetRoom, saveRoom, touchRoom, validMode, validRoomId, validSecret, vaultState, getRoom,
     type RoomEntry, type RoomKind, type RoomSecret, type SaveResult, type VaultState,
@@ -112,6 +113,9 @@
           <p class="hint mt-2">{t(dict, 'rooms.saveNewPasskey').replace('{host}', host)}</p>
         {/if}
       </div>
+      {#if withPasskey}
+        <PasskeyExplain {dict} />
+      {/if}
       <div class="field">
         <label class="label" for="save-room-label">{t(dict, 'rooms.renameLabel')}</label>
         <input id="save-room-label" class="input" type="text" maxlength={LABEL_MAX} bind:value={label} autocomplete="off" spellcheck="false" />
@@ -141,7 +145,7 @@
 
 <style>
   .save-room {
-    width: min(28rem, calc(100vw - 2rem));
+    width: min(32rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 2rem);
     overflow-y: auto;
     margin: auto;

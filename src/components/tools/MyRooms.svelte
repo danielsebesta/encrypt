@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { t } from '../../lib/t';
+  import PasskeyExplain from './PasskeyExplain.svelte';
   import {
     LABEL_MAX, canOpen, forgetEverything, forgetRoom, listRooms, openRoom, relativeTime, renameRoom, unlockVault, vaultState,
     type RoomEntry, type VaultState,
@@ -150,6 +151,7 @@
             </button>
           </div>
         </div>
+        <PasskeyExplain {dict} />
       {/if}
 
       <ul class="grid gap-2">
@@ -195,6 +197,9 @@
       <details class="more">
         <summary>{t(dict, 'rooms.aboutTitle')}</summary>
         <div class="more__body">
+          {#if vault !== 'names' && !locked}
+            <PasskeyExplain {dict} />
+          {/if}
           <p class="hint">{t(dict, 'rooms.about1')}</p>
           <p class="hint">{t(dict, 'rooms.about2')}</p>
           {#if confirmAll}

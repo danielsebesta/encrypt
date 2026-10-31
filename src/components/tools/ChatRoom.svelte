@@ -19,7 +19,7 @@
   const encryptMessage = async (key: CryptoKey, text: string) => sealMessage(key, await signForRoom(JSON.parse(text), true));
   import { randomIndex } from "../../lib/random";
   import { roomSecret, safeColor, ReplayWindow, type RoomSecret } from "../../lib/roomAccess";
-  import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, parseNickname, nicknameKey, loadNickname, saveNickname, saveAlias, NICKNAME_RE, PROFILE_HUES, type Alias } from "../../lib/alias";
+  import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, parseNickname, nicknameKey, loadNickname, saveNickname, saveAlias, NICKNAME_RE, type Alias } from "../../lib/alias";
   let accessToken = "";
   let channelId = "";
   const replay = new ReplayWindow();
@@ -333,7 +333,6 @@
   let connected = false;
   let verified = false;
   let verifying = false;
-  let wrongPassword = false;
   let checkingRoom = false;
   let needsPassword = false;
   let passwordInput = '';
@@ -347,9 +346,7 @@
   let localHistoryKey = '';
   let localHistoryLoaded = false;
   const seenMessageIds = new Set<string>();
-  let decryptFailCount = 0;
   let onlineUsers: { key: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
-  let lastWrongPasswordNotice = 0;
   let uploading = false;
   let uploadSnap: TransferSnapshot | null = null;
   const uploadMeter = new TransferMeter();
@@ -374,7 +371,6 @@
   let profileOpen = false;
   let profileEl: HTMLElement | null = null;
   let nickInput = '';
-  let hueInput = 0;
   let nickError = '';
   let historyReady = false;
   let shareQr = '';
@@ -1923,9 +1919,8 @@
     await enterWithPassword(passwordInput.trim());
   }
 
-  function retryAfterWrongPassword() {
+  function retryPasswordEntry() {
     clearVerificationTimeout();
-    wrongPassword = false;
     needsPassword = false;
     checkingRoom = true;
     currentAuthAttempt = null;
@@ -1953,7 +1948,6 @@
     clearVerificationTimeout();
     verified = true;
     verifying = false;
-    wrongPassword = false;
     currentAuthAttempt = null;
   }
 
@@ -1961,26 +1955,27 @@
     clearVerificationTimeout();
     verifying = true;
     verified = false;
-    wrongPassword = false;
 
     if (activePeerCount <= 0) {
       markVerified();
       return;
     }
 
+    // Same name + different password is already another channel. If peers on
+    // this channel do not ack in time, enter anyway; undecryptable traffic is dropped.
     verificationTimeout = setTimeout(() => {
       if (verifying && !verified) {
-        verifying = false;
-        joinedRoom = false;
         if (currentAuthAttempt === 'fragment') {
+          verifying = false;
+          joinedRoom = false;
           cryptoKey = null;
           dropForwardSecrecy();
           keyConfig = null;
           currentAuthAttempt = null;
           needsPassword = true;
-        } else {
-          wrongPassword = true;
           ws?.close();
+        } else {
+          markVerified();
         }
       }
     }, 4000);
@@ -2003,7 +1998,6 @@
     } else {
       verifying = true;
       verified = false;
-      wrongPassword = false;
     }
 
     verificationChallenge = crypto.randomUUID();
@@ -2173,7 +2167,6 @@
     if (cryptoKey) return;
     checkingRoom = false;
     verifying = false;
-    wrongPassword = false;
     needsPassword = true;
   }
 
@@ -2185,7 +2178,6 @@
 
   function connectWs() {
     verifying = true;
-    wrongPassword = false;
     serverConnectStartedAt = Date.now();
     ws = new PartySocket({
       host: partyHost || window.location.host,
@@ -2386,15 +2378,7 @@
       plaintext = await decryptMessage(cryptoKey, data.payload);
       parsed = JSON.parse(plaintext);
     } catch {
-      // One failed decrypt may be a peer with a different password; the init timeout decides.
-      if (!fromHistory && verified && Date.now() - lastWrongPasswordNotice > 10000) {
-        lastWrongPasswordNotice = Date.now();
-        messages = [...messages, {
-          id: genId(), text: t(dict, 'chat.someoneTriedJoin'), sender: '', initials: '!',
-          color: 'rgb(239,68,68)', mine: false, time: Date.now(), ttl: 10, remaining: 10,
-        }];
-        followIncoming(false);
-      }
+      // Undecryptable traffic stays invisible; a different password is already another channel.
       return false;
     }
     try {
@@ -4373,7 +4357,6 @@
       return;
     }
     nickInput = nickname || '';
-    hueInput = alias.h;
     nickError = '';
     profileOpen = true;
     membersOpen = false;
@@ -4400,11 +4383,10 @@
     }
     nickError = '';
     profileOpen = false;
-    if ((next || null) === nickname && hueInput === alias.h) return;
+    if ((next || null) === nickname) return;
     const prev = myLabelKey();
     nickname = next || null;
     saveNickname(roomId, nickname);
-    alias = { ...alias, h: hueInput };
     saveAlias(roomId, alias);
     identity = { name: nickname || aliasName(dict, alias), color: aliasColor(alias) };
     if (mySignerId) {
@@ -4659,17 +4641,7 @@
         <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
         <a class="btn w-full" href={`${getLocalePrefix()}/chat?room=${encodeURIComponent(roomId)}`}>{t(dict, 'chat.roomMissingCreate')}</a>
-        <button type="button" class="btn-secondary w-full" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
-      </div>
-    </div>
-
-  {:else if wrongPassword}
-    <div class="chat-center">
-      <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
-        <p class="status status--error" role="alert">{t(dict, 'chat.wrongPassword')}</p>
-        <p class="hint">{t(dict, 'chat.wrongPasswordDetail')}</p>
-        <button type="button" class="btn-secondary w-full" on:click={retryAfterWrongPassword}>{t(dict, 'chat.tryAgain')}</button>
+        <button type="button" class="btn-secondary w-full" on:click={retryPasswordEntry}>{t(dict, 'chat.tryAgain')}</button>
       </div>
     </div>
 
@@ -4722,8 +4694,7 @@
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
           <div class="chat-profile" bind:this={profileEl}>
-            <button type="button" class="chat-avatar chat-avatar--sm chat-avatar--btn" style="background: {aliasGradient(alias)}" title="{identity.name} · {t(dict, 'chat.editProfile')}" aria-label="{identity.name} · {t(dict, 'chat.editProfile')}" aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
-              {myInitials}
+            <button type="button" class="chat-avatar chat-avatar--sm chat-avatar--btn" style="background: {aliasGradient(alias, identity.name)}" title="{identity.name} · {t(dict, 'chat.editProfile')}" aria-label="{identity.name} · {t(dict, 'chat.editProfile')}" aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
               <span class="chat-avatar__edit" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
             </button>
             {#if profileOpen}
@@ -4734,17 +4705,12 @@
                   <button type="submit" class="btn btn-sm">{t(dict, 'chat.nicknameSave')}</button>
                 </div>
                 <p id="chat-nickname-hint" class="chat-profile__hint" class:chat-profile__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
-                <p class="chat-profile__label" id="chat-profile-colour">{t(dict, 'chat.profileColour')}</p>
-                <div class="chat-profile__hues" role="radiogroup" aria-labelledby="chat-profile-colour">
-                  {#each (PROFILE_HUES.includes(alias.h) ? PROFILE_HUES : [alias.h, ...PROFILE_HUES]) as hue, i}
-                    <button type="button" class="chat-profile__hue" class:chat-profile__hue--active={hueInput === hue} style="background: {aliasGradient({ ...alias, h: hue })}" role="radio" aria-checked={hueInput === hue} aria-label={t(dict, 'chat.colourOption').replace('{n}', String(i + 1))} on:click={() => { hueInput = hue; }}></button>
-                  {/each}
-                </div>
+                
               </form>
             {/if}
           </div>
           {#each onlineUsers as user}
-            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name}>{user.initials}</div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name, user.key)}" title={user.name} aria-label={user.name}></div>
           {/each}
         </div>
       </div>
@@ -4812,7 +4778,7 @@
     {#if membersOpen}
       <div class="chat-members">
         <div class="chat-member">
-          <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias)}">{myInitials}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
           <div class="min-w-0 flex-1">
             <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
             <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><code class="chat-member__code">{myKeyCode}</code></p>
@@ -4823,7 +4789,7 @@
         {/if}
         {#each memberList as member (member.pk)}
           <div class="chat-member" class:chat-member--warn={!member.trusted}>
-            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}">{member.initials}</div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name, member.key)}" title={member.name} aria-label={member.name}></div>
             <div class="min-w-0 flex-1">
               <p class="chat-member__name">
                 {member.name}
@@ -4892,7 +4858,7 @@
     {#if activeCallNotice && !callActive}
       <div class="chat-call-banner">
         <div class="chat-call-banner__meta">
-          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}">{getInitials(activeCallNotice.name)}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" title={activeCallNotice.name} aria-label={activeCallNotice.name}></div>
           <div class="min-w-0">
             <p class="chat-call-banner__title">{t(dict, 'chat.callInProgress')}</p>
             <p class="chat-call-banner__name">{t(dict, 'chat.callInProgressBy').replace('{name}', activeCallNotice.name)}</p>
@@ -4946,7 +4912,7 @@
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
                     </button>
                   {:else}
-                    <div class="call__avatar" style="background: {aliasGradient(alias)}">{myInitials}</div>
+                    <div class="call__avatar" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
                   {/if}
                   <div class="call__name">
                     <span>{t(dict, 'chat.callYou')}</span>
@@ -4990,7 +4956,7 @@
                           on:contextmenu={preventMediaContextMenu}
                         ></audio>
                       {/if}
-                      <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name)}">{peer.initials}</div>
+                      <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name, peer.id)}" title={peer.name} aria-label={peer.name}></div>
                     {/if}
                     <div class="call__name">
                       <span>{peer.name}</span>
@@ -5096,7 +5062,7 @@
                     {#each callPeers as peer (peer.id)}
                       <div class="call__peer">
                         <div class="call__peer-name">
-                          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name)}">{peer.initials}</div>
+                          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name, peer.id)}" title={peer.name} aria-label={peer.name}></div>
                           <span>{peer.name}</span>
                         </div>
                         <button type="button" class="btn-ghost btn-sm btn-icon" class:text-danger={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-label={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-pressed={peer.audioMuted} on:click={() => setPeerAudioMuted(peer.id, !peer.audioMuted)}>
@@ -5147,7 +5113,7 @@
         >
           <div class="flex items-start gap-2">
             {#if !msg.mine}
-              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}">{msg.initials}</div>
+              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender, msg.nick)}" title={msg.sender} aria-label={msg.sender}></div>
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
@@ -5251,7 +5217,7 @@
 
       {#if typing}
         <div class="chat-typing">
-          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(typing.alias, typing.sender)}">{typing.initials}</div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(typing.alias, typing.sender)}" title={typing.sender} aria-label={typing.sender}></div>
           <span style="color: {safeColor(typing.color)}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
         </div>
       {/if}
@@ -5864,23 +5830,6 @@
     color: var(--muted);
   }
   .chat-profile__hint--error { color: var(--danger); }
-  .chat-profile__hues {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-  .chat-profile__hue {
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border-radius: 9999px;
-    border: 2px solid transparent;
-    cursor: pointer;
-  }
-  .chat-profile__hue--active {
-    border-color: var(--text);
-    box-shadow: inset 0 0 0 2px var(--surface);
-  }
   .chat-body {
     flex: 1;
     min-height: 0;
@@ -6200,9 +6149,9 @@
   .chat-avatar {
     width: 34px; height: 34px; border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 800; color: white;
-    flex-shrink: 0; letter-spacing: 0.02em;
+    flex-shrink: 0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    overflow: hidden;
   }
   .chat-avatar--sm {
     width: 24px; height: 24px; border-radius: 9999px; font-size: 0.75rem;

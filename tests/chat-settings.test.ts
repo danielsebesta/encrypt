@@ -48,7 +48,11 @@ test('the shared passphrase generator always passes the password check it is off
   for (let i = 0; i < 500; i++) {
     const passphrase = generatePassphrase();
     assert.ok(roomPasswordOk(passphrase, ''), passphrase);
-    assert.equal(passphrase.split('-').length, 8);
+    const parts = passphrase.split('-');
+    assert.equal(parts.length, 6);
+    assert.ok(parts.every((part) => /^[A-Z][a-z]{4,8}(?:\d{2})?$/.test(part)), passphrase);
+    assert.equal(parts.filter((part) => /\d{2}$/.test(part)).length, 1, passphrase);
+    assert.equal(parts.filter((part) => /^\d/.test(part)).length, 0, passphrase);
     seen.add(passphrase);
   }
   assert.equal(seen.size, 500);

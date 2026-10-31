@@ -162,7 +162,6 @@
   let connected = false;
   let verified = false;
   let verifying = false;
-  let wrongPassword = false;
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
@@ -730,7 +729,6 @@
 
   function connectWs() {
     verifying = true;
-    wrongPassword = false;
     ws = new PartySocket({
       host: partyHost || window.location.host,
       room: channelId,
@@ -758,9 +756,7 @@
       connected = false;
     });
 
-    ws.addEventListener('error', () => {
-      // A socket error is a network problem, not a wrong password; the init timeout decides that.
-    });
+    ws.addEventListener('error', () => {});
 
     ws.addEventListener('message', handleServerMessage);
 
@@ -797,11 +793,12 @@
         verified = true;
         verifying = false;
       } else if (verifying && serverPresence > 1) {
+        // Peers on another password are on another channel. If nobody here
+        // decrypts in time, enter anyway; undecryptable envelopes are dropped.
         setTimeout(() => {
           if (verifying && !verified) {
-            wrongPassword = true;
+            verified = true;
             verifying = false;
-            ws?.close();
           }
         }, 4000);
       }
@@ -1438,16 +1435,6 @@
         <p class="status status--error" role="alert">{t(dict, boardDeleted ? 'whiteboard.boardDeleted' : 'whiteboard.errorDeriveKey')}</p>
         {#if boardDeleted}<p class="hint">{t(dict, 'whiteboard.boardDeletedDetail')}</p>{/if}
         <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard`}>{t(dict, 'whiteboard.newBoard')}</a>
-      </div>
-    </div>
-
-  {:else if wrongPassword}
-    <div class="wb-center">
-      <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
-        <p class="status status--error" role="alert">{t(dict, 'whiteboard.wrongPassword')}</p>
-        <p class="hint">{t(dict, 'whiteboard.wrongPasswordDetail')}</p>
-        <button type="button" class="btn-secondary w-full" on:click={() => { wrongPassword = false; needsPassword = true; passwordInput = ''; }}>{t(dict, 'whiteboard.tryAgain')}</button>
       </div>
     </div>
 
