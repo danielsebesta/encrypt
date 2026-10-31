@@ -47,6 +47,7 @@
   import ChatVoiceRecorder from './ChatVoiceRecorder.svelte';
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
   import { formatClock, validVoiceDuration, voiceFileName, voiceTypeOf, type VoiceRecording } from '../../lib/voiceMessage';
+  import { buildChatHistoryExport, chatHistoryExportJson, chatHistoryFileName } from '../../lib/chatHistoryExport';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
   import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from '../../lib/hybridKem';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
@@ -347,6 +348,8 @@
   let shareCopiedPass = false;
   let showSharePassword = false;
   let shareDismissed = false;
+  let exportFlash = false;
+  let exportFlashTimer: ReturnType<typeof setTimeout> | null = null;
   let clientId = '';
   let persistentRoom = false;
   let shareLinkOnly = false;
@@ -4425,6 +4428,27 @@
     ws.send(JSON.stringify({ type: 'delete' }));
   }
 
+  // Only what this tab has already decrypted: no server fetch and no attachment ciphertext or keys.
+  function exportHistory() {
+    if (!shouldKeepParticipantHistory()) return;
+    if (messages.length === 0) {
+      fileError = t(dict, 'chat.exportEmpty');
+      return;
+    }
+    fileError = '';
+    const doc = buildChatHistoryExport(roomId, messages);
+    const blob = new Blob([chatHistoryExportJson(doc)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = chatHistoryFileName(roomId);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (exportFlashTimer) clearTimeout(exportFlashTimer);
+    exportFlash = true;
+    exportFlashTimer = setTimeout(() => { exportFlash = false; exportFlashTimer = null; }, 1500);
+  }
+
   function handleRoomDeleted() {
     cleanupCall();
     forgetLinkKey();
@@ -4513,6 +4537,7 @@
     ws?.close();
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (exportFlashTimer) clearTimeout(exportFlashTimer);
     clearVerificationTimeout();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -4695,6 +4720,15 @@
           <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; deleteConfirm = false; }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
           </button>
+        {#if shouldKeepParticipantHistory()}
+          <button type="button" class="btn-ghost btn-sm btn-icon" title={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} aria-label={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} on:click={exportHistory} disabled={!verified}>
+            {#if exportFlash}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            {:else}
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            {/if}
+          </button>
+        {/if}
         {#if persistentRoom}
           <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.deleteRoom')} aria-label={t(dict, 'chat.deleteRoom')} aria-expanded={deleteConfirm} on:click={() => { deleteConfirm = !deleteConfirm; membersOpen = false; }} disabled={!connected || !verified}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
