@@ -2,7 +2,6 @@ import { localeResponse } from '../lib/locale';
 import { MAX_TRANSFER_BYTES, clientPrefix, routingPath } from '../lib/httpLimits';
 import { PASS_HEADER, RELAY_DAILY_BYTES_PER_CLIENT, browserFetch, verifyPass, type Charge } from '../lib/uploadPass';
 import type { Platform } from '../platform/types';
-import { withCloudflareScriptNonce } from './csp';
 import { challengeResponse, challengeSecret, handleUploadRoute } from './upload';
 
 // Per-client and global request ceilings per minute, kept per route in that route's own budget scope.
@@ -92,8 +91,7 @@ export function createApp(platform: Platform) {
         const handled = await handleUploadRoute(request, path, platform);
         if (handled) return handled;
       }
-      const response = localeResponse(request) ?? (await render(request));
-      return withCloudflareScriptNonce(response);
+      return localeResponse(request) ?? render(request);
     },
 
     async guardRealtime(request: Request): Promise<Response | null> {

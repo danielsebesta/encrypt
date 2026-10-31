@@ -243,7 +243,9 @@ corepack enable && pnpm install --frozen-lockfile && pnpm build
 node scripts/verify-deployment.mjs https://encrypt.click
 ```
 
-It prints `OK` and exits 0, or lists every mismatch and exits 1. Use the Node version from `.nvmrc` and build on Linux (WSL or Docker on Windows): the same commit gives the same client files there, in any directory, apart from three harmless differences that the report names and ignores: the GitHub star count in the footer, Astro's island ids (they depend on the build path) and the bot-detection script Cloudflare appends to pages.
+It prints `OK` and exits 0, or lists every mismatch and exits 1. Use the Node version from `.nvmrc` and build on Linux (WSL or Docker on Windows): the same commit gives the same client files there, in any directory, apart from three harmless differences that the report names and ignores: the GitHub star count in the footer, Astro's island ids (they depend on the build path) and the bot-detection script Cloudflare appends to pages, which the CSP keeps from running.
+
+`.github/workflows/verify-live.yml` runs the same check from a fresh GitHub runner after every deploy and every six hours: it rebuilds the deployed commit from source and fails if the site serves anything else.
 
 The deploy workflow also signs the build. The manifest a site serves was produced by this repository's workflow if this succeeds:
 
@@ -257,7 +259,7 @@ The same goes for the `encrypt-click-dist` artifact of a deploy run (client file
 ## 📝 Operational notes
 
 - Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires a password of at least 16 characters that passes a strength check. A saved room has no password: its `#k=…&p=1` link carries a random 256-bit key; never send that link through a shortener.
-- TURN credentials are valid for five minutes and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
+- TURN credentials are valid for one hour and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
 - The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host; `scripts/verify-deployment.mjs` and the attestations above are the independent check. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
 - Empty chat rooms delete their stored configuration after seven days.
 

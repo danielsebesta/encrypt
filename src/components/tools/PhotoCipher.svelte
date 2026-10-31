@@ -1,8 +1,12 @@
 <script lang="ts">
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
+  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { generatePassphrase } from '../../lib/passphrase';
   import { PASSWORD_ENVELOPE_OVERHEAD } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
+  import PassphraseField from '../PassphraseField.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -16,6 +20,13 @@
   const MAX_FILE = 10 * 1024 * 1024;
   const MIN_DIM = 800;
   const MAX_DIM = 2048;
+
+  $: passwordChecks = checkRoomPassword(password, '');
+  $: passwordRules = [
+    { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+  ];
 
   let imageUrl: string | null = null;
   let message = '';
@@ -167,6 +178,9 @@
     if (!imageUrl || !message || !password) {
       status = t(dict, 'tools.photoCipher.pleaseProvide'); return;
     }
+    if (!roomPasswordOk(password, '')) {
+      status = t(dict, 'common.passwordWeak'); return;
+    }
     processing = true;
     try {
       const img = await loadImage(imageUrl);
@@ -317,7 +331,8 @@
         </div>
         <div class="field">
           <label class="label" for="photo-password">{t(dict, 'tools.photoCipher.securityPassword')}</label>
-          <input id="photo-password" type="password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.encPasswordPlaceholder')} class="input" autocomplete="new-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+          <PassphraseField {dict} id="photo-password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.encPasswordPlaceholder')} describedby="photo-password-rules" generate={generatePassphrase} />
+          <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
         </div>
         <button type="button" on:click={encode} class="btn w-full" disabled={processing}>
           {processing ? t(dict, 'tools.photoCipher.embedding') : t(dict, 'tools.photoCipher.burnIntoPixels')}

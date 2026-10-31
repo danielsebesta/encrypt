@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   FRAME_TAG_BYTES, FRAME_TRAILER_BYTES, FrameKeyring, MediaKeySchedule, createCallKeyPair, createMediaKey, decryptFrame,
   deriveWrapKey, encryptFrame, frameIv, framePrefixLength, importFrameKey, isCallPublicKey, mediaKeyContext,
-  readFrameHeader, safeVideoCodecs, unwrapMediaKey, wrapMediaKey,
+  hideVoiceActivity, readFrameHeader, safeVideoCodecs, unwrapMediaKey, wrapMediaKey,
 } from '../src/lib/callCrypto';
 
 const frame = (length: number, seed = 1) => Uint8Array.from({ length }, (_, i) => (i * 31 + seed) & 0xff);
@@ -158,16 +158,42 @@ test('media keys are wrapped per recipient and bound to sender, recipient and ke
   assert.equal(isCallPublicKey(alice.publicKey.slice(1)), false);
   const key = createMediaKey();
   const context = mediaKeyContext('call:room', 'alice', 'bob', key.id);
-  const wrapped = await wrapMediaKey(await deriveWrapKey(alice, bob.publicKey), key.raw, context);
+  const kem = crypto.getRandomValues(new Uint8Array(32));
+  const wrapped = await wrapMediaKey(await deriveWrapKey(alice, bob.publicKey, kem), key.raw, context);
   assert.match(wrapped, /^[A-Za-z0-9_-]{80}$/);
-  assert.deepEqual(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey), wrapped, context), key.raw);
-  assert.equal(await unwrapMediaKey(await deriveWrapKey(eve, alice.publicKey), wrapped, context), null);
-  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey), wrapped, mediaKeyContext('call:room', 'alice', 'carol', key.id)), null);
-  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey), wrapped, mediaKeyContext('call:room', 'alice', 'bob', (key.id + 1) & 0xff)), null);
-  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey), 'x'.repeat(80), context), null);
-  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey), 42, context), null);
-  await assert.rejects(deriveWrapKey(alice, alice.publicKey));
-  await assert.rejects(deriveWrapKey(alice, 'not a key'));
+  assert.deepEqual(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey, kem), wrapped, context), key.raw);
+  assert.equal(await unwrapMediaKey(await deriveWrapKey(eve, alice.publicKey, kem), wrapped, context), null);
+  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey, crypto.getRandomValues(new Uint8Array(32))), wrapped, context), null);
+  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey, kem), wrapped, mediaKeyContext('call:room', 'alice', 'carol', key.id)), null);
+  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey, kem), wrapped, mediaKeyContext('call:room', 'alice', 'bob', (key.id + 1) & 0xff)), null);
+  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey, kem), 'x'.repeat(80), context), null);
+  assert.equal(await unwrapMediaKey(await deriveWrapKey(bob, alice.publicKey, kem), 42, context), null);
+  await assert.rejects(deriveWrapKey(alice, alice.publicKey, kem));
+  await assert.rejects(deriveWrapKey(alice, 'not a key', kem));
+  await assert.rejects(deriveWrapKey(alice, bob.publicKey, new Uint8Array(0)));
+});
+
+test('Opus gets a constant bitrate without silence suppression and no level header, and nothing else in the description changes', () => {
+  const levels = ['a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level', 'a=extmap:2/sendonly urn:ietf:params:rtp-hdrext:csrc-audio-level vad=on'];
+  const sdp = [
+    'v=0', 'm=audio 9 UDP/TLS/RTP/SAVPF 111 63', ...levels, 'a=extmap:3 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time',
+    'a=rtpmap:111 opus/48000/2', 'a=fmtp:111 minptime=10;useinbandfec=1;usedtx=1;cbr=0',
+    'a=rtpmap:63 red/48000/2', 'a=fmtp:63 111/111', 'm=video 9 UDP/TLS/RTP/SAVPF 96', 'a=rtpmap:96 VP8/90000', 'a=fingerprint:sha-256 AB:CD', '',
+  ].join('\r\n');
+  const out = hideVoiceActivity({ type: 'offer', sdp });
+  assert.equal(out.type, 'offer');
+  const lines = out.sdp!.split('\r\n');
+  assert.ok(lines.includes('a=fmtp:111 minptime=10;useinbandfec=1;cbr=1;usedtx=0'));
+  assert.deepEqual(
+    lines.filter((line) => !line.startsWith('a=fmtp:111')),
+    sdp.split('\r\n').filter((line) => !line.startsWith('a=fmtp:111') && !levels.includes(line)),
+  );
+
+  const bare = hideVoiceActivity({ type: 'answer', sdp: 'v=0\r\na=rtpmap:109 OPUS/48000/2\r\na=ptime:20\r\n' }).sdp!.split('\r\n');
+  assert.deepEqual(bare, ['v=0', 'a=rtpmap:109 OPUS/48000/2', 'a=fmtp:109 cbr=1;usedtx=0', 'a=ptime:20', '']);
+
+  const rollback: { type: string; sdp?: string } = { type: 'rollback' };
+  assert.equal(hideVoiceActivity(rollback), rollback);
 });
 
 test('video is limited to VP8 then VP9, keeping repair streams, or left alone when neither exists', () => {

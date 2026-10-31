@@ -51,6 +51,7 @@ if [ "${TURN_ENABLED:-auto}" != "false" ] && [ -n "$turn_host" ]; then
     [ -n "${TURN_EXTERNAL_IP:-}" ] && echo "external-ip=$TURN_EXTERNAL_IP"
     echo "user-quota=${TURN_USER_QUOTA:-12}"
     echo "total-quota=${TURN_TOTAL_QUOTA:-1200}"
+    echo "max-bps=${TURN_MAX_BPS:-625000}"
     echo "stale-nonce=600"
     echo "fingerprint"
     echo "no-cli"

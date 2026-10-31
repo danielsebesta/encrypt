@@ -38,7 +38,8 @@
   import { t } from '../../lib/t';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
-  import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
+  import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
+  import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from '../../lib/hybridKem';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
 
   export let locale = 'en';
@@ -177,6 +178,7 @@
     audioLevel: number;
     speaking: boolean;
     mediaPub?: string;
+    mediaKem?: string;
     sharedKeyId?: number;
   };
 
@@ -196,8 +198,10 @@
     video?: boolean;
     screen?: boolean;
     pub?: string;
+    kem?: string;
     keyId?: number;
     wrapped?: string;
+    e?: string;
   };
 
   type TurnConfig = {
@@ -409,8 +413,6 @@
   let serverQuality: ServerQuality = 'unknown';
   let lastServerPongAt = 0;
   let serverConnectStartedAt = 0;
-  let serverName = 'encrypt-1';
-  let serverRegion = 'AMS-NL';
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
   let iceServersExpiresAt = 0;
@@ -451,8 +453,6 @@
   const LOCAL_HISTORY_PREFIX = 'encrypt.click:chat-history:v3:';
   const MODE_PREFIX = 'encrypt.click:chat-mode:';
   const CALL_DEBUG_STORAGE_KEY = 'encrypt.click:call-debug';
-  const SERVER_FALLBACK_NAME = 'encrypt-1';
-  const SERVER_FALLBACK_REGION = 'AMS-NL';
   const CALL_ID = `call:${roomId}`;
   const callPeerMap = new Map<string, CallPeer>();
   const pendingIce = new Map<string, RTCIceCandidateInit[]>();
@@ -460,9 +460,9 @@
   const MEDIA_KEY_REQUEST_MS = 2000;
   let frameCrypto: CallFrameEncryption | null = null;
   let callKeyPair: CallKeyPair | null = null;
+  let callKem: KemKeyPair | null = null;
   let mediaKeys: MediaKeySchedule | null = null;
   let mediaKeyRotateTimer: ReturnType<typeof setTimeout> | undefined;
-  const wrapKeys = new Map<string, { pub: string; key: Promise<CryptoKey> }>();
   const mediaKeySenders = new Set<string>();
   const mediaKeyRequestedAt = new Map<string, number>();
   const mediaKeySharedAt = new Map<string, number>();
@@ -1216,6 +1216,7 @@
       video: screenSharing || !cameraOff,
       screen: screenSharing,
       ...(callKeyPair ? { pub: callKeyPair.publicKey } : {}),
+      ...(callKem && !partial.candidate ? { kem: callKem.publicKey } : {}),
       ...partial,
     };
     callDebug('call signal out', {
@@ -1232,20 +1233,12 @@
 
   // Media keys travel inside the room channel and are sealed again for one recipient, so room members outside the call,
   // or who have left it, cannot unwrap them.
-  function getWrapKey(peerId: string, pub: string): Promise<CryptoKey> {
-    const cached = wrapKeys.get(peerId);
-    if (cached?.pub === pub) return cached.key;
-    if (!callKeyPair) return Promise.reject(new Error('No call key'));
-    const key = deriveWrapKey(callKeyPair, pub);
-    wrapKeys.set(peerId, { pub, key });
-    key.catch(() => { if (wrapKeys.get(peerId)?.key === key) wrapKeys.delete(peerId); });
-    return key;
-  }
-
-  function notePeerMediaPub(peer: CallPeer, pub: string | undefined): boolean {
-    if (!pub || peer.mediaPub === pub) return false;
+  function notePeerMediaKeys(peer: CallPeer, signal: CallSignal): boolean {
+    const { pub, kem } = signal;
+    if (!pub || !validKemKey(kem) || (peer.mediaPub === pub && peer.mediaKem === kem)) return false;
     if (peer.mediaPub) frameCrypto?.dropPeer(peer.id);
     peer.mediaPub = pub;
+    peer.mediaKem = kem;
     peer.sharedKeyId = undefined;
     return true;
   }
@@ -1253,26 +1246,31 @@
   async function shareMediaKey(peerId: string) {
     const peer = callPeerMap.get(peerId);
     const key = mediaKeys?.latest;
-    if (!callActive || !peer?.mediaPub || !key) return;
+    if (!callActive || !callKeyPair || !peer?.mediaPub || !peer.mediaKem || !key) return;
     const raw = key.raw.slice();
+    let seal: KemSeal | null = null;
     try {
-      const wrapped = await wrapMediaKey(await getWrapKey(peerId, peer.mediaPub), raw, mediaKeyContext(CALL_ID, clientId, peerId, key.id));
+      seal = kemSeal(peer.mediaKem);
+      const wrapped = await wrapMediaKey(await deriveWrapKey(callKeyPair, peer.mediaPub, seal.secret), raw, mediaKeyContext(CALL_ID, clientId, peerId, key.id));
       if (callPeerMap.get(peerId) !== peer) return;
       peer.sharedKeyId = key.id;
-      await sendCallSignal({ action: 'media-key', to: peerId, keyId: key.id, wrapped });
+      await sendCallSignal({ action: 'media-key', to: peerId, keyId: key.id, wrapped, e: seal.ciphertext });
       callDebug('media key out', { peer: shortPeerId(peerId), keyId: key.id });
     } catch {
     } finally {
       raw.fill(0);
+      seal?.secret.fill(0);
     }
   }
 
   async function acceptMediaKey(signal: CallSignal) {
     const target = frameCrypto;
-    if (!target || !callKeyPair || !isMediaKeyId(signal.keyId) || !isCallPublicKey(signal.pub)) return;
+    if (!target || !callKeyPair || !callKem || !isMediaKeyId(signal.keyId) || !isCallPublicKey(signal.pub) || !validKemCiphertext(signal.e)) return;
     if (!mediaKeySenders.has(signal.from) && mediaKeySenders.size >= MAX_CALL_PEERS) return;
+    let secret: Uint8Array | null = null;
     try {
-      const raw = await unwrapMediaKey(await getWrapKey(signal.from, signal.pub), signal.wrapped, mediaKeyContext(CALL_ID, signal.from, clientId, signal.keyId));
+      secret = kemOpen(callKem.secretKey, signal.e);
+      const raw = await unwrapMediaKey(await deriveWrapKey(callKeyPair, signal.pub, secret), signal.wrapped, mediaKeyContext(CALL_ID, signal.from, clientId, signal.keyId));
       if (!raw) return;
       if (frameCrypto !== target) {
         raw.fill(0);
@@ -1281,7 +1279,10 @@
       mediaKeySenders.add(signal.from);
       target.setReceiveKey(signal.from, signal.keyId, raw);
       callDebug('media key in', { peer: shortPeerId(signal.from), keyId: signal.keyId });
-    } catch {}
+    } catch {
+    } finally {
+      secret?.fill(0);
+    }
   }
 
   function requestMediaKey(peerId: string) {
@@ -1651,7 +1652,7 @@
     const head = announcedHead();
     return {
       alias: aliasWire(alias), nick: nickname || undefined, clientId,
-      ...(fsSession ? { fs: fsSession.publicKey } : {}),
+      ...(fsSession ? { fs: fsSession.publicKey, kem: fsSession.kemPublicKey } : {}),
       ...(persistentRoom && pqIdentity ? { pq: pqIdentity.publicKey } : {}),
       ...(head ? { head } : {}),
     };
@@ -1678,7 +1679,7 @@
   }
 
   function fsMember(parsed: any, signer: string): FsMember | null {
-    return validEphemeralKey(parsed.fs) && typeof parsed.clientId === 'string' ? { clientId: parsed.clientId, pk: signer, pub: parsed.fs } : null;
+    return validEphemeralKey(parsed.fs) && validKemKey(parsed.kem) && typeof parsed.clientId === 'string' ? { clientId: parsed.clientId, pk: signer, pub: parsed.fs, kem: parsed.kem } : null;
   }
 
   // Messages kept here are signed plaintext, and a newcomer gets them sealed for it alone under a fresh pairwise key:
@@ -2150,8 +2151,6 @@
     if (data.type === 'init') {
       serverPresence = typeof data.presence === 'number' ? data.presence : 0;
       lastPresenceCount = serverPresence;
-      serverName = data.server?.name || SERVER_FALLBACK_NAME;
-      serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
       const config = applyRoomConfig(data.config);
       if (!cryptoKey && pendingSecret) {
         await openWithConfig(config);
@@ -2200,8 +2199,6 @@
         serverLatencyMs = Math.max(0, Date.now() - data.t);
         lastServerPongAt = Date.now();
       }
-      serverName = data.server?.name || SERVER_FALLBACK_NAME;
-      serverRegion = data.server?.location || SERVER_FALLBACK_REGION;
       updateServerQuality();
       return;
     }
@@ -2446,7 +2443,7 @@
       if (!bindClient(parsed.clientId, signer)) return true;
       const acker = senderInfo(parsed);
       const member = fsMember(parsed, signer);
-      if (fsSession && member) await fsSession.memberSeen(member);
+      if (fsSession && member) await fsSession.memberSeen(member, parsed.challenge === verificationChallenge);
       checkAnnouncedHead(auth.ed, parsed.head, acker.name);
       if (parsed.challenge !== verificationChallenge) return true;
       if (verifying) markVerified();
@@ -2952,7 +2949,6 @@
   function removeCallPeer(peerId: string) {
     frameCrypto?.dropPeer(peerId);
     mediaKeySenders.delete(peerId);
-    wrapKeys.delete(peerId);
     mediaKeyRequestedAt.delete(peerId);
     mediaKeySharedAt.delete(peerId);
     const peer = callPeerMap.get(peerId);
@@ -3116,12 +3112,12 @@
     const remoteSdp = sanitizeRelayDescription(signal.sdp);
     if (!remoteSdp) return;
     const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
-    notePeerMediaPub(peer, signal.pub);
+    notePeerMediaKeys(peer, signal);
     try {
       if (peer.pc.signalingState !== 'stable') {
         await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
       }
-      await peer.pc.setRemoteDescription(remoteSdp);
+      await peer.pc.setRemoteDescription(hideVoiceActivity(remoteSdp));
       frameCrypto?.secure(peer.pc, peer.id);
       await flushPendingIce(signal.from);
       await applyPeerOutgoingTracks(peer);
@@ -3147,7 +3143,7 @@
     const peer = callPeerMap.get(signal.from);
     if (!peer || peer.pc.signalingState !== 'have-local-offer') return;
     try {
-      await peer.pc.setRemoteDescription(remoteSdp);
+      await peer.pc.setRemoteDescription(hideVoiceActivity(remoteSdp));
       frameCrypto?.secure(peer.pc, peer.id);
       await flushPendingIce(signal.from);
     } catch (e: any) {
@@ -3226,7 +3222,7 @@
       if (!callPeerMap.has(signal.from) && callPeerMap.size >= MAX_CALL_PEERS) return;
 
       const peer = ensureCallPeer(signal.from, senderInfo(signal).name, senderInfo(signal).color, senderInfo(signal).alias);
-      notePeerMediaPub(peer, signal.pub);
+      notePeerMediaKeys(peer, signal);
       peer.muted = signal.audio === false;
       peer.cameraOff = signal.video === false;
       peer.screenSharing = signal.screen === true;
@@ -3255,7 +3251,7 @@
     if (!callPeerMap.has(signal.from) && callPeerMap.size >= MAX_CALL_PEERS) return;
 
     const known = callPeerMap.get(signal.from);
-    if (known && signal.action !== 'offer' && notePeerMediaPub(known, signal.pub)) void shareMediaKey(known.id);
+    if (known && signal.action !== 'offer' && notePeerMediaKeys(known, signal)) void shareMediaKey(known.id);
 
     if (signal.action === 'media-key') {
       await acceptMediaKey(signal);
@@ -3574,6 +3570,7 @@
       await loadIceServers(true);
       try {
         callKeyPair = await createCallKeyPair();
+        callKem = createKemKeyPair();
         frameCrypto = new CallFrameEncryption(transformMode, { onMissingKey: requestMediaKey, onError: failCallEncryption });
       } catch {
         throw new Error(t(dict, 'chat.callE2eeFailed'));
@@ -3637,7 +3634,8 @@
     frameCrypto?.close();
     frameCrypto = null;
     callKeyPair = null;
-    wrapKeys.clear();
+    callKem?.secretKey.fill(0);
+    callKem = null;
     mediaKeySenders.clear();
     mediaKeyRequestedAt.clear();
     mediaKeySharedAt.clear();
@@ -4570,7 +4568,7 @@
         <div class="call" class:call--error={!callActive && Boolean(callError)}>
           {#if callActive}
             <div class="call__stage">
-              <div class="call__status" title={`${t(dict, 'chat.callServer')}: ${serverName} ${serverRegion} · ${getRelayTitle()}`}>
+              <div class="call__status" title={getRelayTitle()}>
                 <span class="call__dot call__dot--{serverQuality}"></span>
                 <span>{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</span>
                 <span aria-hidden="true">·</span>
@@ -4943,6 +4941,7 @@
             on:focus={() => { composerMenuOpen = false; }}
             disabled={!connected || uploading}
             autocomplete="off"
+            spellcheck="false"
             data-lpignore="true"
             data-1p-ignore
           />

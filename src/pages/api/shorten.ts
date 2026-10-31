@@ -1,4 +1,4 @@
-import { readJsonLimited } from '../../lib/httpLimits';
+import { fetchNoRedirect, readJsonLimited } from '../../lib/httpLimits';
 import type { APIRoute } from 'astro';
 import { envString } from '../../platform/env';
 
@@ -10,7 +10,7 @@ function json(data: unknown, status: number): Response {
 
 // SHORTENER_URL points at a Shlink-style service that answers { short_url } on its own origin; without it links stay long.
 async function shortenShrink(api: string, urlToShorten: string, signal: AbortSignal): Promise<string | null> {
-  const res = await fetch(api, {
+  const res = await fetchNoRedirect(api, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'User-Agent': 'encrypt.click/1' },
     body: JSON.stringify({ url: urlToShorten }),

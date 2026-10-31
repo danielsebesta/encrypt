@@ -1,0 +1,71 @@
+name: Verify the live site
+on:
+  workflow_run:
+    workflows: ['Deploy to Cloudflare Workers']
+    types: [completed]
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-live
+  cancel-in-progress: true
+env:
+  SITE: https://encrypt.click
+jobs:
+  verify:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ASTRO_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # The site names the commit, so it is checked before anything from that commit runs.
+      - name: Check out the deployed commit
+        id: deployed
+        run: |
+          set -euo pipefail
+          commit="$(curl -fsS --max-time 30 "$SITE/build-integrity.json" | jq -r .commitSha)"
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::The site names no valid commit: $commit"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::The site claims commit $commit, which is not on main"
+            exit 1
+          fi
+          git worktree add --detach "$RUNNER_TEMP/deployed" "$commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Build it from source
+        working-directory: ${{ runner.temp }}/deployed
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm build
+      # The checker comes from main, so a fix to it also covers commits deployed before that fix.
+      - name: Compare with what the site serves
+        env:
+          COMMIT: ${{ steps.deployed.outputs.commit }}
+        run: |
+          set +e
+          node scripts/verify-deployment.mjs "$SITE" --dist "$RUNNER_TEMP/deployed/dist/client"
+          status=$?
+          set -e
+          now="$(curl -fsS --max-time 30 "$SITE/build-integrity.json" | jq -r .commitSha)"
+          if [ "$now" != "$COMMIT" ]; then
+            echo "::notice::A new deploy went live during the check ($now); its own run compares it."
+            exit 0
+          fi
+          if [ "$status" = 2 ]; then
+            echo "::warning::The comparison could not run from this runner."
+            exit 0
+          fi
+          exit "$status"

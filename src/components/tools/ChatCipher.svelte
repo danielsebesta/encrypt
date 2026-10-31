@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
+  import PassphraseField from '../PassphraseField.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import {
     chatCipherErrorKey,
@@ -27,6 +31,13 @@
   let busy = false;
   let progressTitle = '';
   let progressDetail = '';
+
+  $: passwordChecks = checkRoomPassword(password, '');
+  $: passwordRules = [
+    { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+  ];
 
   onMount(() => {
     void warmCoverTable();
@@ -91,6 +102,10 @@
       error = t(dict, errorKey);
       return;
     }
+    if (mode === 'encrypt' && !roomPasswordOk(password, '')) {
+      error = t(dict, 'common.passwordWeak');
+      return;
+    }
     await run(async () => {
       result =
         mode === 'encrypt'
@@ -139,19 +154,24 @@
 
     <div class="field">
       <label for="chat-cipher-password" class="label">{t(dict, 'tools.chatCipher.password')}</label>
-      <input
-        id="chat-cipher-password"
-        type="password"
-        bind:value={password}
-        placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')}
-        class="input"
-        autocomplete={mode === 'encrypt' ? 'new-password' : 'current-password'}
-        spellcheck="false"
-        autocapitalize="off"
-        data-lpignore="true"
-        data-1p-ignore
-        disabled={busy}
-      />
+      {#if mode === 'encrypt'}
+        <PassphraseField {dict} id="chat-cipher-password" bind:value={password} placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')} describedby="chat-cipher-password-rules" generate={generatePassphrase} />
+        <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+      {:else}
+        <input
+          id="chat-cipher-password"
+          type="password"
+          bind:value={password}
+          placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')}
+          class="input"
+          autocomplete="current-password"
+          spellcheck="false"
+          autocapitalize="off"
+          data-lpignore="true"
+          data-1p-ignore
+          disabled={busy}
+        />
+      {/if}
     </div>
 
     <button type="button" class="btn w-full" disabled={busy} on:click={handleProcess}>

@@ -1,13 +1,11 @@
 import { defineMiddleware } from 'astro:middleware';
-import { withCloudflareScriptNonce } from './server/csp';
 
 const SCRIPT_HASHES = '__CSP_SCRIPT_HASHES__';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
-  // Static HTML keeps _headers CSP (script hashes). Still append a nonce so Cloudflare's
-  // bot-detection inject can run; ASSETS responses are covered in createApp instead.
-  if (context.isPrerendered) return withCloudflareScriptNonce(response);
+  // Static HTML keeps the hash-only CSP from _headers.
+  if (context.isPrerendered) return response;
   const headers = new Headers(response.headers);
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
@@ -21,12 +19,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set('Cache-Control', 'no-store');
   let body: BodyInit | null = response.body;
   if (headers.get('Content-Type')?.includes('text/html')) {
-    // Our inline scripts are allowed by the hashes the build swaps in, so the HTML is never rewritten and request data
-    // that reached it could not pick up a nonce. The nonce stays in the header only for Cloudflare's injected bot
-    // detection script, which reads it from there. The dev server, where the placeholder stays, tags our scripts instead.
-    const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24))));
-    let scripts = `${SCRIPT_HASHES} 'nonce-${nonce}'`;
+    // Our inline scripts are allowed by the hashes the build swaps in, so the HTML is never rewritten and no script that
+    // reaches a page later can run: nothing the build did not produce gets to touch keys, including scripts a CDN injects.
+    // The dev server, where the placeholder stays, tags our scripts with a nonce instead.
+    let scripts = SCRIPT_HASHES;
     if (SCRIPT_HASHES.startsWith('__')) {
+      const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24))));
       body = (await response.text()).replace(/<script\b/gi, `<script nonce="${nonce}"`);
       headers.delete('Content-Length');
       scripts = `'nonce-${nonce}'`;

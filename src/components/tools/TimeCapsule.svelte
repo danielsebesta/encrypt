@@ -1,8 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
+  import { decrypt as openWithPassword, encrypt as sealWithPassword } from '../../lib/aesGcm';
+  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { generatePassphrase } from '../../lib/passphrase';
+  import { PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
+  import PassphraseField from '../PassphraseField.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -49,6 +55,15 @@
 
   let decryptInput = '';
   let decrypted = '';
+  let password = '';
+  let openPassword = '';
+
+  $: passwordChecks = checkRoomPassword(password, '');
+  $: passwordRules = [
+    { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+  ];
 
   let error = '';
   let decryptError = '';
@@ -142,6 +157,10 @@
       error = t(dict, 'tools.timeCapsule.errorMessage');
       return;
     }
+    if (password && !roomPasswordOk(password, '')) {
+      error = t(dict, 'common.passwordWeak');
+      return;
+    }
 
     let timeMs: number;
 
@@ -186,7 +205,8 @@
 
       const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
 
-      const payload = Buffer.from(message, 'utf8');
+      // The password goes inside the time lock, so whoever breaks the lock early still faces Argon2id and AES-256.
+      const payload = password ? Buffer.from(await sealWithPassword(message, password)) : Buffer.from(message, 'utf8');
       const armored = await timelockEncrypt(round, payload, client);
 
       const unix = Math.floor(timeMs / 1000);
@@ -223,11 +243,11 @@
 
     decryptLoading = true;
     const compact = tryDecodeCompact(input);
+    let opened: Uint8Array;
     try {
       if (!compact) throw new Error('Invalid capsule');
       const { timelockDecrypt, client } = await getTlock();
-      const buf = await timelockDecrypt(compact.c, client);
-      decrypted = new TextDecoder().decode(buf);
+      opened = new Uint8Array(await timelockDecrypt(compact.c, client));
     } catch {
       const unlock = compact?.t && Number.isFinite(compact.t) ? compact.t : null;
       if (unlock && unlock > Math.floor(Date.now() / 1000)) {
@@ -236,6 +256,19 @@
         const label = unlock ? new Date(unlock * 1000).toISOString() : t(dict, 'tools.timeCapsule.unlockTimeUtcLabel');
         decryptError = t(dict, 'tools.timeCapsule.tooEarly').replace('{time}', label);
       }
+      decryptLoading = false;
+      return;
+    }
+    try {
+      if (!PASSWORD_ENVELOPE_MAGIC.every((byte, i) => opened[i] === byte)) {
+        decrypted = new TextDecoder().decode(opened);
+      } else if (!openPassword) {
+        decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
+      } else {
+        decrypted = await openWithPassword(opened, openPassword);
+      }
+    } catch {
+      decryptError = t(dict, 'tools.timeCapsule.errorWrongPassword');
     } finally {
       decryptLoading = false;
     }
@@ -251,7 +284,15 @@
     {#if mode === 'encrypt'}
       <div class="field">
         <label class="label" for="tc-message">{t(dict, 'tools.timeCapsule.message')}</label>
-        <textarea id="tc-message" class="input" bind:value={message} placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')}></textarea>
+        <textarea id="tc-message" class="input" bind:value={message} placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')} spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="tc-password">{t(dict, 'tools.timeCapsule.passwordLabel')}</label>
+        <PassphraseField {dict} id="tc-password" bind:value={password} placeholder={t(dict, 'tools.timeCapsule.passwordPlaceholder')} describedby={password ? 'tc-password-rules tc-password-hint' : 'tc-password-hint'} generate={generatePassphrase} />
+        {#if password}
+          <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+        {/if}
+        <p id="tc-password-hint" class="hint">{t(dict, 'tools.timeCapsule.passwordHint')}</p>
       </div>
       <div class="field">
         <label class="label" for="tc-date">{t(dict, 'tools.timeCapsule.unlockAfter')}</label>
@@ -305,6 +346,10 @@
       <div class="field">
         <label class="label" for="tc-cipher">{t(dict, 'tools.timeCapsule.ciphertext')}</label>
         <textarea id="tc-cipher" class="input input--mono min-h-40" bind:value={decryptInput} placeholder={t(dict, 'tools.timeCapsule.pastePlaceholder')}></textarea>
+      </div>
+      <div class="field">
+        <label class="label" for="tc-open-password">{t(dict, 'tools.timeCapsule.openPasswordLabel')}</label>
+        <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
       </div>
       <button class="btn w-full" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
         {decryptLoading ? t(dict, 'tools.timeCapsule.decrypting') : t(dict, 'tools.timeCapsule.openCapsule')}

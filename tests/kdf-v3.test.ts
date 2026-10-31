@@ -286,5 +286,5 @@ test('safety numbers are 60 digits from SHA-512 over the sorted keys, the same o
   const digest = nodeCrypto.createHash('sha512').update(`encrypt.click:safety-v2:${[alice, bob].sort().join(':')}`).digest();
   const expected = Array.from({ length: 12 }, (_, i) => String(Number(BigInt(`0x${hex(digest.subarray(i * 5, i * 5 + 5))}`) % 100000n)).padStart(5, '0'));
   assert.equal(ab, expected.join(' '));
-  assert.match(await keyCode(alice), /^\d{5} \d{5}$/);
+  assert.match(await keyCode(alice), /^\d{5} \d{5} \d{5} \d{5}$/);
 });

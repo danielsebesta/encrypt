@@ -1,17 +1,18 @@
 import { createCallKeyPair, isCallPublicKey, type CallKeyPair } from './callCrypto';
 import { arrayToB64url, b64urlToArray } from './chatCrypto';
+import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from './hybridKem';
 
-// Forward secrecy for rooms without server history. Every member holds an ephemeral P-256 key pair for the session only
-// and a sender chain: each message key is HKDF(chain key, "message"), the next chain key HKDF(chain key, "chain"),
-// and used keys are wiped. A chain key reaches each member separately, wrapped under
-// HKDF(ECDH shared secret || room secret, both identities and the key id), inside the normal signed room channel.
+// Forward secrecy for rooms without server history. Every member holds ephemeral P-256 and ML-KEM-768 key pairs for the
+// session only and a sender chain: each message key is HKDF(chain key, "message"), the next chain key HKDF(chain key, "chain"),
+// and used keys are wiped. A chain key reaches each member separately, wrapped under a key made from the ECDH shared secret,
+// the room secret and a fresh ML-KEM secret, bound to both identities and the key id, inside the normal signed room channel.
 
-export type EphemeralKeyPair = CallKeyPair;
-export type FsMember = { clientId: string; pk: string; pub: string };
+export type EphemeralKeyPair = CallKeyPair & { kem: KemKeyPair };
+export type FsMember = { clientId: string; pk: string; pub: string; kem: string };
 export type FsSealed = { type: 'fs'; k: string; n: number; c: string };
-export type FsGrant = { to: string; n: number; w: string };
-export type FsGrantPayload = { type: 'fs-key'; clientId: string; fs: string; k: string; keys: FsGrant[] };
-export type FsSyncPayload = { type: 'chat-sync'; clientId: string; fs: string; to: string; k: string; c: string };
+export type FsGrant = { to: string; n: number; w: string; e: string };
+export type FsGrantPayload = { type: 'fs-key'; clientId: string; fs: string; kem: string; k: string; keys: FsGrant[] };
+export type FsSyncPayload = { type: 'chat-sync'; clientId: string; fs: string; to: string; k: string; e: string; c: string };
 
 export const ROTATE_AFTER_MESSAGES = 100;
 export const ROTATE_AFTER_MS = 10 * 60_000;
@@ -35,14 +36,17 @@ const TAG_BYTES = 16;
 const KEY_ID_RE = /^[A-Za-z0-9_-]{16}$/;
 const WRAPPED_RE = /^[A-Za-z0-9_-]{80}$/;
 const SEALED_RE = /^[A-Za-z0-9_-]+$/;
-const LABEL = 'encrypt.click/chat/fs/v1';
+const LABEL = 'encrypt.click/chat/fs/v2';
 const EMPTY = new Uint8Array(0);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 export const PENDING = Symbol('pending');
-export const createEphemeralKeyPair = createCallKeyPair;
 export const validEphemeralKey = isCallPublicKey;
+
+export async function createEphemeralKeyPair(): Promise<EphemeralKeyPair> {
+  return { ...await createCallKeyPair(), kem: createKemKeyPair() };
+}
 
 export function validKeyId(value: unknown): value is string {
   return typeof value === 'string' && KEY_ID_RE.test(value);
@@ -131,8 +135,9 @@ export function pairContext(purpose: PairPurpose, channel: string, from: PairEnd
 }
 
 /**
- * Directional keys between this session's ephemeral key and a peer's. The HKDF input is the ECDH shared secret followed by
- * the room secret, so neither a broken key exchange without the password nor the password without the ephemeral keys is enough.
+ * Directional keys between this session's ephemeral keys and a peer's. The inputs are the ECDH shared secret, the room secret
+ * and an ML-KEM secret, so neither a broken key exchange without the password, nor the password without the ephemeral keys,
+ * nor a quantum computer that breaks P-256 alone is enough.
  */
 export class PairKeys {
   private bases = new Map<string, Promise<CryptoKey>>();
@@ -164,15 +169,21 @@ export class PairKeys {
     return base;
   }
 
-  async derive(purpose: PairPurpose, channel: string, from: PairEnd, to: PairEnd, id: string): Promise<Uint8Array> {
+  async derive(purpose: PairPurpose, channel: string, from: PairEnd, to: PairEnd, id: string, kemSecret: Uint8Array): Promise<Uint8Array> {
     const mine = this.keyPair.publicKey;
     if ((from.pub === mine) === (to.pub === mine)) throw new Error('Not a pair of this session');
+    if (kemSecret.length !== KEY_BYTES) throw new Error('Invalid KEM secret');
     const base = await this.base(from.pub === mine ? to.pub : from.pub);
-    return new Uint8Array(await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: EMPTY, info: encoder.encode(pairContext(purpose, channel, from, to, id)) },
-      base,
-      KEY_BYTES * 8,
-    ));
+    const info = encoder.encode(pairContext(purpose, channel, from, to, id));
+    const classical = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: EMPTY, info }, base, KEY_BYTES * 8));
+    const ikm = concat(classical, kemSecret);
+    try {
+      const hybrid = await crypto.subtle.importKey('raw', ikm as BufferSource, 'HKDF', false, ['deriveBits']);
+      return new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: EMPTY, info }, hybrid, KEY_BYTES * 8));
+    } finally {
+      classical.fill(0);
+      ikm.fill(0);
+    }
   }
 
   clear() {
@@ -401,9 +412,12 @@ export type FsSessionOptions = {
  */
 export class ForwardSecrecySession {
   readonly publicKey: string;
+  readonly kemPublicKey: string;
+  private readonly startedAt: number;
   private readonly pairs: PairKeys;
   private readonly receive: ReceiveChains;
   private readonly roster = new Map<string, RosterEntry>();
+  private readonly known = new Set<string>();
   private readonly pending = new Map<string, Pending[]>();
   private readonly lock = new Serial();
   private readonly now: () => number;
@@ -417,7 +431,9 @@ export class ForwardSecrecySession {
 
   constructor(private readonly options: FsSessionOptions) {
     this.publicKey = options.keyPair.publicKey;
+    this.kemPublicKey = options.keyPair.kem.publicKey;
     this.now = options.now ?? Date.now;
+    this.startedAt = this.now();
     this.pairs = new PairKeys(options.keyPair, options.secret);
     this.receive = new ReceiveChains(this.now);
   }
@@ -440,17 +456,19 @@ export class ForwardSecrecySession {
   }
 
   private upsert(member: FsMember): RosterEntry | null {
-    if (this.closed || member.clientId === this.options.self.clientId || !validEphemeralKey(member.pub) || member.pub === this.publicKey) return null;
+    if (this.closed || member.clientId === this.options.self.clientId || !validEphemeralKey(member.pub) || !validKemKey(member.kem) || member.pub === this.publicKey) return null;
     const existing = this.roster.get(member.clientId);
     if (existing && existing.pk !== member.pk) return null;
     if (!existing && this.roster.size >= MAX_FS_MEMBERS) return null;
     const entry = existing ?? { ...member, confirmed: true, regrantAt: 0 };
-    if (entry.pub !== member.pub) {
+    if (entry.pub !== member.pub || entry.kem !== member.kem) {
       entry.pub = member.pub;
+      entry.kem = member.kem;
       this.chain?.given.delete(member.clientId);
     }
     entry.confirmed = true;
     this.roster.set(member.clientId, entry);
+    this.known.add(member.clientId);
     return entry;
   }
 
@@ -471,18 +489,21 @@ export class ForwardSecrecySession {
     for (const entry of entries.slice(0, MAX_FS_MEMBERS)) {
       let wrapKey: Uint8Array | null = null;
       let grant: { index: number; key: Uint8Array } | null = null;
+      let seal: KemSeal | null = null;
       try {
         grant = await chain.grant(!chain.newcomers.has(entry.clientId), now);
-        wrapKey = await this.pairs.derive('chain', this.options.channel, this.me, entry, chain.keyId);
-        keys.push({ to: entry.clientId, n: grant.index, w: await wrapChainKey(wrapKey, grant.key, chain.keyId, grant.index) });
+        seal = kemSeal(entry.kem);
+        wrapKey = await this.pairs.derive('chain', this.options.channel, this.me, entry, chain.keyId, seal.secret);
+        keys.push({ to: entry.clientId, n: grant.index, w: await wrapChainKey(wrapKey, grant.key, chain.keyId, grant.index), e: seal.ciphertext });
         chain.given.add(entry.clientId);
       } catch {
       } finally {
         grant?.key.fill(0);
         wrapKey?.fill(0);
+        seal?.secret.fill(0);
       }
     }
-    if (keys.length && !this.closed) await this.options.send({ type: 'fs-key', clientId: this.options.self.clientId, fs: this.publicKey, k: chain.keyId, keys });
+    if (keys.length && !this.closed) await this.options.send({ type: 'fs-key', clientId: this.options.self.clientId, fs: this.publicKey, kem: this.kemPublicKey, k: chain.keyId, keys });
   }
 
   /** A verified newcomer gets the chain as it stands now, so nothing sent before it arrived can be read with it. */
@@ -496,10 +517,22 @@ export class ForwardSecrecySession {
     });
   }
 
+  /**
+   * Once this session has settled, anyone it first hears of arrived after it, whatever message they announced themselves
+   * with, so they get no chain from before that. An unknown member can have been here all along only in the first moments,
+   * or by answering a challenge this session sent, which it could not have read without being here.
+   */
+  private upsertSeen(member: FsMember, wasHere = false): RosterEntry | null {
+    const arrived = !wasHere && !this.known.has(member.clientId) && this.now() - this.startedAt >= ORIGIN_WINDOW_MS;
+    const entry = this.upsert(member);
+    if (entry && arrived) this.chain?.newcomers.add(entry.clientId);
+    return entry;
+  }
+
   /** A member who answered a verify, answered the roll call or sent its own chain. */
-  memberSeen(member: FsMember): Promise<void> {
+  memberSeen(member: FsMember, wasHere = false): Promise<void> {
     return this.lock.run(async () => {
-      const entry = this.upsert(member);
+      const entry = this.upsertSeen(member, wasHere);
       if (!entry || !this.chain || this.chain.given.has(entry.clientId)) return;
       await this.distribute([entry]);
     });
@@ -507,7 +540,7 @@ export class ForwardSecrecySession {
 
   memberWants(member: FsMember): Promise<void> {
     return this.lock.run(async () => {
-      const entry = this.upsert(member);
+      const entry = this.upsertSeen(member);
       const now = this.now();
       if (!entry || !this.chain || now < entry.regrantAt) return;
       entry.regrantAt = now + REGRANT_INTERVAL_MS;
@@ -601,13 +634,9 @@ export class ForwardSecrecySession {
     const { fs, k, keys } = payload as Record<string, unknown>;
     if (!validEphemeralKey(fs) || fs === this.publicKey || !validKeyId(k) || !Array.isArray(keys) || keys.length > MAX_FS_MEMBERS) return [];
     const entry = keys.find((item): item is FsGrant => Boolean(item) && typeof item === 'object' && (item as FsGrant).to === this.options.self.clientId);
-    if (!entry || !validIndex(entry.n) || this.receive.has(sender, k)) return [];
-    let wrapKey: Uint8Array;
-    try {
-      wrapKey = await this.pairs.derive('chain', this.options.channel, { pk: sender, pub: fs }, this.me, k);
-    } catch {
-      return [];
-    }
+    if (!entry || !validIndex(entry.n) || !validKemCiphertext(entry.e) || this.receive.has(sender, k)) return [];
+    const wrapKey = await this.openedPairKey('chain', { pk: sender, pub: fs }, k, entry.e);
+    if (!wrapKey) return [];
     const chainKey = await unwrapChainKey(wrapKey, entry.w, k, entry.n);
     wrapKey.fill(0);
     if (!chainKey || !this.receive.add(sender, k, entry.n, chainKey)) return [];
@@ -618,28 +647,39 @@ export class ForwardSecrecySession {
     return released.map(({ sender: from, outer }) => ({ sender: from, outer }));
   }
 
+  private async openedPairKey(purpose: PairPurpose, from: PairEnd, id: string, ciphertext: string): Promise<Uint8Array | null> {
+    let secret: Uint8Array | null = null;
+    try {
+      secret = kemOpen(this.options.keyPair.kem.secretKey, ciphertext);
+      return await this.pairs.derive(purpose, this.options.channel, from, this.me, id, secret);
+    } catch {
+      return null;
+    } finally {
+      secret?.fill(0);
+    }
+  }
+
   /** History handed to one newcomer, sealed for that member alone under a fresh pairwise key. */
   async sealSync(to: FsMember, items: string[]): Promise<FsSyncPayload> {
     if (items.length > MAX_SYNC_ITEMS) throw new Error('Too many items');
     const k = newKeyId();
-    const key = await this.pairs.derive('sync', this.options.channel, this.me, to, k);
+    const seal = kemSeal(to.kem);
+    let key: Uint8Array | null = null;
     try {
-      return { type: 'chat-sync', clientId: this.options.self.clientId, fs: this.publicKey, to: to.clientId, k, c: await sealWith(key, encoder.encode(JSON.stringify(items)), syncContext(k)) };
+      key = await this.pairs.derive('sync', this.options.channel, this.me, to, k, seal.secret);
+      return { type: 'chat-sync', clientId: this.options.self.clientId, fs: this.publicKey, to: to.clientId, k, e: seal.ciphertext, c: await sealWith(key, encoder.encode(JSON.stringify(items)), syncContext(k)) };
     } finally {
-      key.fill(0);
+      key?.fill(0);
+      seal.secret.fill(0);
     }
   }
 
   async openSync(sender: string, payload: unknown): Promise<string[] | null> {
     if (this.closed || !payload || typeof payload !== 'object') return null;
-    const { fs, to, k, c } = payload as Record<string, unknown>;
-    if (to !== this.options.self.clientId || !validEphemeralKey(fs) || fs === this.publicKey || !validKeyId(k)) return null;
-    let key: Uint8Array;
-    try {
-      key = await this.pairs.derive('sync', this.options.channel, { pk: sender, pub: fs }, this.me, k);
-    } catch {
-      return null;
-    }
+    const { fs, to, k, e, c } = payload as Record<string, unknown>;
+    if (to !== this.options.self.clientId || !validEphemeralKey(fs) || fs === this.publicKey || !validKeyId(k) || !validKemCiphertext(e)) return null;
+    const key = await this.openedPairKey('sync', { pk: sender, pub: fs }, k, e);
+    if (!key) return null;
     const plain = await openWith(key, c, syncContext(k));
     key.fill(0);
     if (!plain) return null;
@@ -659,6 +699,7 @@ export class ForwardSecrecySession {
     this.chain = null;
     this.receive.clear();
     this.pairs.clear();
+    this.options.keyPair.kem.secretKey.fill(0);
     this.roster.clear();
     this.pending.clear();
   }

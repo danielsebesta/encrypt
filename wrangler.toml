@@ -2,7 +2,8 @@ name = "encrypt-click"
 main = "src/worker.ts"
 compatibility_date = "2026-10-07"
 compatibility_flags = ["nodejs_compat"]
-workers_dev = true
+workers_dev = false
+preview_urls = false
 routes = [
   { pattern = "encrypt.click", custom_domain = true },
   { pattern = "www.encrypt.click", custom_domain = true }
@@ -15,8 +16,8 @@ logpush = false
 enabled = false
 redact_query_string = true
 
-# HTML pages pass through the worker so locale redirects and a per-request CSP nonce for Cloudflare's
-# bot-detection inject can run. Fingerprinted assets under /_astro and /fonts stay on the asset path.
+# HTML pages pass through the worker so locale redirects can run. Fingerprinted assets under /_astro and /fonts
+# stay on the asset path.
 [assets]
 run_worker_first = [
   "/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/",
