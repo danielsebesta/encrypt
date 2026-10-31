@@ -13,6 +13,7 @@
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import { checkRoomPassword } from '../../lib/chatRoomSettings';
   import { tick } from 'svelte';
+  import { takeSharedContent } from '../../lib/shareTarget';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -681,7 +682,13 @@
     debugLog = [];
   }
 
-  onMount(useGeneratedPassphrase);
+  onMount(() => {
+    useGeneratedPassphrase();
+    void takeSharedContent().then((shared) => {
+      if (shared?.files.length) addFiles(shared.files);
+      else if (shared) textInput = shared.text;
+    });
+  });
 
   function ueBeforeUnload(e: BeforeUnloadEvent) {
     e.preventDefault();
