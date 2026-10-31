@@ -8,6 +8,7 @@
   import { t } from '../../lib/t';
   import { DRAND_CHAIN, roundAt, tlock as getTlock } from '../../lib/timelock';
   import CopyButton from '../CopyButton.svelte';
+  import LinkWithQr from '../share/LinkWithQr.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
 
@@ -41,8 +42,13 @@
   let debugUnix = '';
   let debugRound: number | null = null;
 
-  let manualUnix = '';
+  let manualUnix: number | string | null = '';
   let useManualUnix = false;
+
+  // The capsule travels after #c=, which browsers keep to themselves; the page opens it from there.
+  let capsuleLink = '';
+  let fromLink = false;
+  const CAPSULE_HASH_RE = /^#c=([A-Za-z0-9_-]+)$/;
 
   let countdownTarget: number | null = null;
   let countdownDisplay = '';
@@ -58,6 +64,7 @@
         countdownDisplay = '';
         countdownTarget = null;
         if (countdownInterval) clearInterval(countdownInterval);
+        if (fromLink) setTimeout(() => void handleDecrypt(), 4000);
         return;
       }
       const d = Math.floor(diff / 86400);
@@ -98,6 +105,14 @@
   onMount(() => {
     targetLocal = nowIsoLocal();
     updateDerived();
+    const shared = location.hash.match(CAPSULE_HASH_RE);
+    if (shared) {
+      mode = 'decrypt';
+      decryptInput = shared[1];
+      fromLink = true;
+      void handleDecrypt();
+    }
+    return () => { if (countdownInterval) clearInterval(countdownInterval); };
   });
 
   function tryDecodeCompact(input: string) {
@@ -116,6 +131,7 @@
   async function handleEncrypt() {
     error = '';
     ciphertext = '';
+    capsuleLink = '';
     decrypted = '';
 
     if (!message.trim()) {
@@ -129,8 +145,9 @@
 
     let timeMs: number;
 
-    if (useManualUnix && manualUnix.trim()) {
-      const unix = Number(manualUnix.trim());
+    const manual = String(manualUnix ?? '').trim();
+    if (useManualUnix && manual) {
+      const unix = Number(manual);
       if (!Number.isFinite(unix) || unix <= 0) {
         error = t(dict, 'tools.timeCapsule.errorInvalidUnix');
         return;
@@ -184,6 +201,7 @@
       const token = compressed.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
       ciphertext = token;
+      capsuleLink = `${location.origin}${locale === 'en' ? '' : `/${locale}`}/tools/time-capsule#c=${token}`;
       debugUtc = new Date(timeMs).toISOString();
       debugUnix = String(unix);
       debugRound = round > 0 ? round : null;
@@ -227,6 +245,7 @@
         decrypted = new TextDecoder().decode(opened);
       } else if (!openPassword) {
         decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
+        if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
       } else {
         decrypted = await openWithPassword(opened, openPassword);
       }
@@ -304,6 +323,18 @@
           </div>
           <textarea id="tc-output" class="input input--mono min-h-44" readonly value={ciphertext}></textarea>
         </div>
+        {#if capsuleLink}
+          <LinkWithQr
+            id="tc-link"
+            url={capsuleLink}
+            label={t(dict, 'tools.timeCapsule.link')}
+            copyLabel={t(dict, 'tools.timeCapsule.copyLink')}
+            copiedLabel={t(dict, 'common.copied')}
+            qrLabel={t(dict, 'tools.timeCapsule.showQr')}
+            qrAlt={t(dict, 'tools.timeCapsule.qrAlt')}
+            hint={t(dict, 'tools.timeCapsule.linkHint')}
+          />
+        {/if}
       {/if}
     {:else}
       <div class="field">
@@ -312,7 +343,7 @@
       </div>
       <div class="field">
         <label class="label" for="tc-open-password">{t(dict, 'tools.timeCapsule.openPasswordLabel')}</label>
-        <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+        <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore on:keydown={(e) => { if (e.key === 'Enter' && !decryptLoading) { e.preventDefault(); void handleDecrypt(); } }} />
       </div>
       <button class="btn w-full" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
         {decryptLoading ? t(dict, 'tools.timeCapsule.decrypting') : t(dict, 'tools.timeCapsule.openCapsule')}

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { decrypt, encrypt } from '../src/lib/aesGcm';
 import { decryptData, encryptData } from '../src/lib/ghost/crypto';
 import { openPassword, sealPassword } from '../src/lib/passwordEnvelope';
-import { formatShareFragment, parseShareFragment } from '../src/lib/shareLink';
+import { formatShareFragment, isCapsuleFragment, parseShareFragment } from '../src/lib/shareLink';
 import { DRAND_CHAIN, TIME_SECRET_BYTES, roundAt, roundTime } from '../src/lib/timelock';
 
 const FAST = { memory: 8192, iterations: 1, parallelism: 1 };
@@ -84,4 +84,10 @@ test('the locked secret is the bare age file for the chosen round', async () => 
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test('time capsule fragments are told apart from share links', () => {
+  assert.equal(isCapsuleFragment('c=N4Ig-_abc'), true);
+  assert.equal(parseShareFragment('c=N4Ig-_abc'), null);
+  for (const other of ['abcdef', 'v=2&p=abc', 'c=', 'c=abc&p=x', 'c=a+b']) assert.equal(isCapsuleFragment(other), false, other);
 });

@@ -85,3 +85,7 @@ export function parseShareFragment(fragment: string): ShareLink | null {
   return link;
 }
 
+/** Time capsule links (`c=<capsule>`) that reached the receive page; they belong to the time capsule tool. */
+export function isCapsuleFragment(fragment: string): boolean {
+  return /^c=[A-Za-z0-9_-]+$/.test(fragment);
+}

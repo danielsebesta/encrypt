@@ -9,7 +9,7 @@
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
   import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
-  import { parseShareFragment, type ShareLink } from '../../lib/shareLink';
+  import { isCapsuleFragment, parseShareFragment, type ShareLink } from '../../lib/shareLink';
   import { roundTime, unlockTimeSecret } from '../../lib/timelock';
 
   class Notice extends Error {}
@@ -431,6 +431,10 @@
   onMount(() => {
     if (typeof window === 'undefined') return;
     const hash = window.location.hash || '';
+    if (isCapsuleFragment(hash.slice(1))) {
+      window.location.replace(`${locale === 'en' ? '' : `/${locale}`}/tools/time-capsule${hash}`);
+      return;
+    }
     pushDebug(`Page opened: path=${window.location.pathname}, hashLength=${hash.length}, search=${window.location.search || '(empty)'}`);
     if (hash.length > 1) {
       hasHash = true;
