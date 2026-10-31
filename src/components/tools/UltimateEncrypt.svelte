@@ -15,8 +15,9 @@
   import { tick } from 'svelte';
   import ShareOptions from '../share/ShareOptions.svelte';
   import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
-  import { DEFAULT_RETENTION, type Retention } from '../../lib/retention';
+  import { DEFAULT_RETENTION, retentionForUnlock, type Retention } from '../../lib/retention';
   import { formatShareFragment } from '../../lib/shareLink';
+  import { lockTimeSecret, roundTime, type TimeLock } from '../../lib/timelock';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -64,8 +65,13 @@
   let burn = false;
   let resultExpires: number | undefined;
   let resultBurn = false;
+  let unlockAt = '';
+  let pendingLock: { secret: Uint8Array; lock: TimeLock } | null = null;
+  let resultUnlock: number | undefined;
+  $: unlockMs = unlockAt && Number.isFinite(new Date(unlockAt).getTime()) ? new Date(unlockAt).getTime() : null;
+  $: effectiveRetention = retentionForUnlock(retention, unlockMs);
   // Send instances keep files on their own terms, so only shares with the default settings may fall back to them.
-  $: sendAllowed = retention === DEFAULT_RETENTION && !burn;
+  $: sendAllowed = retention === DEFAULT_RETENTION && !burn && !unlockAt;
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = MAX_UPLOAD_BYTES;
@@ -340,10 +346,25 @@
       pushDebug('Validation failed: weak password');
       return;
     }
+    const locking = deliveryMode !== 'local' && unlockAt !== '';
+    if (locking && (unlockMs === null || unlockMs <= Date.now() + 5000)) {
+      error = t(dict, 'tools.ultimateEncrypt.options.unlockPast');
+      return;
+    }
+    if (locking && deliveryMode === 'ghost' && !retentionForUnlock(retention, unlockMs)) {
+      error = t(dict, 'tools.ultimateEncrypt.options.unlockTooFar');
+      return;
+    }
 
     step = 'processing';
 
     try {
+      pendingLock = null;
+      if (locking && unlockMs !== null) {
+        setProgress(t(dict, 'tools.ultimateEncrypt.progressLockingTitle'), t(dict, 'tools.ultimateEncrypt.progressLockingDetail'));
+        pendingLock = await lockTimeSecret(unlockMs).catch(() => { throw new Error(t(dict, 'tools.ultimateEncrypt.options.lockFailed')); });
+        pushDebug(`Time lock set to drand round ${pendingLock.lock.round}`);
+      }
       if (deliveryMode === 'local') {
         await encryptLocal();
         showManualTransferHelp = true;
@@ -491,17 +512,18 @@
     const compressed = await gzipBytes(jsonBytes);
     const compressedB64 = bytesToBase64(compressed);
     pushDebug(`Inline payload compressed from ${jsonBytes.byteLength} to ${compressed.byteLength} bytes`);
-    const encrypted = await encrypt(compressedB64, encryptionPassword);
+    const encrypted = await encrypt(compressedB64, encryptionPassword, undefined, pendingLock?.secret);
     const encoded = base64UrlEncode(encrypted);
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
-    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded }));
+    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded, lock: pendingLock?.lock }));
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = false;
     resultExpires = undefined;
     resultBurn = false;
+    resultUnlock = pendingLock ? roundTime(pendingLock.lock.round) : undefined;
   }
 
   async function encryptGhostPrepare() {
@@ -513,7 +535,7 @@
     pushDebug(`Read payload ${filename} (${buffer.byteLength} bytes)`);
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
-    const encrypted = await encryptData(buffer, encryptionPassword, filename);
+    const encrypted = await encryptData(buffer, encryptionPassword, filename, pendingLock?.secret);
     pushDebug(`Encrypted (${encrypted.byteLength} bytes)`);
 
     let usedStego = false;
@@ -530,10 +552,13 @@
     pendingPayloadPassword = encryptionPassword;
     resultPassword = encryptionPassword;
 
-    const encBlob = new Blob([encrypted], { type: 'application/octet-stream' });
-    localFileName = neutralEncName();
+    // A time-locked file opens only through its link, so there is no copy to hand over by other means.
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);
-    localFileUrl = URL.createObjectURL(encBlob);
+    localFileUrl = '';
+    if (!pendingLock) {
+      localFileName = neutralEncName();
+      localFileUrl = URL.createObjectURL(new Blob([encrypted], { type: 'application/octet-stream' }));
+    }
 
     const firstPartyEligible = pendingUploadBytes!.length <= FIRST_PARTY_HOST.maxBytes ? [FIRST_PARTY_HOST] : [];
     const sendEligible = pendingUploadBytes!.length <= SEND_HOST.maxBytes ? [SEND_HOST] : [];
@@ -557,7 +582,8 @@
       try {
         pushDebug(`Uploading to ${host.name}`);
         if (host.id === 'eclk') {
-          const uploaded = await uploadFirstParty(uploadBytes, dict, { retention, burn });
+          const kept = pendingLock ? retentionForUnlock(retention, roundTime(pendingLock.lock.round)) ?? retention : retention;
+          const uploaded = await uploadFirstParty(uploadBytes, dict, { retention: kept, burn });
           if (!uploaded) pushDebug('encrypt.click upload failed');
           if (uploaded?.expires) expires = Math.floor(uploaded.expires / 1000);
           burned = uploaded?.burn ?? false;
@@ -601,16 +627,17 @@
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
     const compressedB64 = bytesToBase64(compressed);
-    const encPayload = await encrypt(compressedB64, encryptionPassword);
+    const encPayload = await encrypt(compressedB64, encryptionPassword, undefined, pendingLock?.secret);
     const encoded = base64UrlEncode(encPayload);
 
-    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded, expires, burn: burned }));
+    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded, expires, burn: burned, lock: pendingLock?.lock }));
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = true;
     resultExpires = expires;
     resultBurn = burned;
+    resultUnlock = pendingLock ? roundTime(pendingLock.lock.round) : undefined;
 
     pendingUploadBytes = null;
     pendingPayloadPassword = '';
@@ -693,6 +720,9 @@
     burn = false;
     resultExpires = undefined;
     resultBurn = false;
+    unlockAt = '';
+    pendingLock = null;
+    resultUnlock = undefined;
     setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
@@ -790,7 +820,7 @@
         <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 
-      <ShareOptions {dict} upload={deliveryMode === 'ghost'} bind:retention bind:burn />
+      <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:unlockAt {effectiveRetention} />
 
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
@@ -880,8 +910,8 @@
             </div>
           </div>
           <input id="ue-result-link" class="input input--mono" type="text" readonly value={shortUrl || resultUrl} />
+          <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
           {#if resultHasTemporaryUpload}
-            <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} />
             <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
           {/if}
           {#if showQr && qrSvg && shareUrl}

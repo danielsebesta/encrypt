@@ -6,46 +6,13 @@
   import { generatePassphrase } from '../../lib/passphrase';
   import { PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
+  import { DRAND_CHAIN, roundAt, tlock as getTlock } from '../../lib/timelock';
   import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
-
-  const PROXY_CHAIN_URL = '/api/drand/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971';
-  const CHAIN_INFO = {
-    period: 3,
-    genesis_time: 1692803367,
-    publicKey: '83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a',
-    chainHash: '52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971',
-  };
-
-  type TlockApi = {
-    timelockEncrypt: typeof import('tlock-js').timelockEncrypt;
-    timelockDecrypt: typeof import('tlock-js').timelockDecrypt;
-    Buffer: typeof import('tlock-js').Buffer;
-    client: import('tlock-js').HttpChainClient;
-  };
-
-  let tlockApi: TlockApi | null = null;
-
-  async function getTlock(): Promise<TlockApi> {
-    if (tlockApi) return tlockApi;
-    const [{ timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient, Buffer }, { defaultChainOptions }] =
-      await Promise.all([import('tlock-js'), import('drand-client')]);
-    const chainOpts = {
-      ...defaultChainOptions,
-      chainVerificationParams: {
-        chainHash: CHAIN_INFO.chainHash,
-        publicKey: CHAIN_INFO.publicKey,
-      },
-    };
-    const chain = new HttpCachingChain(PROXY_CHAIN_URL, chainOpts);
-    const client = new HttpChainClient(chain, chainOpts);
-    tlockApi = { timelockEncrypt, timelockDecrypt, Buffer, client };
-    return tlockApi;
-  }
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
 
@@ -122,9 +89,7 @@
     const localDate = new Date(targetLocal);
     const timeMs = localDate.getTime();
     if (!Number.isFinite(timeMs)) return;
-    const genesisMs = CHAIN_INFO.genesis_time * 1000;
-    const periodMs = CHAIN_INFO.period * 1000;
-    const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
+    const round = roundAt(timeMs);
     debugUtc = new Date(timeMs).toISOString();
     debugUnix = String(Math.floor(timeMs / 1000));
     debugRound = round > 0 ? round : null;
@@ -193,17 +158,15 @@
     loading = true;
     try {
       const { timelockEncrypt, Buffer, client } = await getTlock();
-      const genesisMs = CHAIN_INFO.genesis_time * 1000;
-      const periodMs = CHAIN_INFO.period * 1000;
 
       if (!Number.isFinite(timeMs)) {
         throw new Error(t(dict, 'tools.timeCapsule.errorInvalidBeacon'));
       }
-      if (timeMs < genesisMs) {
+      if (timeMs < DRAND_CHAIN.genesis * 1000) {
         throw new Error(t(dict, 'tools.timeCapsule.errorAfterGenesis'));
       }
 
-      const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
+      const round = roundAt(timeMs);
 
       // The password goes inside the time lock, so whoever breaks the lock early still faces Argon2id and AES-256.
       const payload = password ? Buffer.from(await sealWithPassword(message, password)) : Buffer.from(message, 'utf8');

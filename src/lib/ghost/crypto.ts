@@ -13,18 +13,18 @@ export function prependEclkMagic(data: Uint8Array): Uint8Array {
 const UPLOAD_CEILINGS = [SEND_ENVELOPE_LIMIT, FIRST_PARTY_ENVELOPE_LIMIT];
 
 /** [0 | metadata length (u32) | JSON metadata | file bytes], sealed in one password envelope. */
-export async function encryptData(data: Uint8Array, password: string, originalName = ''): Promise<Uint8Array> {
+export async function encryptData(data: Uint8Array, password: string, originalName = '', timeSecret?: Uint8Array): Promise<Uint8Array> {
   const meta = new TextEncoder().encode(JSON.stringify({ name: originalName, size: data.length }));
   if (meta.length > 65536) throw new Error('Metadata too large');
   const head = new Uint8Array(5);
   new DataView(head.buffer).setUint32(1, meta.length);
   const length = head.length + meta.length + data.length;
   const maxLength = UPLOAD_CEILINGS.find(limit => length + PASSWORD_ENVELOPE_OVERHEAD <= limit);
-  return sealPassword([head, meta, data], password, { maxLength });
+  return sealPassword([head, meta, data], password, { maxLength, timeSecret });
 }
 
-export async function decryptData(encrypted: Uint8Array, password: string): Promise<{ data: Uint8Array; name: string }> {
-  const payload = await openPassword(encrypted, password);
+export async function decryptData(encrypted: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
+  const payload = await openPassword(encrypted, password, timeSecret);
   if (payload.length < 5 || payload[0] !== 0) throw new Error('Invalid encrypted file metadata');
   const length = new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getUint32(1);
   if (length < 2 || length > 65536 || 5 + length > payload.length) throw new Error('Invalid metadata length');

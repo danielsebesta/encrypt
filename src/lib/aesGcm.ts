@@ -2,12 +2,12 @@ import { sealPassword, openPassword, openPasswordWithSurplus } from './passwordE
 
 export const MAX_WORD_BYTES = 16 * 1024 * 1024;
 
-export async function encrypt(text: string, password: string, maxLength?: number): Promise<Uint8Array> {
-  return sealPassword(new TextEncoder().encode(text), password, { maxLength });
+export async function encrypt(text: string, password: string, maxLength?: number, timeSecret?: Uint8Array): Promise<Uint8Array> {
+  return sealPassword(new TextEncoder().encode(text), password, { maxLength, timeSecret });
 }
 
-export async function decrypt(data: Uint8Array, password: string): Promise<string> {
-  return new TextDecoder().decode(await openPassword(data, password));
+export async function decrypt(data: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<string> {
+  return new TextDecoder().decode(await openPassword(data, password, timeSecret));
 }
 
 export async function decryptWithSurplus(data: Uint8Array, password: string): Promise<string> {
