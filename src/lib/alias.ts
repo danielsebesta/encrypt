@@ -1,4 +1,5 @@
 import { t } from './t';
+import { identiconBackground } from './identicon';
 
 export type Alias = { a: number; n: number; h: number };
 
@@ -38,20 +39,18 @@ export function aliasColor(alias: Alias): string {
   return `hsl(${alias.h}, 65%, 50%)`;
 }
 
-export function aliasGradient(alias: Alias): string {
-  return `linear-gradient(135deg, hsl(${alias.h}, 70%, 55%), hsl(${(alias.h + 40) % 360}, 65%, 42%))`;
+export function aliasGradient(alias: Alias, name?: string): string {
+  const seed = name ? `${aliasKey(alias)}:${name}` : aliasKey(alias);
+  return identiconBackground(seed);
 }
 
 export function nameToGradient(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
-  const hue1 = (h >>> 0) % 360;
-  const hue2 = (hue1 + 40 + ((h >>> 8) % 80)) % 360;
-  return `linear-gradient(135deg, hsl(${hue1}, 70%, 55%), hsl(${hue2}, 65%, 45%))`;
+  return identiconBackground(name);
 }
 
-export function gradientFor(alias: Alias | undefined, name: string): string {
-  return alias ? aliasGradient(alias) : nameToGradient(name);
+export function gradientFor(alias: Alias | undefined, name: string, key?: string): string {
+  const seed = key ? `${key}:${name}` : (alias ? `${aliasKey(alias)}:${name}` : name);
+  return identiconBackground(seed);
 }
 
 export function initialsOf(name: string): string {
