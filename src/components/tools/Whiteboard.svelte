@@ -14,7 +14,7 @@
   import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
   import { parseBurnSuffix, roomPasswordOk } from '../../lib/chatRoomSettings';
-  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler } from '../../lib/whiteboardSync';
+  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
 
   export let locale = 'en';
@@ -39,6 +39,8 @@
   const RATE_DOC_HEADROOM = 400_000;
   const RATE_OPTIONAL_SHARE = 0.6;
   const LOCAL_ORIGIN = 'local';
+  const IMPORT_ORIGIN = 'import';
+  const NOTICE_MS = 6000;
 
   // Quickdraw ships a warm paper look; use the site's neutral surfaces and a grey grid instead.
   THEMES.light.background = '#fafafa';
@@ -76,6 +78,8 @@
     fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
     menu: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+    save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
     grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
     fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
     exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>',
@@ -186,6 +190,9 @@
   let isFullscreen = false;
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
+  let importInput: HTMLInputElement;
+  let notice: { text: string; error: boolean } | null = null;
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
   type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; pk: string; warn: boolean; lastSeen: number };
   let cursors: Cursor[] = [];
@@ -791,17 +798,64 @@
     editor?.setGrid(gridOn ? 'none' : 'dots');
   }
 
+  function saveFile(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function showNotice(text: string, error = true) {
+    notice = { text, error };
+    if (noticeTimer) clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => { notice = null; noticeTimer = null; }, NOTICE_MS);
+  }
+
   async function exportPng() {
     menuOpen = false;
     if (!editor) return;
     const blob = await editor.exportImage({ background: true, scale: 2 });
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveFile(blob, `whiteboard-${new Date().toISOString().slice(0, 10)}.png`);
+  }
+
+  function exportBoard() {
+    menuOpen = false;
+    if (!ydoc) return;
+    flushToDoc();
+    const name = roomId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'whiteboard';
+    saveFile(new Blob([encodeBoardBackup(Y.encodeStateAsUpdate(ydoc))], { type: 'application/json' }), `${name}.board.json`);
+  }
+
+  function chooseImport() {
+    menuOpen = false;
+    importInput?.click();
+  }
+
+  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
+  async function importBoard() {
+    const file = importInput?.files?.[0];
+    if (importInput) importInput.value = '';
+    if (!file || !ydoc) return;
+    const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+    if (file.size > BOARD_BACKUP_MAX_BYTES * 2) { showNotice(tooLarge); return; }
+    const parsed = parseBoardBackup(await file.text());
+    if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
+    const probe = new Y.Doc();
+    try {
+      Y.applyUpdate(probe, parsed.update);
+    } catch {
+      showNotice(t(dict, 'whiteboard.importInvalid'));
+      return;
+    } finally {
+      probe.destroy();
+    }
+    flushToDoc();
+    Y.applyUpdate(ydoc, parsed.update, IMPORT_ORIGIN);
+    editor?.fitContent({ animate: 200 });
+    showNotice(t(dict, 'whiteboard.importDone'), false);
   }
 
   async function toggleFullscreen() {
@@ -1024,6 +1078,7 @@
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (flushTimer) clearTimeout(flushTimer);
     if (laserTimer) clearTimeout(laserTimer);
+    if (noticeTimer) clearTimeout(noticeTimer);
     ydoc?.destroy();
   });
 </script>
@@ -1265,6 +1320,13 @@
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
             </button>
+            <button type="button" class="menu__item" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportBoard')}
+            </button>
+            <button type="button" class="menu__item" on:click={chooseImport} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importBoard')}
+            </button>
+            <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
             </button>
@@ -1369,6 +1431,16 @@
           </ul>
           <p class="hint wb-people__hint">{t(dict, 'whiteboard.safetyNumberHint')}</p>
         </section>
+      {/if}
+
+      <input bind:this={importInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={importBoard} />
+      {#if notice}
+        <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
+          <span class="min-w-0 flex-1">{notice.text}</span>
+          <button type="button" class="wb-btn wb-notice__close" on:click={() => { notice = null; }} aria-label={t(dict, 'whiteboard.noticeClose')} title={t(dict, 'whiteboard.noticeClose')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.close}</svg>
+          </button>
+        </div>
       {/if}
 
       <div class="wb-dock-wrap">
@@ -1642,6 +1714,24 @@
     stroke-linejoin: round;
   }
   .wb-menu-check { margin-left: auto; color: var(--accent); }
+  .wb-menu-hint {
+    max-width: 15rem;
+    padding: 0 0.75rem 0.375rem;
+    font-size: 0.75rem;
+  }
+
+  .wb-notice {
+    position: absolute;
+    left: 50%;
+    top: 3.5rem;
+    transform: translateX(-50%);
+    width: min(26rem, calc(100% - 1rem));
+    align-items: center;
+    padding: 0.375rem 0.375rem 0.375rem 0.875rem;
+    box-shadow: var(--shadow-float);
+    z-index: 4;
+  }
+  .wb-notice__close { width: 32px; height: 32px; color: inherit; }
   .wb-menu-danger:not(:disabled):hover { color: var(--danger); }
 
   .wb-dock-wrap {

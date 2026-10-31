@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validShapeRecord, sanitizeScribbles, validBoardChatItem } from '../src/lib/whiteboardRecords';
-import { splitDocUpdate, DocPartAssembler } from '../src/lib/whiteboardSync';
+import * as Y from 'yjs';
+import { splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../src/lib/whiteboardSync';
 
 const shape = (type: string, props: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   ({ id: 'shape:abc123', typeName: 'shape', type, x: 10, y: 20, rot: 0, z: 1, props, ...extra });
@@ -101,4 +102,31 @@ test('board chat items are bounded and well-formed', () => {
   assert.equal(validBoardChatItem({ ...ok, alias: [1, 2] }), false);
   assert.equal(validBoardChatItem({ ...ok, at: 'now' }), false);
   assert.equal(validBoardChatItem(null), false);
+});
+
+test('a board backup round-trips the whole document and merges into another board', () => {
+  const doc = new Y.Doc();
+  doc.getMap('records').set('shape:a', shape('text', { text: 'hi', color: 'black', size: 'm' }) as any);
+  const text = encodeBoardBackup(Y.encodeStateAsUpdate(doc));
+  const parsed = JSON.parse(text);
+  assert.equal(parsed.format, 'encrypt-click-board');
+  assert.equal(parsed.v, 1);
+  const result = parseBoardBackup(text);
+  assert.ok('update' in result);
+  const other = new Y.Doc();
+  other.getMap('records').set('shape:b', shape('text', { text: 'there', color: 'black', size: 'm' }) as any);
+  Y.applyUpdate(other, result.update);
+  assert.deepEqual([...other.getMap('records').keys()].sort(), ['shape:a', 'shape:b']);
+});
+
+test('board backups with the wrong format, version or encoding are refused', () => {
+  const update = 'AAAA';
+  assert.deepEqual(parseBoardBackup('nope'), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup('[]'), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'other', v: 1, update })), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 2, update })), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update: 'AA-_' })), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update: 'AAA' })), { error: 'invalid' });
+  assert.ok('update' in parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update })));
+  assert.deepEqual(parseBoardBackup('x'.repeat(Math.ceil(BOARD_BACKUP_MAX_BYTES / 3) * 4 + 2048)), { error: 'too-large' });
 });
