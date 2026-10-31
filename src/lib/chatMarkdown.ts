@@ -21,6 +21,18 @@ export function parseMarkdown(text: string): string {
   return html;
 }
 
+/** One line of plain text for quoting a message: markup removed and spoilers kept hidden. */
+export function plainSnippet(text: string, max = 140): string {
+  const plain = text
+    .replace(/\|\|(.+?)\|\|/gs, '•••')
+    .replace(/```\w*\n?/g, '')
+    .replace(/(\*\*\*|___|\*\*|__|~~|`)/g, '')
+    .replace(/(^|\n)> /g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return plain.length > max ? `${plain.slice(0, max - 1)}…` : plain;
+}
+
 export function revealSpoilers(node: HTMLElement) {
   function toggleSpoiler(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return false;

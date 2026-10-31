@@ -1,6 +1,7 @@
 import { NICKNAME_RE } from './alias';
 import { validPad } from './padding';
 import { validCounter, validHead, validPrevHash } from './chatIntegrity';
+import { validMessageRef, validReactionEmoji } from './chatReactions';
 
 const LIVE_TYPES = new Set(['typing', 'verify', 'verify-ack', 'chat-sync', 'call-signal', 'whiteboard-invite', 'rename', 'presence', 'fs-key']);
 const LIVE_MAX_AGE_MS = 60_000;
@@ -8,7 +9,7 @@ const MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const KEY_HASH_RE = /^[A-Za-z0-9_-]{43}$/;
 const CLIENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite']);
+const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction']);
 
 const b64url = (value: unknown, max: number, exact = false) =>
   typeof value === 'string' && B64URL_RE.test(value) && (exact ? value.length === max : value.length <= max);
@@ -63,5 +64,7 @@ export function validPayload(value: any, room: string, history = false): boolean
   if (value.ttl !== undefined && (!Number.isFinite(value.ttl) || value.ttl < 0 || value.ttl > 86400)) return false;
   if (value.file && (!Array.isArray(value.file.urls) || value.file.urls.length > 8 || value.file.urls.some((u: unknown) => typeof u !== 'string' || u.length > 4096))) return false;
   if (value.file && !b64url(value.file.key, 43, true)) return false;
+  if (value.replyTo !== undefined && !validMessageRef(value.replyTo)) return false;
+  if (value.type === 'reaction' && !(validMessageRef(value.target) && validReactionEmoji(value.emoji) && (value.remove === undefined || value.remove === true))) return false;
   return validKeyFields(value);
 }

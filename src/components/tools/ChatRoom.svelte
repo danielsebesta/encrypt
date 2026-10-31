@@ -37,7 +37,12 @@
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
-  import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
+  import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
+  import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
+  import { longPress } from '../../lib/longPress';
+  import ChatMessageActions from './ChatMessageActions.svelte';
+  import ChatReactions from './ChatReactions.svelte';
+  import ChatQuote from './ChatQuote.svelte';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
   import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from '../../lib/hybridKem';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
@@ -68,6 +73,7 @@
     pk?: string;
     keyWarning?: boolean;
     signed?: string;
+    replyTo?: string;
   };
 
   type Member = {
@@ -103,6 +109,10 @@
     ttl?: number;
     file?: { name: string; size: number; urls: string[]; key: string };
     createdAt?: number;
+    replyTo?: string;
+    target?: string;
+    emoji?: ReactionEmoji;
+    remove?: true;
   };
 
   type ServerEnvelope = {
@@ -439,6 +449,14 @@
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
+  let inputEl: HTMLInputElement;
+  let replyTarget: Message | null = null;
+  let actionMenuFor: string | null = null;
+  let highlightedId = '';
+  let reactionTick = 0;
+  const reactionBook = new ReactionBook();
+  const reactionLog: { target: string; signed: string }[] = [];
+  const REACTION_LOG_LIMIT = 500;
 
   const MAX_FILE = MAX_UPLOAD_BYTES;
   const TEXT_AS_FILE_LIMIT = 2000;
@@ -477,6 +495,7 @@
   let messagesEl: HTMLElement;
 
   $: myInitials = getInitials(identity.name);
+  $: messageIndex = new Map(messages.map((msg) => [msg.id, msg]));
 
   function getInitials(name: string): string {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -1501,6 +1520,9 @@
     if (firstSight) return;
     messages = [];
     seenMessageIds.clear();
+    reactionBook.clear();
+    reactionLog.length = 0;
+    reactionTick++;
     addSystemMessage(t(dict, 'chat.historyReset'), 0, '!');
   }
 
@@ -1694,10 +1716,11 @@
 
   async function sendLiveHistorySync(member: FsMember) {
     if (roomConfig.mode !== 'live' || !fsSession) return;
-    const items = messages
+    const shared = messages
       .filter((msg) => !msg.whiteboard && !msg.ttl && msg.pk && msg.signed && (msg.text || msg.file))
-      .slice(-200)
-      .map((msg) => msg.signed!);
+      .slice(-200);
+    const ids = new Set(shared.map((msg) => msg.id));
+    const items = [...shared.map((msg) => msg.signed!), ...reactionLog.filter((entry) => ids.has(entry.target)).map((entry) => entry.signed)];
     let batch: string[] = [];
     let chars = 0;
     for (const item of items) {
@@ -1719,7 +1742,7 @@
       if (text.length > SYNC_BATCH_CHARS) continue;
       try {
         const value = JSON.parse(text);
-        if (value?.type !== 'chat-message' || value.ttl) continue;
+        if ((value?.type !== 'chat-message' && value?.type !== 'reaction') || value.ttl) continue;
         await processSigned(value, { fromHistory: true, origin: 'sync', signed: text });
       } catch {}
     }
@@ -2493,6 +2516,14 @@
     const mine = Boolean(roomIdentity && auth.ed === roomIdentity.publicKey);
     const trusted = mine || noteMember(signer, who);
     if (chainH) await observeChain(auth.ed, parsed, chainH, ctx.serverSeq, who.name);
+    const keep = !fromHistory || origin === 'sync' || (persistentRoom && typeof ctx.serverSeq === 'number');
+    if (parsed.type === 'reaction') {
+      applyReaction(id, parsed, signer, who.name, ctx.signed);
+      if (!ttl && ctx.signed && origin !== 'local' && keep) {
+        void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt, ctx.serverSeq).catch(() => {});
+      }
+      return true;
+    }
     const msg: Message = {
       id,
       text: parsed.text || '',
@@ -2510,12 +2541,12 @@
       pk: signer,
       keyWarning: !trusted,
       ...(ctx.signed ? { signed: ctx.signed } : {}),
+      ...(validMessageRef(parsed.replyTo) ? { replyTo: parsed.replyTo } : {}),
     };
     seenMessageIds.add(id);
     messages = [...messages, msg];
     typing = null;
     if (!fromHistory) scrollToBottom();
-    const keep = !fromHistory || origin === 'sync' || (persistentRoom && typeof ctx.serverSeq === 'number');
     if (!ttl && ctx.signed && origin !== 'local' && keep) {
       void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time, ctx.serverSeq).catch(() => {});
     }
@@ -2534,6 +2565,7 @@
     const text = burn ? burn.text : inputText.trim();
     const msgId = genId();
     const createdAt = Date.now();
+    const replyTo = replyTarget?.id;
 
     const payload: ChatPayload = {
       type: 'chat-message',
@@ -2542,6 +2574,7 @@
       alias: aliasWire(alias), nick: nickname || undefined,
       ttl: finalTtl,
       createdAt,
+      ...(replyTo ? { replyTo } : {}),
     };
 
     let signed: string;
@@ -2559,10 +2592,74 @@
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
       revealed: true, pk: mySignerId, signed,
+      ...(replyTo ? { replyTo } : {}),
     }];
 
     inputText = '';
+    replyTarget = null;
     scrollToBottom(true);
+  }
+
+  // Replies and reactions travel inside the signed, encrypted payload like any message, so the relay cannot tell them apart.
+  function applyReaction(id: string, parsed: any, reactor: string, name: string, signed?: string) {
+    const changed = reactionBook.apply({ id, target: parsed.target, emoji: parsed.emoji, remove: parsed.remove === true, reactor, name, at: parsed._sentAt });
+    if (signed && !parsed.ttl) {
+      reactionLog.push({ target: parsed.target, signed });
+      if (reactionLog.length > REACTION_LOG_LIMIT) reactionLog.shift();
+    }
+    if (changed) reactionTick++;
+  }
+
+  function myReactions(target: string, _tick: number): ReactionEmoji[] {
+    return REACTION_EMOJI.filter((emoji) => reactionBook.has(target, emoji, mySignerId));
+  }
+
+  async function toggleReaction(target: Message, emoji: ReactionEmoji) {
+    if (!cryptoKey || !ws || !connected) return;
+    const remove = reactionBook.has(target.id, emoji, mySignerId);
+    const ttl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    const id = genId();
+    const createdAt = Date.now();
+    const payload: ChatPayload = {
+      type: 'reaction', id, target: target.id, emoji, ...(remove ? { remove: true as const } : {}),
+      alias: aliasWire(alias), nick: nickname || undefined, ttl, createdAt,
+    };
+    let signed: string;
+    try {
+      signed = await sendContent(payload, !ttl, createdAt);
+    } catch {
+      fileError = t(dict, 'chat.sendFailed');
+      return;
+    }
+    seenMessageIds.add(id);
+    if (!ttl) void storeLocalSigned(id, signed, createdAt).catch(() => {});
+    applyReaction(id, JSON.parse(signed), mySignerId, identity.name, signed);
+  }
+
+  function startReply(msg: Message) {
+    replyTarget = msg;
+    actionMenuFor = null;
+    void settled().then(() => inputEl?.focus());
+  }
+
+  function quoteOf(id: string | undefined, index: Map<string, Message>): { name: string; color: string; text: string } {
+    const target = id ? index.get(id) : undefined;
+    if (!target) return { name: '', color: '', text: t(dict, 'chat.replyUnavailable') };
+    const text = target.text ? plainSnippet(target.text)
+      : target.file ? target.file.name
+      : target.whiteboard ? t(dict, 'chat.whiteboardTitle')
+      : '';
+    return { name: target.sender, color: target.mine ? 'var(--accent)' : safeColor(target.color), text };
+  }
+
+  function jumpTo(id: string | undefined) {
+    if (!id || !messageIndex.has(id)) return;
+    const el = document.getElementById(`chat-msg-${id}`);
+    if (!el) return;
+    stickToBottom = false;
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    highlightedId = id;
+    setTimeout(() => { if (highlightedId === id) highlightedId = ''; }, 1600);
   }
 
   async function handleSend() {
@@ -4262,7 +4359,7 @@
       if (msg.time === 0) { alive.push(msg); continue; }
       const elapsed = (now - msg.time) / 1000;
       const rem = Math.max(0, msg.ttl - elapsed);
-      if (rem <= 0) { changed = true; continue; }
+      if (rem <= 0) { changed = true; reactionBook.forget(msg.id); continue; }
       if (rem !== msg.remaining) { msg.remaining = rem; changed = true; }
       alive.push(msg);
     }
@@ -4832,7 +4929,14 @@
         {#if !msg.sender}
           <p class="chat-system">{msg.text}</p>
         {:else}
-        <div class="chat-bubble" class:chat-bubble--mine={msg.mine}>
+        <div
+          class="chat-bubble"
+          class:chat-bubble--mine={msg.mine}
+          class:chat-bubble--menu={actionMenuFor === msg.id}
+          class:chat-bubble--highlight={highlightedId === msg.id}
+          id={`chat-msg-${msg.id}`}
+          use:longPress={() => { actionMenuFor = msg.id; }}
+        >
           <div class="flex items-start gap-2">
             {#if !msg.mine}
               <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}">{msg.initials}</div>
@@ -4843,7 +4947,22 @@
                 {#if msg.keyWarning}
                   <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; deleteConfirm = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
+                {#if verified}
+                  <ChatMessageActions
+                    {dict}
+                    open={actionMenuFor === msg.id}
+                    align={msg.mine ? 'end' : 'start'}
+                    mine={actionMenuFor === msg.id ? myReactions(msg.id, reactionTick) : []}
+                    ontoggle={(open) => { actionMenuFor = open ? msg.id : actionMenuFor === msg.id ? null : actionMenuFor; }}
+                    onreply={() => startReply(msg)}
+                    onreact={(emoji) => toggleReaction(msg, emoji)}
+                  />
+                {/if}
               </div>
+              {#if msg.replyTo}
+                {@const quote = quoteOf(msg.replyTo, messageIndex)}
+                <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
+              {/if}
               {#if msg.file}
                 {@const gone = fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -4899,6 +5018,7 @@
               {#if msg.text}
                 <p class="chat-text">{@html messageHtml(msg)}</p>
               {/if}
+              <ChatReactions {dict} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
             </div>
             {#if msg.ttl > 0}
               <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
@@ -4933,6 +5053,12 @@
             <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { fileError = ''; }} aria-label={t(dict, 'chat.callDismiss')}>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
+          </div>
+        {/if}
+        {#if replyTarget}
+          {@const quote = quoteOf(replyTarget.id, messageIndex)}
+          <div class="chat-reply-bar">
+            <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} oncancel={() => { replyTarget = null; inputEl?.focus(); }} />
           </div>
         {/if}
         <div class="chat-input">
@@ -4974,8 +5100,9 @@
             aria-label={t(dict, 'chat.messagePlaceholder')}
             placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
             bind:value={inputText}
+            bind:this={inputEl}
             on:input={handleTyping}
-            on:keydown={(e) => e.key === 'Enter' && handleSend()}
+            on:keydown={(e) => { if (e.key === 'Enter') handleSend(); else if (e.key === 'Escape' && replyTarget) replyTarget = null; }}
             on:focus={() => { composerMenuOpen = false; }}
             disabled={!connected || uploading}
             autocomplete="off"
@@ -5821,6 +5948,9 @@
     background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
   :global(.dark) .chat-bubble--mine { background: oklch(0.7019 0.1577 160.44 / 0.15); }
+  .chat-bubble--menu { content-visibility: visible; position: relative; z-index: 5; }
+  .chat-bubble--highlight { box-shadow: 0 0 0 2px var(--accent-line); }
+  .chat-reply-bar { padding: 0.4rem 0.75rem 0; }
   .chat-sender-row {
     display: flex;
     align-items: center;
