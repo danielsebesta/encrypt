@@ -16,6 +16,7 @@
   import { parseBurnSuffix, roomPasswordOk } from '../../lib/chatRoomSettings';
   import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
+  import SaveRoomButton from './SaveRoomButton.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -1265,6 +1266,7 @@
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
             </button>
+            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
             </button>

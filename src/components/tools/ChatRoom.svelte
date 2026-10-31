@@ -36,6 +36,7 @@
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
+  import SaveRoomButton from './SaveRoomButton.svelte';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
@@ -4426,12 +4427,13 @@
           {/each}
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
+      <div class="flex flex-wrap items-center justify-end gap-1.5">
         <span class="sr-only" aria-live="polite">{connected ? t(dict, 'chat.connected') : t(dict, 'chat.connecting')}</span>
         <button type="button" class="btn-ghost btn-sm chat-copy-link" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
           <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           <span>{shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}</span>
         </button>
+        <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} {linkKey} ready={verified} />
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.blurWhenAway')} aria-label={t(dict, 'chat.blurWhenAway')} aria-pressed={blurWhenAway} on:click={() => setBlurWhenAway(!blurWhenAway)}>
           {#if blurWhenAway}
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
