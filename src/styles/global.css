@@ -425,6 +425,36 @@ html.dark {
         @apply text-muted;
     }
 
+    .status__body {
+        @apply min-w-0 flex-1;
+    }
+
+    .status__transfer {
+        @apply mt-2 space-y-1.5;
+    }
+
+    .status__bar {
+        @apply block h-1.5 w-full appearance-none overflow-hidden rounded-full border-0;
+        background: var(--line);
+        accent-color: var(--accent);
+    }
+
+    .status__bar::-webkit-progress-bar {
+        background: var(--line);
+    }
+
+    .status__bar::-webkit-progress-value {
+        background: var(--accent);
+    }
+
+    .status__bar::-moz-progress-bar {
+        background: var(--accent);
+    }
+
+    .status__transfer-line {
+        @apply text-xs text-muted tabular-nums;
+    }
+
     @keyframes spin {
         to {
             transform: rotate(360deg);

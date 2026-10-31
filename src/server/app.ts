@@ -9,7 +9,8 @@ import { challengeResponse, challengeSecret, handleUploadRoute } from './upload'
 const LIMITS: Record<string, [number, number]> = {
   '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120],
   '/api/turn': [12, 120], '/api/shorten': [20, 120], '/api/drand': [120, 1200], '/parties': [60, 600],
-  '/upload': [20, 600], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
+  // Chunked shares put many parts in one minute (parallel uploads); keep room for ~512 MB / 4 MB parts.
+  '/upload': [180, 3_000], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
   '/dl': [120, 1_000_000], '/status': [30, 600],
 };
 

@@ -6,6 +6,12 @@
   import { sendWithUploadPass, uploadFirstParty, uploadFirstPartyChunked } from '../../lib/firstPartyUpload';
   import { fitsSingleEnvelope } from '../../lib/chunkedFile';
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
+  import {
+    TransferMeter,
+    formatTransferLine,
+    transferRatio,
+    type TransferSnapshot,
+  } from '../../lib/transferProgress';
   import CopyButton from '../CopyButton.svelte';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
@@ -59,6 +65,8 @@
   let resultHasTemporaryUpload = false;
   let progressTitle = '';
   let progressDetail = '';
+  let transferSnap: TransferSnapshot | null = null;
+  const transferMeter = new TransferMeter();
   let debugLog: string[] = [];
   let qrSvg = '';
   let shortenableUrl = '';
@@ -249,7 +257,18 @@
   function setProgress(title: string, detail = '') {
     progressTitle = title;
     progressDetail = detail;
+    if (!title) {
+      transferSnap = null;
+      transferMeter.reset();
+    }
   }
+
+  function onTransferProgress(loaded: number, total: number) {
+    transferSnap = transferMeter.report(loaded, total);
+  }
+
+  $: transferLine = transferSnap ? formatTransferLine(dict, t, transferSnap) : '';
+  $: transferBar = transferRatio(transferSnap);
 
   function pushDebug(message: string) {
     const line = `[${new Date().toLocaleTimeString('en-GB', { hour12: false })}] ${message}`;
@@ -616,6 +635,8 @@
   async function encryptGhostUpload(hosts: HostInfo[]) {
     const encryptionPassword = pendingPayloadPassword || password;
     const usedStego = pendingUsedStego;
+    transferMeter.reset();
+    transferSnap = null;
     setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
     const uploadUrls: string[] = [];
     let expires: number | undefined;
@@ -629,8 +650,12 @@
         retention: kept,
         burn,
         timeSecret: pendingLock?.secret,
+        onProgress: onTransferProgress,
       });
-      if (!uploaded) throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
+      if (!uploaded) {
+        pushDebug('Chunked encrypt.click upload failed');
+        throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
+      }
       uploadUrls.push(uploaded.url);
       if (uploaded.expires) expires = Math.floor(uploaded.expires / 1000);
       burned = uploaded.burn;
@@ -643,8 +668,13 @@
       async function tryUploadHost(host: HostInfo): Promise<string | null> {
         try {
           pushDebug(`Uploading to ${host.name}`);
+          transferMeter.reset();
           if (host.id === 'eclk') {
-            const uploaded = await uploadFirstParty(uploadBytes, dict, { retention: kept, burn });
+            const uploaded = await uploadFirstParty(uploadBytes, dict, {
+              retention: kept,
+              burn,
+              onProgress: onTransferProgress,
+            });
             if (!uploaded) pushDebug('encrypt.click upload failed');
             if (uploaded?.expires) expires = Math.floor(uploaded.expires / 1000);
             burned = uploaded?.burn ?? false;
@@ -661,7 +691,7 @@
               'X-Send-Auth': prepared.authHeader,
               ...(sendInstance ? { 'X-Send-Instance': sendInstance.host } : {}),
             },
-          }, dict);
+          }, dict, onTransferProgress);
           const data = await res.json().catch(() => null) as any;
           const result = data?.results?.[0];
           if (!res.ok || !result?.url) {
@@ -816,6 +846,7 @@
 
   onDestroy(() => {
     if (typeof window !== 'undefined') window.removeEventListener('beforeunload', ueBeforeUnload);
+    transferMeter.dispose();
   });
 </script>
 <div class="stack text-left">
@@ -954,7 +985,12 @@
 
   {:else if step === 'processing'}
     <div class="stack">
-      <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')} />
+      <ProgressPulse
+        title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
+        detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
+        ratio={transferBar}
+        transferLine={transferLine}
+      />
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
       {/if}

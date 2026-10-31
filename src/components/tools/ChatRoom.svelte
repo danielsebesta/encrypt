@@ -35,8 +35,15 @@
   import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
+  import {
+    TransferMeter,
+    formatTransferLine,
+    transferRatio,
+    type TransferSnapshot,
+  } from '../../lib/transferProgress';
   import { t } from '../../lib/t';
   import ShareLinkButton from '../ShareLinkButton.svelte';
+  import ProgressPulse from '../ProgressPulse.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
@@ -344,6 +351,10 @@
   let onlineUsers: { key: string; name: string; initials: string; color: string; alias?: Alias }[] = [];
   let lastWrongPasswordNotice = 0;
   let uploading = false;
+  let uploadSnap: TransferSnapshot | null = null;
+  const uploadMeter = new TransferMeter();
+  $: uploadLine = uploadSnap ? formatTransferLine(dict, t, uploadSnap) : '';
+  $: uploadBar = transferRatio(uploadSnap);
   let fileError = '';
   let fileInputEl: HTMLInputElement;
   let sharePassword = '';
@@ -426,6 +437,10 @@
     try { return localStorage.getItem(BLUR_WHEN_AWAY_STORAGE_KEY) !== '0'; } catch { return true; }
   })();
   let stickToBottom = true;
+  /** Messages that arrived while the user was scrolled away from the bottom. */
+  let belowCount = 0;
+  /** About two to three bubbles: stay pinned here, leave the view alone farther up. */
+  const NEAR_BOTTOM_PX = 180;
   let audioInputDevices: MediaDeviceInfo[] = [];
   let videoInputDevices: MediaDeviceInfo[] = [];
   let audioOutputDevices: MediaDeviceInfo[] = [];
@@ -531,11 +546,17 @@
     return html;
   }
 
+  function distanceFromBottom(): number {
+    if (!messagesEl) return 0;
+    return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
+  }
+
   // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so keep pinning until it settles.
   // Background tabs pause requestAnimationFrame, so pin once right after the DOM update too.
   function scrollToBottom(force = false, frames = 4) {
     if (!force && !stickToBottom) return;
     stickToBottom = true;
+    belowCount = 0;
     void settled().then(() => {
       if (messagesEl && stickToBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
     });
@@ -551,8 +572,25 @@
 
   function updateStickToBottom() {
     if (!messagesEl) return;
-    const distance = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
-    stickToBottom = distance <= messagesEl.clientHeight;
+    const near = distanceFromBottom() <= NEAR_BOTTOM_PX;
+    stickToBottom = near;
+    if (near) belowCount = 0;
+  }
+
+  function noteMessagesBelow(count = 1) {
+    if (stickToBottom || count < 1) return;
+    belowCount += count;
+  }
+
+  function jumpToLatest() {
+    belowCount = 0;
+    scrollToBottom(true);
+  }
+
+  /** Own messages always follow; others only when near the bottom, otherwise show the jump chip. */
+  function followIncoming(mine: boolean) {
+    if (mine || stickToBottom) scrollToBottom(mine);
+    else noteMessagesBelow();
   }
 
   function getStreamMediaOptions(options: StreamMediaOptions) {
@@ -1615,7 +1653,7 @@
       whiteboard: invite,
       revealed: true,
     }];
-    scrollToBottom(mine);
+    followIncoming(mine);
   }
 
   async function createWhiteboardInvite() {
@@ -2355,7 +2393,7 @@
           id: genId(), text: t(dict, 'chat.someoneTriedJoin'), sender: '', initials: '!',
           color: 'rgb(239,68,68)', mine: false, time: Date.now(), ttl: 10, remaining: 10,
         }];
-        scrollToBottom();
+        followIncoming(false);
       }
       return false;
     }
@@ -2473,7 +2511,7 @@
         id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
         color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
       }];
-      scrollToBottom();
+      followIncoming(false);
       return true;
     }
 
@@ -2567,7 +2605,7 @@
     seenMessageIds.add(id);
     messages = [...messages, msg];
     typing = null;
-    if (!fromHistory) scrollToBottom();
+    if (!fromHistory) followIncoming(mine);
     if (!ttl && ctx.signed && origin !== 'local' && keep) {
       void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time, ctx.serverSeq).catch(() => {});
     }
@@ -2826,6 +2864,8 @@
     if (!cryptoKey || !ws || uploading) return;
     uploading = true;
     fileError = '';
+    uploadMeter.reset();
+    uploadSnap = null;
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
@@ -2835,15 +2875,19 @@
 
       // First-party R2 upload first; Send is the fallback.
       const uploadUrls: string[] = [];
+      const onProgress = (loaded: number, total: number) => {
+        uploadSnap = uploadMeter.report(loaded, total);
+      };
 
       async function tryHost(svc: string, body: Uint8Array, headers: Record<string, string> = {}): Promise<string | null> {
         try {
+          uploadMeter.reset();
           if (svc === 'eclk') {
-            const uploaded = await uploadFirstParty(body, dict);
+            const uploaded = await uploadFirstParty(body, dict, { onProgress });
             return uploaded?.url ?? null;
           }
 
-          const res = await sendWithUploadPass('/api/ghost/upload', { method: 'POST', body, headers }, dict);
+          const res = await sendWithUploadPass('/api/ghost/upload', { method: 'POST', body, headers }, dict, onProgress);
           if (!res.ok) return null;
           const data = await res.json();
           return data?.results?.[0]?.url || null;
@@ -2904,6 +2948,8 @@
       autoPreview(ownMsg);
     } finally {
       uploading = false;
+      uploadSnap = null;
+      uploadMeter.reset();
     }
   }
 
@@ -4234,7 +4280,7 @@
 
   function addSystemMessage(text: string, ttl: number, initials = '→', color = 'var(--accent)') {
     messages = [...messages, { id: genId(), text, sender: '', initials, color, mine: false, time: Date.now(), ttl, remaining: ttl }];
-    scrollToBottom();
+    followIncoming(false);
   }
 
   // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
@@ -4542,6 +4588,7 @@
   });
 
   onDestroy(() => {
+    uploadMeter.dispose();
     if (typeof document !== 'undefined') clearUnread();
     if (callActive) void sendCallSignal({ action: 'leave' });
     cleanupCall();
@@ -5075,6 +5122,7 @@
       {/if}
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
+        <div class="chat-messages-shell">
         <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} use:revealSpoilers>
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
@@ -5210,6 +5258,25 @@
 
         </div>
 
+        {#if belowCount > 0 && !stickToBottom}
+          <button type="button" class="chat-jump-latest" on:click={jumpToLatest} aria-label={t(dict, 'chat.jumpLatest')}>
+            <span class="chat-jump-latest__count">{belowCount > 99 ? '99+' : belowCount}</span>
+            <span>{t(dict, 'chat.newBelow')}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </button>
+        {/if}
+        </div>
+
+        {#if uploading}
+          <div class="chat-upload-progress">
+            <ProgressPulse
+              title={t(dict, 'chat.uploading')}
+              compact={true}
+              ratio={uploadBar}
+              transferLine={uploadLine}
+            />
+          </div>
+        {/if}
         {#if fileError}
           <div class="chat-file-error" role="alert">
             <span>{fileError}</span>
@@ -5827,6 +5894,50 @@
     display: flex;
     flex-direction: column;
   }
+  .chat-messages-shell {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-jump-latest {
+    position: absolute;
+    left: 50%;
+    bottom: 0.75rem;
+    z-index: 4;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: calc(100% - 2rem);
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--accent-line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--accent-strong);
+    box-shadow: var(--shadow-float);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+  .chat-jump-latest:hover,
+  .chat-jump-latest:focus-visible {
+    background: var(--accent-weak);
+    outline: none;
+  }
+  .chat-jump-latest__count {
+    display: inline-flex;
+    min-width: 1.25rem;
+    justify-content: center;
+    padding: 0.05rem 0.35rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
   .chat-share-banner {
     padding: 0.5rem 0.75rem;
     border-bottom: 1px solid oklch(0.7019 0.1577 160.44 / 0.15);
@@ -6195,6 +6306,12 @@
     background: var(--danger-weak);
     color: var(--danger);
     font-size: 0.875rem;
+  }
+  .chat-upload-progress {
+    padding: 0.5rem 0.75rem 0;
+  }
+  .chat-upload-progress :global(.status) {
+    margin: 0;
   }
   .chat-input {
     display: flex; align-items: center; gap: 0.6rem;

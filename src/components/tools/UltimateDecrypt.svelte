@@ -1,10 +1,17 @@
 <script lang="ts">
   import { readLimited } from '../../lib/httpLimits';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { decrypt } from '../../lib/aesGcm';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
   import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
+  import { readResponseProgress } from '../../lib/httpProgress';
+  import {
+    TransferMeter,
+    formatTransferLine,
+    transferRatio,
+    type TransferSnapshot,
+  } from '../../lib/transferProgress';
   import CopyButton from '../CopyButton.svelte';
   import QrScanner from '../QrScanner.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
@@ -23,7 +30,11 @@
   let loading = false;
   let progressTitle = '';
   let progressDetail = '';
+  let transferSnap: TransferSnapshot | null = null;
+  const transferMeter = new TransferMeter();
   let debugLog: string[] = [];
+  $: transferLine = transferSnap ? formatTransferLine(dict, t, transferSnap) : '';
+  $: transferBar = transferRatio(transferSnap);
 
   let hashPayload = '';
   let hasHash = false;
@@ -409,7 +420,17 @@
   function setProgress(title: string, detail = '') {
     progressTitle = title;
     progressDetail = detail;
+    if (!title) {
+      transferSnap = null;
+      transferMeter.reset();
+    }
   }
+
+  function onTransferProgress(loaded: number, total: number) {
+    transferSnap = transferMeter.report(loaded, total);
+  }
+
+  onDestroy(() => transferMeter.dispose());
 
   function pushDebug(message: string) {
     const line = `[${new Date().toLocaleTimeString('en-GB', { hour12: false })}] ${message}`;
@@ -664,6 +685,8 @@
 
     for (const url of urls) {
       try {
+        transferMeter.reset();
+        transferSnap = null;
         setProgress(t(dict, 'tools.ultimateDecrypt.progressFetchingTitle'), t(dict, 'tools.ultimateDecrypt.progressFetchingDetail'));
         pushDebug(`Trying download source ${url}`);
         let fileBytes: Uint8Array;
@@ -675,7 +698,7 @@
           pushDebug(`Source failed before body read: ${lastErr}`);
           continue;
         }
-        const rawBytes = new Uint8Array(await res.arrayBuffer());
+        const rawBytes = await readResponseProgress(res, onTransferProgress);
         pushDebug(`Downloaded blob (${rawBytes.byteLength} bytes)`);
 
         if (res.headers.get('X-Send-Encrypted') === 'true' && isSendUrl(url)) {
@@ -814,7 +837,13 @@
   </button>
 
   {#if loading}
-    <ProgressPulse title={progressTitle || t(dict, 'tools.ultimateDecrypt.progressDefaultTitle')} detail={progressDetail || t(dict, 'tools.ultimateDecrypt.progressDefaultDetail')} compact={true} />
+    <ProgressPulse
+      title={progressTitle || t(dict, 'tools.ultimateDecrypt.progressDefaultTitle')}
+      detail={progressDetail || t(dict, 'tools.ultimateDecrypt.progressDefaultDetail')}
+      compact={true}
+      ratio={transferBar}
+      transferLine={transferLine}
+    />
   {/if}
   {#if error}
     <p class="status status--error" role="alert">{error}</p>
