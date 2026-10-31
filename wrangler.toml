@@ -62,3 +62,12 @@ class_name = "PersistentChatServer"
 [[migrations]]
 tag = "persistent-v1"
 new_sqlite_classes = ["PersistentChatServer"]
+
+# Saved whiteboards: encrypted update log and snapshots, pinned to the EU jurisdiction like saved chat rooms.
+[[durable_objects.bindings]]
+name = "WHITEBOARD_SAVED"
+class_name = "SavedWhiteboardServer"
+
+[[migrations]]
+tag = "saved-whiteboard-v1"
+new_sqlite_classes = ["SavedWhiteboardServer"]

@@ -126,6 +126,42 @@ test('chat rooms join, relay between connections and keep saved history across i
   late.peer.closed();
 });
 
+test('saved whiteboards keep their encrypted update log in SQLite and replay it after instance eviction', async t => {
+  const db = new RoomDatabase(path.join(tempDir(), 'rooms.sqlite'));
+  t.after(() => db.close());
+  const rooms = new RealtimeRooms(db, {}, 0);
+  const name = await accessChannel(token);
+  const big = 'B'.repeat(250_000);
+
+  const join = async () => {
+    const socket = fakeSocket();
+    const peer = rooms.connect('whiteboard-saved', name, socket);
+    peer.message(JSON.stringify({ type: 'join', token }));
+    await until(() => socket.sent.some(m => m.type === 'history'));
+    return { socket, peer };
+  };
+
+  const a = await join();
+  const b = await join();
+  a.peer.message(JSON.stringify({ type: 'envelope', kind: 'doc', payload: PAYLOAD, id: 'u1' }));
+  a.peer.message(JSON.stringify({ type: 'envelope', kind: 'doc-part', payload: big, id: 'u2' }));
+  await until(() => a.socket.sent.filter(m => m.type === 'stored').length === 2);
+  assert.deepEqual(b.socket.sent.filter(m => m.type === 'envelope').map(m => m.seq), [1, 2]);
+
+  a.peer.closed();
+  b.peer.closed();
+  await until(() => rooms.size === 0);
+  assert.ok(db.nextAlarm()! > Date.now());
+
+  const late = await join();
+  const entries = late.socket.sent.filter(m => m.type === 'history').flatMap(m => m.entries);
+  assert.deepEqual(entries.map((e: any) => [e.id, e.seq]), [['u1', 1], ['u2', 2]]);
+  assert.equal(entries[1].payload, big);
+  late.peer.message(JSON.stringify({ type: 'delete' }));
+  await until(() => late.socket.sent.some(m => m.type === 'room-deleted'));
+  assert.equal((await db.storage(`whiteboard-saved:${name}`).list()).size, 0);
+});
+
 test('a room alarm left by an earlier process fires on start and clears an empty live room', async t => {
   const file = path.join(tempDir(), 'rooms.sqlite');
   const name = await accessChannel(token);

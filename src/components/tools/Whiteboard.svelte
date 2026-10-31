@@ -7,15 +7,15 @@
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
   import type { Diff, ShapeRecord, AssetRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { deriveBoardAccess, deriveSavedBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
   import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, BOARD_ASSET_BYTES, type BoardAsset, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
   import { encodeBoardImage } from '../../lib/whiteboardImages';
-  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
+  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, STORED_KINDS, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
   import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
-  import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable } from '../../lib/chatIdentity';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
-  import { parseBurnSuffix, roomPasswordOk } from '../../lib/chatRoomSettings';
-  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../../lib/whiteboardSync';
+  import { parseBurnSuffix, roomPasswordOk, ROOM_KEY_RE } from '../../lib/chatRoomSettings';
+  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES, SAVED_BOARD_BYTES } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
 
   export let locale = 'en';
@@ -141,6 +141,22 @@
   let canCreate = false;
   let boardMissing = false;
 
+  const LINK_KEY_PREFIX = 'whiteboard-link-key:';
+  let savedBoard = false;
+  let linkKey: string | null = null;
+  let linkFailed = false;
+  let boardDeleted = false;
+  let shareLinkOnly = false;
+  let shareCopiedMenu = false;
+  let historyDone = false;
+  let savedEpoch: string | null = null;
+  let appliedSeq = 0;
+  let compacting = false;
+  let docSending = 0;
+  const unsaved = new Map<string, { update: Uint8Array; pending: Set<string> }>();
+  let unsavedCount = 0;
+  let storedChain: Promise<void> = Promise.resolve();
+
   let connected = false;
   let verified = false;
   let verifying = false;
@@ -221,6 +237,15 @@
 
   async function initRoom() {
     if (typeof window === 'undefined') return;
+    linkKey = takeLinkKey();
+    if (linkKey) {
+      if (sessionStorage.getItem('whiteboard-share-link')) {
+        shareLinkOnly = true;
+        sessionStorage.removeItem('whiteboard-share-link');
+      }
+      await enterSavedBoard(linkKey);
+      return;
+    }
     if (initialPassword.trim()) {
       passwordInput = initialPassword.trim();
       await enterWithPassword(initialPassword.trim());
@@ -247,18 +272,56 @@
     await enterWithPassword(passwordInput.trim());
   }
 
+  async function setupIdentity() {
+    if (boardKey) return;
+    boardKey = await loadRoomIdentity(`whiteboard:${roomId}`);
+    myPk = boardKey.publicKey;
+    const trustRoom = `whiteboard:${roomId}`;
+    trust = new BoardTrust(loadTrustTable(trustRoom), { pk: myPk, key: identity.key, name: identity.name }, (table) => saveTrustTable(trustRoom, table), onTrustChange);
+    myKeyCode = await keyCode(myPk);
+  }
+
+  // A saved board's key leaves the address bar at once, as in saved chat rooms; this tab keeps it for reloads and sharing.
+  function takeLinkKey(): string | null {
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const fromLink = fragment.get('k');
+    if (fromLink && ROOM_KEY_RE.test(fromLink) && fragment.get('p') === '1') {
+      try { sessionStorage.setItem(`${LINK_KEY_PREFIX}${roomId}`, fromLink); } catch {}
+      history.replaceState(history.state, '', location.pathname + location.search);
+      return fromLink;
+    }
+    try {
+      const saved = sessionStorage.getItem(`${LINK_KEY_PREFIX}${roomId}`);
+      if (saved && ROOM_KEY_RE.test(saved)) return saved;
+    } catch {}
+    return null;
+  }
+
+  function forgetLinkKey() {
+    try { sessionStorage.removeItem(`${LINK_KEY_PREFIX}${roomId}`); } catch {}
+  }
+
+  async function enterSavedBoard(key: string) {
+    savedBoard = true;
+    try {
+      const access = await deriveSavedBoardAccess(key, roomId);
+      accessToken = access.token; channelId = access.channel;
+      cryptoKey = access.key;
+      await setupIdentity();
+      canCreate = true;
+      setupYjs();
+      connectWs();
+    } catch {
+      linkFailed = true;
+    }
+  }
+
   async function enterWithPassword(pwd: string) {
     try {
       const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
-      if (!boardKey) {
-        boardKey = await loadRoomIdentity(`whiteboard:${roomId}`);
-        myPk = boardKey.publicKey;
-        const trustRoom = `whiteboard:${roomId}`;
-        trust = new BoardTrust(loadTrustTable(trustRoom), { pk: myPk, key: identity.key, name: identity.name }, (table) => saveTrustTable(trustRoom, table), onTrustChange);
-        myKeyCode = await keyCode(myPk);
-      }
+      await setupIdentity();
       canCreate = roomPasswordOk(pwd, roomId);
       boardMissing = false;
       needsPassword = false;
@@ -486,7 +549,13 @@
   let syncProgress: { received: number; total: number } | null = null;
 
   function queueDocUpdate(update: Uint8Array, to?: string) {
-    docQueue = docQueue.then(() => sendDocUpdate(update, to)).catch(() => {});
+    let group: string | undefined;
+    if (savedBoard && !to) {
+      group = genId();
+      unsaved.set(group, { update, pending: new Set() });
+      unsavedCount = unsaved.size;
+    }
+    docQueue = docQueue.then(() => sendDocUpdate(update, to, group)).catch(() => {});
   }
 
   async function waitForBudget(bytes: number) {
@@ -503,25 +572,151 @@
   }
 
   // Parts are stamped only once the rate budget allows sending them, so a long sync never goes out with a stale stamp.
-  async function sendDocEnvelope(kind: 'doc' | 'doc-part', bytes: Uint8Array, to?: string) {
+  async function sendDocEnvelope(kind: 'doc' | 'doc-part', bytes: Uint8Array, to?: string, id = genId()) {
     await waitForBudget(Math.ceil(bytes.length * 16 / 9) + 1024);
     const payload = await seal(kind, { data: bytesToB64(bytes) });
     if (!payload) return;
     const message = JSON.stringify(to
-      ? { type: 'envelope-to', to, kind, payload, id: genId() }
-      : { type: 'envelope', kind, payload, id: genId() });
+      ? { type: 'envelope-to', to, kind, payload, id }
+      : { type: 'envelope', kind, payload, id });
     socketSend(message, true);
   }
 
-  async function sendDocUpdate(update: Uint8Array, to?: string) {
+  function docParts(update: Uint8Array): Uint8Array[] | null {
+    return update.length <= DOC_PART_BYTES ? [update] : splitDocUpdate(update);
+  }
+
+  async function sendDocUpdate(update: Uint8Array, to?: string, group?: string) {
     if (!cryptoKey || !ws || !verified) return;
-    if (update.length <= DOC_PART_BYTES) {
-      await sendDocEnvelope('doc', update, to);
-      return;
-    }
-    const parts = splitDocUpdate(update);
+    const parts = docParts(update);
     if (!parts) return;
-    for (const part of parts) await sendDocEnvelope('doc-part', part, to);
+    const kind = parts.length === 1 ? 'doc' : 'doc-part';
+    const ids = parts.map((_, i) => group ? `${group}-${i}` : genId());
+    if (group) for (const id of ids) unsaved.get(group)?.pending.add(id);
+    docSending++;
+    try {
+      for (let i = 0; i < parts.length; i++) await sendDocEnvelope(kind, parts[i], to, ids[i]);
+    } finally {
+      docSending--;
+    }
+  }
+
+  function storedStep(step: () => unknown) {
+    storedChain = storedChain.then(step).catch(() => {});
+  }
+
+  // Stored updates are applied strictly in server order, so appliedSeq always names a point the local document has fully reached.
+  async function applyStored(entry: any, live: boolean) {
+    const seq = entry?.seq;
+    if (cryptoKey && ydoc && typeof entry?.payload === 'string' && entry.payload.length <= 720000 && typeof entry.from === 'string' && entry.from &&
+      STORED_KINDS.includes(entry.kind)) {
+      const opened = await openEnvelope(cryptoKey, entry.payload, entry.kind, channelId, Date.now(), true);
+      if (opened && (!live || connectionKeys.bind(entry.from, opened.signer))) {
+        try {
+          const bytes = b64ToBytes(opened.body.data as string);
+          if (entry.kind === 'doc') {
+            Y.applyUpdate(ydoc, bytes, 'remote');
+          } else {
+            const result = assembler.accept(entry.from, bytes);
+            if (result) {
+              syncProgress = result.update ? null : { received: result.received, total: result.total };
+              if (result.update) Y.applyUpdate(ydoc, result.update, 'remote');
+            }
+          }
+        } catch {}
+      }
+    }
+    if (Number.isInteger(seq) && seq > appliedSeq) appliedSeq = seq;
+  }
+
+  async function applyHistory(data: any) {
+    if (!Array.isArray(data.entries)) return;
+    for (const entry of data.entries) await applyStored(entry, false);
+    if (data.more) return;
+    const epoch = typeof data.epoch === 'string' ? data.epoch : null;
+    if (epoch !== savedEpoch) appliedSeq = Number.isInteger(data.seq) ? data.seq : 0;
+    else if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
+    savedEpoch = epoch;
+    syncProgress = null;
+    historyDone = true;
+    resendUnsaved();
+  }
+
+  function noteStored(data: any) {
+    if (typeof data.epoch === 'string') savedEpoch = data.epoch;
+    if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
+    const id = String(data.id);
+    const group = id.split('-')[0];
+    const entry = unsaved.get(group);
+    if (entry) {
+      entry.pending.delete(id);
+      if (!entry.pending.size) unsaved.delete(group);
+      unsavedCount = unsaved.size;
+    }
+    if (data.compact) void compactBoard();
+  }
+
+  // Whatever the server has not confirmed goes out again as one merged update; Yjs ignores the parts it already holds.
+  function resendUnsaved() {
+    if (!unsaved.size) return;
+    const merged = Y.mergeUpdates([...unsaved.values()].map((u) => u.update));
+    unsaved.clear();
+    unsavedCount = 0;
+    queueDocUpdate(merged);
+  }
+
+  // When the server asks, a member holding the whole board seals it as a snapshot covering everything up to appliedSeq.
+  async function compactBoard() {
+    if (!savedBoard || !historyDone || compacting || !ydoc || !ws || assembler.pending || docSending) return;
+    compacting = true;
+    const base = appliedSeq;
+    const parts = docParts(Y.encodeStateAsUpdate(ydoc));
+    if (!parts || !base) { compacting = false; return; }
+    const kind = parts.length === 1 ? 'doc' : 'doc-part';
+    try {
+      for (let index = 0; index < parts.length; index++) {
+        await waitForBudget(Math.ceil(parts[index].length * 16 / 9) + 1024);
+        const payload = await seal(kind, { data: bytesToB64(parts[index]) });
+        if (!payload || !socketSend(JSON.stringify({ type: 'snapshot', base, index, total: parts.length, kind, payload, id: genId() }), true)) {
+          compacting = false;
+          return;
+        }
+      }
+    } catch {
+      compacting = false;
+    }
+  }
+
+  function handleBoardDeleted() {
+    forgetLinkKey();
+    forgetTrustTable(`whiteboard:${roomId}`);
+    boardDeleted = true;
+    verified = false;
+    verifying = false;
+    unsaved.clear();
+    unsavedCount = 0;
+    ws?.close();
+    ws = null;
+  }
+
+  function deleteBoardForEveryone() {
+    menuOpen = false;
+    if (!confirm(t(dict, 'whiteboard.deleteBoardConfirm'))) return;
+    socketSend(JSON.stringify({ type: 'delete' }), true);
+  }
+
+  function roomLink(): string {
+    if (typeof window === 'undefined') return '';
+    const base = `${location.origin}${location.pathname}`;
+    return savedBoard && linkKey ? `${base}#k=${linkKey}&p=1` : location.href;
+  }
+
+  async function copyBoardLink() {
+    try {
+      await navigator.clipboard.writeText(roomLink());
+      shareCopiedMenu = true;
+      setTimeout(() => { shareCopiedMenu = false; menuOpen = false; }, 900);
+    } catch {}
   }
 
   function shouldAnswerSync(newcomer: string) {
@@ -537,7 +732,7 @@
     ws = new PartySocket({
       host: partyHost || window.location.host,
       room: channelId,
-      party: 'whiteboard',
+      party: savedBoard ? 'whiteboard-saved' : 'whiteboard',
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
       reconnectionDelayGrowFactor: 1.4,
@@ -548,10 +743,13 @@
     ws.addEventListener('open', async () => {
       connected = true;
       const rejoin = verified;
-      socketSend(JSON.stringify({ type: 'join', token: accessToken }), true);
+      historyDone = false;
+      compacting = false;
+      const resume = savedBoard && savedEpoch ? { since: appliedSeq, epoch: savedEpoch } : {};
+      socketSend(JSON.stringify({ type: 'join', token: accessToken, ...resume }), true);
       const verifyPayload = await seal('verify', { alias: aliasWire(alias) });
       if (verifyPayload) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
-      if (rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
+      if (!savedBoard && rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
     ws.addEventListener('close', () => {
@@ -580,6 +778,11 @@
       myConnId = data.connId || '';
       serverPresence = data.presence;
       roomLocked = !!data.locked;
+      if (savedBoard) {
+        verified = true;
+        verifying = false;
+        return;
+      }
       if (verifying && serverPresence <= 1) {
         // Nobody here means the board does not exist yet; only a password that passes the room policy may create it.
         if (!canCreate) {
@@ -603,6 +806,14 @@
       return;
     }
     if (data.type === 'presence') { serverPresence = data.count; return; }
+    if (savedBoard) {
+      if (data.type === 'history') { storedStep(() => applyHistory(data)); return; }
+      if (data.type === 'stored') { storedStep(() => noteStored(data)); return; }
+      if (data.type === 'envelope' && typeof data.seq === 'number') { storedStep(() => applyStored(data, true)); return; }
+      if (data.type === 'board-full') { showNotice(t(dict, 'whiteboard.savedBoardFull').replace('{size}', String(SAVED_BOARD_BYTES / 1024 / 1024))); return; }
+      if (data.type === 'snapshot-saved' || data.type === 'snapshot-busy' || data.type === 'snapshot-stale') { compacting = false; return; }
+      if (data.type === 'room-deleted') { handleBoardDeleted(); return; }
+    }
     if (data.type === 'locked') { roomLocked = true; return; }
     if (data.type === 'unlocked') { roomLocked = false; return; }
     if (data.type === 'peer-leave') {
@@ -665,7 +876,7 @@
         if (verified && ws) {
           const ack = await seal('verify-ack', { alias: aliasWire(alias) });
           if (ack) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
-          if ((store.size || ychat.length) && shouldAnswerSync(from)) {
+          if (!savedBoard && (store.size || ychat.length) && shouldAnswerSync(from)) {
             flushToDoc();
             queueDocUpdate(Y.encodeStateAsUpdate(ydoc), from);
           }
@@ -1136,7 +1347,7 @@
 
   async function copyShareLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(roomLink());
       shareCopiedLink = true;
       setTimeout(() => { shareCopiedLink = false; }, 1500);
     } catch {}
@@ -1156,7 +1367,7 @@
   }
 
   $: if (typeof window !== 'undefined') {
-    if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
+    if (verified && (!savedBoard || unsavedCount > 0)) window.addEventListener('beforeunload', beforeUnloadHandler);
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 
@@ -1218,7 +1429,17 @@
 </script>
 
 <div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
-  {#if wrongPassword}
+  {#if boardDeleted || linkFailed}
+    <div class="wb-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        <p class="status status--error" role="alert">{t(dict, boardDeleted ? 'whiteboard.boardDeleted' : 'whiteboard.errorDeriveKey')}</p>
+        {#if boardDeleted}<p class="hint">{t(dict, 'whiteboard.boardDeletedDetail')}</p>{/if}
+        <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard`}>{t(dict, 'whiteboard.newBoard')}</a>
+      </div>
+    </div>
+
+  {:else if wrongPassword}
     <div class="wb-center">
       <div class="space-y-4 max-w-xs w-full text-center">
         <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
@@ -1260,25 +1481,26 @@
 
   {:else if verifying}
     <div class="wb-center">
-      <p class="status status--busy" role="status">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+      <p class="status status--busy" role="status">{savedBoard ? t(dict, 'whiteboard.savedOpening') : serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
     </div>
 
   {:else}
-    {#if sharePassword && !shareDismissed}
+    {#if (sharePassword || shareLinkOnly) && !shareDismissed}
       <div class="wb-share-banner">
         <div class="flex items-center justify-between gap-2 mb-2">
-          <span class="text-sm font-bold text-accent">{t(dict, 'whiteboard.sharePasswordWarning')}</span>
+          <span class="text-sm font-bold text-accent">{t(dict, savedBoard ? 'whiteboard.savedShareWarning' : 'whiteboard.sharePasswordWarning')}</span>
           <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS.close}</svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5 mb-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.roomLink')}</span>
-          <code class="wb-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
+          <code class="wb-share-value">{savedBoard && linkKey ? roomLink() : typeof window !== 'undefined' ? window.location.href : ''}</code>
           <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedLink} aria-hidden="true">{@html shareCopiedLink ? ICONS.check : ICONS.copy}</svg>
           </button>
         </div>
+        {#if sharePassword}
         <div class="flex items-center gap-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>
           <code class="wb-share-value">{showSharePassword ? sharePassword : '•'.repeat(Math.min(sharePassword.length, 16))}</code>
@@ -1289,6 +1511,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedPass} aria-hidden="true">{@html shareCopiedPass ? ICONS.check : ICONS.copy}</svg>
           </button>
         </div>
+        {/if}
       </div>
     {/if}
 
@@ -1473,9 +1696,19 @@
                 <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
               </button>
             {/if}
+            {#if savedBoard}
+              <button type="button" class="menu__item" on:click={copyBoardLink}>
+                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html shareCopiedMenu ? ICONS.check : ICONS.copy}</svg>{t(dict, shareCopiedMenu ? 'whiteboard.linkCopied' : 'whiteboard.copyRoomLink')}
+              </button>
+            {/if}
             <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.clear')}
             </button>
+            {#if savedBoard}
+              <button type="button" class="menu__item wb-menu-danger" on:click={deleteBoardForEveryone} disabled={!connected}>
+                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.deleteBoard')}
+              </button>
+            {/if}
           </div>
         </div>
       </div>
@@ -1634,6 +1867,9 @@
           {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
         </button>
         <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
+        {#if savedBoard}
+          <span class="wb-counter" role="status">{t(dict, unsavedCount ? 'whiteboard.saving' : 'whiteboard.savedState')}</span>
+        {/if}
         {#if syncProgress}
           <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
         {/if}

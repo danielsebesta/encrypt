@@ -77,6 +77,14 @@ export class DocPartAssembler {
     return { update, received: total, total };
   }
 
+  /** Updates still waiting for parts; a snapshot taken now would miss them. */
+  get pending(): number {
+    const now = this.now();
+    let count = 0;
+    for (const a of this.assemblies.values()) if (now - a.at <= ASSEMBLY_TTL_MS) count++;
+    return count;
+  }
+
   drop(from: string) {
     for (const k of this.assemblies.keys()) if (k.startsWith(`${from}:`)) this.assemblies.delete(k);
   }
@@ -108,3 +116,10 @@ export function parseBoardBackup(text: string): BackupResult {
   if (bytes.length > BOARD_BACKUP_MAX_BYTES) return { error: 'too-large' };
   return { update: bytes };
 }
+
+export const SAVED_BOARD_BYTES = 16 * 1024 * 1024;
+export const SAVED_BOARD_IDLE_DAYS = 90;
+export const SAVED_PAYLOAD_CHARS = 720_000;
+// The log is folded into a fresh snapshot once it outgrows these, so a returning member replays roughly the board's own size.
+export const COMPACT_LOG_BYTES = 1024 * 1024;
+export const COMPACT_LOG_COUNT = 400;

@@ -3,6 +3,8 @@
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
   import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { generateRoomKey } from '../../lib/chatCrypto';
+  import { SAVED_BOARD_BYTES, SAVED_BOARD_IDLE_DAYS } from '../../lib/whiteboardSync';
   import PassphraseField from '../PassphraseField.svelte';
   import WizardProgress from '../WizardProgress.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -10,9 +12,11 @@
   export let locale = 'en';
   export let dict: Record<string, string>;
 
-  const STEPS = 2;
+  type Keep = 'live' | 'saved';
 
   let step = 1;
+  let keep: Keep = 'live';
+  let creating = false;
   let customRoomId = '';
   let password = '';
   let passwordRevealed = true;
@@ -24,6 +28,11 @@
   function genRoomId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(6));
     return Array.from(arr, b => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+  }
+
+  function genSavedId(): string {
+    const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+    return Array.from({ length: 12 }, () => alphabet[randomIndex(alphabet.length)]).join('');
   }
 
   const DIACRITICS: Record<string, string> = {
@@ -85,7 +94,9 @@
     { ok: checks.strength, label: t(dict, 'common.passwordRuleStrength') },
     { ok: checks.distinct, label: t(dict, 'common.passwordRuleDistinct') },
   ];
-  $: stepText = t(dict, 'common.wizardStep').replace('{current}', String(step)).replace('{total}', String(STEPS));
+  $: steps = keep === 'saved' ? 2 : 3;
+  $: stepText = t(dict, 'common.wizardStep').replace('{current}', String(step)).replace('{total}', String(steps));
+  $: savedWarning2 = t(dict, 'whiteboard.savedWarning2').replace('{size}', String(SAVED_BOARD_BYTES / 1024 / 1024)).replace('{days}', String(SAVED_BOARD_IDLE_DAYS));
 
   onMount(() => {
     const name = new URLSearchParams(window.location.search).get('name');
@@ -95,12 +106,28 @@
   async function goTo(next: number) {
     step = next;
     await tick();
-    stepEl?.querySelector<HTMLElement>('input')?.focus();
+    stepEl?.querySelector<HTMLElement>('input:not([type=radio]), button')?.focus();
+  }
+
+  function submitKeep() {
+    goTo(2);
   }
 
   function submitRoom() {
     customRoomId = roomName;
-    goTo(2);
+    goTo(3);
+  }
+
+  async function createSaved() {
+    if (creating) return;
+    creating = true;
+    try {
+      const key = await generateRoomKey();
+      sessionStorage.setItem('whiteboard-share-link', '1');
+      window.location.href = `${window.location.origin}${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard/${genSavedId()}#k=${key}&p=1`;
+    } finally {
+      creating = false;
+    }
   }
 
   function openBoard() {
@@ -118,9 +145,45 @@
 </script>
 
 <div class="stack text-left">
-  <WizardProgress step={step} total={STEPS} label={stepText} />
+  <WizardProgress step={step} total={steps} label={stepText} />
 
   {#if step === 1}
+    <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitKeep}>
+      <fieldset class="field">
+        <legend class="label">{t(dict, 'whiteboard.mode')}</legend>
+        <div class="choice-list">
+          <label class="choice" class:choice--active={keep === 'live'}>
+            <input type="radio" name="wb-keep" value="live" bind:group={keep} />
+            <span>
+              <span class="choice__title">{t(dict, 'whiteboard.modeLiveTitle')}</span>
+              <span class="choice__hint">{t(dict, 'whiteboard.modeLiveHint')}</span>
+            </span>
+          </label>
+          <label class="choice" class:choice--active={keep === 'saved'}>
+            <input type="radio" name="wb-keep" value="saved" bind:group={keep} />
+            <span>
+              <span class="choice__title">{t(dict, 'whiteboard.modeSavedTitle')}</span>
+              <span class="choice__hint">{t(dict, 'whiteboard.modeSavedHint')}</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+      <button class="btn w-full" type="submit">{t(dict, 'common.continue')}</button>
+    </form>
+  {:else if step === 2 && keep === 'saved'}
+    <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={createSaved}>
+      <div class="stack">
+        <p class="label">{t(dict, 'whiteboard.savedWarningTitle')}</p>
+        <p class="status status--warn">{t(dict, 'whiteboard.savedWarning1')}</p>
+        <p class="hint">{savedWarning2}</p>
+        <p class="hint">{t(dict, 'whiteboard.savedWarning3')}</p>
+      </div>
+      <div class="wizard-actions">
+        <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'common.back')}</button>
+        <button class="btn" type="submit" disabled={creating}>{t(dict, 'whiteboard.createSavedBoard')}</button>
+      </div>
+    </form>
+  {:else if step === 2}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitRoom}>
       <div class="field">
         <label class="label" for="wb-room">{t(dict, 'whiteboard.customRoomId')}</label>
@@ -141,7 +204,10 @@
         />
         <p id="wb-room-hint" class="hint">{t(dict, 'whiteboard.customRoomIdHint')}</p>
       </div>
-      <button class="btn w-full" type="submit">{t(dict, 'common.continue')}</button>
+      <div class="wizard-actions">
+        <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'common.back')}</button>
+        <button class="btn" type="submit">{t(dict, 'common.continue')}</button>
+      </div>
     </form>
   {:else}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={openBoard}>
@@ -155,7 +221,7 @@
         <p id="wb-pass-hint" class="hint">{t(dict, 'whiteboard.createDescription')}</p>
       </div>
       <div class="wizard-actions">
-        <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'common.back')}</button>
+        <button class="btn-secondary" type="button" on:click={() => goTo(2)}>{t(dict, 'common.back')}</button>
         <button class="btn" type="submit">{t(dict, 'whiteboard.createRoom')}</button>
       </div>
     </form>
