@@ -125,7 +125,7 @@ flowchart LR
 - **No history on the server.** The default chat mode keeps encrypted envelopes in participant browsers; disappearing modes keep nothing.
 - **Calls never leak addresses.** Media runs over a TURN relay only, so participants never see each other's IP address.
 - **Names carry no information.** Participant names are random aliases rendered in each viewer's language, so a name never reveals which language someone uses.
-- **The share sheet stays on your device.** Installed as an app, encrypt.click takes files, text and links from the system share sheet. The service worker hands them to the share form on the device, so the server never receives them.
+- **The share sheet and QR codes stay on your device.** Installed as an app, encrypt.click takes files, text and links from the system share sheet. The service worker hands them to the share form on the device, so the server never receives them. The receive page reads QR codes from the camera or a picture locally, too.
 - **Third-party hosting is named.** If encrypt.click's own storage is full, the share form names the exact Send instance and asks before it uploads anything. Chat falls back to Send on its own, for files up to 50 MB.
 
 The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security.txt](https://encrypt.click/.well-known/security.txt).
