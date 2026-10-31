@@ -245,7 +245,7 @@ node scripts/verify-deployment.mjs https://encrypt.click
 
 It prints `OK` and exits 0, or lists every mismatch and exits 1. Use the Node version from `.nvmrc` and build on Linux (WSL or Docker on Windows): the same commit gives the same client files there, in any directory, apart from three harmless differences that the report names and ignores: the GitHub star count in the footer, Astro's island ids (they depend on the build path) and the bot-detection script Cloudflare appends to pages, which the CSP keeps from running.
 
-`.github/workflows/verify-live.yml` runs the same check from a fresh GitHub runner after every deploy and every six hours: it rebuilds the deployed commit from source and fails if the site serves anything else.
+`.github/workflows/verify-live.yml` runs the same check from a fresh GitHub runner after every deploy and every six hours: it rebuilds the deployed commit from source and fails if the site serves anything else. It also fails when Cloudflare refuses the runner, because then nothing was compared, so a passing run always means a real comparison.
 
 The deploy workflow also signs the build. The manifest a site serves was produced by this repository's workflow if this succeeds:
 

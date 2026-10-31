@@ -14,7 +14,7 @@ concurrency:
 env:
   SITE: https://encrypt.click
 jobs:
-  verify:
+  compare-live:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -30,7 +30,11 @@ jobs:
         id: deployed
         run: |
           set -euo pipefail
-          commit="$(curl -fsS --max-time 30 "$SITE/build-integrity.json" | jq -r .commitSha)"
+          if ! integrity="$(curl -fsS --max-time 30 "$SITE/build-integrity.json")"; then
+            echo "::error::The site did not answer this runner, so nothing was compared. A 403 above means Cloudflare is refusing GitHub's addresses."
+            exit 1
+          fi
+          commit="$(jq -r .commitSha <<< "$integrity")"
           if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::The site names no valid commit: $commit"
             exit 1
@@ -62,10 +66,6 @@ jobs:
           now="$(curl -fsS --max-time 30 "$SITE/build-integrity.json" | jq -r .commitSha)"
           if [ "$now" != "$COMMIT" ]; then
             echo "::notice::A new deploy went live during the check ($now); its own run compares it."
-            exit 0
-          fi
-          if [ "$status" = 2 ]; then
-            echo "::warning::The comparison could not run from this runner."
             exit 0
           fi
           exit "$status"
