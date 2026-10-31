@@ -6,6 +6,7 @@
   import { sendWithUploadPass, uploadFirstParty } from '../../lib/firstPartyUpload';
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import CopyButton from '../CopyButton.svelte';
+  import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
@@ -862,6 +863,7 @@
             </div>
           </div>
           <input id="ue-result-link" class="input input--mono" type="text" readonly value={shortUrl || resultUrl} />
+          <ShareLinkButton url={shortUrl || resultUrl} label={t(dict, 'common.shareLink')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
           {#if resultHasTemporaryUpload}
             <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
           {/if}
