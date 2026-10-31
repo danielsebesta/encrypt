@@ -175,10 +175,14 @@ export function createMediaKey(previous?: MediaKey | null): MediaKey {
 /**
  * The local sender key. `latest` is what peers are given; a rotated key reaches the frame encryptor only after a delay,
  * so peers have it before the first frame sealed with it arrives. A rotation that is overtaken by another never activates.
+ * A member joining the call gets a ticket: once the current key has gone to anyone, the newcomer may only have a later one,
+ * so frames sent before it joined stay closed to it.
  */
 export class MediaKeySchedule {
   latest: MediaKey | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private generation = 0;
+  private shared = false;
 
   constructor(private readonly activate: (key: MediaKey) => void, private readonly delayMs = MEDIA_KEY_ACTIVATE_DELAY_MS) {}
 
@@ -186,6 +190,7 @@ export class MediaKeySchedule {
     this.wipe();
     const key = createMediaKey();
     this.latest = key;
+    this.generation++;
     this.activate(key);
     return key;
   }
@@ -194,6 +199,8 @@ export class MediaKeySchedule {
     const next = createMediaKey(this.latest);
     this.latest?.raw.fill(0);
     this.latest = next;
+    this.generation++;
+    this.shared = false;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = undefined;
@@ -202,11 +209,27 @@ export class MediaKeySchedule {
     return next;
   }
 
+  /** The ticket for a member who joins now, and whether the key has to rotate before that member can be given one. */
+  admit(): { ticket: number; rotate: boolean } {
+    if (!this.latest || !this.shared) return { ticket: this.generation, rotate: false };
+    return { ticket: this.generation + 1, rotate: true };
+  }
+
+  /** The key a member holding this ticket may be given, or null until the key has rotated past it. */
+  keyFor(ticket: number): MediaKey | null {
+    return this.latest && this.generation >= ticket ? this.latest : null;
+  }
+
+  markShared() {
+    if (this.latest) this.shared = true;
+  }
+
   wipe() {
     clearTimeout(this.timer);
     this.timer = undefined;
     this.latest?.raw.fill(0);
     this.latest = null;
+    this.shared = false;
   }
 }
 

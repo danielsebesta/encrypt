@@ -19,7 +19,7 @@ test('a receiving chain derives the sender message keys, each exactly once, in o
   const chain = new SenderChain(Date.now(), false);
   const grant = await chain.grant(false, Date.now());
   const receive = new ReceiveChains();
-  assert.equal(receive.add('alice', chain.keyId, grant.index, grant.key), true);
+  assert.equal(receive.add('alice', 'tab', chain.keyId, grant.index, grant.key), true);
   const sent: Uint8Array[] = [];
   for (let i = 0; i < 5; i++) sent.push((await chain.next()).messageKey);
   for (const i of [0, 3, 1, 4, 2]) assert.deepEqual(await receive.messageKey('alice', chain.keyId, i), sent[i]);
@@ -34,7 +34,7 @@ test('skipped keys are bounded and expire, and a jump beyond the skip limit is r
   const receive = new ReceiveChains(() => now, { maxSkip: 10, maxSkipped: 5, skippedTtlMs: 1000, retiredMs: 500 });
   const chain = new SenderChain(now, false);
   const grant = await chain.grant(false, now);
-  receive.add('bob', chain.keyId, grant.index, grant.key);
+  receive.add('bob', 'tab', chain.keyId, grant.index, grant.key);
   assert.equal(await receive.messageKey('bob', chain.keyId, 11), null);
   assert.ok(await receive.messageKey('bob', chain.keyId, 8));
   assert.equal(receive.skippedCount, 5);
@@ -46,21 +46,38 @@ test('skipped keys are bounded and expire, and a jump beyond the skip limit is r
   assert.equal(receive.skippedCount, 0);
 });
 
-test('a newer chain from the same sender retires the older one after a grace period, but its skipped keys survive', async () => {
+test('a newer chain from the same connection retires the older one after a grace period, but its skipped keys survive', async () => {
   let now = 5_000_000;
   const receive = new ReceiveChains(() => now, { maxSkip: 100, maxSkipped: 100, skippedTtlMs: 60_000, retiredMs: 500 });
   const old = new SenderChain(now, false);
   const first = await old.grant(false, now);
-  receive.add('carol', old.keyId, first.index, first.key);
+  receive.add('carol', 'tab', old.keyId, first.index, first.key);
   assert.ok(await receive.messageKey('carol', old.keyId, 2));
   const fresh = new SenderChain(now, false);
   const second = await fresh.grant(false, now);
-  receive.add('carol', fresh.keyId, second.index, second.key);
+  receive.add('carol', 'tab', fresh.keyId, second.index, second.key);
   assert.ok(await receive.messageKey('carol', old.keyId, 3));
   now += 600;
   assert.equal(await receive.messageKey('carol', old.keyId, 4), null);
   assert.ok(await receive.messageKey('carol', old.keyId, 1));
   assert.ok(await receive.messageKey('carol', fresh.keyId, 0));
+});
+
+test('chains of two connections that share a signing key live side by side, and dropping one connection keeps the other', async () => {
+  let now = 6_000_000;
+  const receive = new ReceiveChains(() => now, { maxSkip: 100, maxSkipped: 100, skippedTtlMs: 60_000, retiredMs: 500 });
+  const first = new SenderChain(now, false);
+  const second = new SenderChain(now, false);
+  const a = await first.grant(false, now);
+  const b = await second.grant(false, now);
+  assert.equal(receive.add('dave', 'tab-1', first.keyId, a.index, a.key), true);
+  assert.equal(receive.add('dave', 'tab-2', second.keyId, b.index, b.key), true);
+  now += 10_000;
+  assert.ok(await receive.messageKey('dave', first.keyId, 0));
+  assert.ok(await receive.messageKey('dave', second.keyId, 0));
+  receive.dropStream('tab-2');
+  assert.equal(receive.has('dave', second.keyId), false);
+  assert.ok(await receive.messageKey('dave', first.keyId, 1));
 });
 
 test('a pairwise key needs the ephemeral key exchange, the ML-KEM secret and the room secret and binds both identities, the room and the key id', async () => {
@@ -170,8 +187,8 @@ async function handle(relay: Relay, me: Peer, from: Peer, payload: any) {
 const announce = (who: Peer) => ({ clientId: who.clientId, fs: who.session.publicKey, kem: who.session.kemPublicKey });
 const memberOf = (who: Peer) => ({ clientId: who.clientId, pk: who.pk, pub: who.session.publicKey, kem: who.session.kemPublicKey });
 
-async function peer(relay: Relay, name: string, secret: Uint8Array, now?: () => number): Promise<Peer> {
-  const self = { name, clientId: hex(8), pk: `${name}${'x'.repeat(43 - name.length)}`, read: [], pending: 0 } as unknown as Peer;
+async function peer(relay: Relay, name: string, secret: Uint8Array, now?: () => number, pk = `${name}${'x'.repeat(43 - name.length)}`): Promise<Peer> {
+  const self = { name, clientId: hex(8), pk, read: [], pending: 0 } as unknown as Peer;
   self.session = await ForwardSecrecySession.create({
     channel: 'room',
     self: { pk: self.pk, clientId: self.clientId },
@@ -196,7 +213,7 @@ async function say(relay: Relay, from: Peer, text: string): Promise<FsSealed> {
 
 async function leave(relay: Relay, gone: Peer) {
   relay.online.delete(gone);
-  for (const p of relay.online) await p.session.memberLeft();
+  for (const p of relay.online) await p.session.memberLeft(gone.clientId);
   for (const p of relay.online) relay.send(p, { type: 'presence', ...announce(p) });
 }
 
@@ -234,6 +251,53 @@ test('members read each other, whoever left cannot follow the new chains, and la
   }
   for (const sealed of [early, later]) assert.equal(await carol.session.open(alice.pk, sealed), PENDING);
   assert.deepEqual(carol.read, ['one', 'two']);
+});
+
+test('two tabs that share a signing key are both read, also after the grace period for retired chains', async () => {
+  let now = Date.now();
+  const relay = new Relay();
+  const secret = random();
+  const first = await peer(relay, 'alice', secret, () => now);
+  const second = await peer(relay, 'alice', secret, () => now, first.pk);
+  const bob = await peer(relay, 'bob', secret, () => now);
+  for (const p of [first, bob, second]) await join(relay, p);
+  await say(relay, first, 'one');
+  await say(relay, second, 'two');
+  await relay.flush();
+  now += 31_000;
+  await say(relay, first, 'three');
+  await say(relay, second, 'four');
+  await relay.flush();
+  assert.deepEqual(bob.read, ['one', 'two', 'three', 'four']);
+  assert.deepEqual(first.read, ['two', 'four']);
+  assert.deepEqual(second.read, ['one', 'three']);
+});
+
+test('a member who leaves and comes back with the same client id within moments gets nothing sent while it was away', async () => {
+  let now = Date.now();
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob, carol] = [await peer(relay, 'alice', secret, () => now), await peer(relay, 'bob', secret, () => now), await peer(relay, 'carol', secret, () => now)];
+  for (const p of [alice, bob, carol]) await join(relay, p);
+  await say(relay, alice, 'before');
+  await relay.flush();
+  await leave(relay, carol);
+  await relay.flush();
+  const away = await say(relay, alice, 'while away');
+  await relay.flush();
+  assert.deepEqual(bob.read, ['before', 'while away']);
+
+  now += 1000;
+  await carol.session.reconnected();
+  relay.online.add(carol);
+  relay.send(carol, { type: 'presence', ...announce(carol) });
+  await relay.flush();
+  assert.equal(await carol.session.open(alice.pk, away), null);
+  await say(relay, alice, 'back');
+  await say(relay, carol, 'hi');
+  await relay.flush();
+  assert.deepEqual(carol.read, ['before', 'back']);
+  assert.deepEqual(alice.read.at(-1), 'hi');
 });
 
 test('a newcomer gets every chain at its current step and cannot read anything sent before it arrived', async () => {

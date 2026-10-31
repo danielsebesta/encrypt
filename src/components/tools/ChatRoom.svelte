@@ -115,6 +115,7 @@
     hash?: string;
     createdAt?: number;
     serverSeq?: number;
+    from?: string;
   };
 
   type HistoryEnvelope = {
@@ -138,6 +139,7 @@
     signed?: string;
     localSealed?: boolean;
     fsSender?: string;
+    conn?: string;
   };
   type Signer = { id: string; ed: string };
 
@@ -180,6 +182,7 @@
     mediaPub?: string;
     mediaKem?: string;
     sharedKeyId?: number;
+    keyTicket: number;
   };
 
   type CallSignal = {
@@ -1245,7 +1248,7 @@
 
   async function shareMediaKey(peerId: string) {
     const peer = callPeerMap.get(peerId);
-    const key = mediaKeys?.latest;
+    const key = peer ? mediaKeys?.keyFor(peer.keyTicket) : null;
     if (!callActive || !callKeyPair || !peer?.mediaPub || !peer.mediaKem || !key) return;
     const raw = key.raw.slice();
     let seal: KemSeal | null = null;
@@ -1254,6 +1257,7 @@
       const wrapped = await wrapMediaKey(await deriveWrapKey(callKeyPair, peer.mediaPub, seal.secret), raw, mediaKeyContext(CALL_ID, clientId, peerId, key.id));
       if (callPeerMap.get(peerId) !== peer) return;
       peer.sharedKeyId = key.id;
+      if (mediaKeys?.latest === key) mediaKeys.markShared();
       await sendCallSignal({ action: 'media-key', to: peerId, keyId: key.id, wrapped, e: seal.ciphertext });
       callDebug('media key out', { peer: shortPeerId(peerId), keyId: key.id });
     } catch {
@@ -1293,13 +1297,15 @@
     void sendCallSignal({ action: 'media-key-request', to: peerId });
   }
 
-  // Whoever stays after someone leaves moves to a fresh key, so the one who left cannot read what follows.
+  // Whoever stays after someone leaves moves to a fresh key, so the one who left cannot read what follows, and a newcomer
+  // gets only a key made after it joined, so it cannot read what came before.
   function scheduleMediaKeyRotation() {
     if (!callActive || mediaKeyRotateTimer) return;
     mediaKeyRotateTimer = setTimeout(() => {
       mediaKeyRotateTimer = undefined;
       if (!callActive || !mediaKeys) return;
       const key = mediaKeys.rotate();
+      if (callPeerMap.size) mediaKeys.markShared();
       callDebug('media key rotated', { keyId: key.id, peers: callPeerMap.size });
       for (const peer of callPeerMap.values()) void shareMediaKey(peer.id);
     }, MEDIA_KEY_ROTATE_DEBOUNCE_MS);
@@ -1673,8 +1679,8 @@
 
   // After someone leaves, everyone still here answers with a presence: in rooms without server history that is the roll call
   // for the new sender chains, in saved rooms it shows each member's latest history head to the others.
-  async function onMemberLeft() {
-    if (fsSession) await fsSession.memberLeft();
+  async function onMemberLeft(gone?: string) {
+    if (fsSession) await fsSession.memberLeft(gone);
     if (fsSession || persistentRoom) await sendPresence();
   }
 
@@ -2206,10 +2212,11 @@
       serverPresence = typeof data.count === 'number' ? data.count : 0;
       const left = serverPresence < lastPresenceCount;
       lastPresenceCount = serverPresence;
+      const gone = typeof data.left === 'string' ? departedClient(data.left) : undefined;
       if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
         markVerified();
       }
-      if (left && verified) await onMemberLeft();
+      if (left && verified) await onMemberLeft(gone);
       return;
     }
     if (data.type === 'member-keys') {
@@ -2311,7 +2318,8 @@
       return false;
     }
     try {
-      return await processSigned(parsed, { fromHistory, origin, serverSeq: data.serverSeq, createdAt: data.createdAt, wire: data.payload, signed: plaintext });
+      const conn = !fromHistory && typeof data.from === 'string' ? data.from : undefined;
+      return await processSigned(parsed, { fromHistory, origin, serverSeq: data.serverSeq, createdAt: data.createdAt, wire: data.payload, signed: plaintext, conn });
     } catch {
       return false;
     }
@@ -2355,6 +2363,7 @@
     if (!auth) return false;
     const signer = auth.id;
     if (ctx.fsSender !== undefined && signer !== ctx.fsSender) return false;
+    if (ctx.conn && typeof parsed.clientId === 'string' && bindClient(parsed.clientId, signer)) noteConnection(ctx.conn, parsed.clientId);
     const content = isContent(parsed);
     if (ctx.fsSender !== undefined && !content) return false;
     if (origin === null && !relayedContentOk(parsed, Boolean(fsSession), ctx.fsSender !== undefined)) return false;
@@ -2848,8 +2857,12 @@
       audioMuted: false,
       audioLevel: 0,
       speaking: false,
+      keyTicket: 0,
     };
+    const admission = mediaKeys?.admit();
+    if (admission) peer.keyTicket = admission.ticket;
     callPeerMap.set(peerId, peer);
+    if (admission?.rotate) scheduleMediaKeyRotation();
     callDebug('peer created', {
       peer: shortPeerId(peerId),
       connectionState: pc.connectionState,
@@ -4027,6 +4040,31 @@
   // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
   // In a saved room a connection id belongs to the first key that used it, so nobody can speak for another member's call or presence.
   const clientSigners = new Map<string, string>();
+
+  // The relay tags each connection in rooms without server history, so a departure names the member who left.
+  const connClients = new Map<string, string>();
+  const clientConns = new Map<string, string>();
+
+  function noteConnection(tag: string, id: string) {
+    const previous = clientConns.get(id);
+    if (previous === tag) return;
+    if (previous) connClients.delete(previous);
+    if (connClients.size >= 256) {
+      const [oldest, client] = connClients.entries().next().value as [string, string];
+      connClients.delete(oldest);
+      if (clientConns.get(client) === oldest) clientConns.delete(client);
+    }
+    connClients.set(tag, id);
+    clientConns.set(id, tag);
+  }
+
+  function departedClient(tag: string): string | undefined {
+    const id = connClients.get(tag);
+    connClients.delete(tag);
+    if (!id || clientConns.get(id) !== tag) return undefined;
+    clientConns.delete(id);
+    return id;
+  }
 
   function bindClient(id: unknown, signer: string): boolean {
     if (typeof id !== 'string' || !id) return false;

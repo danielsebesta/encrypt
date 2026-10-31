@@ -209,3 +209,37 @@ test('video is limited to VP8 then VP9, keeping repair streams, or left alone wh
   assert.deepEqual(safeVideoCodecs(codecs).map((codec) => codec.mimeType), ['video/VP8', 'video/VP9', 'video/rtx', 'video/red', 'video/ulpfec']);
   assert.deepEqual(safeVideoCodecs([{ mimeType: 'video/H264' }, { mimeType: 'video/rtx' }]), []);
 });
+
+test('a member joining after the key went out gets only a rotated key and cannot open frames sent before it joined', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const active: number[] = [];
+    const schedule = new MediaKeySchedule((key) => active.push(key.id), 2000);
+    const first = schedule.start();
+    const alone = schedule.admit();
+    assert.equal(alone.rotate, false);
+    assert.equal(schedule.keyFor(alone.ticket), first);
+    schedule.markShared();
+    const sealedBefore = await encryptFrame(await importFrameKey(first.raw.slice(), first.id), frame(80), 1);
+
+    const late = schedule.admit();
+    assert.equal(late.rotate, true);
+    assert.equal(schedule.keyFor(late.ticket), null);
+    assert.equal(schedule.keyFor(alone.ticket), first);
+    const again = schedule.admit();
+    assert.equal(again.ticket, late.ticket);
+
+    const second = schedule.rotate();
+    assert.equal(schedule.keyFor(late.ticket), second);
+    assert.notEqual(second.id, first.id);
+    const newcomerKey = await importFrameKey(second.raw.slice(), second.id);
+    assert.equal(await decryptFrame(sealedBefore, readFrameHeader(sealedBefore)!, newcomerKey), null);
+    const forged = await importFrameKey(second.raw.slice(), first.id);
+    assert.equal(await decryptFrame(sealedBefore, readFrameHeader(sealedBefore)!, forged), null);
+    assert.equal(schedule.admit().rotate, false);
+    mock.timers.tick(2000);
+    assert.deepEqual(active, [first.id, second.id]);
+  } finally {
+    mock.timers.reset();
+  }
+});

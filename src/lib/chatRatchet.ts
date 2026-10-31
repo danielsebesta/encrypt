@@ -26,7 +26,9 @@ export const MAX_PENDING = 256;
 export const MAX_SYNC_ITEMS = 500;
 export const MAX_FS_MEMBERS = 64;
 
-const MAX_CHAINS_PER_SENDER = 4;
+const MAX_CHAINS_PER_STREAM = 4;
+const MAX_STREAMS_PER_SENDER = 8;
+const MAX_DEPARTED = 256;
 const MAX_PAIR_BASES = 128;
 const REGRANT_INTERVAL_MS = 2_000;
 const MAX_INDEX = 2 ** 31 - 1;
@@ -269,9 +271,13 @@ type ReceiveChain = {
 
 export type ReceiveLimits = { maxSkip: number; maxSkipped: number; skippedTtlMs: number; retiredMs: number };
 
-/** Receiving chains per sender, with a bounded, expiring store of message keys skipped over for out-of-order delivery. */
+/**
+ * Receiving chains per sender and per stream, with a bounded, expiring store of message keys skipped over for out-of-order
+ * delivery. A stream is one connection of a sender: tabs of the same browser share the signing key but each runs its own chain.
+ */
 export class ReceiveChains {
-  private senders = new Map<string, Map<string, ReceiveChain>>();
+  private senders = new Map<string, Map<string, Map<string, ReceiveChain>>>();
+  private byKey = new Map<string, ReceiveChain>();
   private order = new Map<string, { chain: ReceiveChain; index: number }>();
   private ids = 0;
 
@@ -285,34 +291,46 @@ export class ReceiveChains {
   }
 
   has(sender: string, keyId: string): boolean {
-    return Boolean(this.senders.get(sender)?.has(keyId));
+    return this.byKey.has(`${sender}
+${keyId}`);
   }
 
-  /** A sender's newer chain retires the older ones: they stop deriving after a grace period, while skipped keys live on. */
-  add(sender: string, keyId: string, index: number, key: Uint8Array): boolean {
-    let chains = this.senders.get(sender);
-    if (chains?.has(keyId) || !validIndex(index) || key.length !== KEY_BYTES) {
+  /** A newer chain retires the older ones of the same stream: they stop deriving after a grace period, while skipped keys live on. */
+  add(sender: string, stream: string, keyId: string, index: number, key: Uint8Array): boolean {
+    const id = `${sender}
+${keyId}`;
+    if (this.byKey.has(id) || !validIndex(index) || key.length !== KEY_BYTES) {
       key.fill(0);
       return false;
     }
-    if (!chains) {
-      chains = new Map();
-      this.senders.set(sender, chains);
+    let streams = this.senders.get(sender);
+    if (!streams) {
+      streams = new Map();
+      this.senders.set(sender, streams);
     }
+    const chains = streams.get(stream) ?? new Map<string, ReceiveChain>();
+    streams.delete(stream);
+    streams.set(stream, chains);
+    while (streams.size > MAX_STREAMS_PER_SENDER) this.dropStream(streams.keys().next().value as string, sender);
     const now = this.now();
     for (const chain of chains.values()) chain.retireAt = Math.min(chain.retireAt, now + this.limits.retiredMs);
-    chains.set(keyId, { id: ++this.ids, index, key, retireAt: Infinity, skipped: new Map(), serial: new Serial() });
-    while (chains.size > MAX_CHAINS_PER_SENDER) {
-      const [oldest, chain] = chains.entries().next().value as [string, ReceiveChain];
-      this.wipeChain(chain);
+    const chain: ReceiveChain = { id: ++this.ids, index, key, retireAt: Infinity, skipped: new Map(), serial: new Serial() };
+    chains.set(keyId, chain);
+    this.byKey.set(id, chain);
+    while (chains.size > MAX_CHAINS_PER_STREAM) {
+      const [oldest, dropped] = chains.entries().next().value as [string, ReceiveChain];
+      this.wipeChain(dropped);
       chains.delete(oldest);
+      this.byKey.delete(`${sender}
+${oldest}`);
     }
     return true;
   }
 
   /** The key for one message, used once: a second request for the same index finds nothing. */
   messageKey(sender: string, keyId: string, index: number): Promise<Uint8Array | null> {
-    const chain = this.senders.get(sender)?.get(keyId);
+    const chain = this.byKey.get(`${sender}
+${keyId}`);
     if (!chain || !validIndex(index)) return Promise.resolve(null);
     return chain.serial.run(async () => {
       const now = this.now();
@@ -384,9 +402,24 @@ export class ReceiveChains {
     chain.skipped.clear();
   }
 
+  /** Wipes the chains of one stream, of one sender or of whichever sender ran it. */
+  dropStream(stream: string, sender?: string) {
+    for (const [pk, streams] of this.senders) {
+      if (sender !== undefined && pk !== sender) continue;
+      const chains = streams.get(stream);
+      if (!chains) continue;
+      for (const [keyId, chain] of chains) {
+        this.wipeChain(chain);
+        this.byKey.delete(`${pk}
+${keyId}`);
+      }
+      streams.delete(stream);
+      if (!streams.size) this.senders.delete(pk);
+    }
+  }
+
   dropSender(sender: string) {
-    for (const chain of this.senders.get(sender)?.values() ?? []) this.wipeChain(chain);
-    this.senders.delete(sender);
+    for (const stream of [...this.senders.get(sender)?.keys() ?? []]) this.dropStream(stream, sender);
   }
 
   clear() {
@@ -418,6 +451,7 @@ export class ForwardSecrecySession {
   private readonly receive: ReceiveChains;
   private readonly roster = new Map<string, RosterEntry>();
   private readonly known = new Set<string>();
+  private readonly departed = new Set<string>();
   private readonly pending = new Map<string, Pending[]>();
   private readonly lock = new Serial();
   private readonly now: () => number;
@@ -469,12 +503,14 @@ export class ForwardSecrecySession {
     entry.confirmed = true;
     this.roster.set(member.clientId, entry);
     this.known.add(member.clientId);
+    if (this.departed.delete(member.clientId)) this.chain?.newcomers.add(member.clientId);
     return entry;
   }
 
   private async startChain(keepOrigin: boolean, distribute: boolean) {
     const previous = this.chain;
     const chain = new SenderChain(this.now(), keepOrigin);
+    for (const clientId of this.departed) chain.newcomers.add(clientId);
     this.chain = chain;
     if (previous) void previous.wipe();
     if (keepOrigin) this.later(ORIGIN_WINDOW_MS, () => chain.dropOrigin());
@@ -548,9 +584,21 @@ export class ForwardSecrecySession {
     });
   }
 
-  /** Someone left: move to a chain nobody holds yet and hand it only to members who answer the roll call that follows. */
-  memberLeft(): Promise<void> {
+  /**
+   * Someone left: move to a chain nobody holds yet and hand it only to members who answer the roll call that follows. When the
+   * relay names the connection that closed, that member is forgotten, so coming back with the same client id it counts as a
+   * newcomer and gets no chain from while it was away, and its own chains are wiped.
+   */
+  memberLeft(gone?: string): Promise<void> {
     return this.lock.run(async () => {
+      if (gone !== undefined && gone !== this.options.self.clientId) {
+        this.roster.delete(gone);
+        this.known.delete(gone);
+        this.departed.delete(gone);
+        this.departed.add(gone);
+        while (this.departed.size > MAX_DEPARTED) this.departed.delete(this.departed.values().next().value as string);
+        this.receive.dropStream(gone);
+      }
       for (const [id, entry] of this.roster) {
         if (!entry.confirmed) this.roster.delete(id);
         else entry.confirmed = false;
@@ -631,7 +679,7 @@ export class ForwardSecrecySession {
   /** Takes a chain key addressed to this member and returns the messages that were waiting for it, oldest first. */
   async acceptGrant(sender: string, payload: unknown): Promise<{ sender: string; outer: FsSealed }[]> {
     if (this.closed || !payload || typeof payload !== 'object') return [];
-    const { fs, k, keys } = payload as Record<string, unknown>;
+    const { fs, k, keys, clientId } = payload as Record<string, unknown>;
     if (!validEphemeralKey(fs) || fs === this.publicKey || !validKeyId(k) || !Array.isArray(keys) || keys.length > MAX_FS_MEMBERS) return [];
     const entry = keys.find((item): item is FsGrant => Boolean(item) && typeof item === 'object' && (item as FsGrant).to === this.options.self.clientId);
     if (!entry || !validIndex(entry.n) || !validKemCiphertext(entry.e) || this.receive.has(sender, k)) return [];
@@ -639,7 +687,7 @@ export class ForwardSecrecySession {
     if (!wrapKey) return [];
     const chainKey = await unwrapChainKey(wrapKey, entry.w, k, entry.n);
     wrapKey.fill(0);
-    if (!chainKey || !this.receive.add(sender, k, entry.n, chainKey)) return [];
+    if (!chainKey || !this.receive.add(sender, typeof clientId === 'string' ? clientId : fs, k, entry.n, chainKey)) return [];
     const id = `${sender}\n${k}`;
     const now = this.now();
     const released = (this.pending.get(id) ?? []).filter((item) => item.expires > now).sort((a, b) => a.outer.n - b.outer.n);
@@ -701,6 +749,7 @@ export class ForwardSecrecySession {
     this.pairs.clear();
     this.options.keyPair.kem.secretKey.fill(0);
     this.roster.clear();
+    this.departed.clear();
     this.pending.clear();
   }
 }

@@ -20,9 +20,12 @@ type RoomState = {
   config: RoomConfig | null;
 };
 
+// In rooms without server history every joined connection gets a random tag, stamped on what it sends and named when it
+// closes, so members can tell which of them left. It links nothing across connections and the relay learns nothing new.
 type ChatConnectionState = {
   joined: boolean;
   keyed?: boolean;
+  tag?: string;
 };
 
 type MemberKeyRecord = {
@@ -150,7 +153,7 @@ export default class ChatRoom {
         }
         const configMessage = JSON.stringify({ type: "room-config", config: this.state.config });
         if (!this.isJoined(sender)) {
-          sender.setState({ joined: true });
+          sender.setState({ joined: true, ...(this.persistent ? {} : { tag: crypto.randomUUID() }) });
           this.broadcastPresence();
         }
         sender.send(configMessage);
@@ -165,7 +168,7 @@ export default class ChatRoom {
         const state = sender.state as ChatConnectionState | null;
         if (!this.persistent || !this.isJoined(sender) || state?.keyed) return;
         if (typeof parsed.key !== "string" || !MEMBER_KEY_RE.test(parsed.key)) return;
-        sender.setState({ joined: true, keyed: true });
+        sender.setState({ ...state, joined: true, keyed: true });
         await this.storeMemberKey(parsed.key);
         break;
       }
@@ -179,7 +182,8 @@ export default class ChatRoom {
           this.broadcast(JSON.stringify({ ...envelope, createdAt: stored.createdAt, serverSeq: stored.seq }), [sender.id]);
           sender.send(JSON.stringify({ type: "stored", id: envelope.id, serverSeq: stored.seq, createdAt: stored.createdAt, epoch: stored.epoch }));
         } else {
-          this.broadcast(JSON.stringify(envelope), [sender.id]);
+          const tag = this.tagOf(sender);
+          this.broadcast(JSON.stringify(tag ? { ...envelope, from: tag } : envelope), [sender.id]);
         }
         break;
       }
@@ -228,13 +232,14 @@ export default class ChatRoom {
 
   onClose(conn: RoomConnection) {
     const wasJoined = this.isJoined(conn);
+    const tag = this.tagOf(conn);
     this.access.remove(conn);
     if (this.state.lockedBy === conn.id) {
       this.state.locked = false;
       this.state.lockedBy = null;
       this.broadcast(JSON.stringify({ type: "unlocked" }));
     }
-    if (wasJoined) this.broadcastPresence();
+    if (wasJoined) this.broadcastPresence(tag, [conn.id]);
     if (this.getConnectionCount([conn.id]) === 0) this.pushBackCleanup();
   }
 
@@ -411,12 +416,18 @@ export default class ChatRoom {
     return (conn.state as ChatConnectionState | null)?.joined === true && this.access.has(conn);
   }
 
-  private broadcastPresence() {
+  private tagOf(conn: RoomConnection): string | undefined {
+    const tag = (conn.state as ChatConnectionState | null)?.tag;
+    return typeof tag === "string" ? tag : undefined;
+  }
+
+  private broadcastPresence(left?: string, exclude?: string[]) {
     const msg = JSON.stringify({
       type: "presence",
       count: this.getJoinedConnectionCount(),
+      ...(left ? { left } : {}),
     });
-    this.broadcast(msg, undefined, true);
+    this.broadcast(msg, exclude, true);
   }
 
   private broadcast(message: string, exclude?: string[], includeWaiting = false) {
