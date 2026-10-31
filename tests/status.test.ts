@@ -22,6 +22,9 @@ const blobs: BlobStore = {
   async put(_id, body) { await new Response(body).arrayBuffer(); },
   async get() { return null; },
   async delete() {},
+  async beginMultipart() {},
+  async putPart(_id, _index, body) { await new Response(body).arrayBuffer(); },
+  async completeMultipart() {},
 };
 
 function app(env: Record<string, string> = {}, extra: Partial<Platform> = {}) {

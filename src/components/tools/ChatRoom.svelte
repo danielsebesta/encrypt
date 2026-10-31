@@ -34,7 +34,7 @@
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
   import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
   import { prepareSendUpload } from '../../lib/nologSend';
-  import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
+  import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
@@ -476,7 +476,7 @@
   let shownNotification: Notification | null = null;
   const notifyBurst = new NotificationBurst(showNotification);
 
-  const MAX_FILE = MAX_UPLOAD_BYTES;
+  const MAX_FILE = MAX_SINGLE_UPLOAD_BYTES;
   const TEXT_AS_FILE_LIMIT = 2000;
   const MAX_SDP_CHARS = 96_000;
   const MAX_ICE_CANDIDATE_CHARS = 4096;

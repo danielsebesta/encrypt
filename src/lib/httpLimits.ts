@@ -1,7 +1,17 @@
 export const MAX_TRANSFER_BYTES = 50 * 1024 * 1024;
-export const MAX_UPLOAD_BYTES = 90 * 1024 * 1024;
-// First-party ciphertext: the largest upload plus encryption and ZIP overhead, still under the 100 MB request limit.
-export const MAX_FIRST_PARTY_BYTES = MAX_UPLOAD_BYTES + 1024 * 1024;
+/** Largest single POST body for classic first-party uploads (and chat attachments). */
+export const MAX_SINGLE_UPLOAD_BYTES = 90 * 1024 * 1024;
+/** Largest share plaintext accepted via first-party chunked upload. */
+export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+/** Plaintext bytes per chunk before AES-GCM; keeps Worker and browser memory bounded. */
+export const CHUNK_PLAIN_BYTES = 4 * 1024 * 1024;
+/** AES-GCM adds a 12-byte IV and 16-byte tag per chunk. */
+export const CHUNK_CIPHER_OVERHEAD = 12 + 16;
+export const MAX_CHUNK_CIPHER_BYTES = CHUNK_PLAIN_BYTES + CHUNK_CIPHER_OVERHEAD;
+// First-party single-request ciphertext: the classic upload plus encryption and ZIP overhead, still under ~100 MB.
+export const MAX_FIRST_PARTY_BYTES = MAX_SINGLE_UPLOAD_BYTES + 1024 * 1024;
+/** Total ciphertext for a chunked upload (manifest framing + every chunk). */
+export const MAX_CHUNKED_BYTES = MAX_UPLOAD_BYTES + 2 * 1024 * 1024;
 // Largest envelope each upload path takes: first-party storage adds a 4-byte marker, Send its own encryption layer.
 export const FIRST_PARTY_ENVELOPE_LIMIT = MAX_FIRST_PARTY_BYTES - 4;
 export const SEND_ENVELOPE_LIMIT = MAX_TRANSFER_BYTES - 64 * 1024;

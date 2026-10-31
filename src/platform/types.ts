@@ -20,11 +20,17 @@ export interface StoredBlob extends BlobMeta {
 /**
  * Ciphertext uploads. Ids match BLOB_ID_RE in src/lib/retention.ts and carry their retention class. Objects stored
  * without metadata, from before retention classes, expire a day after upload.
+ *
+ * Multipart uploads store discrete parts under the same id. `get` streams them in order only after `complete`, and
+ * returns null for incomplete sessions so downloads cannot race a partial upload.
  */
 export interface BlobStore {
   put(id: string, body: ReadableStream<Uint8Array>, size: number, meta: BlobMeta): Promise<void>;
   get(id: string): Promise<StoredBlob | null>;
   delete(id: string): Promise<void>;
+  beginMultipart(id: string, parts: number, meta: BlobMeta): Promise<void>;
+  putPart(id: string, index: number, body: ReadableStream<Uint8Array>, size: number): Promise<void>;
+  completeMultipart(id: string): Promise<void>;
 }
 
 export interface UploadLimits {
