@@ -3,7 +3,7 @@ import { PASSWORD_ENVELOPE_MAGIC } from '../lib/passwordEnvelope';
 import { BLOB_ID_RE, BURN_HEADER, DEFAULT_RETENTION, RETENTION_HEADER, RETENTION_MS, blobId, isRetention, retentionDays, type Retention } from '../lib/retention';
 import { PASS_HEADER, browserFetch, issuePass, verifyPass } from '../lib/uploadPass';
 import type { Platform, UploadLimits } from '../platform/types';
-import type { Reservation } from './budget';
+import type { Reservation, UploadStatus } from './budget';
 import { createChallenge, parseSolution, powDifficulty, verifySolution } from './pow';
 
 export const UPLOAD_SCOPE = 'uploads';
@@ -233,7 +233,8 @@ export async function handleUploadRoute(request: Request, path: string, platform
   if (path === '/upload') return method === 'POST' ? upload(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'POST' });
   if (path === '/upload/status') {
     if (method !== 'GET') return json({ error: 'Method not allowed' }, 405, { Allow: 'GET' });
-    return json(await platform.budget(UPLOAD_SCOPE, { op: 'status', limits: uploadLimits(platform.env) }));
+    const { available, maxFileSize } = await platform.budget<UploadStatus>(UPLOAD_SCOPE, { op: 'status', limits: uploadLimits(platform.env) });
+    return json({ available, maxFileSize });
   }
   if (path === '/upload/challenge') return method === 'GET' ? challenge(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'GET' });
   if (path === '/upload/pass') return method === 'POST' ? redeem(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'POST' });

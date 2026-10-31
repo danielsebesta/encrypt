@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -31,6 +31,16 @@ const dataDir = path.resolve(env.DATA_DIR || '/data');
 const publicUrl = env.PUBLIC_URL ? new URL(env.PUBLIC_URL) : null;
 const trustHops = /^\d+$/.test(env.TRUST_PROXY ?? '') ? Number(env.TRUST_PROXY) : /^(true|yes|on)$/i.test(env.TRUST_PROXY ?? '') ? 1 : 0;
 const distDir = fileURLToPath(new URL('../', import.meta.url));
+
+function buildCommit(): string | undefined {
+  if (env.BUILD_COMMIT_SHA) return env.BUILD_COMMIT_SHA;
+  try {
+    const { commitSha } = JSON.parse(readFileSync(path.join(distDir, 'client', 'build-integrity.json'), 'utf8'));
+    return typeof commitSha === 'string' && commitSha !== 'unknown' ? commitSha : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 for (const dir of ['uploads', 'budget']) mkdirSync(path.join(dataDir, dir), { recursive: true, mode: 0o700 });
 
@@ -115,6 +125,8 @@ const platform: Platform = {
     ? new Response('Expected WebSocket', { status: 426 })
     : new Response('Not found', { status: 404 }),
   waitUntil: work => { work.catch(error => console.error('Background task failed:', error instanceof Error ? error.message : error)); },
+  build: buildCommit(),
+  startedAt: Date.now(),
 };
 
 const site = await StaticSite.load(path.join(distDir, 'client'));

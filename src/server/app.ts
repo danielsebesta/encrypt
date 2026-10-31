@@ -2,6 +2,7 @@ import { localeResponse } from '../lib/locale';
 import { MAX_TRANSFER_BYTES, clientPrefix, routingPath } from '../lib/httpLimits';
 import { PASS_HEADER, RELAY_DAILY_BYTES_PER_CLIENT, browserFetch, verifyPass, type Charge } from '../lib/uploadPass';
 import type { Platform } from '../platform/types';
+import { handleStatus } from './status';
 import { challengeResponse, challengeSecret, handleUploadRoute } from './upload';
 
 // Per-client and global request ceilings per minute, kept per route in that route's own budget scope.
@@ -9,7 +10,7 @@ const LIMITS: Record<string, [number, number]> = {
   '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120],
   '/api/turn': [12, 120], '/api/shorten': [20, 120], '/api/drand': [120, 1200], '/parties': [60, 600],
   '/upload': [20, 600], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
-  '/dl': [120, 1_000_000],
+  '/dl': [120, 1_000_000], '/status': [30, 600],
 };
 
 const enc = new TextEncoder();
@@ -27,6 +28,7 @@ function routeOf(path: string): string | null {
   const lower = path.toLowerCase();
   if (lower.startsWith('/parties/')) return '/parties';
   if (lower.startsWith('/dl/')) return '/dl';
+  if (lower === '/status') return path === '/status' ? '/status' : '';
   if (lower.startsWith('/api/drand/')) return path.startsWith('/api/drand/') ? '/api/drand' : '';
   if (lower.startsWith('/api/') || lower === '/upload' || lower.startsWith('/upload/')) return path;
   return null;
@@ -84,6 +86,7 @@ export function createApp(platform: Platform) {
         const refused = await withinBudget(route, request);
         if (refused) return refused;
         if (route === '/parties') return platform.realtime(request);
+        if (route === '/status') return handleStatus(request, platform);
         if (route === '/api/ghost/upload' && request.method === 'POST') {
           const held = await relayAllowance(request);
           if (held) return held;

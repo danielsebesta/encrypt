@@ -68,6 +68,8 @@ Everything is set with environment variables.
 | `UPLOAD_CLIENT_DAILY_GB` | `5` | Upload volume per day for one client (IPv4 address or IPv6 /64), counted the same way. |
 | `UPLOAD_MONTHLY_GB`, `UPLOAD_MONTHLY_FILES` | `1000`, `500000` | Monthly upload ceilings. |
 | `SHORTENER_URL` | none | HTTPS endpoint of a Shlink-style shortener for receive links. Without it links stay long. |
+| `STATUS_TOKEN` | none | When set, `/status` answers only requests with `Authorization: Bearer <token>`. Without it `/status` is public. |
+| `BUILD_COMMIT_SHA` | from `build-integrity.json` | Commit `/status` reports. The Docker build records it from `--build-arg COMMIT_SHA`. |
 
 ## Ports
 
@@ -107,6 +109,31 @@ Calls connect browsers directly. When both sides sit behind strict NATs or firew
   ```
 
 The pages send `Strict-Transport-Security` with `includeSubDomains` like encrypt.click does, which covers subdomains of the host you serve it on.
+
+## Status
+
+`GET /status` returns aggregates for monitoring, as JSON with `Cache-Control: no-store`:
+
+```json
+{
+  "status": "ok",
+  "build": "fbe8858…",
+  "uptimeSeconds": 86400,
+  "turn": { "configured": true, "providers": ["coturn"] },
+  "uploads": {
+    "available": true,
+    "today": { "bytes": 1200000000, "uploads": 41 },
+    "month": { "bytes": 9100000000, "uploads": 380 },
+    "limits": { "dailyBytes": 100000000000, "monthlyBytes": 1000000000000, "monthlyUploads": 500000, "clientDailyBytes": 5000000000, "maxFileBytes": 95420416 }
+  }
+}
+```
+
+`today` is the current UTC day. Upload bytes are counted the way the quotas count them, once per day an upload is kept. `status` is `degraded` and `uploads` is `null` when the accounting database cannot be reached. Nothing in the answer concerns a single client. It is public unless `STATUS_TOKEN` is set, and it shares the per-minute request limits of the other API routes (30 requests a minute per client):
+
+```bash
+curl -H "Authorization: Bearer $STATUS_TOKEN" https://your.host/status
+```
 
 ## Data and backups
 

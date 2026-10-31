@@ -60,4 +60,8 @@ export interface Platform {
   realtime(request: Request): Promise<Response>;
   /** Keeps background work running after the response: ctx.waitUntil on Cloudflare, a detached promise on Node. */
   waitUntil(work: Promise<unknown>): void;
+  /** Commit the running build was made from, when the platform knows it. */
+  build?: string;
+  /** When this process started, in milliseconds; only long-lived processes have one. */
+  startedAt?: number;
 }
