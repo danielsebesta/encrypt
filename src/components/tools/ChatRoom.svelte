@@ -44,6 +44,9 @@
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
   import ChatQuote from './ChatQuote.svelte';
+  import ChatVoiceRecorder from './ChatVoiceRecorder.svelte';
+  import ChatVoiceMessage from './ChatVoiceMessage.svelte';
+  import { formatClock, validVoiceDuration, voiceFileName, voiceTypeOf, type VoiceRecording } from '../../lib/voiceMessage';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
   import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from '../../lib/hybridKem';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
@@ -66,7 +69,7 @@
     time: number;
     ttl: number;
     remaining: number;
-    file?: { name: string; size: number; urls: string[]; key: string };
+    file?: ChatFile;
     fileError?: boolean;
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     revealed?: boolean;
@@ -76,6 +79,8 @@
     signed?: string;
     replyTo?: string;
   };
+
+  type ChatFile = { name: string; size: number; urls: string[]; key: string; voice?: true; duration?: number };
 
   type Member = {
     pk: string;
@@ -108,7 +113,7 @@
     alias?: [number, number, number];
     nick?: string;
     ttl?: number;
-    file?: { name: string; size: number; urls: string[]; key: string };
+    file?: ChatFile;
     createdAt?: number;
     replyTo?: string;
     target?: string;
@@ -450,6 +455,7 @@
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
+  let voiceRecording = false;
   let inputEl: HTMLInputElement;
   let replyTarget: Message | null = null;
   let actionMenuFor: string | null = null;
@@ -2543,7 +2549,10 @@
       time: parsed.createdAt || Date.now(),
       ttl,
       remaining: ttl,
-      file: parsed.file ? { name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls, key: parsed.file.key } : undefined,
+      file: parsed.file ? {
+        name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls, key: parsed.file.key,
+        ...(parsed.file.voice === true && validVoiceDuration(parsed.file.duration) ? { voice: true as const, duration: parsed.file.duration } : {}),
+      } : undefined,
       revealed: true,
       pk: signer,
       keyWarning: !trusted,
@@ -2703,6 +2712,7 @@
     const target = id ? index.get(id) : undefined;
     if (!target) return { name: '', color: '', text: t(dict, 'chat.replyUnavailable') };
     const text = target.text ? plainSnippet(target.text)
+      : target.file?.voice ? `${t(dict, 'chat.voiceMessage')} · ${formatClock(target.file.duration ?? 0)}`
       : target.file ? target.file.name
       : target.whiteboard ? t(dict, 'chat.whiteboardTitle')
       : '';
@@ -2798,7 +2808,16 @@
     await sendFile(file);
   }
 
-  async function sendFile(file: File) {
+  async function sendVoice(recording: VoiceRecording) {
+    const file = new File([recording.blob], voiceFileName(recording.type, new Date()), { type: recording.type });
+    if (file.size > MAX_FILE) {
+      fileError = t(dict, 'chat.fileTooLarge').replace('{max}', String(MAX_FILE / (1024 * 1024)));
+      return;
+    }
+    await sendFile(file, recording.seconds);
+  }
+
+  async function sendFile(file: File, voiceSeconds?: number) {
     if (!cryptoKey || !ws || uploading) return;
     uploading = true;
     fileError = '';
@@ -2845,6 +2864,7 @@
       }
 
       const fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+      const voiceMeta = voiceSeconds === undefined ? {} : { voice: true as const, duration: voiceSeconds };
       const msgId = genId();
       const createdAt = Date.now();
       const payload: ChatPayload = {
@@ -2854,7 +2874,7 @@
         alias: aliasWire(alias), nick: nickname || undefined,
         ttl: fileTtl,
         createdAt,
-        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey },
+        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
       };
 
       let signed: string;
@@ -2871,7 +2891,7 @@
         id: msgId, text: '', sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
-        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey },
+        file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
         revealed: true, pk: mySignerId, signed,
       };
       messages = [...messages, ownMsg];
@@ -2880,6 +2900,27 @@
     } finally {
       uploading = false;
     }
+  }
+
+  async function fetchChatFile(msg: Message): Promise<Uint8Array | null> {
+    if (!msg.file || fileGone(msg)) return null;
+    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
+    for (const fileUrl of msg.file.urls) {
+      try {
+        const res = await ghostFetch(fileUrl);
+        if (!res.ok) continue;
+        let bytes = new Uint8Array(await res.arrayBuffer());
+        if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
+        return (await decryptData(bytes, msg.file.key)).data;
+      } catch { continue; }
+    }
+    return null;
+  }
+
+  async function loadVoice(msg: Message): Promise<Blob | null> {
+    const data = await fetchChatFile(msg);
+    if (!data || !msg.file) return null;
+    return new Blob([data as BlobPart], { type: voiceTypeOf(msg.file.name) });
   }
 
   async function downloadChatFile(msg: Message) {
@@ -5033,7 +5074,10 @@
                 {@const quote = quoteOf(msg.replyTo, messageIndex)}
                 <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
               {/if}
-              {#if msg.file}
+              {#if msg.file?.voice}
+                {@const gone = fileGone(msg)}
+                <ChatVoiceMessage {dict} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
+              {:else if msg.file}
                 {@const gone = fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -5132,6 +5176,7 @@
           </div>
         {/if}
         <div class="chat-input">
+          {#if !voiceRecording}
           <div class="chat-attach-menu">
             <button
               type="button"
@@ -5163,7 +5208,9 @@
               </div>
             {/if}
           </div>
+          {/if}
           <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
+          {#if !voiceRecording}
           <input
             type="text"
             class="chat-input-field"
@@ -5180,9 +5227,13 @@
             data-lpignore="true"
             data-1p-ignore
           />
+          {/if}
+          <ChatVoiceRecorder {dict} bind:recording={voiceRecording} disabled={!connected || !verified || uploading} onrecorded={sendVoice} onerror={(message) => { fileError = message; }} />
+          {#if !voiceRecording}
           <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
+          {/if}
         </div>
       </div>
     </div>
