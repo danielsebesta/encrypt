@@ -7,6 +7,7 @@
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import { RETENTION_SECONDS, PERSISTENT_HISTORY_LIMIT, PERSISTENT_IDLE_DAYS, checkRoomPassword, roomPasswordOk, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
   import { generateRoomKey } from '../../lib/chatCrypto';
+  import MyRooms from './MyRooms.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -261,6 +262,7 @@
       </div>
     </form>
   {/if}
+  <MyRooms {dict} {locale} />
 </div>
 
 <style>

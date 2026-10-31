@@ -8,6 +8,7 @@
   import PassphraseField from '../PassphraseField.svelte';
   import WizardProgress from '../WizardProgress.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
+  import MyRooms from './MyRooms.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -226,5 +227,6 @@
       </div>
     </form>
   {/if}
+  <MyRooms {dict} {locale} />
 </div>
 

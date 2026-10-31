@@ -18,6 +18,7 @@
   import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES, SAVED_BOARD_BYTES } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
   import ShareLinkButton from '../ShareLinkButton.svelte';
+  import SaveRoomButton from './SaveRoomButton.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -1686,6 +1687,7 @@
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importBoard')}
             </button>
             <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
+            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode={savedBoard ? 'persistent' : 'live'} password={passwordInput} {linkKey} ready={verified} variant="menu" />
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
             </button>
