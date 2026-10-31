@@ -9,8 +9,7 @@ import { challengeResponse, challengeSecret, handleUploadRoute } from './upload'
 const LIMITS: Record<string, [number, number]> = {
   '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120],
   '/api/turn': [12, 120], '/api/shorten': [20, 120], '/api/drand': [120, 1200], '/parties': [60, 600],
-  // Chunked shares put many parts in one minute (parallel uploads); keep room for ~512 MB / 4 MB parts.
-  '/upload': [180, 3_000], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
+  '/upload': [20, 120], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
   '/dl': [120, 1_000_000], '/status': [30, 600],
 };
 
@@ -36,7 +35,6 @@ function routeOf(path: string): string | null {
     if (lower === '/upload/status') return '/upload/status';
     if (lower === '/upload/challenge') return '/upload/challenge';
     if (lower === '/upload/pass') return '/upload/pass';
-    // init, part PUTs and complete share the upload budget with classic single-body posts
     return '/upload';
   }
   if (lower.startsWith('/api/')) return path;
@@ -62,7 +60,10 @@ export function createApp(platform: Platform) {
       const key = await clientKey(request, String(Math.floor(Date.now() / 60_000)));
       const ok = await platform.budget<boolean>(route, { op: 'rate', key, limit: limit[0], globalLimit: limit[1] });
       if (!ok) return new Response('Too many requests', { status: 429, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
-    } catch { return new Response('Security budget unavailable', { status: 503 }); }
+    } catch {
+      // Prefer availability when the Durable Object rate gate blips; hard refusals still come from reserve/challenge.
+      return null;
+    }
     return null;
   }
 

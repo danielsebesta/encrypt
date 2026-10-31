@@ -1,4 +1,4 @@
-import { CHUNK_CIPHER_OVERHEAD, CHUNK_PLAIN_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, MAX_UPLOAD_BYTES } from './httpLimits';
+import { CHUNK_CIPHER_OVERHEAD, CHUNK_PLAIN_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, MAX_LEGACY_CHUNKED_PLAIN_BYTES } from './httpLimits';
 import { hkdfAesKey, hkdfKey } from './kdf';
 import { sealPassword, openPassword, PASSWORD_ENVELOPE_OVERHEAD, sealedLength } from './passwordEnvelope';
 import { padme } from './padding';
@@ -38,7 +38,7 @@ function chunkCount(size: number, chunkSize: number): number {
 }
 
 export function chunkPlainSizes(size: number, chunkSize = CHUNK_PLAIN_BYTES): number[] {
-  if (!Number.isSafeInteger(size) || size < 0 || size > MAX_UPLOAD_BYTES) throw new Error('Invalid size');
+  if (!Number.isSafeInteger(size) || size < 0 || size > MAX_LEGACY_CHUNKED_PLAIN_BYTES) throw new Error('Invalid size');
   if (!Number.isSafeInteger(chunkSize) || chunkSize < 1 || chunkSize > CHUNK_PLAIN_BYTES) throw new Error('Invalid chunk size');
   const count = chunkCount(size, chunkSize);
   const sizes: number[] = [];
@@ -112,7 +112,7 @@ function parseManifestPlain(plain: Uint8Array): { manifest: ChunkManifest; fileK
   const jsonEnd = jsonStart + jsonLen;
   if (jsonLen < 2 || jsonEnd + FILE_KEY_BYTES !== plain.length) throw new Error('Invalid chunked manifest');
   const meta = JSON.parse(dec.decode(plain.subarray(jsonStart, jsonEnd)));
-  if (!meta || meta.v !== 1 || typeof meta.name !== 'string' || !Number.isSafeInteger(meta.size) || meta.size < 0 || meta.size > MAX_UPLOAD_BYTES
+  if (!meta || meta.v !== 1 || typeof meta.name !== 'string' || !Number.isSafeInteger(meta.size) || meta.size < 0 || meta.size > MAX_LEGACY_CHUNKED_PLAIN_BYTES
     || !Number.isSafeInteger(meta.chunkSize) || meta.chunkSize < 1 || meta.chunkSize > CHUNK_PLAIN_BYTES
     || !Number.isSafeInteger(meta.chunks) || meta.chunks !== chunkCount(meta.size, meta.chunkSize)) {
     throw new Error('Invalid chunked manifest');

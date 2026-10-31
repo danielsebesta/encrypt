@@ -3,9 +3,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
   import { encryptData } from '../../lib/ghost/crypto';
-  import { sendWithUploadPass, uploadFirstParty, uploadFirstPartyChunked } from '../../lib/firstPartyUpload';
-  import { fitsSingleEnvelope } from '../../lib/chunkedFile';
-  import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
+  import { sendWithUploadPass, uploadFirstParty } from '../../lib/firstPartyUpload';
+  import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import {
     TransferMeter,
     formatTransferLine,
@@ -56,7 +55,6 @@
   let pendingUploadFilename = '';
   let pendingPayloadPassword = '';
   let pendingUsedStego = false;
-  let pendingChunked: { size: number; name: string; slice: (offset: number, length: number) => Promise<Uint8Array> } | null = null;
   let pendingHosts: HostInfo[] = [];
   let showManualTransferHelp = false;
   let sendButtonEl: HTMLButtonElement | undefined;
@@ -86,7 +84,7 @@
   $: sendAllowed = retention === DEFAULT_RETENTION && !burn && !unlockAt;
 
   const INLINE_LIMIT = 10 * 1024;
-  const MAX_FILE = MAX_UPLOAD_BYTES;
+  const MAX_FILE = MAX_SINGLE_UPLOAD_BYTES;
   const STEGO_THRESHOLD = 500 * 1024;
 
   interface HostInfo { id: string; name: string; maxBytes: number; }
@@ -509,7 +507,6 @@
 
     pendingHosts = [];
     pendingUploadBytes = null;
-    pendingChunked = null;
     pendingPayloadPassword = '';
     resultPassword = encryptionPassword;
     resultHasTemporaryUpload = false;
@@ -552,53 +549,13 @@
 
   async function encryptGhostPrepare() {
     const encryptionPassword = password;
-    pendingChunked = null;
     pendingUploadBytes = null;
-    pendingChunked = null;
-
-    // A single large file is encrypted in chunks without loading the whole ciphertext into RAM.
-    if (files.length === 1 && !needsZip && !fitsSingleEnvelope(files[0].size, files[0].name || 'file')) {
-      const chosen = files[0];
-      const filename = chosen.name || 'file';
-      pushDebug(`Chunked first-party path for ${filename} (${chosen.size} bytes)`);
-      pendingChunked = {
-        size: chosen.size,
-        name: filename,
-        slice: async (offset, length) => new Uint8Array(await chosen.slice(offset, offset + length).arrayBuffer()),
-      };
-      pendingPayloadPassword = encryptionPassword;
-      resultPassword = encryptionPassword;
-      pendingUsedStego = false;
-      if (localFileUrl) URL.revokeObjectURL(localFileUrl);
-      localFileUrl = '';
-      localFileName = '';
-      pendingHosts = [FIRST_PARTY_HOST];
-      pushDebug('Encrypted file will be sealed per chunk during upload. Hosts: encrypt.click upload');
-      return;
-    }
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
     const { buffer, filename } = files.length > 0
       ? await resolvePayload()
       : { buffer: new TextEncoder().encode(textInput.trim()), filename: 'message.txt' };
     pushDebug(`Read payload ${filename} (${buffer.byteLength} bytes)`);
-
-    if (!fitsSingleEnvelope(buffer.byteLength, filename)) {
-      pushDebug(`Chunked first-party path for buffered payload (${buffer.byteLength} bytes)`);
-      pendingChunked = {
-        size: buffer.byteLength,
-        name: filename,
-        slice: async (offset, length) => buffer.subarray(offset, offset + length),
-      };
-      pendingPayloadPassword = encryptionPassword;
-      resultPassword = encryptionPassword;
-      pendingUsedStego = false;
-      if (localFileUrl) URL.revokeObjectURL(localFileUrl);
-      localFileUrl = '';
-      localFileName = '';
-      pendingHosts = [FIRST_PARTY_HOST];
-      return;
-    }
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
     const encrypted = await encryptData(buffer, encryptionPassword, filename, pendingLock?.secret);
@@ -643,75 +600,55 @@
     let burned = false;
     const kept = pendingLock ? retentionForUnlock(retention, roundTime(pendingLock.lock.round)) ?? retention : retention;
 
-    if (pendingChunked) {
-      const source = pendingChunked;
-      pushDebug(`Chunked upload to encrypt.click (${source.size} bytes)`);
-      const uploaded = await uploadFirstPartyChunked(source, encryptionPassword, dict, {
-        retention: kept,
-        burn,
-        timeSecret: pendingLock?.secret,
-        onProgress: onTransferProgress,
-      });
-      if (!uploaded) {
-        pushDebug('Chunked encrypt.click upload failed');
-        throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
-      }
-      uploadUrls.push(uploaded.url);
-      if (uploaded.expires) expires = Math.floor(uploaded.expires / 1000);
-      burned = uploaded.burn;
-      pendingChunked = null;
-    } else {
-      if (!pendingUploadBytes) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoEncryptedData'));
-      const uploadBytes = pendingUploadBytes;
-      const uploadFilename = pendingUploadFilename;
+    if (!pendingUploadBytes) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoEncryptedData'));
+    const uploadBytes = pendingUploadBytes;
+    const uploadFilename = pendingUploadFilename;
 
-      async function tryUploadHost(host: HostInfo): Promise<string | null> {
-        try {
-          pushDebug(`Uploading to ${host.name}`);
-          transferMeter.reset();
-          if (host.id === 'eclk') {
-            const uploaded = await uploadFirstParty(uploadBytes, dict, {
-              retention: kept,
-              burn,
-              onProgress: onTransferProgress,
-            });
-            if (!uploaded) pushDebug('encrypt.click upload failed');
-            if (uploaded?.expires) expires = Math.floor(uploaded.expires / 1000);
-            burned = uploaded?.burn ?? false;
-            return uploaded?.url ?? null;
-          }
+    async function tryUploadHost(host: HostInfo): Promise<string | null> {
+      try {
+        pushDebug(`Uploading to ${host.name}`);
+        transferMeter.reset();
+        if (host.id === 'eclk') {
+          const uploaded = await uploadFirstParty(uploadBytes, dict, {
+            retention: kept,
+            burn,
+            onProgress: onTransferProgress,
+          });
+          if (!uploaded) pushDebug('encrypt.click upload failed');
+          if (uploaded?.expires) expires = Math.floor(uploaded.expires / 1000);
+          burned = uploaded?.burn ?? false;
+          return uploaded?.url ?? null;
+        }
 
-          const { prepareSendUpload } = await import('../../lib/nologSend');
-          const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
-          const res = await sendWithUploadPass('/api/ghost/upload', {
-            method: 'POST',
-            body: prepared.encryptedBytes,
-            headers: {
-              'X-Send-Metadata': prepared.metadataB64,
-              'X-Send-Auth': prepared.authHeader,
-              ...(sendInstance ? { 'X-Send-Instance': sendInstance.host } : {}),
-            },
-          }, dict, onTransferProgress);
-          const data = await res.json().catch(() => null) as any;
-          const result = data?.results?.[0];
-          if (!res.ok || !result?.url) {
-            pushDebug(`Send network failed: ${result?.details?.join('; ') || data?.error || `HTTP ${res.status}`}`);
-            return null;
-          }
-          return `${result.url}#${prepared.secretB64}`;
-        } catch { return null; }
-      }
-
-      for (const host of hosts) {
-        const url = await tryUploadHost(host);
-        if (url) { uploadUrls.push(url); break; }
-      }
-      if (uploadUrls.length === 0) {
-        throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
-      }
-      pendingUploadBytes = null;
-    pendingChunked = null;
+        const { prepareSendUpload } = await import('../../lib/nologSend');
+        const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
+        const res = await sendWithUploadPass('/api/ghost/upload', {
+          method: 'POST',
+          body: prepared.encryptedBytes,
+          headers: {
+            'X-Send-Metadata': prepared.metadataB64,
+            'X-Send-Auth': prepared.authHeader,
+            ...(sendInstance ? { 'X-Send-Instance': sendInstance.host } : {}),
+          },
+        }, dict, onTransferProgress);
+        const data = await res.json().catch(() => null) as any;
+        const result = data?.results?.[0];
+        if (!res.ok || !result?.url) {
+          pushDebug(`Send network failed: ${result?.details?.join('; ') || data?.error || `HTTP ${res.status}`}`);
+          return null;
+        }
+        return `${result.url}#${prepared.secretB64}`;
+      } catch { return null; }
     }
+
+    for (const host of hosts) {
+      const url = await tryUploadHost(host);
+      if (url) { uploadUrls.push(url); break; }
+    }
+    if (uploadUrls.length === 0) {
+      throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
+    }
+    pendingUploadBytes = null;
 
     const ghostPayload = { v: 1, mode: 'ghost', urls: uploadUrls, stego: usedStego };
 
