@@ -13,6 +13,10 @@
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import { checkRoomPassword } from '../../lib/chatRoomSettings';
   import { tick } from 'svelte';
+  import ShareOptions from '../share/ShareOptions.svelte';
+  import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
+  import { DEFAULT_RETENTION, type Retention } from '../../lib/retention';
+  import { formatShareFragment } from '../../lib/shareLink';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -55,6 +59,13 @@
   let shortenableUrl = '';
   let shortening = false;
   let shortenFailed = false;
+
+  let retention: Retention = DEFAULT_RETENTION;
+  let burn = false;
+  let resultExpires: number | undefined;
+  let resultBurn = false;
+  // Send instances keep files on their own terms, so only shares with the default settings may fall back to them.
+  $: sendAllowed = retention === DEFAULT_RETENTION && !burn;
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = MAX_UPLOAD_BYTES;
@@ -247,11 +258,11 @@
     return btoa(binary);
   }
 
-  function buildReceiveUrls(encoded: string) {
+  function buildReceiveUrls(fragment: string) {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://encrypt.click';
     return {
-      direct: `${origin}/u/#${encoded}`,
-      shortenable: `${origin}/u/?p=${encoded}`,
+      direct: `${origin}/u/#${fragment}`,
+      shortenable: `${origin}/u/?p=${encodeURIComponent(fragment)}`,
     };
   }
 
@@ -368,7 +379,7 @@
 
     const failedHost = hosts.some(h => h.id === 'nologsend') ? sendInstance?.host : undefined;
     if (failedHost) failedSendHosts = [...failedSendHosts, failedHost];
-    if (sendHosts().length > 0 && await pickSendInstance()) {
+    if (sendAllowed && sendHosts().length > 0 && await pickSendInstance()) {
       error = failedHost ? t(dict, 'tools.ultimateEncrypt.fallback.failed').replace('{host}', failedHost) : '';
       step = 'fallback';
       await tick();
@@ -484,11 +495,13 @@
     const encoded = base64UrlEncode(encrypted);
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
-    const urls = buildReceiveUrls(encoded);
+    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded }));
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = false;
+    resultExpires = undefined;
+    resultBurn = false;
   }
 
   async function encryptGhostPrepare() {
@@ -537,13 +550,17 @@
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
     const uploadUrls: string[] = [];
+    let expires: number | undefined;
+    let burned = false;
 
     async function tryUploadHost(host: HostInfo): Promise<string | null> {
       try {
         pushDebug(`Uploading to ${host.name}`);
         if (host.id === 'eclk') {
-          const uploaded = await uploadFirstParty(uploadBytes, dict);
+          const uploaded = await uploadFirstParty(uploadBytes, dict, { retention, burn });
           if (!uploaded) pushDebug('encrypt.click upload failed');
+          if (uploaded?.expires) expires = Math.floor(uploaded.expires / 1000);
+          burned = uploaded?.burn ?? false;
           return uploaded?.url ?? null;
         }
 
@@ -587,11 +604,13 @@
     const encPayload = await encrypt(compressedB64, encryptionPassword);
     const encoded = base64UrlEncode(encPayload);
 
-    const urls = buildReceiveUrls(encoded);
+    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded, expires, burn: burned }));
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = true;
+    resultExpires = expires;
+    resultBurn = burned;
 
     pendingUploadBytes = null;
     pendingPayloadPassword = '';
@@ -670,6 +689,10 @@
     showQr = false;
     showManualTransferHelp = false;
     resultHasTemporaryUpload = false;
+    retention = DEFAULT_RETENTION;
+    burn = false;
+    resultExpires = undefined;
+    resultBurn = false;
     setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
@@ -767,6 +790,8 @@
         <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 
+      <ShareOptions {dict} upload={deliveryMode === 'ghost'} bind:retention bind:burn />
+
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
       {/if}
@@ -856,6 +881,7 @@
           </div>
           <input id="ue-result-link" class="input input--mono" type="text" readonly value={shortUrl || resultUrl} />
           {#if resultHasTemporaryUpload}
+            <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} />
             <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
           {/if}
           {#if showQr && qrSvg && shareUrl}

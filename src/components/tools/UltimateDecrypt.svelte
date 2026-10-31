@@ -8,6 +8,8 @@
   import CopyButton from '../CopyButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
+  import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
+  import { parseShareFragment, type ShareLink } from '../../lib/shareLink';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -21,6 +23,7 @@
 
   let hashPayload = '';
   let hasHash = false;
+  $: shareLink = hashPayload ? parseShareFragment(hashPayload) : null;
 
   let openedText = '';
   let openedFileName = '';
@@ -553,7 +556,9 @@
   async function decryptFromHash() {
     setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
     pushDebug(`Decoding hash payload (${hashPayload.length} chars)`);
-    const bytes = base64UrlDecode(hashPayload);
+    const link: ShareLink | null = parseShareFragment(hashPayload);
+    if (!link) throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
+    const bytes = base64UrlDecode(link.payload);
     pushDebug(`Decoded outer payload to ${bytes.byteLength} bytes`);
     const compressedB64 = await decrypt(bytes, password);
     pushDebug(`Outer payload decrypted to base64 string (${compressedB64.length} chars)`);
@@ -704,6 +709,9 @@
 <div class="stack text-left">
   {#if hasHash}
     <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.payloadFound')}</p>
+    {#if shareLink}
+      <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} />
+    {/if}
   {:else}
     <p class="hint">
       {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="font-mono text-accent">/u#…</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}

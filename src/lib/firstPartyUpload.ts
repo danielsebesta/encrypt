@@ -1,5 +1,6 @@
 import { mount, unmount } from 'svelte';
 import { prependEclkMagic } from './ghost/crypto';
+import { BLOB_ID_RE, BURN_HEADER, RETENTION_HEADER, type Retention } from './retention';
 import { PASS_HEADER } from './uploadPass';
 
 type Dict = Record<string, string>;
@@ -55,18 +56,32 @@ export async function sendWithUploadPass(url: string, init: { method: string; bo
   return pass ? send(pass) : res;
 }
 
-/** Uploads ciphertext to this site's own storage; the download link lives on the same origin. */
-export async function uploadFirstParty(body: Uint8Array, dict: Dict): Promise<{ id: string; url: string } | null> {
+export type UploadOptions = { retention: Retention; burn: boolean };
+export type FirstPartyUpload = { id: string; url: string; expires: number | null; burn: boolean };
+
+/**
+ * Uploads ciphertext to this site's own storage; the download link lives on the same origin. Without options the
+ * server keeps its default of one day and any number of downloads.
+ */
+export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: UploadOptions): Promise<FirstPartyUpload | null> {
   try {
     const res = await sendWithUploadPass('/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        ...(options ? { [RETENTION_HEADER]: options.retention, [BURN_HEADER]: options.burn ? '1' : '0' } : {}),
+      },
       body: prependEclkMagic(body),
     }, dict);
     if (!res.ok) return null;
     const data = await res.json().catch(() => null) as any;
-    if (!data?.success || typeof data.id !== 'string') return null;
-    return { id: data.id, url: `${location.origin}/dl/${encodeURIComponent(data.id)}` };
+    if (!data?.success || typeof data.id !== 'string' || !BLOB_ID_RE.test(data.id)) return null;
+    return {
+      id: data.id,
+      url: `${location.origin}/dl/${data.id}`,
+      expires: Number.isSafeInteger(data.expires) ? data.expires : null,
+      burn: data.burn === true,
+    };
   } catch {
     return null;
   }

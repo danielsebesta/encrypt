@@ -64,8 +64,8 @@ Everything is set with environment variables.
 | `TURN_MAX_BPS` | `625000` | Bytes per second one relay session may carry, about 5 Mbit/s. |
 | `TURN_LOG` | `false` | `true` sends coturn's log, with client addresses, to the container log. |
 | `TURN_PROVIDER`, `TURN_URLS` | `coturn` | For another TURN service, set `TURN_ENABLED=false` and either `TURN_URLS` (comma-separated `turn:` URLs of a coturn that shares `TURN_AUTH_SECRET`) or `TURN_PROVIDER=cloudflare` with `CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN`. |
-| `UPLOAD_DAILY_GB` | `100` | Upload volume per day for everyone. Uploads are deleted after 24 hours, so this is roughly the disk space uploads can take. |
-| `UPLOAD_CLIENT_DAILY_GB` | `5` | Upload volume per day for one client (IPv4 address or IPv6 /64). |
+| `UPLOAD_DAILY_GB` | `100` | Upload volume per day for everyone. Uploads are kept for 1 hour, 24 hours or 7 days, as the sender chooses, and every upload counts once for each day it is kept (a 7-day upload counts seven times its size), so this is roughly the disk space uploads can take. |
+| `UPLOAD_CLIENT_DAILY_GB` | `5` | Upload volume per day for one client (IPv4 address or IPv6 /64), counted the same way. |
 | `UPLOAD_MONTHLY_GB`, `UPLOAD_MONTHLY_FILES` | `1000`, `500000` | Monthly upload ceilings. |
 | `SHORTENER_URL` | none | HTTPS endpoint of a Shlink-style shortener for receive links. Without it links stay long. |
 
@@ -115,7 +115,8 @@ Everything lives in the `/data` volume:
 | Path | Contents |
 | --- | --- |
 | `rooms.sqlite` | Saved chat rooms (encrypted history the server cannot read) and room settings and expiry times. |
-| `uploads/` | Encrypted uploads. Each is gone 24 hours after it was stored; an hourly sweep deletes the files. |
+| `uploads/` | Encrypted uploads. Each is refused from its expiry time on (1 hour, 24 hours or 7 days after it was stored, or right after its first download if the sender chose that), and an hourly sweep deletes the files. |
+| `uploads.sqlite` | Expiry time and one-time flag of each upload. Files without an entry expire 24 hours after they were written. |
 | `budget/` | Rate-limit and upload accounting. Safe to lose. |
 | `secrets/` | Generated secrets. Losing them only invalidates short-lived grants and upload passes. |
 | `caddy/` | Certificates and the ACME account. |

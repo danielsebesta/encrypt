@@ -42,6 +42,8 @@ function fakeSocket() {
   };
 }
 
+const day = () => ({ expires: Date.now() + BLOB_TTL_MS, burn: false });
+
 function stream(...chunks: Uint8Array[]) {
   return new ReadableStream<Uint8Array>({ start(controller) { for (const chunk of chunks) controller.enqueue(chunk); controller.close(); } });
 }
@@ -281,13 +283,13 @@ test('blob store keeps exactly the declared size and forgets uploads after a day
   const id = '2f1c7a52-4b1e-4d4b-9a7e-1f0c2b3d4e5f';
   const bytes = new Uint8Array([1, 2, 3, 4, 5]);
 
-  await assert.rejects(store.put(id, stream(bytes), 4));
-  await assert.rejects(store.put(id, stream(bytes), 6));
-  await assert.rejects(store.put('../escape', stream(bytes), 5));
+  await assert.rejects(store.put(id, stream(bytes), 4, day()));
+  await assert.rejects(store.put(id, stream(bytes), 6, day()));
+  await assert.rejects(store.put('../escape', stream(bytes), 5, day()));
   assert.equal(await store.get(id), null);
   assert.deepEqual(readdirSync(path.join(dir, '.tmp')), []);
 
-  await store.put(id, stream(bytes.subarray(0, 2), bytes.subarray(2)), 5);
+  await store.put(id, stream(bytes.subarray(0, 2), bytes.subarray(2)), 5, day());
   const blob = (await store.get(id))!;
   assert.equal(blob.size, 5);
   assert.ok(Math.abs(blob.uploaded - Date.now()) < 60_000);
@@ -298,7 +300,7 @@ test('blob store keeps exactly the declared size and forgets uploads after a day
   assert.equal(await later.sweep(), 1);
   assert.equal(existsSync(path.join(dir, id)), false);
 
-  await store.put(id, stream(bytes), 5);
+  await store.put(id, stream(bytes), 5, day());
   assert.equal(await later.get(id), null);
   assert.equal(existsSync(path.join(dir, id)), false);
   await store.delete(id);

@@ -680,7 +680,7 @@ function sameOriginDownload(urlString: string): boolean {
   if (typeof location === 'undefined') return false;
   try {
     const url = new URL(urlString);
-    return url.origin === location.origin && /^\/dl\/[0-9a-f-]{36}$/.test(url.pathname) && !url.search && !url.hash;
+    return url.origin === location.origin && /^\/dl\/(?:t(?:1h|7d)-)?[0-9a-f-]{36}$/.test(url.pathname) && !url.search && !url.hash;
   } catch {
     return false;
   }

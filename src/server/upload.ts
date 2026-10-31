@@ -1,18 +1,19 @@
 import { MAX_FIRST_PARTY_BYTES, clientPrefix, readJsonLimited } from '../lib/httpLimits';
 import { PASSWORD_ENVELOPE_MAGIC } from '../lib/passwordEnvelope';
+import { BLOB_ID_RE, BURN_HEADER, DEFAULT_RETENTION, RETENTION_HEADER, RETENTION_MS, blobId, isRetention, retentionDays, type Retention } from '../lib/retention';
 import { PASS_HEADER, browserFetch, issuePass, verifyPass } from '../lib/uploadPass';
 import type { Platform, UploadLimits } from '../platform/types';
 import type { Reservation } from './budget';
 import { createChallenge, parseSolution, powDifficulty, verifySolution } from './pow';
 
 export const UPLOAD_SCOPE = 'uploads';
+export const DOWNLOAD_SCOPE = 'downloads';
 const GB = 1000 ** 3;
 const MAGIC_BYTES = new Uint8Array([69, 67, 76, 75]);
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 // Everything our clients upload is a password envelope or, for small shares, a stego PNG that wraps one.
 const FORMATS = [PASSWORD_ENVELOPE_MAGIC, PNG_SIGNATURE];
 const HEAD_BYTES = MAGIC_BYTES.length + Math.max(...FORMATS.map(format => format.length));
-const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const enc = new TextEncoder();
 const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, '0')).join('');
@@ -22,7 +23,8 @@ const gigabytes = (value: string | undefined, fallback: number) => {
   return (Number.isFinite(n) && n > 0 ? n : fallback) * GB;
 };
 
-// Defaults keep Cloudflare R2 under about $1 a month; self-hosted instances size them to their disk.
+// Defaults keep Cloudflare R2 under about $1 a month; self-hosted instances size them to their disk. Byte quotas count
+// stored byte-days: an upload is charged its size once per day it is kept, so a 7-day upload costs seven times as much.
 export function uploadLimits(env: Platform['env']): UploadLimits {
   return {
     monthlyBytes: gigabytes(env.UPLOAD_MONTHLY_GB, 1000),
@@ -100,8 +102,18 @@ function exactly(head: Uint8Array, reader: ReadableStreamDefaultReader<Uint8Arra
   });
 }
 
+/** Retention and one-time download from the request; requests without them keep the default of one day, many downloads. */
+export function uploadOptions(headers: Headers): { retention: Retention; burn: boolean } | null {
+  const retention = headers.get(RETENTION_HEADER) ?? DEFAULT_RETENTION;
+  const burn = headers.get(BURN_HEADER) ?? '0';
+  if (!isRetention(retention) || (burn !== '0' && burn !== '1')) return null;
+  return { retention, burn: burn === '1' };
+}
+
 async function upload(request: Request, platform: Platform): Promise<Response> {
   const limits = uploadLimits(platform.env);
+  const options = uploadOptions(request.headers);
+  if (!options) return json({ error: 'Invalid upload options' }, 400);
   const length = Number(request.headers.get('Content-Length'));
   if (!request.headers.get('Content-Length') || !Number.isSafeInteger(length) || length <= HEAD_BYTES) return json({ error: 'Length required' }, 411);
   if (length > limits.maxFileBytes) return json({ error: 'Payload too large' }, 413);
@@ -111,12 +123,13 @@ async function upload(request: Request, platform: Platform): Promise<Response> {
   const client = await clientId(platform, prefix);
   const pass = await verifyPass(request.headers.get(PASS_HEADER), challengeSecret(platform.env) || undefined, prefix);
   const browser = browserFetch(request.headers, ['same-origin']);
-  const reservation = await platform.budget<Reservation>(UPLOAD_SCOPE, { op: 'reserve', client, bytes: length, browser, pass, limits });
+  const charged = length * retentionDays(options.retention);
+  const reservation = await platform.budget<Reservation>(UPLOAD_SCOPE, { op: 'reserve', client, bytes: charged, browser, pass, limits });
   if (reservation === 'full') return json({ error: 'Upload storage is full. Try again later.' }, 503);
   if (reservation === 'client') return json({ error: 'Daily upload limit reached.' }, 429, { 'Retry-After': secondsUntilTomorrow() });
   if (reservation === 'challenge') return challengeResponse(platform.env);
 
-  const release = () => platform.budget(UPLOAD_SCOPE, { op: 'release', client, bytes: length, limits });
+  const release = () => platform.budget(UPLOAD_SCOPE, { op: 'release', client, bytes: charged, limits });
   const reader = request.body.getReader();
   const head = await readHead(reader);
   if (!knownFormat(head) || head.length > length) {
@@ -125,28 +138,63 @@ async function upload(request: Request, platform: Platform): Promise<Response> {
     return json({ error: 'Only encrypt.click client data is accepted.' }, 400);
   }
 
-  const id = crypto.randomUUID();
+  const id = blobId(options.retention, crypto.randomUUID());
+  const expires = Date.now() + RETENTION_MS[options.retention];
   try {
-    await platform.blobs.put(id, exactly(head, reader, length), length);
-    return json({ success: true, id });
+    await platform.blobs.put(id, exactly(head, reader, length), length, { expires, burn: options.burn });
+    return json({ success: true, id, expires, burn: options.burn });
   } catch {
     await release();
     return json({ error: 'Storage error' }, 500);
   }
 }
 
-// Stored objects keep the four-byte marker the uploader checked; downloads hand back the ciphertext alone.
-async function download(id: string, platform: Platform): Promise<Response> {
-  const blob = ID_RE.test(id) ? await platform.blobs.get(id) : null;
-  if (!blob || blob.size <= MAGIC_BYTES.length) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+const notFound = () => new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+
+// Drops the four-byte marker and calls done once the source has been read to its end, failed or was cancelled.
+function served(source: ReadableStream<Uint8Array>, done: () => void): ReadableStream<Uint8Array> {
+  const reader = source.getReader();
   let skip = MAGIC_BYTES.length;
-  const body = blob.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      if (skip >= chunk.length) { skip -= chunk.length; return; }
-      controller.enqueue(skip ? chunk.subarray(skip) : chunk);
-      skip = 0;
+  let finished = false;
+  const finish = () => { if (!finished) { finished = true; done(); } };
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        for (;;) {
+          const { value, done: end } = await reader.read();
+          if (end) { controller.close(); finish(); return; }
+          if (skip >= value.length) { skip -= value.length; continue; }
+          controller.enqueue(skip ? value.subarray(skip) : value);
+          skip = 0;
+          return;
+        }
+      } catch (error) {
+        controller.error(error);
+        finish();
+      }
     },
-  }));
+    async cancel(reason) {
+      await reader.cancel(reason).catch(() => {});
+      finish();
+    },
+  });
+}
+
+// Stored objects keep the four-byte marker the uploader checked; downloads hand back the ciphertext alone. A one-time
+// upload is claimed atomically before its first byte leaves, so a second request is refused even while the object
+// still exists, and it is deleted once it has been read out.
+async function download(request: Request, id: string, platform: Platform): Promise<Response> {
+  const blob = BLOB_ID_RE.test(id) ? await platform.blobs.get(id) : null;
+  if (!blob) return notFound();
+  const head = request.method === 'HEAD';
+  if (blob.size <= MAGIC_BYTES.length || Date.now() >= blob.expires
+    || (blob.burn && !head && !(await platform.budget<boolean>(DOWNLOAD_SCOPE, { op: 'spend', nonce: `burn:${id}`, expires: blob.expires })))) {
+    await blob.body.cancel().catch(() => {});
+    return notFound();
+  }
+  let body: ReadableStream<Uint8Array> | null = null;
+  if (head) await blob.body.cancel().catch(() => {});
+  else body = served(blob.body, () => { if (blob.burn) platform.waitUntil(platform.blobs.delete(id)); });
   return new Response(body, {
     headers: {
       'Content-Type': 'application/octet-stream',
@@ -191,7 +239,7 @@ export async function handleUploadRoute(request: Request, path: string, platform
   if (path === '/upload/pass') return method === 'POST' ? redeem(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'POST' });
   if (path.startsWith('/dl/')) {
     if (method !== 'GET' && method !== 'HEAD') return json({ error: 'Method not allowed' }, 405, { Allow: 'GET, HEAD' });
-    return download(path.slice(4), platform);
+    return download(request, path.slice(4), platform);
   }
   return null;
 }

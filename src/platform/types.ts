@@ -4,15 +4,25 @@ export interface SqlLike {
   exec(query: string, ...bindings: any[]): { toArray(): any[] };
 }
 
-export interface StoredBlob {
+export interface BlobMeta {
+  /** Absolute expiry in milliseconds; the object counts as gone from then on. */
+  expires: number;
+  /** Deleted after its first download. */
+  burn: boolean;
+}
+
+export interface StoredBlob extends BlobMeta {
   body: ReadableStream<Uint8Array>;
   size: number;
   uploaded: number;
 }
 
-/** Ciphertext uploads. Ids are random UUIDs chosen by the caller; objects older than a day count as gone. */
+/**
+ * Ciphertext uploads. Ids match BLOB_ID_RE in src/lib/retention.ts and carry their retention class. Objects stored
+ * without metadata, from before retention classes, expire a day after upload.
+ */
 export interface BlobStore {
-  put(id: string, body: ReadableStream<Uint8Array>, size: number): Promise<void>;
+  put(id: string, body: ReadableStream<Uint8Array>, size: number, meta: BlobMeta): Promise<void>;
   get(id: string): Promise<StoredBlob | null>;
   delete(id: string): Promise<void>;
 }
@@ -48,4 +58,6 @@ export interface Platform {
   blobs: BlobStore;
   /** Hands a /parties/<party>/<room> request to the realtime rooms; Node upgrades sockets itself and answers 426 here. */
   realtime(request: Request): Promise<Response>;
+  /** Keeps background work running after the response: ctx.waitUntil on Cloudflare, a detached promise on Node. */
+  waitUntil(work: Promise<unknown>): void;
 }
