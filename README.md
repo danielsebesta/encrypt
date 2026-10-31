@@ -105,7 +105,7 @@ AES words, time-lock capsules, steganography, photo and spectral ciphers. All of
 flowchart LR
   A["📝 Your file or message"] -- "AES-256-GCM,<br/>in your browser" --> B["🔒 Ciphertext"]
   P["🔑 Password<br/>stays on your device"] -. "derives the key" .-> B
-  B -- "upload" --> C[("☁️ Temporary storage<br/>deleted after 24 h")]
+  B -- "upload" --> C[("☁️ Temporary storage<br/>deleted after 1 h to 7 days,<br/>or after one download")]
   B -. "only if you approve" .-> S[("📦 Send instance<br/>run by a third party")]
   C --> L["🔗 Link<br/>holds an encrypted pointer"]
   S --> L
@@ -172,7 +172,7 @@ flowchart TB
   end
   subgraph CF["☁️ Cloudflare adapter"]
     W["Worker"] --- DO[("Durable Objects<br/>rooms · budgets")]
-    W --- R2[("R2, 1-day lifecycle")]
+    W --- R2[("R2, lifecycle per prefix")]
   end
   subgraph NODE["🐳 Node adapter"]
     N["Node server + ws"] --- SQL[("SQLite<br/>rooms · budgets")]
@@ -198,9 +198,9 @@ flowchart TB
 - **Platforms.** `src/platform/types.ts` is the contract: settings, the visitor's address, budgets on SQLite, blob storage and realtime rooms. `src/adapters/cloudflare/` implements it with Durable Objects and R2, `src/adapters/node/` with `ws`, `node:sqlite` and files on disk. Everything else, including every URL the browser uses, is the same on both.
 - **Design system.** Tokens and component classes live in `src/styles/global.css`. Every page uses only those.
 - **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The server picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
-- **Crypto.** `src/lib/passwordEnvelope.ts`, `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
+- **Crypto.** `src/lib/passwordEnvelope.ts` (including the time-lock key mixing), `src/lib/timelock.ts` (drand rounds and tlock through the same-origin proxy), `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
 - **Whiteboard.** Drawing uses `@quickdrawjs/core` with a small patch in `patches/` that makes pen pressure drive the stroke width. The tests in `tests/pen-pressure.test.ts` fail if the patch is lost.
-- **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. Only encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
+- **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. The sender picks how long it is kept (`X-Upload-Retention: 1h | 1d | 7d`, one day when absent) and whether it is deleted after the first download (`X-Upload-Burn: 1`); the id carries the retention class, and a one-time upload is claimed atomically in the budget database before its first byte is sent, then deleted. Only encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. The byte quotas count stored byte-days: an upload is charged its size once for every day it is kept, so a 7-day upload costs seven times a 1-day one and the storage bill stays where the defaults put it (about $1 a month on R2). Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
 
 ## ☁️ Deploy
 
@@ -224,10 +224,22 @@ Worker secrets:
 | `CLOUDFLARE_TURN_TOKEN_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Cloudflare Realtime TURN key |
 | `RATE_LIMIT_SECRET` | Optional, separate key for request budget hashing |
 | `UPLOAD_PASS_SECRET` | Optional, separate key for upload passes and proof-of-work challenges; otherwise derived from the keys above |
+| `STATUS_TOKEN` | Optional. When set, `GET /status` (upload usage against the quotas, whether TURN is configured, build and uptime; aggregates only) requires `Authorization: Bearer <token>`; otherwise it is public. `BUILD_COMMIT_SHA`, as a plain variable, names the build it reports. |
 
 Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
 
-Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT`, `CHAT_PERSISTENT` and `WHITEBOARD` (rooms at `/parties/main|persistent|whiteboard/<room>`), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction with a lifecycle rule that deletes objects after one day (pass `--jurisdiction eu` to every `wrangler r2` command). `SHORTENER_URL` in `wrangler.toml` enables short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
+Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT`, `CHAT_PERSISTENT` and `WHITEBOARD` (rooms at `/parties/main|persistent|whiteboard/<room>`), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction (pass `--jurisdiction eu` to every `wrangler r2` command). Uploads are stored under one key prefix per retention class, `t1h/`, `t1d/` and `t7d/`, with the expiry time and the one-time flag in the object's custom metadata; the Worker refuses anything past its expiry, and one lifecycle rule per prefix deletes the objects for free. `SHORTENER_URL` in `wrangler.toml` enables short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
+
+Lifecycle rules for the upload bucket. R2 counts in whole days, so the 1-hour class is deleted after a day while the Worker already refuses it after an hour. Uploads from before the retention classes sit under their bare UUID; the rules for the prefixes `0` to `f` delete those after a day and can be removed two days after the deploy. Add the new rules first, then remove the old rule that covered the whole bucket (its name is in the `list` output), then deploy:
+
+```bash
+pnpm exec wrangler r2 bucket lifecycle list encrypt-r2 --jurisdiction eu
+pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-1h t1h/ --expire-days 1 --jurisdiction eu --force
+pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-1d t1d/ --expire-days 1 --jurisdiction eu --force
+pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-7d t7d/ --expire-days 7 --jurisdiction eu --force
+for p in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-legacy-$p $p --expire-days 1 --jurisdiction eu --force; done
+pnpm exec wrangler r2 bucket lifecycle remove encrypt-r2 --name <old whole-bucket rule> --jurisdiction eu
+```
 
 ### Self-host with Docker
 

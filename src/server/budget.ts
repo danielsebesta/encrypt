@@ -3,6 +3,14 @@ import type { BudgetCommand, SqlLike, UploadLimits } from '../platform/types';
 
 export type Reservation = 'ok' | 'full' | Exclude<Charge, 'ok'>;
 
+/** Upload usage of today (UTC) and this month; bytes are stored byte-days, as the quotas count them. */
+export type UploadStatus = {
+  available: boolean;
+  maxFileSize: number;
+  today: { bytes: number; uploads: number };
+  month: { bytes: number; uploads: number };
+};
+
 const HOUR_MS = 60 * 60 * 1000;
 const periods = (now: number) => {
   const iso = new Date(now).toISOString();
@@ -87,7 +95,12 @@ export function runBudgetCommand(sql: SqlLike, command: BudgetCommand, now = Dat
       return true;
     case 'status': {
       const used = usage(sql, now);
-      return { available: hasRoom(used, command.limits.maxFileBytes, command.limits), maxFileSize: command.limits.maxFileBytes };
+      return {
+        available: hasRoom(used, command.limits.maxFileBytes, command.limits),
+        maxFileSize: command.limits.maxFileBytes,
+        today: { bytes: used.day.bytes, uploads: used.day.uploads },
+        month: { bytes: used.month.bytes, uploads: used.month.uploads },
+      } satisfies UploadStatus;
     }
     case 'spend': {
       sql.exec('DELETE FROM spent WHERE expires < ?', now);

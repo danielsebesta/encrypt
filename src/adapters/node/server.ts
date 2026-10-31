@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -31,6 +31,16 @@ const dataDir = path.resolve(env.DATA_DIR || '/data');
 const publicUrl = env.PUBLIC_URL ? new URL(env.PUBLIC_URL) : null;
 const trustHops = /^\d+$/.test(env.TRUST_PROXY ?? '') ? Number(env.TRUST_PROXY) : /^(true|yes|on)$/i.test(env.TRUST_PROXY ?? '') ? 1 : 0;
 const distDir = fileURLToPath(new URL('../', import.meta.url));
+
+function buildCommit(): string | undefined {
+  if (env.BUILD_COMMIT_SHA) return env.BUILD_COMMIT_SHA;
+  try {
+    const { commitSha } = JSON.parse(readFileSync(path.join(distDir, 'client', 'build-integrity.json'), 'utf8'));
+    return typeof commitSha === 'string' && commitSha !== 'unknown' ? commitSha : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 for (const dir of ['uploads', 'budget']) mkdirSync(path.join(dataDir, dir), { recursive: true, mode: 0o700 });
 
@@ -96,7 +106,8 @@ async function send(res: ServerResponse, response: Response, head: boolean) {
 
 const roomDatabase = new RoomDatabase(path.join(dataDir, 'rooms.sqlite'));
 const rooms = new RealtimeRooms(roomDatabase, env);
-const blobs = new FileBlobStore(path.join(dataDir, 'uploads'));
+const uploadsDatabase = openDatabase(path.join(dataDir, 'uploads.sqlite'));
+const blobs = new FileBlobStore(path.join(dataDir, 'uploads'), () => Date.now(), uploadsDatabase);
 await blobs.init();
 const sweep = () => blobs.sweep().catch(error => console.error('Upload sweep failed:', error instanceof Error ? error.message : error));
 void sweep();
@@ -113,6 +124,9 @@ const platform: Platform = {
   realtime: async request => ROOM_ROUTE_RE.test(new URL(request.url).pathname)
     ? new Response('Expected WebSocket', { status: 426 })
     : new Response('Not found', { status: 404 }),
+  waitUntil: work => { work.catch(error => console.error('Background task failed:', error instanceof Error ? error.message : error)); },
+  build: buildCommit(),
+  startedAt: Date.now(),
 };
 
 const site = await StaticSite.load(path.join(distDir, 'client'));
@@ -170,6 +184,7 @@ async function stop() {
   await rooms.shutdown(SHUTDOWN_GRACE_MS / 2);
   await closed;
   roomDatabase.close();
+  uploadsDatabase.close();
   for (const { db } of budgets.values()) db.close();
   process.exit(0);
 }

@@ -9,6 +9,11 @@
   import QrScanner from '../QrScanner.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
+  import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
+  import { isCapsuleFragment, parseShareFragment, type ShareLink } from '../../lib/shareLink';
+  import { roundTime, unlockTimeSecret } from '../../lib/timelock';
+
+  class Notice extends Error {}
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -22,6 +27,14 @@
 
   let hashPayload = '';
   let hasHash = false;
+  $: shareLink = hashPayload ? parseShareFragment(hashPayload) : null;
+  $: unlockTime = shareLink?.lock ? roundTime(shareLink.lock.round) : undefined;
+
+  function lockedMessage(unlock: number): string {
+    let time: string;
+    try { time = new Date(unlock).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }); } catch { time = new Date(unlock).toLocaleString(); }
+    return t(dict, 'shareLink.lockedUntil').replace('{time}', time);
+  }
 
   let openedText = '';
   let openedFileName = '';
@@ -419,6 +432,10 @@
   onMount(() => {
     if (typeof window === 'undefined') return;
     const hash = window.location.hash || '';
+    if (isCapsuleFragment(hash.slice(1))) {
+      window.location.replace(`${locale === 'en' ? '' : `/${locale}`}/tools/time-capsule${hash}`);
+      return;
+    }
     pushDebug(`Page opened: path=${window.location.pathname}, hashLength=${hash.length}, search=${window.location.search || '(empty)'}`);
     if (hash.length > 1) {
       hasHash = true;
@@ -464,6 +481,10 @@
       pushDebug('Validation failed: missing password');
       return;
     }
+    if (hasHash && unlockTime !== undefined && unlockTime > Date.now()) {
+      error = lockedMessage(unlockTime);
+      return;
+    }
 
     loading = true;
     try {
@@ -482,7 +503,7 @@
       }
     } catch (e: any) {
       console.error('Decrypt error', e);
-      error = t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
+      error = e instanceof Notice ? e.message : t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
       pushDebug(`Decrypt failed: ${e?.message || 'unknown error'}`);
     } finally {
       loading = false;
@@ -554,9 +575,24 @@
   async function decryptFromHash() {
     setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
     pushDebug(`Decoding hash payload (${hashPayload.length} chars)`);
-    const bytes = base64UrlDecode(hashPayload);
+    const link: ShareLink | null = parseShareFragment(hashPayload);
+    if (!link) throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
+    const bytes = base64UrlDecode(link.payload);
+    let timeSecret: Uint8Array | undefined;
+    if (link.lock) {
+      const unlock = roundTime(link.lock.round);
+      if (unlock > Date.now()) throw new Notice(lockedMessage(unlock));
+      setProgress(t(dict, 'tools.ultimateDecrypt.progressBeaconTitle'), t(dict, 'tools.ultimateDecrypt.progressBeaconDetail'));
+      try {
+        timeSecret = await unlockTimeSecret(link.lock);
+      } catch (e: any) {
+        pushDebug(`Time lock failed: ${e?.message || 'unknown'}`);
+        throw new Notice(t(dict, 'shareLink.beaconFailed'));
+      }
+      pushDebug(`Time lock for round ${link.lock.round} opened`);
+    }
     pushDebug(`Decoded outer payload to ${bytes.byteLength} bytes`);
-    const compressedB64 = await decrypt(bytes, password);
+    const compressedB64 = await decrypt(bytes, password, timeSecret);
     pushDebug(`Outer payload decrypted to base64 string (${compressedB64.length} chars)`);
     const compressed = Uint8Array.from(atob(compressedB64), c => c.charCodeAt(0));
     pushDebug(`Outer payload base64-decoded to ${compressed.byteLength} bytes`);
@@ -574,7 +610,7 @@
     if (data.mode === 'inline') {
       await handleInlinePayload(data);
     } else if (data.mode === 'ghost') {
-      await handleGhostPayload(data);
+      await handleGhostPayload(data, timeSecret);
     } else {
       throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnknownMode'));
     }
@@ -617,7 +653,7 @@
     }
   }
 
-  async function handleGhostPayload(data: any) {
+  async function handleGhostPayload(data: any, timeSecret?: Uint8Array) {
     const urls: string[] = Array.isArray(data.urls) ? data.urls.filter((url: unknown): url is string => typeof url === 'string') : [];
     const isStego: boolean = data.stego ?? false;
     pushDebug(`Ghost payload opened: urls=${urls.length}, stego=${isStego}`);
@@ -667,7 +703,7 @@
           pushDebug(`Using raw encrypted payload (${encrypted.byteLength} bytes)`);
         }
 
-        const { data: decryptedData, name } = await decryptData(encrypted, password);
+        const { data: decryptedData, name } = await decryptData(encrypted, password, timeSecret);
         pushDebug(`Inner payload decrypted successfully (${decryptedData.byteLength} bytes, name=${name})`);
 
         if (name.endsWith('.txt') && decryptedData.length < 100_000) {
@@ -705,6 +741,9 @@
 <div class="stack text-left">
   {#if hasHash}
     <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.payloadFound')}</p>
+    {#if shareLink}
+      <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} unlock={unlockTime} />
+    {/if}
   {:else}
     <p class="hint">
       {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="font-mono text-accent">/u#…</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}

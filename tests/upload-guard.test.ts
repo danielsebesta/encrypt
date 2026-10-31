@@ -5,7 +5,7 @@ import { ClientLedger, PASS_ALLOWANCE, PASS_TTL_MS, SUSPICION, browserFetch, iss
 import { createApp } from '../src/server/app';
 import { runBudgetCommand } from '../src/server/budget';
 import { createChallenge, verifySolution, powDifficulty, type PowChallenge } from '../src/server/pow';
-import type { BlobStore, Platform } from '../src/platform/types';
+import type { BlobMeta, BlobStore, Platform } from '../src/platform/types';
 import { sealPassword } from '../src/lib/passwordEnvelope';
 import { prependEclkMagic } from '../src/lib/ghost/crypto';
 
@@ -96,20 +96,23 @@ test('the hourly count slides instead of resetting on the hour', () => {
   assert.equal(ledger.check({ ...base, now: hourStart + 3600_000 + 3000_000 }), 'ok');
 });
 
-function memoryBlobs(): BlobStore & { stored: Map<string, Uint8Array> } {
+export function memoryBlobs(): BlobStore & { stored: Map<string, Uint8Array>; meta: Map<string, BlobMeta> } {
   const stored = new Map<string, Uint8Array>();
+  const meta = new Map<string, BlobMeta>();
   return {
     stored,
-    async put(id, body, size) {
+    meta,
+    async put(id, body, size, info) {
       const bytes = new Uint8Array(await new Response(body).arrayBuffer());
       if (bytes.length !== size) throw new Error('size mismatch');
       stored.set(id, bytes);
+      meta.set(id, info);
     },
     async get(id) {
       const bytes = stored.get(id);
-      return bytes ? { body: new Blob([bytes as BlobPart]).stream(), size: bytes.length, uploaded: Date.now() } : null;
+      return bytes ? { body: new Blob([bytes as BlobPart]).stream(), size: bytes.length, uploaded: Date.now(), ...meta.get(id)! } : null;
     },
-    async delete(id) { stored.delete(id); },
+    async delete(id) { stored.delete(id); meta.delete(id); },
   };
 }
 
@@ -125,6 +128,7 @@ function platform(env: Record<string, string> = { UPLOAD_PASS_SECRET: SECRET }) 
     },
     blobs,
     realtime: async () => new Response('Expected WebSocket', { status: 426 }),
+    waitUntil: () => {},
   };
   return { value, blobs, app: createApp(value) };
 }

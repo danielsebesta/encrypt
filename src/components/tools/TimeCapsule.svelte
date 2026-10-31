@@ -6,46 +6,14 @@
   import { generatePassphrase } from '../../lib/passphrase';
   import { PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
+  import { DRAND_CHAIN, roundAt, tlock as getTlock } from '../../lib/timelock';
   import CopyButton from '../CopyButton.svelte';
+  import LinkWithQr from '../share/LinkWithQr.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
-
-  const PROXY_CHAIN_URL = '/api/drand/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971';
-  const CHAIN_INFO = {
-    period: 3,
-    genesis_time: 1692803367,
-    publicKey: '83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a',
-    chainHash: '52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971',
-  };
-
-  type TlockApi = {
-    timelockEncrypt: typeof import('tlock-js').timelockEncrypt;
-    timelockDecrypt: typeof import('tlock-js').timelockDecrypt;
-    Buffer: typeof import('tlock-js').Buffer;
-    client: import('tlock-js').HttpChainClient;
-  };
-
-  let tlockApi: TlockApi | null = null;
-
-  async function getTlock(): Promise<TlockApi> {
-    if (tlockApi) return tlockApi;
-    const [{ timelockEncrypt, timelockDecrypt, HttpCachingChain, HttpChainClient, Buffer }, { defaultChainOptions }] =
-      await Promise.all([import('tlock-js'), import('drand-client')]);
-    const chainOpts = {
-      ...defaultChainOptions,
-      chainVerificationParams: {
-        chainHash: CHAIN_INFO.chainHash,
-        publicKey: CHAIN_INFO.publicKey,
-      },
-    };
-    const chain = new HttpCachingChain(PROXY_CHAIN_URL, chainOpts);
-    const client = new HttpChainClient(chain, chainOpts);
-    tlockApi = { timelockEncrypt, timelockDecrypt, Buffer, client };
-    return tlockApi;
-  }
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
 
@@ -74,8 +42,13 @@
   let debugUnix = '';
   let debugRound: number | null = null;
 
-  let manualUnix = '';
+  let manualUnix: number | string | null = '';
   let useManualUnix = false;
+
+  // The capsule travels after #c=, which browsers keep to themselves; the page opens it from there.
+  let capsuleLink = '';
+  let fromLink = false;
+  const CAPSULE_HASH_RE = /^#c=([A-Za-z0-9_-]+)$/;
 
   let countdownTarget: number | null = null;
   let countdownDisplay = '';
@@ -91,6 +64,7 @@
         countdownDisplay = '';
         countdownTarget = null;
         if (countdownInterval) clearInterval(countdownInterval);
+        if (fromLink) setTimeout(() => void handleDecrypt(), 4000);
         return;
       }
       const d = Math.floor(diff / 86400);
@@ -122,9 +96,7 @@
     const localDate = new Date(targetLocal);
     const timeMs = localDate.getTime();
     if (!Number.isFinite(timeMs)) return;
-    const genesisMs = CHAIN_INFO.genesis_time * 1000;
-    const periodMs = CHAIN_INFO.period * 1000;
-    const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
+    const round = roundAt(timeMs);
     debugUtc = new Date(timeMs).toISOString();
     debugUnix = String(Math.floor(timeMs / 1000));
     debugRound = round > 0 ? round : null;
@@ -133,6 +105,14 @@
   onMount(() => {
     targetLocal = nowIsoLocal();
     updateDerived();
+    const shared = location.hash.match(CAPSULE_HASH_RE);
+    if (shared) {
+      mode = 'decrypt';
+      decryptInput = shared[1];
+      fromLink = true;
+      void handleDecrypt();
+    }
+    return () => { if (countdownInterval) clearInterval(countdownInterval); };
   });
 
   function tryDecodeCompact(input: string) {
@@ -151,6 +131,7 @@
   async function handleEncrypt() {
     error = '';
     ciphertext = '';
+    capsuleLink = '';
     decrypted = '';
 
     if (!message.trim()) {
@@ -164,8 +145,9 @@
 
     let timeMs: number;
 
-    if (useManualUnix && manualUnix.trim()) {
-      const unix = Number(manualUnix.trim());
+    const manual = String(manualUnix ?? '').trim();
+    if (useManualUnix && manual) {
+      const unix = Number(manual);
       if (!Number.isFinite(unix) || unix <= 0) {
         error = t(dict, 'tools.timeCapsule.errorInvalidUnix');
         return;
@@ -193,17 +175,15 @@
     loading = true;
     try {
       const { timelockEncrypt, Buffer, client } = await getTlock();
-      const genesisMs = CHAIN_INFO.genesis_time * 1000;
-      const periodMs = CHAIN_INFO.period * 1000;
 
       if (!Number.isFinite(timeMs)) {
         throw new Error(t(dict, 'tools.timeCapsule.errorInvalidBeacon'));
       }
-      if (timeMs < genesisMs) {
+      if (timeMs < DRAND_CHAIN.genesis * 1000) {
         throw new Error(t(dict, 'tools.timeCapsule.errorAfterGenesis'));
       }
 
-      const round = Math.floor((timeMs - genesisMs) / periodMs) + 1;
+      const round = roundAt(timeMs);
 
       // The password goes inside the time lock, so whoever breaks the lock early still faces Argon2id and AES-256.
       const payload = password ? Buffer.from(await sealWithPassword(message, password)) : Buffer.from(message, 'utf8');
@@ -221,6 +201,7 @@
       const token = compressed.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
       ciphertext = token;
+      capsuleLink = `${location.origin}${locale === 'en' ? '' : `/${locale}`}/tools/time-capsule#c=${token}`;
       debugUtc = new Date(timeMs).toISOString();
       debugUnix = String(unix);
       debugRound = round > 0 ? round : null;
@@ -264,6 +245,7 @@
         decrypted = new TextDecoder().decode(opened);
       } else if (!openPassword) {
         decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
+        if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
       } else {
         decrypted = await openWithPassword(opened, openPassword);
       }
@@ -341,6 +323,18 @@
           </div>
           <textarea id="tc-output" class="input input--mono min-h-44" readonly value={ciphertext}></textarea>
         </div>
+        {#if capsuleLink}
+          <LinkWithQr
+            id="tc-link"
+            url={capsuleLink}
+            label={t(dict, 'tools.timeCapsule.link')}
+            copyLabel={t(dict, 'tools.timeCapsule.copyLink')}
+            copiedLabel={t(dict, 'common.copied')}
+            qrLabel={t(dict, 'tools.timeCapsule.showQr')}
+            qrAlt={t(dict, 'tools.timeCapsule.qrAlt')}
+            hint={t(dict, 'tools.timeCapsule.linkHint')}
+          />
+        {/if}
       {/if}
     {:else}
       <div class="field">
@@ -349,7 +343,7 @@
       </div>
       <div class="field">
         <label class="label" for="tc-open-password">{t(dict, 'tools.timeCapsule.openPasswordLabel')}</label>
-        <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+        <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore on:keydown={(e) => { if (e.key === 'Enter' && !decryptLoading) { e.preventDefault(); void handleDecrypt(); } }} />
       </div>
       <button class="btn w-full" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
         {decryptLoading ? t(dict, 'tools.timeCapsule.decrypting') : t(dict, 'tools.timeCapsule.openCapsule')}

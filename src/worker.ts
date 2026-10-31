@@ -9,6 +9,6 @@ export { ChatServer, PersistentChatServer, WhiteboardServer, SecurityBudget };
 export default {
   async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext) {
     setRuntimeEnv(env);
-    return createApp(cloudflarePlatform(env)).fetch(request, (req) => handle(req, env as any, ctx));
+    return createApp(cloudflarePlatform(env, ctx)).fetch(request, (req) => handle(req, env as any, ctx));
   },
 };

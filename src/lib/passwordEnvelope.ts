@@ -12,7 +12,13 @@ export const PASSWORD_ENVELOPE_MAGIC: Readonly<Uint8Array> = ECP3_MAGIC;
 /** Fixed bytes an envelope adds to its plaintext, before padding. */
 export const PASSWORD_ENVELOPE_OVERHEAD = HEADER + LENGTH + TAG;
 
-export type SealOptions = { maxLength?: number; params?: Argon2Params };
+/**
+ * timeSecret: 32 random bytes released only by a drand time lock. They are mixed into the password-derived key, so
+ * the envelope opens with both and with neither alone. Nothing in the envelope shows that it needs one.
+ */
+export type SealOptions = { maxLength?: number; params?: Argon2Params; timeSecret?: Uint8Array };
+
+const TIME_SECRET_BYTES = 32;
 
 /** Total envelope size for a plaintext: Padmé over the length-prefixed data, never past maxLength when the data alone fits. */
 export function sealedLength(plaintext: number, maxLength = Infinity): number {
@@ -21,8 +27,12 @@ export function sealedLength(plaintext: number, maxLength = Infinity): number {
   return HEADER + Math.min(padme(inner), ceiling) + TAG;
 }
 
-async function envelopeKeys(password: string, salt: Uint8Array, params: Argon2Params) {
-  const base = await hkdfKey(await argon2id(password, salt, params));
+async function envelopeKeys(password: string, salt: Uint8Array, params: Argon2Params, timeSecret?: Uint8Array) {
+  let base = await hkdfKey(await argon2id(password, salt, params));
+  if (timeSecret) {
+    if (timeSecret.length !== TIME_SECRET_BYTES) throw new Error('Invalid time secret');
+    base = await hkdfKey(await hkdfBytes(base, 'encrypt.click/envelope/v3/timelock/v1', 32, timeSecret));
+  }
   const [key, commitment] = await Promise.all([
     hkdfAesKey(base, 'encrypt.click/envelope/v3/key'),
     hkdfBytes(base, 'encrypt.click/envelope/v3/commit'),
@@ -41,7 +51,7 @@ export async function sealPassword(data: Uint8Array | Uint8Array[], password: st
   const params = options.params ?? ARGON2_V3;
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const { key, commitment } = await envelopeKeys(password, salt, params);
+  const { key, commitment } = await envelopeKeys(password, salt, params, options.timeSecret);
 
   const header = new Uint8Array(HEADER);
   const view = new DataView(header.buffer);
@@ -91,13 +101,13 @@ export function restoreFixedHeader(body: Uint8Array): Uint8Array {
   return sealed;
 }
 
-async function openingKey(data: Uint8Array, password: string): Promise<CryptoKey> {
+async function openingKey(data: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<CryptoKey> {
   if (!startsWith(data, ECP3_MAGIC)) throw new Error('Unsupported encrypted data');
   if (data.length < HEADER + LENGTH + TAG) throw new Error('Truncated encrypted data');
   const header = data.subarray(0, HEADER);
   const view = new DataView(header.buffer, header.byteOffset, HEADER);
   const params = { memory: view.getUint32(5), iterations: view.getUint16(9), parallelism: header[11] };
-  const { key, commitment } = await envelopeKeys(password, header.slice(12, 28), params);
+  const { key, commitment } = await envelopeKeys(password, header.slice(12, 28), params, timeSecret);
   if (!equalBytes(commitment, header.subarray(40, 72))) throw new Error('Wrong password');
   return key;
 }
@@ -110,8 +120,8 @@ async function openBody(data: Uint8Array, end: number, key: CryptoKey): Promise<
   return plain.subarray(LENGTH, LENGTH + length);
 }
 
-export async function openPassword(data: Uint8Array, password: string): Promise<Uint8Array> {
-  return openBody(data, data.length, await openingKey(data, password));
+export async function openPassword(data: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<Uint8Array> {
+  return openBody(data, data.length, await openingKey(data, password, timeSecret));
 }
 
 /**
