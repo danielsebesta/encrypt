@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validShapeRecord, sanitizeScribbles, validBoardChatItem } from '../src/lib/whiteboardRecords';
-import { splitDocUpdate, DocPartAssembler } from '../src/lib/whiteboardSync';
+import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, IMAGE_MAX_EDGE } from '../src/lib/whiteboardRecords';
+import * as Y from 'yjs';
+import { splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../src/lib/whiteboardSync';
 
 const shape = (type: string, props: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   ({ id: 'shape:abc123', typeName: 'shape', type, x: 10, y: 20, rot: 0, z: 1, props, ...extra });
@@ -15,6 +16,7 @@ test('accepts every shape kind the editor creates', () => {
     shape('line', { dx: 1, dy: 1, bend: 0, color: 'green', size: 'xl', dash: 'dotted' }),
     shape('text', { text: 'Ahoj\nsvěte', color: 'violet', size: 'm', font: 'sans', autosize: true, scale: 1 }),
     shape('note', { text: '', color: 'yellow', size: 'm', font: 'draw', scale: 1.4 }),
+    shape('image', { w: 320, h: 200, assetId: 'asset:abc123' }),
   ];
   for (const rec of ok) assert.equal(validShapeRecord(rec, rec.id), true, rec.type);
 });
@@ -28,7 +30,10 @@ test('rejects records that could break rendering or leak data', () => {
     [shape('geo', { ...geo, nested: { a: 1 } }), 'shape:abc123'],
     [shape('geo', { geo: 'rectangle', w: 10, h: 10, color: 'black', size: 'm' }), 'shape:abc123'],
     [shape('geo', geo, { x: Infinity }), 'shape:abc123'],
-    [shape('image', { w: 10, h: 10, assetId: 'asset:x' }), 'shape:abc123'],
+    [shape('image', { w: 10, h: 10 }), 'shape:abc123'],
+    [shape('image', { w: 0, h: 10, assetId: 'asset:x' }), 'shape:abc123'],
+    [shape('image', { w: 10, h: 10, assetId: 'https://evil.example/a.png' }), 'shape:abc123'],
+    [shape('geo', { ...geo, assetId: 'asset:x' }), 'shape:abc123'],
     [{ id: 'asset:x', typeName: 'asset', src: 'https://evil.example/a.png', w: 1, h: 1 }, 'asset:x'],
     [shape('draw', { pts: [0, 0], color: 'black', size: 'm' }), 'shape:abc123'],
     [shape('draw', { pts: [0, 0, NaN], color: 'black', size: 'm' }), 'shape:abc123'],
@@ -101,4 +106,53 @@ test('board chat items are bounded and well-formed', () => {
   assert.equal(validBoardChatItem({ ...ok, alias: [1, 2] }), false);
   assert.equal(validBoardChatItem({ ...ok, at: 'now' }), false);
   assert.equal(validBoardChatItem(null), false);
+});
+
+test('a board backup round-trips the whole document and merges into another board', () => {
+  const doc = new Y.Doc();
+  doc.getMap('records').set('shape:a', shape('text', { text: 'hi', color: 'black', size: 'm' }) as any);
+  const text = encodeBoardBackup(Y.encodeStateAsUpdate(doc));
+  const parsed = JSON.parse(text);
+  assert.equal(parsed.format, 'encrypt-click-board');
+  assert.equal(parsed.v, 1);
+  const result = parseBoardBackup(text);
+  assert.ok('update' in result);
+  const other = new Y.Doc();
+  other.getMap('records').set('shape:b', shape('text', { text: 'there', color: 'black', size: 'm' }) as any);
+  Y.applyUpdate(other, result.update);
+  assert.deepEqual([...other.getMap('records').keys()].sort(), ['shape:a', 'shape:b']);
+});
+
+test('board backups with the wrong format, version or encoding are refused', () => {
+  const update = 'AAAA';
+  assert.deepEqual(parseBoardBackup('nope'), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup('[]'), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'other', v: 1, update })), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 2, update })), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update: 'AA-_' })), { error: 'invalid' });
+  assert.deepEqual(parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update: 'AAA' })), { error: 'invalid' });
+  assert.ok('update' in parseBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update })));
+  assert.deepEqual(parseBoardBackup('x'.repeat(Math.ceil(BOARD_BACKUP_MAX_BYTES / 3) * 4 + 2048)), { error: 'too-large' });
+});
+
+test('embedded pictures must be small raster images whose bytes match their type', () => {
+  const webp = 'UklGR' + 'A'.repeat(1019);
+  const ok = { mime: 'image/webp', width: 1600, height: 900, data: webp };
+  assert.equal(validAssetRecord(ok, 'asset:abc'), true);
+  assert.equal(validAssetRecord({ ...ok, mime: 'image/jpeg', data: '/9j/' + 'A'.repeat(1020) }, 'asset:abc'), true);
+  assert.equal(validAssetRecord({ ...ok, mime: 'image/png', data: 'iVBORw0KGgo' + 'A'.repeat(1013) }, 'asset:abc'), true);
+  assert.equal(validAssetRecord(ok, 'bad key!'), false);
+  assert.equal(validAssetRecord({ ...ok, mime: 'image/svg+xml' }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, mime: 'image/jpeg' }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, width: IMAGE_MAX_EDGE + 1 }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, height: 0 }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, width: 1.5 }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, data: webp.slice(0, -1) }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, data: webp.slice(0, -4) + '!!!!' }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, data: 'UklGR' + 'A'.repeat(700_003) }, 'asset:abc'), false);
+  assert.equal(validAssetRecord({ ...ok, src: 'data:image/webp;base64,' }, 'asset:abc'), false);
+  assert.equal(validAssetRecord(null, 'asset:abc'), false);
+  assert.equal(assetBytes('AAAA'), 3);
+  assert.equal(assetBytes('AA=='), 1);
+  assert.equal(assetBytes('AAA='), 2);
 });

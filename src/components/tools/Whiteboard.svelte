@@ -5,16 +5,17 @@
   import PartySocket from 'partysocket';
   import * as Y from 'yjs';
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
-  import type { Diff, ShapeRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
+  import type { Diff, ShapeRecord, AssetRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
-  import { validShapeRecord, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
-  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
+  import { deriveBoardAccess, deriveSavedBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, BOARD_ASSET_BYTES, type BoardAsset, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
+  import { encodeBoardImage } from '../../lib/whiteboardImages';
+  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, STORED_KINDS, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
   import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
-  import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable } from '../../lib/chatIdentity';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
-  import { parseBurnSuffix, roomPasswordOk } from '../../lib/chatRoomSettings';
-  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler } from '../../lib/whiteboardSync';
+  import { parseBurnSuffix, roomPasswordOk, ROOM_KEY_RE } from '../../lib/chatRoomSettings';
+  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES, SAVED_BOARD_BYTES } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
   import ShareLinkButton from '../ShareLinkButton.svelte';
 
@@ -40,6 +41,8 @@
   const RATE_DOC_HEADROOM = 400_000;
   const RATE_OPTIONAL_SHARE = 0.6;
   const LOCAL_ORIGIN = 'local';
+  const IMPORT_ORIGIN = 'import';
+  const NOTICE_MS = 6000;
 
   // Quickdraw ships a warm paper look; use the site's neutral surfaces and a grey grid instead.
   THEMES.light.background = '#fafafa';
@@ -60,6 +63,7 @@
     line: '<path d="M5 19 19 5"/>',
     text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
     note: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',
+    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
     rectangle: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
     ellipse: '<ellipse cx="12" cy="12" rx="9.5" ry="7.5"/>',
     triangle: '<path d="M12 3.5 21.5 20h-19z"/>',
@@ -77,6 +81,8 @@
     fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
     menu: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+    save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
     grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
     fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
     exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>',
@@ -136,6 +142,22 @@
   let canCreate = false;
   let boardMissing = false;
 
+  const LINK_KEY_PREFIX = 'whiteboard-link-key:';
+  let savedBoard = false;
+  let linkKey: string | null = null;
+  let linkFailed = false;
+  let boardDeleted = false;
+  let shareLinkOnly = false;
+  let shareCopiedMenu = false;
+  let historyDone = false;
+  let savedEpoch: string | null = null;
+  let appliedSeq = 0;
+  let compacting = false;
+  let docSending = 0;
+  const unsaved = new Map<string, { update: Uint8Array; pending: Set<string> }>();
+  let unsavedCount = 0;
+  let storedChain: Promise<void> = Promise.resolve();
+
   let connected = false;
   let verified = false;
   let verifying = false;
@@ -156,6 +178,7 @@
 
   let ydoc: Y.Doc;
   let yrecords: Y.Map<ShapeRecord>;
+  let yassets: Y.Map<BoardAsset>;
   let ychat: Y.Array<BoardChatItem>;
 
   type ChatView = { id: string; html: string; name: string; color: string; mine: boolean; at: number; expiresAt?: number; pk: string; warn: boolean };
@@ -187,6 +210,10 @@
   let isFullscreen = false;
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
+  let importInput: HTMLInputElement;
+  let imageInput: HTMLInputElement;
+  let notice: { text: string; error: boolean } | null = null;
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
   type Cursor = { id: string; x: number; y: number; name: string; color: string; alias?: Alias; pk: string; warn: boolean; lastSeen: number };
   let cursors: Cursor[] = [];
@@ -211,6 +238,15 @@
 
   async function initRoom() {
     if (typeof window === 'undefined') return;
+    linkKey = takeLinkKey();
+    if (linkKey) {
+      if (sessionStorage.getItem('whiteboard-share-link')) {
+        shareLinkOnly = true;
+        sessionStorage.removeItem('whiteboard-share-link');
+      }
+      await enterSavedBoard(linkKey);
+      return;
+    }
     if (initialPassword.trim()) {
       passwordInput = initialPassword.trim();
       await enterWithPassword(initialPassword.trim());
@@ -237,18 +273,56 @@
     await enterWithPassword(passwordInput.trim());
   }
 
+  async function setupIdentity() {
+    if (boardKey) return;
+    boardKey = await loadRoomIdentity(`whiteboard:${roomId}`);
+    myPk = boardKey.publicKey;
+    const trustRoom = `whiteboard:${roomId}`;
+    trust = new BoardTrust(loadTrustTable(trustRoom), { pk: myPk, key: identity.key, name: identity.name }, (table) => saveTrustTable(trustRoom, table), onTrustChange);
+    myKeyCode = await keyCode(myPk);
+  }
+
+  // A saved board's key leaves the address bar at once, as in saved chat rooms; this tab keeps it for reloads and sharing.
+  function takeLinkKey(): string | null {
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    const fromLink = fragment.get('k');
+    if (fromLink && ROOM_KEY_RE.test(fromLink) && fragment.get('p') === '1') {
+      try { sessionStorage.setItem(`${LINK_KEY_PREFIX}${roomId}`, fromLink); } catch {}
+      history.replaceState(history.state, '', location.pathname + location.search);
+      return fromLink;
+    }
+    try {
+      const saved = sessionStorage.getItem(`${LINK_KEY_PREFIX}${roomId}`);
+      if (saved && ROOM_KEY_RE.test(saved)) return saved;
+    } catch {}
+    return null;
+  }
+
+  function forgetLinkKey() {
+    try { sessionStorage.removeItem(`${LINK_KEY_PREFIX}${roomId}`); } catch {}
+  }
+
+  async function enterSavedBoard(key: string) {
+    savedBoard = true;
+    try {
+      const access = await deriveSavedBoardAccess(key, roomId);
+      accessToken = access.token; channelId = access.channel;
+      cryptoKey = access.key;
+      await setupIdentity();
+      canCreate = true;
+      setupYjs();
+      connectWs();
+    } catch {
+      linkFailed = true;
+    }
+  }
+
   async function enterWithPassword(pwd: string) {
     try {
       const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
-      if (!boardKey) {
-        boardKey = await loadRoomIdentity(`whiteboard:${roomId}`);
-        myPk = boardKey.publicKey;
-        const trustRoom = `whiteboard:${roomId}`;
-        trust = new BoardTrust(loadTrustTable(trustRoom), { pk: myPk, key: identity.key, name: identity.name }, (table) => saveTrustTable(trustRoom, table), onTrustChange);
-        myKeyCode = await keyCode(myPk);
-      }
+      await setupIdentity();
       canCreate = roomPasswordOk(pwd, roomId);
       boardMissing = false;
       needsPassword = false;
@@ -288,27 +362,137 @@
     if (!flushTimer) flushTimer = setTimeout(flushToDoc, delay);
   }
 
-  function flushToDoc() {
-    flushTimer = null;
+  function flushToDoc(force = false) {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
     if (!dirty.size || !ydoc) return;
     const use = rateUsage();
-    if (use.count + 8 > RATE_MAX_MESSAGES || use.bytes + RATE_DOC_HEADROOM > RATE_MAX_BYTES) {
+    if (!force && (use.count + 8 > RATE_MAX_MESSAGES || use.bytes + RATE_DOC_HEADROOM > RATE_MAX_BYTES)) {
       scheduleFlush(500);
       return;
     }
+    const refused = new Set<string>();
     ydoc.transact(() => {
       for (const id of dirty) {
         const rec = store.get(id);
-        if (rec && rec.typeName === 'shape') yrecords.set(id, rec);
-        else if (yrecords.has(id)) yrecords.delete(id);
+        if (rec && rec.typeName === 'shape') {
+          if (rec.type === 'image' && !shareAsset(rec.props.assetId, refused)) continue;
+          yrecords.set(id, rec);
+        } else if (!rec) {
+          const old = yrecords.get(id);
+          if (old) {
+            yrecords.delete(id);
+            if (old.type === 'image') releaseAsset(old.props.assetId);
+          } else if (yassets.has(id)) {
+            yassets.delete(id);
+          }
+        }
       }
     }, LOCAL_ORIGIN);
     dirty.clear();
+    if (refused.size) dropRefusedImages(refused);
+  }
+
+  function boardAssetBytes(): number {
+    let total = 0;
+    for (const a of yassets.values()) total += assetBytes(a.data);
+    return total;
+  }
+
+  function toAssetRecord(id: string, a: BoardAsset): AssetRecord {
+    return { id, typeName: 'asset', src: `data:${a.mime};base64,${a.data}`, w: a.width, h: a.height };
+  }
+
+  function fromAssetRecord(rec: AssetRecord): BoardAsset | null {
+    const match = /^data:(image\/[a-z]+);base64,(.+)$/.exec(rec.src);
+    return match ? { mime: match[1], width: rec.w, height: rec.h, data: match[2] } : null;
+  }
+
+  // A picture goes into the document with the first shape that shows it, and only while the board stays under its cap.
+  function shareAsset(assetId: unknown, refused: Set<string>): boolean {
+    if (typeof assetId !== 'string' || refused.has(assetId)) return false;
+    if (yassets.has(assetId)) return true;
+    const rec = store.asset(assetId);
+    if (!rec) return true;
+    const asset = fromAssetRecord(rec);
+    if (!asset || !validAssetRecord(asset, assetId) || boardAssetBytes() + assetBytes(asset.data) > BOARD_ASSET_BYTES) {
+      refused.add(assetId);
+      return false;
+    }
+    yassets.set(assetId, asset);
+    return true;
+  }
+
+  // The local copy stays in the store, so undo can bring the picture back.
+  function releaseAsset(assetId: unknown) {
+    if (typeof assetId !== 'string' || !yassets.has(assetId)) return;
+    for (const r of yrecords.values()) if (r.type === 'image' && r.props.assetId === assetId) return;
+    yassets.delete(assetId);
+  }
+
+  function boardFullNotice() {
+    showNotice(t(dict, 'whiteboard.imageBoardFull').replace('{size}', String(BOARD_ASSET_BYTES / 1024 / 1024)));
+  }
+
+  function dropRefusedImages(refused: Set<string>) {
+    const ids = store.shapes().filter((s) => s.type === 'image' && refused.has(s.props.assetId)).map((s) => s.id);
+    store.remove([...ids, ...refused], 'remote');
+    boardFullNotice();
+  }
+
+  async function insertImages(blobs: Blob[], at?: { x: number; y: number }) {
+    const images = blobs.filter((b) => b.type.startsWith('image/'));
+    if (!editor || !ydoc || !images.length) return;
+    const placed: string[] = [];
+    for (const blob of images) {
+      let asset: BoardAsset;
+      try {
+        asset = await encodeBoardImage(blob);
+      } catch {
+        showNotice(t(dict, 'whiteboard.imageUnreadable'));
+        continue;
+      }
+      if (!editor) return;
+      if (boardAssetBytes() + assetBytes(asset.data) > BOARD_ASSET_BYTES) {
+        boardFullNotice();
+        break;
+      }
+      const vp = editor.viewportPageBounds();
+      const scale = Math.min(1, (vp.w * 0.6) / asset.width, (vp.h * 0.6) / asset.height);
+      const w = Math.max(8, asset.width * scale);
+      const h = Math.max(8, asset.height * scale);
+      const cx = at ? at.x : vp.x + vp.w / 2;
+      const cy = at ? at.y : vp.y + vp.h / 2;
+      const stamp = genId();
+      const assetId = `asset:${stamp}`;
+      const shapeId = `shape:${stamp}`;
+      store.transact(() => {
+        store.put(toAssetRecord(assetId, asset));
+        store.put({ id: shapeId, typeName: 'shape', type: 'image', x: cx - w / 2, y: cy - h / 2, rot: 0, z: store.maxZ() + 1, props: { w, h, assetId } });
+      });
+      flushToDoc(true);
+      if (store.get(shapeId)) placed.push(shapeId);
+      if (at) at = { x: at.x + 24, y: at.y + 24 };
+    }
+    if (placed.length && editor) {
+      editor.setTool('select');
+      editor.setSelection(placed);
+    }
+  }
+
+  function chooseImage() {
+    imageInput?.click();
+  }
+
+  function onImagePicked() {
+    const files = imageInput?.files ? [...imageInput.files] : [];
+    if (imageInput) imageInput.value = '';
+    void insertImages(files);
   }
 
   function setupYjs() {
     ydoc = new Y.Doc();
     yrecords = ydoc.getMap('records');
+    yassets = ydoc.getMap('assets');
     ychat = ydoc.getArray('chat');
     ychat.observe((event, tr) => { void refreshSavedChat(tr.origin !== LOCAL_ORIGIN); });
 
@@ -321,7 +505,7 @@
 
     yrecords.observe((event, tr) => {
       if (tr.origin === LOCAL_ORIGIN) return;
-      const wasEmpty = store.size === 0;
+      const wasEmpty = store.shapes().length === 0;
       const diff: Diff = { added: {}, removed: {}, updated: {} };
       event.changes.keys.forEach((change, key) => {
         if (change.action === 'delete') {
@@ -339,6 +523,21 @@
       }
     });
 
+    yassets.observe((event, tr) => {
+      if (tr.origin === LOCAL_ORIGIN) return;
+      const diff: Diff = { added: {}, removed: {}, updated: {} };
+      event.changes.keys.forEach((change, key) => {
+        if (change.action === 'delete') {
+          const cur = store.asset(key);
+          if (cur && !store.shapes().some((s) => s.type === 'image' && s.props.assetId === key)) diff.removed[key] = cur;
+          return;
+        }
+        const asset = yassets.get(key);
+        if (!store.asset(key) && validAssetRecord(asset, key)) diff.added[key] = toAssetRecord(key, asset);
+      });
+      store.applyDiff(diff, 'remote');
+    });
+
     ydoc.on('update', (update: Uint8Array, origin: any) => {
       if (origin === 'remote') return;
       queueDocUpdate(update);
@@ -351,7 +550,13 @@
   let syncProgress: { received: number; total: number } | null = null;
 
   function queueDocUpdate(update: Uint8Array, to?: string) {
-    docQueue = docQueue.then(() => sendDocUpdate(update, to)).catch(() => {});
+    let group: string | undefined;
+    if (savedBoard && !to) {
+      group = genId();
+      unsaved.set(group, { update, pending: new Set() });
+      unsavedCount = unsaved.size;
+    }
+    docQueue = docQueue.then(() => sendDocUpdate(update, to, group)).catch(() => {});
   }
 
   async function waitForBudget(bytes: number) {
@@ -368,25 +573,151 @@
   }
 
   // Parts are stamped only once the rate budget allows sending them, so a long sync never goes out with a stale stamp.
-  async function sendDocEnvelope(kind: 'doc' | 'doc-part', bytes: Uint8Array, to?: string) {
+  async function sendDocEnvelope(kind: 'doc' | 'doc-part', bytes: Uint8Array, to?: string, id = genId()) {
     await waitForBudget(Math.ceil(bytes.length * 16 / 9) + 1024);
     const payload = await seal(kind, { data: bytesToB64(bytes) });
     if (!payload) return;
     const message = JSON.stringify(to
-      ? { type: 'envelope-to', to, kind, payload, id: genId() }
-      : { type: 'envelope', kind, payload, id: genId() });
+      ? { type: 'envelope-to', to, kind, payload, id }
+      : { type: 'envelope', kind, payload, id });
     socketSend(message, true);
   }
 
-  async function sendDocUpdate(update: Uint8Array, to?: string) {
+  function docParts(update: Uint8Array): Uint8Array[] | null {
+    return update.length <= DOC_PART_BYTES ? [update] : splitDocUpdate(update);
+  }
+
+  async function sendDocUpdate(update: Uint8Array, to?: string, group?: string) {
     if (!cryptoKey || !ws || !verified) return;
-    if (update.length <= DOC_PART_BYTES) {
-      await sendDocEnvelope('doc', update, to);
-      return;
-    }
-    const parts = splitDocUpdate(update);
+    const parts = docParts(update);
     if (!parts) return;
-    for (const part of parts) await sendDocEnvelope('doc-part', part, to);
+    const kind = parts.length === 1 ? 'doc' : 'doc-part';
+    const ids = parts.map((_, i) => group ? `${group}-${i}` : genId());
+    if (group) for (const id of ids) unsaved.get(group)?.pending.add(id);
+    docSending++;
+    try {
+      for (let i = 0; i < parts.length; i++) await sendDocEnvelope(kind, parts[i], to, ids[i]);
+    } finally {
+      docSending--;
+    }
+  }
+
+  function storedStep(step: () => unknown) {
+    storedChain = storedChain.then(step).catch(() => {});
+  }
+
+  // Stored updates are applied strictly in server order, so appliedSeq always names a point the local document has fully reached.
+  async function applyStored(entry: any, live: boolean) {
+    const seq = entry?.seq;
+    if (cryptoKey && ydoc && typeof entry?.payload === 'string' && entry.payload.length <= 720000 && typeof entry.from === 'string' && entry.from &&
+      STORED_KINDS.includes(entry.kind)) {
+      const opened = await openEnvelope(cryptoKey, entry.payload, entry.kind, channelId, Date.now(), true);
+      if (opened && (!live || connectionKeys.bind(entry.from, opened.signer))) {
+        try {
+          const bytes = b64ToBytes(opened.body.data as string);
+          if (entry.kind === 'doc') {
+            Y.applyUpdate(ydoc, bytes, 'remote');
+          } else {
+            const result = assembler.accept(entry.from, bytes);
+            if (result) {
+              syncProgress = result.update ? null : { received: result.received, total: result.total };
+              if (result.update) Y.applyUpdate(ydoc, result.update, 'remote');
+            }
+          }
+        } catch {}
+      }
+    }
+    if (Number.isInteger(seq) && seq > appliedSeq) appliedSeq = seq;
+  }
+
+  async function applyHistory(data: any) {
+    if (!Array.isArray(data.entries)) return;
+    for (const entry of data.entries) await applyStored(entry, false);
+    if (data.more) return;
+    const epoch = typeof data.epoch === 'string' ? data.epoch : null;
+    if (epoch !== savedEpoch) appliedSeq = Number.isInteger(data.seq) ? data.seq : 0;
+    else if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
+    savedEpoch = epoch;
+    syncProgress = null;
+    historyDone = true;
+    resendUnsaved();
+  }
+
+  function noteStored(data: any) {
+    if (typeof data.epoch === 'string') savedEpoch = data.epoch;
+    if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
+    const id = String(data.id);
+    const group = id.split('-')[0];
+    const entry = unsaved.get(group);
+    if (entry) {
+      entry.pending.delete(id);
+      if (!entry.pending.size) unsaved.delete(group);
+      unsavedCount = unsaved.size;
+    }
+    if (data.compact) void compactBoard();
+  }
+
+  // Whatever the server has not confirmed goes out again as one merged update; Yjs ignores the parts it already holds.
+  function resendUnsaved() {
+    if (!unsaved.size) return;
+    const merged = Y.mergeUpdates([...unsaved.values()].map((u) => u.update));
+    unsaved.clear();
+    unsavedCount = 0;
+    queueDocUpdate(merged);
+  }
+
+  // When the server asks, a member holding the whole board seals it as a snapshot covering everything up to appliedSeq.
+  async function compactBoard() {
+    if (!savedBoard || !historyDone || compacting || !ydoc || !ws || assembler.pending || docSending) return;
+    compacting = true;
+    const base = appliedSeq;
+    const parts = docParts(Y.encodeStateAsUpdate(ydoc));
+    if (!parts || !base) { compacting = false; return; }
+    const kind = parts.length === 1 ? 'doc' : 'doc-part';
+    try {
+      for (let index = 0; index < parts.length; index++) {
+        await waitForBudget(Math.ceil(parts[index].length * 16 / 9) + 1024);
+        const payload = await seal(kind, { data: bytesToB64(parts[index]) });
+        if (!payload || !socketSend(JSON.stringify({ type: 'snapshot', base, index, total: parts.length, kind, payload, id: genId() }), true)) {
+          compacting = false;
+          return;
+        }
+      }
+    } catch {
+      compacting = false;
+    }
+  }
+
+  function handleBoardDeleted() {
+    forgetLinkKey();
+    forgetTrustTable(`whiteboard:${roomId}`);
+    boardDeleted = true;
+    verified = false;
+    verifying = false;
+    unsaved.clear();
+    unsavedCount = 0;
+    ws?.close();
+    ws = null;
+  }
+
+  function deleteBoardForEveryone() {
+    menuOpen = false;
+    if (!confirm(t(dict, 'whiteboard.deleteBoardConfirm'))) return;
+    socketSend(JSON.stringify({ type: 'delete' }), true);
+  }
+
+  function roomLink(): string {
+    if (typeof window === 'undefined') return '';
+    const base = `${location.origin}${location.pathname}`;
+    return savedBoard && linkKey ? `${base}#k=${linkKey}&p=1` : location.href;
+  }
+
+  async function copyBoardLink() {
+    try {
+      await navigator.clipboard.writeText(roomLink());
+      shareCopiedMenu = true;
+      setTimeout(() => { shareCopiedMenu = false; menuOpen = false; }, 900);
+    } catch {}
   }
 
   function shouldAnswerSync(newcomer: string) {
@@ -402,7 +733,7 @@
     ws = new PartySocket({
       host: partyHost || window.location.host,
       room: channelId,
-      party: 'whiteboard',
+      party: savedBoard ? 'whiteboard-saved' : 'whiteboard',
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
       reconnectionDelayGrowFactor: 1.4,
@@ -413,10 +744,13 @@
     ws.addEventListener('open', async () => {
       connected = true;
       const rejoin = verified;
-      socketSend(JSON.stringify({ type: 'join', token: accessToken }), true);
+      historyDone = false;
+      compacting = false;
+      const resume = savedBoard && savedEpoch ? { since: appliedSeq, epoch: savedEpoch } : {};
+      socketSend(JSON.stringify({ type: 'join', token: accessToken, ...resume }), true);
       const verifyPayload = await seal('verify', { alias: aliasWire(alias) });
       if (verifyPayload) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
-      if (rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
+      if (!savedBoard && rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
     ws.addEventListener('close', () => {
@@ -445,6 +779,11 @@
       myConnId = data.connId || '';
       serverPresence = data.presence;
       roomLocked = !!data.locked;
+      if (savedBoard) {
+        verified = true;
+        verifying = false;
+        return;
+      }
       if (verifying && serverPresence <= 1) {
         // Nobody here means the board does not exist yet; only a password that passes the room policy may create it.
         if (!canCreate) {
@@ -468,6 +807,14 @@
       return;
     }
     if (data.type === 'presence') { serverPresence = data.count; return; }
+    if (savedBoard) {
+      if (data.type === 'history') { storedStep(() => applyHistory(data)); return; }
+      if (data.type === 'stored') { storedStep(() => noteStored(data)); return; }
+      if (data.type === 'envelope' && typeof data.seq === 'number') { storedStep(() => applyStored(data, true)); return; }
+      if (data.type === 'board-full') { showNotice(t(dict, 'whiteboard.savedBoardFull').replace('{size}', String(SAVED_BOARD_BYTES / 1024 / 1024))); return; }
+      if (data.type === 'snapshot-saved' || data.type === 'snapshot-busy' || data.type === 'snapshot-stale') { compacting = false; return; }
+      if (data.type === 'room-deleted') { handleBoardDeleted(); return; }
+    }
     if (data.type === 'locked') { roomLocked = true; return; }
     if (data.type === 'unlocked') { roomLocked = false; return; }
     if (data.type === 'peer-leave') {
@@ -530,7 +877,7 @@
         if (verified && ws) {
           const ack = await seal('verify-ack', { alias: aliasWire(alias) });
           if (ack) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
-          if ((store.size || ychat.length) && shouldAnswerSync(from)) {
+          if (!savedBoard && (store.size || ychat.length) && shouldAnswerSync(from)) {
             flushToDoc();
             queueDocUpdate(Y.encodeStateAsUpdate(ydoc), from);
           }
@@ -700,9 +1047,9 @@
     themeId = isDarkTheme() ? 'dark' : 'light';
     const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
     node.dataset.qdTheme = themeId;
-    // Images would be relayed as data URLs that exceed the encrypted message limit.
-    ed.importImageBlobs = async () => {};
-    ed.pickImage = () => {};
+    // Pictures are re-encoded here and embedded in the encrypted document; nothing goes to an upload service.
+    ed.importImageBlobs = insertImages;
+    ed.pickImage = chooseImage;
     ed.setTool(tool);
     editor = ed;
     const offs = [
@@ -711,7 +1058,7 @@
       ed.on('selection', syncUi),
       ed.on('history', syncUi),
       ed.on('grid', syncUi),
-      ed.on('change', () => { shapeCount = store.size; syncUi(); }),
+      ed.on('change', () => { shapeCount = store.shapes().length; syncUi(); }),
       ed.on('camera', () => { zoom = ed.camera.z; camTick++; }),
       ed.on('scribbles', onScribbles),
     ];
@@ -721,7 +1068,7 @@
     node.addEventListener('wheel', onBoardWheel, { capture: true, passive: false });
     node.addEventListener('mousedown', blockMiddleClick);
     node.addEventListener('auxclick', blockMiddleClick);
-    shapeCount = store.size;
+    shapeCount = store.shapes().length;
     syncUi();
     if (pendingFit || store.size) { pendingFit = false; ed.fitContent(); }
     return {
@@ -792,17 +1139,69 @@
     editor?.setGrid(gridOn ? 'none' : 'dots');
   }
 
+  function saveFile(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function showNotice(text: string, error = true) {
+    notice = { text, error };
+    if (noticeTimer) clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => { notice = null; noticeTimer = null; }, NOTICE_MS);
+  }
+
   async function exportPng() {
     menuOpen = false;
     if (!editor) return;
     const blob = await editor.exportImage({ background: true, scale: 2 });
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveFile(blob, `whiteboard-${new Date().toISOString().slice(0, 10)}.png`);
+  }
+
+  function exportBoard() {
+    menuOpen = false;
+    if (!ydoc) return;
+    flushToDoc();
+    const name = roomId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'whiteboard';
+    saveFile(new Blob([encodeBoardBackup(Y.encodeStateAsUpdate(ydoc))], { type: 'application/json' }), `${name}.board.json`);
+  }
+
+  function chooseImport() {
+    menuOpen = false;
+    importInput?.click();
+  }
+
+  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
+  async function importBoard() {
+    const file = importInput?.files?.[0];
+    if (importInput) importInput.value = '';
+    if (!file || !ydoc) return;
+    const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+    if (file.size > BOARD_BACKUP_MAX_BYTES * 2) { showNotice(tooLarge); return; }
+    const parsed = parseBoardBackup(await file.text());
+    if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
+    const probe = new Y.Doc();
+    let added = 0;
+    try {
+      Y.applyUpdate(probe, parsed.update);
+      for (const [key, asset] of probe.getMap<BoardAsset>('assets')) {
+        if (!yassets.has(key) && validAssetRecord(asset, key)) added += assetBytes(asset.data);
+      }
+    } catch {
+      showNotice(t(dict, 'whiteboard.importInvalid'));
+      return;
+    } finally {
+      probe.destroy();
+    }
+    if (boardAssetBytes() + added > BOARD_ASSET_BYTES) { boardFullNotice(); return; }
+    flushToDoc(true);
+    Y.applyUpdate(ydoc, parsed.update, IMPORT_ORIGIN);
+    editor?.fitContent({ animate: 200 });
+    showNotice(t(dict, 'whiteboard.importDone'), false);
   }
 
   async function toggleFullscreen() {
@@ -949,7 +1348,7 @@
 
   async function copyShareLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(roomLink());
       shareCopiedLink = true;
       setTimeout(() => { shareCopiedLink = false; }, 1500);
     } catch {}
@@ -969,7 +1368,7 @@
   }
 
   $: if (typeof window !== 'undefined') {
-    if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
+    if (verified && (!savedBoard || unsavedCount > 0)) window.addEventListener('beforeunload', beforeUnloadHandler);
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 
@@ -1025,12 +1424,23 @@
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (flushTimer) clearTimeout(flushTimer);
     if (laserTimer) clearTimeout(laserTimer);
+    if (noticeTimer) clearTimeout(noticeTimer);
     ydoc?.destroy();
   });
 </script>
 
 <div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
-  {#if wrongPassword}
+  {#if boardDeleted || linkFailed}
+    <div class="wb-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        <p class="status status--error" role="alert">{t(dict, boardDeleted ? 'whiteboard.boardDeleted' : 'whiteboard.errorDeriveKey')}</p>
+        {#if boardDeleted}<p class="hint">{t(dict, 'whiteboard.boardDeletedDetail')}</p>{/if}
+        <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard`}>{t(dict, 'whiteboard.newBoard')}</a>
+      </div>
+    </div>
+
+  {:else if wrongPassword}
     <div class="wb-center">
       <div class="space-y-4 max-w-xs w-full text-center">
         <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
@@ -1072,26 +1482,27 @@
 
   {:else if verifying}
     <div class="wb-center">
-      <p class="status status--busy" role="status">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+      <p class="status status--busy" role="status">{savedBoard ? t(dict, 'whiteboard.savedOpening') : serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
     </div>
 
   {:else}
-    {#if sharePassword && !shareDismissed}
+    {#if (sharePassword || shareLinkOnly) && !shareDismissed}
       <div class="wb-share-banner">
         <div class="flex items-center justify-between gap-2 mb-2">
-          <span class="text-sm font-bold text-accent">{t(dict, 'whiteboard.sharePasswordWarning')}</span>
+          <span class="text-sm font-bold text-accent">{t(dict, savedBoard ? 'whiteboard.savedShareWarning' : 'whiteboard.sharePasswordWarning')}</span>
           <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS.close}</svg>
           </button>
         </div>
         <div class="flex items-center gap-1.5 mb-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.roomLink')}</span>
-          <code class="wb-share-value">{typeof window !== 'undefined' ? window.location.href : ''}</code>
+          <code class="wb-share-value">{savedBoard && linkKey ? roomLink() : typeof window !== 'undefined' ? window.location.href : ''}</code>
           <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedLink} aria-hidden="true">{@html shareCopiedLink ? ICONS.check : ICONS.copy}</svg>
           </button>
           <ShareLinkButton url={typeof window !== 'undefined' ? window.location.href : ''} label={t(dict, 'common.shareLink')} className="btn-ghost btn-sm" iconOnly size={14} />
         </div>
+        {#if sharePassword}
         <div class="flex items-center gap-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>
           <code class="wb-share-value">{showSharePassword ? sharePassword : '•'.repeat(Math.min(sharePassword.length, 16))}</code>
@@ -1102,6 +1513,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedPass} aria-hidden="true">{@html shareCopiedPass ? ICONS.check : ICONS.copy}</svg>
           </button>
         </div>
+        {/if}
       </div>
     {/if}
 
@@ -1267,6 +1679,13 @@
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
             </button>
+            <button type="button" class="menu__item" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportBoard')}
+            </button>
+            <button type="button" class="menu__item" on:click={chooseImport} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importBoard')}
+            </button>
+            <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
             </button>
@@ -1279,9 +1698,19 @@
                 <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
               </button>
             {/if}
+            {#if savedBoard}
+              <button type="button" class="menu__item" on:click={copyBoardLink}>
+                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html shareCopiedMenu ? ICONS.check : ICONS.copy}</svg>{t(dict, shareCopiedMenu ? 'whiteboard.linkCopied' : 'whiteboard.copyRoomLink')}
+              </button>
+            {/if}
             <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.clear')}
             </button>
+            {#if savedBoard}
+              <button type="button" class="menu__item wb-menu-danger" on:click={deleteBoardForEveryone} disabled={!connected}>
+                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.deleteBoard')}
+              </button>
+            {/if}
           </div>
         </div>
       </div>
@@ -1373,6 +1802,17 @@
         </section>
       {/if}
 
+      <input bind:this={imageInput} type="file" accept="image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" on:change={onImagePicked} />
+      <input bind:this={importInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={importBoard} />
+      {#if notice}
+        <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
+          <span class="min-w-0 flex-1">{notice.text}</span>
+          <button type="button" class="wb-btn wb-notice__close" on:click={() => { notice = null; }} aria-label={t(dict, 'whiteboard.noticeClose')} title={t(dict, 'whiteboard.noticeClose')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.close}</svg>
+          </button>
+        </div>
+      {/if}
+
       <div class="wb-dock-wrap">
         {#if tool === 'geo'}
           <div class="wb-pill wb-geo" role="group" aria-label={t(dict, 'whiteboard.geoKinds')}>
@@ -1399,6 +1839,9 @@
               <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[item.id === 'geo' ? geoKind : item.id]}</svg>
             </button>
           {/each}
+          <button type="button" class="wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.image}</svg>
+          </button>
         </div>
       </div>
     </div>
@@ -1426,6 +1869,9 @@
           {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
         </button>
         <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
+        {#if savedBoard}
+          <span class="wb-counter" role="status">{t(dict, unsavedCount ? 'whiteboard.saving' : 'whiteboard.savedState')}</span>
+        {/if}
         {#if syncProgress}
           <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
         {/if}
@@ -1644,6 +2090,24 @@
     stroke-linejoin: round;
   }
   .wb-menu-check { margin-left: auto; color: var(--accent); }
+  .wb-menu-hint {
+    max-width: 15rem;
+    padding: 0 0.75rem 0.375rem;
+    font-size: 0.75rem;
+  }
+
+  .wb-notice {
+    position: absolute;
+    left: 50%;
+    top: 3.5rem;
+    transform: translateX(-50%);
+    width: min(26rem, calc(100% - 1rem));
+    align-items: center;
+    padding: 0.375rem 0.375rem 0.375rem 0.875rem;
+    box-shadow: var(--shadow-float);
+    z-index: 4;
+  }
+  .wb-notice__close { width: 32px; height: 32px; color: inherit; }
   .wb-menu-danger:not(:disabled):hover { color: var(--danger); }
 
   .wb-dock-wrap {

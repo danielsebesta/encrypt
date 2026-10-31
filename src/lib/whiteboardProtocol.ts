@@ -7,8 +7,10 @@ import type { TrustTable } from './chatIdentity';
 export const WHITEBOARD_KINDS = ['doc', 'doc-part', 'chat', 'cursor', 'verify', 'verify-ack'] as const;
 export type WhiteboardKind = typeof WHITEBOARD_KINDS[number];
 
-// Everything on a board is relayed live and never stored, so nothing legitimate is older than this.
+// Everything on a live board is relayed and never stored, so nothing legitimate is older than this.
 export const LIVE_MAX_AGE_MS = 60_000;
+// A saved board replays its document updates from storage; only those may be older, and Yjs ignores a replayed one it already has.
+export const STORED_KINDS: readonly WhiteboardKind[] = ['doc', 'doc-part'];
 export const FUTURE_SKEW_MS = 30_000;
 const ID_RE = /^[A-Za-z0-9-]{1,64}$/;
 const ALIAS_KINDS = new Set<string>(['cursor', 'verify', 'verify-ack']);
@@ -17,14 +19,15 @@ export function stampEnvelope(kind: WhiteboardKind, body: Record<string, unknown
   return { ...body, _kind: kind, _room: room, _sentAt: now, _id: crypto.randomUUID() };
 }
 
-/** The stamp binds a payload to this room, to the kind the relay saw it under and to the last minute. */
-export function validEnvelope(value: unknown, kind: unknown, room: string, now = Date.now()): value is Record<string, unknown> {
+/** The stamp binds a payload to this room, to the kind the relay saw it under and, unless it was stored, to the last minute. */
+export function validEnvelope(value: unknown, kind: unknown, room: string, now = Date.now(), stored = false): value is Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const v = value as Record<string, unknown>;
   if (typeof kind !== 'string' || !(WHITEBOARD_KINDS as readonly string[]).includes(kind) || v._kind !== kind) return false;
   if (!room || v._room !== room || typeof v._id !== 'string' || !ID_RE.test(v._id)) return false;
   if (typeof v._sentAt !== 'number' || !Number.isFinite(v._sentAt)) return false;
-  if (v._sentAt > now + FUTURE_SKEW_MS || now - v._sentAt > LIVE_MAX_AGE_MS || !validPad(v._pad)) return false;
+  const aged = now - v._sentAt > LIVE_MAX_AGE_MS && !(stored && STORED_KINDS.includes(kind as WhiteboardKind));
+  if (v._sentAt > now + FUTURE_SKEW_MS || aged || !validPad(v._pad)) return false;
   if (ALIAS_KINDS.has(kind) && !parseAlias(v.alias)) return false;
   if ((kind === 'doc' || kind === 'doc-part') && typeof v.data !== 'string') return false;
   if (kind === 'chat' && (!v.item || typeof v.item !== 'object')) return false;
@@ -39,14 +42,14 @@ export async function sealEnvelope(key: CryptoKey, identity: SigningIdentity, ki
 export type OpenedEnvelope = { body: Record<string, unknown>; signer: string };
 
 /** Null for anything that fails to decrypt, carries a bad stamp or lacks a valid signature. */
-export async function openEnvelope(key: CryptoKey, payload: string, kind: unknown, room: string, now = Date.now()): Promise<OpenedEnvelope | null> {
+export async function openEnvelope(key: CryptoKey, payload: string, kind: unknown, room: string, now = Date.now(), stored = false): Promise<OpenedEnvelope | null> {
   let body: unknown;
   try {
     body = JSON.parse(await openBoardMessage(key, payload));
   } catch {
     return null;
   }
-  if (!validEnvelope(body, kind, room, now)) return null;
+  if (!validEnvelope(body, kind, room, now, stored)) return null;
   const signer = await verifyPayload(body);
   return signer ? { body, signer } : null;
 }

@@ -1,3 +1,5 @@
+import { b64ToBytes, bytesToB64 } from './whiteboardCrypto';
+
 // Doc updates travel encrypted and double base64 encoded (about 1.8x), so 360 kB parts stay under the relay's 720k-character cap.
 export const DOC_PART_BYTES = 360_000;
 export const MAX_DOC_PARTS = 64;
@@ -75,7 +77,49 @@ export class DocPartAssembler {
     return { update, received: total, total };
   }
 
+  /** Updates still waiting for parts; a snapshot taken now would miss them. */
+  get pending(): number {
+    const now = this.now();
+    let count = 0;
+    for (const a of this.assemblies.values()) if (now - a.at <= ASSEMBLY_TTL_MS) count++;
+    return count;
+  }
+
   drop(from: string) {
     for (const k of this.assemblies.keys()) if (k.startsWith(`${from}:`)) this.assemblies.delete(k);
   }
 }
+
+export const BOARD_BACKUP_FORMAT = 'encrypt-click-board';
+export const BOARD_BACKUP_VERSION = 1;
+export const BOARD_BACKUP_MAX_BYTES = 16 * 1024 * 1024;
+const BACKUP_MAX_CHARS = Math.ceil(BOARD_BACKUP_MAX_BYTES / 3) * 4 + 1024;
+const B64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/** A local, unencrypted copy of the whole board: the Yjs state as one update. */
+export function encodeBoardBackup(update: Uint8Array): string {
+  return JSON.stringify({ format: BOARD_BACKUP_FORMAT, v: BOARD_BACKUP_VERSION, update: bytesToB64(update) });
+}
+
+export type BackupResult = { update: Uint8Array } | { error: 'invalid' | 'too-large' };
+
+export function parseBoardBackup(text: string): BackupResult {
+  if (text.length > BACKUP_MAX_CHARS) return { error: 'too-large' };
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { return { error: 'invalid' }; }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { error: 'invalid' };
+  const { format, v, update } = value as Record<string, unknown>;
+  if (format !== BOARD_BACKUP_FORMAT || v !== BOARD_BACKUP_VERSION || typeof update !== 'string' || update.length < 4 || update.length % 4 || !B64_RE.test(update)) {
+    return { error: 'invalid' };
+  }
+  const bytes = b64ToBytes(update);
+  if (bytes.length > BOARD_BACKUP_MAX_BYTES) return { error: 'too-large' };
+  return { update: bytes };
+}
+
+export const SAVED_BOARD_BYTES = 16 * 1024 * 1024;
+export const SAVED_BOARD_IDLE_DAYS = 90;
+export const SAVED_PAYLOAD_CHARS = 720_000;
+// The log is folded into a fresh snapshot once it outgrows these, so a returning member replays roughly the board's own size.
+export const COMPACT_LOG_BYTES = 1024 * 1024;
+export const COMPACT_LOG_COUNT = 400;

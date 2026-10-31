@@ -1,5 +1,5 @@
-import { hkdfAesKey, hkdfBytes, hkdfKey } from './kdf';
-import { roomSecret } from './roomAccess';
+import { hkdfAesKey, hkdfBytes, hkdfKey, labelSalt } from './kdf';
+import { accessChannel, roomSecret } from './roomAccess';
 
 const VERSION = 3;
 const SALT = 16;
@@ -11,6 +11,21 @@ export type BoardAccess = { token: string; channel: string; key: CryptoKey };
 export async function deriveBoardAccess(password: string, roomId: string): Promise<BoardAccess> {
   const { token, channel, base } = await roomSecret(password, roomId, 'whiteboard');
   return { token, channel, key: await boardMessageBase(base) };
+}
+
+/**
+ * A saved board's secret is 32 random bytes from the link fragment, so no password hash is needed: HKDF, with a salt bound
+ * to the board's address and labels of its own, splits it into the access token the server checks and the message base.
+ */
+export async function deriveSavedBoardAccess(linkKey: string, roomId: string): Promise<BoardAccess> {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(linkKey)) throw new Error('Invalid board key');
+  const raw = b64ToBytes(linkKey.replace(/-/g, '+').replace(/_/g, '/') + '=');
+  if (raw.length !== 32) throw new Error('Invalid board key');
+  const ikm = await hkdfKey(raw);
+  const salt = await labelSalt(`encrypt.click:whiteboard-saved:v1:${roomId}`);
+  const token = Array.from(await hkdfBytes(ikm, 'encrypt.click/whiteboard-saved/v1/access', 32, salt), (b) => b.toString(16).padStart(2, '0')).join('');
+  const key = await hkdfKey(await hkdfBytes(ikm, 'encrypt.click/whiteboard-saved/v1/messages', 32, salt));
+  return { token, channel: await accessChannel(token), key };
 }
 
 export async function boardMessageBase(base: CryptoKey): Promise<CryptoKey> {

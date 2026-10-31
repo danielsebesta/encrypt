@@ -36,7 +36,7 @@ export type Room = {
   onAlarm?(): Promise<void> | void;
 };
 
-export const ROOM_ROUTE_RE = /^\/parties\/(main|persistent|whiteboard)\/([0-9a-f]{64})$/;
+export const ROOM_ROUTE_RE = /^\/parties\/(main|persistent|whiteboard|whiteboard-saved)\/([0-9a-f]{64})$/;
 
 // Connection IDs are assigned here so a client cannot pick one that collides with an existing socket.
 export function connectionRequest(request: Request): Request {

@@ -7,6 +7,7 @@ export type RealtimeEnv = {
   CHAT: DurableObjectNamespace<RoomServer>;
   CHAT_PERSISTENT: DurableObjectNamespace<RoomServer>;
   WHITEBOARD: DurableObjectNamespace<RoomServer>;
+  WHITEBOARD_SAVED: DurableObjectNamespace<RoomServer>;
   ROOM_TURN_SECRET?: string;
 };
 
@@ -37,13 +38,17 @@ export class ChatServer extends RoomServer {
   protected readonly room: ChatRoom = new ChatRoom(this.host());
 }
 
-// Saved rooms get their own class so live rooms keep their storage-free code path and stored history can be pinned to one jurisdiction.
+// Saved rooms and boards get their own classes so live ones keep their storage-free code path and stored history can be pinned to one jurisdiction.
 export class PersistentChatServer extends RoomServer {
   protected readonly room: ChatRoom = new ChatRoom(this.host(), { persistent: true });
 }
 
 export class WhiteboardServer extends RoomServer {
   protected readonly room: WhiteboardRoom = new WhiteboardRoom(this.host());
+}
+
+export class SavedWhiteboardServer extends RoomServer {
+  protected readonly room: WhiteboardRoom = new WhiteboardRoom(this.host(), { saved: true });
 }
 
 // Stored history stays in the EU; local workerd has no jurisdictions, so development falls back to the plain namespace.
@@ -59,8 +64,13 @@ export async function routeRealtimeRequest(request: Request, env: RealtimeEnv): 
   const match = ROOM_ROUTE_RE.exec(new URL(request.url).pathname);
   if (!match) return null;
   if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected WebSocket', { status: 426 });
-  const party = match[1];
-  const namespace = party === 'main' ? env.CHAT : party === 'persistent' ? pinnedToEu(env.CHAT_PERSISTENT) : env.WHITEBOARD;
+  const namespaces: Record<string, () => DurableObjectNamespace<RoomServer>> = {
+    main: () => env.CHAT,
+    persistent: () => pinnedToEu(env.CHAT_PERSISTENT),
+    whiteboard: () => env.WHITEBOARD,
+    'whiteboard-saved': () => pinnedToEu(env.WHITEBOARD_SAVED),
+  };
+  const namespace = namespaces[match[1]]();
   const stub = await getServerByName(namespace, match[2]);
   return stub.fetch(connectionRequest(request));
 }

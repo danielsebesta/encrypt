@@ -19,6 +19,7 @@ export const PARTIES: Record<string, (host: RoomHost) => Room> = {
   main: host => new ChatRoom(host),
   persistent: host => new ChatRoom(host, { persistent: true }),
   whiteboard: host => new WhiteboardRoom(host),
+  'whiteboard-saved': host => new WhiteboardRoom(host, { saved: true }),
 };
 
 export interface RoomSocket {

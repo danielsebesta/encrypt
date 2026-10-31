@@ -1,10 +1,10 @@
 import { handle } from '@astrojs/cloudflare/handler';
-import { ChatServer, PersistentChatServer, WhiteboardServer } from '../party/server';
+import { ChatServer, PersistentChatServer, SavedWhiteboardServer, WhiteboardServer } from '../party/server';
 import { SecurityBudget, cloudflarePlatform, type CloudflareEnv } from './adapters/cloudflare/platform';
 import { setRuntimeEnv } from './platform/env';
 import { createApp } from './server/app';
 
-export { ChatServer, PersistentChatServer, WhiteboardServer, SecurityBudget };
+export { ChatServer, PersistentChatServer, WhiteboardServer, SavedWhiteboardServer, SecurityBudget };
 
 export default {
   async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext) {
