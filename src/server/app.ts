@@ -12,6 +12,7 @@ const LIMITS: Record<string, [number, number]> = {
   '/dl': [120, 1_000_000],
 };
 
+const SHARE_TARGET = /^\/share-target\/?$/i;
 const enc = new TextEncoder();
 const hex = (buffer: ArrayBuffer) => Array.from(new Uint8Array(buffer), b => b.toString(16).padStart(2, '0')).join('');
 
@@ -78,6 +79,8 @@ export function createApp(platform: Platform) {
       const path = routingPath(new URL(request.url).pathname);
       if (path === null) return new Response('Bad request', { status: 400 });
       if (path === '/healthz') return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
+      // The service worker answers the share sheet on the device; if it is not running yet, the body is dropped unread.
+      if (SHARE_TARGET.test(path)) return new Response(null, { status: 303, headers: { Location: new URL('/share', request.url).href, 'Cache-Control': 'no-store' } });
       const route = routeOf(path);
       if (route !== null) {
         if (crossSite(request)) return new Response('Forbidden', { status: 403 });

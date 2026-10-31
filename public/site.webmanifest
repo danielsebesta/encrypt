@@ -9,6 +9,17 @@
   "theme_color": "#09090b",
   "background_color": "#09090b",
   "categories": ["utilities", "security"],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [{ "name": "files", "accept": ["*/*"] }]
+    }
+  },
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",

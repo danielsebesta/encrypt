@@ -36,6 +36,7 @@
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import { t } from '../../lib/t';
+  import ShareLinkButton from '../ShareLinkButton.svelte';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
@@ -4506,6 +4507,7 @@
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-bold text-accent">{t(dict, shareLinkOnly ? 'chat.shareLinkWarning' : 'chat.sharePasswordWarning')}</span>
           <div class="flex items-center gap-0.5">
+            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} className="btn-ghost btn-sm" iconOnly size={14} />
             <button type="button" class="btn-ghost btn-sm btn-icon" on:click={toggleShareQr} aria-label={t(dict, showShareQr ? 'chat.hideQr' : 'chat.showQr')} title={t(dict, showShareQr ? 'chat.hideQr' : 'chat.showQr')} aria-pressed={showShareQr}>
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M19 14h2v2h-2z"/><path d="M14 19h2v2h-2z"/><path d="M19 19h2v2h-2z"/></svg>
             </button>

@@ -6,6 +6,7 @@
   import { sendWithUploadPass, uploadFirstParty } from '../../lib/firstPartyUpload';
   import { MAX_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import CopyButton from '../CopyButton.svelte';
+  import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
@@ -13,6 +14,7 @@
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import { checkRoomPassword } from '../../lib/chatRoomSettings';
   import { tick } from 'svelte';
+  import { takeSharedContent } from '../../lib/shareTarget';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -681,7 +683,13 @@
     debugLog = [];
   }
 
-  onMount(useGeneratedPassphrase);
+  onMount(() => {
+    useGeneratedPassphrase();
+    void takeSharedContent().then((shared) => {
+      if (shared?.files.length) addFiles(shared.files);
+      else if (shared) textInput = shared.text;
+    });
+  });
 
   function ueBeforeUnload(e: BeforeUnloadEvent) {
     e.preventDefault();
@@ -855,6 +863,7 @@
             </div>
           </div>
           <input id="ue-result-link" class="input input--mono" type="text" readonly value={shortUrl || resultUrl} />
+          <ShareLinkButton url={shortUrl || resultUrl} label={t(dict, 'common.shareLink')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
           {#if resultHasTemporaryUpload}
             <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
           {/if}

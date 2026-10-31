@@ -16,6 +16,7 @@
   import { parseBurnSuffix, roomPasswordOk } from '../../lib/chatRoomSettings';
   import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler } from '../../lib/whiteboardSync';
   import { t } from '../../lib/t';
+  import ShareLinkButton from '../ShareLinkButton.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -1089,6 +1090,7 @@
           <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedLink} aria-hidden="true">{@html shareCopiedLink ? ICONS.check : ICONS.copy}</svg>
           </button>
+          <ShareLinkButton url={typeof window !== 'undefined' ? window.location.href : ''} label={t(dict, 'common.shareLink')} className="btn-ghost btn-sm" iconOnly size={14} />
         </div>
         <div class="flex items-center gap-1.5">
           <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>

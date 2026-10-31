@@ -6,6 +6,7 @@
   import { extractStego } from '../../lib/ghost/steganography';
   import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
   import CopyButton from '../CopyButton.svelte';
+  import QrScanner from '../QrScanner.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
 
@@ -739,6 +740,7 @@
         </label>
       {/if}
     </div>
+    <QrScanner {dict} />
   {/if}
 
   <div class="field">
