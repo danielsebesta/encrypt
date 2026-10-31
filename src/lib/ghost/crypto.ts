@@ -1,3 +1,4 @@
+import { openChunkedFile } from '../chunkedFile';
 import { PASSWORD_ENVELOPE_OVERHEAD, sealPassword, openPassword } from '../passwordEnvelope';
 import { FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../httpLimits';
 export const ECLK_MAGIC = new Uint8Array([0x45, 0x43, 0x4c, 0x4b]);
@@ -23,7 +24,7 @@ export async function encryptData(data: Uint8Array, password: string, originalNa
   return sealPassword([head, meta, data], password, { maxLength, timeSecret });
 }
 
-export async function decryptData(encrypted: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
+async function decryptClassic(encrypted: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
   const payload = await openPassword(encrypted, password, timeSecret);
   if (payload.length < 5 || payload[0] !== 0) throw new Error('Invalid encrypted file metadata');
   const length = new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getUint32(1);
@@ -32,4 +33,20 @@ export async function decryptData(encrypted: Uint8Array, password: string, timeS
   const data = payload.slice(5 + length);
   if (!meta || typeof meta.name !== 'string' || !Number.isSafeInteger(meta.size) || meta.size !== data.length) throw new Error('Invalid metadata');
   return { data, name: meta.name || 'decrypted-file' };
+}
+
+/**
+ * Opens a classic single-envelope upload, or a chunked first-party download (manifest envelope + AES-GCM parts).
+ * Classic is tried first so existing links stay on the fast path; trailing chunk bytes make that open fail cleanly.
+ */
+export async function decryptData(encrypted: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
+  try {
+    return await decryptClassic(encrypted, password, timeSecret);
+  } catch (classic) {
+    try {
+      return await openChunkedFile(encrypted, password, timeSecret);
+    } catch {
+      throw classic;
+    }
+  }
 }
