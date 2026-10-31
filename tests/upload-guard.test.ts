@@ -99,6 +99,7 @@ test('the hourly count slides instead of resetting on the hour', () => {
 export function memoryBlobs(): BlobStore & { stored: Map<string, Uint8Array>; meta: Map<string, BlobMeta> } {
   const stored = new Map<string, Uint8Array>();
   const meta = new Map<string, BlobMeta>();
+  const multipart = new Map<string, { parts: number; complete: boolean; chunks: Map<number, Uint8Array> }>();
   return {
     stored,
     meta,
@@ -108,11 +109,43 @@ export function memoryBlobs(): BlobStore & { stored: Map<string, Uint8Array>; me
       stored.set(id, bytes);
       meta.set(id, info);
     },
+    async beginMultipart(id, parts, info) {
+      multipart.set(id, { parts, complete: false, chunks: new Map() });
+      meta.set(id, info);
+    },
+    async putPart(id, index, body, size) {
+      const session = multipart.get(id);
+      if (!session || session.complete || index < 0 || index >= session.parts) throw new Error('Invalid part');
+      const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+      if (bytes.length !== size) throw new Error('size mismatch');
+      session.chunks.set(index, bytes);
+    },
+    async completeMultipart(id) {
+      const session = multipart.get(id);
+      if (!session || session.complete) throw new Error('Invalid multipart');
+      if (session.chunks.size !== session.parts) throw new Error('Incomplete');
+      const total = Array.from({ length: session.parts }, (_, i) => session.chunks.get(i)!).reduce((n, c) => n + c.length, 0);
+      const bytes = new Uint8Array(total);
+      let offset = 0;
+      for (let i = 0; i < session.parts; i++) {
+        const part = session.chunks.get(i)!;
+        bytes.set(part, offset);
+        offset += part.length;
+      }
+      stored.set(id, bytes);
+      session.complete = true;
+    },
     async get(id) {
+      const session = multipart.get(id);
+      if (session && !session.complete) return null;
       const bytes = stored.get(id);
       return bytes ? { body: new Blob([bytes as BlobPart]).stream(), size: bytes.length, uploaded: Date.now(), ...meta.get(id)! } : null;
     },
-    async delete(id) { stored.delete(id); meta.delete(id); },
+    async delete(id) {
+      stored.delete(id);
+      meta.delete(id);
+      multipart.delete(id);
+    },
   };
 }
 

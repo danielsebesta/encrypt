@@ -31,17 +31,44 @@ function sqlite(): SqlLike {
 
 function memoryBlobs(clock: () => number) {
   const stored = new Map<string, { bytes: Uint8Array; meta: BlobMeta }>();
+  const multipart = new Map<string, { parts: number; complete: boolean; chunks: Map<number, Uint8Array>; meta: BlobMeta }>();
   const blobs: BlobStore = {
     async put(id, body, size, meta) {
       const bytes = new Uint8Array(await new Response(body).arrayBuffer());
       if (bytes.length !== size) throw new Error('size mismatch');
       stored.set(id, { bytes, meta });
     },
+    async beginMultipart(id, parts, meta) {
+      multipart.set(id, { parts, complete: false, chunks: new Map(), meta });
+    },
+    async putPart(id, index, body, size) {
+      const session = multipart.get(id);
+      if (!session || session.complete || index < 0 || index >= session.parts) throw new Error('Invalid part');
+      const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+      if (bytes.length !== size) throw new Error('size mismatch');
+      session.chunks.set(index, bytes);
+    },
+    async completeMultipart(id) {
+      const session = multipart.get(id);
+      if (!session || session.complete || session.chunks.size !== session.parts) throw new Error('Incomplete');
+      const total = Array.from({ length: session.parts }, (_, i) => session.chunks.get(i)!).reduce((n, c) => n + c.length, 0);
+      const bytes = new Uint8Array(total);
+      let offset = 0;
+      for (let i = 0; i < session.parts; i++) {
+        const part = session.chunks.get(i)!;
+        bytes.set(part, offset);
+        offset += part.length;
+      }
+      stored.set(id, { bytes, meta: session.meta });
+      session.complete = true;
+    },
     async get(id) {
+      const session = multipart.get(id);
+      if (session && !session.complete) return null;
       const entry = stored.get(id);
       return entry ? { body: new Blob([entry.bytes as BlobPart]).stream(), size: entry.bytes.length, uploaded: clock(), ...entry.meta } : null;
     },
-    async delete(id) { stored.delete(id); },
+    async delete(id) { stored.delete(id); multipart.delete(id); },
   };
   return { blobs, stored };
 }

@@ -31,7 +31,14 @@ function routeOf(path: string): string | null {
   if (lower.startsWith('/dl/')) return '/dl';
   if (lower === '/status') return path === '/status' ? '/status' : '';
   if (lower.startsWith('/api/drand/')) return path.startsWith('/api/drand/') ? '/api/drand' : '';
-  if (lower.startsWith('/api/') || lower === '/upload' || lower.startsWith('/upload/')) return path;
+  if (lower === '/upload' || lower.startsWith('/upload/')) {
+    if (lower === '/upload/status') return '/upload/status';
+    if (lower === '/upload/challenge') return '/upload/challenge';
+    if (lower === '/upload/pass') return '/upload/pass';
+    // init, part PUTs and complete share the upload budget with classic single-body posts
+    return '/upload';
+  }
+  if (lower.startsWith('/api/')) return path;
   return null;
 }
 

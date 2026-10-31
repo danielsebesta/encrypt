@@ -57,7 +57,14 @@ test('without the service worker the server drops the shared body and sends the 
     env: {},
     clientIp: () => '2001:db8::1',
     budget: async () => { budgeted = true; return true as never; },
-    blobs: { put: async () => {}, get: async () => null, delete: async () => {} },
+    blobs: {
+      put: async () => {},
+      get: async () => null,
+      delete: async () => {},
+      beginMultipart: async () => {},
+      putPart: async () => {},
+      completeMultipart: async () => {},
+    },
     realtime: async () => new Response(null, { status: 426 }),
     waitUntil: () => {},
   };
