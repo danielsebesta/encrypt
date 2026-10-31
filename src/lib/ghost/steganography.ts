@@ -23,11 +23,14 @@ export async function createStegoImage(data: Uint8Array): Promise<Uint8Array> {
   const imageData = ctx.createImageData(size, size);
   const pixels = imageData.data;
 
+  const noise = new Uint8Array(pixels.length);
+  for (let at = 0; at < noise.length; at += 65536) crypto.getRandomValues(noise.subarray(at, at + 65536));
+
   let bitIdx = 0;
   for (let i = 0; i < pixels.length; i += 4) {
-    pixels[i] = 50 + Math.floor(Math.random() * 100);
-    pixels[i + 1] = 50 + Math.floor(Math.random() * 100);
-    pixels[i + 2] = 50 + Math.floor(Math.random() * 100);
+    pixels[i] = 50 + ((noise[i] * 100) >> 8);
+    pixels[i + 1] = 50 + ((noise[i + 1] * 100) >> 8);
+    pixels[i + 2] = 50 + ((noise[i + 2] * 100) >> 8);
     pixels[i + 3] = 255;
 
     if (bitIdx < bitString.length) {

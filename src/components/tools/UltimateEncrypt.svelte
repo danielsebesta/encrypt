@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { randomIndex } from "../../lib/random";
+  import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
   import { encryptData } from '../../lib/ghost/crypto';
@@ -52,6 +52,9 @@
   let progressDetail = '';
   let debugLog: string[] = [];
   let qrSvg = '';
+  let shortenableUrl = '';
+  let shortening = false;
+  let shortenFailed = false;
 
   const INLINE_LIMIT = 10 * 1024;
   const MAX_FILE = MAX_UPLOAD_BYTES;
@@ -74,17 +77,11 @@
   }
 
 
-  // Eight independently sampled words; entropy depends on this actual unique word list.
-  const WORDS = 'able,acid,aged,also,area,army,away,baby,back,ball,band,bank,base,bath,bean,bear,beat,been,beer,bell,belt,best,bill,bird,bite,blow,blue,boat,body,bomb,bond,bone,book,boom,born,boss,both,bowl,bulk,burn,bush,busy,cafe,cage,cake,call,calm,came,camp,card,care,case,cash,cast,cave,cell,chat,chip,city,claim,clan,clay,clip,club,coal,coat,code,coin,cold,come,cook,cool,cope,copy,core,cost,crew,crop,cure,cute,dado,dale,dame,dare,dark,data,date,dawn,dead,deaf,deal,dear,debt,deck,deed,deem,deep,deer,demo,deny,desk,dial,dice,diet,dirt,disc,dish,dock,does,dome,done,door,dose,down,draw,drew,drop,drum,dual,duck,dude,duel,duke,dull,dump,dune,dust,duty,each,earn,ease,east,easy,edge,else,emit,epic,euro,even,ever,evil,exam,exit,eyed,face,fact,fade,fail,fair,fake,fall,fame,fang,fare,farm,fast,fate,fear,feat,feed,feel,feet,fell,felt,file,fill,film,find,fine,fire,firm,fish,fist,five,flag,flat,fled,flew,flip,flow,foam,fold,folk,fond,font,food,fool,foot,ford,fore,fork,form,fort,foul,four,free,from,fuel,full,fund,fury,fuse,gain,gala,gale,game,gang,gave,gaze,gear,gene,gift,girl,give,glad,glow,glue,goat,goes,gold,golf,gone,good,grab,gram,gray,grew,grey,grid,grip,grow,gulf,guru,gust,guys,hack,half,hall,halt,hand,hang,hard,harm,hate,haul,have,haze,head,heal,heap,hear,heat,heel,held,hell,help,herb,here,hero,hide,high,hike,hill,hint,hire,hold,hole,holy,home,hood,hook,hope,horn,host,hour,huge,hull,hung,hunt,hurt,icon,idea,inch,info,into,iron,isle,item,jack,jail,java,jazz,jean,jeep,jets,jobs,join,joke,jump,june,jury,just,keen,keep,kept,kick,kids,kill,kind,king,kiss,knee,knew,knit,knob,knot,know,labs,lack,laid,lake,lamp,land,lane,last,late,lawn,lead,leaf,lean,left,lend,lens,less,lied,lieu,life,lift,like,limb,lime,limp,line,link,lion,list,live,load,loan,lock,logo,lone,long,look,lord,lose,loss,lost,lots,loud,love,luck,lump,lung,lure,made,mail,main,make,male,mall,malt,mane,many,mare,mark,mask,mass,mate,maze,meal,mean,meat,melt,memo,menu,mere,mesh,mess,mild,mile,milk,mill,mind,mine,mint,miss,mode,mole,mood,moon,more,most,moth,move,much,must,myth,nail,name,navy,neat,neck,need,nest,news,next,nice,nine,node,none,noon,norm,nose,note,noun,nude,nuts,oath,obey,odds,okay,once,only,onto,open,oral,ours,oval,oven,over,pace,pack,page,paid,pain,pair,pale,palm,pane,park,part,pass,past,path,peak,peel,peer,pine,pink,pipe,plan,play,plea,plot,ploy,plug,plus,poem,poet,pole,poll,polo,pond,pool,poor,pope,pork,port,pose,post,pour,pray,prey,prop,pull,pump,punk,pure,push,quit,quiz,race,rack,rage,raid,rail,rain,rang,rank,rare,rate,rays,read,real,rear,reef,reel,rely,rent,rest,rice,rich,ride,rife,rift,ring,riot,rise,risk,road,roam,rock,rode,role,roll,roof,room,root,rope,rose,ruin,rule,rush,ruth,sack,safe,sage,said,sake,sale,salt,same,sand,sang,save,seal,seed,seek,seem,seen,self,sell,semi,send,sent,sept,shed,ship,shoe,shop,shot,show,shut,sick,side,sift,sigh,sign,silk,sing,sink,site,size,skin,skip,slam,slap,slid,slim,slip,slot,slow,snap,snow,soak,soar,sock,soft,soil,sold,sole,some,song,soon,sort,soul,sour,span,spec,sped,spin,spot,star,stay,stem,step,stir,stop,stud,such,suit,sung,sure,surf,swan,swap,swim,sync,tact,tail,take,tale,talk,tall,tank,tape,task,team,tear,tell,temp,tend,tent,term,test,text,than,that,them,then,they,thin,this,thus,tick,tide,tidy,tied,tier,tile,till,time,tiny,tire,toad,told,toll,tomb,tone,took,tool,tops,tore,torn,toss,tour,town,trap,tray,tree,trek,trim,trio,trip,true,tube,tuck,tuna,tune,turf,turn,twin,type,ugly,undo,unit,upon,urge,used,user,vain,vale,vary,vast,veil,vein,vent,verb,very,vest,veto,vibe,vice,view,vine,visa,void,volt,vote,wade,wage,wait,wake,walk,wall,wand,want,ward,warm,warn,warp,wary,wash,watt,wave,wavy,waxy,weak,wear,weed,week,well,went,were,west,what,when,whom,wide,wife,wild,will,wilt,wily,wind,wine,wing,wink,wipe,wire,wise,wish,with,woke,wolf,womb,wood,wool,word,wore,work,worm,worn,wrap,wren,yard,yarn,yeah,year,yell,yoga,your,zeal,zero,zinc,zone,zoom'.split(',');
 
   // The real name travels inside the encrypted metadata; the file a user hands to a third-party host should not reveal it.
   function neutralEncName(): string {
     const tag = Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('');
     return `encrypted-${tag}.enc`;
-  }
-
-  function capitalize(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   let passwordRevealed = false;
@@ -94,22 +91,6 @@
     password = generatePassphrase();
     passwordRevealed = true;
   }
-
-  function generatePassphrase(): string {
-    const count = 8;
-    const words: string[] = [];
-    for (let i = 0; i < count; i++) {
-      const idx = randomIndex(WORDS.length);
-      words.push(capitalize(WORDS[idx]));
-    }
-    const numIdx = randomIndex(count);
-    const num = randomIndex(90) + 10;
-    const before = randomIndex(2);
-    words[numIdx] = before ? `${num}${words[numIdx]}` : `${words[numIdx]}${num}`;
-    return words.join('-');
-  }
-
-
 
   let textFocused = false;
   let dragging = false;
@@ -506,9 +487,8 @@
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
+    shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = false;
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressLinkDetail'));
-    await autoShorten(urls.shortenable);
   }
 
   async function encryptGhostPrepare() {
@@ -610,8 +590,8 @@
     const urls = buildReceiveUrls(encoded);
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
+    shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = true;
-    await autoShorten(urls.shortenable);
 
     pendingUploadBytes = null;
     pendingPayloadPassword = '';
@@ -627,8 +607,18 @@
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
 
-  async function autoShorten(url: string): Promise<void> {
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressShortenTitle'), t(dict, 'tools.ultimateEncrypt.progressShortenDetail'));
+  // Only on request: a short link keeps the encrypted payload on the shortening service, the full link keeps it nowhere.
+  async function shortenLink(): Promise<void> {
+    const url = shortenableUrl;
+    if (!url || shortening) return;
+    shortening = true;
+    shortenFailed = false;
+    await requestShortUrl(url);
+    shortening = false;
+    shortenFailed = !shortUrl;
+  }
+
+  async function requestShortUrl(url: string): Promise<void> {
     for (let attempt = 0; attempt < 2; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 4000);
@@ -672,6 +662,8 @@
     timelockDate = '';
     resultUrl = '';
     shortUrl = '';
+    shortenableUrl = '';
+    shortenFailed = false;
     error = '';
     resultPassword = '';
     pendingPayloadPassword = '';
@@ -720,6 +712,9 @@
             class="input"
             bind:value={textInput}
             placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
             disabled={files.length > 0}
           ></textarea>
         </div>
@@ -865,6 +860,17 @@
           {/if}
           {#if showQr && qrSvg && shareUrl}
             <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+          {/if}
+          {#if shortenableUrl && !shortUrl}
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" class="btn-secondary btn-sm" disabled={shortening} on:click={shortenLink}>
+                {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
+              </button>
+            </div>
+            <p class="hint">{t(dict, 'tools.ultimateEncrypt.shortenHint')}</p>
+            {#if shortenFailed}
+              <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
+            {/if}
           {/if}
           {#if shortUrl}
             <details class="more">

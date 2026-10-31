@@ -205,7 +205,12 @@ test('a different GitHub star count in the footer is the only HTML difference to
   assert.match(tampered.out, /mismatch: \/index\.html/);
 });
 
-const cloudflareScript = (src: string, r = 'a4f789243a7ea15d', t = 'MTc5MjgyOTc0Nw==') => `<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'${r}',t:'${t}'};var a=document.createElement('script');a.src='${src}';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>`;
+const cloudflareWrapper = (inner: string, open = '<script>') => `${open}(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');${inner}b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>`;
+const cloudflareScript = (src: string, r = 'a4f789243a7ea15d', t = 'MTc5MjgyOTc0Nw==') => cloudflareWrapper(`d.innerHTML="window.__CF$cv$params={r:'${r}',t:'${t}'};var a=document.createElement('script');a.src='${src}';document.getElementsByTagName('head')[0].appendChild(a);";`);
+const cloudflareRayScript = (path: string, nonce?: string) => cloudflareWrapper(
+  `${nonce ? `d.nonce='${nonce}';` : ''}d.innerHTML="window.__CF$cv$params={r:'a52dbd174e21d270',t:'MTc5MjgyOTc0Nw=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='${path}',a=document.createElement('script');${nonce ? `a.nonce='${nonce}';` : ''}a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";`,
+  nonce ? `<script nonce="${nonce}">` : '<script>',
+);
 
 test('Astro island ids may differ between build directories, nothing else about an island may', async () => {
   const build = newBuild();
@@ -241,6 +246,34 @@ test('the bot-detection script Cloudflare appends to pages is ignored, any other
 
   const other = await check(build.client, live, [], appended('<script src="/cdn-cgi/other.js"></script>'));
   assert.equal(other.status, 1, other.out);
+});
+
+test('both forms of the Cloudflare loader are recognised, with their own path only', async () => {
+  const build = newBuild();
+  const live = liveCopy(build, () => {});
+  const appended = (script: string) => (html: string) => html.replace('</body>', `${script}</body>`);
+  const loader = '/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a52dbd174e21d270';
+
+  for (const script of [cloudflareRayScript(loader), cloudflareRayScript(loader, 'a1EIa9d0WtFsn8iNfonZCtJJ563JHoyf')]) {
+    const result = await check(build.client, live, [], appended(script));
+    assert.equal(result.status, 0, result.out);
+    assert.match(result.out, /4 served with Cloudflare's bot-detection script appended/);
+  }
+
+  const lookalike = await check(build.client, live, [], appended(cloudflareRayScript('//evil.example/main.js?ray=a52dbd174e21d270')));
+  assert.equal(lookalike.status, 1, lookalike.out);
+  assert.match(lookalike.out, /mismatch: \/index\.html/);
+});
+
+test('a nonce added to the CSP is reported, because it would let an injected script run', async () => {
+  const build = newBuild();
+  const live = liveCopy(build, (client) => {
+    const file = path.join(client, '_headers');
+    writeFileSync(file, readFileSync(file, 'utf8').replace("'sha256-abc='", "'sha256-abc=' 'nonce-a1EIa9d0WtFsn8iN'"));
+  });
+  const result = await check(build.client, live);
+  assert.equal(result.status, 1, result.out);
+  assert.match(result.out, /MISMATCH header: content-security-policy/);
 });
 
 test('a script changed on the server is reported even when the host rewrites its manifest', async () => {

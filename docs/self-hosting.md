@@ -61,6 +61,7 @@ Everything is set with environment variables.
 | `TURN_EXTERNAL_IP` | none | Public IP address, when coturn sits behind NAT (port mappings instead of host networking). |
 | `TURN_REALM` | `TURN_HOST` | TURN realm. |
 | `TURN_USER_QUOTA`, `TURN_TOTAL_QUOTA` | `12`, `1200` | Relay allocations per credential and in total. |
+| `TURN_MAX_BPS` | `625000` | Bytes per second one relay session may carry, about 5 Mbit/s. |
 | `TURN_LOG` | `false` | `true` sends coturn's log, with client addresses, to the container log. |
 | `TURN_PROVIDER`, `TURN_URLS` | `coturn` | For another TURN service, set `TURN_ENABLED=false` and either `TURN_URLS` (comma-separated `turn:` URLs of a coturn that shares `TURN_AUTH_SECRET`) or `TURN_PROVIDER=cloudflare` with `CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN`. |
 | `UPLOAD_DAILY_GB` | `100` | Upload volume per day for everyone. Uploads are deleted after 24 hours, so this is roughly the disk space uploads can take. |
@@ -153,7 +154,7 @@ The script compares every listed file, the response headers from `_headers` (inc
 
 - **Same commit, same operating system.** The client files are byte-identical when built from the same commit with the same `pnpm-lock.yaml` on Linux (the official deployment is built on Ubuntu with the Node version in `.nvmrc`). On Windows the bundler lays the files out differently, so build in WSL or Docker: `docker run --rm -v "$PWD":/src -w /src node:24 sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm run build:node"`. Pass the commit and its date to `docker build` as `--build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)` so the image records them.
 - **Line endings.** The repository forces LF in `.gitattributes`, so a Windows checkout hashes like a Linux one.
-- **Ignored on purpose.** The GitHub star count in the footer (fetched while building), Astro's island ids (derived from the build path) and the bot-detection script Cloudflare appends to pages differ between honest builds. The report names each such page; any other difference is a mismatch.
+- **Ignored on purpose.** The GitHub star count in the footer (fetched while building), Astro's island ids (derived from the build path) and the bot-detection script Cloudflare appends to pages, which the CSP keeps from running, differ between honest builds. The report names each such page; any other difference is a mismatch.
 - **What it proves.** That the static files served right now are the ones this commit builds, and that the security headers are the committed ones. It cannot see the server code behind `/api` and `/parties`, or anything an intermediary adds to responses beyond the cases above.
 - **Provenance.** On encrypt.click the deploy workflow signs the build with GitHub's build provenance. `gh attestation verify build-integrity.json --repo danielsebesta/encrypt` shows that a downloaded manifest, or the `encrypt-click-dist` and `encrypt-click-node-dist` archives from a workflow run, came out of this repository's workflow at a given commit. The Docker job in `node.yml` also attests the digest of the image it built; the image is not published anywhere, so that attestation names the CI build and cannot be checked against a registry.
 

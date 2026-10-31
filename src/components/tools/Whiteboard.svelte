@@ -1320,6 +1320,7 @@
               placeholder={t(dict, 'whiteboard.chatPlaceholder')}
               aria-label={t(dict, 'whiteboard.chatPlaceholder')}
               autocomplete="off"
+              spellcheck="false"
               data-lpignore="true"
               data-1p-ignore
             />

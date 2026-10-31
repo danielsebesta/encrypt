@@ -186,7 +186,7 @@ export async function safetyNumber(a: string, b: string): Promise<string> {
 }
 
 export async function keyCode(publicKey: string): Promise<string> {
-  return digitGroups(await sha256Bytes(`encrypt.click:chat-key:${publicKey}`), 2);
+  return digitGroups(await sha256Bytes(`encrypt.click:chat-key:${publicKey}`), 4);
 }
 
 export async function importRoomKey(b64Key: string): Promise<CryptoKey> {

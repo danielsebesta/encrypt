@@ -58,13 +58,6 @@ export type ChatRoomOptions = {
   persistent?: boolean;
 };
 
-const SERVER_INFO = {
-  name: "encrypt-1",
-  location: "AMS-NL",
-  city: "Amsterdam",
-  countryCode: "NL",
-};
-
 const CONFIG_KEY = "room-config";
 const HISTORY_PREFIX = "history:";
 const HISTORY_META_KEY = "history-meta";
@@ -130,7 +123,6 @@ export default class ChatRoom {
       presence: this.getJoinedConnectionCount(),
       locked: this.state.locked,
       config: this.state.config,
-      server: SERVER_INFO,
     }));
   }
 
@@ -229,7 +221,6 @@ export default class ChatRoom {
         sender.send(JSON.stringify({
           type: "pong",
           t: typeof parsed.t === "number" && Number.isFinite(parsed.t) ? parsed.t : Date.now(),
-          server: SERVER_INFO,
         }));
         break;
     }

@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ForwardSecrecySession, ReceiveChains, SenderChain, PairKeys, createEphemeralKeyPair, wrapChainKey, unwrapChainKey,
-  ROTATE_AFTER_MS, PENDING, type FsSealed,
+  ORIGIN_WINDOW_MS, ROTATE_AFTER_MS, PENDING, type FsSealed,
 } from '../src/lib/chatRatchet';
 import {
   forwardLocalKey, sealLocal, openLocal, roomForwardSecret, generateSigningIdentity, signPayload, verifyPayload,
 } from '../src/lib/chatCrypto';
 import { hkdfKey } from '../src/lib/kdf';
+import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey } from '../src/lib/hybridKem';
 import { isContent, relayedContentOk, stampPayload, validPayload } from '../src/lib/chatProtocol';
 
 const random = (n = 32) => crypto.getRandomValues(new Uint8Array(n));
@@ -62,24 +63,27 @@ test('a newer chain from the same sender retires the older one after a grace per
   assert.ok(await receive.messageKey('carol', fresh.keyId, 0));
 });
 
-test('a pairwise key needs both the ephemeral key exchange and the room secret and binds both identities, the room and the key id', async () => {
+test('a pairwise key needs the ephemeral key exchange, the ML-KEM secret and the room secret and binds both identities, the room and the key id', async () => {
   const secret = random();
+  const kemSecret = random();
   const [a, b, c] = await Promise.all([createEphemeralKeyPair(), createEphemeralKeyPair(), createEphemeralKeyPair()]);
   const alice = { pk: 'A'.repeat(43), pub: a.publicKey };
   const bob = { pk: 'B'.repeat(43), pub: b.publicKey };
   const aKeys = new PairKeys(a, secret);
   const bKeys = new PairKeys(b, secret);
-  const keyA = await aKeys.derive('chain', 'room', alice, bob, KID);
-  assert.deepEqual(await bKeys.derive('chain', 'room', alice, bob, KID), keyA);
+  const keyA = await aKeys.derive('chain', 'room', alice, bob, KID, kemSecret);
+  assert.deepEqual(await bKeys.derive('chain', 'room', alice, bob, KID, kemSecret), keyA);
   const chainKey = random();
   const wrapped = await wrapChainKey(keyA, chainKey, KID, 7);
   assert.match(wrapped, /^[A-Za-z0-9_-]{80}$/);
-  assert.deepEqual(await unwrapChainKey(await bKeys.derive('chain', 'room', alice, bob, KID), wrapped, KID, 7), chainKey);
+  assert.deepEqual(await unwrapChainKey(await bKeys.derive('chain', 'room', alice, bob, KID, kemSecret), wrapped, KID, 7), chainKey);
   assert.equal(await unwrapChainKey(keyA, wrapped, KID, 8), null);
 
-  const otherPassword = await new PairKeys(b, random()).derive('chain', 'room', alice, bob, KID);
+  // Someone who broke P-256 and knows the password holds everything except the ML-KEM secret, and that is not enough.
+  assert.equal(await unwrapChainKey(await bKeys.derive('chain', 'room', alice, bob, KID, random()), wrapped, KID, 7), null);
+  const otherPassword = await new PairKeys(b, random()).derive('chain', 'room', alice, bob, KID, kemSecret);
   assert.equal(await unwrapChainKey(otherPassword, wrapped, KID, 7), null);
-  const otherEphemeral = await new PairKeys(c, secret).derive('chain', 'room', alice, { pk: bob.pk, pub: c.publicKey }, KID);
+  const otherEphemeral = await new PairKeys(c, secret).derive('chain', 'room', alice, { pk: bob.pk, pub: c.publicKey }, KID, kemSecret);
   assert.equal(await unwrapChainKey(otherEphemeral, wrapped, KID, 7), null);
 
   const variants: [typeof alice, typeof bob, string, string, 'chain' | 'sync'][] = [
@@ -91,9 +95,27 @@ test('a pairwise key needs both the ephemeral key exchange and the room secret a
     [alice, bob, KID, 'room', 'sync'],
   ];
   for (const [from, to, id, room, purpose] of variants) {
-    assert.equal(await unwrapChainKey(await bKeys.derive(purpose, room, from, to, id), wrapped, KID, 7), null, `${purpose} ${room} ${id}`);
+    assert.equal(await unwrapChainKey(await bKeys.derive(purpose, room, from, to, id, kemSecret), wrapped, KID, 7), null, `${purpose} ${room} ${id}`);
   }
-  await assert.rejects(aKeys.derive('chain', 'room', bob, { pk: 'E'.repeat(43), pub: c.publicKey }, KID));
+  await assert.rejects(aKeys.derive('chain', 'room', bob, { pk: 'E'.repeat(43), pub: c.publicKey }, KID, kemSecret));
+  await assert.rejects(aKeys.derive('chain', 'room', alice, bob, KID, new Uint8Array(0)));
+});
+
+test('ML-KEM seals open only for the holder of the matching secret key', () => {
+  const [bob, eve] = [createKemKeyPair(), createKemKeyPair()];
+  assert.equal(validKemKey(bob.publicKey), true);
+  assert.equal(validKemKey(bob.publicKey.slice(1)), false);
+  const first = kemSeal(bob.publicKey);
+  const second = kemSeal(bob.publicKey);
+  assert.equal(validKemCiphertext(first.ciphertext), true);
+  assert.notEqual(first.ciphertext, second.ciphertext);
+  assert.notDeepEqual(first.secret, second.secret);
+  assert.deepEqual(kemOpen(bob.secretKey, first.ciphertext), first.secret);
+  assert.notDeepEqual(kemOpen(eve.secretKey, first.ciphertext), first.secret);
+  const flipped = `${first.ciphertext[0] === 'A' ? 'B' : 'A'}${first.ciphertext.slice(1)}`;
+  assert.notDeepEqual(kemOpen(bob.secretKey, flipped), first.secret);
+  assert.throws(() => kemSeal('not a key'));
+  assert.throws(() => kemOpen(bob.secretKey, 'not a ciphertext'));
 });
 
 type Peer = {
@@ -125,7 +147,7 @@ class Relay {
 }
 
 async function handle(relay: Relay, me: Peer, from: Peer, payload: any) {
-  const member = { clientId: from.clientId, pk: from.pk, pub: payload.fs };
+  const member = { clientId: from.clientId, pk: from.pk, pub: payload.fs, kem: payload.kem };
   if (payload.type === 'fs') {
     const result = await me.session.open(from.pk, payload);
     if (typeof result === 'string') me.read.push(result);
@@ -138,12 +160,15 @@ async function handle(relay: Relay, me: Peer, from: Peer, payload: any) {
       if (typeof result === 'string') me.read.push(result);
     }
   } else if (payload.type === 'verify') {
-    relay.send(me, { type: 'verify-ack', clientId: me.clientId, fs: me.session.publicKey });
+    relay.send(me, { type: 'verify-ack', ...announce(me) });
     await me.session.memberJoined(member);
   } else if (payload.type === 'verify-ack' || payload.type === 'presence') {
     await me.session.memberSeen(member);
   }
 }
+
+const announce = (who: Peer) => ({ clientId: who.clientId, fs: who.session.publicKey, kem: who.session.kemPublicKey });
+const memberOf = (who: Peer) => ({ clientId: who.clientId, pk: who.pk, pub: who.session.publicKey, kem: who.session.kemPublicKey });
 
 async function peer(relay: Relay, name: string, secret: Uint8Array, now?: () => number): Promise<Peer> {
   const self = { name, clientId: hex(8), pk: `${name}${'x'.repeat(43 - name.length)}`, read: [], pending: 0 } as unknown as Peer;
@@ -159,7 +184,7 @@ async function peer(relay: Relay, name: string, secret: Uint8Array, now?: () => 
 
 async function join(relay: Relay, newcomer: Peer) {
   relay.online.add(newcomer);
-  relay.send(newcomer, { type: 'verify', clientId: newcomer.clientId, fs: newcomer.session.publicKey });
+  relay.send(newcomer, { type: 'verify', ...announce(newcomer) });
   await relay.flush();
 }
 
@@ -172,7 +197,7 @@ async function say(relay: Relay, from: Peer, text: string): Promise<FsSealed> {
 async function leave(relay: Relay, gone: Peer) {
   relay.online.delete(gone);
   for (const p of relay.online) await p.session.memberLeft();
-  for (const p of relay.online) relay.send(p, { type: 'presence', clientId: p.clientId, fs: p.session.publicKey });
+  for (const p of relay.online) relay.send(p, { type: 'presence', ...announce(p) });
 }
 
 test('members read each other, whoever left cannot follow the new chains, and late answers still get the whole new chain', async () => {
@@ -262,7 +287,7 @@ test('a member asking again gets a fresh grant, and messages that waited for it 
   assert.deepEqual(bob.session.wanted(), [alice.pk]);
   const parked = await say(relay, alice, 'parked');
   relay.queue = [];
-  await alice.session.memberWants({ clientId: bob.clientId, pk: bob.pk, pub: bob.session.publicKey });
+  await alice.session.memberWants(memberOf(bob));
   await relay.flush();
   assert.deepEqual(bob.read, ['lost grant']);
   assert.equal(await bob.session.open(alice.pk, parked), 'parked');
@@ -275,7 +300,7 @@ test('history handed to a newcomer opens only for that newcomer', async () => {
   const relay = new Relay();
   const secret = random();
   const [alice, bob, eve] = [await peer(relay, 'alice', secret), await peer(relay, 'bob', secret), await peer(relay, 'eve', secret)];
-  const bobMember = { clientId: bob.clientId, pk: bob.pk, pub: bob.session.publicKey };
+  const bobMember = memberOf(bob);
   const sync = await alice.session.sealSync(bobMember, ['{"a":1}', '{"b":2}']);
   assert.equal(sync.to, bob.clientId);
   assert.deepEqual(await bob.session.openSync(alice.pk, sync), ['{"a":1}', '{"b":2}']);
@@ -284,6 +309,114 @@ test('history handed to a newcomer opens only for that newcomer', async () => {
   assert.equal(await bob.session.openSync(eve.pk, sync), null);
   bob.session.destroy();
   assert.equal(await bob.session.openSync(alice.pk, sync), null);
+});
+
+test('nobody can drop the post-quantum part: without ML-KEM a member gets no chain and a grant opens nothing', async () => {
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob] = [await peer(relay, 'alice', secret), await peer(relay, 'bob', secret)];
+  await join(relay, alice);
+  await join(relay, bob);
+  relay.log = [];
+  await alice.session.memberSeen({ clientId: 'c'.repeat(16), pk: 'C'.repeat(43), pub: bob.session.publicKey, kem: undefined as unknown as string });
+  await alice.session.memberWants({ clientId: 'c'.repeat(16), pk: 'C'.repeat(43), pub: bob.session.publicKey, kem: 'x'.repeat(87) });
+  await say(relay, alice, 'first');
+  relay.queue = [];
+  const grant = relay.log.find(({ payload }) => payload.type === 'fs-key')!.payload;
+  assert.equal(grant.keys.length, 1);
+  assert.equal(grant.keys[0].to, bob.clientId);
+  assert.equal(validKemCiphertext(grant.keys[0].e), true);
+  const without = { ...grant, keys: grant.keys.map(({ e, ...rest }: any) => rest) };
+  assert.deepEqual(await bob.session.acceptGrant(alice.pk, without), []);
+  const flipped = `${grant.keys[0].e[0] === 'A' ? 'B' : 'A'}${grant.keys[0].e.slice(1)}`;
+  await bob.session.acceptGrant(alice.pk, { ...grant, keys: [{ ...grant.keys[0], e: flipped }] });
+  assert.equal(await bob.session.open(alice.pk, await alice.session.seal('second')), PENDING);
+  await bob.session.acceptGrant(alice.pk, grant);
+  assert.equal(await bob.session.open(alice.pk, await alice.session.seal('third')), 'third');
+});
+
+test('history handed over without its ML-KEM ciphertext does not open', async () => {
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob] = [await peer(relay, 'alice', secret), await peer(relay, 'bob', secret)];
+  const sync = await alice.session.sealSync(memberOf(bob), ['{"a":1}']);
+  const { e, ...without } = sync;
+  assert.equal(await bob.session.openSync(alice.pk, without), null);
+  assert.equal(await bob.session.openSync(alice.pk, { ...sync, e: `${e[0] === 'A' ? 'B' : 'A'}${e.slice(1)}` }), null);
+  assert.deepEqual(await bob.session.openSync(alice.pk, sync), ['{"a":1}']);
+});
+
+test('a member who skips the join message still gets no chain from before it arrived', async () => {
+  let now = Date.now();
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob] = [await peer(relay, 'alice', secret, () => now), await peer(relay, 'bob', secret, () => now)];
+  await join(relay, alice);
+  await join(relay, bob);
+  now += ORIGIN_WINDOW_MS + 1;
+  await alice.session.memberLeft();
+  relay.send(alice, { type: 'presence', ...announce(alice) });
+  relay.send(bob, { type: 'presence', ...announce(bob) });
+  await relay.flush();
+  const before = await say(relay, alice, 'before mallory');
+  await relay.flush();
+  assert.deepEqual(bob.read.at(-1), 'before mallory');
+
+  const mallory = await peer(relay, 'mallory', secret, () => now);
+  relay.online.add(mallory);
+  relay.send(mallory, { type: 'presence', ...announce(mallory) });
+  await relay.flush();
+  assert.equal(await mallory.session.open(alice.pk, before), null);
+  await say(relay, alice, 'after mallory');
+  await relay.flush();
+  assert.deepEqual(mallory.read, ['after mallory']);
+});
+
+test('a member dropped by two quick departures and answering late still reads the new chain from its start', async () => {
+  let now = Date.now();
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob] = [await peer(relay, 'alice', secret, () => now), await peer(relay, 'bob', secret, () => now)];
+  await join(relay, alice);
+  await join(relay, bob);
+  await say(relay, alice, 'hello');
+  await relay.flush();
+  now += ORIGIN_WINDOW_MS + 1;
+  await alice.session.memberLeft();
+  await alice.session.memberLeft();
+  await say(relay, alice, 'sent before the answer');
+  relay.send(bob, { type: 'presence', ...announce(bob) });
+  await relay.flush();
+  assert.deepEqual(bob.read, ['hello', 'sent before the answer']);
+});
+
+test('a member answering this session\'s own challenge late was here all along and reads the new chain from its start', async () => {
+  let now = Date.now();
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob] = [await peer(relay, 'alice', secret, () => now), await peer(relay, 'bob', secret, () => now)];
+  relay.online.add(alice);
+  relay.online.add(bob);
+  now += ORIGIN_WINDOW_MS + 1;
+  const first = await say(relay, alice, 'first');
+  relay.queue = [];
+  await alice.session.memberSeen(memberOf(bob), true);
+  await relay.flush();
+  assert.equal(await bob.session.open(alice.pk, first), 'first');
+});
+
+test('in its first moments a session still gives an unknown member the whole new chain', async () => {
+  let now = Date.now();
+  const relay = new Relay();
+  const secret = random();
+  const [alice, bob] = [await peer(relay, 'alice', secret, () => now), await peer(relay, 'bob', secret, () => now)];
+  relay.online.add(alice);
+  relay.online.add(bob);
+  const first = await say(relay, alice, 'first');
+  relay.queue = [];
+  relay.send(bob, { type: 'presence', ...announce(bob) });
+  await relay.flush();
+  assert.equal(await bob.session.open(alice.pk, first), 'first');
 });
 
 test('rooms with forward secrecy refuse content sealed only under the room key', () => {

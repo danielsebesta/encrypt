@@ -1,7 +1,11 @@
 <script lang="ts">
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
+  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
+  import PassphraseField from '../PassphraseField.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -16,6 +20,13 @@
   let mode: 'encode' | 'decode' = 'encode';
   let decodedMessage = '';
   const MAX_BYTES = 10 * 1024 * 1024;
+
+  $: passwordChecks = checkRoomPassword(password, '');
+  $: passwordRules = [
+    { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+  ];
 
   function triggerFileSelect() {
     fileInput?.click();
@@ -42,6 +53,10 @@
   async function encode() {
     if (!canvas || !imageUrl || !message || !password) {
       status = t(dict, 'tools.steganography.pleaseProvide');
+      return;
+    }
+    if (!roomPasswordOk(password, '')) {
+      status = t(dict, 'common.passwordWeak');
       return;
     }
     const ctx = canvas.getContext('2d');
@@ -191,7 +206,8 @@
         </div>
         <div class="field">
           <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
-          <input id="stego-password" type="password" bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} class="input" autocomplete="new-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+          <PassphraseField {dict} id="stego-password" bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby="stego-password-rules" generate={generatePassphrase} />
+          <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
         </div>
         <button type="button" on:click={encode} class="btn w-full">{t(dict, 'tools.steganography.injectPixels')}</button>
         {#if encodedImageUrl}

@@ -206,5 +206,5 @@ test('signed payloads verify, tampering and foreign keys fail, and safety number
   assert.equal(ab, await safetyNumber(bob.publicKey, alice.publicKey));
   assert.match(ab, /^\d{5}( \d{5}){11}$/);
   assert.notEqual(ab, await safetyNumber(alice.publicKey, (await generateSigningIdentity()).publicKey));
-  assert.match(await keyCode(alice.publicKey), /^\d{5} \d{5}$/);
+  assert.match(await keyCode(alice.publicKey), /^\d{5} \d{5} \d{5} \d{5}$/);
 });

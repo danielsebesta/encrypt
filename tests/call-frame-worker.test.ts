@@ -14,8 +14,9 @@ const scope: Scope = { onmessage: null, onrtctransform: null, postMessage: (mess
 (globalThis as { self?: unknown }).self = scope;
 await import('../src/lib/callFrameWorker');
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
 const send = (data: unknown) => scope.onmessage!({ data });
+// The worker handles messages one at a time, so it reads this keyId only after earlier key imports have finished.
+const settle = () => new Promise<void>((resolve) => send({ op: 'receive-key', get keyId() { resolve(); return -1; } }));
 const bytes = (length: number, seed: number) => Uint8Array.from({ length }, (_, i) => (i * 7 + seed) & 0xff);
 
 function pipe(options: unknown, viaMessage = false) {

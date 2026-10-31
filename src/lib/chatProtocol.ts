@@ -29,6 +29,8 @@ export function stampPayload(text: string, room: string): string {
 
 function validKeyFields(value: any): boolean {
   if (value.fs !== undefined && !b64url(value.fs, 87, true)) return false;
+  if (value.kem !== undefined && !b64url(value.kem, 1579, true)) return false;
+  if (value.e !== undefined && !b64url(value.e, 1451, true)) return false;
   if (value.pq !== undefined && !b64url(value.pq, 1750, true)) return false;
   if (value._pqk !== undefined && !(typeof value._pqk === 'string' && KEY_HASH_RE.test(value._pqk))) return false;
   if (value.clientId !== undefined && !(typeof value.clientId === 'string' && CLIENT_ID_RE.test(value.clientId))) return false;

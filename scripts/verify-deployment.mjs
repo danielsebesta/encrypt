@@ -20,9 +20,22 @@ const MANIFEST_NAME = 'build-integrity.json';
 const NOT_SERVED = new Set(['/_headers', '/_redirects', '/_routes.json', '/_worker.js', '/.assetsignore']);
 const MISSING_PAGE = '/__verify-deployment-missing-page';
 const STAR_BADGE = /(?<=GitHub)<span[^>]*>\xe2\x98\x85 [\d,]+<\/span>(?=<\/a>)/g;
-// Cloudflare appends this bot-detection snippet to every HTML response when JavaScript Detections is on; only its two per-request values vary.
-const CLOUDFLARE_SNIPPET = String.raw`<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'@R@',t:'@T@'};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>`;
-const CLOUDFLARE_INJECTION = new RegExp(CLOUDFLARE_SNIPPET.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('@R@', '[0-9a-f]+').replace('@T@', '[A-Za-z0-9+/=]+'), 'g');
+// Cloudflare appends a bot-detection snippet to every HTML response when JavaScript Detections is on. The CSP has no nonce
+// for it, so browsers refuse to run it. It comes in the two loaders below; only its per-request values vary. A nonce in
+// the CSP would let it run, which the header comparison reports.
+const CLOUDFLARE_LOADERS = [
+  String.raw`var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';`,
+  String.raw`var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=@RAY@',a=document.createElement('script');a.src=o?new URL(u,o).href:u;`,
+];
+const cloudflareSnippet = (loader) => String.raw`<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'@R@',t:'@T@'};${loader}document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>`;
+const CLOUDFLARE_INJECTION = new RegExp(CLOUDFLARE_LOADERS.map((loader) => cloudflareSnippet(loader)
+  .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  .replace('<script>', '<script(?: nonce="[A-Za-z0-9+/=]+")?>')
+  .replace("var d=b\\.createElement\\('script'\\);", "var d=b\\.createElement\\('script'\\);(?:d\\.nonce='[A-Za-z0-9+/=]+';)?")
+  .replace("document\\.createElement\\('script'\\);a\\.src", "document\\.createElement\\('script'\\);(?:a\\.nonce='[A-Za-z0-9+/=]+';)?a\\.src")
+  .replace('@R@', '[0-9a-f]+')
+  .replace('@T@', '[A-Za-z0-9+/=_.-]+')
+  .replace('@RAY@', '[0-9a-f]+')).join('|'), 'g');
 const ISLAND_UID = /(?<=<astro-island\b[^>]*?\buid=")[A-Za-z0-9]+(?=")/g;
 const PLATFORM_HEADERS = new Set(['server']);
 const NOTES = {
@@ -308,6 +321,7 @@ async function main() {
   if (headerRules.ignored.length > 0) notes.push('Header removal rules ("! name") in _headers are not checked.');
   if (headerRules.rules.some((rule) => rule.headers.some(([name]) => PLATFORM_HEADERS.has(name)))) notes.push('The Server header is set by the hosting platform and is not compared.');
   const matched = [];
+  let challenged = 0;
   const headerChecks = { paths: 0, headers: 0 };
   const headerProblems = [];
 
@@ -324,6 +338,10 @@ async function main() {
     const expectedStatus = file === '/404.html' ? 404 : 200;
     if (new URL(response.url).origin !== origin) {
       problem('redirect', file, [`${requestPath} ended up at ${response.url}`]);
+      return;
+    }
+    if (response.headers.get('cf-mitigated') === 'challenge') {
+      challenged++;
       return;
     }
     if (response.status !== expectedStatus) {
@@ -401,6 +419,8 @@ async function main() {
     console.log('');
   }
 
+  if (challenged > 0 && problems.length === 0) fail(`Cloudflare answered ${challenged} request${challenged === 1 ? '' : 's'} with a bot challenge, so those files could not be compared. Run this from another network.`);
+  if (challenged > 0) notes.push(`Cloudflare answered ${challenged} request${challenged === 1 ? '' : 's'} with a bot challenge; those files were not compared.`);
   const failedKinds = new Set(problems.map((item) => item.kind));
   const row = (ok, label, detail) => console.log(`  ${ok ? 'OK      ' : 'MISMATCH'} ${label.padEnd(10)} ${detail}`);
   const commitKnown = liveSha && localSha && liveSha !== 'unknown' && localSha !== 'unknown';

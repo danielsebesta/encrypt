@@ -16,6 +16,16 @@ updates:
       npm-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+  # Base images are pinned by digest; this keeps the digests moving with security updates.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Prague
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:

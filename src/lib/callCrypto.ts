@@ -216,20 +216,29 @@ export async function createCallKeyPair(): Promise<CallKeyPair> {
   return { privateKey: pair.privateKey, publicKey };
 }
 
-/** Pairwise key between two call members, so other room members who can read the signaling still cannot unwrap media keys. */
-export async function deriveWrapKey(pair: CallKeyPair, peerPublicKey: string): Promise<CryptoKey> {
-  if (!isCallPublicKey(peerPublicKey) || peerPublicKey === pair.publicKey) throw new Error('Invalid call key');
+/**
+ * Key that seals one media key for one call member, so other room members who can read the signaling still cannot unwrap it.
+ * It is made from ECDH and an ML-KEM secret encapsulated for that recipient, so a recording opens only if both are broken.
+ */
+export async function deriveWrapKey(pair: CallKeyPair, peerPublicKey: string, kemSecret: Uint8Array): Promise<CryptoKey> {
+  if (!isCallPublicKey(peerPublicKey) || peerPublicKey === pair.publicKey || kemSecret.length !== MEDIA_KEY_BYTES) throw new Error('Invalid call key');
   const peer = await crypto.subtle.importKey('raw', fromB64url(peerPublicKey) as BufferSource, P256, false, []);
-  const shared = await crypto.subtle.deriveBits({ name: 'ECDH', public: peer }, pair.privateKey, 256);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: peer }, pair.privateKey, 256));
+  const ikm = concat(shared, kemSecret);
   const [first, second] = [pair.publicKey, peerPublicKey].sort();
-  const base = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'HKDF', hash: 'SHA-256', salt: concat(fromB64url(first), fromB64url(second)) as BufferSource, info: encoder.encode('encrypt.click call key wrap v1') },
-    base,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt'],
-  );
+  try {
+    const base = await crypto.subtle.importKey('raw', ikm as BufferSource, 'HKDF', false, ['deriveKey']);
+    return await crypto.subtle.deriveKey(
+      { name: 'HKDF', hash: 'SHA-256', salt: concat(fromB64url(first), fromB64url(second)) as BufferSource, info: encoder.encode('encrypt.click call key wrap v2') },
+      base,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt'],
+    );
+  } finally {
+    shared.fill(0);
+    ikm.fill(0);
+  }
 }
 
 export function mediaKeyContext(callId: string, from: string, to: string, keyId: number): string {
@@ -267,4 +276,27 @@ export function safeVideoCodecs<T extends { mimeType: string }>(codecs: readonly
   const video = codecs.filter((codec) => rank(codec) >= 0).sort((a, b) => rank(a) - rank(b));
   if (!video.length) return [];
   return [...video, ...codecs.filter((codec) => VIDEO_REPAIR_CODECS.includes(codec.mimeType.toLowerCase()))];
+}
+
+const AUDIO_LEVEL_EXTENSION = /^a=extmap:\d+(?:\/\w+)? urn:ietf:params:rtp-hdrext:[sc]src-audio-level(?:\s|$)/i;
+
+/**
+ * Opus at a constant bitrate without silence suppression, and no audio level header, which travels unencrypted, so nothing
+ * the relay sees follows what is being said. A browser takes these settings for what it sends from the description the other side sent.
+ */
+export function hideVoiceActivity<T extends { sdp?: string }>(description: T): T {
+  if (!description.sdp) return description;
+  const eol = description.sdp.includes('\r\n') ? '\r\n' : '\n';
+  const lines = description.sdp.split(/\r?\n/).filter((line) => !AUDIO_LEVEL_EXTENSION.test(line));
+  for (const [, payload] of description.sdp.matchAll(/^a=rtpmap:(\d+) opus\/48000/gim)) {
+    const prefix = `a=fmtp:${payload} `;
+    const at = lines.findIndex((line) => line.startsWith(prefix));
+    if (at >= 0) {
+      const kept = lines[at].slice(prefix.length).split(';').filter((part) => part && !/^\s*(cbr|usedtx)=/i.test(part));
+      lines[at] = `${prefix}${[...kept, 'cbr=1', 'usedtx=0'].join(';')}`;
+    } else {
+      lines.splice(lines.findIndex((line) => line.startsWith(`a=rtpmap:${payload} `)) + 1, 0, `${prefix}cbr=1;usedtx=0`);
+    }
+  }
+  return { ...description, sdp: lines.join(eol) };
 }
