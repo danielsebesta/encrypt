@@ -43,6 +43,7 @@
   import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
   import { longPress } from '../../lib/longPress';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
+  import { relabelBySigner } from '../../lib/chatRelabel';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
   import ChatQuote from './ChatQuote.svelte';
@@ -2477,14 +2478,13 @@
     }
 
     if (parsed.type === 'rename') {
-      if (fromHistory) return true;
       const who = senderInfo(parsed);
       const claimed = typeof parsed.prev === 'string' ? parsed.prev : '';
       const prev = trustTable[claimed]?.includes(signer) ? claimed : '';
       const before = onlineUsers.find((u) => u.key === prev);
-      onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
+      if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
-      if (before && before.name !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', before.name).replace('{to}', who.name), 15);
+      if (!fromHistory && before && before.name !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', before.name).replace('{to}', who.name), 15);
       return true;
     }
 
@@ -4280,7 +4280,13 @@
       .replace(/[i1|]/g, 'l').replace(/0/g, 'o').replace(/5/g, 's').replace(/rn/g, 'm');
   }
 
-  function noteMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias }): boolean {
+  // Past bubbles keep the name from send time; when the same signing key shows up under a new label, rewrite them.
+  function relabelMessages(pk: string, who: { name: string; initials: string; color: string; alias?: Alias; nick?: string }) {
+    const next = relabelBySigner(messages, pk, who);
+    if (next !== messages) messages = next;
+  }
+
+  function noteMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias; nick?: string }): boolean {
     if (!trustTable[who.key]?.length) {
       const folded = lookalike(who.name);
       const clash = [...members.values()].some((m) => m.trusted && m.pk !== pk && m.key !== who.key && lookalike(m.name) === folded)
@@ -4292,17 +4298,20 @@
     return recordMember(pk, who, trustTable[who.key].includes(pk));
   }
 
-  function recordMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias }, trusted: boolean): boolean {
+  function recordMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias; nick?: string }, trusted: boolean): boolean {
     const member = members.get(pk);
     if (member) {
-      if (member.trusted !== trusted || member.key !== who.key || member.name !== who.name) {
+      const renamed = member.key !== who.key || member.name !== who.name || member.color !== who.color;
+      if (member.trusted !== trusted || renamed) {
         Object.assign(member, { trusted, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias });
         memberList = [...members.values()];
+        if (renamed) relabelMessages(pk, who);
       }
     } else {
       const fresh: Member = { pk, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias, trusted, safety: '', code: '' };
       members.set(pk, fresh);
       memberList = [...members.values()];
+      relabelMessages(pk, who);
       void Promise.all([mySignerId ? safetyNumber(mySignerId, pk) : Promise.resolve(''), keyCode(pk)]).then(([safety, code]) => {
         fresh.safety = safety;
         fresh.code = code;
@@ -4358,6 +4367,8 @@
         trustTable[mine] = [...(trustTable[mine] || []), mySignerId];
         saveTrustTable(trustRoom, trustTable);
       }
+      const who = { key: mine, name: identity.name, initials: getInitials(identity.name), color: identity.color, alias, nick: nickname || undefined };
+      noteMember(mySignerId, who);
     }
     if (!verified) return;
     await sendEncryptedControl({ type: 'rename', alias: aliasWire(alias), nick: nickname || undefined, prev });
