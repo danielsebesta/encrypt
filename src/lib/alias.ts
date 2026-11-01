@@ -39,18 +39,12 @@ export function aliasColor(alias: Alias): string {
   return `hsl(${alias.h}, 65%, 50%)`;
 }
 
-export function aliasGradient(alias: Alias, name?: string): string {
-  const seed = name ? `${aliasKey(alias)}:${name}` : aliasKey(alias);
-  return identiconBackground(seed);
+export function aliasGradient(alias: Alias, name: string): string {
+  return gradientFor(alias, name);
 }
 
-export function nameToGradient(name: string): string {
-  return identiconBackground(name);
-}
-
-export function gradientFor(alias: Alias | undefined, name: string, key?: string): string {
-  const seed = key ? `${key}:${name}` : (alias ? `${aliasKey(alias)}:${name}` : name);
-  return identiconBackground(seed);
+export function gradientFor(alias: Alias | undefined, name: string): string {
+  return identiconBackground(alias ? `${aliasKey(alias)}:${name}` : name);
 }
 
 export function initialsOf(name: string): string {

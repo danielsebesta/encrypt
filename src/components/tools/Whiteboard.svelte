@@ -1761,7 +1761,7 @@
           </header>
           <ul class="wb-chat__list">
             <li class="wb-member">
-              <span class="wb-avatar" style="background: {aliasGradient(alias)}">{myInitials}</span>
+              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
               <div class="min-w-0 flex-1">
                 <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
                 <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{myKeyCode}</code></p>
@@ -1850,7 +1850,7 @@
           on:click={togglePeople}
         >
           <span class="flex items-center -space-x-1.5">
-            <span class="wb-avatar" style="background: {aliasGradient(alias)}">{myInitials}</span>
+            <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
             {#each onlineUsers as user (user.id)}
               <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}">{user.initials}</span>
             {/each}

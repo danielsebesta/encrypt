@@ -41,3 +41,10 @@ test('nickname trust keys ignore case and never collide with alias keys', () => 
   assert.notEqual(nicknameKey('Marek'), nicknameKey('Marek_'));
   assert.notEqual(nicknameKey('1-2-3'), aliasKey({ a: 1, n: 2, h: 3 }));
 });
+
+test('every avatar for the same alias and name is identical, and a new name gives a new avatar', async () => {
+  const { gradientFor, aliasGradient } = await import('../src/lib/alias');
+  const alias = { a: 2, n: 18, h: 40 };
+  assert.equal(gradientFor(alias, 'Blb'), aliasGradient(alias, 'Blb'));
+  assert.notEqual(gradientFor(alias, 'Blb'), gradientFor(alias, 'HodnyKluk'));
+});

@@ -50,7 +50,6 @@
   import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
   import { longPress } from '../../lib/longPress';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
-  import { relabelBySigner } from '../../lib/chatRelabel';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
   import ChatQuote from './ChatQuote.svelte';
@@ -2504,9 +2503,10 @@
       const claimed = typeof parsed.prev === 'string' ? parsed.prev : '';
       const prev = trustTable[claimed]?.includes(signer) ? claimed : '';
       const before = onlineUsers.find((u) => u.key === prev);
+      const priorName = before?.name ?? members.get(signer)?.name;
       if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
-      if (!fromHistory && before && before.name !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', before.name).replace('{to}', who.name), 15);
+      if (!fromHistory && priorName && priorName !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', priorName).replace('{to}', who.name), 15);
       return true;
     }
 
@@ -4310,12 +4310,6 @@
       .replace(/[i1|]/g, 'l').replace(/0/g, 'o').replace(/5/g, 's').replace(/rn/g, 'm');
   }
 
-  // Past bubbles keep the name from send time; when the same signing key shows up under a new label, rewrite them.
-  function relabelMessages(pk: string, who: { name: string; initials: string; color: string; alias?: Alias; nick?: string }) {
-    const next = relabelBySigner(messages, pk, who);
-    if (next !== messages) messages = next;
-  }
-
   function noteMember(pk: string, who: { key: string; name: string; initials: string; color: string; alias?: Alias; nick?: string }): boolean {
     if (!trustTable[who.key]?.length) {
       const folded = lookalike(who.name);
@@ -4335,13 +4329,11 @@
       if (member.trusted !== trusted || renamed) {
         Object.assign(member, { trusted, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias });
         memberList = [...members.values()];
-        if (renamed) relabelMessages(pk, who);
       }
     } else {
       const fresh: Member = { pk, key: who.key, name: who.name, initials: who.initials, color: who.color, alias: who.alias, trusted, safety: '', code: '' };
       members.set(pk, fresh);
       memberList = [...members.values()];
-      relabelMessages(pk, who);
       void Promise.all([mySignerId ? safetyNumber(mySignerId, pk) : Promise.resolve(''), keyCode(pk)]).then(([safety, code]) => {
         fresh.safety = safety;
         fresh.code = code;
@@ -4710,7 +4702,7 @@
             {/if}
           </div>
           {#each onlineUsers as user}
-            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name, user.key)}" title={user.name} aria-label={user.name}></div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name} aria-label={user.name}></div>
           {/each}
         </div>
       </div>
@@ -4789,7 +4781,7 @@
         {/if}
         {#each memberList as member (member.pk)}
           <div class="chat-member" class:chat-member--warn={!member.trusted}>
-            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name, member.key)}" title={member.name} aria-label={member.name}></div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}" title={member.name} aria-label={member.name}></div>
             <div class="min-w-0 flex-1">
               <p class="chat-member__name">
                 {member.name}
@@ -4956,7 +4948,7 @@
                           on:contextmenu={preventMediaContextMenu}
                         ></audio>
                       {/if}
-                      <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name, peer.id)}" title={peer.name} aria-label={peer.name}></div>
+                      <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} aria-label={peer.name}></div>
                     {/if}
                     <div class="call__name">
                       <span>{peer.name}</span>
@@ -5062,7 +5054,7 @@
                     {#each callPeers as peer (peer.id)}
                       <div class="call__peer">
                         <div class="call__peer-name">
-                          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name, peer.id)}" title={peer.name} aria-label={peer.name}></div>
+                          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} aria-label={peer.name}></div>
                           <span>{peer.name}</span>
                         </div>
                         <button type="button" class="btn-ghost btn-sm btn-icon" class:text-danger={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-label={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-pressed={peer.audioMuted} on:click={() => setPeerAudioMuted(peer.id, !peer.audioMuted)}>
@@ -5113,7 +5105,7 @@
         >
           <div class="flex items-start gap-2">
             {#if !msg.mine}
-              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender, msg.nick)}" title={msg.sender} aria-label={msg.sender}></div>
+              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}" title={msg.sender} aria-label={msg.sender}></div>
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
