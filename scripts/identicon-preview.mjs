@@ -48,6 +48,7 @@ const layoutSheet = [...layoutSeeds.entries()]
   .map(([m, s]) => `<div class="pal"><div class="av" style="width:96px;height:96px">${identiconSvg(s, 96)}</div><span>${m} · ${layoutLabels[m]}</span></div>`)
   .join('');
 
+const big = Array.from({ length: 12 }, (_, i) => `<div class="av" style="width:128px;height:128px">${identiconSvg(sample(i + 3000), 128)}</div>`).join("");
 const count = 480;
 const grid = Array.from({ length: count }, (_, i) => {
   const s = sample(i);
@@ -76,10 +77,11 @@ h1,h2{margin:24px 0 8px}
 .light{background:#fff;border:1px solid #d4d4d8}.darkp{background:#09090b;color:#f4f4f5;border:1px solid #3f3f46}
 </style>
 <h1>Identicon combinations</h1>
-<p>${ENCRYPT_PALETTES.length} palettes of 5 colors, ${SHAPE_COUNT} shapes with 4 rotations, ${LAYOUT_COUNT} layouts. Each cell picks its own tile color, shape color and accent color from the palette, with enforced contrast. Roughly ${total.toExponential(1)} distinct avatars.</p>
+<p>${ENCRYPT_PALETTES.length} palettes of 5 colors, ${SHAPE_COUNT} shapes with 4 rotations, ${LAYOUT_COUNT} layouts. One background color per avatar, and each shape picks its own color and accent from the palette with enforced contrast. Roughly ${total.toExponential(1)} distinct avatars.</p>
 <h2>Shapes (4 rotations each)</h2><div class="shapes">${shapeSheet}</div>
 <h2>Palettes</h2><div class="pals">${paletteSheet}</div>
 <h2>Layouts</h2><div class="pals">${layoutSheet}</div>
+<h2>Large</h2><div class="grid">${big}</div>
 <h2>Real sizes (24 px, 34 px) on light and dark</h2>
 <div class="panel light"><div class="strip">${small}${mid}</div></div>
 <div class="panel darkp"><div class="strip">${small}${mid}</div></div>

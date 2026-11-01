@@ -20,9 +20,9 @@ test('sha256Sync matches node crypto and is deterministic', () => {
 
 test('identiconSvg returns a well-formed SVG', () => {
   const svg = identiconSvg({ key: 'abc', name: 'Alice' }, 32);
-  assert.ok(svg.startsWith('<svg viewBox="0 0 100 100" width="32" height="32"'));
+  assert.ok(svg.startsWith('<svg viewBox="4 4 92 92" width="32" height="32"'));
   assert.ok(svg.endsWith('</svg>'));
-  assert.ok(svg.includes('<rect width="100" height="100"'));
+  assert.ok(svg.includes('<rect x="0" y="0" width="100" height="100"'));
   assert.ok(!svg.includes('NaN') && !svg.includes('undefined'));
 });
 

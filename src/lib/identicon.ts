@@ -157,7 +157,12 @@ export const SHAPES: readonly { name: string; draw: Draw }[] = [
   {
     name: 'nested',
     draw: (f, g) => `${fill('M0 0H50A50 50 0 0 1 0 50Z', f)}${fill('M0 0H26A26 26 0 0 1 0 26Z', g)}`
-  }
+  },
+  { name: 'half', draw: (f) => fill('M0 0H25V50H0Z', f) },
+  { name: 'drop', draw: (f) => fill('M0 0H25A25 25 0 0 1 50 25A25 25 0 0 1 25 50A25 25 0 0 1 0 25Z', f) },
+  { name: 'band', draw: (f) => fill('M0 25L25 0H50L0 50Z', f) },
+  { name: 'lens', draw: (f) => fill('M25 0A35 35 0 0 1 25 50A35 35 0 0 1 25 0Z', f) },
+  { name: 'cross', draw: (f) => fill('M0 0H12L50 38V50H38L0 12ZM38 0H50V12L12 50H0V38Z', f) }
 ];
 
 export const SHAPE_COUNT = SHAPES.length;
@@ -201,73 +206,55 @@ function firstReadable(options: string[], against: string, min: number): string 
 interface Cell {
   shape: number;
   rot: number;
-  tile: string;
   f: string;
   g: string;
   sx: 1 | -1;
   sy: 1 | -1;
 }
 
-function designCell(colors: readonly string[], b: Uint8Array, at: number): Cell {
-  const tileIdx = b[at + 2] % 5;
-  const tile = colors[tileIdx];
-  const others = [1, 2, 3, 4].map((i) => colors[(tileIdx + i) % 5]);
-  const fo = b[at + 3] % 4;
-  const f = firstReadable([...others.slice(fo), ...others.slice(0, fo)], tile, 1.6);
-  const rest = others.filter((c) => c !== f);
-  const go = b[at + 4] % rest.length;
+type Slot = { src: number; fx?: boolean; fy?: boolean; turn?: number };
+
+const LAYOUTS: readonly (readonly Slot[])[] = [
+  [{ src: 0 }, { src: 1 }, { src: 2 }, { src: 3 }],
+  [{ src: 0 }, { src: 0, fx: true }, { src: 2 }, { src: 2, fx: true }],
+  [{ src: 0 }, { src: 1 }, { src: 0, fy: true }, { src: 1, fy: true }],
+  [{ src: 0 }, { src: 0, turn: 1 }, { src: 0, turn: 3 }, { src: 0, turn: 2 }],
+  [{ src: 0 }, { src: 1 }, { src: 1 }, { src: 0 }],
+  [{ src: 0 }, { src: 0, fx: true }, { src: 0, fy: true }, { src: 0, fx: true, fy: true }]
+];
+
+function pickColors(colors: readonly string[], bg: string, b: Uint8Array, at: number): { f: string; g: string } {
+  const pool = colors.filter((c) => c !== bg);
+  const fo = b[at] % pool.length;
+  const f = firstReadable([...pool.slice(fo), ...pool.slice(0, fo)], bg, 1.6);
+  const rest = pool.filter((c) => c !== f);
+  const go = b[at + 1] % rest.length;
   const g = firstReadable([...rest.slice(go), ...rest.slice(0, go)], f, 1.5);
-  return { shape: b[at] % SHAPE_COUNT, rot: b[at + 1] % 4, tile, f, g, sx: 1, sy: 1 };
+  return { f, g };
 }
 
-const PINWHEEL = [0, 1, 3, 2];
-
-function layoutCells(b: Uint8Array, colors: readonly string[]): Cell[] {
-  const mode = b[1] % LAYOUT_COUNT;
-  const own = (k: number) => designCell(colors, b, 2 + k * 5);
-  const flip = (c: Cell, fx: boolean, fy: boolean): Cell => ({
-    ...c,
-    sx: fx ? ((c.sx * -1) as 1 | -1) : c.sx,
-    sy: fy ? ((c.sy * -1) as 1 | -1) : c.sy
+/** Geometry follows the layout, but every cell draws its own colors so symmetric avatars still alternate. */
+function layoutCells(b: Uint8Array, colors: readonly string[], bg: string): Cell[] {
+  const slots = LAYOUTS[b[1] % LAYOUT_COUNT];
+  const shapeOf = (k: number) => ({ shape: b[2 + k * 2] % SHAPE_COUNT, rot: b[3 + k * 2] % 4 });
+  return slots.map((slot, k) => {
+    const { shape, rot } = shapeOf(slot.src);
+    const { f, g } = pickColors(colors, bg, b, 10 + k * 2);
+    return { shape, rot: (rot + (slot.turn ?? 0)) % 4, f, g, sx: slot.fx ? -1 : 1, sy: slot.fy ? -1 : 1 };
   });
-  switch (mode) {
-    case 1: {
-      const a = own(0);
-      const c = own(2);
-      return [a, flip(a, true, false), c, flip(c, true, false)];
-    }
-    case 2: {
-      const a = own(0);
-      const c = own(1);
-      return [a, c, flip(a, false, true), flip(c, false, true)];
-    }
-    case 3: {
-      const a = own(0);
-      return PINWHEEL.map((r) => ({ ...a, rot: (a.rot + r) % 4 }));
-    }
-    case 4: {
-      const a = own(0);
-      const c = own(1);
-      return [a, c, c, a];
-    }
-    case 5: {
-      const a = own(0);
-      return [a, flip(a, true, false), flip(a, false, true), flip(a, true, true)];
-    }
-    default:
-      return [own(0), own(1), own(2), own(3)];
-  }
 }
 
 export function renderShape(shape: number, f: string, g: string): string {
   return SHAPES[shape % SHAPE_COUNT].draw(f, g);
 }
 
+const INSET = 0.9;
+
 function cellMarkup(cell: Cell, x: number, y: number): string {
   const tx = x + (cell.sx < 0 ? 50 : 0);
   const ty = y + (cell.sy < 0 ? 50 : 0);
-  const transform = `translate(${tx} ${ty}) scale(${cell.sx} ${cell.sy}) rotate(${cell.rot * 90} 25 25)`;
-  return `<rect x="${x}" y="${y}" width="50" height="50" fill="${cell.tile}"/><g transform="${transform}">${renderShape(cell.shape, cell.f, cell.g)}</g>`;
+  const transform = `translate(${tx} ${ty}) scale(${cell.sx} ${cell.sy}) translate(25 25) rotate(${cell.rot * 90}) scale(${INSET}) translate(-25 -25)`;
+  return `<g transform="${transform}">${renderShape(cell.shape, cell.f, cell.g)}</g>`;
 }
 
 const CELL_POSITIONS = [
@@ -277,14 +264,15 @@ const CELL_POSITIONS = [
   [50, 50]
 ];
 
-/** A 2x2 mosaic whose palette, layout, shapes, rotations and colors all come from the seed hash. */
+/** One calm background, four floating shapes with a gap between them, and a slight zoom so no corner seam shows. */
 export function identiconSvg(seed: IdenticonSeed, size?: number): string {
   const bytes = sha256Sync(normalizeSeed(seed));
   const pal = ENCRYPT_PALETTES[((bytes[22] << 8) | bytes[23]) % ENCRYPT_PALETTES.length];
-  const cells = layoutCells(bytes, pal.colors);
+  const bg = pal.colors[bytes[0] % 5];
+  const cells = layoutCells(bytes, pal.colors, bg);
   const body = cells.map((cell, i) => cellMarkup(cell, CELL_POSITIONS[i][0], CELL_POSITIONS[i][1])).join('');
   const sizeAttrs = size ? ` width="${size}" height="${size}"` : '';
-  return `<svg viewBox="0 0 100 100"${sizeAttrs} xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><rect width="100" height="100" fill="${pal.colors[0]}"/>${body}</svg>`;
+  return `<svg viewBox="4 4 92 92"${sizeAttrs} xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><rect x="0" y="0" width="100" height="100" fill="${bg}"/>${body}</svg>`;
 }
 
 export function identiconDataUri(seed: IdenticonSeed): string {
