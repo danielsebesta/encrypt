@@ -28,6 +28,9 @@ run_worker_first = [
 
 [vars]
 SHORTENER_URL = "https://l.encrypt.click/api/shorten"
+R2_ACCOUNT_ID = "c76ce085303f62a966fac128aa2952ae"
+R2_JURISDICTION = "eu"
+R2_BUCKET_NAME = "encrypt-r2"
 
 # Uploaded ciphertext, served same-origin from /dl/<id>, under t1h/, t1d/ and t7d/; one lifecycle rule per prefix deletes it.
 [[r2_buckets]]

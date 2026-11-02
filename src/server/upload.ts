@@ -4,11 +4,24 @@ import {
   readJsonLimited,
 } from '../lib/httpLimits';
 import { PASSWORD_ENVELOPE_MAGIC } from '../lib/passwordEnvelope';
-import { BLOB_ID_RE, BURN_HEADER, DEFAULT_RETENTION, RETENTION_HEADER, RETENTION_MS, blobId, isRetention, retentionDays, type Retention } from '../lib/retention';
+import {
+  BLOB_ID_RE,
+  BURN_HEADER,
+  DEFAULT_RETENTION,
+  RETENTION_HEADER,
+  RETENTION_MS,
+  blobId,
+  isRetention,
+  retentionDays,
+  retentionOfId,
+  uuidOfId,
+  type Retention,
+} from '../lib/retention';
 import { PASS_HEADER, browserFetch, issuePass, verifyPass } from '../lib/uploadPass';
 import type { Platform, UploadLimits } from '../platform/types';
 import type { Reservation, UploadStatus } from './budget';
 import { createChallenge, parseSolution, powDifficulty, verifySolution } from './pow';
+import { signR2PutUrl } from './r2Presign';
 
 export const UPLOAD_SCOPE = 'uploads';
 export const DOWNLOAD_SCOPE = 'downloads';
@@ -133,6 +146,73 @@ async function reserveUpload(
   return { ok: true, client, charged, limits };
 }
 
+async function directUpload(request: Request, platform: Platform): Promise<Response> {
+  const options = uploadOptions(request.headers);
+  if (!options) return json({ error: 'Invalid upload options' }, 400);
+
+  let body: any;
+  try {
+    body = await readJsonLimited(request, 1024);
+  } catch {
+    return json({ error: 'Invalid request body' }, 400);
+  }
+  const length = Number(body?.size);
+  if (!Number.isSafeInteger(length) || length <= HEAD_BYTES) return json({ error: 'Invalid size' }, 400);
+  if (length > MAX_FIRST_PARTY_BYTES) return json({ error: 'Payload too large' }, 413);
+
+  const accountId = platform.env.R2_ACCOUNT_ID || platform.env.CLOUDFLARE_ACCOUNT_ID || platform.env.CF_ACCOUNT_ID || 'c76ce085303f62a966fac128aa2952ae';
+  const accessKeyId = platform.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = platform.env.R2_SECRET_ACCESS_KEY;
+  const bucketName = platform.env.R2_BUCKET_NAME || 'encrypt-r2';
+  const jurisdiction = platform.env.R2_JURISDICTION || 'eu';
+
+  if (!accountId || !accessKeyId || !secretAccessKey) {
+    return json({ success: true, mode: 'relay' });
+  }
+
+  const reserved = await reserveUpload(request, platform, length, options.retention);
+  if (!reserved.ok) return reserved.response;
+
+  const id = blobId(options.retention, crypto.randomUUID());
+  const expires = Date.now() + RETENTION_MS[options.retention];
+  const objectKey = `t${retentionOfId(id)}/${uuidOfId(id)}`;
+  const metaHeaders: Record<string, string> = {
+    'content-type': 'application/octet-stream',
+    'x-amz-meta-expires': String(expires),
+    'x-amz-meta-burn': options.burn ? '1' : '0',
+  };
+  const signedHeaders: Record<string, string> = {
+    ...metaHeaders,
+    'content-length': String(length),
+  };
+
+  try {
+    const uploadUrl = await signR2PutUrl({
+      accountId,
+      bucketName,
+      jurisdiction,
+      key: objectKey,
+      accessKeyId,
+      secretAccessKey,
+      expiresInSeconds: 3600,
+      headers: signedHeaders,
+    });
+
+    return json({
+      success: true,
+      mode: 'r2-direct',
+      uploadUrl,
+      headers: metaHeaders,
+      id,
+      expires,
+      burn: options.burn,
+    });
+  } catch {
+    await platform.budget(UPLOAD_SCOPE, { op: 'release', client: reserved.client, bytes: reserved.charged, limits: reserved.limits });
+    return json({ error: 'Storage presign error' }, 500);
+  }
+}
+
 async function upload(request: Request, platform: Platform): Promise<Response> {
   const options = uploadOptions(request.headers);
   if (!options) return json({ error: 'Invalid upload options' }, 400);
@@ -166,23 +246,32 @@ async function upload(request: Request, platform: Platform): Promise<Response> {
 
 const notFound = () => new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
 
-// Drops the four-byte marker and calls done once the source has been read to its end, failed or was cancelled.
-function served(source: ReadableStream<Uint8Array>, done: () => void): ReadableStream<Uint8Array> {
-  const reader = source.getReader();
-  let skip = MAGIC_BYTES.length;
+// Drops the four-byte magic marker and delivers the remaining ciphertext stream.
+function servedCiphertext(
+  headRest: Uint8Array,
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  done: () => void,
+): ReadableStream<Uint8Array> {
+  let first = true;
   let finished = false;
   const finish = () => { if (!finished) { finished = true; done(); } };
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
-        for (;;) {
-          const { value, done: end } = await reader.read();
-          if (end) { controller.close(); finish(); return; }
-          if (skip >= value.length) { skip -= value.length; continue; }
-          controller.enqueue(skip ? value.subarray(skip) : value);
-          skip = 0;
+        if (first) {
+          first = false;
+          if (headRest.length > 0) {
+            controller.enqueue(headRest);
+            return;
+          }
+        }
+        const { value, done: end } = await reader.read();
+        if (end) {
+          controller.close();
+          finish();
           return;
         }
+        controller.enqueue(value);
       } catch (error) {
         controller.error(error);
         finish();
@@ -195,31 +284,53 @@ function served(source: ReadableStream<Uint8Array>, done: () => void): ReadableS
   });
 }
 
-// Stored objects keep the four-byte marker the uploader checked; downloads hand back the ciphertext alone. A one-time
-// upload is claimed atomically before its first byte leaves, so a second request is refused even while the object
-// still exists, and it is deleted once it has been read out. Legacy multipart objects still download when complete.
+const DOWNLOAD_HEADERS = (size: number): HeadersInit => ({
+  'Content-Type': 'application/octet-stream',
+  'Content-Length': String(size),
+  'Content-Disposition': 'attachment; filename="encrypted.bin"',
+  'Content-Security-Policy': "default-src 'none'; sandbox",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Cache-Control': 'private, no-store',
+});
+
+// Stored objects must be valid ECLK encrypted envelopes; downloads hand back the ciphertext alone.
+// Even with direct R2 uploads, format validation occurs before any bytes or burn tokens are spent.
+// An invalid or unencrypted file is rejected with 404 and purged immediately.
 async function download(request: Request, id: string, platform: Platform): Promise<Response> {
   const blob = BLOB_ID_RE.test(id) ? await platform.blobs.get(id) : null;
   if (!blob) return notFound();
-  const head = request.method === 'HEAD';
-  if (blob.size <= MAGIC_BYTES.length || Date.now() >= blob.expires
-    || (blob.burn && !head && !(await platform.budget<boolean>(DOWNLOAD_SCOPE, { op: 'spend', nonce: `burn:${id}`, expires: blob.expires })))) {
+  const isHead = request.method === 'HEAD';
+  if (blob.size <= HEAD_BYTES || Date.now() >= blob.expires) {
     await blob.body.cancel().catch(() => {});
     return notFound();
   }
-  let body: ReadableStream<Uint8Array> | null = null;
-  if (head) await blob.body.cancel().catch(() => {});
-  else body = served(blob.body, () => { if (blob.burn) platform.waitUntil(platform.blobs.delete(id)); });
-  return new Response(body, {
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Length': String(blob.size - MAGIC_BYTES.length),
-      'Content-Disposition': 'attachment; filename="encrypted.bin"',
-      'Content-Security-Policy': "default-src 'none'; sandbox",
-      'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': 'private, no-store',
-    },
+
+  const reader = blob.body.getReader();
+  const head = await readHead(reader);
+  if (!knownFormat(head)) {
+    await reader.cancel().catch(() => {});
+    platform.waitUntil(platform.blobs.delete(id));
+    return notFound();
+  }
+
+  if (isHead) {
+    await reader.cancel().catch(() => {});
+    return new Response(null, { headers: DOWNLOAD_HEADERS(blob.size - MAGIC_BYTES.length) });
+  }
+
+  if (blob.burn && !(await platform.budget<boolean>(DOWNLOAD_SCOPE, { op: 'spend', nonce: `burn:${id}`, expires: blob.expires }))) {
+    await reader.cancel().catch(() => {});
+    return notFound();
+  }
+
+  const headRest = head.subarray(MAGIC_BYTES.length);
+  const body = servedCiphertext(headRest, reader, () => {
+    if (blob.burn) platform.waitUntil(platform.blobs.delete(id));
   });
+
+  return new Response(body, { headers: DOWNLOAD_HEADERS(blob.size - MAGIC_BYTES.length) });
 }
 
 async function challenge(request: Request, platform: Platform): Promise<Response> {
@@ -246,6 +357,7 @@ async function redeem(request: Request, platform: Platform): Promise<Response> {
 export async function handleUploadRoute(request: Request, path: string, platform: Platform): Promise<Response | null> {
   const method = request.method;
   if (path === '/upload') return method === 'POST' ? upload(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'POST' });
+  if (path === '/upload/direct') return method === 'POST' ? directUpload(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'POST' });
   if (path === '/upload/status') {
     if (method !== 'GET') return json({ error: 'Method not allowed' }, 405, { Allow: 'GET' });
     const { available, maxFileSize } = await platform.budget<UploadStatus>(UPLOAD_SCOPE, { op: 'status', limits: uploadLimits(platform.env) });

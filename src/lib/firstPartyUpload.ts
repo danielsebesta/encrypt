@@ -128,6 +128,42 @@ export type FirstPartyUpload = { id: string; url: string; expires: number | null
 export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: UploadOptions): Promise<FirstPartyUpload | null> {
   try {
     const payload = prependEclkMagic(body);
+
+    // 1. Try direct-to-storage upload (bypasses Cloudflare Worker limits)
+    try {
+      const directRes = await sendWithUploadPass('/upload/direct', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options?.retention ? { [RETENTION_HEADER]: options.retention, [BURN_HEADER]: options.burn ? '1' : '0' } : {}),
+        },
+        body: JSON.stringify({ size: payload.length }),
+      }, dict);
+
+      if (directRes.ok) {
+        const directData = await directRes.json().catch(() => null) as any;
+        if (directData?.success && directData.mode === 'r2-direct' && directData.uploadUrl && typeof directData.id === 'string' && BLOB_ID_RE.test(directData.id)) {
+          const putRes = await requestOnce(directData.uploadUrl, {
+            method: 'PUT',
+            headers: directData.headers || {},
+            body: payload as BodyInit,
+          }, options?.onProgress);
+
+          if (putRes.ok) {
+            return {
+              id: directData.id,
+              url: `${location.origin}/dl/${directData.id}`,
+              expires: Number.isSafeInteger(directData.expires) ? directData.expires : null,
+              burn: directData.burn === true,
+            };
+          }
+        }
+      }
+    } catch {
+      // Fall through to relay upload if direct route errors
+    }
+
+    // 2. Fallback to relay upload via Cloudflare Worker
     const res = await sendWithUploadPass('/upload', {
       method: 'POST',
       headers: {
