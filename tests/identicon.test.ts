@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto';
 import {
   ENCRYPT_PALETTES,
   SHAPES,
+  CENTER_SHAPES,
   SHAPE_COUNT,
+  CENTER_COUNT,
   contrastRatio,
   identiconSvg,
   identiconDataUri,
@@ -20,9 +22,9 @@ test('sha256Sync matches node crypto and is deterministic', () => {
 
 test('identiconSvg returns a well-formed SVG', () => {
   const svg = identiconSvg({ key: 'abc', name: 'Alice' }, 32);
-  assert.ok(svg.startsWith('<svg viewBox="4 4 92 92" width="32" height="32"'));
+  assert.ok(svg.startsWith('<svg viewBox="0 0 100 100" width="32" height="32"'));
   assert.ok(svg.endsWith('</svg>'));
-  assert.ok(svg.includes('<rect x="0" y="0" width="100" height="100"'));
+  assert.ok(svg.includes('<rect width="100" height="100"'));
   assert.ok(!svg.includes('NaN') && !svg.includes('undefined'));
 });
 
@@ -35,7 +37,7 @@ test('identiconDataUri and identiconBackground wrap the svg', () => {
   assert.ok(identiconDataUri('Bob').startsWith('data:image/svg+xml,%3Csvg'));
   const bg = identiconBackground('Bob');
   assert.ok(bg.startsWith('url("data:image/svg+xml,'));
-  assert.ok(bg.endsWith('") center / cover no-repeat'));
+  assert.ok(bg.endsWith('") center / 100% 100% no-repeat'));
 });
 
 test('distinct key and name pairs give distinct avatars', () => {
@@ -50,8 +52,9 @@ test('palettes are valid and all shapes render within one cell', () => {
   }
   assert.equal(new Set(ENCRYPT_PALETTES.map((p) => p.name)).size, ENCRYPT_PALETTES.length);
   assert.equal(new Set(SHAPES.map((s) => s.name)).size, SHAPE_COUNT);
-  for (const s of SHAPES) {
-    const out = s.draw('#111111', '#eeeeee');
+  assert.equal(new Set(CENTER_SHAPES.map((s) => s.name)).size, CENTER_COUNT);
+  for (const s of [...SHAPES, ...CENTER_SHAPES]) {
+    const out = s.draw('#111111');
     assert.ok(out.length > 0 && !out.includes('NaN') && !out.includes('undefined'), s.name);
   }
 });
@@ -62,5 +65,6 @@ test('shape and background colors stay readable in every generated avatar', () =
   for (let i = 0; i < 2000; i++) {
     const svg = identiconSvg({ key: `k${i}`, name: `n${i}` });
     assert.ok(svg.includes('<g transform='));
+    assert.ok(svg.includes('viewBox="0 0 100 100"'));
   }
 });

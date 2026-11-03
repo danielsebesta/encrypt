@@ -88,11 +88,12 @@ test('a local copy without the ML-DSA signature still verifies with Ed25519 and 
   assert.equal(await verifyPayload({ ...local, _pqk: (await member()).pq.keyHash }), null);
 });
 
-test('the key code and the 60-digit safety number cover both keys of a saved-room member', async () => {
+test('the key mark and safety emojis cover both keys of a saved-room member', async () => {
   const alice = await member();
   const bob = await member();
   const number = await safetyNumber(alice.id, bob.id);
-  assert.match(number, /^(\d{5} ){11}\d{5}$/);
+  assert.equal(number.split(' ').length, 7);
+  assert.match(number, /^\S+( \S+){6}$/u);
   assert.equal(await safetyNumber(bob.id, alice.id), number);
   const bobOtherPq = signerId(bob.ed.publicKey, (await pqIdentity(seed())).keyHash);
   assert.notEqual(await safetyNumber(alice.id, bobOtherPq), number);

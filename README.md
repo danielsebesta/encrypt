@@ -64,8 +64,8 @@ A shared canvas, synced live and encrypted end to end. Pressure-sensitive pen, s
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-tools-dark.webp">
   <img src="docs/readme/art-tools-light.webp" alt="" height="120">
 </picture>
-<br><b>5 privacy tools</b><br>
-AES words, time-lock capsules, steganography, photo and spectral ciphers. All of them run locally.
+<br><b>5 experiment tools</b><br>
+Chat cipher, time-lock capsules, steganography, photo and spectral ciphers. All of them run locally.
 </td>
 </tr>
 </table>
@@ -130,9 +130,9 @@ flowchart LR
 
 The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security.txt](https://encrypt.click/.well-known/security.txt).
 
-## 🧰 Privacy tools
+## 🧰 Experiment tools
 
-- **AES words**: encrypted payloads as easy-to-copy groups of words
+- **Chat cipher**: hide a message inside casual Czech chat text
 - **Time capsule**: time-lock encryption with [drand](https://drand.love/)
 - **Steganography**: an encrypted message hidden in a PNG
 - **Photo cipher**: a hidden message that survives chat-app compression

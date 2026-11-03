@@ -220,6 +220,23 @@ test('saved-room keys derive a 64-hex access token and a message key without a p
   await assert.rejects(derivePersistentRoom('short', 'room'));
 });
 
+test('forget drops a stored ciphertext and tells every member', async () => {
+  const room = fakeRoom(await accessChannel(token));
+  const server = new Chat(room.host, { persistent: true });
+  const a = await joined(server, room, 'a');
+  const b = await joined(server, room, 'b');
+  await send(server, a, 'keep');
+  await send(server, a, 'burn-me');
+  assert.equal([...room.stored.values()].filter((value: any) => value?.id === 'burn-me').length, 1);
+  a.messages.length = 0;
+  b.messages.length = 0;
+  await server.onMessage(JSON.stringify({ type: 'forget', target: 'burn-me' }), a as any);
+  assert.equal([...room.stored.values()].filter((value: any) => value?.id === 'burn-me').length, 0);
+  assert.equal([...room.stored.values()].filter((value: any) => value?.id === 'keep').length, 1);
+  assert.deepEqual(a.messages.filter(m => m.type === 'forgotten'), [{ type: 'forgotten', target: 'burn-me' }]);
+  assert.deepEqual(b.messages.filter(m => m.type === 'forgotten'), [{ type: 'forgotten', target: 'burn-me' }]);
+});
+
 test('signed payloads verify, tampering and foreign keys fail, and safety numbers are symmetric', async () => {
   const alice = await generateSigningIdentity();
   const bob = await generateSigningIdentity();
@@ -234,7 +251,7 @@ test('signed payloads verify, tampering and foreign keys fail, and safety number
   assert.equal(await verifyPayload(unsigned), null);
   const ab = await safetyNumber(alice.publicKey, bob.publicKey);
   assert.equal(ab, await safetyNumber(bob.publicKey, alice.publicKey));
-  assert.match(ab, /^\d{5}( \d{5}){11}$/);
+  assert.match(ab, /^\S+( \S+){6}$/u);
   assert.notEqual(ab, await safetyNumber(alice.publicKey, (await generateSigningIdentity()).publicKey));
-  assert.match(await keyCode(alice.publicKey), /^\d{5} \d{5} \d{5} \d{5}$/);
+  assert.match(await keyCode(alice.publicKey), /^\S+( \S+){3}$/u);
 });

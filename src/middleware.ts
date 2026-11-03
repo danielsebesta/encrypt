@@ -29,7 +29,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       headers.delete('Content-Length');
       scripts = `'nonce-${nonce}'`;
     }
-    headers.set('Content-Security-Policy', `default-src 'self'; script-src 'self' ${scripts} 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests`);
+    headers.set('Content-Security-Policy', `default-src 'self'; script-src 'self' ${scripts} 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://*.r2.cloudflarestorage.com https://*.cloudflarestorage.com; frame-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests`);
   } else if (!headers.has('Content-Security-Policy')) {
     headers.set('Content-Security-Policy', "default-src 'none'; sandbox; frame-ancestors 'none'");
   }

@@ -10,7 +10,7 @@ const MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const KEY_HASH_RE = /^[A-Za-z0-9_-]{43}$/;
 const CLIENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction']);
+const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction', 'message-burn']);
 
 const b64url = (value: unknown, max: number, exact = false) =>
   typeof value === 'string' && B64URL_RE.test(value) && (exact ? value.length === max : value.length <= max);
@@ -67,6 +67,8 @@ export function validPayload(value: any, room: string, history = false): boolean
   if (value.file && !b64url(value.file.key, 43, true)) return false;
   if (value.file && value.file.voice !== undefined && !(value.file.voice === true && validVoiceDuration(value.file.duration))) return false;
   if (value.replyTo !== undefined && !validMessageRef(value.replyTo)) return false;
+  if (value.once !== undefined && !(value.type === 'chat-message' && value.once === true)) return false;
   if (value.type === 'reaction' && !(validMessageRef(value.target) && validReactionEmoji(value.emoji) && (value.remove === undefined || value.remove === true))) return false;
+  if (value.type === 'message-burn' && !validMessageRef(value.target)) return false;
   return validKeyFields(value);
 }

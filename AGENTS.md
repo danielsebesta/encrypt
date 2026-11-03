@@ -57,7 +57,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 
 ### Tool categories in `src/lib/tools.ts`
 
-- `privacy`
+- `experiments`
 
 ## Working rules
 

@@ -252,7 +252,7 @@
         <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby="chat-pass-rules chat-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
         <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} />
         {#if passwordError}
-          <p class="status status--error" role="alert">{passwordError}</p>
+          <p class="status status--error status--box" role="alert">{passwordError}</p>
         {/if}
         <p id="chat-pass-hint" class="hint">{t(dict, 'chat.createDescription')}</p>
       </div>

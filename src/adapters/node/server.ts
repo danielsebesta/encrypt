@@ -10,6 +10,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../../server/app';
 import { runBudgetCommand } from '../../server/budget';
 import { setRuntimeEnv } from '../../platform/env';
+import { isWhitelabeled, siteName } from '../../lib/siteBrand';
 import type { Platform, SqlLike } from '../../platform/types';
 import { FileBlobStore } from './blobs';
 import { RealtimeRooms, ROOM_ROUTE_RE } from './realtime';
@@ -194,5 +195,6 @@ process.on('SIGINT', stop);
 server.listen(port, host, () => {
   const address = server.address();
   const shown = typeof address === 'object' && address ? `${address.address.includes(':') ? `[${address.address}]` : address.address}:${address.port}` : String(address);
-  console.log(`encrypt.click listening on ${shown}${publicUrl ? ` as ${publicUrl.origin}` : ''}`);
+  const label = isWhitelabeled() ? `${siteName()} (encrypt.click)` : 'encrypt.click';
+  console.log(`${label} listening on ${shown}${publicUrl ? ` as ${publicUrl.origin}` : ''}`);
 });

@@ -11,7 +11,7 @@ import { accessChannel } from '../src/lib/roomAccess';
 import { RoomDatabase, sqlLike } from '../src/adapters/node/sqlite';
 import { RealtimeRooms } from '../src/adapters/node/realtime';
 import { BLOB_TTL_MS, FileBlobStore } from '../src/adapters/node/blobs';
-import { StaticSite, matchHeaders, matchRedirect, parseHeaders, parseRedirects, resolveAsset } from '../src/adapters/node/static';
+import { StaticSite, htmlErrorStatus, matchHeaders, matchRedirect, parseHeaders, parseRedirects, resolveAsset } from '../src/adapters/node/static';
 
 const token = 'c'.repeat(64);
 const PAYLOAD = 'A'.repeat(64);
@@ -259,6 +259,26 @@ test('HTML lookup follows Cloudflare auto-trailing-slash handling', () => {
   assert.deepEqual(resolve('/dir.html'), { redirect: '/dir/' });
   assert.deepEqual(resolve('/a.txt'), { file: '/a.txt' });
   assert.equal(resolve('/missing'), null);
+});
+
+test('prerendered error pages map to their HTTP status', async () => {
+  assert.equal(htmlErrorStatus('/404.html'), 404);
+  assert.equal(htmlErrorStatus('/403.html'), 403);
+  assert.equal(htmlErrorStatus('/500.html'), 500);
+  assert.equal(htmlErrorStatus('/403/index.html'), 403);
+  assert.equal(htmlErrorStatus('/index.html'), undefined);
+
+  const root = tempDir();
+  const client = path.join(root, 'client');
+  mkdirSync(client, { recursive: true });
+  writeFileSync(path.join(client, '403.html'), '<h1>denied</h1>');
+  writeFileSync(path.join(client, '404.html'), '<h1>missing</h1>');
+  writeFileSync(path.join(client, '500.html'), '<h1>broken</h1>');
+  const site = await StaticSite.load(client);
+  assert.equal(site.serve(new Request('https://site.test/403'))!.status, 403);
+  assert.equal(site.serve(new Request('https://site.test/404'))!.status, 404);
+  assert.equal(site.serve(new Request('https://site.test/500'))!.status, 500);
+  assert.equal(site.read('/404.html')!.status, 404);
 });
 
 test('static files serve with headers, ETags, ranges and HEAD, and nothing outside the client directory', async () => {

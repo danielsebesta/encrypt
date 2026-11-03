@@ -5,6 +5,7 @@ import { getTranslations, t, languages, locales, getLocalePath, type Locale } fr
 import { languageChoiceHref } from '../lib/locale';
 import { getNavCategories, chatIcon, sendIcon, whiteboardIcon } from '../lib/tools';
 import { getGithubStars } from '../lib/githubStars';
+import { PRODUCT_NAME, siteName, siteOrigin } from '../lib/siteBrand';
 
 type Props = {
   title?: string;
@@ -16,16 +17,17 @@ type Props = {
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
+const site = siteOrigin(Astro.url.origin);
+const brand = siteName();
 
 const {
   title = t(dict, 'meta.defaultTitle'),
   description = t(dict, 'meta.defaultDescription'),
-  ogImage = 'https://encrypt.click/og.png?v=3',
+  ogImage = new URL('/og.png?v=3', site).href,
   canonical,
   mainClass = '',
 } = Astro.props;
 
-const site = 'https://encrypt.click';
 const path = Astro.url.pathname;
 const canonicalUrl = canonical || new URL(path, site).href;
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
@@ -74,22 +76,23 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
 		<meta property="og:locale" content={locale} />
-		<meta property="og:site_name" content="encrypt.click" />
+		<meta property="og:site_name" content={brand} />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content={ogImage} />
-		<meta name="theme-color" content="#00bc7d" />
+		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#08110a" media="(prefers-color-scheme: dark)" />
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-		<meta name="apple-mobile-web-app-title" content="encrypt.click" />
+		<meta name="apple-mobile-web-app-title" content={brand} />
 		<link rel="manifest" href="/site.webmanifest" />
-		<link rel="preload" href="/fonts/nunito-v32-latin_latin-ext-regular.woff2" as="font" type="font/woff2" crossorigin />
-		<link rel="preload" href="/fonts/nunito-v32-latin_latin-ext-700.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href="/fonts/strichpunkt-400.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href="/fonts/redaction-700.woff2" as="font" type="font/woff2" crossorigin />
 		{enableIntegrityCheck && <script is:inline src="/integrity-check.js" defer></script>}
 		<script is:inline src="/boot.js?v=security-v2"></script>
 	</head>
@@ -130,8 +133,8 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 
 			<nav id="site-nav" class="nav" aria-label={t(dict, 'nav.menu')}>
 				<a href={homeHref} class="nav__brand">
-					<img src="/encryptclick_icon.svg" alt="" width="36" height="36" class="h-9 w-9" decoding="async" />
-					<span>encrypt.click</span>
+					<img src="/encryptclick_icon.svg" alt="" width="24" height="36" class="h-9 w-auto" decoding="async" />
+					<span>{PRODUCT_NAME}</span>
 				</a>
 
 				<div id="nav-links" class="nav__links">
@@ -197,13 +200,13 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<footer class="site-footer">
 			<div class="site-footer__inner">
 				<a href={homeHref} class="nav__brand">
-					<img src="/encryptclick_icon.svg" alt="" width="22" height="22" class="h-[22px] w-[22px]" decoding="async" />
-					<span class="text-sm">encrypt.click</span>
+					<img src="/encryptclick_icon.svg" alt="" width="14" height="22" class="h-[22px] w-auto" decoding="async" />
+					<span class="text-sm">{PRODUCT_NAME}</span>
 				</a>
 				<div class="site-footer__links">
 					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="opacity-60"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="text-muted"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
 						GitHub
 						{githubStars !== null && <span>★ {githubStars.toLocaleString('en')}</span>}
 					</a>

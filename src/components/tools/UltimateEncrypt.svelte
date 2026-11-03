@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { illustration } from '../../lib/illustrations';
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
@@ -25,6 +26,8 @@
   import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
   import { DEFAULT_RETENTION, retentionForUnlock, type Retention } from '../../lib/retention';
   import { formatShareFragment } from '../../lib/shareLink';
+  import { encodeShareDrop, shareDropFilename } from '../../lib/shareDrop';
+  import { saveSharePassword } from '../../lib/sharePasswordVault';
   import { lockTimeSecret, roundTime, type TimeLock } from '../../lib/timelock';
 
   export let locale = 'en';
@@ -40,7 +43,6 @@
   let file: File | null = null;
   let password = '';
   let timelockDate = '';
-  let showQr = false;
 
   let resultUrl = '';
   let shortUrl = '';
@@ -73,11 +75,17 @@
 
   let retention: Retention = DEFAULT_RETENTION;
   let burn = false;
+  let deadMan = false;
   let resultExpires: number | undefined;
   let resultBurn = false;
   let unlockAt = '';
   let pendingLock: { secret: Uint8Array; lock: TimeLock } | null = null;
   let resultUnlock: number | undefined;
+  let dropUrl = '';
+  let dropName = '';
+  let passkeySaveNotice = '';
+  let passkeySaving = false;
+  let resultFragment = '';
   $: unlockMs = unlockAt && Number.isFinite(new Date(unlockAt).getTime()) ? new Date(unlockAt).getTime() : null;
   $: effectiveRetention = retentionForUnlock(retention, unlockMs);
   // Send instances keep files on their own terms, so only shares with the default settings may fall back to them.
@@ -89,7 +97,11 @@
 
   interface HostInfo { id: string; name: string; maxBytes: number; }
 
-  const FIRST_PARTY_HOST: HostInfo = { id: 'eclk', name: 'encrypt.click upload', maxBytes: FIRST_PARTY_ENVELOPE_LIMIT };
+  $: FIRST_PARTY_HOST = {
+    id: 'eclk',
+    name: t(dict, 'tools.ultimateEncrypt.firstPartyUpload'),
+    maxBytes: FIRST_PARTY_ENVELOPE_LIMIT,
+  } as HostInfo;
 
   const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: SEND_ENVELOPE_LIMIT };
 
@@ -99,6 +111,10 @@
   $: isHuge = payloadSize > MAX_FILE;
   $: deliveryMode = isHuge ? 'local' : isLarge ? 'ghost' : 'link';
   $: shareUrl = shortUrl || resultUrl;
+  $: resultPass = resultPassword || password;
+  $: resultBlurb = shareUrl && resultPass
+    ? t(dict, 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl).replace('{password}', resultPass)
+    : '';
   $: if (step === 'result' && shareUrl) {
     void generateQr(shareUrl);
   }
@@ -526,6 +542,7 @@
       payload = { v: 1, mode: 'inline', kind: 'text', text: textInput.trim() };
       pushDebug(`Inline payload prepared for text (${textInput.trim().length} chars)`);
     }
+    if (burn) payload.once = true;
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
     const json = JSON.stringify(payload);
@@ -537,14 +554,16 @@
     const encoded = base64UrlEncode(encrypted);
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
-    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded, lock: pendingLock?.lock }));
+    const fragment = formatShareFragment({ payload: encoded, burn: burn || undefined, lock: pendingLock?.lock });
+    const urls = buildReceiveUrls(fragment);
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = false;
     resultExpires = undefined;
-    resultBurn = false;
+    resultBurn = burn;
     resultUnlock = pendingLock ? roundTime(pendingLock.lock.round) : undefined;
+    setDropFromFragment(fragment);
   }
 
   async function encryptGhostPrepare() {
@@ -660,7 +679,8 @@
     const encPayload = await encrypt(compressedB64, encryptionPassword, undefined, pendingLock?.secret);
     const encoded = base64UrlEncode(encPayload);
 
-    const urls = buildReceiveUrls(formatShareFragment({ payload: encoded, expires, burn: burned, lock: pendingLock?.lock }));
+    const fragment = formatShareFragment({ payload: encoded, expires, burn: burned, lock: pendingLock?.lock });
+    const urls = buildReceiveUrls(fragment);
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
@@ -668,8 +688,40 @@
     resultExpires = expires;
     resultBurn = burned;
     resultUnlock = pendingLock ? roundTime(pendingLock.lock.round) : undefined;
+    setDropFromFragment(fragment);
 
     pendingPayloadPassword = '';
+  }
+
+  function setDropFromFragment(fragment: string) {
+    resultFragment = fragment;
+    if (dropUrl) URL.revokeObjectURL(dropUrl);
+    dropUrl = '';
+    dropName = '';
+    try {
+      const body = encodeShareDrop(fragment);
+      dropName = shareDropFilename();
+      dropUrl = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+    } catch {
+      /* fragment too large or invalid — skip offline drop file */
+    }
+  }
+
+  async function savePasswordWithPasskey() {
+    if (!resultFragment || !resultPassword || passkeySaving) return;
+    passkeySaving = true;
+    passkeySaveNotice = '';
+    const result = await saveSharePassword(
+      resultFragment,
+      resultPassword,
+      t(dict, 'tools.ultimateEncrypt.passkeySaveLabel'),
+      t(dict, 'rooms.passkeyName').replace('{host}', typeof location !== 'undefined' ? location.hostname : 'encrypt.click'),
+    );
+    passkeySaving = false;
+    if (result === 'saved') passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeySaved');
+    else if (result === 'cancelled') passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeyCancelled');
+    else if (result === 'names' || result === 'no-prf') passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeyUnavailable');
+    else passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeyFailed');
   }
 
   async function wrapInStego(url: string) {
@@ -742,16 +794,21 @@
     error = '';
     resultPassword = '';
     pendingPayloadPassword = '';
-    showQr = false;
     showManualTransferHelp = false;
     resultHasTemporaryUpload = false;
     retention = DEFAULT_RETENTION;
     burn = false;
+    deadMan = false;
     resultExpires = undefined;
     resultBurn = false;
     unlockAt = '';
     pendingLock = null;
     resultUnlock = undefined;
+    resultFragment = '';
+    passkeySaveNotice = '';
+    if (dropUrl) URL.revokeObjectURL(dropUrl);
+    dropUrl = '';
+    dropName = '';
     setProgress('', '');
     if (stegoImageUrl) URL.revokeObjectURL(stegoImageUrl);
     stegoImageUrl = '';
@@ -794,7 +851,7 @@
       <p class="hint">{t(dict, 'tools.ultimateEncrypt.transferClaim')}</p>
 
       <div class="grid gap-4 md:grid-cols-2">
-        <div class="field">
+        <div class="field field--fill">
           <label class="label" for="ue-text">{t(dict, 'tools.ultimateEncrypt.messageLabel')}</label>
           <textarea
             id="ue-text"
@@ -808,7 +865,7 @@
           ></textarea>
         </div>
 
-        <div class="field">
+        <div class="field field--fill">
           <span class="label" id="ue-file-label">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
           {#if files.length > 0}
             <div class="dropzone dropzone--active" aria-labelledby="ue-file-label">
@@ -816,6 +873,14 @@
               <span>{#if files.length > 1}{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')} · {/if}{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
               <button type="button" class="btn-ghost btn-sm" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
             </div>
+            {#if isHuge}
+              <div class="status status--warn mt-2">
+                <div>
+                  <p class="status__title">{t(dict, 'tools.ultimateEncrypt.largeNotice.title')}</p>
+                  <p>{t(dict, 'tools.ultimateEncrypt.largeNotice.desc')}</p>
+                </div>
+              </div>
+            {/if}
           {:else}
             <!-- svelte-ignore a11y-no-static-element-interactions -->
             <label
@@ -849,6 +914,14 @@
 
   {:else if step === 'password'}
     <form class="stack" method="dialog" on:submit|preventDefault={handleEncrypt}>
+      {#if isHuge}
+        <div class="status status--warn">
+          <div>
+            <p class="status__title">{t(dict, 'tools.ultimateEncrypt.largeNotice.title')}</p>
+            <p>{t(dict, 'tools.ultimateEncrypt.largeNotice.desc')}</p>
+          </div>
+        </div>
+      {/if}
       <div class="field">
         <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
         <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-rules ue-pass-hint" invalid={!!error} generate={() => { error = ''; return generatePassphrase(); }} bind:revealed={passwordRevealed} />
@@ -856,7 +929,7 @@
         <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 
-      <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:unlockAt {effectiveRetention} />
+      <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
 
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
@@ -885,10 +958,10 @@
         <div class="hint grid gap-1.5">
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
           <p class="actions gap-x-4">
-            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">Send instances</a>
-            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">SwissTransfer</a>
+            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.sendInstances')}</a>
+            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.swissTransfer')}</a>
           </p>
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline underline-offset-2">encrypt.click/u</a></p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href={locale === 'en' ? '/u' : `/${locale}/u`} class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.decryptPath')}</a></p>
         </div>
       {/if}
       <div class="actions">
@@ -934,81 +1007,112 @@
     </div>
 
   {:else if step === 'result'}
-    <div class="stack" role="status">
-      {#if resultArt}<img src="/encrypt_send.svg" alt="" width="236" height="293" class="state-art" decoding="async" />{/if}
-      {#if resultUrl || shortUrl}
+    <div class="ue-result" role="status">
+      {#if resultArt}{@html illustration('send', 'state-art')}{/if}
+
+      <div class="card stack">
+        {#if resultUrl || shortUrl}
+          <div class="field">
+            <div class="output-head">
+              <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
+              <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+            </div>
+            <input id="ue-result-link" class="input input--mono" type="text" readonly value={shareUrl} />
+            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
+            <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
+            {#if deadMan && resultUnlock}
+              <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.options.deadManResult').replace('{time}', new Date(resultUnlock).toLocaleString(locale))}</p>
+            {/if}
+            {#if resultHasTemporaryUpload}
+              <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
+            {/if}
+          </div>
+        {/if}
+
         <div class="field">
           <div class="output-head">
-            <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
-            <div class="flex items-center gap-1">
-              {#if qrSvg && shareUrl}
-                <button type="button" class="btn-ghost btn-sm" aria-pressed={showQr} on:click={() => showQr = !showQr}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 14h2"/><path d="M18 14h2v2"/><path d="M14 18h2v2h-2z"/><path d="M18 18h2v2h-2z"/></svg>
-                  QR
-                </button>
-              {/if}
-              <CopyButton text={shortUrl || resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-            </div>
+            <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
+            <CopyButton text={resultPass} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
           </div>
-          <input id="ue-result-link" class="input input--mono" type="text" readonly value={shortUrl || resultUrl} />
-          <ShareLinkButton url={shortUrl || resultUrl} label={t(dict, 'common.shareLink')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
-          <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
-          {#if resultHasTemporaryUpload}
-            <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
-          {/if}
-          {#if showQr && qrSvg && shareUrl}
-            <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
-          {/if}
-          {#if shortenableUrl && !shortUrl}
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" class="btn-secondary btn-sm" disabled={shortening} on:click={shortenLink}>
-                {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
-              </button>
-            </div>
-            <p class="hint">{t(dict, 'tools.ultimateEncrypt.shortenHint')}</p>
-            {#if shortenFailed}
-              <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
-            {/if}
-          {/if}
-          {#if shortUrl}
-            <details class="more">
-              <summary>{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
-              <div class="more__body">
-                <div class="flex items-center gap-2">
-                  <input class="input input--mono text-sm" type="text" readonly value={resultUrl} aria-label={t(dict, 'tools.ultimateEncrypt.encryptedLink')} />
-                  <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-                </div>
-              </div>
-            </details>
+          <div class="passphrase">
+            <input id="ue-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPass} />
+            <button
+              type="button"
+              class="btn-ghost btn-sm btn-icon"
+              on:click={() => { resultPasswordVisible = !resultPasswordVisible; }}
+              aria-label={t(dict, 'common.showPassword')}
+              aria-pressed={resultPasswordVisible}
+              aria-controls="ue-result-pass"
+              title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
+            >
+              {#if resultPasswordVisible}
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/></svg>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>
+              {/if}
+            </button>
+          </div>
+          <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
+        </div>
+
+        {#if qrSvg && shareUrl}
+          <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+        {/if}
+
+        <div class="ue-result-tell">
+          <p class="ue-result-tell__title">{t(dict, 'tools.ultimateEncrypt.result.tellTitle')}</p>
+          <ul>
+            <li>{t(dict, 'tools.ultimateEncrypt.result.tell.1')}</li>
+            <li>{t(dict, 'tools.ultimateEncrypt.result.tell.2')}</li>
+            <li>{t(dict, 'tools.ultimateEncrypt.result.tell.3')}</li>
+          </ul>
+        </div>
+
+        <CopyButton
+          text={resultBlurb}
+          label={t(dict, 'tools.ultimateEncrypt.result.copyAll')}
+          copiedLabel={t(dict, 'common.copied')}
+          variant="primary"
+          className="w-full"
+        />
+      </div>
+
+      {#if dropUrl}
+        <div class="field">
+          <a href={dropUrl} download={dropName} class="btn-secondary w-full">{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
+          <p class="hint">{t(dict, 'tools.ultimateEncrypt.offlineDropHint')}</p>
+        </div>
+      {/if}
+      {#if resultPassword && resultFragment}
+        <button type="button" class="btn-ghost w-full" disabled={passkeySaving} on:click={savePasswordWithPasskey}>
+          {passkeySaving ? t(dict, 'tools.ultimateEncrypt.passkeySaving') : t(dict, 'tools.ultimateEncrypt.passkeySave')}
+        </button>
+        {#if passkeySaveNotice}
+          <p class="status" role="status">{passkeySaveNotice}</p>
+        {/if}
+      {/if}
+      {#if shortenableUrl && !shortUrl}
+        <div class="field">
+          <button type="button" class="btn-secondary w-full" disabled={shortening} on:click={shortenLink}>
+            {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
+          </button>
+          <p class="hint">{t(dict, 'tools.ultimateEncrypt.shortenHint')}</p>
+          {#if shortenFailed}
+            <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
           {/if}
         </div>
       {/if}
-
-      <div class="field">
-        <div class="output-head">
-          <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-          <CopyButton text={resultPassword || password} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-        </div>
-        <div class="passphrase">
-          <input id="ue-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPassword || password} />
-          <button
-            type="button"
-            class="btn-ghost btn-sm btn-icon"
-            on:click={() => { resultPasswordVisible = !resultPasswordVisible; }}
-            aria-label={t(dict, 'common.showPassword')}
-            aria-pressed={resultPasswordVisible}
-            aria-controls="ue-result-pass"
-            title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
-          >
-            {#if resultPasswordVisible}
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>
-            {/if}
-          </button>
-        </div>
-        <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
-      </div>
+      {#if shortUrl}
+        <details class="more">
+          <summary>{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
+          <div class="more__body">
+            <div class="flex items-center gap-2">
+              <input class="input input--mono text-sm" type="text" readonly value={resultUrl} aria-label={t(dict, 'tools.ultimateEncrypt.encryptedLink')} />
+              <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+            </div>
+          </div>
+        </details>
+      {/if}
 
       {#if stegoImageUrl}
         <div class="field">

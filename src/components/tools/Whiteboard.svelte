@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { illustration } from '../../lib/illustrations';
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
@@ -16,9 +17,10 @@
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
   import { parseBurnSuffix, roomPasswordOk, ROOM_KEY_RE } from '../../lib/chatRoomSettings';
   import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES, SAVED_BOARD_BYTES } from '../../lib/whiteboardSync';
+  import { encodeEncryptedBoardBackup, decodeEncryptedBoardBackup } from '../../lib/whiteboardBackupCrypto';
   import { t } from '../../lib/t';
-  import ShareLinkButton from '../ShareLinkButton.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
+  import RoomInviteCard from './RoomInviteCard.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -45,13 +47,13 @@
   const IMPORT_ORIGIN = 'import';
   const NOTICE_MS = 6000;
 
-  // Quickdraw ships a warm paper look; use the site's neutral surfaces and a grey grid instead.
-  THEMES.light.background = '#fafafa';
-  THEMES.light.grid.dot = { minor: 'rgba(24, 24, 27, 0.18)', major: 'rgba(24, 24, 27, 0.32)' };
-  THEMES.light.grid.line = { minor: 'rgba(24, 24, 27, 0.07)', major: 'rgba(24, 24, 27, 0.14)' };
-  THEMES.dark.background = '#18181b';
-  THEMES.dark.grid.dot = { minor: 'rgba(244, 244, 245, 0.14)', major: 'rgba(244, 244, 245, 0.26)' };
-  THEMES.dark.grid.line = { minor: 'rgba(244, 244, 245, 0.05)', major: 'rgba(244, 244, 245, 0.1)' };
+  // Quickdraw ships a warm paper look; use the site's surface colors and a green-tinted grid instead.
+  THEMES.light.background = '#fafbfa';
+  THEMES.light.grid.dot = { minor: 'rgba(17, 26, 16, 0.18)', major: 'rgba(17, 26, 16, 0.32)' };
+  THEMES.light.grid.line = { minor: 'rgba(17, 26, 16, 0.07)', major: 'rgba(17, 26, 16, 0.14)' };
+  THEMES.dark.background = '#0d140b';
+  THEMES.dark.grid.dot = { minor: 'rgba(155, 178, 141, 0.14)', major: 'rgba(155, 178, 141, 0.26)' };
+  THEMES.dark.grid.line = { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' };
 
   const ICONS: Record<string, string> = {
     select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -171,10 +173,15 @@
   let myConnId = '';
 
   let sharePassword = '';
-  let shareCopiedLink = false;
-  let shareCopiedPass = false;
-  let showSharePassword = false;
   let shareDismissed = false;
+  let backupDialog: HTMLDialogElement;
+  let backupMode: 'export' | 'import' = 'export';
+  let backupPassword = '';
+  let backupPasswordConfirm = '';
+  let backupError = '';
+  let backupBusy = false;
+  let pendingEncryptedImport = '';
+  let encryptedImportInput: HTMLInputElement;
 
   let ydoc: Y.Doc;
   let yrecords: Y.Map<ShapeRecord>;
@@ -1173,19 +1180,53 @@
     importInput?.click();
   }
 
-  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
-  async function importBoard() {
-    const file = importInput?.files?.[0];
-    if (importInput) importInput.value = '';
+  function openBackupDialog(mode: 'export' | 'import') {
+    backupMode = mode;
+    backupPassword = '';
+    backupPasswordConfirm = '';
+    backupError = '';
+    backupBusy = false;
+    backupDialog?.showModal();
+  }
+
+  function closeBackupDialog() {
+    backupDialog?.close();
+    backupPassword = '';
+    backupPasswordConfirm = '';
+    backupError = '';
+    backupBusy = false;
+    pendingEncryptedImport = '';
+  }
+
+  function chooseEncryptedExport() {
+    menuOpen = false;
+    if (!ydoc || shapeCount === 0) return;
+    openBackupDialog('export');
+  }
+
+  function chooseEncryptedImport() {
+    menuOpen = false;
+    encryptedImportInput?.click();
+  }
+
+  async function onEncryptedImportPicked() {
+    const file = encryptedImportInput?.files?.[0];
+    if (encryptedImportInput) encryptedImportInput.value = '';
     if (!file || !ydoc) return;
     const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
-    if (file.size > BOARD_BACKUP_MAX_BYTES * 2) { showNotice(tooLarge); return; }
-    const parsed = parseBoardBackup(await file.text());
-    if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
+    if (file.size > BOARD_BACKUP_MAX_BYTES * 3) { showNotice(tooLarge); return; }
+    pendingEncryptedImport = await file.text();
+    openBackupDialog('import');
+  }
+
+  async function applyBoardUpdate(update: Uint8Array) {
+    if (!ydoc) return;
+    const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+    if (update.length > BOARD_BACKUP_MAX_BYTES) { showNotice(tooLarge); return; }
     const probe = new Y.Doc();
     let added = 0;
     try {
-      Y.applyUpdate(probe, parsed.update);
+      Y.applyUpdate(probe, update);
       for (const [key, asset] of probe.getMap<BoardAsset>('assets')) {
         if (!yassets.has(key) && validAssetRecord(asset, key)) added += assetBytes(asset.data);
       }
@@ -1197,9 +1238,69 @@
     }
     if (boardAssetBytes() + added > BOARD_ASSET_BYTES) { boardFullNotice(); return; }
     flushToDoc(true);
-    Y.applyUpdate(ydoc, parsed.update, IMPORT_ORIGIN);
+    Y.applyUpdate(ydoc, update, IMPORT_ORIGIN);
     editor?.fitContent({ animate: 200 });
     showNotice(t(dict, 'whiteboard.importDone'), false);
+  }
+
+  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
+  async function importBoard() {
+    const file = importInput?.files?.[0];
+    if (importInput) importInput.value = '';
+    if (!file || !ydoc) return;
+    const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+    if (file.size > BOARD_BACKUP_MAX_BYTES * 2) { showNotice(tooLarge); return; }
+    const parsed = parseBoardBackup(await file.text());
+    if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
+    await applyBoardUpdate(parsed.update);
+  }
+
+  async function confirmBackupPassword() {
+    if (backupBusy) return;
+    backupError = '';
+    const password = backupPassword.trim();
+    if (!password) {
+      backupError = t(dict, 'whiteboard.encryptedPasswordRequired');
+      return;
+    }
+    if (backupMode === 'export') {
+      if (password !== backupPasswordConfirm.trim()) {
+        backupError = t(dict, 'whiteboard.encryptedPasswordMismatch');
+        return;
+      }
+      if (!ydoc) return;
+      backupBusy = true;
+      try {
+        flushToDoc();
+        const name = roomId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'whiteboard';
+        const text = await encodeEncryptedBoardBackup(Y.encodeStateAsUpdate(ydoc), password);
+        saveFile(new Blob([text], { type: 'application/json' }), `${name}.board.sealed.json`);
+        closeBackupDialog();
+        showNotice(t(dict, 'whiteboard.encryptedExportDone'), false);
+      } catch {
+        backupError = t(dict, 'whiteboard.encryptedExportFailed');
+      } finally {
+        backupBusy = false;
+      }
+      return;
+    }
+    backupBusy = true;
+    try {
+      const update = await decodeEncryptedBoardBackup(pendingEncryptedImport, password);
+      closeBackupDialog();
+      await applyBoardUpdate(update);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (message === 'too-large') {
+        backupError = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+      } else if (message === 'Wrong password') {
+        backupError = t(dict, 'whiteboard.encryptedWrongPassword');
+      } else {
+        backupError = t(dict, 'whiteboard.encryptedImportInvalid');
+      }
+    } finally {
+      backupBusy = false;
+    }
   }
 
   async function toggleFullscreen() {
@@ -1344,22 +1445,6 @@
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 });
   $: zoomLabel = percent.format(zoom);
 
-  async function copyShareLink() {
-    try {
-      await navigator.clipboard.writeText(roomLink());
-      shareCopiedLink = true;
-      setTimeout(() => { shareCopiedLink = false; }, 1500);
-    } catch {}
-  }
-
-  async function copySharePassword() {
-    try {
-      await navigator.clipboard.writeText(sharePassword);
-      shareCopiedPass = true;
-      setTimeout(() => { shareCopiedPass = false; }, 1500);
-    } catch {}
-  }
-
   function beforeUnloadHandler(e: BeforeUnloadEvent) {
     e.preventDefault();
     e.returnValue = '';
@@ -1431,7 +1516,7 @@
   {#if boardDeleted || linkFailed}
     <div class="wb-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        {@html illustration('magnify', 'state-art')}
         <p class="status status--error" role="alert">{t(dict, boardDeleted ? 'whiteboard.boardDeleted' : 'whiteboard.errorDeriveKey')}</p>
         {#if boardDeleted}<p class="hint">{t(dict, 'whiteboard.boardDeletedDetail')}</p>{/if}
         <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard`}>{t(dict, 'whiteboard.newBoard')}</a>
@@ -1442,7 +1527,7 @@
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          <img src="/encrypt_lock.svg" alt="" width="97" height="129" class="state-art" decoding="async" />
+          {@html illustration('lock', 'state-art')}
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
@@ -1476,32 +1561,14 @@
   {:else}
     {#if (sharePassword || shareLinkOnly) && !shareDismissed}
       <div class="wb-share-banner">
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <span class="text-sm font-bold text-accent">{t(dict, savedBoard ? 'whiteboard.savedShareWarning' : 'whiteboard.sharePasswordWarning')}</span>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS.close}</svg>
-          </button>
-        </div>
-        <div class="flex items-center gap-1.5 mb-1.5">
-          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.roomLink')}</span>
-          <code class="wb-share-value">{savedBoard && linkKey ? roomLink() : typeof window !== 'undefined' ? window.location.href : ''}</code>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedLink} aria-hidden="true">{@html shareCopiedLink ? ICONS.check : ICONS.copy}</svg>
-          </button>
-          <ShareLinkButton url={typeof window !== 'undefined' ? window.location.href : ''} label={t(dict, 'common.shareLink')} className="btn-ghost btn-sm" iconOnly size={14} />
-        </div>
-        {#if sharePassword}
-        <div class="flex items-center gap-1.5">
-          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>
-          <code class="wb-share-value">{showSharePassword ? sharePassword : '•'.repeat(Math.min(sharePassword.length, 16))}</code>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { showSharePassword = !showSharePassword; }} aria-label={t(dict, 'common.showPassword')} aria-pressed={showSharePassword} title={t(dict, showSharePassword ? 'common.hidePassword' : 'common.showPassword')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html showSharePassword ? '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/>' : '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'}</svg>
-          </button>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copySharePassword} aria-label={t(dict, 'whiteboard.copyRoomPassword')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedPass} aria-hidden="true">{@html shareCopiedPass ? ICONS.check : ICONS.copy}</svg>
-          </button>
-        </div>
-        {/if}
+        <RoomInviteCard
+          {dict}
+          title={roomId}
+          url={roomLink()}
+          password={sharePassword}
+          warning={t(dict, savedBoard ? 'whiteboard.savedShareWarning' : 'whiteboard.sharePasswordWarning')}
+          onDismiss={() => { shareDismissed = true; }}
+        />
       </div>
     {/if}
 
@@ -1592,7 +1659,7 @@
           >
             <span class="wb-swatch" style="background: {swatch}"></span>
           </button>
-          <div id="wb-style-panel" class="menu menu--end wb-panel" class:menu--open={styleOpen}>
+          <div id="wb-style-panel" class="menu wb-menu-panel wb-panel" class:menu--open={styleOpen}>
             <fieldset class="wb-field">
               <legend class="wb-legend">{t(dict, 'whiteboard.color')}</legend>
               <div class="wb-colors">
@@ -1663,15 +1730,21 @@
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.menu}</svg>
           </button>
-          <div id="wb-menu" class="menu menu--end" class:menu--open={menuOpen}>
+          <div id="wb-menu" class="menu wb-menu-panel" class:menu--open={menuOpen}>
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
             </button>
             <button type="button" class="menu__item" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportBoard')}
             </button>
+            <button type="button" class="menu__item" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportEncrypted')}
+            </button>
             <button type="button" class="menu__item" on:click={chooseImport} aria-describedby="wb-backup-hint">
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importBoard')}
+            </button>
+            <button type="button" class="menu__item" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importEncrypted')}
             </button>
             <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
             <SaveRoomButton {dict} kind="whiteboard" {roomId} mode={savedBoard ? 'persistent' : 'live'} password={passwordInput} {linkKey} ready={verified} variant="menu" />
@@ -1764,7 +1837,7 @@
               <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
               <div class="min-w-0 flex-1">
                 <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
-                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{myKeyCode}</code></p>
+                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
               </div>
             </li>
             {#each memberList as member (member.pk)}
@@ -1775,8 +1848,8 @@
                     {member.name}
                     {#if !member.trusted}<span class="wb-key-warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
                   </p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{memberCodes[member.pk]?.code ?? ''}</code></p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><code class="wb-member__code wb-member__safety">{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</code></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={memberCodes[member.pk]?.code ?? ''}>{memberCodes[member.pk]?.code ?? ''}</span></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><span class="wb-member__emoji wb-member__safety" aria-label={memberCodes[member.pk]?.safety ?? ''}>{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</span></p>
                   {#if !member.trusted}
                     <p class="hint">{t(dict, 'whiteboard.keyNewHint')}</p>
                     <button type="button" class="btn-outline btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
@@ -1793,6 +1866,32 @@
 
       <input bind:this={imageInput} type="file" accept="image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" on:change={onImagePicked} />
       <input bind:this={importInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={importBoard} />
+      <input bind:this={encryptedImportInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={onEncryptedImportPicked} />
+      <dialog bind:this={backupDialog} class="wb-backup-dialog card" aria-labelledby="wb-backup-title" on:cancel|preventDefault={closeBackupDialog}>
+        <form class="stack" method="dialog" on:submit|preventDefault={confirmBackupPassword}>
+          <div>
+            <h2 id="wb-backup-title" class="section-title">{t(dict, backupMode === 'export' ? 'whiteboard.exportEncrypted' : 'whiteboard.importEncrypted')}</h2>
+            <p class="hint mt-1">{t(dict, 'whiteboard.passwordPrompt')}</p>
+          </div>
+          <div class="field">
+            <label class="label" for="wb-backup-pass">{t(dict, 'whiteboard.password')}</label>
+            <input id="wb-backup-pass" class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+          </div>
+          {#if backupMode === 'export'}
+            <div class="field">
+              <label class="label" for="wb-backup-pass-confirm">{t(dict, 'whiteboard.passwordConfirm')}</label>
+              <input id="wb-backup-pass-confirm" class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+            </div>
+          {/if}
+          {#if backupError}
+            <p class="status status--error" role="alert">{backupError}</p>
+          {/if}
+          <div class="actions">
+            <button type="submit" class="btn" disabled={backupBusy}>{t(dict, backupMode === 'export' ? 'whiteboard.encryptedExportAction' : 'whiteboard.encryptedImportAction')}</button>
+            <button type="button" class="btn-secondary" disabled={backupBusy} on:click={closeBackupDialog}>{t(dict, 'rooms.cancel')}</button>
+          </div>
+        </form>
+      </dialog>
       {#if notice}
         <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
           <span class="min-w-0 flex-1">{notice.text}</span>
@@ -1915,10 +2014,11 @@
   .wb-board {
     position: absolute;
     inset: 0;
-    background: #fafafa;
+    background: #fafbfa;
   }
+  :global(html.dark) .wb-board,
   .wb-board:global([data-qd-theme='dark']) {
-    background: #18181b;
+    background: #0d140b;
   }
   .wb-board:focus-visible {
     outline: 2px solid var(--accent);
@@ -2006,6 +2106,23 @@
   }
 
   .wb-pop { position: relative; pointer-events: auto; }
+  .wb-menu-panel {
+    min-width: 14rem;
+    text-align: left;
+  }
+  .wb-menu-panel .menu__item {
+    justify-content: flex-start;
+    text-align: left;
+  }
+  [data-wb-style] .wb-menu-panel {
+    left: 0;
+    right: auto;
+  }
+  [data-wb-menu] .wb-menu-panel {
+    /* Keep the ⋮ panel on-screen; items stay left-aligned inside. */
+    left: auto;
+    right: 0;
+  }
 
   .wb-panel {
     width: 15.5rem;
@@ -2329,16 +2446,19 @@
     align-items: baseline;
     gap: 0.375rem;
   }
-  .wb-member__code {
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    letter-spacing: 0.08em;
+  .wb-member__emoji {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    font-size: 1.1rem;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
     color: var(--text);
   }
   .wb-member__safety {
-    display: grid;
-    grid-template-columns: repeat(4, max-content);
-    gap: 0.1rem 0.5rem;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
   }
   .wb-member .btn-outline { justify-self: start; }
   .wb-people__hint {
@@ -2369,18 +2489,31 @@
     border-bottom: 1px solid var(--accent-line);
     background: var(--accent-weak);
   }
-  .wb-share-value {
-    flex: 1;
-    min-width: 0;
-    font-size: 0.75rem;
-    font-family: var(--font-mono);
+  .wb-backup-dialog {
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    margin: auto;
     color: var(--text);
-    background: var(--bg);
-    padding: 4px 8px;
-    border-radius: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: left;
+    visibility: visible;
+    box-shadow: var(--shadow-float);
+    animation: wb-backup-in var(--duration-dialog) var(--ease-out);
+  }
+  .wb-backup-dialog::backdrop {
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(2px);
+  }
+  @keyframes wb-backup-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-backup-dialog {
+      animation: none;
+    }
   }
 
   .wb-footer {
@@ -2425,6 +2558,8 @@
     font-weight: 800;
     color: white;
     flex-shrink: 0;
+    overflow: hidden;
+    background-color: var(--surface-2);
     box-shadow: 0 0 0 2px var(--surface);
   }
   .wb-avatar--warn { box-shadow: 0 0 0 2px var(--warn); }

@@ -18,7 +18,10 @@
   import { t } from '../../lib/t';
   import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
   import { isCapsuleFragment, parseShareFragment, type ShareLink } from '../../lib/shareLink';
+  import { parseShareDrop } from '../../lib/shareDrop';
+  import { loadSharePassword } from '../../lib/sharePasswordVault';
   import { roundTime, unlockTimeSecret } from '../../lib/timelock';
+  import { classifyQrText, isReceivePath, receivePayload } from '../../lib/qrScan';
 
   class Notice extends Error {}
 
@@ -415,7 +418,15 @@
 
   let stegoFile: File | null = null;
   let encryptedFile: File | null = null;
-  let manualMode = false;
+  type EntryMode = 'pick' | 'link' | 'scan' | 'file';
+  let entryMode: EntryMode = 'pick';
+  let linkDraft = '';
+  let linkError = '';
+  let burnedNotice = '';
+  let passkeyLoading = false;
+  let pickFileDragging = false;
+
+  $: hasPayloadSource = hasHash || !!encryptedFile || !!stegoFile;
 
   function setProgress(title: string, detail = '') {
     progressTitle = title;
@@ -484,10 +495,146 @@
     if (stegoFile) encryptedFile = null;
   }
 
-  function handleEncryptedFile(e: Event) {
+  async function tryLoadShareDrop(file: File): Promise<boolean> {
+    if (!file.name.endsWith('.json') && file.type !== 'application/json') return false;
+    try {
+      const text = await file.text();
+      const drop = parseShareDrop(text);
+      if ('error' in drop) return false;
+      hashPayload = drop.fragment;
+      hasHash = true;
+      encryptedFile = null;
+      stegoFile = null;
+      entryMode = 'pick';
+      history.replaceState(null, '', `${window.location.pathname}#${encodeURIComponent(drop.fragment)}`);
+      pushDebug(`Offline drop file loaded (${drop.fragment.length} chars)`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleEncryptedFile(e: Event) {
     const target = e.target as HTMLInputElement;
-    encryptedFile = target.files?.[0] ?? null;
-    if (encryptedFile) stegoFile = null;
+    const file = target.files?.[0] ?? null;
+    encryptedFile = file;
+    if (file) stegoFile = null;
+    if (!file) return;
+    await tryLoadShareDrop(file);
+  }
+
+  function isLikelyImageFile(file: File): boolean {
+    if (file.type.startsWith('image/')) return true;
+    return /\.(png|jpe?g|gif|webp|bmp|ico)$/i.test(file.name);
+  }
+
+  async function acceptDroppedPickFile(file: File) {
+    if (await tryLoadShareDrop(file)) return;
+    if (isLikelyImageFile(file)) {
+      stegoFile = file;
+      encryptedFile = null;
+      entryMode = 'file';
+      return;
+    }
+    encryptedFile = file;
+    stegoFile = null;
+    entryMode = 'file';
+  }
+
+  function handlePickFileDragOver(e: DragEvent) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    pickFileDragging = true;
+  }
+
+  function handlePickFileDragLeave() {
+    pickFileDragging = false;
+  }
+
+  function handlePickFileDrop(e: DragEvent) {
+    e.preventDefault();
+    pickFileDragging = false;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) void acceptDroppedPickFile(file);
+  }
+
+  function acceptFragment(fragment: string) {
+    const decoded = (() => {
+      try { return decodeURIComponent(fragment); } catch { return fragment; }
+    })();
+    if (!parseShareFragment(decoded)) return false;
+    hashPayload = decoded;
+    hasHash = true;
+    linkError = '';
+    linkDraft = '';
+    entryMode = 'pick';
+    history.replaceState(null, '', `${window.location.pathname}#${encodeURIComponent(decoded)}`);
+    pushDebug(`Manual link accepted (${decoded.length} chars)`);
+    return true;
+  }
+
+  function applyLinkDraft() {
+    linkError = '';
+    const raw = linkDraft.trim();
+    if (!raw) {
+      linkError = t(dict, 'tools.ultimateDecrypt.empty.linkInvalid');
+      return;
+    }
+    const stripped = raw.replace(/^#/, '');
+    const target = classifyQrText(raw, window.location);
+    if (target.kind === 'receive') {
+      const hash = target.href.includes('#') ? target.href.slice(target.href.indexOf('#') + 1) : '';
+      if (acceptFragment(hash)) return;
+    }
+    if (target.kind === 'link') {
+      try {
+        const url = new URL(target.url);
+        if (isReceivePath(url.pathname)) {
+          const payload = receivePayload(url);
+          if (payload && acceptFragment(payload)) return;
+        }
+      } catch { /* fall through */ }
+    }
+    if (acceptFragment(stripped)) return;
+    linkError = t(dict, 'tools.ultimateDecrypt.empty.linkInvalid');
+  }
+
+  function chooseEntry(mode: EntryMode) {
+    entryMode = mode;
+    linkError = '';
+    if (mode !== 'link') linkDraft = '';
+  }
+
+  function backToPick() {
+    entryMode = 'pick';
+    linkError = '';
+    linkDraft = '';
+  }
+
+  async function fillPasswordFromPasskey() {
+    if (!hashPayload || passkeyLoading) return;
+    passkeyLoading = true;
+    error = '';
+    try {
+      const value = await loadSharePassword(hashPayload);
+      if (value) password = value;
+      else error = t(dict, 'tools.ultimateDecrypt.passkeyMiss');
+    } catch {
+      error = t(dict, 'tools.ultimateDecrypt.passkeyMiss');
+    } finally {
+      passkeyLoading = false;
+    }
+  }
+
+  function markViewOnceConsumed(fragment: string) {
+    try { sessionStorage.setItem(`encrypt-click:once:${fragment.slice(0, 64)}`, '1'); } catch {}
+    try { history.replaceState(null, '', window.location.pathname); } catch {}
+    hashPayload = '';
+    hasHash = false;
+  }
+
+  function alreadyBurned(fragment: string): boolean {
+    try { return sessionStorage.getItem(`encrypt-click:once:${fragment.slice(0, 64)}`) === '1'; } catch { return false; }
   }
 
   async function handleDecrypt() {
@@ -596,6 +743,9 @@
   async function decryptFromHash() {
     setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
     pushDebug(`Decoding hash payload (${hashPayload.length} chars)`);
+    if (alreadyBurned(hashPayload)) {
+      throw new Notice(t(dict, 'tools.ultimateDecrypt.viewOnceGone'));
+    }
     const link: ShareLink | null = parseShareFragment(hashPayload);
     if (!link) throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
     const bytes = base64UrlDecode(link.payload);
@@ -630,6 +780,10 @@
 
     if (data.mode === 'inline') {
       await handleInlinePayload(data);
+      if (data.once === true || link.burn) {
+        markViewOnceConsumed(hashPayload);
+        burnedNotice = t(dict, 'tools.ultimateDecrypt.viewOnceBurned');
+      }
     } else if (data.mode === 'ghost') {
       await handleGhostPayload(data, timeSecret);
     } else {
@@ -767,10 +921,63 @@
     {#if shareLink}
       <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} unlock={unlockTime} />
     {/if}
+  {:else if entryMode === 'pick'}
+    <p class="label">{t(dict, 'tools.ultimateDecrypt.empty.title')}</p>
+    <div class="ud-entry">
+      <button type="button" class="dropzone" on:click={() => chooseEntry('link')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.linkTitle')}</span>
+        <span>{t(dict, 'tools.ultimateDecrypt.empty.linkHint')}</span>
+      </button>
+      <button type="button" class="dropzone" on:click={() => chooseEntry('scan')}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="4" height="4"/><rect x="13" y="13" width="4" height="4"/><path d="M13 7h4v2"/><path d="M7 15v2h2"/></svg>
+        <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.scanTitle')}</span>
+        <span>{t(dict, 'tools.ultimateDecrypt.empty.scanHint')}</span>
+      </button>
+      <button
+        type="button"
+        class="dropzone"
+        class:dropzone--dragging={pickFileDragging}
+        on:click={() => chooseEntry('file')}
+        on:dragover={handlePickFileDragOver}
+        on:dragleave={handlePickFileDragLeave}
+        on:drop={handlePickFileDrop}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.fileTitle')}</span>
+        <span>{t(dict, 'tools.ultimateDecrypt.empty.fileHint')}</span>
+      </button>
+    </div>
+  {:else if entryMode === 'link'}
+    <button type="button" class="btn-ghost btn-sm self-start" on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <div class="field">
+      <label class="label" for="ud-link">{t(dict, 'tools.ultimateDecrypt.empty.linkLabel')}</label>
+      <input
+        id="ud-link"
+        class="input input--mono"
+        type="text"
+        bind:value={linkDraft}
+        placeholder={t(dict, 'tools.ultimateDecrypt.empty.linkPlaceholder')}
+        autocomplete="off"
+        spellcheck="false"
+        aria-invalid={linkError ? 'true' : undefined}
+        on:keydown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            applyLinkDraft();
+          }
+        }}
+      />
+      {#if linkError}
+        <p class="status status--error" role="alert">{linkError}</p>
+      {/if}
+      <button type="button" class="btn w-full" on:click={applyLinkDraft}>{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
+    </div>
+  {:else if entryMode === 'scan'}
+    <button type="button" class="btn-ghost btn-sm self-start" on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <QrScanner {dict} />
   {:else}
-    <p class="hint">
-      {t(dict, 'tools.ultimateDecrypt.noPayloadIntro')} <code class="font-mono text-accent">/u#…</code> {t(dict, 'tools.ultimateDecrypt.noPayloadIntroRest')}
-    </p>
+    <button type="button" class="btn-ghost btn-sm self-start" on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}>{t(dict, 'common.back')}</button>
     <div class="grid gap-3 sm:grid-cols-2">
       {#if encryptedFile}
         <div class="dropzone dropzone--active">
@@ -802,39 +1009,49 @@
         </label>
       {/if}
     </div>
-    <QrScanner {dict} />
   {/if}
 
-  <div class="field">
-    <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}</label>
-    <input
-      id="ud-pass"
-      type="password"
-      class="input"
-      bind:value={password}
-      autocomplete="off"
-      data-lpignore="true"
-      data-1p-ignore
-      data-bwignore="true"
-      placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
-      aria-invalid={error ? 'true' : undefined}
-      on:keydown={(e) => {
-        if (e.key === 'Enter' && !loading && (hasHash || stegoFile || encryptedFile)) {
-          e.preventDefault();
-          void handleDecrypt();
-        }
-      }}
-    />
-  </div>
+  {#if burnedNotice}
+    <p class="status status--warn" role="status">{burnedNotice}</p>
+  {/if}
 
-  <button
-    class="btn w-full"
-    type="button"
-    on:click={handleDecrypt}
-    disabled={loading || (!hasHash && !stegoFile && !encryptedFile)}
-  >
-    {loading ? t(dict, 'tools.ultimateDecrypt.decrypting') : t(dict, 'tools.ultimateDecrypt.decrypt')}
-  </button>
+  {#if hasPayloadSource}
+    <div class="field">
+      <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}</label>
+      <input
+        id="ud-pass"
+        type="password"
+        class="input"
+        bind:value={password}
+        autocomplete="off"
+        data-lpignore="true"
+        data-1p-ignore
+        data-bwignore="true"
+        placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
+        aria-invalid={error ? 'true' : undefined}
+        on:keydown={(e) => {
+          if (e.key === 'Enter' && !loading && hasPayloadSource) {
+            e.preventDefault();
+            void handleDecrypt();
+          }
+        }}
+      />
+      {#if hasHash}
+        <button type="button" class="btn-ghost btn-sm mt-2" disabled={passkeyLoading || loading} on:click={fillPasswordFromPasskey}>
+          {passkeyLoading ? t(dict, 'tools.ultimateDecrypt.passkeyLoading') : t(dict, 'tools.ultimateDecrypt.passkeyUnlock')}
+        </button>
+      {/if}
+    </div>
+
+    <button
+      class="btn w-full"
+      type="button"
+      on:click={handleDecrypt}
+      disabled={loading || !hasPayloadSource}
+    >
+      {loading ? t(dict, 'tools.ultimateDecrypt.decrypting') : t(dict, 'tools.ultimateDecrypt.decrypt')}
+    </button>
+  {/if}
 
   {#if loading}
     <ProgressPulse

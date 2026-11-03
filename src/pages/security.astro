@@ -1,22 +1,50 @@
 ---
+import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 
-const sections: { title: string; paragraphs?: string[]; list?: string[] }[] = [
-  { title: 'security.noAccounts.title', paragraphs: ['security.noAccounts.text'] },
-  { title: 'security.clientSide.title', paragraphs: ['security.clientSide.p1', 'security.clientSide.p2'] },
-  { title: 'security.share.title', paragraphs: ['security.share.p1', 'security.share.p2', 'security.share.p3', 'security.share.p4', 'security.share.p5', 'security.share.p6', 'security.share.p7'] },
-  { title: 'security.chat.title', paragraphs: ['security.chat.p1', 'security.chat.p2', 'security.chat.p3', 'security.chat.p4', 'security.chat.p5', 'security.chat.p6'] },
-  { title: 'security.shortening.title', paragraphs: ['security.shortening.p1', 'security.shortening.p2', 'security.shortening.p3'] },
-  { title: 'security.cookies.title', paragraphs: ['security.cookies.p1', 'security.cookies.p2'] },
-  { title: 'security.network.title', list: ['security.network.li1', 'security.network.li2', 'security.network.li3', 'security.network.li4', 'security.network.li5'] },
-  { title: 'security.thirdParty.title', paragraphs: ['security.thirdParty.p1', 'security.thirdParty.p2'] },
-  { title: 'security.disclosure.title', paragraphs: ['security.disclosure.text'] },
-  { title: 'security.nonLegal.title', paragraphs: ['security.nonLegal.text'] },
+type Section = {
+  id: string;
+  title: string;
+  lead?: string;
+  list?: string[];
+  more?: string[];
+  note?: string;
+};
+
+const sections: Section[] = [
+  { id: 'accounts', title: 'security.noAccounts.title', lead: 'security.noAccounts.text' },
+  { id: 'browser', title: 'security.clientSide.title', lead: 'security.clientSide.p1', more: ['security.clientSide.p2'] },
+  {
+    id: 'share',
+    title: 'security.share.title',
+    lead: 'security.share.p1',
+    more: ['security.share.p2', 'security.share.p3', 'security.share.p4', 'security.share.p5', 'security.share.p6', 'security.share.p7'],
+  },
+  {
+    id: 'chat',
+    title: 'security.chat.title',
+    lead: 'security.chat.p4',
+    more: ['security.chat.p1', 'security.chat.p2', 'security.chat.p3', 'security.chat.p5', 'security.chat.p6'],
+  },
+  { id: 'shortening', title: 'security.shortening.title', lead: 'security.shortening.p1', more: ['security.shortening.p2'] },
+  { id: 'storage', title: 'security.cookies.title', lead: 'security.cookies.p1', more: ['security.cookies.p2'] },
+  { id: 'network', title: 'security.network.title', list: ['security.network.li1', 'security.network.li2', 'security.network.li3', 'security.network.li4', 'security.network.li5'] },
+  { id: 'infrastructure', title: 'security.thirdParty.title', lead: 'security.thirdParty.p1', more: ['security.thirdParty.p2'] },
+  { id: 'disclosure', title: 'security.disclosure.title', lead: 'security.disclosure.text' },
 ];
+
+const glance = [
+  { n: 1, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5m0-5-5 5"/>' },
+  { n: 2, icon: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+  { n: 3, icon: '<path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>' },
+  { n: 4, icon: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="m3 3 18 18"/>' },
+];
+
+const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u);
 ---
 
 <Layout
@@ -29,14 +57,50 @@ const sections: { title: string; paragraphs?: string[]; list?: string[] }[] = [
         <h1 class="page-title">{t(dict, 'security.h1')}</h1>
         <p class="page-lead">{t(dict, 'security.subtitle')}</p>
       </div>
-      <img src="/encrypt_shield.svg" alt="" width="154" height="128" class="page-head__art" decoding="async" />
+      <Fragment set:html={illustration('shield', 'page-head__art')} />
     </header>
-    {sections.map((s) => (
-      <section>
-        <h2>{t(dict, s.title)}</h2>
-        {s.paragraphs?.map((p) => <p>{t(dict, p)}</p>)}
-        {s.list && <ul>{s.list.map((li) => <li>{t(dict, li)}</li>)}</ul>}
-      </section>
-    ))}
+
+    <ul class="sec-glance">
+      {glance.map((g) => (
+        <li class="sec-glance__item">
+          <span class="sec-glance__icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={g.icon} /></svg>
+          </span>
+          {t(dict, `security.glance.${g.n}`)}
+        </li>
+      ))}
+    </ul>
+
+    <nav class="sec-toc" aria-label={t(dict, 'security.toc')}>
+      <p class="sec-toc__title">{t(dict, 'security.toc')}</p>
+      <ol>
+        {sections.map((s) => <li><a href={`#${s.id}`}>{t(dict, s.title)}</a></li>)}
+      </ol>
+    </nav>
+
+    {sections.map((s) => {
+      const storage = s.id === 'storage' ? sentences(s.lead!) : null;
+      return (
+        <section id={s.id} class="sec-block">
+          <h2>{t(dict, s.title)}</h2>
+          {storage ? (
+            <ul>{storage.map((line) => <li>{line}</li>)}</ul>
+          ) : (
+            s.lead && <p>{t(dict, s.lead)}</p>
+          )}
+          {s.list && <ul>{s.list.map((li) => <li>{t(dict, li)}</li>)}</ul>}
+          {s.more && (
+            <details class="more">
+              <summary>{t(dict, 'security.details')}</summary>
+              <div class="more__body">
+                {s.more.map((p) => <p>{t(dict, p)}</p>)}
+              </div>
+            </details>
+          )}
+        </section>
+      );
+    })}
+
+    <p class="sec-note">{t(dict, 'security.nonLegal.text')}</p>
   </article>
 </Layout>

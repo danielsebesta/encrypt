@@ -1,4 +1,5 @@
 ---
+import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
 import UltimateDecrypt from '../components/tools/UltimateDecrypt.svelte';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
@@ -13,7 +14,6 @@ export const prerender = true;
 <Layout
   title={t(dict, 'decryptPage.meta.title')}
   description={t(dict, 'decryptPage.meta.description')}
-  canonical="https://encrypt.click/u"
 >
   <div class="page">
     <header class="page-head page-head--art">
@@ -21,7 +21,7 @@ export const prerender = true;
         <h1 class="page-title">{t(dict, 'decryptPage.h1')}</h1>
         <p class="page-lead">{t(dict, 'decryptPage.subtitle')}</p>
       </div>
-      <img src="/encrypt_magnify.svg" alt="" width="78" height="133" class="page-head__art" decoding="async" />
+      <Fragment set:html={illustration('magnify', 'page-head__art')} />
     </header>
     <div class="panel">
       <UltimateDecrypt client:idle locale={locale} dict={clientDict} />

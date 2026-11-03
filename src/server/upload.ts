@@ -17,6 +17,7 @@ import {
   uuidOfId,
   type Retention,
 } from '../lib/retention';
+import { siteName } from '../lib/siteBrand';
 import { PASS_HEADER, browserFetch, issuePass, verifyPass } from '../lib/uploadPass';
 import type { Platform, UploadLimits } from '../platform/types';
 import type { Reservation, UploadStatus } from './budget';
@@ -230,7 +231,7 @@ async function upload(request: Request, platform: Platform): Promise<Response> {
   if (!knownFormat(head) || head.length > length) {
     await reader.cancel().catch(() => {});
     await release();
-    return json({ error: 'Only encrypt.click client data is accepted.' }, 400);
+    return json({ error: `Only ${siteName()} client data is accepted.` }, 400);
   }
 
   const id = blobId(options.retention, crypto.randomUUID());

@@ -1,5 +1,6 @@
 import { localeResponse } from '../lib/locale';
 import { MAX_TRANSFER_BYTES, clientPrefix, routingPath } from '../lib/httpLimits';
+import { applySiteBrand } from '../lib/siteBrand';
 import { PASS_HEADER, RELAY_DAILY_BYTES_PER_CLIENT, browserFetch, verifyPass, type Charge } from '../lib/uploadPass';
 import type { Platform } from '../platform/types';
 import { handleStatus } from './status';
@@ -106,7 +107,8 @@ export function createApp(platform: Platform) {
         const handled = await handleUploadRoute(request, path, platform);
         if (handled) return handled;
       }
-      return localeResponse(request) ?? render(request);
+      const response = localeResponse(request) ?? await render(request);
+      return applySiteBrand(response);
     },
 
     async guardRealtime(request: Request): Promise<Response | null> {

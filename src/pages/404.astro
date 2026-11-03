@@ -1,23 +1,7 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { getTranslations, t, type Locale } from '../lib/i18n';
+import ErrorPage from '../components/ErrorPage.astro';
 
-const locale = (Astro.currentLocale ?? 'en') as Locale;
-const dict = getTranslations(locale);
-const homeHref = locale === 'en' ? '/' : `/${locale}/`;
+Astro.response.status = 404;
 ---
 
-<Layout
-  title={t(dict, '404.meta.title')}
-  description={t(dict, '404.meta.description')}
->
-  <div class="page page--narrow text-center">
-    <img src="/encrypt_confused.svg" alt="" width="220" height="220" class="mx-auto mb-8 h-auto w-full max-w-[160px] md:max-w-[220px]" decoding="async" />
-    <h1 class="page-title">{t(dict, '404.h1')}</h1>
-    <p class="page-lead mx-auto">{t(dict, '404.text')}</p>
-    <div class="actions mt-8 justify-center">
-      <a href={homeHref} class="btn">{t(dict, '404.ctaPrimary')}</a>
-      <a href="https://github.com/danielsebesta/encrypt/issues" target="_blank" rel="noopener noreferrer" class="btn-secondary">{t(dict, '404.ctaSecondary')}</a>
-    </div>
-  </div>
-</Layout>
+<ErrorPage code="404" />

@@ -6,8 +6,8 @@
   "scope": "/",
   "id": "/",
   "display": "standalone",
-  "theme_color": "#09090b",
-  "background_color": "#09090b",
+  "theme_color": "#08110a",
+  "background_color": "#08110a",
   "categories": ["utilities", "security"],
   "share_target": {
     "action": "/share-target",

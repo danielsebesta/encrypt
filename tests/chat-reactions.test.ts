@@ -68,6 +68,22 @@ test('replies and reactions pass validation only in their exact shape and count 
   assert.equal(relayedContentOk(reaction, true, true), true);
 });
 
+test('view-once messages and burns pass validation only in their exact shape and count as content', () => {
+  const room = 'room';
+  const stamp = (value: Record<string, unknown>) => JSON.parse(stampPayload(JSON.stringify(value), room));
+  assert.equal(validPayload(stamp({ type: 'chat-message', id: 'm1', text: 'secret', once: true }), room), true);
+  assert.equal(validPayload(stamp({ type: 'chat-message', id: 'm1', text: 'secret', once: false }), room), false);
+  assert.equal(validPayload(stamp({ type: 'chat-message', id: 'm1', text: 'secret', once: 1 }), room), false);
+  assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: '❤️', once: true }), room), false);
+  assert.equal(validPayload(stamp({ type: 'message-burn', id: 'b1', target: 'm1' }), room), true);
+  assert.equal(validPayload(stamp({ type: 'message-burn', id: 'b1' }), room), false);
+  assert.equal(validPayload(stamp({ type: 'message-burn', id: 'b1', target: 'not valid' }), room), false);
+  const burn = { type: 'message-burn' };
+  assert.equal(isContent(burn), true);
+  assert.equal(relayedContentOk(burn, true, false), false);
+  assert.equal(relayedContentOk(burn, true, true), true);
+});
+
 test('a quoted message is one line of plain text that keeps spoilers hidden', () => {
   assert.equal(plainSnippet('**bold** and _it_ ||secret|| `code`\n> quoted'), 'bold and _it_ ••• code quoted');
   assert.equal(plainSnippet('x'.repeat(200), 20), `${'x'.repeat(19)}…`);

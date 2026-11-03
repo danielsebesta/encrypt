@@ -1,0 +1,28 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { illustration, type IllustrationName } from '../lib/illustrations';
+import { getTranslations, t, type Locale } from '../lib/i18n';
+
+interface Props {
+  code: '403' | '404' | '500';
+}
+
+const art: Record<Props['code'], IllustrationName> = { '403': 'lock', '404': 'magnify', '500': 'chill' };
+const { code } = Astro.props;
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+const homeHref = locale === 'en' ? '/' : `/${locale}/`;
+---
+
+<Layout title={t(dict, `${code}.meta.title`)} description={t(dict, `${code}.meta.description`)}>
+  <div class="page text-center">
+    <Fragment set:html={illustration(art[code], 'mx-auto mb-6 h-32 w-auto md:h-40')} />
+    <p class="font-mono text-sm text-muted">{code}</p>
+    <h1 class="page-title mt-1">{t(dict, `${code}.h1`)}</h1>
+    <p class="page-lead mx-auto">{t(dict, `${code}.text`)}</p>
+    <div class="actions mt-8 justify-center">
+      <a href={homeHref} class="btn">{t(dict, `${code}.ctaPrimary`)}</a>
+      <a href="https://github.com/danielsebesta/encrypt/issues" target="_blank" rel="noopener noreferrer" class="btn-secondary">{t(dict, `${code}.ctaSecondary`)}</a>
+    </div>
+  </div>
+</Layout>

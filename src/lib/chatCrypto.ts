@@ -165,28 +165,35 @@ export async function verifySigned(value: unknown, pq?: PqVerifier): Promise<{ e
   }
 }
 
-function digitGroups(bytes: Uint8Array, groups: number): string {
+/** Curated 64 symbols (Matrix-style SAS). Easy to say aloud, no lookalikes. */
+const SAFETY_EMOJI = [
+  '🐶', '🐱', '🦁', '🦊', '🐸', '🐵', '🦄', '🐼',
+  '🐨', '🐯', '🐷', '🐮', '🐔', '🐧', '🐦', '🐤',
+  '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🐰',
+  '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦗', '🕷',
+  '🐢', '🐍', '🦎', '🦖', '🐙', '🦑', '🦐', '🦞',
+  '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🦈', '🐊',
+  '🌹', '🌻', '🌈', '⭐', '🌙', '☀️', '⚡', '🔥',
+  '🍎', '🍋', '🍇', '⚽', '🎸', '🎯', '🚀', '🔑',
+] as const;
+
+function emojiGroups(bytes: Uint8Array, count: number): string {
   const out: string[] = [];
-  for (let i = 0; out.length < groups && i + 3 < bytes.length; i += 4) {
-    const n = ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
-    out.push(String(n % 100000).padStart(5, '0'));
+  for (let i = 0; out.length < count && i < bytes.length; i++) {
+    out.push(SAFETY_EMOJI[bytes[i]! % SAFETY_EMOJI.length]!);
   }
   return out.join(' ');
 }
 
-/** The same 60 digits on both sides when each holds the other's real public key: twelve 5-byte chunks of SHA-512, each mod 100000. */
+/** Same emoji string on both sides when each holds the other's real public key. */
 export async function safetyNumber(a: string, b: string): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(`encrypt.click:safety-v2:${[a, b].sort().join(':')}`)));
-  const groups: string[] = [];
-  for (let i = 0; i < 60; i += 5) {
-    const chunk = digest[i] * 2 ** 32 + (((digest[i + 1] << 24) | (digest[i + 2] << 16) | (digest[i + 3] << 8) | digest[i + 4]) >>> 0);
-    groups.push(String(chunk % 100000).padStart(5, '0'));
-  }
-  return groups.join(' ');
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(`encrypt.click:safety-v3:${[a, b].sort().join(':')}`)));
+  return emojiGroups(digest, 7);
 }
 
+/** Short emoji mark for one public key — tells apart two members with the same name. */
 export async function keyCode(publicKey: string): Promise<string> {
-  return digitGroups(await sha256Bytes(`encrypt.click:chat-key:${publicKey}`), 4);
+  return emojiGroups(await sha256Bytes(`encrypt.click:chat-key-v2:${publicKey}`), 4);
 }
 
 export async function importRoomKey(b64Key: string): Promise<CryptoKey> {

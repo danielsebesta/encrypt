@@ -3,14 +3,16 @@
   import { t } from '../../lib/t';
   import { REACTION_EMOJI, type ReactionEmoji } from '../../lib/chatReactions';
 
-  let { dict, open, align = 'start', mine = [], ontoggle, onreply, onreact }: {
+  let { dict, open, align = 'start', mine = [], canBurn = false, ontoggle, onreply, onreact, onburn }: {
     dict: Record<string, string>;
     open: boolean;
     align?: 'start' | 'end';
     mine?: ReactionEmoji[];
+    canBurn?: boolean;
     ontoggle: (open: boolean) => void;
     onreply: () => void;
     onreact: (emoji: ReactionEmoji) => void;
+    onburn?: () => void;
   } = $props();
 
   let rootEl: HTMLDivElement | undefined = $state();
@@ -100,6 +102,12 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
         <span>{t(dict, 'chat.reply')}</span>
       </button>
+      {#if canBurn && onburn}
+        <button type="button" role="menuitem" class="menu__item msg-actions__burn" onclick={() => { ontoggle(false); onburn(); }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          <span>{t(dict, 'chat.burnForEveryone')}</span>
+        </button>
+      {/if}
     </div>
   {/if}
 </div>
@@ -175,8 +183,12 @@
   .msg-actions__react--on {
     background: var(--accent-weak);
   }
-  .msg-actions__reply {
+  .msg-actions__reply,
+  .msg-actions__burn {
     width: 100%;
     min-height: 2.25rem;
+  }
+  .msg-actions__burn {
+    color: var(--danger, #b42318);
   }
 </style>

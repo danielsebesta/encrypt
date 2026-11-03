@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "test": "tsx --test tests/*.test.ts",
-    "check": "astro check",
+    "check": "astro check && tsx --test tests/locales.test.ts",
     "audit:security": "pnpm audit --audit-level=moderate",
     "dev": "astro dev",
     "dev:worker": "npm run build && wrangler dev --config dist/server/wrangler.json",
@@ -13,7 +13,8 @@
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
     "build:node": "node scripts/build-node.mjs",
     "start:node": "node dist/node/server.mjs",
-    "astro": "astro"
+    "astro": "astro",
+    "build:icons": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.12",
@@ -66,6 +67,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/ws": "8.18.2",
     "esbuild": "0.28.2",
+    "sharp": "0.35.5",
     "tsx": "^4.20.0",
     "typescript": "~6.0.3",
     "vite": "^8.3.4",

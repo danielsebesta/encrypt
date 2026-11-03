@@ -188,6 +188,17 @@ export default class ChatRoom {
         break;
       }
 
+      // Members ask the relay to drop a stored ciphertext after a view-once open or an explicit burn.
+      // The encrypted message-burn still travels separately so every client wipes its own copy.
+      case "forget": {
+        if (!this.isJoined(sender)) return;
+        const target = parsed.target;
+        if (typeof target !== "string" || !SAFE_ID_RE.test(target)) return;
+        if (this.persistent) await this.forgetHistory(target);
+        this.broadcast(JSON.stringify({ type: "forgotten", target }));
+        break;
+      }
+
       case "typing":
         if (!this.isJoined(sender)) return;
         this.broadcast(JSON.stringify({ type: "typing" }), [sender.id]);
@@ -321,6 +332,26 @@ export default class ChatRoom {
     this.meta = meta;
     await this.trimHistory(meta);
     return { seq: record.seq, createdAt: record.createdAt, epoch: meta.epoch };
+  }
+
+  private async forgetHistory(target: string) {
+    const meta = await this.historyMeta();
+    if (!meta || meta.count <= 0) return;
+    const stored = await this.host.storage.list({ prefix: HISTORY_PREFIX });
+    const drop: string[] = [];
+    let freed = 0;
+    for (const [key, value] of stored) {
+      const record = value as HistoryRecord;
+      if (record?.id !== target) continue;
+      drop.push(key);
+      freed += recordBytes(record);
+    }
+    if (!drop.length) return;
+    await this.host.storage.delete(drop);
+    meta.count = Math.max(0, meta.count - drop.length);
+    meta.bytes = Math.max(0, meta.bytes - freed);
+    await this.host.storage.put(HISTORY_META_KEY, meta);
+    this.meta = meta;
   }
 
   private async trimHistory(meta: HistoryMeta) {

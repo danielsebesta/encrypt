@@ -276,15 +276,16 @@ test('signed payloads land on Padmé buckets with a 512-byte floor, and the pad 
   assert.equal((await openEnvelope(base, sealed, 'cursor', room))?.signer, me.publicKey);
 });
 
-test('safety numbers are 60 digits from SHA-512 over the sorted keys, the same on both sides', async () => {
+test('safety emojis come from SHA-512 over the sorted keys and match on both sides', async () => {
+  const emoji = ['🐶','🐱','🦁','🦊','🐸','🐵','🦄','🐼','🐨','🐯','🐷','🐮','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🐰','🐝','🐛','🦋','🐌','🐞','🐜','🦗','🕷','🐢','🐍','🦎','🦖','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🦈','🐊','🌹','🌻','🌈','⭐','🌙','☀️','⚡','🔥','🍎','🍋','🍇','⚽','🎸','🎯','🚀','🔑'];
   const alice = (await generateSigningIdentity()).publicKey;
   const bob = (await generateSigningIdentity()).publicKey;
   const ab = await safetyNumber(alice, bob);
   assert.equal(ab, await safetyNumber(bob, alice));
-  assert.match(ab, /^\d{5}( \d{5}){11}$/);
+  assert.equal(ab.split(' ').length, 7);
   assert.notEqual(ab, await safetyNumber(alice, (await generateSigningIdentity()).publicKey));
-  const digest = nodeCrypto.createHash('sha512').update(`encrypt.click:safety-v2:${[alice, bob].sort().join(':')}`).digest();
-  const expected = Array.from({ length: 12 }, (_, i) => String(Number(BigInt(`0x${hex(digest.subarray(i * 5, i * 5 + 5))}`) % 100000n)).padStart(5, '0'));
-  assert.equal(ab, expected.join(' '));
-  assert.match(await keyCode(alice), /^\d{5} \d{5} \d{5} \d{5}$/);
+  const digest = nodeCrypto.createHash('sha512').update(`encrypt.click:safety-v3:${[alice, bob].sort().join(':')}`).digest();
+  const expected = Array.from(digest.subarray(0, 7), (b) => emoji[b % emoji.length]).join(' ');
+  assert.equal(ab, expected);
+  assert.equal((await keyCode(alice)).split(' ').length, 4);
 });

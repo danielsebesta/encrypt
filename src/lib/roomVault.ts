@@ -12,6 +12,8 @@ export type RoomEntry = {
   label: string;
   createdAt: number;
   lastSeen: number;
+  /** Plaintext list metadata; never sealed with the passkey. */
+  pinned?: boolean;
   secret?: WrappedSecret;
 };
 export type PasskeyRef = { credentialId: Uint8Array; salt: Uint8Array; createdAt: number };
@@ -84,8 +86,10 @@ export function validEntry(value: unknown): RoomEntry | null {
   if (!validRoomId(v.roomId) || v.id !== entryId(kind, v.roomId) || !validMode(kind, v.mode)) return null;
   if (typeof v.label !== 'string' || v.label !== cleanLabel(v.label, v.roomId)) return null;
   if (!validTime(v.createdAt) || !validTime(v.lastSeen)) return null;
+  if (v.pinned !== undefined && v.pinned !== true && v.pinned !== false) return null;
   if (v.secret !== undefined && !validWrapped(v.secret)) return null;
   const entry: RoomEntry = { id: v.id, kind, roomId: v.roomId, mode: v.mode, label: v.label, createdAt: v.createdAt, lastSeen: v.lastSeen };
+  if (v.pinned === true) entry.pinned = true;
   if (v.secret) entry.secret = { iv: (v.secret as WrappedSecret).iv, ciphertext: (v.secret as WrappedSecret).ciphertext };
   return entry;
 }
@@ -96,7 +100,7 @@ export function buildEntry(
   existing: RoomEntry | null = null,
 ): RoomEntry | null {
   if (!validRoomId(input.roomId) || !validMode(input.kind, input.mode)) return null;
-  return {
+  const entry: RoomEntry = {
     id: entryId(input.kind, input.roomId),
     kind: input.kind,
     roomId: input.roomId,
@@ -105,6 +109,13 @@ export function buildEntry(
     createdAt: existing?.createdAt ?? now,
     lastSeen: now,
   };
+  if (existing?.pinned) entry.pinned = true;
+  return entry;
+}
+
+/** Pinned rooms sort first; within each group, most recently visited first. */
+export function compareRooms(a: RoomEntry, b: RoomEntry): number {
+  return Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.lastSeen - a.lastSeen;
 }
 
 /** The wrapping key: HKDF-SHA256 over the 32-byte PRF output, as a non-extractable AES-256-GCM key. */
@@ -143,10 +154,11 @@ export async function unwrapSecret(key: CryptoKey, entry: Pick<RoomEntry, 'id' |
   }
 }
 
-/** Without a vault key the entry keeps names and times only: a secret is never stored unwrapped. */
+/** Without a vault key the entry keeps names, times and pin only: a secret is never stored unwrapped. */
 export async function sealEntry(entry: RoomEntry, secret: RoomSecret | null, key: CryptoKey | null): Promise<RoomEntry> {
   const plain: RoomEntry = { ...entry };
   delete plain.secret;
+  if (!plain.pinned) delete plain.pinned;
   if (!key || !secret || !validSecret(secret, entry.mode)) return plain;
   return { ...plain, secret: await wrapSecret(key, entry.id, secret) };
 }
@@ -182,6 +194,11 @@ export function relativeTime(then: number, now: number): { value: number; unit: 
 }
 
 let sessionKey: CryptoKey | null = null;
+
+/** In-memory vault key after unlock; null when locked. Used by share password vault. */
+export function vaultSessionKey(): CryptoKey | null {
+  return sessionKey;
+}
 
 function webauthnAvailable(): boolean {
   return typeof window !== 'undefined' && window.isSecureContext && typeof PublicKeyCredential === 'function'
@@ -266,7 +283,7 @@ export async function listRooms(): Promise<RoomEntry[]> {
   if (!(await vaultExists())) return [];
   try {
     const all = await withStore(ROOMS, 'readonly', (s) => s.getAll());
-    return all.map(validEntry).filter((e): e is RoomEntry => e !== null).sort((a, b) => b.lastSeen - a.lastSeen);
+    return all.map(validEntry).filter((e): e is RoomEntry => e !== null).sort(compareRooms);
   } catch {
     return [];
   }
@@ -292,6 +309,15 @@ export async function touchRoom(kind: RoomKind, roomId: string): Promise<RoomEnt
 
 export async function renameRoom(entry: RoomEntry, label: string): Promise<RoomEntry> {
   const next = { ...entry, label: cleanLabel(label, entry.roomId) };
+  await withStore(ROOMS, 'readwrite', (s) => s.put(next));
+  return next;
+}
+
+/** Pin is plaintext vault metadata beside name/mode; it never touches the sealed secret. */
+export async function setRoomPinned(entry: RoomEntry, pinned: boolean): Promise<RoomEntry> {
+  const next: RoomEntry = { ...entry };
+  if (pinned) next.pinned = true;
+  else delete next.pinned;
   await withStore(ROOMS, 'readwrite', (s) => s.put(next));
   return next;
 }
@@ -332,7 +358,7 @@ function cancelled(error: unknown): boolean {
   return error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'AbortError');
 }
 
-async function createPasskey(userName: string): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
+export async function createPasskey(userName: string): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
   const salt = random(PRF_BYTES);
   let credential: PublicKeyCredential | null;
   try {

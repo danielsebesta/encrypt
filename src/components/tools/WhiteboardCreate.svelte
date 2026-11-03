@@ -217,7 +217,7 @@
         <PassphraseField {dict} id="wb-pass" bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby="wb-pass-rules wb-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
         <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules} />
         {#if passwordError}
-          <p class="status status--error" role="alert">{passwordError}</p>
+          <p class="status status--error status--box" role="alert">{passwordError}</p>
         {/if}
         <p id="wb-pass-hint" class="hint">{t(dict, 'whiteboard.createDescription')}</p>
       </div>

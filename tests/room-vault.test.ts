@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  VAULT_LABEL, buildEntry, cleanLabel, deriveVaultKey, entryId, openTarget, relativeTime, sealEntry, unwrapSecret,
+  VAULT_LABEL, buildEntry, cleanLabel, compareRooms, deriveVaultKey, entryId, openTarget, relativeTime, sealEntry, unwrapSecret,
   validEntry, validSecret, vaultState, vaultStateFor, wrapSecret, type RoomEntry, type RoomSecret,
 } from '../src/lib/roomVault';
 
@@ -84,6 +84,9 @@ test('entries are validated when read back', async () => {
   assert.deepEqual(validEntry(good), good);
   const sealed = await sealEntry(good, { type: 'password', value: 'y'.repeat(20) }, await deriveVaultKey(prf()));
   assert.deepEqual(validEntry(sealed), sealed);
+  assert.deepEqual(validEntry({ ...good, pinned: true }), { ...good, pinned: true });
+  assert.deepEqual(validEntry({ ...good, pinned: false }), good);
+  assert.equal(validEntry({ ...good, pinned: 'yes' }), null);
   assert.equal(validEntry(null), null);
   assert.equal(validEntry({ ...good, kind: 'files' }), null);
   assert.equal(validEntry({ ...good, id: 'whiteboard:team-room' }), null);
@@ -96,6 +99,23 @@ test('entries are validated when read back', async () => {
   assert.equal(validEntry({ ...good, secret: { iv: new Uint8Array(8), ciphertext: new Uint8Array(32) } }), null);
   assert.equal(validEntry({ ...good, secret: 'plain-password' }), null);
   assert.equal(validEntry({ ...good, extra: 'dropped' })?.hasOwnProperty('extra'), false);
+});
+
+test('pin metadata is plaintext and preserved across rebuild/seal', async () => {
+  const pinned = entry({ pinned: true, lastSeen: 1000 });
+  const updated = buildEntry({ kind: 'chat', roomId: 'team-room', mode: 'live' }, 5000, pinned);
+  assert.equal(updated?.pinned, true);
+  assert.equal(updated?.lastSeen, 5000);
+  const sealed = await sealEntry(pinned, { type: 'password', value: 'y'.repeat(20) }, await deriveVaultKey(prf()));
+  assert.equal(sealed.pinned, true);
+  assert.ok(sealed.secret);
+  const namesOnly = await sealEntry(pinned, { type: 'password', value: 'y'.repeat(20) }, null);
+  assert.equal(namesOnly.pinned, true);
+  assert.equal(namesOnly.secret, undefined);
+  const newer = entry({ lastSeen: 9000 });
+  assert.ok(compareRooms(pinned, newer) < 0);
+  assert.ok(compareRooms(newer, pinned) > 0);
+  assert.ok(compareRooms(entry({ lastSeen: 2 }), entry({ lastSeen: 1 })) < 0);
 });
 
 test('labels are cleaned and fall back to the room name', () => {

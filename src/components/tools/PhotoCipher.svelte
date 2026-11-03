@@ -27,7 +27,9 @@
     { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
     { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
   ];
+  $: multiEncode = mode === 'encode' && imageFiles.length > 1;
 
+  let imageFiles: File[] = [];
   let imageUrl: string | null = null;
   let message = '';
   let password = '';
@@ -38,10 +40,9 @@
   let encodedImageUrl: string | null = null;
   let capacity = 0;
   let processing = false;
+  let batchCurrent = 0;
   let imgW = 0;
   let imgH = 0;
-
-  function triggerFileSelect() { fileInput?.click(); }
 
   function xorshift32(seed: number) {
     let s = seed || 1;
@@ -146,97 +147,210 @@
     });
   }
 
+  function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Image failed to load'));
+      };
+      img.src = url;
+    });
+  }
+
+  function setMode(next: 'encode' | 'decode') {
+    if (mode === next) return;
+    mode = next;
+    imageFiles = [];
+    imageUrl = null;
+    encodedImageUrl = null;
+    decodedMessage = '';
+    capacity = 0;
+    imgW = 0;
+    imgH = 0;
+    status = '';
+    if (fileInput) fileInput.value = '';
+  }
+
   async function handleImageFile(e: Event) {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
-    if (f.size > MAX_FILE) {
-      status = t(dict, 'tools.photoCipher.imageTooLarge');
-      imageUrl = null; encodedImageUrl = null; decodedMessage = ''; capacity = 0;
+    const picked = (e.target as HTMLInputElement).files
+      ? Array.from((e.target as HTMLInputElement).files!)
+      : [];
+    imageFiles = [];
+    imageUrl = null;
+    encodedImageUrl = null;
+    decodedMessage = '';
+    capacity = 0;
+    imgW = 0;
+    imgH = 0;
+    if (!picked.length) return;
+
+    if (mode === 'decode') {
+      const f = picked[0];
+      if (f.size > MAX_FILE) {
+        status = t(dict, 'tools.photoCipher.imageTooLarge');
+        return;
+      }
+      try {
+        const img = await loadImageFromFile(f);
+        const norm = normalizeToCanvas(img, false);
+        imgW = norm.width;
+        imgH = norm.height;
+        imageUrl = norm.toDataURL('image/png');
+        imageFiles = [f];
+        capacity = maxChars(imgW, imgH);
+        status = t(dict, 'tools.photoCipher.imageLoaded')
+          .replace('{w}', String(imgW))
+          .replace('{h}', String(imgH))
+          .replace('{chars}', String(capacity));
+      } catch {
+        status = t(dict, 'tools.photoCipher.imageLoadFailed');
+      }
       return;
     }
-    encodedImageUrl = null; decodedMessage = '';
+
+    const ok: File[] = [];
+    let skipped = 0;
+    for (const f of picked) {
+      if (f.size > MAX_FILE) skipped++;
+      else ok.push(f);
+    }
+    if (!ok.length) {
+      status = t(dict, 'tools.photoCipher.imageTooLarge');
+      return;
+    }
     try {
-      const blobUrl = URL.createObjectURL(f);
-      const img = await loadImage(blobUrl);
-      URL.revokeObjectURL(blobUrl);
-      const norm = normalizeToCanvas(img, mode === 'encode');
+      const img = await loadImageFromFile(ok[0]);
+      const norm = normalizeToCanvas(img, true);
       imgW = norm.width;
       imgH = norm.height;
       imageUrl = norm.toDataURL('image/png');
+      imageFiles = ok;
       capacity = maxChars(imgW, imgH);
-      status = t(dict, 'tools.photoCipher.imageLoaded')
-        .replace('{w}', String(imgW))
-        .replace('{h}', String(imgH))
-        .replace('{chars}', String(capacity));
+      status = ok.length === 1
+        ? t(dict, 'tools.photoCipher.imageLoaded')
+          .replace('{w}', String(imgW))
+          .replace('{h}', String(imgH))
+          .replace('{chars}', String(capacity))
+        : t(dict, 'tools.photoCipher.batchSelected').replace('{count}', String(ok.length));
+      if (skipped) status = `${status} ${t(dict, 'tools.photoCipher.imageTooLarge')}`;
     } catch {
       status = t(dict, 'tools.photoCipher.imageLoadFailed');
-      imageUrl = null; capacity = 0;
+      imageFiles = [];
+      capacity = 0;
     }
   }
 
+  async function encodeOne(file: File): Promise<string> {
+    const img = await loadImageFromFile(file);
+    const norm = normalizeToCanvas(img, true);
+    const ctx = norm.getContext('2d')!;
+    const imageData = ctx.getImageData(0, 0, norm.width, norm.height);
+    const px = imageData.data;
+    const bx = norm.width / BLOCK;
+    const by = norm.height / BLOCK;
+    const total = bx * by;
+
+    const cipher = await encrypt(message, password, cipherCapacity(total));
+    const magic = new TextEncoder().encode(MAGIC);
+    const len = cipher.length;
+    const payload = new Uint8Array(HEADER_SIZE + len);
+    payload.set(magic, 0);
+    payload[4] = (len >> 24) & 0xff;
+    payload[5] = (len >> 16) & 0xff;
+    payload[6] = (len >> 8) & 0xff;
+    payload[7] = len & 0xff;
+    payload.set(cipher, HEADER_SIZE);
+
+    const bits = bytesToBits(payload);
+    const expanded: number[] = [];
+    for (const b of bits) for (let r = 0; r < REP; r++) expanded.push(b);
+
+    if (expanded.length > total) throw new Error('tooLong');
+
+    const order = shuffledOrder(total, PUBLIC_SEED);
+    await new Promise(r => setTimeout(r, 0));
+    for (let i = 0; i < expanded.length; i++) {
+      const idx = order[i];
+      qimEmbed(px, idx % bx, Math.floor(idx / bx), norm.width, expanded[i]);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return norm.toDataURL('image/png');
+  }
+
+  function downloadDataUrl(dataUrl: string, filename: string) {
+    const a = document.createElement('a');
+    a.download = filename;
+    a.href = dataUrl;
+    a.click();
+  }
+
+  function outName(file: File, index: number): string {
+    const base = file.name.replace(/\.[^.]+$/, '') || 'photo-cipher';
+    return imageFiles.length > 1 ? `${base}-cipher-${index + 1}.png` : `${base}-cipher.png`;
+  }
+
   async function encode() {
-    if (!imageUrl || !message || !password) {
+    if (!imageFiles.length || !message || !password) {
       status = t(dict, 'tools.photoCipher.pleaseProvide'); return;
     }
     if (!roomPasswordOk(password, '')) {
       status = t(dict, 'common.passwordWeak'); return;
     }
     processing = true;
-    try {
-      const img = await loadImage(imageUrl);
-      const norm = normalizeToCanvas(img, true);
-      const ctx = norm.getContext('2d')!;
-      const imageData = ctx.getImageData(0, 0, norm.width, norm.height);
-      const px = imageData.data;
-      const bx = norm.width / BLOCK;
-      const by = norm.height / BLOCK;
-      const total = bx * by;
-
-      status = t(dict, 'tools.photoCipher.encrypting');
-      let cipher: Uint8Array;
-      try { cipher = await encrypt(message, password, cipherCapacity(total)); }
-      catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); processing = false; return; }
-
-      const magic = new TextEncoder().encode(MAGIC);
-      const len = cipher.length;
-      const payload = new Uint8Array(HEADER_SIZE + len);
-      payload.set(magic, 0);
-      payload[4] = (len >> 24) & 0xff;
-      payload[5] = (len >> 16) & 0xff;
-      payload[6] = (len >> 8) & 0xff;
-      payload[7] = len & 0xff;
-      payload.set(cipher, HEADER_SIZE);
-
-      const bits = bytesToBits(payload);
-      const expanded: number[] = [];
-      for (const b of bits) for (let r = 0; r < REP; r++) expanded.push(b);
-
-      if (expanded.length > total) {
-        status = t(dict, 'tools.photoCipher.messageTooLong'); processing = false; return;
+    encodedImageUrl = null;
+    const total = imageFiles.length;
+    let ok = 0;
+    let failed = 0;
+    for (let i = 0; i < total; i++) {
+      batchCurrent = i + 1;
+      status = t(dict, 'tools.photoCipher.batchProgress')
+        .replace('{current}', String(batchCurrent))
+        .replace('{total}', String(total));
+      try {
+        const dataUrl = await encodeOne(imageFiles[i]);
+        downloadDataUrl(dataUrl, outName(imageFiles[i], i));
+        ok++;
+        if (total === 1 || i === total - 1) encodedImageUrl = dataUrl;
+      } catch (e) {
+        failed++;
+        if (total === 1) {
+          status = (e as Error)?.message === 'tooLong'
+            ? t(dict, 'tools.photoCipher.messageTooLong')
+            : t(dict, 'tools.photoCipher.encryptionFailed');
+          processing = false;
+          batchCurrent = 0;
+          return;
+        }
       }
-
-      status = t(dict, 'tools.photoCipher.embedding');
-      const order = shuffledOrder(total, PUBLIC_SEED);
-
-      await new Promise(r => setTimeout(r, 0));
-      for (let i = 0; i < expanded.length; i++) {
-        const idx = order[i];
-        qimEmbed(px, idx % bx, Math.floor(idx / bx), norm.width, expanded[i]);
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      encodedImageUrl = norm.toDataURL('image/png');
-      status = t(dict, 'tools.photoCipher.messageHidden');
-    } catch { status = t(dict, 'tools.photoCipher.encryptionFailed'); }
+      if (total > 1) await new Promise((r) => setTimeout(r, 120));
+    }
+    if (failed === 0) {
+      status = total === 1
+        ? t(dict, 'tools.photoCipher.messageHidden')
+        : t(dict, 'tools.photoCipher.batchDone')
+          .replace('{ok}', String(ok))
+          .replace('{total}', String(total));
+    } else {
+      status = t(dict, 'tools.photoCipher.batchPartial')
+        .replace('{ok}', String(ok))
+        .replace('{total}', String(total))
+        .replace('{failed}', String(failed));
+    }
     processing = false;
+    batchCurrent = 0;
   }
 
   function downloadEncoded() {
     if (!encodedImageUrl) return;
-    const a = document.createElement('a');
-    a.download = 'photo-cipher.png';
-    a.href = encodedImageUrl;
-    a.click();
+    const name = imageFiles[0] ? outName(imageFiles[0], 0) : 'photo-cipher.png';
+    downloadDataUrl(encodedImageUrl, name);
   }
 
   async function decode() {
@@ -293,8 +407,8 @@
 </script>
 <div class="stack">
   <div class="tabs" role="tablist" aria-label={t(dict, 'tools.photoCipher.h1')}>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="photo-panel" on:click={() => mode = 'encode'}>{t(dict, 'tools.photoCipher.encode')}</button>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="photo-panel" on:click={() => mode = 'decode'}>{t(dict, 'tools.photoCipher.decode')}</button>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="photo-panel" on:click={() => setMode('encode')}>{t(dict, 'tools.photoCipher.encode')}</button>
+    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="photo-panel" on:click={() => setMode('decode')}>{t(dict, 'tools.photoCipher.decode')}</button>
   </div>
 
   <div id="photo-panel" role="tabpanel" class="grid gap-6 md:grid-cols-2">
@@ -302,24 +416,27 @@
       <div class="field">
         <span class="label">{t(dict, 'tools.photoCipher.sourceImage')}</span>
         <label class="dropzone aspect-video" class:dropzone--active={!!imageUrl} for="photo-file">
-          {#if encodedImageUrl}
+          {#if encodedImageUrl && !multiEncode}
             <img src={encodedImageUrl} alt={t(dict, 'tools.photoCipher.encodedAlt')} />
           {:else if imageUrl}
             <img src={imageUrl} alt={t(dict, 'tools.photoCipher.previewAlt')} />
           {:else}
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
             <span class="dropzone__title">{t(dict, 'tools.photoCipher.sourceImage')}</span>
-            <span>{t(dict, 'tools.photoCipher.anyFormat')}</span>
+            <span>{mode === 'encode' ? t(dict, 'tools.photoCipher.batchHint') : t(dict, 'tools.photoCipher.anyFormat')}</span>
           {/if}
-          <input id="photo-file" bind:this={fileInput} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
+          <input id="photo-file" bind:this={fileInput} type="file" accept="image/*" multiple={mode === 'encode'} on:change={handleImageFile} class="sr-only" />
         </label>
         <p class="hint">{t(dict, 'tools.photoCipher.robustBadge')}</p>
+        {#if multiEncode}
+          <p class="hint">{t(dict, 'tools.photoCipher.batchSelected').replace('{count}', String(imageFiles.length))}</p>
+        {/if}
       </div>
-      {#if capacity > 0 && mode === 'encode'}
+      {#if capacity > 0 && mode === 'encode' && !multiEncode}
         <p class="hint">{t(dict, 'tools.photoCipher.capacityLabel')} <span class="font-mono text-text">~{capacity}</span> {t(dict, 'tools.photoCipher.chars')}</p>
       {/if}
       {#if status}
-        <p class="status" role="status">{status}</p>
+        <p class="status" class:status--busy={processing} role="status">{status}</p>
       {/if}
     </div>
 
@@ -335,9 +452,15 @@
           <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
         </div>
         <button type="button" on:click={encode} class="btn w-full" disabled={processing}>
-          {processing ? t(dict, 'tools.photoCipher.embedding') : t(dict, 'tools.photoCipher.burnIntoPixels')}
+          {#if processing && imageFiles.length > 1}
+            {t(dict, 'tools.photoCipher.batchProgress').replace('{current}', String(batchCurrent)).replace('{total}', String(imageFiles.length))}
+          {:else if processing}
+            {t(dict, 'tools.photoCipher.embedding')}
+          {:else}
+            {t(dict, 'tools.photoCipher.burnIntoPixels')}
+          {/if}
         </button>
-        {#if encodedImageUrl}
+        {#if encodedImageUrl && !multiEncode}
           <button type="button" on:click={downloadEncoded} class="btn-secondary w-full">{t(dict, 'tools.photoCipher.downloadEncoded')}</button>
         {/if}
       {:else}
