@@ -17,7 +17,7 @@ type Props = {
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const site = siteOrigin(Astro.url.origin);
+const site = siteOrigin();
 const brand = siteName();
 
 const {
@@ -29,7 +29,8 @@ const {
 } = Astro.props;
 
 const path = Astro.url.pathname;
-const canonicalUrl = canonical || new URL(path, site).href;
+const localizedPath = locale === 'en' || path === `/${locale}` || path.startsWith(`/${locale}/`) ? path : `/${locale}${path}`;
+const canonicalUrl = canonical || new URL(localizedPath, site).href;
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
 const homeHref = locale === 'en' ? '/' : `/${locale}/`;
 const navCategories = getNavCategories(t, dict, localePrefix);
