@@ -194,11 +194,35 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			</nav>
 		</header>
 
+		<div
+			id="pwa-notice"
+			class="pwa-notice hidden"
+			role="status"
+			data-desktop={t(dict, 'pwa.notice.desktop')}
+			data-install-ios={t(dict, 'pwa.notice.installIos')}
+			data-install-android={t(dict, 'pwa.notice.installAndroid')}
+		>
+			<p class="min-w-0 flex-1" data-pwa-notice-text></p>
+			<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+			<button type="button" class="btn-ghost btn-sm" data-pwa-notice-dismiss>{t(dict, 'pwa.notice.dismiss')}</button>
+		</div>
+
 		<main id="main" class={`flex-1 ${mainClass}`} tabindex="-1">
 			<slot />
 		</main>
 
 		<footer class="site-footer">
+			<div id="pwa-promo" class="pwa-promo hidden">
+				<div class="pwa-promo__inner">
+					<div class="min-w-0 flex-1">
+						<p class="text-sm font-semibold text-text">{t(dict, 'pwa.promo.title')}</p>
+						<p class="text-sm text-muted">{t(dict, 'pwa.promo.text')}</p>
+						<p class="hidden text-sm text-muted" data-pwa-hint-ios>{t(dict, 'pwa.promo.ios')}</p>
+						<p class="hidden text-sm text-muted" data-pwa-hint-menu>{t(dict, 'pwa.promo.menu')}</p>
+					</div>
+					<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+				</div>
+			</div>
 			<div class="site-footer__inner">
 				<a href={homeHref} class="nav__brand">
 					<img src="/encryptclick_icon.svg" alt="" width="14" height="22" class="h-[22px] w-auto" decoding="async" />
@@ -218,5 +242,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			</div>
 		</footer>
 		<script is:inline src="/ui.js?v=security-v2" defer></script>
+		<script is:inline src="/pwa.js?v=pwa-v1" defer></script>
 	</body>
 </html>
