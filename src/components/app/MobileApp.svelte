@@ -678,6 +678,7 @@
   let vaultKnown = $state<VaultState | null>(null);
   let locked = $state(false);
   let lockBusy = $state(false);
+  let lockToggleKey = $state(0);
   let lockError = $state('');
 
   async function tryUnlock(silent = false) {
@@ -696,17 +697,25 @@
   }
 
   async function toggleLock() {
-    if (lockBusy) return;
+    if (lockBusy) {
+      lockToggleKey++;
+      return;
+    }
     if (lockEnabled) {
       lockBusy = true;
       const ok = await confirmPresence();
       lockBusy = false;
-      if (!ok) return;
+      if (!ok) {
+        lockToggleKey++;
+        showToast(t(dict, 'app.lock.failed'), 'warning');
+        return;
+      }
       clearLock();
       lockEnabled = false;
       return;
     }
     if (!lockAvailable) {
+      lockToggleKey++;
       showToast(t(dict, 'app.lock.unsupported'), 'warning');
       return;
     }
@@ -718,6 +727,7 @@
       triggerHaptic('success');
       void vaultState().then((v) => { vaultKnown = v; });
     } else {
+      lockToggleKey++;
       showToast(`${t(dict, 'app.lock.enableFailed')} (${result.detail})`, 'warning');
     }
   }
@@ -1342,7 +1352,7 @@
                 <span class="text-[var(--app-tint)]"><AppIcons name="lock" size={20} /></span>
               {/snippet}
               {#snippet after()}
-                <Toggle checked={lockEnabled} component="button" onChange={toggleLock} />
+                {#key lockToggleKey}<Toggle checked={lockEnabled} onChange={toggleLock} />{/key}
               {/snippet}
             </ListItem>
             <ListItem
