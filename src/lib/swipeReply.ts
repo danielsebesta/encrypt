@@ -1,4 +1,5 @@
 import { LUCIDE } from './lucideIcons';
+import { haptic } from './haptics';
 
 const SLOP_PX = 10;
 const MAX_PX = 84;
@@ -71,7 +72,7 @@ export function swipeReply(node: HTMLElement, options: Options) {
     const shown = Math.max(0, Math.min(MAX_PX, eased));
     render(shown);
     const nowArmed = shown >= ARM_PX;
-    if (nowArmed && !armed) navigator.vibrate?.(8);
+    if (nowArmed && !armed) haptic('light');
     armed = nowArmed;
   }
 

@@ -60,6 +60,7 @@
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
+  import { haptic } from '../../lib/haptics';
   import { installViewportSync } from '../../lib/viewportSync';
   import {
     applyTheme,
@@ -200,13 +201,7 @@
   }
 
   function triggerHaptic(type: 'light' | 'medium' | 'success' | 'warning' = 'light') {
-    if (!haptics || typeof window === 'undefined' || !('vibrate' in navigator)) return;
-    try {
-      if (type === 'light') navigator.vibrate(8);
-      else if (type === 'medium') navigator.vibrate(15);
-      else if (type === 'success') navigator.vibrate([10, 30, 15]);
-      else if (type === 'warning') navigator.vibrate([30, 40, 30]);
-    } catch {}
+    haptic(type);
   }
 
   function pushOverlayGuard() {

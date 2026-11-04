@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { haptic } from '../../lib/haptics';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from '../../lib/t';
   import { LUCIDE } from '../../lib/lucideIcons';
@@ -50,7 +51,7 @@
     recorder = next;
     elapsed = 0;
     recording = true;
-    if (appMode) navigator.vibrate?.(15);
+    if (appMode) haptic('medium');
     ticker = setInterval(() => { elapsed = (recorder?.elapsedMs ?? 0) / 1000; }, 250);
     if (appMode) {
       levels = Array(WAVE_BARS).fill(0);
@@ -77,7 +78,7 @@
   async function cancel() {
     recorder?.cancel();
     recorder = null;
-    if (appMode) navigator.vibrate?.([30, 40, 30]);
+    if (appMode) haptic('warning');
     clearInterval(ticker);
     clearInterval(meterTimer);
     recording = false;

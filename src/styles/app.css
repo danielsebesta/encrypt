@@ -3221,3 +3221,39 @@ html[data-app-platform] ::selection {
 :root.app-kbd .chat-input {
     padding-bottom: 0.35rem;
 }
+
+/* Composer: the whole pill takes the tap, not just the thin line of text. */
+.app-composer__field {
+    min-height: 44px;
+    cursor: text;
+}
+.app-composer__input {
+    min-height: 24px;
+}
+
+/* Photos in chat: a rounded picture that fills the bubble, with the file row tucked underneath. */
+.app-room-wrapper .chat-preview-img-btn {
+    width: 100%;
+    margin-top: 2px;
+    border: 0;
+    background: none;
+    border-radius: 16px;
+    overflow: hidden;
+    line-height: 0;
+}
+.app-room-wrapper .chat-preview-img {
+    display: block;
+    width: 100%;
+    max-width: min(300px, 70vw);
+    max-height: 360px;
+    margin: 0;
+    border-radius: 16px;
+    object-fit: cover;
+}
+.app-room-wrapper .chat-file {
+    padding: 6px 8px;
+    font-size: 12px;
+}
+.app-room-wrapper .chat-file__name {
+    font-size: 13px;
+}

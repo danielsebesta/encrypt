@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { haptic } from '../../lib/haptics';
   import { untrack } from 'svelte';
   import { List, ListItem, Sheet } from 'konsta/svelte';
   import { t } from '../../lib/t';
@@ -91,7 +92,7 @@
       type="button"
       class="chat-attach-btn"
       class:chat-attach-btn--active={composerMenuOpen || onceEnabled}
-      on:click={() => { composerMenuOpen = !composerMenuOpen; scheduleMenuOpen = false; if (appMode) navigator.vibrate?.(8); }}
+      on:click={() => { composerMenuOpen = !composerMenuOpen; scheduleMenuOpen = false; if (appMode) haptic('light'); }}
       disabled={(!connected && !allowQueue) || uploading}
       aria-haspopup="menu"
       aria-expanded={composerMenuOpen}
@@ -195,7 +196,7 @@
 
 {#snippet sendBtn()}
   {#if !voiceRecording}
-  <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:mousedown|preventDefault on:click={() => { if (appMode) navigator.vibrate?.(8); const keep = document.activeElement === inputEl; onsend(); if (keep) inputEl?.focus(); }} disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}>
+  <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:mousedown|preventDefault on:click={() => { if (appMode) haptic('light'); const keep = document.activeElement === inputEl; onsend(); if (keep) inputEl?.focus(); }} disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}>
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['send']}</svg>
   </button>
   {/if}
@@ -207,7 +208,7 @@
     <div class="app-composer">
       {#if !voiceRecording}
         {@render attachMenu()}
-        <div class="app-composer__field">
+        <div class="app-composer__field" role="presentation" on:pointerdown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); inputEl?.focus(); } }}>
           <textarea
             id="chat-messagebar-input"
             class="app-composer__input"

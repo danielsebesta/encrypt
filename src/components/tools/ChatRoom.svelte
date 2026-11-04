@@ -2345,6 +2345,7 @@
       const priorName = before?.name ?? members.get(signer)?.name;
       if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
+      if (!fromHistory) messages = messages.map((m) => (m.pk === signer && !m.mine ? { ...m, sender: who.name, initials: who.initials, color: who.color, alias: who.alias, nick: who.nick } : m));
       if (!fromHistory && priorName && priorName !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', priorName).replace('{to}', who.name), 0);
       return true;
     }
