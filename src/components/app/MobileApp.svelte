@@ -61,7 +61,7 @@
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
   import { haptic } from '../../lib/haptics';
-  import { clearLock, enableLock, lockSupported, shouldLock, storedLockId, unlock } from '../../lib/appLock';
+  import { clearLock, enableLock, lockSupported, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import {
     applyTheme,
@@ -787,7 +787,7 @@
     }
     ready = true;
 
-    lockEnabled = storedLockId() !== null;
+    lockEnabled = storedLock() !== null;
     if (lockEnabled) {
       locked = true;
       void tryUnlock(true);

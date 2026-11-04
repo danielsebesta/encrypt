@@ -1,4 +1,7 @@
+import { createPasskey, unlockVault, vaultState } from './roomVault';
+
 const STORAGE_KEY = 'encrypt-app-lock';
+const VAULT_MARK = 'vault';
 const ID_RE = /^[A-Za-z0-9_-]{16,1024}$/;
 
 /** How long the app may stay in the background before it asks again. */
@@ -20,10 +23,11 @@ export function fromBase64Url(value: string): Uint8Array {
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
-export function storedLockId(): string | null {
+/** 'vault' = the room-vault passkey is the lock; otherwise a standalone passkey id; null = off. */
+export function storedLock(): string | null {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
-    return value && ID_RE.test(value) ? value : null;
+    return value === VAULT_MARK || (value && ID_RE.test(value)) ? value : null;
   } catch {
     return null;
   }
@@ -38,8 +42,26 @@ export async function lockSupported(): Promise<boolean> {
   }
 }
 
-/** Registers a passkey on this device. It only ever proves "the person holding the unlocked device is here"; nothing is stored on a server. */
+/**
+ * Turns the lock on. When the browser supports the passkey PRF extension, the room vault's passkey is the lock, so one
+ * biometric check opens the app and unseals saved room secrets. Otherwise a standalone passkey acts as a screen lock only.
+ */
 export async function enableLock(displayName: string): Promise<boolean> {
+  try {
+    const state = await vaultState();
+    if (state === 'new') {
+      if ((await createPasskey(displayName)) === 'ok') {
+        localStorage.setItem(STORAGE_KEY, VAULT_MARK);
+        return true;
+      }
+    } else if (state === 'locked' || state === 'unlocked') {
+      if (await unlockVault()) {
+        localStorage.setItem(STORAGE_KEY, VAULT_MARK);
+        return true;
+      }
+      return false;
+    }
+  } catch {}
   try {
     const credential = await navigator.credentials.create({
       publicKey: {
@@ -61,8 +83,18 @@ export async function enableLock(displayName: string): Promise<boolean> {
 }
 
 export async function unlock(): Promise<boolean> {
-  const id = storedLockId();
+  const id = storedLock();
   if (!id) return true;
+  if (id === VAULT_MARK) {
+    try {
+      const state = await vaultState();
+      if (state === 'new' || state === 'names') {
+        clearLock();
+        return true;
+      }
+    } catch {}
+    return unlockVault();
+  }
   try {
     const assertion = await navigator.credentials.get({
       publicKey: {
