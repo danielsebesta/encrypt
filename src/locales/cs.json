@@ -513,6 +513,7 @@
   "tools.ultimateDecrypt.scan.otherLink": "Tento QR kód vede na jinou adresu, ne na sdílení na tomto webu. Otevři ho, jen pokud mu věříš:",
   "chat.tryAgain": "Zkusit znovu",
   "chat.joinedRoom": "{name} se připojil/a",
+  "chat.leftRoom": "{name} odešel/odešla",
   "chat.guest": "Host",
   "chat.alias.adj.0": "Hbitý",
   "chat.alias.adj.1": "Klidný",

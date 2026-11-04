@@ -513,6 +513,7 @@
   "tools.ultimateDecrypt.scan.otherLink": "Este código QR lleva a otra dirección, no a un envío de este sitio. Ábrelo solo si confías en él:",
   "chat.tryAgain": "Intentar de nuevo",
   "chat.joinedRoom": "{name} se unió",
+  "chat.leftRoom": "{name} salió",
   "chat.guest": "Invitado",
   "chat.alias.adj.0": "Veloz",
   "chat.alias.adj.1": "Sereno",

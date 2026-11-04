@@ -513,6 +513,7 @@
   "tools.ultimateDecrypt.scan.otherLink": "This QR code points to another address, not to a share on this site. Open it only if you trust it:",
   "chat.tryAgain": "Try again",
   "chat.joinedRoom": "{name} joined",
+  "chat.leftRoom": "{name} left",
   "chat.guest": "Guest",
   "chat.alias.adj.0": "Swift",
   "chat.alias.adj.1": "Calm",

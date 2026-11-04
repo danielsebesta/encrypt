@@ -1793,6 +1793,7 @@
 
   // After someone leaves, everyone still here answers with a presence: that is the roll call for the new sender chains.
   async function onMemberLeft(gone?: string) {
+    if (gone) clientDeparted(gone);
     if (fsSession) await fsSession.memberLeft(gone);
     if (fsSession) await sendPresence();
   }
@@ -2298,6 +2299,7 @@
       const who = senderInfo(parsed);
       addOnlineUser(who);
       noteMember(signer, who);
+      clientArrived(signer, parsed.clientId, who.name, false);
       const member = fsMember(parsed, signer);
       if (fsSession && member) {
         if (Array.isArray(parsed.want) && parsed.want.includes(roomIdentity?.publicKey)) await fsSession.memberWants(member);
@@ -2331,11 +2333,7 @@
         await fsSession.memberJoined(member);
         void sendLiveHistorySync(member);
       }
-      messages = [...messages, {
-        id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
-        color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
-      }];
-      followIncoming(false);
+      clientArrived(signer, parsed.clientId, joiner.name, true);
       return true;
     }
 
@@ -2347,7 +2345,7 @@
       const priorName = before?.name ?? members.get(signer)?.name;
       if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
-      if (!fromHistory && priorName && priorName !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', priorName).replace('{to}', who.name), 15);
+      if (!fromHistory && priorName && priorName !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', priorName).replace('{to}', who.name), 0);
       return true;
     }
 
@@ -2361,6 +2359,7 @@
       if (verifying) markVerified();
       addOnlineUser(acker);
       noteMember(signer, acker);
+      clientArrived(signer, parsed.clientId, acker.name, false);
       return true;
     }
 
@@ -4334,6 +4333,41 @@
         return;
       } catch { continue; }
     }
+  }
+
+  // A person counts as present while any of their connections is, so a reconnect or a second tab never announces them twice.
+  // A departure waits briefly: coming straight back, as a phone does after the app was in the background, announces nothing.
+  const LEAVE_GRACE_MS = 8000;
+  const liveClients = new Map<string, Set<string>>();
+  const leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  function clientArrived(signer: string, clientId: unknown, name: string, announce: boolean) {
+    if (typeof clientId !== 'string' || !clientId) return;
+    const set = liveClients.get(signer) ?? new Set<string>();
+    const wasPresent = set.size > 0;
+    set.add(clientId);
+    liveClients.set(signer, set);
+    const pending = leaveTimers.get(signer);
+    if (pending) {
+      clearTimeout(pending);
+      leaveTimers.delete(signer);
+      return;
+    }
+    if (!wasPresent && announce) addSystemMessage(t(dict, 'chat.joinedRoom').replace('{name}', name), 0);
+  }
+
+  function clientDeparted(clientId: string) {
+    const signer = clientSigners.get(clientId);
+    const set = signer ? liveClients.get(signer) : undefined;
+    if (!signer || !set || !set.delete(clientId) || set.size) return;
+    const name = members.get(signer)?.name ?? '';
+    clearTimeout(leaveTimers.get(signer));
+    leaveTimers.set(signer, setTimeout(() => {
+      leaveTimers.delete(signer);
+      if (liveClients.get(signer)?.size) return;
+      liveClients.delete(signer);
+      if (name) addSystemMessage(t(dict, 'chat.leftRoom').replace('{name}', name), 0, '←');
+    }, LEAVE_GRACE_MS));
   }
 
   function addSystemMessage(text: string, ttl: number, initials = '→', color = 'var(--accent)') {
