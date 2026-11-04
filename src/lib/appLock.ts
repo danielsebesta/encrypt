@@ -1,4 +1,4 @@
-import { createPasskey, unlockVault, vaultState } from './roomVault';
+import { createPasskey, lastPasskeyError, unlockVault, vaultState, type VaultState } from './roomVault';
 
 const STORAGE_KEY = 'encrypt-app-lock';
 const VAULT_MARK = 'vault';
@@ -42,26 +42,37 @@ export async function lockSupported(): Promise<boolean> {
   }
 }
 
+export type EnableResult = { ok: true } | { ok: false; detail: string };
+
+const describe = (error: unknown) => (error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 120) : 'unknown');
+
 /**
  * Turns the lock on. When the browser supports the passkey PRF extension, the room vault's passkey is the lock, so one
  * biometric check opens the app and unseals saved room secrets. Otherwise a standalone passkey acts as a screen lock only.
+ * Pass the vault state read earlier: the passkey prompt must start right inside the tap, and iOS drops that permission
+ * if storage is read first.
  */
-export async function enableLock(displayName: string): Promise<boolean> {
+export async function enableLock(displayName: string, known: VaultState | null = null): Promise<EnableResult> {
+  let detail = '';
   try {
-    const state = await vaultState();
+    const state = known ?? (await vaultState());
     if (state === 'new') {
-      if ((await createPasskey(displayName)) === 'ok') {
+      const created = await createPasskey(displayName);
+      if (created === 'ok') {
         localStorage.setItem(STORAGE_KEY, VAULT_MARK);
-        return true;
+        return { ok: true };
       }
+      if (created === 'cancelled' || created === 'failed') return { ok: false, detail: lastPasskeyError() || created };
     } else if (state === 'locked' || state === 'unlocked') {
       if (await unlockVault()) {
         localStorage.setItem(STORAGE_KEY, VAULT_MARK);
-        return true;
+        return { ok: true };
       }
-      return false;
+      return { ok: false, detail: 'vault' };
     }
-  } catch {}
+  } catch (error) {
+    detail = describe(error);
+  }
   try {
     const credential = await navigator.credentials.create({
       publicKey: {
@@ -74,11 +85,11 @@ export async function enableLock(displayName: string): Promise<boolean> {
         attestation: 'none',
       },
     }) as PublicKeyCredential | null;
-    if (!credential) return false;
+    if (!credential) return { ok: false, detail: detail || 'no credential' };
     localStorage.setItem(STORAGE_KEY, toBase64Url(new Uint8Array(credential.rawId)));
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, detail: describe(error) };
   }
 }
 

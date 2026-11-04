@@ -50,6 +50,8 @@
     encodeVaultBackup,
     decodeVaultBackup,
     importVaultRows,
+    vaultState,
+    type VaultState,
     type RoomEntry,
   } from '../../lib/roomVault';
   import { forgetChatIdentity } from '../../lib/chatIdentity';
@@ -673,6 +675,7 @@
 
   let lockEnabled = $state(false);
   let lockAvailable = $state(false);
+  let vaultKnown = $state<VaultState | null>(null);
   let locked = $state(false);
   let lockBusy = $state(false);
   let lockError = $state('');
@@ -708,13 +711,14 @@
       return;
     }
     lockBusy = true;
-    const ok = await enableLock('encrypt.click');
+    const result = await enableLock('encrypt.click', vaultKnown);
     lockBusy = false;
-    if (ok) {
+    if (result.ok) {
       lockEnabled = true;
       triggerHaptic('success');
+      void vaultState().then((v) => { vaultKnown = v; });
     } else {
-      showToast(t(dict, 'app.lock.enableFailed'), 'warning');
+      showToast(`${t(dict, 'app.lock.enableFailed')} (${result.detail})`, 'warning');
     }
   }
 
@@ -823,6 +827,7 @@
       void tryUnlock(true);
     }
     void lockSupported().then((ok) => { lockAvailable = ok; });
+    void vaultState().then((v) => { vaultKnown = v; }).catch(() => {});
 
     isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||

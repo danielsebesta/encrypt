@@ -354,6 +354,13 @@ function cancelled(error: unknown): boolean {
   return error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'AbortError');
 }
 
+let passkeyError = '';
+
+/** The last reason a passkey could not be created, for a message the person can read out. */
+export function lastPasskeyError(): string {
+  return passkeyError;
+}
+
 export async function createPasskey(userName: string): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
   const salt = random(PRF_BYTES);
   let credential: PublicKeyCredential | null;
@@ -371,6 +378,7 @@ export async function createPasskey(userName: string): Promise<'ok' | 'no-prf' |
       },
     }) as PublicKeyCredential | null;
   } catch (error) {
+    passkeyError = error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 120) : 'unknown';
     return cancelled(error) ? 'cancelled' : 'failed';
   }
   if (!credential) return 'cancelled';
