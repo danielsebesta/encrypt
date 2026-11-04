@@ -361,7 +361,7 @@ export function lastPasskeyError(): string {
   return passkeyError;
 }
 
-export async function createPasskey(userName: string): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
+export async function createPasskey(userName: string, onCreated?: (rawId: ArrayBuffer) => void): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
   const salt = random(PRF_BYTES);
   let credential: PublicKeyCredential | null;
   try {
@@ -382,6 +382,7 @@ export async function createPasskey(userName: string): Promise<'ok' | 'no-prf' |
     return cancelled(error) ? 'cancelled' : 'failed';
   }
   if (!credential) return 'cancelled';
+  onCreated?.(credential.rawId);
   const prf = credential.getClientExtensionResults().prf;
   const first = prfBytes(prf);
   if (!prf?.enabled && !first) {
