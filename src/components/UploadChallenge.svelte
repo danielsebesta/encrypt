@@ -87,13 +87,15 @@
     accent-color: var(--accent);
   }
   .upload-challenge__progress::-webkit-progress-bar {
-    background: var(--line);
+    background: var(--line-soft);
   }
   .upload-challenge__progress::-webkit-progress-value {
-    background: var(--accent);
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
   }
   .upload-challenge__progress::-moz-progress-bar {
-    background: var(--accent);
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
   }
   @keyframes upload-challenge-in {
     from {

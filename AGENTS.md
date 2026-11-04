@@ -54,10 +54,23 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - `/chat` encrypted ephemeral chat
 - `/whiteboard` collaborative whiteboard
 - `/tools/*` tool pages
+- `/app` native-feel PWA (see below)
+
+### The `/app` PWA
+
+Companion app shell wrapping rooms, the share form and settings. Stack: Konsta UI v5 + Svelte 5 inside `src/components/app/MobileApp.svelte`, styles in `src/styles/app.css`, theme in `src/lib/appTheme.ts`, room vault in `src/lib/roomVault.ts`, entry `src/pages/app/index.astro`.
+
+- Dual skin: `data-app-platform="ios|material"` + `data-app-scheme` on `:root`; iOS uses static Apple tokens, Material generates Material You roles from a seed at runtime. Glass only on chrome (navbar/tabbar/dialogs/popovers) — sheets and list surfaces stay solid (iOS 26 rule: no glass-on-glass).
+- Konsta interactive rows need `linkComponent="button"` + `linkProps={{ type: 'button' }}` (default renders `<a>` without href — unfocusable, no Enter); same for `TabbarLink`/`NavbarBackLink` via `component="button"`. `link` items show a chevron on both themes by default — pass `chevron={false}` on action rows; keep it only for real navigation/submenu rows.
+- In app mode, tools render Konsta chrome via `appMode` branches (Konsta styles exist only under `/app`'s `app.css`, never render them elsewhere): ChatRoom "…" menu → `Popover` + `MenuList`/`MenuListItem` (`bind:this` + `target`, `angle` arrow), composer attach menu → `Sheet` + `List`/`ListItem` bottom sheet placed inside `.chat-attach-menu` so the outside-click closer keeps working, `SaveRoomButton variant="konsta"` → `MenuListItem`. Toggle items use `aria-checked` + check icon in `after`.
+- Overlays (sheets/dialogs/actions) push a history guard entry so system Back/Escape/backdrop close the top overlay before leaving the view; `openOverlays` mutex + `closeTopOverlay()` own priority, `consumeOverlayGuard()` on every close path.
+- Vault: never call `saveRoom` to refresh an existing entry from UI — it rebuilds metadata (`preserveSecret` keeps the wrapped secret, but label/pin merge differs). `persistRoom()` in MobileApp does `getRoom` fresh-read → touch/rename existing, `saveRoom` only for new entries. `touchRoom` bumps `lastSeen` (list sort).
+- Panic wipe must cover every room-scoped store: `room-vault` + `chat-identity` + `share-passwords` IndexedDBs, `encrypt.click:chat-/alias:/nick:` localStorage prefixes, `chat-pw:`/`wb-pw:`/`encrypt-click:once:`/`encrypt.click:chat-` (sealed scheduled drafts) + password handoffs in sessionStorage, and the `encrypt.click:panic-wipe` broadcast flag that makes sibling `/app` tabs wipe and reload. `wiping`/`wipeEpoch` guard in-flight `persistRoom`/`loadRooms` against resurrecting wiped data.
+- All `app.*` strings live in `src/locales/*.json` (7 locales, kept in sync by `tests/locales.test.ts`).
 
 ### Tool categories in `src/lib/tools.ts`
 
-- `privacy`
+- `experiments`
 
 ## Working rules
 
@@ -67,7 +80,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - Tool explainers live as numbered `tools.<name>.about.<n>` paragraphs with optional `tools.<name>.about.<n>.title` headings, shown via `ToolAbout`. Keep them accurate to the code.
 - `en.json` is the source of truth for UI keys.
 - Keep all non-English locale files in sync with English.
-- Keep crypto logic in the crypto modules (`src/lib/aesGcm.ts`, `chatCrypto.ts`, `chatRatchet.ts`, `chatIntegrity.ts`, `chatPq.ts`, `callCrypto.ts`, `kdf.ts`, `passwordEnvelope.ts`, `padding.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/`) or `party/`; UI work must not change key handling, data formats or network behavior.
+- Keep crypto logic in the crypto modules (`src/lib/aesGcm.ts`, `chatCrypto.ts`, `chatRatchet.ts`, `callCrypto.ts`, `kdf.ts`, `passwordEnvelope.ts`, `padding.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/`) or `party/`; UI work must not change key handling, data formats or network behavior.
 - Do not add unnecessary comments.
 - Commit messages carry no co-author or tool attribution trailers.
 

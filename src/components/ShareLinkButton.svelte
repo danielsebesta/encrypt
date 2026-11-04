@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
 
   export let url = '';
+  export let title = '';
+  export let text = '';
   export let label = '';
   export let hint = '';
   export let className = 'btn-ghost btn-sm';
@@ -10,15 +12,30 @@
 
   let supported = false;
 
+  function payload(shareUrl = url): ShareData {
+    const data: ShareData = { url: shareUrl };
+    if (title) data.title = title;
+    if (text) data.text = text;
+    return data;
+  }
+
   onMount(() => {
-    supported = typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ url: location.origin }));
+    if (typeof navigator.share !== 'function') return;
+    try {
+      const probe = payload(url || location.href);
+      supported = !navigator.canShare || navigator.canShare(probe);
+    } catch {
+      supported = false;
+    }
   });
 
   async function share() {
-    if (!url) return;
+    if (!url || typeof navigator.share !== 'function') return;
     try {
-      await navigator.share({ url });
-    } catch {}
+      await navigator.share(payload());
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+    }
   }
 </script>
 

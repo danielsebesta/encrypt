@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
   import { decrypt as openWithPassword, encrypt as sealWithPassword } from '../../lib/aesGcm';
-  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
@@ -138,8 +138,8 @@
       error = t(dict, 'tools.timeCapsule.errorMessage');
       return;
     }
-    if (password && !roomPasswordOk(password, '')) {
-      error = t(dict, 'common.passwordWeak');
+    if (password && !passwordLongEnough(password)) {
+      error = t(dict, 'common.passwordTooShort');
       return;
     }
 

@@ -1,0 +1,70 @@
+---
+import '../../styles/app.css';
+import MobileApp from '../../components/app/MobileApp.svelte';
+import { getTranslations, type Locale } from '../../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+---
+
+<!doctype html>
+<html lang={locale} class="notranslate">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#000000" />
+    <title>Encrypt</title>
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>
+      (function () {
+        try {
+          var ls = localStorage;
+          var root = document.documentElement;
+          var hint = navigator.userAgentData && navigator.userAgentData.platform;
+          var platform = hint
+            ? /^(ios|macos)$/i.test(hint) ? 'ios' : 'material'
+            : /Android/i.test(navigator.userAgent) ? 'material'
+            : /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? 'ios' : 'material';
+          var scheme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          root.dataset.appPlatform = platform;
+          root.dataset.appScheme = scheme;
+          root.classList.toggle('dark', scheme === 'dark');
+          var cached;
+          if (platform === 'material') {
+            var raw = ls.getItem('encrypt-app-mdvars');
+            if (raw) {
+              cached = JSON.parse(raw);
+              var apply = function (vars) {
+                for (var k in vars) root.style.setProperty(k, vars[k]);
+              };
+              if (cached.light) apply(cached.light);
+              if (cached.dark) apply(cached.dark);
+              apply(scheme === 'dark' ? cached.dark : cached.light);
+            }
+          }
+          var bg;
+          if (platform === 'material') {
+            bg = cached && cached[scheme === 'dark' ? 'dark' : 'light'] && cached[scheme === 'dark' ? 'dark' : 'light']['--app-bg'];
+            bg = bg || (scheme === 'dark' ? '#12140e' : '#f9faef');
+          } else {
+            bg = scheme === 'dark' ? '#000000' : '#f2f2f7';
+          }
+          var themeMeta = document.querySelector('meta[name="theme-color"]');
+          if (themeMeta) themeMeta.setAttribute('content', bg);
+          var statusMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+          if (statusMeta) statusMeta.setAttribute('content', scheme === 'dark' ? 'black-translucent' : 'default');
+        } catch (e) {}
+      })();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function () {});
+      }
+    </script>
+  </head>
+  <body class="antialiased">
+    <MobileApp client:load {locale} {dict} />
+  </body>
+</html>

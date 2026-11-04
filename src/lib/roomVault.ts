@@ -1,8 +1,9 @@
 import { hkdfAesKey, hkdfKey } from './kdf';
-import { ROOM_KEY_RE, normalizeChatMode } from './chatRoomSettings';
+import { normalizeChatMode } from './chatRoomSettings';
+import { sealPassword, openPassword } from './passwordEnvelope';
 
 export type RoomKind = 'chat' | 'whiteboard';
-export type RoomSecret = { type: 'password' | 'key'; value: string };
+export type RoomSecret = { type: 'password'; value: string };
 export type WrappedSecret = { iv: Uint8Array; ciphertext: Uint8Array };
 export type RoomEntry = {
   id: string;
@@ -12,6 +13,8 @@ export type RoomEntry = {
   label: string;
   createdAt: number;
   lastSeen: number;
+  /** Plaintext list metadata; never sealed with the passkey. */
+  pinned?: boolean;
   secret?: WrappedSecret;
 };
 export type PasskeyRef = { credentialId: Uint8Array; salt: Uint8Array; createdAt: number };
@@ -28,7 +31,6 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const CIPHERTEXT_MAX = 4096;
 const ROOM_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const WHITEBOARD_MODES = ['live', 'persistent'];
 
 const DB_NAME = 'encrypt.click:room-vault';
 const ROOMS = 'rooms';
@@ -49,16 +51,14 @@ export function validRoomId(value: unknown): value is string {
 
 export function validMode(kind: RoomKind, mode: unknown): mode is string {
   if (typeof mode !== 'string') return false;
-  return kind === 'chat' ? normalizeChatMode(mode, true) === mode : WHITEBOARD_MODES.includes(mode);
+  return kind === 'chat' ? normalizeChatMode(mode) === mode : mode === 'live';
 }
 
-export function validSecret(secret: unknown, mode: string): secret is RoomSecret {
+export function validSecret(secret: unknown): secret is RoomSecret {
   if (!secret || typeof secret !== 'object') return false;
   const { type, value } = secret as Record<string, unknown>;
   if (typeof value !== 'string') return false;
-  if (type === 'key') return mode === 'persistent' && ROOM_KEY_RE.test(value);
-  if (type === 'password') return mode !== 'persistent' && value.length > 0 && value.length <= PASSWORD_MAX && value === value.trim();
-  return false;
+  return type === 'password' && value.length > 0 && value.length <= PASSWORD_MAX && value === value.trim();
 }
 
 export function cleanLabel(value: unknown, fallback: string): string {
@@ -84,8 +84,10 @@ export function validEntry(value: unknown): RoomEntry | null {
   if (!validRoomId(v.roomId) || v.id !== entryId(kind, v.roomId) || !validMode(kind, v.mode)) return null;
   if (typeof v.label !== 'string' || v.label !== cleanLabel(v.label, v.roomId)) return null;
   if (!validTime(v.createdAt) || !validTime(v.lastSeen)) return null;
+  if (v.pinned !== undefined && v.pinned !== true && v.pinned !== false) return null;
   if (v.secret !== undefined && !validWrapped(v.secret)) return null;
   const entry: RoomEntry = { id: v.id, kind, roomId: v.roomId, mode: v.mode, label: v.label, createdAt: v.createdAt, lastSeen: v.lastSeen };
+  if (v.pinned === true) entry.pinned = true;
   if (v.secret) entry.secret = { iv: (v.secret as WrappedSecret).iv, ciphertext: (v.secret as WrappedSecret).ciphertext };
   return entry;
 }
@@ -96,7 +98,7 @@ export function buildEntry(
   existing: RoomEntry | null = null,
 ): RoomEntry | null {
   if (!validRoomId(input.roomId) || !validMode(input.kind, input.mode)) return null;
-  return {
+  const entry: RoomEntry = {
     id: entryId(input.kind, input.roomId),
     kind: input.kind,
     roomId: input.roomId,
@@ -105,6 +107,13 @@ export function buildEntry(
     createdAt: existing?.createdAt ?? now,
     lastSeen: now,
   };
+  if (existing?.pinned) entry.pinned = true;
+  return entry;
+}
+
+/** Pinned rooms sort first; within each group, most recently visited first. */
+export function compareRooms(a: RoomEntry, b: RoomEntry): number {
+  return Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.lastSeen - a.lastSeen;
 }
 
 /** The wrapping key: HKDF-SHA256 over the 32-byte PRF output, as a non-extractable AES-256-GCM key. */
@@ -137,17 +146,18 @@ export async function unwrapSecret(key: CryptoKey, entry: Pick<RoomEntry, 'id' |
     );
     const parsed = JSON.parse(decoder.decode(plain)) as { t?: unknown; v?: unknown };
     const secret = { type: parsed.t, value: parsed.v };
-    return validSecret(secret, entry.mode) ? secret : null;
+    return validSecret(secret) ? secret : null;
   } catch {
     return null;
   }
 }
 
-/** Without a vault key the entry keeps names and times only: a secret is never stored unwrapped. */
+/** Without a vault key the entry keeps names, times and pin only: a secret is never stored unwrapped. */
 export async function sealEntry(entry: RoomEntry, secret: RoomSecret | null, key: CryptoKey | null): Promise<RoomEntry> {
   const plain: RoomEntry = { ...entry };
   delete plain.secret;
-  if (!key || !secret || !validSecret(secret, entry.mode)) return plain;
+  if (!plain.pinned) delete plain.pinned;
+  if (!key || !secret || !validSecret(secret)) return plain;
   return { ...plain, secret: await wrapSecret(key, entry.id, secret) };
 }
 
@@ -163,14 +173,12 @@ export function localePrefix(locale: string): string {
 
 /**
  * Where Open goes and what it hands over. Passwords travel in the session storage slot the room page reads and clears on
- * load, and a chat room key in the slot the room keeps for the tab, so neither shows in the address bar.
+ * load, so they never show in the address bar.
  */
 export function openTarget(kind: RoomKind, roomId: string, locale: string, secret: RoomSecret | null): { href: string; handoff: [string, string] | null } {
   const path = `${localePrefix(locale)}/${kind}/${encodeURIComponent(roomId)}`;
   if (!secret) return { href: path, handoff: null };
-  if (secret.type === 'password') return { href: path, handoff: [kind === 'chat' ? 'chat-password' : 'whiteboard-password', secret.value] };
-  if (kind === 'chat') return { href: path, handoff: [`chat-link-key:${roomId}`, secret.value] };
-  return { href: `${path}#k=${secret.value}&p=1`, handoff: null };
+  return { href: path, handoff: [kind === 'chat' ? 'chat-password' : 'whiteboard-password', secret.value] };
 }
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
@@ -182,6 +190,11 @@ export function relativeTime(then: number, now: number): { value: number; unit: 
 }
 
 let sessionKey: CryptoKey | null = null;
+
+/** In-memory vault key after unlock; null when locked. Used by share password vault. */
+export function vaultSessionKey(): CryptoKey | null {
+  return sessionKey;
+}
 
 function webauthnAvailable(): boolean {
   return typeof window !== 'undefined' && window.isSecureContext && typeof PublicKeyCredential === 'function'
@@ -266,7 +279,7 @@ export async function listRooms(): Promise<RoomEntry[]> {
   if (!(await vaultExists())) return [];
   try {
     const all = await withStore(ROOMS, 'readonly', (s) => s.getAll());
-    return all.map(validEntry).filter((e): e is RoomEntry => e !== null).sort((a, b) => b.lastSeen - a.lastSeen);
+    return all.map(validEntry).filter((e): e is RoomEntry => e !== null).sort(compareRooms);
   } catch {
     return [];
   }
@@ -292,6 +305,15 @@ export async function touchRoom(kind: RoomKind, roomId: string): Promise<RoomEnt
 
 export async function renameRoom(entry: RoomEntry, label: string): Promise<RoomEntry> {
   const next = { ...entry, label: cleanLabel(label, entry.roomId) };
+  await withStore(ROOMS, 'readwrite', (s) => s.put(next));
+  return next;
+}
+
+/** Pin is plaintext vault metadata beside name/mode; it never touches the sealed secret. */
+export async function setRoomPinned(entry: RoomEntry, pinned: boolean): Promise<RoomEntry> {
+  const next: RoomEntry = { ...entry };
+  if (pinned) next.pinned = true;
+  else delete next.pinned;
   await withStore(ROOMS, 'readwrite', (s) => s.put(next));
   return next;
 }
@@ -332,7 +354,7 @@ function cancelled(error: unknown): boolean {
   return error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'AbortError');
 }
 
-async function createPasskey(userName: string): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
+export async function createPasskey(userName: string): Promise<'ok' | 'no-prf' | 'cancelled' | 'failed'> {
   const salt = random(PRF_BYTES);
   let credential: PublicKeyCredential | null;
   try {
@@ -393,10 +415,6 @@ export async function revealSecret(entry: RoomEntry): Promise<RoomSecret | null>
   return unwrapSecret(sessionKey, entry);
 }
 
-export function canOpen(entry: RoomEntry): boolean {
-  return entry.mode !== 'persistent' || Boolean(entry.secret);
-}
-
 /** Unlocks if needed and goes to the room. False when a stored secret could not be released, so nothing happens. */
 export async function openRoom(entry: RoomEntry, locale: string): Promise<boolean> {
   let secret: RoomSecret | null = null;
@@ -404,8 +422,6 @@ export async function openRoom(entry: RoomEntry, locale: string): Promise<boolea
     if (!(await unlockVault())) return false;
     secret = await revealSecret(entry);
     if (!secret) return false;
-  } else if (!canOpen(entry)) {
-    return false;
   }
   const target = openTarget(entry.kind, entry.roomId, locale, secret);
   if (target.handoff) {
@@ -422,14 +438,14 @@ export async function openRoom(entry: RoomEntry, locale: string): Promise<boolea
 export async function saveRoom(
   input: { kind: RoomKind; roomId: string; mode: string; label: string },
   secret: RoomSecret | null,
-  options: { withSecret: boolean; passkeyName: string },
+  options: { withSecret: boolean; passkeyName: string; preserveSecret?: boolean },
 ): Promise<SaveResult> {
   try {
     const existing = await getRoom(input.kind, input.roomId);
     const entry = buildEntry(input, Date.now(), existing);
     if (!entry) return 'failed';
     let result: SaveResult = 'saved-name';
-    if (options.withSecret && secret && validSecret(secret, entry.mode)) {
+    if (options.withSecret && secret && validSecret(secret)) {
       const state = await vaultState();
       if (state === 'new') {
         const created = await createPasskey(options.passkeyName);
@@ -442,9 +458,121 @@ export async function saveRoom(
       }
     }
     const stored = await sealEntry(entry, result === 'saved' ? secret : null, sessionKey);
+    if (!stored.secret && existing?.secret && options.preserveSecret !== false) stored.secret = existing.secret;
     await withStore(ROOMS, 'readwrite', (s) => s.put(stored));
     return result;
   } catch {
     return 'failed';
   }
+}
+
+/* ---------- Vault backup (encrypted export / import) ---------- */
+
+export const VAULT_BACKUP_FORMAT = 'encrypt-click-vault-backup';
+export const VAULT_BACKUP_VERSION = 1;
+export const VAULT_BACKUP_MAX_CHARS = 1 << 21;
+
+export type VaultBackupRow = {
+  kind: RoomKind;
+  roomId: string;
+  mode: string;
+  label: string;
+  pinned?: boolean;
+  secret: string | null;
+};
+
+const B64URL_RE = /^[A-Za-z0-9_-]+$/;
+
+function toB64Url(bytes: Uint8Array): string {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function fromB64Url(text: string): Uint8Array | null {
+  if (!B64URL_RE.test(text) || text.length % 4 === 1) return null;
+  try {
+    const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(text.length / 4) * 4, '='));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Serializes vault entries with their plaintext secrets (needs the unlocked session key to unwrap them). */
+export async function exportVaultRows(): Promise<VaultBackupRow[]> {
+  const key = vaultSessionKey();
+  const rows: VaultBackupRow[] = [];
+  for (const entry of await listRooms()) {
+    let secret: string | null = null;
+    if (entry.secret && key) {
+      const revealed = await unwrapSecret(key, entry);
+      if (revealed?.type === 'password') secret = revealed.value;
+    }
+    const row: VaultBackupRow = { kind: entry.kind, roomId: entry.roomId, mode: entry.mode, label: entry.label, secret };
+    if (entry.pinned) row.pinned = true;
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Password-sealed vault snapshot: `{ format, v, envelope }`, same envelope as board backups. */
+export async function encodeVaultBackup(password: string): Promise<string> {
+  if (!password) throw new Error('password-required');
+  const rows = await exportVaultRows();
+  const sealed = await sealPassword(encoder.encode(JSON.stringify({ v: VAULT_BACKUP_VERSION, rooms: rows })), password);
+  return JSON.stringify({ format: VAULT_BACKUP_FORMAT, v: VAULT_BACKUP_VERSION, envelope: toB64Url(sealed) });
+}
+
+function validBackupRow(value: unknown): VaultBackupRow | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const kind = row.kind === 'chat' || row.kind === 'whiteboard' ? row.kind : null;
+  if (!kind || !validRoomId(row.roomId) || !validMode(kind, row.mode)) return null;
+  const secret = typeof row.secret === 'string' && row.secret.length > 0 && row.secret.length <= PASSWORD_MAX ? row.secret : null;
+  const out: VaultBackupRow = { kind, roomId: row.roomId, mode: row.mode as string, label: cleanLabel(row.label, row.roomId), secret };
+  if (row.pinned === true) out.pinned = true;
+  return out;
+}
+
+export async function decodeVaultBackup(text: string, password: string): Promise<VaultBackupRow[]> {
+  if (!password) throw new Error('password-required');
+  if (text.length > VAULT_BACKUP_MAX_CHARS) throw new Error('too-large');
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { throw new Error('invalid'); }
+  const { format, v, envelope } = (value ?? {}) as Record<string, unknown>;
+  if (format !== VAULT_BACKUP_FORMAT || v !== VAULT_BACKUP_VERSION || typeof envelope !== 'string') throw new Error('invalid');
+  const sealed = fromB64Url(envelope);
+  if (!sealed) throw new Error('invalid');
+  const opened = await openPassword(sealed, password);
+  let payload: { rooms?: unknown };
+  try { payload = JSON.parse(decoder.decode(opened)); } catch { throw new Error('invalid'); }
+  if (!Array.isArray(payload.rooms)) throw new Error('invalid');
+  return payload.rooms.map(validBackupRow).filter((r): r is VaultBackupRow => r !== null);
+}
+
+/**
+ * Merges backup rows into the vault. Secrets are re-wrapped under this device's vault key
+ * when it is available; without it rows land names-only. Returns the number of stored rooms.
+ */
+export async function importVaultRows(rows: VaultBackupRow[]): Promise<number> {
+  const key = vaultSessionKey();
+  const now = Date.now();
+  let stored = 0;
+  for (const row of rows) {
+    try {
+      const existing = await getRoom(row.kind, row.roomId);
+      const entry = buildEntry({ kind: row.kind, roomId: row.roomId, mode: row.mode, label: row.label }, now, existing);
+      if (!entry) continue;
+      if (row.pinned) entry.pinned = true;
+      const secret: RoomSecret | null = row.secret ? { type: 'password', value: row.secret } : null;
+      const sealed = await sealEntry(entry, secret, key);
+      if (!sealed.secret && existing?.secret) sealed.secret = existing.secret;
+      await withStore(ROOMS, 'readwrite', (s) => s.put(sealed));
+      stored++;
+    } catch {}
+  }
+  return stored;
 }

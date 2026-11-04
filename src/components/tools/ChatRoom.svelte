@@ -1,19 +1,17 @@
 <script lang="ts">
+  import { List, ListItem, MenuList, MenuListItem, Popover, Sheet } from 'konsta/svelte';
+  import { illustration } from '../../lib/illustrations';
   import { isContent, relayedContentOk, stampPayload, validPayload } from '../../lib/chatProtocol';
-  import { padPayload, SIGNATURE_BYTES, PQ_SIGNATURE_BYTES } from '../../lib/padding';
-  import { loadRoomIdentity, loadRoomPqSeed, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
+  import { padPayload, SIGNATURE_BYTES } from '../../lib/padding';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
   import { ForwardSecrecySession, MAX_SYNC_ITEMS, PENDING, validEphemeralKey, type FsMember } from '../../lib/chatRatchet';
-  import { HistoryChains, loadChainState, saveChainState, forgetChainState, validHead, type ChainHead, type ChainIssue } from '../../lib/chatIntegrity';
-  import type { PqIdentity, PqKeyring } from '../../lib/chatPq';
   let verificationChallenge = '';
   let roomIdentity: SigningIdentity | null = null;
-  let pqIdentity: PqIdentity | null = null;
-  // Every payload is stamped and signed, in saved rooms with ML-DSA-44 next to Ed25519, so members can tell who in the room wrote it.
+  // Every payload is stamped and signed, so members can tell who in the room wrote it.
   async function signForRoom(payload: Record<string, unknown>, pad: boolean): Promise<string> {
     if (!roomIdentity) throw new Error('No room identity');
-    const pq = persistentRoom && pqIdentity ? pqIdentity : undefined;
     const stamped = stampPayload(JSON.stringify(payload), channelId);
-    return signPayload(roomIdentity, pad ? padPayload(stamped, SIGNATURE_BYTES + (pq ? PQ_SIGNATURE_BYTES : 0)) : stamped, pq);
+    return signPayload(roomIdentity, pad ? padPayload(stamped, SIGNATURE_BYTES) : stamped);
   }
   // Padding hides how long a payload is before it is sealed under the room key.
   const encryptMessage = async (key: CryptoKey, text: string) => sealMessage(key, await signForRoom(JSON.parse(text), true));
@@ -26,9 +24,9 @@
   import { onMount, onDestroy, tick as settled } from 'svelte';
   import PartySocket from 'partysocket';
   import {
-    roomMessageKey, derivePersistentRoom,
+    roomMessageKey,
     encryptMessage as sealMessage, decryptMessage, arrayToB64url,
-    signPayload, verifyPayload, verifySigned, signerId, safetyNumber, keyCode, chainHash,
+    signPayload, verifyPayload, safetyNumber, keyCode,
     roomForwardSecret, forwardLocalKey, sealLocal, openLocal, type SigningIdentity,
   } from '../../lib/chatCrypto';
   import { encryptData, decryptData } from '../../lib/ghost/crypto';
@@ -42,19 +40,32 @@
     type TransferSnapshot,
   } from '../../lib/transferProgress';
   import { t } from '../../lib/t';
-  import ShareLinkButton from '../ShareLinkButton.svelte';
+  import { LUCIDE } from '../../lib/lucideIcons';
+  import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
-  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, PERSISTENT_IDLE_DAYS, PERSISTENT_PAYLOAD_CHARS, ROOM_KEY_RE, type ChatMode } from '../../lib/chatRoomSettings';
+  import RoomInviteCard from './RoomInviteCard.svelte';
+  import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
   import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
   import { longPress } from '../../lib/longPress';
+  import { swipeReply } from '../../lib/swipeReply';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
+  import {
+    SCHEDULE_PRESETS,
+    formatScheduleAt,
+    readSealedDrafts,
+    scheduleAt,
+    validSendAt,
+    writeSealedDrafts,
+    type ScheduledDraft,
+  } from '../../lib/chatSchedule';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
   import ChatQuote from './ChatQuote.svelte';
-  import ChatVoiceRecorder from './ChatVoiceRecorder.svelte';
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
+  import ChatComposer from './ChatComposer.svelte';
+  import ChatCall from './ChatCall.svelte';
   import { formatClock, validVoiceDuration, voiceFileName, voiceTypeOf, type VoiceRecording } from '../../lib/voiceMessage';
   import { buildChatHistoryExport, chatHistoryExportJson, chatHistoryFileName } from '../../lib/chatHistoryExport';
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
@@ -64,6 +75,17 @@
   export let locale = 'en';
   export let roomId = '';
   export let partyHost = '';
+  export let appMode = false;
+  export let onOpenBoardApp: ((roomId: string, password: string) => void) | undefined = undefined;
+  export let onExitApp: (() => void) | undefined = undefined;
+  export let onNotice: ((message: string) => void) | undefined = undefined;
+  export let onConnStatus: ((status: 'connected' | 'connecting' | 'offline') => void) | undefined = undefined;
+  export let requestReconnect = () => {};
+  export let requestCall: () => void = () => {};
+  export let requestRoomMenu: () => void = () => {};
+  export let requestRoomInfo: () => void = () => {};
+  export let onShareApp: (() => void) | undefined = undefined;
+  export let appCallState = { ready: false, joining: false, active: false };
 
   export let dict: Record<string, string>;
 
@@ -83,11 +105,14 @@
     fileError?: boolean;
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
     revealed?: boolean;
+    once?: boolean;
     whiteboard?: WhiteboardInvite;
     pk?: string;
     keyWarning?: boolean;
     signed?: string;
     replyTo?: string;
+    pending?: boolean;
+    failed?: boolean;
   };
 
   type ChatFile = { name: string; size: number; urls: string[]; key: string; voice?: true; duration?: number };
@@ -105,11 +130,10 @@
   };
 
   type ChatRoomMode = ChatMode;
-  type ChatAuthMode = 'password' | 'fragment';
 
   type RoomConfig = {
     mode: ChatRoomMode;
-    authMode: ChatAuthMode;
+    authMode: 'password';
     createdAt: number;
     v?: 3;
   };
@@ -129,41 +153,27 @@
     target?: string;
     emoji?: ReactionEmoji;
     remove?: true;
+    once?: true;
   };
 
   type ServerEnvelope = {
     type: 'message';
     id?: string;
     payload: string;
-    persist?: boolean;
-    seq?: number;
-    prevHash?: string;
-    hash?: string;
     createdAt?: number;
-    serverSeq?: number;
     from?: string;
   };
 
-  type HistoryEnvelope = {
-    type: 'history';
-    config?: RoomConfig | null;
-    messages?: ServerEnvelope[];
-    epoch?: string | null;
-    more?: boolean;
-  };
-
   // Each entry holds the verified, signed plaintext sealed under the local key.
-  type LocalHistoryEnvelope = { type: 'message'; id: string; v: 2; sealed: string; createdAt?: number; serverSeq?: number };
+  type LocalHistoryEnvelope = { type: 'message'; id: string; v: 2; sealed: string; createdAt?: number };
 
   type Origin = 'local' | 'sync' | null;
   type ProcessContext = {
     fromHistory: boolean;
     origin: Origin;
-    serverSeq?: number;
     createdAt?: number;
     wire?: string;
     signed?: string;
-    localSealed?: boolean;
     fsSender?: string;
     conn?: string;
   };
@@ -286,13 +296,6 @@
     isScreen: boolean;
   };
 
-  type StreamMediaOptions = MediaStream | null | undefined | {
-    stream: MediaStream | null | undefined;
-    muted?: boolean;
-    volume?: number;
-    sinkId?: string;
-  };
-
   type AudioLevelTarget = 'local' | 'peer';
 
   type AudioLevelMonitor = {
@@ -309,6 +312,42 @@
   };
 
   let ws: PartySocket | null = null;
+  let netOffline = false;
+  let lightboxUrl: string | null = null;
+  function openLightbox(url: string) {
+    lightboxUrl = url;
+    window.addEventListener('keydown', onLightboxKey);
+  }
+  function closeLightbox() {
+    lightboxUrl = null;
+    window.removeEventListener('keydown', onLightboxKey);
+  }
+  function onLightboxKey(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeLightbox();
+    }
+  }
+  let lastConnStatus = '';
+  function reportConn() {
+    const st = netOffline ? 'offline' : connected ? 'connected' : 'connecting';
+    if (st !== lastConnStatus) { lastConnStatus = st; onConnStatus?.(st); }
+  }
+  $: if (connected !== undefined || netOffline !== undefined) reportConn();
+  requestReconnect = () => {
+    try { ws?.reconnect(); } catch {}
+  };
+  requestCall = () => { closeHeaderMenu(); void startCall(); };
+  requestRoomMenu = () => { headerMenuOpen = !headerMenuOpen; membersOpen = false; burnConfirmMsg = null; profileOpen = false; };
+  requestRoomInfo = () => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; };
+  const onNetChange = () => {
+    const was = netOffline;
+    netOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    // Back online: reconnect right away instead of waiting out the backoff delay.
+    if (was && !netOffline) try { ws?.reconnect(); } catch {}
+    reportConn();
+  };
+  const onViewportResize = () => { if (stickToBottom) scrollToBottom(true); };
   let cryptoKey: CryptoKey | null = null;
   let alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
   let nickname: string | null = typeof localStorage === 'undefined' ? null : loadNickname(roomId);
@@ -332,6 +371,10 @@
   let connected = false;
   let verified = false;
   let verifying = false;
+  /* Once a room has verified this session, brief reconnect re-verification keeps the
+     room view (and composer) mounted — sends queue into the outbox instead of
+     swapping the whole screen for a spinner. */
+  let everVerified = false;
   let checkingRoom = false;
   let needsPassword = false;
   let passwordInput = '';
@@ -341,7 +384,6 @@
   let blurred = false;
   let roomConfig: RoomConfig = { mode: 'live', authMode: 'password', createdAt: 0, v: 3 };
   let pendingRoomConfig: RoomConfig | null = null;
-  let currentAuthAttempt: ChatAuthMode | null = null;
   let localHistoryKey = '';
   let localHistoryLoaded = false;
   const seenMessageIds = new Set<string>();
@@ -352,28 +394,35 @@
   $: uploadLine = uploadSnap ? formatTransferLine(dict, t, uploadSnap) : '';
   $: uploadBar = transferRatio(uploadSnap);
   let fileError = '';
-  let fileInputEl: HTMLInputElement;
+  $: if (appMode && onNotice && fileError) {
+    onNotice(fileError);
+    fileError = '';
+  }
+  let fileInputEl: HTMLInputElement | undefined;
   let sharePassword = '';
   let shareCopiedLink = false;
-  let shareCopiedPass = false;
-  let showSharePassword = false;
   let shareDismissed = false;
   let exportFlash = false;
   let exportFlashTimer: ReturnType<typeof setTimeout> | null = null;
   let clientId = '';
-  let persistentRoom = false;
-  let shareLinkOnly = false;
-  let roomDeleted = false;
-  let deleteConfirm = false;
+  let burnConfirmMsg: Message | null = null;
   let membersOpen = false;
+  let headerMenuOpen = false;
+  let appProfileOpen = false;
+  let appProfileFormEl: HTMLElement | null = null;
   let unsupportedBrowser = false;
   let profileOpen = false;
   let profileEl: HTMLElement | null = null;
   let nickInput = '';
+  let previewAlias: Alias = alias;
+  let previewName = '';
+  $: previewName = nickInput.trim() || aliasName(dict, alias);
+
+  function rerollAvatar() {
+    previewAlias = { ...alias, h: newAlias().h };
+  }
   let nickError = '';
   let historyReady = false;
-  let shareQr = '';
-  let showShareQr = false;
   let clock = Date.now();
   const FILE_LIFETIME_MS = 24 * 60 * 60 * 1000;
   let callStartedAt = 0;
@@ -389,25 +438,15 @@
   const members = new Map<string, Member>();
   let memberList: Member[] = [];
   let mySignerId = '';
-  let pqKeys: PqKeyring | null = null;
   let fsSession: ForwardSecrecySession | null = null;
   let localKey: CryptoKey | null = null;
-  let chainStateKey = '';
-  let chains = new HistoryChains();
-  let ownHead: ChainHead | null = null;
-  let joinCursor: { since: number; epoch: string | null } = { since: 0, epoch: null };
-  let historyStarted = false;
-  let historyLoaded = false;
-  let trimmedLoad = false;
-  const loadSeen = new Set<string>();
-  const pendingHeads = new Map<string, ChainHead & { name: string }>();
-  const chainNotices = new Set<string>();
   let lastPresenceCount = 0;
   let inbound: Promise<void> = Promise.resolve();
   let callSignals: Promise<void> = Promise.resolve();
   let wantTimer: ReturnType<typeof setTimeout> | undefined;
   let callActive = false;
   let callJoining = false;
+  $: appCallState = { ready: connected && verified && !callJoining && !callActive, joining: callJoining, active: callActive };
   let callError = '';
   let activeCallNotice: ActiveCallNotice | null = null;
   let callNoticeDismissed = false;
@@ -467,19 +506,63 @@
   let cloudflareRelayTraceFetchedAt = 0;
   let callFullscreenTarget: CallFullscreenTarget | null = null;
   let callFullscreenMedia: CallFullscreenMedia | null = null;
-  let callFullscreenOverlayEl: HTMLDivElement;
+  let callFullscreenOverlayEl: HTMLDivElement | undefined;
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
   let voiceRecording = false;
-  let inputEl: HTMLInputElement;
+  let onceEnabled = false;
+  let scheduleMenuOpen = false;
+  let scheduledDrafts: ScheduledDraft[] = [];
+  const scheduleTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  let scheduledRestoredFor = '';
+  const burnedIds = new Set<string>();
+  let scheduleClock = Date.now();
+  let safetyPrompt: Member | null = null;
+  const safetyPromptSeen = new Set<string>();
+  let inputEl: HTMLInputElement | HTMLTextAreaElement | undefined;
+  const kmsgColors = {
+    bubbleSentIos: 'bg-[var(--app-bubble-mine)] text-[var(--app-on-bubble-mine)]',
+    bubbleSentMd: 'bg-[var(--app-bubble-mine)] text-[var(--app-on-bubble-mine)]',
+    bubbleReceivedIos: 'bg-[var(--app-bubble)] text-[var(--app-on-bubble)]',
+    bubbleReceivedMd: 'bg-[var(--app-bubble)] text-[var(--app-on-bubble)]',
+  };
   let replyTarget: Message | null = null;
   let actionMenuFor: string | null = null;
+  let sheetMsg: Message | undefined;
+  $: if (appMode && actionMenuFor) sheetMsg = messageIndex.get(actionMenuFor) ?? sheetMsg;
+  let openOverlays: Record<string, boolean> = {};
+  $: syncOverlays({ header: headerMenuOpen, profile: profileOpen, composer: composerMenuOpen, action: actionMenuFor !== null, call: callSettingsOpen, members: membersOpen, invite: sharePassword !== null && !shareDismissed });
+  $: if (!composerMenuOpen) scheduleMenuOpen = false;
+  function syncOverlays(now: Record<string, boolean>) {
+    const opened = Object.keys(now).filter((key) => now[key] && !openOverlays[key]);
+    if (opened.length) {
+      const keep = opened[opened.length - 1];
+      if (keep !== 'header') headerMenuOpen = false;
+      if (keep !== 'profile') profileOpen = false;
+      if (keep !== 'composer') composerMenuOpen = false;
+      if (keep !== 'action') actionMenuFor = null;
+      if (keep !== 'call') callSettingsOpen = false;
+      if (keep !== 'members') membersOpen = false;
+      if (keep !== 'invite') shareDismissed = true;
+      openOverlays = { [keep]: true };
+    } else openOverlays = now;
+  }
+  function closeMenusOnOutside(event: PointerEvent) {
+    const target = event.target as Element | null;
+    if (composerMenuOpen && !target?.closest?.('.chat-attach-menu')) composerMenuOpen = false;
+    if (actionMenuFor && !target?.closest?.('.msg-actions, .chat-msg-sheet')) actionMenuFor = null;
+  }
   let highlightedId = '';
   let reactionTick = 0;
   const reactionBook = new ReactionBook();
   const reactionLog: { target: string; signed: string }[] = [];
   const REACTION_LOG_LIMIT = 500;
+  const ONCE_TTL_SECONDS = 60;
+  const ONCE_CLEAR_MS = 8_000;
+  const SCHEDULE_RETRY_MS = 15_000;
+  const SCHEDULE_EXPIRED_MS = 10 * 60_000;
+  const onceClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let unread = 0;
   let baseTitle = '';
   let notifySupported = false;
@@ -588,33 +671,9 @@
     else noteMessagesBelow();
   }
 
-  function getStreamMediaOptions(options: StreamMediaOptions) {
-    if (options && typeof options === 'object' && 'stream' in options) {
-      return options;
-    }
-    return { stream: options };
-  }
-
-  function applyStreamMediaOptions(node: HTMLMediaElement, options: StreamMediaOptions) {
-    const next = getStreamMediaOptions(options);
-    if (node.srcObject !== next.stream) node.srcObject = next.stream ?? null;
-    if (typeof next.muted === 'boolean') node.muted = next.muted;
-    if (typeof next.volume === 'number') node.volume = Math.max(0, Math.min(1, next.volume));
-    applyAudioOutputDevice(node, next.sinkId);
-    ensureMediaElementPlaying(node);
-  }
-
   function supportsAudioOutputSelection(): boolean {
     if (typeof HTMLMediaElement === 'undefined') return false;
     return 'setSinkId' in HTMLMediaElement.prototype;
-  }
-
-  function applyAudioOutputDevice(node: HTMLMediaElement, sinkId: string | undefined) {
-    if (!supportsAudioOutputSelection()) return;
-    const outputNode = node as HTMLMediaElement & { setSinkId?: (sinkId: string) => Promise<void>; sinkId?: string };
-    const nextSink = sinkId || '';
-    if (!outputNode.setSinkId || outputNode.sinkId === nextSink) return;
-    void outputNode.setSinkId(nextSink).catch(() => {});
   }
 
   function preventMediaContextMenu(event: MouseEvent) {
@@ -663,36 +722,6 @@
     } catch {}
   }
 
-  type TileFit = { count: number; ratio: number; max: number };
-
-  // Picks the column count that gives the largest tiles, so every participant fits the stage without scrolling.
-  function fitTiles(node: HTMLElement, options: TileFit) {
-    let current = options;
-    const gap = 8;
-    const apply = () => {
-      const w = node.clientWidth - 2;
-      const h = node.clientHeight - 2;
-      if (!w || !h) return;
-      const n = Math.max(1, current.count);
-      let best = 0;
-      for (let cols = 1; cols <= n; cols++) {
-        const rows = Math.ceil(n / cols);
-        const byWidth = (w - (cols - 1) * gap) / cols;
-        const byHeight = ((h - (rows - 1) * gap) / rows) * current.ratio;
-        best = Math.max(best, Math.min(byWidth, byHeight));
-      }
-      node.style.setProperty('--tile-w', `${Math.floor(Math.min(best, current.max))}px`);
-      node.style.setProperty('--tile-ratio', String(current.ratio));
-    };
-    const observer = new ResizeObserver(apply);
-    observer.observe(node);
-    apply();
-    return {
-      update(next: TileFit) { current = next; apply(); },
-      destroy() { observer.disconnect(); },
-    };
-  }
-
   function closeCallSettingsOnOutside(event: PointerEvent) {
     if (!callSettingsOpen) return;
     const target = event.target as Element | null;
@@ -704,18 +733,6 @@
     if (event.key !== 'Escape' || !callSettingsOpen) return;
     callSettingsOpen = false;
     document.querySelector<HTMLElement>('[data-call-settings-trigger]')?.focus();
-  }
-
-  function streamMedia(node: HTMLMediaElement, options: StreamMediaOptions) {
-    applyStreamMediaOptions(node, options);
-    return {
-      update(next: StreamMediaOptions) {
-        applyStreamMediaOptions(node, next);
-      },
-      destroy() {
-        node.srcObject = null;
-      },
-    };
   }
 
   function syncCallPeers() {
@@ -1469,12 +1486,11 @@
     return locale && locale !== 'en' ? `/${locale}` : '';
   }
 
-  // Password rooms are format version 3; a saved room takes its key from the link and reports only its mode.
+  // Password rooms are format version 3; anything else the server reports does not count.
   function normalizeRoomConfig(input: unknown): RoomConfig | null {
     if (!input || typeof input !== 'object') return null;
     const value = input as Partial<RoomConfig>;
     const createdAt = typeof value.createdAt === 'number' ? value.createdAt : Date.now();
-    if (persistentRoom) return value.authMode === 'fragment' && value.mode === 'persistent' ? { mode: 'persistent', authMode: 'fragment', createdAt } : null;
     if (value.authMode !== 'password' || value.v !== 3) return null;
     return { mode: normalizeChatMode(value.mode), authMode: 'password', createdAt, v: 3 };
   }
@@ -1491,9 +1507,9 @@
   }
 
   function getRoomModeLabel(): string {
-    if (roomConfig.mode === 'persistent') return t(dict, 'chat.modeLabelPersistent');
     const ttl = getRoomTtlSeconds();
-    return ttl ? formatDuration(ttl, locale, 'short') : t(dict, 'chat.modeLabelLive');
+    if (ttl) return t(dict, 'chat.chip.modeDisappearing').replace('{time}', formatDuration(ttl, locale, 'short'));
+    return t(dict, 'chat.modeLabelLive');
   }
 
   function bytesToB64url(bytes: Uint8Array): string {
@@ -1530,72 +1546,20 @@
     } catch {}
   }
 
-  // Saved rooms drop the ML-DSA signature from the local copy: it was checked on arrival and would fill the storage quota,
-  // while the Ed25519 signature still covers the ML-DSA key hash and the history chain fields.
-  async function storeLocalSigned(id: string, signed: string, createdAt: number, serverSeq?: number) {
+  async function storeLocalSigned(id: string, signed: string, createdAt: number) {
     if (!shouldKeepParticipantHistory() || !localHistoryKey || !localKey || !id || !signed) return;
-    let text = signed;
-    if (persistentRoom) {
-      const { _pq, ...rest } = JSON.parse(signed);
-      text = JSON.stringify(rest);
-    }
-    const sealed = await sealLocal(localKey, id, text);
+    const sealed = await sealLocal(localKey, id, signed);
     const items = readLocalHistory();
-    const existing = items.find((item) => item.id === id);
-    if (existing) {
-      if (typeof serverSeq !== 'number' || existing.serverSeq === serverSeq) return;
-      existing.serverSeq = serverSeq;
-    } else {
-      items.push({ type: 'message', id, v: 2, sealed, createdAt, ...(typeof serverSeq === 'number' ? { serverSeq } : {}) });
-    }
+    if (items.some((item) => item.id === id)) return;
+    items.push({ type: 'message', id, v: 2, sealed, createdAt });
     writeLocalHistory(items);
-  }
-
-  function localHistoryCursor(): { since: number; epoch: string | null } {
-    const since = readLocalHistory().reduce((max, item) => Math.max(max, item.serverSeq || 0), 0);
-    let epoch: string | null = null;
-    try { epoch = localStorage.getItem(`${localHistoryKey}:epoch`); } catch {}
-    return { since, epoch };
-  }
-
-  // A different epoch means the server history was wiped and started over, so the local copy belongs to a room that no longer exists.
-  function syncHistoryEpoch(epoch: unknown) {
-    if (!persistentRoom || !localHistoryKey || epoch === undefined) return;
-    const fresh = typeof epoch === 'string' ? epoch : null;
-    const { epoch: known, since } = localHistoryCursor();
-    if (known === fresh) return;
-    const firstSight = known === null && since === 0;
-    if (!firstSight) clearLocalHistory();
-    if (fresh) {
-      try { localStorage.setItem(`${localHistoryKey}:epoch`, fresh); } catch {}
-    }
-    if (firstSight) return;
-    messages = [];
-    seenMessageIds.clear();
-    reactionBook.clear();
-    reactionLog.length = 0;
-    reactionTick++;
-    addSystemMessage(t(dict, 'chat.historyReset'), 0, '!');
   }
 
   function clearLocalHistory() {
     if (!localHistoryKey) return;
     try {
       localStorage.removeItem(localHistoryKey);
-      localStorage.removeItem(`${localHistoryKey}:epoch`);
     } catch {}
-    if (chainStateKey) forgetChainState(localStorage, chainStateKey);
-    chains = new HistoryChains();
-    ownHead = null;
-  }
-
-  function markStored(id: string, serverSeq: number, createdAt: number) {
-    const items = readLocalHistory();
-    const item = items.find((entry) => entry.id === id);
-    if (!item) return;
-    item.serverSeq = serverSeq;
-    item.createdAt = createdAt;
-    writeLocalHistory(items);
   }
 
   async function restoreLocalHistory() {
@@ -1607,7 +1571,7 @@
       const text = await openLocal(localKey, item.id, item.sealed);
       if (!text) continue;
       try {
-        await processSigned(JSON.parse(text), { fromHistory: true, origin: 'local', signed: text, localSealed: true, serverSeq: item.serverSeq, createdAt: item.createdAt });
+        await processSigned(JSON.parse(text), { fromHistory: true, origin: 'local', signed: text, createdAt: item.createdAt });
       } catch {}
     }
     scrollToBottom(true);
@@ -1654,7 +1618,7 @@
   async function createWhiteboardInvite() {
     if (!cryptoKey || !ws || !connected || !verified) return;
     composerMenuOpen = false;
-    const child = window.open('about:blank', '_blank');
+    const child = appMode ? null : window.open('about:blank', '_blank');
 
     const invite: WhiteboardInvite = {
       roomId: genWhiteboardRoomId(),
@@ -1673,68 +1637,123 @@
       alias: aliasWire(alias), nick: nickname || undefined,
       createdAt: invite.createdAt,
     };
-    await sendContent(payload, false, invite.createdAt);
+    await sendContent(payload, invite.createdAt);
     addWhiteboardInviteMessage(invite, msgId, true);
     openWhiteboardNewTab(invite, child);
   }
 
-  async function withChainLock<T>(task: () => Promise<T>): Promise<T> {
-    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    return locks ? locks.request(`encrypt.click:chat-chain:${chainStateKey}`, task) : task();
-  }
-
-  function bestHead(...heads: (ChainHead | null)[]): ChainHead | null {
-    return heads.reduce<ChainHead | null>((best, head) => head && (!best || head.n > best.n) ? head : best, null);
-  }
-
   /**
-   * Seals and sends one content payload. Rooms without server history wrap the signed payload in the sender's forward
-   * secrecy chain; a stored message in a saved room takes the next place in this browser's history chain. Tabs of the same
-   * browser share that chain, so the counter is taken and the message sent under one lock.
+   * Seals and sends one content payload. With forward secrecy on, the signed payload travels inside the sender's chain;
+   * otherwise it is only signed, padded and sealed under the room key.
    */
-  async function sendContent(payload: ChatPayload, persist: boolean, createdAt: number): Promise<string> {
-    const send = (wire: string) => ws!.send(JSON.stringify({ type: 'message', payload: wire, id: payload.id, persist: persistentRoom && persist, createdAt }));
+  async function sendContent(payload: ChatPayload, createdAt: number): Promise<{ signed: string }> {
+    const { signed, wire } = await buildContent(payload);
+    transmit(wire, payload.id!, createdAt);
+    return { signed };
+  }
+
+  async function buildContent(payload: ChatPayload): Promise<{ signed: string; wire: string }> {
     if (fsSession) {
       const signed = await signForRoom(payload, false);
-      send(await encryptMessage(cryptoKey!, JSON.stringify(await fsSession.seal(signed))));
-      return signed;
+      return { signed, wire: await encryptMessage(cryptoKey!, JSON.stringify(await fsSession.seal(signed))) };
     }
-    if (!persistentRoom || !persist || !roomIdentity) {
-      const signed = await signForRoom(payload, true);
-      send(await sealMessage(cryptoKey!, signed));
-      return signed;
-    }
-    const me = roomIdentity.publicKey;
-    return withChainLock(async () => {
-      const head = bestHead(ownHead, loadChainState(localStorage, chainStateKey).mine, chains.head(me));
-      const n = (head?.n ?? 0) + 1;
-      const ph = head?.h ?? '';
-      const signed = await signForRoom({ ...payload, _n: n, _ph: ph }, true);
-      const wire = await sealMessage(cryptoKey!, signed);
-      if (wire.length > PERSISTENT_PAYLOAD_CHARS) throw new Error('Message too large');
-      const h = await chainHash(JSON.parse(signed));
-      ownHead = { n, h };
-      chains.observe(me, { n, h, ph });
-      saveChainState(localStorage, chainStateKey, ownHead, chains);
-      send(wire);
-      return signed;
-    });
+    const signed = await signForRoom(payload, true);
+    return { signed, wire: await sealMessage(cryptoKey!, signed) };
   }
 
-  function announcedHead(): ChainHead | null {
-    if (!persistentRoom || !chainStateKey || !roomIdentity) return null;
-    return bestHead(ownHead, loadChainState(localStorage, chainStateKey).mine, chains.head(roomIdentity.publicKey));
+  function transmit(wire: string, id: string, createdAt: number): boolean {
+    if (netOffline || !ws || ws.readyState !== 1 || !joinedRoom) return false;
+    try {
+      ws.send(JSON.stringify({ type: 'message', payload: wire, id, createdAt }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  // Keys travel inside the signed room channel: the ephemeral key for forward secrecy, in saved rooms the ML-DSA key and
-  // the latest place in this browser's history chain, so others can tell when the server held messages back.
+  /* Outbox: payloads that could not reach the relay stay queued with their
+     pending bubble and flush on the next joined socket. The wire bytes are
+     rebuilt at flush time so forward-secrecy seals always match the live
+     session, and dedup on receivers (replay window + seenMessageIds) makes a
+     retransmitted id a no-op — never a duplicate. */
+  let outbox: ChatPayload[] = [];
+  let outboxFlush = false;
+
+  async function flushOutbox() {
+    if (outboxFlush || (!outbox.length && !fileOutbox.length)) return;
+    if (!cryptoKey || !ws || ws.readyState !== 1 || !joinedRoom) return;
+    if (roomConfig.mode === 'live' && !fsSession) return;
+    outboxFlush = true;
+    try {
+      const pendingItems = outbox;
+      outbox = [];
+      const requeue: ChatPayload[] = [];
+      for (const payload of pendingItems) {
+        const msgId = payload.id!;
+        const createdAt = typeof payload.createdAt === 'number' ? payload.createdAt : Date.now();
+        try {
+          const { signed, wire } = await buildContent(payload);
+          if (!transmit(wire, msgId, createdAt)) { requeue.push(payload); continue; }
+          if (!payload.once && !payload.ttl) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
+          messages = messages.map((m) => (m.id === msgId ? { ...m, pending: false, failed: false, signed } : m));
+        } catch {
+          requeue.push(payload);
+        }
+      }
+      if (requeue.length) outbox = [...requeue, ...outbox];
+
+      const files = fileOutbox;
+      fileOutbox = [];
+      for (const item of files) {
+        if (netOffline || !ws || ws.readyState !== 1 || !joinedRoom) { fileOutbox = [item, ...fileOutbox]; continue; }
+        try {
+          await sendFile(item.file, item.voiceSeconds, item.msgId);
+        } catch {
+          fileOutbox = [...fileOutbox, item];
+        }
+      }
+    } finally {
+      outboxFlush = false;
+    }
+  }
+
+  type FileOutboxItem = { msgId: string; file: File; voiceSeconds?: number };
+  let fileOutbox: FileOutboxItem[] = [];
+
+  // A file picked while offline renders as a pending bubble right away; the
+  // bytes upload when the room is joined again and the bubble swaps in place.
+  function queueFileMessage(file: File, voiceSeconds?: number) {
+    const msgId = genId();
+    const createdAt = Date.now();
+    fileOutbox = [...fileOutbox, { msgId, file, voiceSeconds }];
+    seenMessageIds.add(msgId);
+    const once = onceEnabled;
+    let fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    if (once) fileTtl = fileTtl > 0 ? Math.min(fileTtl, ONCE_TTL_SECONDS) : ONCE_TTL_SECONDS;
+    const voiceMeta = voiceSeconds === undefined ? {} : { voice: true as const, duration: voiceSeconds };
+    messages = [...messages, {
+      id: msgId, text: '', sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
+      color: identity.color, mine: true, time: createdAt,
+      ttl: fileTtl, remaining: fileTtl,
+      file: { name: file.name, size: file.size, urls: [], key: '', ...voiceMeta },
+      once, revealed: true, pk: mySignerId, pending: true,
+    }];
+    onceEnabled = false;
+    scrollToBottom(true);
+    if (netOffline) onNotice?.(t(dict, 'chat.offlineSend'));
+  }
+
+  function retryQueued(msg: Message) {
+    if (!msg.failed) return;
+    messages = messages.map((m) => (m.id === msg.id ? { ...m, failed: false, pending: true } : m));
+    void flushOutbox();
+  }
+
+  // The ephemeral forward secrecy keys travel inside the signed room channel so others know which senders they can grant to.
   function presenceFields(): Record<string, unknown> {
-    const head = announcedHead();
     return {
       alias: aliasWire(alias), nick: nickname || undefined, clientId,
       ...(fsSession ? { fs: fsSession.publicKey, kem: fsSession.kemPublicKey } : {}),
-      ...(persistentRoom && pqIdentity ? { pq: pqIdentity.publicKey } : {}),
-      ...(head ? { head } : {}),
     };
   }
 
@@ -1751,11 +1770,10 @@
     }, 1500);
   }
 
-  // After someone leaves, everyone still here answers with a presence: in rooms without server history that is the roll call
-  // for the new sender chains, in saved rooms it shows each member's latest history head to the others.
+  // After someone leaves, everyone still here answers with a presence: that is the roll call for the new sender chains.
   async function onMemberLeft(gone?: string) {
     if (fsSession) await fsSession.memberLeft(gone);
-    if (fsSession || persistentRoom) await sendPresence();
+    if (fsSession) await sendPresence();
   }
 
   function fsMember(parsed: any, signer: string): FsMember | null {
@@ -1806,6 +1824,13 @@
 
   function openWhiteboardNewTab(invite: WhiteboardInvite, opened?: Window | null) {
     composerMenuOpen = false;
+    if (appMode && onOpenBoardApp) {
+      try {
+        sessionStorage.setItem('whiteboard-password', invite.password);
+      } catch {}
+      onOpenBoardApp(invite.roomId, invite.password);
+      return;
+    }
     const url = getWhiteboardUrl(invite);
     const child = opened !== undefined ? opened : typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
     if (child) {
@@ -1831,8 +1856,6 @@
   async function initChat() {
     if (typeof window === 'undefined') return;
     checkingRoom = true;
-    linkKey = takeLinkKey();
-    persistentRoom = Boolean(linkKey);
     const storedConfig = sessionStorage.getItem('chat-room-config');
     if (storedConfig) {
       sessionStorage.removeItem('chat-room-config');
@@ -1846,69 +1869,26 @@
       sharePassword = sharePass;
       sessionStorage.removeItem('chat-share-password');
     }
-    if (sessionStorage.getItem('chat-share-link')) {
-      shareLinkOnly = true;
-      sessionStorage.removeItem('chat-share-link');
-    }
-    if (linkKey) {
-      await enterPersistentRoom(linkKey);
-      return;
-    }
     const stored = sessionStorage.getItem('chat-password');
-    if (stored) {
-      sessionStorage.removeItem('chat-password');
-      passwordInput = stored;
-      await enterWithPassword(stored);
+    const remembered = stored || sessionStorage.getItem(`chat-pw:${roomId}`);
+    if (stored) sessionStorage.removeItem('chat-password');
+    if (remembered) {
+      passwordInput = remembered;
+      await enterWithPassword(remembered);
     } else {
       checkingRoom = false; needsPassword = true;
     }
   }
 
-  // A saved room's key leaves the address bar at once, so it does not linger in the URL bar, synced history,
-  // session restore or a shared screen; this tab keeps it for reloads and rebuilds the link only when asked to share.
-  const LINK_KEY_PREFIX = 'chat-link-key:';
-  let linkKey: string | null = null;
-
-  function takeLinkKey(): string | null {
-    const fragment = new URLSearchParams(location.hash.slice(1));
-    const fromLink = fragment.get('k');
-    if (fromLink && ROOM_KEY_RE.test(fromLink) && fragment.get('p') === '1') {
-      try { sessionStorage.setItem(`${LINK_KEY_PREFIX}${roomId}`, fromLink); } catch {}
-      history.replaceState(history.state, '', location.pathname + location.search);
-      return fromLink;
-    }
-    try {
-      const saved = sessionStorage.getItem(`${LINK_KEY_PREFIX}${roomId}`);
-      if (saved && ROOM_KEY_RE.test(saved)) return saved;
-    } catch {}
-    return null;
-  }
-
-  function forgetLinkKey() {
-    try { sessionStorage.removeItem(`${LINK_KEY_PREFIX}${roomId}`); } catch {}
-  }
-
-  function roomLink(key: string | null): string {
-    if (typeof window === 'undefined') return '';
-    const base = `${location.origin}${location.pathname}`;
-    return key ? `${base}#k=${key}&p=1` : base;
-  }
-
-  $: shareUrl = roomLink(linkKey);
+  $: shareUrl = typeof window === 'undefined' ? '' : appMode
+    ? `${location.origin}${getLocalePrefix()}/app?room=${encodeURIComponent(roomId)}`
+    : `${location.origin}${location.pathname}`;
 
   async function copyShareLink() {
     try {
       await navigator.clipboard.writeText(shareUrl);
       shareCopiedLink = true;
       setTimeout(() => { shareCopiedLink = false; }, 1500);
-    } catch {}
-  }
-
-  async function copySharePassword() {
-    try {
-      await navigator.clipboard.writeText(sharePassword);
-      shareCopiedPass = true;
-      setTimeout(() => { shareCopiedPass = false; }, 1500);
     } catch {}
   }
 
@@ -1922,18 +1902,19 @@
     clearVerificationTimeout();
     needsPassword = false;
     checkingRoom = true;
-    currentAuthAttempt = null;
     passwordInput = '';
+    try { sessionStorage.removeItem(`chat-pw:${roomId}`); } catch {}
     pendingSecret = null;
     cryptoKey = null;
     dropForwardSecrecy();
-    if (!persistentRoom) keyConfig = null;
+    keyConfig = null;
     roomMissing = false;
     verified = false;
     verifying = false;
     joinedRoom = false;
     ws?.close();
     ws = null;
+    everVerified = false;
     checkingRoom = false; needsPassword = true;
   }
 
@@ -1946,8 +1927,9 @@
   function markVerified() {
     clearVerificationTimeout();
     verified = true;
+    everVerified = true;
     verifying = false;
-    currentAuthAttempt = null;
+    offerPendingSafetyCompares();
   }
 
   function startPasswordVerification(activePeerCount: number) {
@@ -1963,20 +1945,7 @@
     // Same name + different password is already another channel. If peers on
     // this channel do not ack in time, enter anyway; undecryptable traffic is dropped.
     verificationTimeout = setTimeout(() => {
-      if (verifying && !verified) {
-        if (currentAuthAttempt === 'fragment') {
-          verifying = false;
-          joinedRoom = false;
-          cryptoKey = null;
-          dropForwardSecrecy();
-          keyConfig = null;
-          currentAuthAttempt = null;
-          needsPassword = true;
-          ws?.close();
-        } else {
-          markVerified();
-        }
-      }
+      if (verifying && !verified) markVerified();
     }, 4000);
   }
 
@@ -1984,13 +1953,11 @@
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
 
     joinedRoom = true;
-    const cursor = persistentRoom ? localHistoryCursor() : null;
-    joinCursor = cursor ?? { since: 0, epoch: null };
-    historyStarted = false;
-    historyLoaded = false;
-    trimmedLoad = false;
-    loadSeen.clear();
-    ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig, ...(cursor ? { since: cursor.since, epoch: cursor.epoch } : {}) }));
+    ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig }));
+
+    // An empty room shows its own notice only after peers had a moment to hand their local copies over.
+    historyReady = serverPresence <= 1;
+    if (!historyReady) setTimeout(() => { historyReady = true; }, 1500);
 
     if (typeof activePeerCount === 'number') {
       startPasswordVerification(activePeerCount);
@@ -2006,12 +1973,12 @@
 
   async function enterWithPassword(pwd: string) {
     try {
-      currentAuthAttempt = 'password';
       const secret = await roomSecret(pwd, roomId, 'chat');
       accessToken = secret.token; channelId = secret.channel;
       if (!(await setupIdentity(`chat:${channelId}`))) return;
       pendingSecret = secret;
       needsPassword = false;
+      try { sessionStorage.setItem(`chat-pw:${roomId}`, pwd); } catch {}
       checkingRoom = true;
       if (pendingRoomConfig) {
         roomConfig = pendingRoomConfig;
@@ -2077,6 +2044,7 @@
     needsPassword = false;
     checkingRoom = false;
     await restoreLocalHistory();
+    void restoreScheduledDrafts();
     if (ws && ws.readyState === 1) {
       await announceJoined(serverPresence);
     } else if (!ws) {
@@ -2112,7 +2080,7 @@
       unsupportedBrowser = true;
       return false;
     }
-    mySignerId = signerId(roomIdentity.publicKey, pqIdentity?.keyHash ?? null);
+    mySignerId = roomIdentity.publicKey;
     trustRoom = room;
     trustTable = loadTrustTable(trustRoom);
     const mine = myLabelKey();
@@ -2122,44 +2090,6 @@
     }
     myKeyCode = await keyCode(mySignerId);
     return true;
-  }
-
-  // The ML-DSA code is only loaded for saved rooms.
-  async function setupPqIdentity(room: string, sealKey: CryptoKey) {
-    const pq = await import('../../lib/chatPq');
-    pqIdentity = await pq.pqIdentity(await loadRoomPqSeed(room, sealKey));
-    pqKeys = new pq.PqKeyring();
-    await pqKeys.add(pqIdentity.publicKey);
-  }
-
-  async function enterPersistentRoom(key: string) {
-    persistentRoom = true;
-    currentAuthAttempt = 'fragment';
-    roomConfig = { mode: 'persistent', authMode: 'fragment', createdAt: pendingRoomConfig?.createdAt || Date.now() };
-    pendingRoomConfig = roomConfig;
-    keyConfig = roomConfig;
-    try {
-      const access = await derivePersistentRoom(key, roomId);
-      await setupPqIdentity(roomId, access.localKey);
-      if (!(await setupIdentity(roomId))) return;
-      accessToken = access.token; channelId = access.channel;
-      cryptoKey = access.key;
-      localKey = access.localKey;
-      localHistoryKey = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
-      chainStateKey = `encrypt.click:chat-chain:v1:${roomId}:${channelId}`;
-      const stored = loadChainState(localStorage, chainStateKey);
-      chains = new HistoryChains(stored.senders);
-      ownHead = stored.mine;
-      localHistoryLoaded = false;
-      needsPassword = false;
-      checkingRoom = false;
-      await restoreLocalHistory();
-      connectWs();
-    } catch {
-      passwordError = t(dict, 'chat.errorDeriveKey');
-      checkingRoom = false;
-      needsPassword = true;
-    }
   }
 
   function askForPassword() {
@@ -2180,7 +2110,7 @@
     serverConnectStartedAt = Date.now();
     ws = new PartySocket({
       host: partyHost || window.location.host,
-      party: persistentRoom ? 'persistent' : 'main',
+      party: 'main',
       room: channelId,
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
@@ -2197,6 +2127,7 @@
       if (cryptoKey) await announceJoined();
       sendServerPing();
       restartDisconnectedPeers();
+      void flushOutbox();
     });
     ws.addEventListener('close', () => {
       connected = false;
@@ -2208,8 +2139,7 @@
     ws.addEventListener('error', () => {
       // A socket error is a network problem, not a wrong password; the handshake timeout decides that.
     });
-    // Messages are handled one at a time in arrival order: a chain key has to be in place before the messages sealed with it,
-    // and a sender's history chain can only be checked in the order the server delivered it.
+    // Messages are handled one at a time in arrival order: a chain key has to be in place before the messages sealed with it.
     ws.addEventListener('message', (event) => {
       inbound = inbound.then(() => handleServerMessage(event)).catch(() => {});
     });
@@ -2250,27 +2180,6 @@
       else if (!cryptoKey && config) askForPassword();
       return;
     }
-    if (data.type === 'history') {
-      const config = applyRoomConfig(data.config);
-      if (!cryptoKey) {
-        if (config) askForPassword();
-      } else {
-        syncHistoryEpoch(data.epoch);
-        await processHistory(data as HistoryEnvelope);
-      }
-      return;
-    }
-    if (data.type === 'stored') {
-      if (typeof data.id === 'string' && typeof data.serverSeq === 'number') {
-        syncHistoryEpoch(data.epoch);
-        markStored(data.id, data.serverSeq, typeof data.createdAt === 'number' ? data.createdAt : Date.now());
-      }
-      return;
-    }
-    if (data.type === 'room-deleted') {
-      if (persistentRoom) handleRoomDeleted();
-      return;
-    }
     if (data.type === 'pong') {
       if (typeof data.t === 'number') {
         serverLatencyMs = Math.max(0, Date.now() - data.t);
@@ -2290,82 +2199,8 @@
       if (left && verified) await onMemberLeft(gone);
       return;
     }
-    if (data.type === 'member-keys') {
-      if (persistentRoom) await acceptMemberKeys(data.keys);
-      return;
-    }
     if (data.type !== 'message') return;
     await processServerEnvelope(data as ServerEnvelope);
-  }
-
-  // The room's key directory holds each member's ML-DSA public key sealed under the room key, so the server cannot tell
-  // whose it is or link a returning member to it. This browser adds its own only while it is missing.
-  async function acceptMemberKeys(keys: unknown) {
-    if (!pqKeys || !pqIdentity || !cryptoKey || !Array.isArray(keys)) return;
-    let listed = false;
-    for (const sealed of keys.slice(0, 256)) {
-      if (typeof sealed !== 'string') continue;
-      try {
-        if (await pqKeys.add(await decryptMessage(cryptoKey, sealed)) === pqIdentity.keyHash) listed = true;
-      } catch {}
-    }
-    if (!listed) ws?.send(JSON.stringify({ type: 'member-key', key: await sealMessage(cryptoKey, pqIdentity.publicKey) }));
-  }
-
-  function noteChainIssue(sender: string, issue: ChainIssue, name: string) {
-    const id = `${sender}:${issue}`;
-    if (chainNotices.has(id)) return;
-    chainNotices.add(id);
-    addSystemMessage(t(dict, `chat.chain.${issue}`).replace('{name}', name), 0, '!');
-  }
-
-  function checkAnnouncedHead(sender: string, head: unknown, name: string) {
-    if (!persistentRoom || !validHead(head) || !roomIdentity || sender === roomIdentity.publicKey) return;
-    if (!historyLoaded) {
-      pendingHeads.set(sender, { ...head, name });
-      return;
-    }
-    if (trimmedLoad && !loadSeen.has(sender)) return;
-    const issue = chains.announced(sender, head);
-    if (issue) noteChainIssue(sender, issue, name);
-  }
-
-  async function observeChain(sender: string, parsed: any, h: string, serverSeq: number | undefined, name: string) {
-    const relaxed = trimmedLoad && !historyLoaded && !loadSeen.has(sender);
-    if (!historyLoaded) loadSeen.add(sender);
-    const issue = chains.observe(sender, { n: parsed._n, h, ph: parsed._ph, ...(typeof serverSeq === 'number' ? { seq: serverSeq } : {}) }, relaxed);
-    saveChainState(localStorage, chainStateKey, ownHead, chains);
-    if (issue) noteChainIssue(sender, issue, name);
-  }
-
-  async function processHistory(history: HistoryEnvelope) {
-    const historyMessages = Array.isArray(history.messages) ? history.messages : [];
-    // In a live room the others may still be about to sync their history, so the empty state waits a moment for them.
-    if (persistentRoom || serverPresence <= 1) historyReady = true;
-    else setTimeout(() => { historyReady = true; }, 1500);
-    // A server sequence that does not continue from this browser's cursor means messages left the server in between,
-    // normally because a saved room keeps only its latest 1000; a sender's first message after that may skip ahead.
-    if (persistentRoom && !historyStarted) {
-      historyStarted = true;
-      const since = history.epoch && history.epoch === joinCursor.epoch ? joinCursor.since : 0;
-      const first = historyMessages.reduce((min, m) => typeof m.serverSeq === 'number' ? Math.min(min, m.serverSeq) : min, Infinity);
-      trimmedLoad = Number.isFinite(first) && first > since + 1;
-      if (trimmedLoad && since > 0) addSystemMessage(t(dict, 'chat.historyTrimmed'), 0, '!');
-    }
-    for (const envelope of [...historyMessages].sort((a, b) => (a.serverSeq || 0) - (b.serverSeq || 0))) {
-      await processServerEnvelope(envelope, true);
-    }
-    if (!history.more) {
-      historyLoaded = true;
-      for (const [sender, head] of pendingHeads) checkAnnouncedHead(sender, head, head.name);
-      pendingHeads.clear();
-    }
-    if (!historyMessages.length) {
-      if (verifying && serverPresence <= 1) markVerified();
-      return;
-    }
-    if (verifying) markVerified();
-    scrollToBottom(true);
   }
 
   // origin 'local' is this browser's own stored copy, 'sync' is history a peer handed over in a live room.
@@ -2382,27 +2217,15 @@
     }
     try {
       const conn = !fromHistory && typeof data.from === 'string' ? data.from : undefined;
-      return await processSigned(parsed, { fromHistory, origin, serverSeq: data.serverSeq, createdAt: data.createdAt, wire: data.payload, signed: plaintext, conn });
+      return await processSigned(parsed, { fromHistory, origin, createdAt: data.createdAt, wire: data.payload, signed: plaintext, conn });
     } catch {
       return false;
     }
   }
 
-  // Saved rooms want both signatures. The ML-DSA key comes from the key directory, from the payload itself when it carries
-  // the full key, or for this browser's own sealed copies from the Ed25519-signed key hash, as ML-DSA was checked on arrival.
-  async function authenticate(parsed: any, localSealed: boolean): Promise<Signer | null> {
-    if (!persistentRoom) {
-      const ed = await verifyPayload(parsed);
-      return ed ? { id: ed, ed } : null;
-    }
-    if (localSealed) {
-      if (parsed._pq !== undefined || typeof parsed._pqk !== 'string') return null;
-      const ed = await verifyPayload(parsed);
-      return ed ? { id: signerId(ed, parsed._pqk), ed } : null;
-    }
-    if (pqKeys && typeof parsed._pqk === 'string' && !pqKeys.has(parsed._pqk) && parsed.pq !== undefined) await pqKeys.add(parsed.pq, parsed._pqk);
-    const result = await verifySigned(parsed, pqKeys?.verify);
-    return result ? { id: signerId(result.ed, result.pq), ed: result.ed } : null;
+  async function authenticate(parsed: any): Promise<Signer | null> {
+    const ed = await verifyPayload(parsed);
+    return ed ? { id: ed, ed } : null;
   }
 
   // The inner payload must be signed by the same member whose chain sealed it.
@@ -2421,8 +2244,8 @@
   async function processSigned(parsed: any, ctx: ProcessContext): Promise<boolean> {
     const { fromHistory, origin } = ctx;
     if (!validPayload(parsed, channelId, fromHistory)) return false;
-    // Every room signs every payload, saved rooms with ML-DSA-44 next to Ed25519; anything else is dropped.
-    const auth = await authenticate(parsed, Boolean(ctx.localSealed));
+    // Every payload is signed; anything that fails the Ed25519 check is dropped.
+    const auth = await authenticate(parsed);
     if (!auth) return false;
     const signer = auth.id;
     if (ctx.fsSender !== undefined && signer !== ctx.fsSender) return false;
@@ -2430,7 +2253,6 @@
     const content = isContent(parsed);
     if (ctx.fsSender !== undefined && !content) return false;
     if (origin === null && !relayedContentOk(parsed, Boolean(fsSession), ctx.fsSender !== undefined)) return false;
-    const chainH = persistentRoom && parsed._n !== undefined && origin !== 'local' ? await chainHash(parsed) : '';
     if (!replay.accept(parsed._id)) return true;
     if (ctx.wire && !replay.accept(await sha256B64url(ctx.wire))) return true;
     if (typeof parsed.id === 'string' && seenMessageIds.has(parsed.id)) return true;
@@ -2460,7 +2282,6 @@
         if (Array.isArray(parsed.want) && parsed.want.includes(roomIdentity?.publicKey)) await fsSession.memberWants(member);
         else await fsSession.memberSeen(member);
       }
-      checkAnnouncedHead(auth.ed, parsed.head, who.name);
       return true;
     }
 
@@ -2489,7 +2310,6 @@
         await fsSession.memberJoined(member);
         void sendLiveHistorySync(member);
       }
-      checkAnnouncedHead(auth.ed, parsed.head, joiner.name);
       messages = [...messages, {
         id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
         color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
@@ -2516,7 +2336,6 @@
       const acker = senderInfo(parsed);
       const member = fsMember(parsed, signer);
       if (fsSession && member) await fsSession.memberSeen(member, parsed.challenge === verificationChallenge);
-      checkAnnouncedHead(auth.ed, parsed.head, acker.name);
       if (parsed.challenge !== verificationChallenge) return true;
       if (verifying) markVerified();
       addOnlineUser(acker);
@@ -2555,15 +2374,24 @@
     const who = senderInfo(parsed);
     const mine = Boolean(roomIdentity && auth.ed === roomIdentity.publicKey);
     const trusted = mine || noteMember(signer, who);
-    if (chainH) await observeChain(auth.ed, parsed, chainH, ctx.serverSeq, who.name);
-    const keep = !fromHistory || origin === 'sync' || (persistentRoom && typeof ctx.serverSeq === 'number');
+    const keep = !fromHistory || origin === 'sync';
     if (parsed.type === 'reaction') {
       applyReaction(id, parsed, signer, who.name, ctx.signed);
       if (!ttl && ctx.signed && origin !== 'local' && keep) {
-        void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt, ctx.serverSeq).catch(() => {});
+        void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt).catch(() => {});
       }
       return true;
     }
+    if (parsed.type === 'message-burn') {
+      if (!validMessageRef(parsed.target)) return true;
+      const targetMsg = messages.find((m) => m.id === parsed.target);
+      // Burn-for-everyone is honored only from the author; a view-once message may be consumed by whoever opens it.
+      if (targetMsg && !targetMsg.once && targetMsg.pk !== signer) return true;
+      removeBurnedMessage(parsed.target);
+      return true;
+    }
+    if (typeof parsed.id === 'string' && burnedIds.has(parsed.id)) return true;
+    const once = parsed.once === true;
     const msg: Message = {
       id,
       text: parsed.text || '',
@@ -2580,7 +2408,8 @@
         name: parsed.file.name, size: parsed.file.size, urls: parsed.file.urls, key: parsed.file.key,
         ...(parsed.file.voice === true && validVoiceDuration(parsed.file.duration) ? { voice: true as const, duration: parsed.file.duration } : {}),
       } : undefined,
-      revealed: true,
+      once,
+      revealed: mine || !once,
       pk: signer,
       keyWarning: !trusted,
       ...(ctx.signed ? { signed: ctx.signed } : {}),
@@ -2591,10 +2420,10 @@
     typing = null;
     if (!fromHistory) followIncoming(mine);
     if (!ttl && ctx.signed && origin !== 'local' && keep) {
-      void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time, ctx.serverSeq).catch(() => {});
+      void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time).catch(() => {});
     }
 
-    if (msg.file) autoPreview(msg);
+    if (msg.file && msg.revealed) autoPreview(msg);
 
     if (!fromHistory && !mine) noteUnread();
     return true;
@@ -2650,47 +2479,230 @@
     saveNotifyPref(localStorage, roomId, true);
   }
 
-  async function sendMessage() {
-    if (!inputText.trim() || !cryptoKey || !ws) return;
+  /** Sends `text` as a chat message without touching the composer input, so scheduled drafts and typed text never collide. */
+  async function sendChatMessage(text: string, opts: { once?: boolean; replyTo?: string } = {}): Promise<boolean> {
+    const trimmed = text.trim();
+    if (!trimmed || !cryptoKey || !ws) return false;
 
-    const burn = parseBurnSuffix(inputText.trim());
-    const finalTtl = burn ? burn.ttl : roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
-    const text = burn ? burn.text : inputText.trim();
+    const burn = parseBurnSuffix(trimmed);
+    const once = opts.once === true;
+    let finalTtl = burn ? burn.ttl : roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    if (once) finalTtl = finalTtl > 0 ? Math.min(finalTtl, ONCE_TTL_SECONDS) : ONCE_TTL_SECONDS;
+    const body = burn ? burn.text : trimmed;
     const msgId = genId();
     const createdAt = Date.now();
-    const replyTo = replyTarget?.id;
+    const replyTo = opts.replyTo;
+    const keep = !once && !finalTtl;
 
     const payload: ChatPayload = {
       type: 'chat-message',
       id: msgId,
-      text,
+      text: body,
       alias: aliasWire(alias), nick: nickname || undefined,
       ttl: finalTtl,
       createdAt,
+      ...(once ? { once: true as const } : {}),
       ...(replyTo ? { replyTo } : {}),
     };
 
-    let signed: string;
+    let built: { signed: string; wire: string };
     try {
-      signed = await sendContent(payload, !finalTtl, createdAt);
+      built = await buildContent(payload);
+    } catch {
+      fileError = t(dict, 'chat.sendFailed');
+      return false;
+    }
+    const delivered = transmit(built.wire, msgId, createdAt);
+    if (!delivered) {
+      outbox = [...outbox, payload];
+      if (netOffline) onNotice?.(t(dict, 'chat.offlineSend'));
+    } else if (keep) {
+      void storeLocalSigned(msgId, built.signed, createdAt).catch(() => {});
+    }
+    seenMessageIds.add(msgId);
+
+    messages = [...messages, {
+      id: msgId, text: body, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
+      color: identity.color, mine: true, time: createdAt,
+      ttl: finalTtl, remaining: finalTtl,
+      once, revealed: true, pk: mySignerId, signed: delivered ? built.signed : undefined,
+      pending: !delivered,
+      ...(replyTo ? { replyTo } : {}),
+    }];
+    return true;
+  }
+
+  let sendInFlight = false;
+  async function sendMessage() {
+    const text = inputText.trim();
+    if (!text || sendInFlight) return;
+    sendInFlight = true;
+    try {
+      const once = onceEnabled;
+      const replyTo = replyTarget?.id;
+      if (!(await sendChatMessage(text, { once, replyTo }))) return;
+      inputText = '';
+      replyTarget = null;
+      onceEnabled = false;
+      scrollToBottom(true);
+    } finally {
+      sendInFlight = false;
+    }
+  }
+
+  function clearOnceTimer(id: string) {
+    const timer = onceClearTimers.get(id);
+    if (!timer) return;
+    clearTimeout(timer);
+    onceClearTimers.delete(id);
+  }
+
+  function forgetLocalMessage(id: string) {
+    if (!localHistoryKey) return;
+    const items = readLocalHistory().filter((item) => item.id !== id);
+    writeLocalHistory(items);
+  }
+
+  function removeBurnedMessage(id: string) {
+    clearOnceTimer(id);
+    burnedIds.add(id);
+    if (burnedIds.size > 5000) burnedIds.delete(burnedIds.values().next().value!);
+    forgetLocalMessage(id);
+    if (burnConfirmMsg?.id === id) burnConfirmMsg = null;
+    if (!messages.some((msg) => msg.id === id)) return;
+    reactionBook.forget(id);
+    messages = messages.filter((msg) => msg.id !== id);
+  }
+
+  async function sendMessageBurn(target: string) {
+    if (!cryptoKey || !ws || !connected) return;
+    const id = genId();
+    const createdAt = Date.now();
+    const payload: ChatPayload = {
+      type: 'message-burn',
+      id,
+      target,
+      alias: aliasWire(alias),
+      nick: nickname || undefined,
+      ttl: ONCE_TTL_SECONDS,
+      createdAt,
+    };
+    try {
+      await sendContent(payload, createdAt);
     } catch {
       fileError = t(dict, 'chat.sendFailed');
       return;
     }
-    if (!finalTtl) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
-    seenMessageIds.add(msgId);
+    seenMessageIds.add(id);
+  }
 
-    messages = [...messages, {
-      id: msgId, text, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
-      color: identity.color, mine: true, time: createdAt,
-      ttl: finalTtl, remaining: finalTtl,
-      revealed: true, pk: mySignerId, signed,
-      ...(replyTo ? { replyTo } : {}),
-    }];
+  async function revealOnce(msg: Message) {
+    if (!msg.once || msg.mine || msg.revealed) return;
+    msg.revealed = true;
+    messages = messages;
+    await sendMessageBurn(msg.id);
+    clearOnceTimer(msg.id);
+    onceClearTimers.set(msg.id, setTimeout(() => {
+      onceClearTimers.delete(msg.id);
+      removeBurnedMessage(msg.id);
+    }, ONCE_CLEAR_MS));
+  }
 
+  function burnOwnMessage(msg: Message) {
+    if (!msg.mine || msg.whiteboard || !connected) return;
+    actionMenuFor = null;
+    burnConfirmMsg = msg;
+  }
+
+  async function confirmBurnOwnMessage() {
+    const msg = burnConfirmMsg;
+    burnConfirmMsg = null;
+    if (!msg || !msg.mine || msg.whiteboard || !connected) return;
+    await sendMessageBurn(msg.id);
+    removeBurnedMessage(msg.id);
+  }
+
+  function clearScheduleTimer(id: string) {
+    const timer = scheduleTimers.get(id);
+    if (!timer) return;
+    clearTimeout(timer);
+    scheduleTimers.delete(id);
+  }
+
+  async function persistScheduledDrafts() {
+    if (typeof sessionStorage === 'undefined' || !channelId || !cryptoKey) return;
+    const key = cryptoKey;
+    await writeSealedDrafts(sessionStorage, roomId, channelId, scheduledDrafts, (text) => sealMessage(key, text));
+  }
+
+  async function restoreScheduledDrafts() {
+    if (typeof sessionStorage === 'undefined' || !channelId || !cryptoKey) return;
+    if (scheduledRestoredFor === channelId) return;
+    scheduledRestoredFor = channelId;
+    const key = cryptoKey;
+    const drafts = await readSealedDrafts(sessionStorage, roomId, channelId, (data) => decryptMessage(key, data).catch(() => null));
+    for (const timer of scheduleTimers.values()) clearTimeout(timer);
+    scheduleTimers.clear();
+    scheduledDrafts = drafts;
+    for (const draft of drafts) armScheduled(draft);
+    void persistScheduledDrafts();
+  }
+
+  function cancelScheduled(id: string) {
+    clearScheduleTimer(id);
+    scheduledDrafts = scheduledDrafts.filter((draft) => draft.id !== id);
+    void persistScheduledDrafts();
+  }
+
+  function armScheduled(draft: ScheduledDraft) {
+    clearScheduleTimer(draft.id);
+    const delay = Math.max(0, draft.sendAt - Date.now());
+    scheduleTimers.set(draft.id, setTimeout(() => { void flushScheduled(draft.id); }, delay));
+  }
+
+  // A due draft retries until it sends or is ten minutes overdue; it never borrows the composer input,
+  // so whatever the member is typing survives, and nothing is dropped silently while the room is offline.
+  async function flushScheduled(id: string) {
+    const draft = scheduledDrafts.find((item) => item.id === id);
+    clearScheduleTimer(id);
+    if (!draft) return;
+    if (Date.now() - draft.sendAt > SCHEDULE_EXPIRED_MS) {
+      scheduledDrafts = scheduledDrafts.filter((item) => item.id !== id);
+      void persistScheduledDrafts();
+      fileError = t(dict, 'chat.scheduleFailed');
+      return;
+    }
+    if (connected && cryptoKey && ws) {
+      scheduledDrafts = scheduledDrafts.filter((item) => item.id !== id);
+      if (await sendChatMessage(draft.text, { once: draft.once, replyTo: draft.replyTo })) {
+        void persistScheduledDrafts();
+        return;
+      }
+      scheduledDrafts = [...scheduledDrafts, draft];
+    }
+    scheduleTimers.set(id, setTimeout(() => { void flushScheduled(id); }, SCHEDULE_RETRY_MS));
+    void persistScheduledDrafts();
+  }
+
+  function queueScheduled(offsetMs: number) {
+    const text = inputText.trim();
+    if (!text || !connected) return;
+    const sendAt = scheduleAt(offsetMs);
+    if (!validSendAt(sendAt)) return;
+    const draft: ScheduledDraft = {
+      id: genId(),
+      text,
+      sendAt,
+      once: onceEnabled,
+      ...(replyTarget ? { replyTo: replyTarget.id } : {}),
+    };
+    scheduledDrafts = [...scheduledDrafts, draft].sort((a, b) => a.sendAt - b.sendAt);
+    armScheduled(draft);
+    void persistScheduledDrafts();
     inputText = '';
+    onceEnabled = false;
     replyTarget = null;
-    scrollToBottom(true);
+    scheduleMenuOpen = false;
   }
 
   // Replies and reactions travel inside the signed, encrypted payload like any message, so the relay cannot tell them apart.
@@ -2719,7 +2731,7 @@
     };
     let signed: string;
     try {
-      signed = await sendContent(payload, !ttl, createdAt);
+      ({ signed } = await sendContent(payload, createdAt));
     } catch {
       fileError = t(dict, 'chat.sendFailed');
       return;
@@ -2727,6 +2739,14 @@
     seenMessageIds.add(id);
     if (!ttl) void storeLocalSigned(id, signed, createdAt).catch(() => {});
     applyReaction(id, JSON.parse(signed), mySignerId, identity.name, signed);
+  }
+
+  async function copyMessageText(msg: Message) {
+    actionMenuFor = null;
+    try {
+      await navigator.clipboard.writeText(msg.text);
+      onNotice?.(t(dict, 'common.copied'));
+    } catch {}
   }
 
   function startReply(msg: Message) {
@@ -2738,7 +2758,8 @@
   function quoteOf(id: string | undefined, index: Map<string, Message>): { name: string; color: string; text: string } {
     const target = id ? index.get(id) : undefined;
     if (!target) return { name: '', color: '', text: t(dict, 'chat.replyUnavailable') };
-    const text = target.text ? plainSnippet(target.text)
+    const text = target.once && !target.mine && !target.revealed ? t(dict, 'chat.onceBadge')
+      : target.text ? plainSnippet(target.text)
       : target.file?.voice ? `${t(dict, 'chat.voiceMessage')} · ${formatClock(target.file.duration ?? 0)}`
       : target.file ? target.file.name
       : target.whiteboard ? t(dict, 'chat.whiteboardTitle')
@@ -2757,7 +2778,7 @@
   }
 
   async function handleSend() {
-    if (!cryptoKey || !ws || !connected) return;
+    if (!cryptoKey || !ws) return;
     const text = inputText.trim();
     if (!text) return;
 
@@ -2790,7 +2811,7 @@
   function handlePaste(e: ClipboardEvent) {
     if (!cryptoKey || !connected || uploading) return;
     const target = e.target as HTMLElement | null;
-    if (target?.closest('input, textarea, [contenteditable]') && !target.classList.contains('chat-input-field')) return;
+    if (target?.closest('input, textarea, [contenteditable]') && !(target.classList.contains('chat-input-field') || target.id === 'chat-messagebar-input')) return;
     const file = Array.from(e.clipboardData?.files ?? [])[0];
     if (!file) return;
     e.preventDefault();
@@ -2844,8 +2865,13 @@
     await sendFile(file, recording.seconds);
   }
 
-  async function sendFile(file: File, voiceSeconds?: number) {
-    if (!cryptoKey || !ws || uploading) return;
+  async function sendFile(file: File, voiceSeconds?: number, queueId?: string) {
+    if (!cryptoKey || uploading) return;
+    if (!queueId && (netOffline || !ws || ws.readyState !== 1)) {
+      queueFileMessage(file, voiceSeconds);
+      return;
+    }
+    if (!ws) return;
     uploading = true;
     fileError = '';
     uploadMeter.reset();
@@ -2892,13 +2918,21 @@
       } catch {}
 
       if (uploadUrls.length === 0) {
-        fileError = t(dict, 'chat.fileUploadFailed');
+        if (queueId) {
+          fileOutbox = [...fileOutbox, { msgId: queueId, file, voiceSeconds }];
+          messages = messages.map((m) => (m.id === queueId ? { ...m, pending: false, failed: true } : m));
+        } else {
+          fileError = t(dict, 'chat.fileUploadFailed');
+        }
         return;
       }
 
-      const fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+      const once = onceEnabled;
+      let fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+      if (once) fileTtl = fileTtl > 0 ? Math.min(fileTtl, ONCE_TTL_SECONDS) : ONCE_TTL_SECONDS;
+      const keep = !once && !fileTtl;
       const voiceMeta = voiceSeconds === undefined ? {} : { voice: true as const, duration: voiceSeconds };
-      const msgId = genId();
+      const msgId = queueId ?? genId();
       const createdAt = Date.now();
       const payload: ChatPayload = {
         type: 'chat-message',
@@ -2907,17 +2941,25 @@
         alias: aliasWire(alias), nick: nickname || undefined,
         ttl: fileTtl,
         createdAt,
+        ...(once ? { once: true as const } : {}),
         file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
       };
 
       let signed: string;
       try {
-        signed = await sendContent(payload, !fileTtl, createdAt);
+        const built = await buildContent(payload);
+        signed = built.signed;
+        if (!transmit(built.wire, msgId, createdAt)) throw new Error('send');
       } catch {
-        fileError = t(dict, 'chat.sendFailed');
+        if (queueId) {
+          fileOutbox = [...fileOutbox, { msgId: queueId, file, voiceSeconds }];
+          messages = messages.map((m) => (m.id === queueId ? { ...m, pending: false, failed: true } : m));
+        } else {
+          fileError = t(dict, 'chat.sendFailed');
+        }
         return;
       }
-      if (!fileTtl) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
+      if (keep) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
       seenMessageIds.add(msgId);
 
       const ownMsg: Message = {
@@ -2925,11 +2967,17 @@
         color: identity.color, mine: true, time: createdAt,
         ttl: fileTtl, remaining: fileTtl,
         file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
-        revealed: true, pk: mySignerId, signed,
+        once, revealed: true, pk: mySignerId, signed,
       };
-      messages = [...messages, ownMsg];
-      scrollToBottom(true);
-      autoPreview(ownMsg);
+      if (queueId) {
+        messages = messages.map((m) => (m.id === queueId ? ownMsg : m));
+        autoPreview(ownMsg);
+      } else {
+        messages = [...messages, ownMsg];
+        onceEnabled = false;
+        scrollToBottom(true);
+        autoPreview(ownMsg);
+      }
     } finally {
       uploading = false;
       uploadSnap = null;
@@ -4268,7 +4316,6 @@
   }
 
   // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
-  // In a saved room a connection id belongs to the first key that used it, so nobody can speak for another member's call or presence.
   const clientSigners = new Map<string, string>();
 
   // The relay tags each connection in rooms without server history, so a departure names the member who left.
@@ -4338,9 +4385,44 @@
         fresh.safety = safety;
         fresh.code = code;
         memberList = [...members.values()];
+        maybeOfferSafetyCompare(fresh);
       });
     }
     return trusted;
+  }
+
+  function maybeOfferSafetyCompare(member: Member) {
+    if (!verified || !member.safety || member.trusted) return;
+    if (safetyPromptSeen.has(member.pk) || safetyPrompt) return;
+    safetyPromptSeen.add(member.pk);
+    safetyPrompt = member;
+  }
+
+  function offerPendingSafetyCompares() {
+    for (const member of members.values()) maybeOfferSafetyCompare(member);
+  }
+
+  function dismissSafetyPrompt() {
+    safetyPrompt = null;
+    offerPendingSafetyCompares();
+  }
+
+  function appProfileToggle() {
+    if (appProfileOpen) { appProfileOpen = false; return; }
+    nickInput = nickname || '';
+    previewAlias = alias;
+    nickError = '';
+    appProfileOpen = true;
+    void settled().then(() => {
+      const el = appProfileFormEl;
+      let scroller = el?.parentElement ?? null;
+      while (scroller && scroller !== document.body && scroller.scrollHeight <= scroller.clientHeight + 8) scroller = scroller.parentElement;
+      if (el && scroller && scroller !== document.body) {
+        const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+        scroller.scrollTo({ top: Math.max(0, top - 24), behavior: 'smooth' });
+      }
+      el?.querySelector('input')?.focus();
+    });
   }
 
   function toggleProfile() {
@@ -4349,11 +4431,17 @@
       return;
     }
     nickInput = nickname || '';
+    previewAlias = alias;
     nickError = '';
     profileOpen = true;
     membersOpen = false;
-    deleteConfirm = false;
+    burnConfirmMsg = null;
+    headerMenuOpen = false;
     requestAnimationFrame(() => document.getElementById('chat-nickname')?.focus());
+  }
+
+  function closeHeaderMenu() {
+    headerMenuOpen = false;
   }
 
   function closeProfileOnOutside(event: PointerEvent) {
@@ -4361,10 +4449,22 @@
     profileOpen = false;
   }
 
+  function closeHeaderMenuOnOutside(event: PointerEvent) {
+    const target = event.target as Element | null;
+    if (!headerMenuOpen || target?.closest?.('[data-chat-menu], .k-popover')) return;
+    headerMenuOpen = false;
+  }
+
   function closeProfileOnEscape(event: KeyboardEvent) {
     if (event.key !== 'Escape' || !profileOpen) return;
     profileOpen = false;
     profileEl?.querySelector<HTMLElement>('button')?.focus();
+  }
+
+  function closeHeaderMenuOnEscape(event: KeyboardEvent) {
+    if (event.key !== 'Escape' || !headerMenuOpen) return;
+    headerMenuOpen = false;
+    document.getElementById('chat-room-menu-trigger')?.focus();
   }
 
   async function applyProfile() {
@@ -4375,8 +4475,11 @@
     }
     nickError = '';
     profileOpen = false;
-    if ((next || null) === nickname) return;
+    appProfileOpen = false;
+    const avatarChanged = aliasKey(previewAlias) !== aliasKey(alias);
+    if ((next || null) === nickname && !avatarChanged) return;
     const prev = myLabelKey();
+    alias = previewAlias;
     nickname = next || null;
     saveNickname(roomId, nickname);
     saveAlias(roomId, alias);
@@ -4392,18 +4495,6 @@
     }
     if (!verified) return;
     await sendEncryptedControl({ type: 'rename', alias: aliasWire(alias), nick: nickname || undefined, prev });
-  }
-
-  async function toggleShareQr() {
-    showShareQr = !showShareQr;
-    if (!showShareQr || shareQr) return;
-    try {
-      const { default: QRCode } = await import('qrcode');
-      shareQr = await QRCode.toString(shareUrl, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 220, color: { dark: '#105f3f', light: '#ffffff' } });
-    } catch {
-      shareQr = '';
-      showShareQr = false;
-    }
   }
 
   function fileGone(msg: Message): boolean {
@@ -4453,12 +4544,7 @@
     member.trusted = true;
     memberList = [...members.values()];
     messages = messages.map((msg) => msg.pk === pk ? { ...msg, keyWarning: false } : msg);
-  }
-
-  function requestRoomDelete() {
-    if (!ws || ws.readyState !== 1) return;
-    deleteConfirm = false;
-    ws.send(JSON.stringify({ type: 'delete' }));
+    if (safetyPrompt?.pk === pk) dismissSafetyPrompt();
   }
 
   // Only what this tab has already decrypted: no server fetch and no attachment ciphertext or keys.
@@ -4482,22 +4568,6 @@
     exportFlashTimer = setTimeout(() => { exportFlash = false; exportFlashTimer = null; }, 1500);
   }
 
-  function handleRoomDeleted() {
-    cleanupCall();
-    forgetLinkKey();
-    clearLocalHistory();
-    forgetTrustTable(trustRoom);
-    dropForwardSecrecy();
-    roomDeleted = true;
-    deleteConfirm = false;
-    membersOpen = false;
-    verified = false;
-    verifying = false;
-    joinedRoom = false;
-    ws?.close();
-    ws = null;
-  }
-
   function addOnlineUser(user: { key: string; name: string; color: string; alias?: Alias; initials: string }) {
     if (!onlineUsers.find(u => u.key === user.key)) {
       onlineUsers = [...onlineUsers, user];
@@ -4507,6 +4577,7 @@
   function tick() {
     const now = Date.now();
     if (now - clock >= 60_000) clock = now;
+    if (scheduledDrafts.length && now - scheduleClock >= 1_000) scheduleClock = now;
     let changed = false;
     const alive: Message[] = [];
     for (const msg of messages) {
@@ -4514,7 +4585,7 @@
       if (msg.time === 0) { alive.push(msg); continue; }
       const elapsed = (now - msg.time) / 1000;
       const rem = Math.max(0, msg.ttl - elapsed);
-      if (rem <= 0) { changed = true; reactionBook.forget(msg.id); continue; }
+      if (rem <= 0) { changed = true; clearOnceTimer(msg.id); reactionBook.forget(msg.id); continue; }
       if (rem !== msg.remaining) { msg.remaining = rem; changed = true; }
       alive.push(msg);
     }
@@ -4559,6 +4630,10 @@
     window.addEventListener('keydown', handleCallFullscreenKeydown);
     window.addEventListener('blur', handleVisibility);
     window.addEventListener('focus', handleVisibility);
+    window.addEventListener('online', onNetChange);
+    window.addEventListener('offline', onNetChange);
+    netOffline = !navigator.onLine;
+    window.visualViewport?.addEventListener('resize', onViewportResize);
   });
 
   onDestroy(() => {
@@ -4572,6 +4647,10 @@
     clearInterval(tickInterval);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (exportFlashTimer) clearTimeout(exportFlashTimer);
+    for (const timer of onceClearTimers.values()) clearTimeout(timer);
+    onceClearTimers.clear();
+    for (const timer of scheduleTimers.values()) clearTimeout(timer);
+    scheduleTimers.clear();
     clearVerificationTimeout();
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -4580,6 +4659,9 @@
       window.removeEventListener('keydown', handleCallFullscreenKeydown);
       window.removeEventListener('blur', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('online', onNetChange);
+      window.removeEventListener('offline', onNetChange);
+      window.visualViewport?.removeEventListener('resize', onViewportResize);
       window.removeEventListener('beforeunload', chatBeforeUnload);
     }
   });
@@ -4595,23 +4677,13 @@
   }
 </script>
 
-<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); }} />
+<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); closeHeaderMenuOnOutside(e); closeMenusOnOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); closeHeaderMenuOnEscape(e); }} />
 
 <div class="chat-container">
-  {#if roomDeleted}
+  {#if unsupportedBrowser}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
-        <p class="text-base font-bold text-text">{t(dict, 'chat.roomDeleted')}</p>
-        <p class="hint">{t(dict, 'chat.roomDeletedDetail')}</p>
-        <a class="btn w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
-      </div>
-    </div>
-
-  {:else if unsupportedBrowser}
-    <div class="chat-center">
-      <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        {@html illustration('magnify', 'state-art')}
         <p class="status status--error" role="alert">{t(dict, 'chat.unsupportedBrowser')}</p>
       </div>
     </div>
@@ -4619,20 +4691,28 @@
   {:else if configChanged}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
+        {@html illustration('magnify', 'state-art')}
         <p class="status status--error" role="alert">{t(dict, 'chat.configChanged')}</p>
         <p class="hint">{t(dict, 'chat.configChangedDetail')}</p>
-        <a class="btn-secondary w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
+        {#if appMode}
+          <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+        {:else}
+          <a class="btn-secondary w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
+        {/if}
       </div>
     </div>
 
   {:else if roomMissing}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_magnify.svg" alt="" width="78" height="133" class="state-art" decoding="async" />
+        {@html illustration('magnify', 'state-art')}
         <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
-        <a class="btn w-full" href={`${getLocalePrefix()}/chat?room=${encodeURIComponent(roomId)}`}>{t(dict, 'chat.roomMissingCreate')}</a>
+        {#if appMode}
+          <button type="button" class="btn w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+        {:else}
+          <a class="btn w-full" href={`${getLocalePrefix()}/chat?room=${encodeURIComponent(roomId)}`}>{t(dict, 'chat.roomMissingCreate')}</a>
+        {/if}
         <button type="button" class="btn-secondary w-full" on:click={retryPasswordEntry}>{t(dict, 'chat.tryAgain')}</button>
       </div>
     </div>
@@ -4640,7 +4720,7 @@
   {:else if checkingRoom}
     <div class="chat-center">
       <div class="text-center space-y-2">
-        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
         <p class="hint">{t(dict, 'common.working')}</p>
       </div>
     </div>
@@ -4649,7 +4729,7 @@
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
-          <img src="/encrypt_lock.svg" alt="" width="97" height="129" class="state-art" decoding="async" />
+          {@html illustration('lock', 'state-art')}
           <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
@@ -4672,25 +4752,33 @@
       </div>
     </div>
 
-  {:else if verifying}
+  {:else if verifying && !everVerified}
     <div class="chat-center">
       <div class="text-center space-y-2">
-        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
         <p class="hint">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
       </div>
     </div>
 
   {:else}
+    {#if !appMode}
     <div class="chat-header">
       <div class="flex items-center gap-2">
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
           <div class="chat-profile" bind:this={profileEl}>
             <button type="button" class="chat-avatar chat-avatar--sm chat-avatar--btn" style="background: {aliasGradient(alias, identity.name)}" title="{identity.name} · {t(dict, 'chat.editProfile')}" aria-label="{identity.name} · {t(dict, 'chat.editProfile')}" aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
-              <span class="chat-avatar__edit" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+              <span class="chat-avatar__edit" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['pencil']}</svg></span>
             </button>
             {#if profileOpen}
               <form id="chat-profile-pop" class="chat-profile__pop" on:submit|preventDefault={applyProfile}>
+                <div class="chat-profile__avatar">
+                  <span class="chat-avatar chat-avatar--lg" style="background: {gradientFor(previewAlias, previewName)}" aria-hidden="true"></span>
+                  <button type="button" class="btn-secondary btn-sm" on:click={rerollAvatar}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['dices']}</svg>
+                    {t(dict, 'chat.rerollAvatar')}
+                  </button>
+                </div>
                 <label class="chat-profile__label" for="chat-nickname">{t(dict, 'chat.yourName')}</label>
                 <div class="chat-profile__row">
                   <input id="chat-nickname" class="input chat-profile__input" bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} autocomplete="off" autocapitalize="off" spellcheck="false" aria-invalid={nickError ? 'true' : undefined} aria-describedby="chat-nickname-hint" />
@@ -4708,72 +4796,189 @@
       </div>
       <div class="flex flex-wrap items-center justify-end gap-1.5">
         <span class="sr-only" aria-live="polite">{connected ? t(dict, 'chat.connected') : t(dict, 'chat.connecting')}</span>
-        <button type="button" class="btn-ghost btn-sm chat-copy-link" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <span>{shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}</span>
-        </button>
-        <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} {linkKey} ready={verified} />
-        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.blurWhenAway')} aria-label={t(dict, 'chat.blurWhenAway')} aria-pressed={blurWhenAway} on:click={() => setBlurWhenAway(!blurWhenAway)}>
-          {#if blurWhenAway}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-          {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          {/if}
-        </button>
-        {#if notifySupported}
-          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.notifications')} aria-label={t(dict, 'chat.notifications')} aria-pressed={notifyOn} on:click={toggleNotifications}>
-            {#if notifyOn}
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>
-            {/if}
-          </button>
-        {/if}
-        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={startCall} disabled={!connected || !verified || callJoining || callActive}>
+        <div class="chat-room-chips" aria-label={getRoomModeLabel()}>
+          <span class="chat-mode-badge chat-mode-badge--soft" title={t(dict, 'chat.chip.online').replace('{n}', String(serverPresence))}>{t(dict, 'chat.chip.online').replace('{n}', String(Math.max(0, serverPresence)))}</span>
+        </div>
+        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={() => { closeHeaderMenu(); startCall(); }} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
-            <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.8.62 2.65a2 2 0 0 1-.45 2.11L8 9.76a16 16 0 0 0 6.24 6.24l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.74.5 2.65.62A2 2 0 0 1 22 16.92Z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['phone']}</svg>
           {/if}
         </button>
-          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; deleteConfirm = false; }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['key']}</svg>
+        </button>
+        <div class="chat-header-menu relative" data-chat-menu>
+          <button
+            id="chat-room-menu-trigger"
+            type="button"
+            class="btn-ghost btn-sm btn-icon"
+            title={t(dict, 'chat.roomMenu')}
+            aria-label={t(dict, 'chat.roomMenu')}
+            aria-haspopup="menu"
+            aria-expanded={headerMenuOpen}
+            aria-controls="chat-room-menu"
+            on:click={() => { headerMenuOpen = !headerMenuOpen; membersOpen = false; burnConfirmMsg = null; profileOpen = false; }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['ellipsis-vertical']}</svg>
           </button>
-        {#if shouldKeepParticipantHistory()}
-          <button type="button" class="btn-ghost btn-sm btn-icon" title={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} aria-label={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} on:click={exportHistory} disabled={!verified}>
-            {#if exportFlash}
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu">
+            <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
+              <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['link']}</svg>
+              {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
+            </button>
+            <div role="none" on:click={closeHeaderMenu}>
+              <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="menu" />
+            </div>
+          <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={blurWhenAway} on:click={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
+              <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+              {t(dict, 'chat.blurWhenAway')}
+              {#if blurWhenAway}<svg class="chat-header-menu__check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>{/if}
+            </button>
+            {#if notifySupported}
+              <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={notifyOn} on:click={() => { void toggleNotifications(); closeHeaderMenu(); }}>
+                <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bell']}</svg>
+                {t(dict, 'chat.notifications')}
+                {#if notifyOn}<svg class="chat-header-menu__check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>{/if}
+              </button>
             {/if}
-          </button>
-        {/if}
-        {#if persistentRoom}
-          <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.deleteRoom')} aria-label={t(dict, 'chat.deleteRoom')} aria-expanded={deleteConfirm} on:click={() => { deleteConfirm = !deleteConfirm; membersOpen = false; }} disabled={!connected || !verified}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </button>
-        {/if}
-        <span class="chat-mode-badge" title={getRoomModeLabel()}>{getRoomModeLabel()}</span>
+            {#if shouldKeepParticipantHistory()}
+              <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); exportHistory(); }} disabled={!verified}>
+                <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['download']}</svg>
+                {exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')}
+              </button>
+            {/if}
+          </div>
+        </div>
       </div>
     </div>
+    {/if}
 
-    {#if deleteConfirm}
-      <div class="chat-call-banner" role="alertdialog" aria-label={t(dict, 'chat.deleteRoom')}>
-        <p class="chat-call-banner__title">{t(dict, 'chat.deleteRoomConfirm')}</p>
+    {#if appMode}
+      <Popover class="w-72!" opened={headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu}>
+        <MenuList>
+          {#if onShareApp}
+            <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'common.shareLink')} onClick={() => { closeHeaderMenu(); onShareApp(); }}>
+              {#snippet media()}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['share-2']}</svg>
+              {/snippet}
+            </MenuListItem>
+          {/if}
+          <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')} onClick={() => { closeHeaderMenu(); copyShareLink(); }}>
+            {#snippet media()}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['link']}</svg>
+            {/snippet}
+          </MenuListItem>
+          <div on:click={closeHeaderMenu} role="presentation">
+            <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="konsta" />
+          </div>
+          <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.blurWhenAway')} aria-checked={blurWhenAway} onClick={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
+            {#snippet media()}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+            {/snippet}
+            {#snippet after()}{#if blurWhenAway}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+            {/if}{/snippet}
+          </MenuListItem>
+          {#if notifySupported}
+            <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.notifications')} aria-checked={notifyOn} onClick={() => { void toggleNotifications(); closeHeaderMenu(); }}>
+              {#snippet media()}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bell']}</svg>
+              {/snippet}
+              {#snippet after()}{#if notifyOn}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+              {/if}{/snippet}
+            </MenuListItem>
+          {/if}
+          {#if shouldKeepParticipantHistory()}
+            <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: !verified }} title={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} onClick={() => { closeHeaderMenu(); exportHistory(); }}>
+              {#snippet media()}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['download']}</svg>
+              {/snippet}
+            </MenuListItem>
+          {/if}
+        </MenuList>
+      </Popover>
+    {/if}
+
+    {#if appMode}
+      <Sheet opened={actionMenuFor !== null} onBackdropClick={() => { actionMenuFor = null; }} class="app-sheet chat-msg-sheet pb-[env(safe-area-inset-bottom)]">
+        <div class="app-sheet__handle"></div>
+        {#if sheetMsg}
+          {@const picked = myReactions(sheetMsg.id, reactionTick)}
+          <div class="chat-react-row" role="group" aria-label={t(dict, 'chat.messageActions')}>
+            {#each REACTION_EMOJI as emoji}
+              <button
+                type="button"
+                class="chat-react-btn"
+                class:chat-react-btn--on={picked.includes(emoji)}
+                aria-pressed={picked.includes(emoji)}
+                aria-label={t(dict, 'chat.reactWith').replace('{emoji}', emoji)}
+                on:click={() => { if (sheetMsg) void toggleReaction(sheetMsg, emoji); actionMenuFor = null; }}
+              >{emoji}</button>
+            {/each}
+          </div>
+          <List strongIos insetIos class="mt-1! mb-3!">
+            <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.reply')} onClick={() => { if (sheetMsg) startReply(sheetMsg); }}>
+              {#snippet media()}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['reply']}</svg>
+              {/snippet}
+            </ListItem>
+            {#if sheetMsg.text}
+              <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.copyMessage')} onClick={() => { if (sheetMsg) void copyMessageText(sheetMsg); }}>
+                {#snippet media()}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
+                {/snippet}
+              </ListItem>
+            {/if}
+            {#if sheetMsg.mine && !sheetMsg.whiteboard}
+              <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} onClick={() => { if (sheetMsg) burnOwnMessage(sheetMsg); }}>
+                {#snippet title()}<span class="app-danger-text">{t(dict, 'chat.burnForEveryone')}</span>{/snippet}
+                {#snippet media()}
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-danger-text">{@html LUCIDE['trash']}</svg>
+                {/snippet}
+              </ListItem>
+            {/if}
+          </List>
+        {/if}
+      </Sheet>
+    {/if}
+
+    {#if safetyPrompt}
+      <div class="chat-call-banner chat-safety-banner" role="dialog" aria-label={t(dict, 'chat.safetyCompareTitle')}>
+        <div class="chat-call-banner__meta">
+          <p class="chat-call-banner__title">{t(dict, 'chat.safetyCompareTitle')}</p>
+          <p class="chat-call-banner__name">{safetyPrompt.name}</p>
+          <p class="chat-member__emoji chat-member__safety" aria-label={safetyPrompt.safety}>{#each safetyPrompt.safety.split(' ') as group}<span>{group}</span>{/each}</p>
+          <p class="hint">{t(dict, 'chat.safetyCompareHint')}</p>
+        </div>
         <div class="chat-call-banner__actions">
-          <button type="button" class="chat-call-decline" on:click={requestRoomDelete}>{t(dict, 'chat.deleteRoomYes')}</button>
-          <button type="button" class="btn-ghost btn-sm" on:click={() => { deleteConfirm = false; }}>{t(dict, 'chat.deleteRoomNo')}</button>
+          {#if !safetyPrompt.trusted}
+            <button type="button" class="btn-outline btn-sm" on:click={() => trustKey(safetyPrompt!.pk)}>{t(dict, 'chat.keyTrust')}</button>
+          {/if}
+          <button type="button" class="btn-ghost btn-sm" on:click={dismissSafetyPrompt}>{t(dict, 'chat.safetyCompareDismiss')}</button>
         </div>
       </div>
     {/if}
 
-    {#if membersOpen}
+    {#if burnConfirmMsg}
+      <div class="chat-call-banner" role="alertdialog" aria-label={t(dict, 'chat.burnForEveryone')}>
+        <p class="chat-call-banner__title">{t(dict, 'chat.burnConfirm')}</p>
+        <div class="chat-call-banner__actions">
+          <button type="button" class="chat-call-decline" on:click={() => { void confirmBurnOwnMessage(); }}>{t(dict, 'chat.burnConfirmYes')}</button>
+          <button type="button" class="btn-ghost btn-sm" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
+        </div>
+      </div>
+    {/if}
+
+    {#if membersOpen && !appMode}
       <div class="chat-members">
         <div class="chat-member">
           <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
           <div class="min-w-0 flex-1">
             <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
-            <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><code class="chat-member__code">{myKeyCode}</code></p>
+            <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
           </div>
         </div>
         {#if memberList.length === 0}
@@ -4787,8 +4992,8 @@
                 {member.name}
                 {#if !member.trusted}<span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>{/if}
               </p>
-              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><code class="chat-member__code">{member.code}</code></p>
-              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><code class="chat-member__code chat-member__safety">{#each member.safety.split(' ') as group}<span>{group}</span>{/each}</code></p>
+              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={member.code}>{member.code}</span></p>
+              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><span class="chat-member__emoji chat-member__safety" aria-label={member.safety}>{#each member.safety.split(' ') as group}<span>{group}</span>{/each}</span></p>
               {#if !member.trusted}
                 <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
                 <button type="button" class="btn-outline btn-sm" on:click={() => trustKey(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
@@ -4800,51 +5005,92 @@
       </div>
     {/if}
 
-    {#if (sharePassword || shareLinkOnly) && !shareDismissed}
-      <div class="chat-share-banner">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-bold text-accent">{t(dict, shareLinkOnly ? 'chat.shareLinkWarning' : 'chat.sharePasswordWarning')}</span>
-          <div class="flex items-center gap-0.5">
-            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} className="btn-ghost btn-sm" iconOnly size={14} />
-            <button type="button" class="btn-ghost btn-sm btn-icon" on:click={toggleShareQr} aria-label={t(dict, showShareQr ? 'chat.hideQr' : 'chat.showQr')} title={t(dict, showShareQr ? 'chat.hideQr' : 'chat.showQr')} aria-pressed={showShareQr}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M19 14h2v2h-2z"/><path d="M14 19h2v2h-2z"/><path d="M19 19h2v2h-2z"/></svg>
-            </button>
-            <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'chat.closeSharePanel')}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+    {#if appMode}
+      <Sheet opened={membersOpen} onBackdropClick={() => { membersOpen = false; appProfileOpen = false; }} class="pb-safe">
+        <div class="app-room-info">
+          <p class="app-room-info__title">{roomId}</p>
+          <p class="app-room-info__meta">{t(dict, 'chat.chip.online').replace('{n}', String(Math.max(0, serverPresence)))} · {getRoomModeLabel()}</p>
+          <div class="chat-members">
+            <div class="chat-member">
+              <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
+              <div class="min-w-0 flex-1">
+                <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
+                <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
+              </div>
+              <button type="button" class="chat-profile-edit" on:click={appProfileToggle} aria-expanded={appProfileOpen} aria-label={t(dict, 'chat.editProfile')}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
+              </button>
+            </div>
+            {#if appProfileOpen}
+              <form class="chat-profile__pop chat-profile__pop--inline" bind:this={appProfileFormEl} on:submit|preventDefault={applyProfile}>
+                <div class="chat-profile__avatar">
+                  <span class="chat-avatar chat-avatar--lg" style="background: {gradientFor(previewAlias, previewName)}" aria-hidden="true"></span>
+                  <button type="button" class="app-sheet-btn app-sheet-btn--tonal" on:click={rerollAvatar}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['dices']}</svg>
+                    {t(dict, 'chat.rerollAvatar')}
+                  </button>
+                </div>
+                <label class="chat-profile__label" for="chat-nickname-app">{t(dict, 'chat.yourName')}</label>
+                <div class="chat-profile__row">
+                  <input id="chat-nickname-app" class="app-dialog-input" bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} autocomplete="off" autocapitalize="off" spellcheck="false" aria-invalid={nickError ? 'true' : undefined} />
+                  <button type="submit" class="app-sheet-btn">{t(dict, 'chat.nicknameSave')}</button>
+                </div>
+                <p class="chat-profile__hint" class:chat-profile__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
+              </form>
+            {/if}
+            {#if memberList.length === 0}
+              <p class="hint">{t(dict, 'chat.noMembersYet')}</p>
+            {/if}
+            {#each memberList as member (member.pk)}
+              <div class="chat-member" class:chat-member--warn={!member.trusted}>
+                <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}" title={member.name} aria-label={member.name}></div>
+                <div class="min-w-0 flex-1">
+                  <p class="chat-member__name">
+                    {member.name}
+                    {#if !member.trusted}<span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>{/if}
+                  </p>
+                  <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={member.code}>{member.code}</span></p>
+                  <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><span class="chat-member__emoji chat-member__safety" aria-label={member.safety}>{#each member.safety.split(' ') as group}<span>{group}</span>{/each}</span></p>
+                  {#if !member.trusted}
+                    <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
+                    <button type="button" class="app-sheet-btn app-sheet-btn--tonal" on:click={() => trustKey(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+            <p class="hint">{t(dict, 'chat.safetyNumberHint')}</p>
           </div>
         </div>
-        {#if showShareQr && shareQr}
-          <div class="ue-qr mb-2" role="img" aria-label={t(dict, 'chat.qrAlt')}>{@html shareQr}</div>
-        {/if}
-        <div class="flex items-center gap-1.5 mb-1.5">
-          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.roomLink')}</span>
-          <code class="chat-share-value">{shareUrl}</code>
-          <button type="button" class="chat-share-copy" on:click={copyShareLink} aria-label={t(dict, 'chat.copyRoomLink')}>
-            {#if shareCopiedLink}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
-          </button>
+      </Sheet>
+    {/if}
+
+    {#if sharePassword && !shareDismissed}
+      {#if appMode}
+        <Sheet opened onBackdropClick={() => { shareDismissed = true; }} class="pb-safe">
+          <div class="app-invite-sheet">
+            <RoomInviteCard
+              {dict}
+              {appMode}
+              title={roomId}
+              url={shareUrl}
+              password={sharePassword}
+              warning={t(dict, 'chat.sharePasswordWarning')}
+              onDismiss={() => { shareDismissed = true; }}
+            />
+          </div>
+        </Sheet>
+      {:else}
+        <div class="chat-share-banner">
+          <RoomInviteCard
+            {dict}
+            title={roomId}
+            url={shareUrl}
+            password={sharePassword}
+            warning={t(dict, 'chat.sharePasswordWarning')}
+            onDismiss={() => { shareDismissed = true; }}
+          />
         </div>
-        {#if sharePassword}
-        <div class="flex items-center gap-1.5">
-          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'chat.password')}</span>
-          <code class="chat-share-value">{showSharePassword ? sharePassword : '•'.repeat(Math.min(sharePassword.length, 16))}</code>
-          <button type="button" class="chat-share-copy" on:click={() => { showSharePassword = !showSharePassword; }} aria-label={t(dict, 'common.showPassword')} aria-pressed={showSharePassword} title={t(dict, showSharePassword ? 'common.hidePassword' : 'common.showPassword')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html showSharePassword ? '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/>' : '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'}</svg>
-          </button>
-          <button type="button" class="chat-share-copy" on:click={copySharePassword} aria-label={t(dict, 'chat.copyRoomPassword')}>
-            {#if shareCopiedPass}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            {/if}
-          </button>
-        </div>
-        {/if}
-      </div>
+      {/if}
     {/if}
 
     {#if activeCallNotice && !callActive}
@@ -4864,236 +5110,225 @@
     {/if}
 
     <div class="chat-body" class:chat-body--call={callActive} class:chat-body--chat-hidden={callActive && !callChatOpen}>
-      {#if callActive || callError}
-        <div class="call" class:call--error={!callActive && Boolean(callError)}>
-          {#if callActive}
-            <div class="call__stage">
-              <div class="call__status" title={getRelayTitle()}>
-                <span class="call__dot call__dot--{serverQuality}"></span>
-                <span>{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</span>
-                <span aria-hidden="true">·</span>
-                <span class="call__count" role="img" aria-label={`${callPeers.length + 1} ${t(dict, 'chat.callParticipants')}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  <span aria-hidden="true">{callPeers.length + 1}</span>
-                </span>
-                <span aria-hidden="true">·</span>
-                <span class="call__count" title={t(dict, 'chat.callE2eeTitle')}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-                  <span>{t(dict, 'chat.callE2ee')}</span>
-                </span>
-                {#if serverLatencyMs !== null}<span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span>{/if}
-              </div>
-
-              <div class="call__grid" use:fitTiles={{ count: callPeers.length + 1, ratio: 16 / 10, max: callHasVideo ? 1280 : 280 }}>
-                <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurWhenAway && blurred}>
-                  {#if localDisplayStream && localHasVisibleVideo}
-                    <video
-                      class="call__video"
-                      class:call__video--contain={screenSharing}
-                      use:streamMedia={{ stream: localDisplayStream, muted: true, volume: 0 }}
-                      autoplay
-                      muted
-                      playsinline
-                      controlslist="nodownload nofullscreen noremoteplayback"
-                      disablepictureinpicture
-                      disableremoteplayback
-                      on:pause={keepCallMediaPlaying}
-                      on:contextmenu={preventMediaContextMenu}
-                    ></video>
-                    <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'local' })}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-                    </button>
-                  {:else}
-                    <div class="call__avatar" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
-                  {/if}
-                  <div class="call__name">
-                    <span>{t(dict, 'chat.callYou')}</span>
-                    {#if micMuted}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callMuted')}><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                    {:else}
-                      <span class="call__level" style={`--level: ${Math.max(0.04, localAudioLevel)}`}></span>
-                    {/if}
-                    {#if screenSharing}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
-                    {/if}
-                  </div>
-                </div>
-
-                {#each callPeers as peer (peer.id)}
-                  <div class="call__tile" class:call__tile--speaking={peer.speaking && !peer.muted} class:call__tile--blurred={blurWhenAway && blurred}>
-                    {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
-                      <video
-                        class="call__video"
-                        class:call__video--contain={peer.screenSharing}
-                        use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
-                        autoplay
-                        playsinline
-                        controlslist="nodownload nofullscreen noremoteplayback"
-                        disablepictureinpicture
-                        disableremoteplayback
-                        on:pause={keepCallMediaPlaying}
-                        on:contextmenu={preventMediaContextMenu}
-                      ></video>
-                      <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => openCallFullscreen({ source: 'peer', peerId: peer.id })}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-                      </button>
-                    {:else}
-                      {#if peer.stream}
-                        <audio
-                          use:streamMedia={{ stream: peer.stream, muted: callAudioMuted || peer.audioMuted, volume: callAudioMuted || peer.audioMuted ? 0 : callVolume * peer.volume, sinkId: selectedAudioOutputId }}
-                          autoplay
-                          controlslist="nodownload noremoteplayback"
-                          disableremoteplayback
-                          on:pause={keepCallMediaPlaying}
-                          on:contextmenu={preventMediaContextMenu}
-                        ></audio>
-                      {/if}
-                      <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} aria-label={peer.name}></div>
-                    {/if}
-                    <div class="call__name">
-                      <span>{peer.name}</span>
-                      {#if peer.muted}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callMuted')}><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                      {:else}
-                        <span class="call__level" style={`--level: ${Math.max(0.04, peer.audioLevel)}`}></span>
-                      {/if}
-                      {#if peer.screenSharing}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
-                      {/if}
-                      {#if peer.state !== 'connected'}<span class="call__name-state" class:call__name-state--failed={peer.state === 'failed'} role="img" aria-label={peer.state === 'failed' ? t(dict, 'chat.callConnectionFailed') : t(dict, 'chat.callPeerConnecting')} title={peer.state === 'failed' ? t(dict, 'chat.callConnectionFailed') : t(dict, 'chat.callPeerConnecting')}></span>{/if}
-                    </div>
-                  </div>
-                {/each}
-              </div>
-            </div>
-
-            <div class="call__bar">
-              <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={toggleMic}>
-                {#if micMuted}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/><path d="M19 10v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                {/if}
-              </button>
-              <button type="button" class="call__btn" class:call__btn--off={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={toggleCamera}>
-                {#if cameraOff}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l5.22-3.48A.5.5 0 0 1 22 7.28v9.44a.5.5 0 0 1-.78.42L16 13.66V16"/><path d="M14 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/></svg>
-                {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 13 5.22 3.48A.5.5 0 0 0 22 16.06V7.94a.5.5 0 0 0-.78-.42L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-                {/if}
-              </button>
-              <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={() => screenSharing ? stopScreenShare() : startScreenShare()}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="m8 10 4-4 4 4"/><path d="M12 6v7"/></svg>
-              </button>
-              <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.92 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.48.67 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.84 0-1.31.52-1.51 1Z"/></svg>
-              </button>
-              <button type="button" class="call__btn call__btn--chat" class:call__btn--on={callChatOpen} title={callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={callChatOpen} on:click={() => { callChatOpen = !callChatOpen; }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
-              </button>
-              <button type="button" class="call__btn call__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={() => endCall(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.996.996 0 0 1 0-1.41C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28a11.27 11.27 0 0 0-2.67-1.85.996.996 0 0 1-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
-              </button>
-            </div>
-
-            {#if callSettingsOpen}
-              <div class="call__settings" id="chat-call-settings" role="dialog" aria-label={t(dict, 'chat.callAudioAndDevices')}>
-                <div class="call__settings-head">
-                  <span>{t(dict, 'chat.callAudioAndDevices')}</span>
-                  <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={refreshCallDevices}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M16 8h5V3"/></svg>
-                  </button>
-                </div>
-                <div class="call__fields">
-                  <div class="field">
-                    <label class="label" for="call-mic">{t(dict, 'chat.callMicrophone')}</label>
-                    <select id="call-mic" class="input" bind:value={selectedAudioInputId} on:change={handleAudioInputChange}>
-                      <option value="">{t(dict, 'chat.callDefaultMicrophone')}</option>
-                      {#each audioInputDevices as device, index (device.deviceId || index)}
-                        <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callMicrophone')} ${index + 1}`}</option>
-                      {/each}
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label class="label" for="call-cam">{t(dict, 'chat.callCamera')}</label>
-                    <select id="call-cam" class="input" bind:value={selectedVideoInputId} on:change={handleVideoInputChange}>
-                      <option value="">{t(dict, 'chat.callDefaultCamera')}</option>
-                      {#each videoInputDevices as device, index (device.deviceId || index)}
-                        <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callCamera')} ${index + 1}`}</option>
-                      {/each}
-                    </select>
-                  </div>
-                  {#if canSelectAudioOutput}
-                    <div class="field">
-                      <label class="label" for="call-out">{t(dict, 'chat.callAudioOutput')}</label>
-                      <select id="call-out" class="input" bind:value={selectedAudioOutputId} on:change={handleAudioOutputChange}>
-                        <option value="">{t(dict, 'chat.callDefaultOutput')}</option>
-                        {#each audioOutputDevices as device, index (device.deviceId || index)}
-                          <option value={device.deviceId}>{device.label || `${t(dict, 'chat.callAudioOutput')} ${index + 1}`}</option>
-                        {/each}
-                      </select>
-                    </div>
-                  {/if}
-                  <div class="field">
-                    <label class="label" for="call-volume">{t(dict, 'chat.callVolume')}</label>
-                    <input id="call-volume" type="range" min="0" max="1" step="0.05" value={callVolume} disabled={callAudioMuted} on:input={(e) => setCallVolume((e.currentTarget as HTMLInputElement).value)} />
-                  </div>
-                </div>
-                <label class="check">
-                  <input type="checkbox" checked={callAudioMuted} on:change={(e) => setCallAudioMuted((e.currentTarget as HTMLInputElement).checked)} />
-                  <span>{t(dict, 'chat.callDeafen')}</span>
-                </label>
-                <label class="check">
-                  <input type="checkbox" checked={blurWhenAway} on:change={(e) => setBlurWhenAway((e.currentTarget as HTMLInputElement).checked)} />
-                  <span>{t(dict, 'chat.blurWhenAway')}</span>
-                </label>
-                {#if callPeers.length > 0}
-                  <div class="call__peers">
-                    <p class="label">{t(dict, 'chat.callParticipantAudio')}</p>
-                    {#each callPeers as peer (peer.id)}
-                      <div class="call__peer">
-                        <div class="call__peer-name">
-                          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} aria-label={peer.name}></div>
-                          <span>{peer.name}</span>
-                        </div>
-                        <button type="button" class="btn-ghost btn-sm btn-icon" class:text-danger={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-label={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-pressed={peer.audioMuted} on:click={() => setPeerAudioMuted(peer.id, !peer.audioMuted)}>
-                          {#if peer.audioMuted}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-                          {:else}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                          {/if}
-                        </button>
-                        <input type="range" min="0" max="1" step="0.05" value={peer.volume} disabled={callAudioMuted || peer.audioMuted} on:input={(e) => setPeerVolume(peer.id, (e.currentTarget as HTMLInputElement).value)} aria-label={`${t(dict, 'chat.callVolume')} ${peer.name}`} />
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-                <p class="call__relay">{t(dict, 'chat.callRelay')}: {getRelayStatusLabel()}</p>
-              </div>
-            {/if}
-          {/if}
-          {#if callError}
-            <p class="status status--error" role="alert">{callError}</p>
-          {/if}
-        </div>
-      {/if}
+      <ChatCall
+        {dict}
+        {callActive}
+        {callError}
+        {callPeers}
+        {serverQuality}
+        {serverLatencyMs}
+        {callHasScreenSharing}
+        {callHasVideo}
+        {localDisplayStream}
+        {localHasVisibleVideo}
+        {localSpeaking}
+        {localAudioLevel}
+        {micMuted}
+        {cameraOff}
+        {screenSharing}
+        {callAudioMuted}
+        {callVolume}
+        {callChatUnread}
+        {blurWhenAway}
+        {blurred}
+        {alias}
+        localName={identity.name}
+        {audioInputDevices}
+        {videoInputDevices}
+        {audioOutputDevices}
+        {canSelectAudioOutput}
+        relayTitle={getRelayTitle()}
+        relayStatusLabel={getRelayStatusLabel()}
+        fullscreenMedia={callFullscreenMedia}
+        bind:callSettingsOpen
+        bind:callChatOpen
+        bind:selectedAudioInputId
+        bind:selectedVideoInputId
+        bind:selectedAudioOutputId
+        bind:fullscreenOverlayEl={callFullscreenOverlayEl}
+        ontogglemic={toggleMic}
+        ontogglecamera={toggleCamera}
+        ontogglescreen={() => screenSharing ? stopScreenShare() : startScreenShare()}
+        onendcall={() => endCall(true)}
+        onrefreshdevices={refreshCallDevices}
+        onaudioinputchange={handleAudioInputChange}
+        onvideoinputchange={handleVideoInputChange}
+        onaudiooutputchange={handleAudioOutputChange}
+        onsetvolume={setCallVolume}
+        onsetaudiomuted={setCallAudioMuted}
+        onsetblurwhenaway={setBlurWhenAway}
+        onsetpeeraudiomuted={setPeerAudioMuted}
+        onsetpeervolume={setPeerVolume}
+        onopenfullscreen={openCallFullscreen}
+        onclosefullscreen={() => closeCallFullscreen()}
+        onkeepplaying={keepCallMediaPlaying}
+        onpreventcontextmenu={preventMediaContextMenu}
+      />
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
         <div class="chat-messages-shell">
-        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} use:revealSpoilers>
+        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} use:revealSpoilers role="log" aria-live="polite">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
-          <img src="/encrypt_chill.svg" alt="" width="135" height="116" class="state-art mb-2" decoding="async" />
+          {@html illustration('chill', 'state-art mb-2')}
           <p class="empty__title">{t(dict, serverPresence > 1 ? 'chat.emptyRoomNoticeOthers' : 'chat.emptyRoomNotice')}</p>
-          <p class="text-text">{t(dict, persistentRoom ? 'chat.emptyRoomNotice2Persistent' : 'chat.emptyRoomNotice2')}</p>
-          <p class="hint">{persistentRoom ? t(dict, 'chat.emptyRoomNoticePersistent').replace('{days}', String(PERSISTENT_IDLE_DAYS)) : t(dict, 'chat.emptyRoomNotice3')}</p>
+          <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
+          <p class="hint">{t(dict, roomConfig.mode === 'live' ? 'chat.emptyRoomNotice3' : 'chat.emptyRoomNotice3Ttl')}</p>
         </div>
       {/if}
 
-      {#each messages as msg (msg.id)}
+      {#each messages as msg, i (msg.id)}
         {#if !msg.sender}
           <p class="chat-system">{msg.text}</p>
+        {:else if appMode}
+        {@const groupStart = !messages[i - 1]?.sender || messages[i - 1]?.sender !== msg.sender}
+        {@const groupEnd = !messages[i + 1] || messages[i + 1]?.sender !== msg.sender}
+        {#snippet bubbleAvatar()}
+          <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}" title={msg.sender} aria-label={msg.sender}></div>
+        {/snippet}
+        {#snippet bubbleMeta()}
+          <div class="chat-sender-row">
+            {#if !msg.mine && groupStart}
+              <span class="chat-sender" style="color: {safeColor(msg.color)}">{msg.sender}</span>
+            {/if}
+            {#if msg.once}
+              <span class="chat-once-badge" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
+            {/if}
+            {#if msg.keyWarning}
+              <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
+            {/if}
+          </div>
+        {/snippet}
+        <div
+          class="chat-kmsg-wrap"
+          class:chat-kmsg-wrap--break={groupStart}
+          class:chat-bubble--menu={actionMenuFor === msg.id}
+          class:chat-bubble--highlight={highlightedId === msg.id}
+          id={`chat-msg-${msg.id}`}
+          use:longPress={() => { if (verified) actionMenuFor = msg.id; }}
+          use:swipeReply={{ onreply: () => startReply(msg), enabled: verified && !msg.pending }}
+          on:contextmenu|preventDefault={() => { if (verified) actionMenuFor = msg.id; }}
+        >
+          <Message
+            type={msg.mine ? 'sent' : 'received'}
+            colors={kmsgColors}
+            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}`}
+            avatar={msg.mine || !groupEnd ? undefined : bubbleAvatar}
+            name={(!msg.mine && groupStart) || msg.once || msg.keyWarning ? bubbleMeta : undefined}
+          >
+            {#snippet text()}
+              {#if msg.replyTo}
+                {@const quote = quoteOf(msg.replyTo, messageIndex)}
+                <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
+              {/if}
+              {#if msg.once && !msg.mine && !msg.revealed}
+                <button type="button" class="chat-once-reveal" on:click={() => revealOnce(msg)}>
+                  <span class="chat-once-reveal__blur" aria-hidden="true">{msg.file?.voice ? t(dict, 'chat.onceBlurVoice') : msg.file ? t(dict, 'chat.onceBlurFile') : (msg.text || t(dict, 'chat.onceBlurText'))}</span>
+                  <span class="chat-once-reveal__label">{t(dict, 'chat.onceReveal')}</span>
+                </button>
+              {:else}
+              {#if msg.file?.voice && !msg.pending}
+                {@const gone = fileGone(msg)}
+                <ChatVoiceMessage {dict} {appMode} seed={msg.id} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
+              {:else if msg.file}
+                {@const gone = !msg.pending && fileGone(msg)}
+                <div class="chat-file" class:chat-file--error={gone}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['file']}</svg>
+                  <div class="flex-1 min-w-0">
+                    <span class="chat-file__name">{msg.file.name}</span>
+                    <span class="chat-file__size">
+                      {#if gone}
+                        {t(dict, 'chat.fileExpired')}
+                      {:else if msg.pending}
+                        {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`} · {t(dict, 'chat.queued')}
+                      {:else}
+                        {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`} · {fileTimeLeft(msg)}
+                      {/if}
+                    </span>
+                  </div>
+                  {#if !gone && !msg.pending}
+                    <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['download']}</svg>
+                    </button>
+                  {/if}
+                </div>
+              {/if}
+              {#if msg.whiteboard}
+                <div class="chat-whiteboard-card">
+                  <div class="chat-whiteboard-card__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['presentation']}</svg>
+                  </div>
+                  <div class="chat-whiteboard-card__body">
+                    <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
+                    <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
+                    <div class="chat-whiteboard-card__actions">
+                      <button type="button" class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['external-link']}</svg>
+                        {t(dict, 'chat.whiteboardOpenNewTab')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+              {#if msg.preview}
+                {#if msg.preview.type === 'image' && msg.preview.url}
+                  {#if appMode}
+                    <button type="button" class="chat-preview-img-btn" on:click={() => openLightbox(msg.preview!.url!)} aria-label={t(dict, 'app.lightbox.image')}>
+                      <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
+                    </button>
+                  {:else}
+                    <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
+                  {/if}
+                {:else if msg.preview.type === 'text' && msg.preview.text}
+                  <div class="chat-preview-text">
+                    <pre class="chat-preview-code">{msg.preview.expanded ? msg.preview.text : msg.preview.text.slice(0, PREVIEW_TEXT_LIMIT)}{!msg.preview.expanded && msg.preview.text.length > PREVIEW_TEXT_LIMIT ? '…' : ''}</pre>
+                    {#if msg.preview.text.length > PREVIEW_TEXT_LIMIT}
+                      <button class="chat-preview-expand" on:click={() => { if (msg.preview) msg.preview.expanded = !msg.preview.expanded; messages = messages; }}>
+                        {msg.preview.expanded ? t(dict, 'chat.previewLess') : t(dict, 'chat.previewMore')}
+                      </button>
+                    {/if}
+                  </div>
+                {/if}
+              {/if}
+              {#if msg.text}
+                <p class="chat-text">{@html messageHtml(msg)}</p>
+              {/if}
+              {#if msg.once && !msg.mine && msg.revealed}
+                <p class="chat-once-note">{t(dict, 'chat.onceBurned')}</p>
+              {/if}
+              {/if}
+            {/snippet}
+            {#snippet footer()}
+              <div class="chat-kmsg-meta">
+                {#if msg.pending}
+                  <span class="chat-kmsg-pending" role="status">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['clock']}</svg>
+                    {t(dict, 'chat.queued')}
+                  </span>
+                {:else if msg.failed}
+                  <button type="button" class="chat-kmsg-pending chat-kmsg-pending--failed" on:click={() => retryQueued(msg)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['rotate-ccw-clock']}</svg>
+                    {t(dict, 'chat.tryAgain')}
+                  </button>
+                {/if}
+                <ChatReactions {dict} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
+                {#if msg.ttl > 0}
+                  <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
+                    <svg class="chat-timer__ring" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.1" />
+                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-dasharray="62.83"
+                        stroke-dashoffset={62.83 * (1 - msg.remaining / msg.ttl)}
+                        stroke-linecap="round"
+                        transform="rotate(-90 12 12)" />
+                    </svg>
+                    <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
+                  </div>
+                {/if}
+              </div>
+            {/snippet}
+          </Message>
+        </div>
         {:else}
         <div
           class="chat-bubble"
@@ -5110,8 +5345,11 @@
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
                 <span class="chat-sender" style="color: {msg.mine ? 'var(--accent)' : safeColor(msg.color)}">{msg.sender}</span>
+                {#if msg.once}
+                  <span class="chat-once-badge" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
+                {/if}
                 {#if msg.keyWarning}
-                  <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; deleteConfirm = false; }}>{t(dict, 'chat.keyNew')}</button>
+                  <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
                 {#if verified}
                   <ChatMessageActions
@@ -5119,9 +5357,11 @@
                     open={actionMenuFor === msg.id}
                     align={msg.mine ? 'end' : 'start'}
                     mine={actionMenuFor === msg.id ? myReactions(msg.id, reactionTick) : []}
+                    canBurn={msg.mine && !msg.whiteboard}
                     ontoggle={(open) => { actionMenuFor = open ? msg.id : actionMenuFor === msg.id ? null : actionMenuFor; }}
                     onreply={() => startReply(msg)}
                     onreact={(emoji) => toggleReaction(msg, emoji)}
+                    onburn={() => burnOwnMessage(msg)}
                   />
                 {/if}
               </div>
@@ -5129,26 +5369,34 @@
                 {@const quote = quoteOf(msg.replyTo, messageIndex)}
                 <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
               {/if}
-              {#if msg.file?.voice}
+              {#if msg.once && !msg.mine && !msg.revealed}
+                <button type="button" class="chat-once-reveal" on:click={() => revealOnce(msg)}>
+                  <span class="chat-once-reveal__blur" aria-hidden="true">{msg.file?.voice ? t(dict, 'chat.onceBlurVoice') : msg.file ? t(dict, 'chat.onceBlurFile') : (msg.text || t(dict, 'chat.onceBlurText'))}</span>
+                  <span class="chat-once-reveal__label">{t(dict, 'chat.onceReveal')}</span>
+                </button>
+              {:else}
+              {#if msg.file?.voice && !msg.pending}
                 {@const gone = fileGone(msg)}
-                <ChatVoiceMessage {dict} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
+                <ChatVoiceMessage {dict} {appMode} seed={msg.id} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
               {:else if msg.file}
-                {@const gone = fileGone(msg)}
+                {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['file']}</svg>
                   <div class="flex-1 min-w-0">
                     <span class="chat-file__name">{msg.file.name}</span>
                     <span class="chat-file__size">
                       {#if gone}
                         {t(dict, 'chat.fileExpired')}
+                      {:else if msg.pending}
+                        {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`} · {t(dict, 'chat.queued')}
                       {:else}
                         {msg.file.size < 1048576 ? `${(msg.file.size / 1024).toFixed(1)} KB` : `${(msg.file.size / 1048576).toFixed(1)} MB`} · {fileTimeLeft(msg)}
                       {/if}
                     </span>
                   </div>
-                  {#if !gone}
+                  {#if !gone && !msg.pending}
                     <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['download']}</svg>
                     </button>
                   {/if}
                 </div>
@@ -5156,14 +5404,14 @@
               {#if msg.whiteboard}
                 <div class="chat-whiteboard-card">
                   <div class="chat-whiteboard-card__icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v14H3z"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 9h5"/><path d="M7 13h10"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['presentation']}</svg>
                   </div>
                   <div class="chat-whiteboard-card__body">
                     <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
                     <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
                     <div class="chat-whiteboard-card__actions">
                       <button type="button" class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['external-link']}</svg>
                         {t(dict, 'chat.whiteboardOpenNewTab')}
                       </button>
                     </div>
@@ -5187,6 +5435,10 @@
               {#if msg.text}
                 <p class="chat-text">{@html messageHtml(msg)}</p>
               {/if}
+              {#if msg.once && !msg.mine && msg.revealed}
+                <p class="chat-once-note">{t(dict, 'chat.onceBurned')}</p>
+              {/if}
+              {/if}
               <ChatReactions {dict} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
             </div>
             {#if msg.ttl > 0}
@@ -5207,39 +5459,47 @@
         {/if}
       {/each}
 
-      {#if typing}
-        <div class="chat-typing">
-          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(typing.alias, typing.sender)}" title={typing.sender} aria-label={typing.sender}></div>
-          <span style="color: {safeColor(typing.color)}">{typing.sender}</span> {t(dict, 'chat.isTyping')}
-        </div>
-      {/if}
 
         </div>
 
-        {#if belowCount > 0 && !stickToBottom}
-          <button type="button" class="chat-jump-latest" on:click={jumpToLatest} aria-label={t(dict, 'chat.jumpLatest')}>
-            <span class="chat-jump-latest__count">{belowCount > 99 ? '99+' : belowCount}</span>
-            <span>{t(dict, 'chat.newBelow')}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        {#if !stickToBottom}
+          <button type="button" class="chat-jump-latest" class:chat-jump-latest--new={belowCount > 0} on:click={jumpToLatest} aria-label={t(dict, 'chat.jumpLatest')}>
+            {#if belowCount > 0}
+              <span class="chat-jump-latest__count">{belowCount > 99 ? '99+' : belowCount}</span>
+              <span>{t(dict, 'chat.newBelow')}</span>
+            {/if}
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['arrow-down']}</svg>
           </button>
         {/if}
         </div>
 
+        <div class="chat-typing" aria-live="polite">
+          {#if typing}
+            <span class="chat-avatar chat-avatar--xs" style="background: {gradientFor(typing.alias, typing.sender)}" aria-hidden="true"></span>
+            <span><strong style="color: {safeColor(typing.color)}">{typing.sender}</strong> {t(dict, 'chat.isTyping')}</span>
+          {/if}
+        </div>
+
         {#if uploading}
           <div class="chat-upload-progress">
-            <ProgressPulse
-              title={t(dict, 'chat.uploading')}
-              compact={true}
-              ratio={uploadBar}
-              transferLine={uploadLine}
-            />
+            {#if appMode}
+              <Progressbar progress={uploadBar} />
+              <span class="chat-upload-line">{uploadLine || t(dict, 'chat.uploading')}</span>
+            {:else}
+              <ProgressPulse
+                title={t(dict, 'chat.uploading')}
+                compact={true}
+                ratio={uploadBar}
+                transferLine={uploadLine}
+              />
+            {/if}
           </div>
         {/if}
         {#if fileError}
           <div class="chat-file-error" role="alert">
             <span>{fileError}</span>
             <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { fileError = ''; }} aria-label={t(dict, 'chat.callDismiss')}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
             </button>
           </div>
         {/if}
@@ -5249,477 +5509,72 @@
             <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} oncancel={() => { replyTarget = null; inputEl?.focus(); }} />
           </div>
         {/if}
-        <div class="chat-input">
-          {#if !voiceRecording}
-          <div class="chat-attach-menu">
-            <button
-              type="button"
-              class="chat-attach-btn"
-              class:chat-attach-btn--active={composerMenuOpen}
-              on:click={() => { composerMenuOpen = !composerMenuOpen; }}
-              disabled={!connected || uploading}
-              aria-haspopup="menu"
-              aria-expanded={composerMenuOpen}
-              aria-label={t(dict, 'chat.addMenu')}
-              title={t(dict, 'chat.addMenu')}
-            >
-              {#if uploading}
-                <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-              {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              {/if}
-            </button>
-            {#if composerMenuOpen}
-              <div class="chat-attach-dropdown" role="menu">
-                <button type="button" class="chat-attach-option" role="menuitem" on:click={chooseFileUpload}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <span>{t(dict, 'chat.uploadFile')}</span>
-                </button>
-                <button type="button" class="chat-attach-option" role="menuitem" on:click={createWhiteboardInvite} disabled={!verified}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v14H3z"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 9h5"/><path d="M7 13h10"/></svg>
-                  <span>{t(dict, 'chat.createWhiteboard')}</span>
-                </button>
+        {#if scheduledDrafts.length}
+          <div class="chat-schedule-list" aria-live="polite">
+            {#each scheduledDrafts as draft (draft.id)}
+              <div class="chat-schedule-item">
+                <div class="chat-schedule-item__body">
+                  <span class="chat-schedule-item__when">{t(dict, 'chat.scheduleFor').replace('{when}', formatScheduleAt(draft.sendAt, locale, scheduleClock))}</span>
+                  <span class="chat-schedule-item__text">{draft.text}</span>
+                </div>
+                <button type="button" class="btn-ghost btn-sm" on:click={() => cancelScheduled(draft.id)}>{t(dict, 'chat.scheduleCancel')}</button>
               </div>
-            {/if}
+            {/each}
           </div>
-          {/if}
-          <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={handleFileSelect} />
-          {#if !voiceRecording}
-          <input
-            type="text"
-            class="chat-input-field"
-            aria-label={t(dict, 'chat.messagePlaceholder')}
-            placeholder={uploading ? t(dict, 'chat.uploading') : t(dict, 'chat.messagePlaceholder')}
-            bind:value={inputText}
-            bind:this={inputEl}
-            on:input={handleTyping}
-            on:keydown={(e) => { if (e.key === 'Enter') handleSend(); else if (e.key === 'Escape' && replyTarget) replyTarget = null; }}
-            on:focus={() => { composerMenuOpen = false; }}
-            disabled={!connected || uploading}
-            autocomplete="off"
-            spellcheck="false"
-            data-lpignore="true"
-            data-1p-ignore
-          />
-          {/if}
-          <ChatVoiceRecorder {dict} bind:recording={voiceRecording} disabled={!connected || !verified || uploading} onrecorded={sendVoice} onerror={(message) => { fileError = message; }} />
-          {#if !voiceRecording}
-          <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:click={handleSend} disabled={!connected || (!inputText.trim() && !uploading)}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          </button>
-          {/if}
-        </div>
+        {/if}
+        <ChatComposer
+          {dict}
+          {connected}
+          {verified}
+          {uploading}
+          allowQueue={Boolean(cryptoKey)}
+          {appMode}
+          bind:inputText
+          bind:inputEl
+          bind:fileInputEl
+          bind:composerMenuOpen
+          bind:voiceRecording
+          bind:onceEnabled
+          bind:scheduleMenuOpen
+          hasReply={Boolean(replyTarget)}
+          schedulePresets={SCHEDULE_PRESETS}
+          onsend={handleSend}
+          ontyping={handleTyping}
+          onchoosefile={chooseFileUpload}
+          oncreatewhiteboard={createWhiteboardInvite}
+          onfileselect={handleFileSelect}
+          onvoicerecorded={sendVoice}
+          onvoiceerror={(message) => { fileError = message; }}
+          onclearreply={() => { replyTarget = null; }}
+          onschedule={(offsetMs) => queueScheduled(offsetMs)}
+        />
       </div>
     </div>
   {/if}
 
-  {#if callFullscreenMedia}
-    <div
-      class="chat-call-fullscreen"
-      bind:this={callFullscreenOverlayEl}
-      role="dialog"
-      aria-modal="true"
-      aria-label={callFullscreenMedia.name}
-      tabindex="-1"
-    >
-      <div class="chat-call-fullscreen__bar">
-        <div class="chat-call-fullscreen__meta">
-          <span>{callFullscreenMedia.name}</span>
-          {#if callFullscreenMedia.isScreen}<span>{t(dict, 'chat.callScreenSharing')}</span>{/if}
-        </div>
-        <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} on:click={() => closeCallFullscreen()}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
-        </button>
-      </div>
-      <video
-        class="chat-call-fullscreen__video"
-        use:streamMedia={{ stream: callFullscreenMedia.stream, muted: true, volume: 0 }}
-        autoplay
-        muted
-        playsinline
-        controlslist="nodownload nofullscreen noremoteplayback"
-        disablepictureinpicture
-        disableremoteplayback
-        on:pause={keepCallMediaPlaying}
-        on:contextmenu={preventMediaContextMenu}
-      ></video>
-    </div>
-  {/if}
 </div>
 
-<style>
-  .call {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    background: #111214;
-    color: #f2f3f5;
-  }
-  .call--error {
-    background: transparent;
-    color: inherit;
-    padding: 0.75rem;
-  }
-  .call__stage {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    padding: 0.6rem 0.6rem 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .call__status {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #b5bac1;
-  }
-  .call__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #80848e;
-  }
-  .call__dot--good { background: #23a55a; }
-  .call__dot--fair { background: #f0b232; }
-  .call__dot--poor,
-  .call__dot--offline { background: #f23f43; }
-  .call__grid {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-content: center;
-    justify-content: center;
-    gap: 8px;
-  }
-  .call__tile {
-    position: relative;
-    width: var(--tile-w, 200px);
-    aspect-ratio: var(--tile-ratio, 1.6);
-    container-type: inline-size;
-    border-radius: 0.75rem;
-    overflow: hidden;
-    background: #2b2d31;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 0 2px transparent;
-    transition: box-shadow 0.15s ease-out;
-  }
-  .call__tile--speaking {
-    box-shadow: 0 0 0 2px #23a55a;
-  }
-  .call__tile--blurred .call__video {
-    filter: blur(14px);
-  }
-  .call__video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: #000;
-  }
-  .call__video--contain {
-    object-fit: contain;
-  }
-  .call__avatar {
-    width: clamp(36px, 28cqw, 88px);
-    aspect-ratio: 1;
-    border-radius: 999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(0.8rem, 8cqw, 1.5rem);
-    font-weight: 900;
-    color: #fff;
-  }
-  .call__name {
-    position: absolute;
-    left: 0.4rem;
-    bottom: 0.4rem;
-    max-width: calc(100% - 0.8rem);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: 0.4rem;
-    background: rgba(0, 0, 0, 0.6);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #fff;
-  }
-  .call__name > span:first-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .call__name svg {
-    flex: none;
-    color: #f23f43;
-  }
-  .call__name .call__name-screen {
-    color: #23a55a;
-  }
-  .call__name-state {
-    flex: none;
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    background: #f0b232;
-    animation: call-pulse 1.2s ease-in-out infinite;
-  }
-  .call__name-state--failed {
-    background: #f23f43;
-    animation: none;
-  }
-  @keyframes call-pulse {
-    50% { opacity: 0.35; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .call__name-state { animation: none; }
-  }
-  .call__level {
-    flex: none;
-    width: 26px;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.18);
-    overflow: hidden;
-  }
-  .call__level::after {
-    content: "";
-    display: block;
-    height: 100%;
-    width: calc(var(--level, 0) * 100%);
-    background: #23a55a;
-    transition: width 0.1s linear;
-  }
-  .call__expand {
-    position: absolute;
-    top: 0.45rem;
-    right: 0.45rem;
-    width: 32px;
-    height: 32px;
-    border-radius: 0.45rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    color: #fff;
-    opacity: 0;
-    transition: opacity 0.15s ease-out;
-  }
-  .call__tile:hover .call__expand,
-  .call__expand:focus-visible {
-    opacity: 1;
-  }
-  .call__count {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .call__bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    padding: 0.5rem 0.6rem 0.6rem;
-  }
-  .call__btn {
-    position: relative;
-    width: 44px;
-    height: 44px;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #2b2d31;
-    color: #f2f3f5;
-    transition: background-color 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
-  }
-  .call__btn:hover:not(:disabled) {
-    background: #3f4147;
-  }
-  .call__btn:active:not(:disabled) {
-    transform: scale(0.96);
-  }
-  .call__btn--off {
-    background: #f2f3f5;
-    color: #f23f43;
-  }
-  .call__btn--off:hover:not(:disabled) {
-    background: #fff;
-  }
-  .call__btn--on {
-    background: #f2f3f5;
-    color: #111214;
-  }
-  .call__btn--on:hover:not(:disabled) {
-    background: #fff;
-  }
-  .call__btn--leave {
-    width: 56px;
-    background: #f23f43;
-    color: #fff;
-  }
-  .call__badge {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    background: #f23f43;
-    box-shadow: 0 0 0 2px #111214;
-  }
-  .call__btn--leave:hover:not(:disabled) {
-    background: #da373c;
-  }
-  .call__btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .call__btn:focus-visible {
-    outline: 2px solid #fff;
-    outline-offset: 2px;
-  }
-  .call__settings {
-    position: absolute;
-    right: 0.6rem;
-    bottom: 3.9rem;
-    width: min(19rem, calc(100% - 1.2rem));
-    max-height: calc(100% - 4.5rem);
-    z-index: 2;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-    padding: 0.5rem 0.65rem 0.65rem;
-    border-radius: 0.75rem;
-    border: 1px solid #3f4147;
-    background: #232428;
-    display: grid;
-    gap: 0.4rem;
-    font-size: 0.8125rem;
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
-  .call__settings-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-weight: 700;
-  }
-  .call__settings .label,
-  .call__settings .check {
-    color: #f2f3f5;
-  }
-  .call__settings .label {
-    font-size: 0.75rem;
-    color: #b5bac1;
-  }
-  .call__settings .field {
-    gap: 0.25rem;
-  }
-  .call__settings .check {
-    min-height: 2rem;
-    gap: 0.5rem;
-    font-size: 0.8125rem;
-  }
-  .call__settings input[type="range"] {
-    height: 1.25rem;
-  }
-  .call__settings .input {
-    background: #1e1f22;
-    border-color: #3f4147;
-    color: #f2f3f5;
-    min-height: 2rem;
-    padding-top: 0.25rem;
-    padding-bottom: 0.25rem;
-    font-size: 0.8125rem;
-  }
-  .call__settings .btn-ghost {
-    color: #b5bac1;
-  }
-  .call__settings .btn-ghost:hover {
-    background: #3f4147;
-    color: #fff;
-  }
-  .call__settings .btn-ghost.text-danger {
-    color: #f23f43;
-  }
-  .call__fields {
-    display: grid;
-    gap: 0.5rem;
-  }
-  .call__peers {
-    display: grid;
-    gap: 0.5rem;
-  }
-  .call__peer {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.4rem 0.5rem;
-  }
-  .call__peer input[type="range"] {
-    grid-column: 1 / -1;
-    height: 2rem;
-  }
-  .call__peer-name {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .call__peer-name span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .call__relay {
-    font-size: 0.75rem;
-    color: #b5bac1;
-  }
-  .call .status--error {
-    margin: 0.75rem;
-  }
-  .chat-body--call > .call {
-    flex: 1 1 58%;
-    min-height: 240px;
-    overflow: hidden;
-  }
-  .chat-body--call > .chat-thread {
-    flex: 1 1 42%;
-    min-height: 180px;
-  }
-  .chat-body--chat-hidden > .chat-thread {
-    display: none;
-  }
-  @container chat-body (min-width: 760px) {
-    .chat-body--call {
-      flex-direction: row;
-    }
-    .chat-body--call > .call {
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-    .chat-body--call > .chat-thread {
-      flex: 0 0 clamp(280px, 34%, 380px);
-      min-height: 0;
-      border-left: 1px solid var(--line-soft);
-    }
-  }
-  @media (hover: none) {
-    .call__expand {
-      opacity: 1;
-    }
-  }
+{#if appMode && lightboxUrl}
+  <div
+    class="chat-lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label={t(dict, 'app.lightbox.image')}
+    on:click={closeLightbox}
+  >
+    <img src={lightboxUrl} alt="" class="chat-lightbox__img" />
+    <button
+      type="button"
+      class="chat-lightbox__close"
+      on:click={closeLightbox}
+      aria-label={t(dict, 'app.lightbox.close')}
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
+    </button>
+  </div>
+{/if}
 
+<style>
   .chat-container {
     display: flex;
     flex-direction: column;
@@ -5740,14 +5595,6 @@
     justify-content: center;
     padding: 2rem;
   }
-  .chat-copy-link span {
-    display: none;
-  }
-  @media (min-width: 640px) {
-    .chat-copy-link span {
-      display: inline;
-    }
-  }
   .chat-header {
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -5755,10 +5602,34 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid rgba(228, 228, 231, 0.5);
+    border-bottom: 1px solid var(--line-soft);
   }
-  :global(.dark) .chat-header { border-color: rgba(39, 39, 42, 0.4); }
-  .chat-profile { position: relative; }
+  .chat-header-menu__panel {
+    min-width: 17rem;
+    max-width: min(22rem, calc(100vw - 2rem));
+    max-height: min(70dvh, 28rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .chat-header-menu__panel :global(.menu__item) {
+    min-height: 2.75rem;
+  }
+  .chat-header-menu__icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .chat-header-menu__check {
+    width: 0.95rem;
+    height: 0.95rem;
+    margin-left: auto;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .chat-header-menu__danger:not(:disabled):hover {
+    color: var(--danger);
+  }
+  .chat-profile { position: relative; z-index: 3; }
   .chat-avatar--btn {
     position: relative;
     border: 0;
@@ -5770,13 +5641,14 @@
   .chat-avatar--btn:hover { transform: scale(1.08); }
   .chat-avatar__edit {
     position: absolute;
-    right: -4px;
-    bottom: -4px;
+    right: -5px;
+    top: -5px;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
     border-radius: 9999px;
     background: var(--surface);
     color: var(--text);
@@ -5788,6 +5660,9 @@
     left: 0;
     z-index: 30;
     width: min(18rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 4rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     display: grid;
     gap: 0.4rem;
     padding: 0.75rem;
@@ -5844,10 +5719,12 @@
   }
   .chat-jump-latest {
     position: absolute;
-    left: 50%;
+    right: 1.25rem;
     bottom: 0.75rem;
     z-index: 4;
-    transform: translateX(-50%);
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    justify-content: center;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -5863,6 +5740,7 @@
     line-height: 1.2;
     cursor: pointer;
   }
+  .chat-jump-latest--new { border-radius: 999px; padding-inline: 0.9rem; }
   .chat-jump-latest:hover,
   .chat-jump-latest:focus-visible {
     background: var(--accent-weak);
@@ -5888,22 +5766,13 @@
     background: oklch(0.7019 0.1577 160.44 / 0.06);
     border-color: oklch(0.7019 0.1577 160.44 / 0.1);
   }
-  .chat-share-value {
-    flex: 1; min-width: 0;
-    font-size: 12px; font-family: var(--font-mono);
-    color: rgb(63, 63, 70); background: rgba(244, 244, 245, 0.8);
-    padding: 4px 8px; border-radius: 6px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  .chat-room-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
   }
-  :global(.dark) .chat-share-value {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.6);
-  }
-  .chat-share-copy {
-    flex-shrink: 0; padding: 2px;
-    color: rgb(161, 161, 170); transition: color 0.15s;
-  }
-  .chat-share-copy:hover { color: var(--accent); }
   .chat-mode-badge {
     min-height: 30px;
     display: inline-flex;
@@ -5917,18 +5786,33 @@
     font-weight: 700;
     white-space: nowrap;
   }
+  .chat-mode-badge--soft {
+    border-color: var(--line-soft);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+  }
   :global(.dark) .chat-mode-badge {
     color: oklch(0.84 0.13 160.44);
     border-color: oklch(0.7019 0.1577 160.44 / 0.16);
     background: oklch(0.7019 0.1577 160.44 / 0.09);
   }
+  :global(.dark) .chat-mode-badge--soft {
+    color: var(--muted);
+    border-color: var(--line-soft);
+    background: transparent;
+  }
+  .chat-safety-banner .chat-member__safety {
+    margin-top: 0.15rem;
+    font-size: 1.15rem;
+    letter-spacing: 0.08em;
+  }
   .chat-members {
     display: grid;
     gap: 0.6rem;
     padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid rgba(228, 228, 231, 0.5);
+    border-bottom: 1px solid var(--line-soft);
   }
-  :global(.dark) .chat-members { border-color: rgba(39, 39, 42, 0.4); }
   .chat-member {
     display: flex;
     align-items: flex-start;
@@ -5950,17 +5834,19 @@
     align-items: baseline;
     gap: 0.4rem;
   }
-  .chat-member__code {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.08em;
+  .chat-member__emoji {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    font-size: 1.15rem;
+    line-height: 1.3;
+    letter-spacing: 0.05em;
     color: var(--text);
   }
   .chat-member__safety {
-    display: grid;
-    grid-template-columns: repeat(4, max-content);
-    gap: 0.1rem 0.6rem;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
   }
   .chat-key-warn {
     display: inline-flex;
@@ -5995,12 +5881,12 @@
   }
   .chat-call-banner__title {
     font-size: 12px; font-weight: 800;
-    color: rgb(39, 39, 42);
+    color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  :global(.dark) .chat-call-banner__title { color: rgb(228, 228, 231); }
+  :global(.dark) .chat-call-banner__title { color: var(--text); }
   .chat-call-banner__name {
-    font-size: 0.75rem; color: rgb(113, 113, 122);
+    font-size: 0.75rem; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chat-call-banner__actions { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
@@ -6016,106 +5902,12 @@
     background: var(--accent);
   }
   .chat-call-decline {
-    color: rgb(113, 113, 122);
-    background: rgba(244, 244, 245, 0.85);
+    color: var(--muted);
+    background: var(--surface-2);
   }
   :global(.dark) .chat-call-decline {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.65);
-  }
-  .chat-call-fullscreen-btn {
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    z-index: 2;
-    width: 28px;
-    height: 28px;
-    border-radius: 0.45rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    background: rgba(24, 24, 27, 0.68);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    opacity: 0;
-    transform: translateY(-2px);
-    transition: opacity 0.15s, transform 0.15s, background 0.15s;
-  }
-  .chat-call-fullscreen-btn:hover {
-    background: oklch(0.7019 0.1577 160.44 / 0.82);
-  }
-  .chat-call-fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgb(5, 5, 6);
-    outline: none;
-  }
-  .chat-call-fullscreen__video {
-    width: 100vw;
-    height: 100dvh;
-    object-fit: contain;
-    background: rgb(5, 5, 6);
-  }
-  .chat-call-fullscreen__bar {
-    position: absolute;
-    top: max(14px, env(safe-area-inset-top));
-    left: max(14px, env(safe-area-inset-left));
-    right: max(14px, env(safe-area-inset-right));
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    pointer-events: none;
-  }
-  .chat-call-fullscreen__meta {
-    min-width: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.38rem 0.55rem;
-    border-radius: 0.55rem;
-    color: white;
-    background: rgba(24, 24, 27, 0.74);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    font-size: 12px;
-    font-weight: 700;
-    pointer-events: auto;
-  }
-  .chat-call-fullscreen__meta span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .chat-call-fullscreen__meta span + span {
-    flex-shrink: 0;
-    color: rgb(187, 247, 208);
-  }
-  .chat-call-fullscreen__close {
-    width: 36px;
-    height: 36px;
-    border-radius: 0.55rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    background: rgba(24, 24, 27, 0.74);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    pointer-events: auto;
-  }
-  .chat-call-fullscreen__close:hover {
-    background: rgba(239, 68, 68, 0.82);
-  }
-  @media (hover: none) {
-    .chat-call-fullscreen-btn {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    color: var(--text);
+    background: rgba(20, 31, 18, 0.65);
   }
   .chat-status {
     width: 8px; height: 8px; border-radius: 9999px;
@@ -6132,21 +5924,33 @@
     50% { opacity: 0.4; }
   }
   .chat-messages {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
     flex: 1; min-height: 0; overflow-y: auto; padding: 1.25rem;
     display: flex; flex-direction: column; gap: 0.6rem;
     transition: filter 0.3s;
   }
+  .chat-messages::-webkit-scrollbar { width: 12px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb {
+    min-height: 72px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--line) padding-box;
+  }
+  .chat-messages::-webkit-scrollbar-thumb:hover { background: var(--accent) padding-box; }
   .chat-messages--blurred { filter: blur(8px); }
   .chat-thread--drop { outline: 2px dashed var(--accent); outline-offset: -6px; border-radius: 0.75rem; }
   .chat-avatar {
     width: 34px; height: 34px; border-radius: 9999px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     overflow: hidden;
+    background-color: var(--surface-2);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--line-soft) 85%, transparent), 0 2px 8px rgba(0,0,0,0.12);
   }
   .chat-avatar--sm {
-    width: 24px; height: 24px; border-radius: 9999px; font-size: 0.75rem;
+    width: 24px; height: 24px; border-radius: 9999px;
   }
   .chat-system {
     align-self: center;
@@ -6160,11 +5964,11 @@
   }
   .chat-bubble {
     max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 0.875rem;
-    background: rgba(244, 244, 245, 0.8); align-self: flex-start;
+    background: var(--surface-2); align-self: flex-start;
     content-visibility: auto;
     contain-intrinsic-size: auto 12rem auto 4rem;
   }
-  :global(.dark) .chat-bubble { background: rgba(39, 39, 42, 0.5); }
+  :global(.dark) .chat-bubble { background: rgba(20, 31, 18, 0.5); }
   .chat-bubble--mine {
     align-self: flex-end;
     background: oklch(0.7019 0.1577 160.44 / 0.12);
@@ -6173,6 +5977,43 @@
   .chat-bubble--menu { content-visibility: visible; position: relative; z-index: 5; }
   .chat-bubble--highlight { box-shadow: 0 0 0 2px var(--accent-line); }
   .chat-reply-bar { padding: 0.4rem 0.75rem 0; }
+  .chat-schedule-list {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem 0;
+  }
+  .chat-schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--line-soft);
+    background: var(--surface-2, oklch(0.97 0.01 150));
+  }
+  :global(.dark) .chat-schedule-item {
+    background: oklch(0.22 0.02 150 / 0.55);
+  }
+  .chat-schedule-item__body {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 0.1rem;
+  }
+  .chat-schedule-item__when {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .chat-schedule-item__text {
+    font-size: 0.85rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .chat-sender-row {
     display: flex;
     align-items: center;
@@ -6180,11 +6021,60 @@
     gap: 0.35rem;
     margin-bottom: 2px;
   }
-  .chat-sender { font-size: 12px; font-weight: 700; display: block; }
-  .chat-text {
-    font-size: 15px; line-height: 1.5; color: rgb(63, 63, 70); word-break: break-word;
+  .chat-sender { font-size: 12px; font-weight: 700; display: block; overflow-wrap: anywhere; }
+  .chat-once-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.35rem;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
-  :global(.dark) .chat-text { color: rgb(212, 212, 216); }
+  .chat-once-reveal {
+    position: relative;
+    display: block;
+    width: 100%;
+    margin-top: 0.15rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.55rem;
+    border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--line-soft));
+    background: oklch(0.7019 0.1577 160.44 / 0.06);
+    text-align: left;
+    overflow: hidden;
+  }
+  .chat-once-reveal__blur {
+    display: block;
+    filter: blur(7px);
+    user-select: none;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+    max-height: 3.2em;
+    overflow: hidden;
+  }
+  .chat-once-reveal__label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .chat-once-note {
+    margin-top: 0.35rem;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .chat-text {
+    font-size: 15px; line-height: 1.5; color: var(--muted); word-break: break-word;
+  }
+  :global(.dark) .chat-text { color: var(--text); }
   .chat-timer {
     position: relative; width: 32px; height: 32px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
@@ -6194,7 +6084,7 @@
     color: var(--accent);
   }
   .chat-timer__num {
-    font-size: 0.75rem; font-weight: 700; color: rgb(161, 161, 170);
+    font-size: 0.75rem; font-weight: 700; color: var(--muted);
     position: relative; z-index: 1;
   }
   .chat-text :global(strong) { font-weight: 700; }
@@ -6218,7 +6108,7 @@
     background: rgba(255, 255, 255, 0.05);
   }
   .chat-text :global(.chat-spoiler) {
-    background: rgb(63, 63, 70); color: transparent; border-radius: 3px;
+    background: var(--line); color: transparent; border-radius: 3px;
     padding: 0 3px; cursor: pointer; transition: all 0.2s;
   }
   .chat-text :global(.chat-spoiler.revealed) {
@@ -6227,15 +6117,20 @@
   .chat-text :global(.chat-quote) {
     border-left: 3px solid oklch(0.7019 0.1577 160.44 / 0.4);
     padding-left: 8px; margin: 2px 0;
-    color: rgb(113, 113, 122);
+    color: var(--muted);
   }
   .chat-typing {
-    font-size: 13px; color: rgb(161, 161, 170); padding: 0.3rem 0;
-    display: flex; align-items: center; gap: 0.5rem;
+    height: 1.5rem; flex: none;
+    font-size: 12px; color: var(--muted); padding: 0 1.25rem;
+    display: flex; align-items: center; gap: 0.4rem;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
+  .chat-avatar--xs { width: 16px; height: 16px; box-shadow: none; }
+  .chat-avatar--lg { width: 48px; height: 48px; }
+  .chat-profile__avatar { display: flex; align-items: center; gap: 0.75rem; }
   .chat-wrong-password {
     display: flex; align-items: center; gap: 0.4rem;
-    font-size: 0.75rem; color: rgb(239, 68, 68);
+    font-size: 0.75rem; color: var(--danger);
     padding: 0.5rem 0.75rem; margin-top: 0.25rem;
     border-radius: 0.5rem;
     background: rgba(239, 68, 68, 0.08);
@@ -6248,24 +6143,16 @@
     color: var(--danger);
     font-size: 0.875rem;
   }
+  .chat-upload-line {
+    font-size: 11px;
+    color: var(--muted);
+  }
   .chat-upload-progress {
     padding: 0.5rem 0.75rem 0;
   }
   .chat-upload-progress :global(.status) {
     margin: 0;
   }
-  .chat-input {
-    display: flex; align-items: center; gap: 0.6rem;
-    padding: 0.75rem 1rem;
-    border-top: 1px solid rgba(228, 228, 231, 0.5);
-  }
-  :global(.dark) .chat-input { border-color: rgba(39, 39, 42, 0.4); }
-  .chat-input-field {
-    flex: 1; background: transparent; border: none; outline: none;
-    font-size: 15px; color: rgb(24, 24, 27); padding: 0.5rem 0;
-  }
-  :global(.dark) .chat-input-field { color: rgb(228, 228, 231); }
-  .chat-input-field::placeholder { color: rgb(161, 161, 170); }
   .chat-preview-img {
     max-width: 100%; max-height: 240px;
     border-radius: 0.5rem; margin-top: 0.25rem;
@@ -6273,86 +6160,34 @@
   }
   .chat-preview-text {
     margin-top: 0.25rem; border-radius: 0.4rem; overflow: hidden;
-    border: 1px solid rgba(228, 228, 231, 0.5);
+    border: 1px solid var(--line-soft);
   }
   :global(.dark) .chat-preview-text {
-    border-color: rgba(39, 39, 42, 0.4);
+    border-color: var(--text);
   }
   .chat-preview-code {
     margin: 0; padding: 0.5rem 0.6rem;
     font-family: var(--font-mono); font-size: 12px; line-height: 1.5;
     white-space: pre-wrap; word-break: break-all;
-    color: rgb(82, 82, 91); background: rgba(244, 244, 245, 0.6);
+    color: var(--muted); background: var(--surface-2);
     max-height: 200px; overflow-y: auto;
   }
   :global(.dark) .chat-preview-code {
-    color: rgb(161, 161, 170);
-    background: rgba(24, 24, 27, 0.5);
+    color: var(--muted);
+    background: rgba(7, 11, 6, 0.5);
   }
   .chat-preview-expand {
     display: block; width: 100%; padding: 0.3rem;
     font-size: 0.75rem; font-weight: 600; text-align: center;
     color: var(--accent);
-    background: rgba(244, 244, 245, 0.8);
-    border-top: 1px solid rgba(228, 228, 231, 0.5);
+    background: var(--surface-2);
+    border-top: 1px solid var(--line-soft);
   }
   :global(.dark) .chat-preview-expand {
-    background: rgba(24, 24, 27, 0.6);
-    border-color: rgba(39, 39, 42, 0.4);
+    background: rgba(7, 11, 6, 0.6);
+    border-color: var(--text);
   }
   .chat-preview-expand:hover { background: oklch(0.7019 0.1577 160.44 / 0.08); }
-  .chat-attach-btn {
-    padding: 0.4rem; border-radius: 0.5rem;
-    color: rgb(161, 161, 170); transition: color 0.15s;
-  }
-  .chat-attach-menu { position: relative; flex-shrink: 0; }
-  .chat-attach-btn:hover:not(:disabled),
-  .chat-attach-btn--active {
-    color: var(--accent);
-  }
-  .chat-attach-btn:disabled { opacity: 0.3; }
-  .chat-attach-dropdown {
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 8px);
-    z-index: 30;
-    width: 190px;
-    padding: 0.3rem;
-    border-radius: 0.65rem;
-    border: 1px solid rgba(228, 228, 231, 0.75);
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
-    backdrop-filter: blur(14px);
-  }
-  :global(.dark) .chat-attach-dropdown {
-    border-color: rgba(63, 63, 70, 0.65);
-    background: rgba(24, 24, 27, 0.96);
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
-  }
-  .chat-attach-option {
-    width: 100%;
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0 0.55rem;
-    border-radius: 0.5rem;
-    font-size: 12px;
-    font-weight: 800;
-    color: rgb(63, 63, 70);
-    text-align: left;
-  }
-  .chat-attach-option:hover:not(:disabled) {
-    color: var(--accent);
-    background: oklch(0.7019 0.1577 160.44 / 0.08);
-  }
-  .chat-attach-option:disabled {
-    opacity: 0.42;
-    cursor: not-allowed;
-  }
-  :global(.dark) .chat-attach-option {
-    color: rgb(228, 228, 231);
-  }
   .chat-file {
     display: flex; align-items: center; gap: 0.5rem;
     padding: 0.4rem 0.6rem; margin: 0.25rem 0;
@@ -6362,17 +6197,18 @@
     color: var(--accent);
   }
   .chat-file--error {
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: var(--danger);
     background: rgba(239, 68, 68, 0.06);
-    color: rgb(239, 68, 68);
+    color: var(--danger);
     opacity: 0.6;
   }
   .chat-file__name {
-    font-size: 13px; font-weight: 600; display: block; truncate: true;
-    color: rgb(63, 63, 70);
+    font-size: 13px; font-weight: 600; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--muted);
   }
-  :global(.dark) .chat-file__name { color: rgb(212, 212, 216); }
-  .chat-file__size { font-size: 0.75rem; color: rgb(161, 161, 170); }
+  :global(.dark) .chat-file__name { color: var(--text); }
+  .chat-file__size { font-size: 0.75rem; color: var(--muted); }
   .chat-file__dl {
     padding: 0.25rem; border-radius: 0.35rem;
     color: var(--accent); transition: background 0.15s;
@@ -6410,13 +6246,13 @@
   .chat-whiteboard-card__title {
     font-size: 13px;
     font-weight: 700;
-    color: rgb(39, 39, 42);
+    color: var(--text);
   }
-  :global(.dark) .chat-whiteboard-card__title { color: rgb(228, 228, 231); }
+  :global(.dark) .chat-whiteboard-card__title { color: var(--text); }
   .chat-whiteboard-card__meta {
     margin-top: 1px;
     font-size: 0.75rem;
-    color: rgb(113, 113, 122);
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -6436,9 +6272,9 @@
     border-radius: 0.45rem;
     font-size: 0.75rem;
     font-weight: 700;
-    color: rgb(82, 82, 91);
+    color: var(--muted);
     background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(228, 228, 231, 0.8);
+    border: 1px solid var(--line-soft);
   }
   .chat-whiteboard-card__btn:hover {
     color: var(--accent);
@@ -6454,19 +6290,13 @@
     background: oklch(0.60 0.14 160.44);
   }
   :global(.dark) .chat-whiteboard-card__btn {
-    color: rgb(212, 212, 216);
-    background: rgba(39, 39, 42, 0.68);
-    border-color: rgba(63, 63, 70, 0.5);
+    color: var(--text);
+    background: rgba(20, 31, 18, 0.68);
+    border-color: var(--muted);
   }
   :global(.dark) .chat-whiteboard-card__btn--primary {
     color: white;
     background: var(--accent);
     border-color: var(--accent);
   }
-  .chat-send-btn {
-    padding: 0.4rem; border-radius: 0.5rem;
-    color: var(--accent); transition: background 0.15s;
-  }
-  .chat-send-btn:hover:not(:disabled) { background: oklch(0.7019 0.1577 160.44 / 0.1); }
-  .chat-send-btn:disabled { opacity: 0.3; }
 </style>

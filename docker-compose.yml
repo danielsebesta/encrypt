@@ -9,6 +9,8 @@ services:
     environment:
       DOMAIN: encrypt.example.com
       # ACME_EMAIL: admin@example.com
+      # SITE_NAME: Acme Vault
+      # SITE_CONTACT_EMAIL: security@example.com
       # TURN_MIN_PORT: "49152"
       # TURN_MAX_PORT: "49251"
       # UPLOAD_MONTHLY_GB: "200"

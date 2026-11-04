@@ -24,7 +24,6 @@ interface BenchmarkConfig {
   whiteboardRooms: number;
   clientsPerWhiteboard: number;
   updatesPerWhiteboardClient: number;
-  persistentChat: boolean;
 }
 
 const args = process.argv.slice(2);
@@ -44,7 +43,6 @@ const config: BenchmarkConfig = {
   whiteboardRooms: getArg('whiteboards', 50),
   clientsPerWhiteboard: getArg('wb-clients', 8),
   updatesPerWhiteboardClient: getArg('wb-updates', 15),
-  persistentChat: true,
 };
 
 // Cap clients per room at 32 (protocol limit)
@@ -83,7 +81,7 @@ async function runBenchmark() {
   console.log(`  • Messages per client:     ${config.messagesPerClient} msgs`);
   console.log(`  • Whiteboard Rooms:        ${config.whiteboardRooms} rooms × ${config.clientsPerWhiteboard} clients (${config.whiteboardRooms * config.clientsPerWhiteboard} total clients)`);
   console.log(`  • Updates per WB client:   ${config.updatesPerWhiteboardClient} updates (doc, cursor, laser)`);
-  console.log(`  • Persistent storage:      ${config.persistentChat ? 'Enabled (SQLite Durable Object engine)' : 'Disabled'}`);
+  console.log(`  • Room storage:            SQLite (room configs and alarms only, no message history)`);
   console.log('='.repeat(70));
 
   const tmpPath = mkdtempSync(path.join(tmpdir(), 'ec-bench-'));
@@ -110,7 +108,7 @@ async function runBenchmark() {
     chatRoomNames.push(await accessChannel(tok));
   }
 
-  const roomParty = config.persistentChat ? 'persistent' : 'main';
+  const roomParty = 'main';
   const chatStart = performance.now();
 
   interface ChatMember {
@@ -141,7 +139,7 @@ async function runBenchmark() {
       peer.message(JSON.stringify({
         type: 'join',
         token: tok,
-        config: { mode: 'persistent', authMode: 'fragment', createdAt: Date.now() },
+        config: { mode: 'live', authMode: 'password', createdAt: Date.now(), v: 3 },
       }));
 
       members.push({ id: `client_${r}_${c}`, socket, peer });
@@ -174,7 +172,6 @@ async function runBenchmark() {
         type: 'message',
         id: msgId,
         payload: fakeCiphertext,
-        persist: true,
       }));
       totalChatSent++;
 
@@ -212,7 +209,7 @@ async function runBenchmark() {
     wbRoomNames.push(await accessChannel(tok));
   }
 
-  const wbParty = 'whiteboard-saved';
+  const wbParty = 'whiteboard';
   const wbStart = performance.now();
 
   interface WbMember {

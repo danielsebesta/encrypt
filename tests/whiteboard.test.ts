@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, IMAGE_MAX_EDGE } from '../src/lib/whiteboardRecords';
 import * as Y from 'yjs';
 import { splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../src/lib/whiteboardSync';
+import {
+  SEALED_BOARD_BACKUP_FORMAT,
+  SEALED_BOARD_BACKUP_VERSION,
+  encodeEncryptedBoardBackup,
+  decodeEncryptedBoardBackup,
+} from '../src/lib/whiteboardBackupCrypto';
+
+const FAST = { memory: 8192, iterations: 1, parallelism: 1 };
 
 const shape = (type: string, props: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
   ({ id: 'shape:abc123', typeName: 'shape', type, x: 10, y: 20, rot: 0, z: 1, props, ...extra });
@@ -121,6 +129,25 @@ test('a board backup round-trips the whole document and merges into another boar
   other.getMap('records').set('shape:b', shape('text', { text: 'there', color: 'black', size: 'm' }) as any);
   Y.applyUpdate(other, result.update);
   assert.deepEqual([...other.getMap('records').keys()].sort(), ['shape:a', 'shape:b']);
+});
+
+test('an encrypted board backup round-trips and rejects a wrong password', async () => {
+  const doc = new Y.Doc();
+  doc.getMap('records').set('shape:a', shape('text', { text: 'secret', color: 'black', size: 'm' }) as any);
+  const update = Y.encodeStateAsUpdate(doc);
+  const text = await encodeEncryptedBoardBackup(update, 'board-pass', { params: FAST });
+  const parsed = JSON.parse(text);
+  assert.equal(parsed.format, SEALED_BOARD_BACKUP_FORMAT);
+  assert.equal(parsed.v, SEALED_BOARD_BACKUP_VERSION);
+  assert.equal(typeof parsed.envelope, 'string');
+  assert.match(parsed.envelope, /^[A-Za-z0-9_-]+$/);
+  assert.doesNotMatch(text, /secret/);
+  const opened = await decodeEncryptedBoardBackup(text, 'board-pass');
+  const other = new Y.Doc();
+  Y.applyUpdate(other, opened);
+  assert.equal((other.getMap('records').get('shape:a') as any).props.text, 'secret');
+  await assert.rejects(decodeEncryptedBoardBackup(text, 'wrong-pass'), /Wrong password/);
+  await assert.rejects(decodeEncryptedBoardBackup(JSON.stringify({ format: 'encrypt-click-board', v: 1, update: 'AAAA' }), 'board-pass'), /invalid/);
 });
 
 test('board backups with the wrong format, version or encoding are refused', () => {

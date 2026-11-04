@@ -16,9 +16,15 @@ function check(label, ok, detail = '') {
 
 async function page(path, expected) {
   const res = await fetch(new URL(path, base), { redirect: 'manual', headers: { Accept: 'text/html' } });
-  await res.arrayBuffer();
+  const body = await res.text();
   check(`GET ${path}`, [expected].flat().includes(res.status), `${res.status}`);
-  return res;
+  return { res, body };
+}
+
+function a11ySmoke(path, body) {
+  check(`${path} has skip link`, /href=["']#main["']/.test(body) || /class=["'][^"']*skip-link/.test(body));
+  check(`${path} has main landmark`, /id=["']main["']/.test(body) || /<main[\s>]/.test(body));
+  check(`${path} has h1`, /<h1[\s>]/.test(body));
 }
 
 function stunMessage(type, attributes, key) {
@@ -105,14 +111,25 @@ function socket(path) {
 
 try {
   const health = await page('/healthz', 200);
-  check('healthz content type', health.headers.get('content-type')?.includes('json'));
+  check('healthz content type', health.res.headers.get('content-type')?.includes('json'));
   const home = await page('/', 200);
-  check('home has CSP', Boolean(home.headers.get('content-security-policy')));
-  await page('/chat/', 200);
+  check('home has CSP', Boolean(home.res.headers.get('content-security-policy')));
+  a11ySmoke('/', home.body);
+  const chat = await page('/chat/', 200);
+  a11ySmoke('/chat/', chat.body);
+  const share = await page('/share/', 200);
+  a11ySmoke('/share/', share.body);
+  const tool = await page('/tools/chat-cipher/', 200);
+  a11ySmoke('/tools/chat-cipher/', tool.body);
   // Cloudflare renders these through the Worker, the Node server redirects from its static rules; both end on the same page.
   await page('/chat', [200, 307]);
   await page('/privacy', [200, 301]);
-  await page('/no-such-page', 404);
+  const missing = await page('/no-such-page', 404);
+  a11ySmoke('/no-such-page', missing.body);
+  const forbidden = await page('/403/', 403);
+  a11ySmoke('/403/', forbidden.body);
+  const serverError = await page('/500', 500);
+  a11ySmoke('/500', serverError.body);
 
   const status = await fetch(new URL('/upload/status', base), { headers: { 'Sec-Fetch-Site': 'same-origin' } });
   check('upload status', status.status === 200 && (await status.json()).available === true, String(status.status));

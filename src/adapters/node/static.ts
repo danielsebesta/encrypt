@@ -120,6 +120,14 @@ export function matchRedirect(rules: RedirectRule[], url: URL): { location: stri
   return null;
 }
 
+/** Prerendered error documents keep their HTTP status when served as static assets, localized paths included. */
+export function htmlErrorStatus(file: string): number | undefined {
+  const stem = file.replace(/\/index\.html$/, '').replace(/\.html$/, '');
+  const leaf = stem.slice(stem.lastIndexOf('/'));
+  if (leaf === '/403' || leaf === '/404' || leaf === '/500') return Number(leaf.slice(1));
+  return undefined;
+}
+
 /**
  * Lookup with Cloudflare's default `auto-trailing-slash` HTML handling: `/page` serves `page.html`, `/dir/` serves
  * `dir/index.html`, and the other spellings of either redirect (307) to that canonical one.
@@ -199,7 +207,10 @@ export class StaticSite {
     const asset = this.assets.get(publicPath);
     if (!asset) return null;
     const headers = matchHeaders(this.headerRules, requestPath, new Headers({ 'Content-Type': asset.type }));
-    return new Response(Readable.toWeb(createReadStream(asset.file)) as ReadableStream<Uint8Array>, { headers });
+    return new Response(Readable.toWeb(createReadStream(asset.file)) as ReadableStream<Uint8Array>, {
+      status: htmlErrorStatus(publicPath) ?? 200,
+      headers,
+    });
   }
 
   /** A redirect or file response, or null when the request belongs to the server-rendered app. */
@@ -231,7 +242,8 @@ export class StaticSite {
     headers.set('Content-Length', String(asset.size ? end - start + 1 : 0));
     if (range) headers.set('Content-Range', `bytes ${start}-${end}/${asset.size}`);
     const body = request.method === 'HEAD' || asset.size === 0 ? null : Readable.toWeb(createReadStream(asset.file, { start, end })) as ReadableStream<Uint8Array>;
-    return new Response(body, { status: range ? 206 : 200, headers });
+    const status = range ? 206 : (htmlErrorStatus(resolved.file) ?? 200);
+    return new Response(body, { status, headers });
   }
 
   private redirect(pathname: string, location: string, status: number) {

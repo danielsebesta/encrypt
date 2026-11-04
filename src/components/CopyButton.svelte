@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { LUCIDE } from '../lib/lucideIcons';
+
   export let text = '';
   export let label = '';
   export let copiedLabel = '';
   export let className = '';
+  export let variant: 'ghost' | 'primary' = 'ghost';
 
   let copied = false;
   let timeout: ReturnType<typeof setTimeout>;
@@ -15,13 +18,15 @@
       timeout = setTimeout(() => { copied = false; }, 2000);
     } catch {}
   }
+
+  $: baseClass = variant === 'primary' ? 'btn' : 'btn-ghost btn-sm';
 </script>
 
-<button type="button" class="btn-ghost btn-sm {className}" on:click={copy} disabled={!text}>
+<button type="button" class="{baseClass} {className}" on:click={copy} disabled={!text}>
   {#if copied}
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
   {:else}
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
   {/if}
   <span role="status">{copied ? copiedLabel || label : label}</span>
 </button>

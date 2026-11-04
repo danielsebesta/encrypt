@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { MenuListItem } from 'konsta/svelte';
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import PasskeyExplain from './PasskeyExplain.svelte';
   import {
     LABEL_MAX, forgetRoom, saveRoom, touchRoom, validMode, validRoomId, validSecret, vaultState, getRoom,
@@ -12,7 +14,6 @@
     roomId,
     mode,
     password = '',
-    linkKey = null,
     ready = false,
     variant = 'icon',
   }: {
@@ -21,9 +22,8 @@
     roomId: string;
     mode: string;
     password?: string;
-    linkKey?: string | null;
     ready?: boolean;
-    variant?: 'icon' | 'menu';
+    variant?: 'icon' | 'menu' | 'konsta';
   } = $props();
 
   let entry = $state<RoomEntry | null>(null);
@@ -38,8 +38,8 @@
 
   const usable = $derived(validRoomId(roomId) && validMode(kind, mode));
   const secret = $derived.by((): RoomSecret | null => {
-    const candidate: RoomSecret = linkKey ? { type: 'key', value: linkKey } : { type: 'password', value: password.trim() };
-    return validSecret(candidate, mode) ? candidate : null;
+    const candidate: RoomSecret = { type: 'password', value: password.trim() };
+    return validSecret(candidate) ? candidate : null;
   });
   const withPasskey = $derived(vault !== 'names' && Boolean(secret));
   const title = $derived(t(dict, entry ? 'rooms.savedButton' : 'rooms.saveTitle'));
@@ -73,7 +73,7 @@
     const result = await saveRoom(
       { kind, roomId, mode, label },
       secret,
-      { withSecret: includeSecret, passkeyName: t(dict, 'rooms.passkeyName').replace('{host}', host) },
+      { withSecret: includeSecret, passkeyName: t(dict, 'rooms.passkeyName').replace('{host}', host), preserveSecret: includeSecret },
     );
     entry = await getRoom(kind, roomId);
     vault = await vaultState();
@@ -94,13 +94,19 @@
 </script>
 
 {#if ready && usable}
-  {#if variant === 'menu'}
-    <button type="button" class="menu__item" aria-haspopup="dialog" onclick={openDialog}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>{title}
+  {#if variant === 'konsta'}
+    <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={title} active={Boolean(entry)} onClick={openDialog}>
+      {#snippet media()}
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bookmark']}</svg>
+      {/snippet}
+    </MenuListItem>
+  {:else if variant === 'menu'}
+    <button type="button" class="menu__item" role="menuitem" aria-haspopup="dialog" onclick={openDialog}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bookmark']}</svg>{title}
     </button>
   {:else}
     <button type="button" class="btn-ghost btn-sm btn-icon" class:text-accent={Boolean(entry)} title={title} aria-label={title} aria-haspopup="dialog" onclick={openDialog}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bookmark']}</svg>
     </button>
   {/if}
 

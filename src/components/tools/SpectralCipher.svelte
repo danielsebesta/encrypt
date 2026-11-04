@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -452,7 +453,7 @@
             {#if imageUrl}
               <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} />
             {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['image']}</svg>
               <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
             {/if}
             <input id="spectral-image" bind:this={imageInput} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
@@ -462,7 +463,7 @@
         <div class="field">
           <span class="label">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
           <label class="dropzone aspect-video" class:dropzone--active={!!audioFileName} for="spectral-audio">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['audio-lines']}</svg>
             {#if audioFileName}
               <span class="dropzone__title max-w-full truncate">{audioFileName}</span>
             {:else}

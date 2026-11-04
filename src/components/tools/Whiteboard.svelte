@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ListItem, MenuList, MenuListItem, Popover } from 'konsta/svelte';
+  import { illustration } from '../../lib/illustrations';
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
@@ -7,23 +9,31 @@
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
   import type { Diff, ShapeRecord, AssetRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import { deriveBoardAccess, deriveSavedBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
   import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, BOARD_ASSET_BYTES, type BoardAsset, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
   import { encodeBoardImage } from '../../lib/whiteboardImages';
-  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, STORED_KINDS, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
+  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
   import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
-  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable } from '../../lib/chatIdentity';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
-  import { parseBurnSuffix, roomPasswordOk, ROOM_KEY_RE } from '../../lib/chatRoomSettings';
-  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES, SAVED_BOARD_BYTES } from '../../lib/whiteboardSync';
+  import { parseBurnSuffix, passwordLongEnough } from '../../lib/chatRoomSettings';
+  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../../lib/whiteboardSync';
+  import { encodeEncryptedBoardBackup, decodeEncryptedBoardBackup } from '../../lib/whiteboardBackupCrypto';
   import { t } from '../../lib/t';
-  import ShareLinkButton from '../ShareLinkButton.svelte';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import SaveRoomButton from './SaveRoomButton.svelte';
+  import RoomInviteCard from './RoomInviteCard.svelte';
 
   export let locale = 'en';
   export let roomId = '';
   export let partyHost = '';
   export let initialPassword = '';
+  export let appMode = false;
+  export let onExitApp: (() => void) | undefined = undefined;
+  export let onClearRequest: ((doClear: () => void) => void) | undefined = undefined;
+  export let onConnStatus: ((status: 'connected' | 'connecting' | 'offline') => void) | undefined = undefined;
+  export let onHaptic: ((type: 'light' | 'medium' | 'success' | 'warning') => void) | undefined = undefined;
+  export let requestReconnect = () => {};
 
   export let dict: Record<string, string>;
 
@@ -45,63 +55,63 @@
   const IMPORT_ORIGIN = 'import';
   const NOTICE_MS = 6000;
 
-  // Quickdraw ships a warm paper look; use the site's neutral surfaces and a grey grid instead.
-  THEMES.light.background = '#fafafa';
-  THEMES.light.grid.dot = { minor: 'rgba(24, 24, 27, 0.18)', major: 'rgba(24, 24, 27, 0.32)' };
-  THEMES.light.grid.line = { minor: 'rgba(24, 24, 27, 0.07)', major: 'rgba(24, 24, 27, 0.14)' };
-  THEMES.dark.background = '#18181b';
-  THEMES.dark.grid.dot = { minor: 'rgba(244, 244, 245, 0.14)', major: 'rgba(244, 244, 245, 0.26)' };
-  THEMES.dark.grid.line = { minor: 'rgba(244, 244, 245, 0.05)', major: 'rgba(244, 244, 245, 0.1)' };
+  // Quickdraw ships a warm paper look; use the site's surface colors and a green-tinted grid instead.
+  THEMES.light.background = '#fafbfa';
+  THEMES.light.grid.dot = { minor: 'rgba(17, 26, 16, 0.18)', major: 'rgba(17, 26, 16, 0.32)' };
+  THEMES.light.grid.line = { minor: 'rgba(17, 26, 16, 0.07)', major: 'rgba(17, 26, 16, 0.14)' };
+  THEMES.dark.background = '#0d140b';
+  THEMES.dark.grid.dot = { minor: 'rgba(155, 178, 141, 0.14)', major: 'rgba(155, 178, 141, 0.26)' };
+  THEMES.dark.grid.line = { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' };
 
   const ICONS: Record<string, string> = {
-    select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
-    hand: '<path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
-    draw: '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
-    highlight: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
-    eraser: '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
-    laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="m4.9 4.9 2.1 2.1"/><path d="m17 17 2.1 2.1"/>',
-    arrow: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
-    line: '<path d="M5 19 19 5"/>',
-    text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
-    note: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',
-    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
-    rectangle: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
-    ellipse: '<ellipse cx="12" cy="12" rx="9.5" ry="7.5"/>',
-    triangle: '<path d="M12 3.5 21.5 20h-19z"/>',
-    diamond: '<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>',
-    hexagon: '<path d="M7.25 3.5h9.5L21.5 12l-4.75 8.5h-9.5L2.5 12z"/>',
-    star: '<path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z"/>',
-    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
-    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
-    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
-    duplicate: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/>',
-    front: '<path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/>',
-    back: '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
-    zoomIn: '<path d="M5 12h14"/><path d="M12 5v14"/>',
-    zoomOut: '<path d="M5 12h14"/>',
-    fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
-    menu: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
-    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
-    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
-    save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
-    grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
-    fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
-    exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>',
-    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-    unlock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
-    close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-    chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
-    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-    check: '<path d="M20 6 9 17l-5-5"/>',
-    'dash-draw': '<path d="M3 14c3-5 5 2 8-1.5s5-5 10-1"/>',
-    'dash-solid': '<path d="M4 12h16"/>',
-    'dash-dashed': '<path d="M4 12h3.5"/><path d="M10.25 12h3.5"/><path d="M16.5 12H20"/>',
-    'dash-dotted': '<path d="M4 12h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M20 12h.01"/>',
-    'fill-none': '<rect x="4" y="4" width="16" height="16" rx="3"/>',
-    'fill-semi': '<rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" fill-opacity=".3"/>',
-    'fill-solid': '<rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/>',
-    'fill-pattern': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4.5 11.5 11.5 4.5"/><path d="M5 19 19 5"/><path d="m12.5 19.5 7-7"/>',
+    select: LUCIDE['mouse-pointer-2'],
+    hand: LUCIDE['hand'],
+    draw: LUCIDE['pencil'],
+    highlight: LUCIDE['highlighter'],
+    eraser: LUCIDE['eraser'],
+    laser: LUCIDE['laser'],
+    arrow: LUCIDE['arrow-up-right'],
+    line: LUCIDE['slash'],
+    text: LUCIDE['type'],
+    note: LUCIDE['sticky-note'],
+    image: LUCIDE['image'],
+    rectangle: LUCIDE['square'],
+    ellipse: LUCIDE['circle'],
+    triangle: LUCIDE['triangle'],
+    diamond: LUCIDE['diamond'],
+    hexagon: LUCIDE['hexagon'],
+    star: LUCIDE['star'],
+    undo: LUCIDE['undo-2'],
+    redo: LUCIDE['redo-2'],
+    trash: LUCIDE['trash'],
+    duplicate: LUCIDE['copy'],
+    front: LUCIDE['bring-to-front'],
+    back: LUCIDE['send-to-back'],
+    zoomIn: LUCIDE['zoom-in'],
+    zoomOut: LUCIDE['zoom-out'],
+    fit: LUCIDE['maximize'],
+    menu: LUCIDE['ellipsis-vertical'],
+    download: LUCIDE['download'],
+    upload: LUCIDE['upload'],
+    save: LUCIDE['save'],
+    grid: LUCIDE['grid-3x3'],
+    fullscreen: LUCIDE['maximize-2'],
+    exitFullscreen: LUCIDE['minimize-2'],
+    lock: LUCIDE['lock'],
+    unlock: LUCIDE['lock-open'],
+    close: LUCIDE['x'],
+    chat: LUCIDE['message-square'],
+    send: LUCIDE['send'],
+    copy: LUCIDE['copy'],
+    check: LUCIDE['check'],
+    'dash-draw': LUCIDE['spline'],
+    'dash-solid': LUCIDE['minus'],
+    'dash-dashed': LUCIDE['minus'].replace('/>', ' stroke-dasharray="5 3"/>'),
+    'dash-dotted': LUCIDE['minus'].replace('/>', ' stroke-dasharray="0.1 4" stroke-linecap="round"/>'),
+    'fill-none': LUCIDE['square'],
+    'fill-semi': LUCIDE['square'].replace('/>', ' fill="currentColor" fill-opacity=".3"/>'),
+    'fill-solid': LUCIDE['square'].replace('/>', ' fill="currentColor"/>'),
+    'fill-pattern': LUCIDE['square-dashed'],
   };
 
   const TOOLS: { id: ToolId; key: string }[] = [
@@ -123,7 +133,6 @@
   let cryptoKey: CryptoKey | null = null;
   const alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
   const identity = { name: aliasName(dict, alias), color: aliasColor(alias), key: aliasKey(alias) };
-  let myInitials = getInitials(identity.name);
 
   // Every payload is signed, so a sender is named only by a validated alias; free-form names and colors would let a member pass as someone else.
   function senderInfo(p: any) {
@@ -143,23 +152,23 @@
   let canCreate = false;
   let boardMissing = false;
 
-  const LINK_KEY_PREFIX = 'whiteboard-link-key:';
-  let savedBoard = false;
-  let linkKey: string | null = null;
-  let linkFailed = false;
-  let boardDeleted = false;
-  let shareLinkOnly = false;
-  let shareCopiedMenu = false;
-  let historyDone = false;
-  let savedEpoch: string | null = null;
-  let appliedSeq = 0;
-  let compacting = false;
-  let docSending = 0;
-  const unsaved = new Map<string, { update: Uint8Array; pending: Set<string> }>();
-  let unsavedCount = 0;
-  let storedChain: Promise<void> = Promise.resolve();
-
   let connected = false;
+  let netOffline = false;
+  let lastConnStatus = '';
+  function reportConn() {
+    const st = netOffline ? 'offline' : connected ? 'connected' : 'connecting';
+    if (st !== lastConnStatus) { lastConnStatus = st; onConnStatus?.(st); }
+  }
+  $: if (connected !== undefined || netOffline !== undefined) reportConn();
+  requestReconnect = () => {
+    try { ws?.reconnect(); } catch {}
+  };
+  const onNetChange = () => {
+    const was = netOffline;
+    netOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (was && !netOffline) try { ws?.reconnect(); } catch {}
+    reportConn();
+  };
   let verified = false;
   let verifying = false;
   let needsPassword = false;
@@ -167,14 +176,19 @@
   let passwordError = '';
   let serverPresence = 0;
 
-  let onlineUsers: { id: string; name: string; initials: string; color: string; alias?: Alias; pk: string; warn: boolean }[] = [];
+  let onlineUsers: { id: string; name: string; color: string; alias?: Alias; pk: string; warn: boolean }[] = [];
   let myConnId = '';
 
   let sharePassword = '';
-  let shareCopiedLink = false;
-  let shareCopiedPass = false;
-  let showSharePassword = false;
   let shareDismissed = false;
+  let backupDialog: HTMLDialogElement;
+  let backupMode: 'export' | 'import' = 'export';
+  let backupPassword = '';
+  let backupPasswordConfirm = '';
+  let backupError = '';
+  let backupBusy = false;
+  let pendingEncryptedImport = '';
+  let encryptedImportInput: HTMLInputElement;
 
   let ydoc: Y.Doc;
   let yrecords: Y.Map<ShapeRecord>;
@@ -207,6 +221,7 @@
   let themeId: 'light' | 'dark' = 'light';
   let styleOpen = false;
   let menuOpen = false;
+  let wbMenuEl: HTMLButtonElement | undefined = undefined;
   let isFullscreen = false;
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
@@ -227,10 +242,6 @@
 
   let roomLocked = false;
 
-  function getInitials(name: string): string {
-    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  }
-
   function genId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(8));
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
@@ -238,15 +249,6 @@
 
   async function initRoom() {
     if (typeof window === 'undefined') return;
-    linkKey = takeLinkKey();
-    if (linkKey) {
-      if (sessionStorage.getItem('whiteboard-share-link')) {
-        shareLinkOnly = true;
-        sessionStorage.removeItem('whiteboard-share-link');
-      }
-      await enterSavedBoard(linkKey);
-      return;
-    }
     if (initialPassword.trim()) {
       passwordInput = initialPassword.trim();
       await enterWithPassword(initialPassword.trim());
@@ -258,10 +260,11 @@
       sharePassword = sharePass;
       sessionStorage.removeItem('whiteboard-share-password');
     }
-    if (stored) {
-      sessionStorage.removeItem('whiteboard-password');
-      passwordInput = stored;
-      await enterWithPassword(stored);
+    const remembered = stored || sessionStorage.getItem(`wb-pw:${roomId}`);
+    if (stored) sessionStorage.removeItem('whiteboard-password');
+    if (remembered) {
+      passwordInput = remembered;
+      await enterWithPassword(remembered);
     } else {
       needsPassword = true;
     }
@@ -282,50 +285,16 @@
     myKeyCode = await keyCode(myPk);
   }
 
-  // A saved board's key leaves the address bar at once, as in saved chat rooms; this tab keeps it for reloads and sharing.
-  function takeLinkKey(): string | null {
-    const fragment = new URLSearchParams(location.hash.slice(1));
-    const fromLink = fragment.get('k');
-    if (fromLink && ROOM_KEY_RE.test(fromLink) && fragment.get('p') === '1') {
-      try { sessionStorage.setItem(`${LINK_KEY_PREFIX}${roomId}`, fromLink); } catch {}
-      history.replaceState(history.state, '', location.pathname + location.search);
-      return fromLink;
-    }
-    try {
-      const saved = sessionStorage.getItem(`${LINK_KEY_PREFIX}${roomId}`);
-      if (saved && ROOM_KEY_RE.test(saved)) return saved;
-    } catch {}
-    return null;
-  }
-
-  function forgetLinkKey() {
-    try { sessionStorage.removeItem(`${LINK_KEY_PREFIX}${roomId}`); } catch {}
-  }
-
-  async function enterSavedBoard(key: string) {
-    savedBoard = true;
-    try {
-      const access = await deriveSavedBoardAccess(key, roomId);
-      accessToken = access.token; channelId = access.channel;
-      cryptoKey = access.key;
-      await setupIdentity();
-      canCreate = true;
-      setupYjs();
-      connectWs();
-    } catch {
-      linkFailed = true;
-    }
-  }
-
   async function enterWithPassword(pwd: string) {
     try {
       const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
       await setupIdentity();
-      canCreate = roomPasswordOk(pwd, roomId);
+      canCreate = passwordLongEnough(pwd);
       boardMissing = false;
       needsPassword = false;
+      try { sessionStorage.setItem(`wb-pw:${roomId}`, pwd); } catch {}
       setupYjs();
       connectWs();
     } catch {
@@ -550,13 +519,7 @@
   let syncProgress: { received: number; total: number } | null = null;
 
   function queueDocUpdate(update: Uint8Array, to?: string) {
-    let group: string | undefined;
-    if (savedBoard && !to) {
-      group = genId();
-      unsaved.set(group, { update, pending: new Set() });
-      unsavedCount = unsaved.size;
-    }
-    docQueue = docQueue.then(() => sendDocUpdate(update, to, group)).catch(() => {});
+    docQueue = docQueue.then(() => sendDocUpdate(update, to)).catch(() => {});
   }
 
   async function waitForBudget(bytes: number) {
@@ -587,137 +550,17 @@
     return update.length <= DOC_PART_BYTES ? [update] : splitDocUpdate(update);
   }
 
-  async function sendDocUpdate(update: Uint8Array, to?: string, group?: string) {
+  async function sendDocUpdate(update: Uint8Array, to?: string) {
     if (!cryptoKey || !ws || !verified) return;
     const parts = docParts(update);
     if (!parts) return;
     const kind = parts.length === 1 ? 'doc' : 'doc-part';
-    const ids = parts.map((_, i) => group ? `${group}-${i}` : genId());
-    if (group) for (const id of ids) unsaved.get(group)?.pending.add(id);
-    docSending++;
-    try {
-      for (let i = 0; i < parts.length; i++) await sendDocEnvelope(kind, parts[i], to, ids[i]);
-    } finally {
-      docSending--;
-    }
-  }
-
-  function storedStep(step: () => unknown) {
-    storedChain = storedChain.then(step).catch(() => {});
-  }
-
-  // Stored updates are applied strictly in server order, so appliedSeq always names a point the local document has fully reached.
-  async function applyStored(entry: any, live: boolean) {
-    const seq = entry?.seq;
-    if (cryptoKey && ydoc && typeof entry?.payload === 'string' && entry.payload.length <= 720000 && typeof entry.from === 'string' && entry.from &&
-      STORED_KINDS.includes(entry.kind)) {
-      const opened = await openEnvelope(cryptoKey, entry.payload, entry.kind, channelId, Date.now(), true);
-      if (opened && (!live || connectionKeys.bind(entry.from, opened.signer))) {
-        try {
-          const bytes = b64ToBytes(opened.body.data as string);
-          if (entry.kind === 'doc') {
-            Y.applyUpdate(ydoc, bytes, 'remote');
-          } else {
-            const result = assembler.accept(entry.from, bytes);
-            if (result) {
-              syncProgress = result.update ? null : { received: result.received, total: result.total };
-              if (result.update) Y.applyUpdate(ydoc, result.update, 'remote');
-            }
-          }
-        } catch {}
-      }
-    }
-    if (Number.isInteger(seq) && seq > appliedSeq) appliedSeq = seq;
-  }
-
-  async function applyHistory(data: any) {
-    if (!Array.isArray(data.entries)) return;
-    for (const entry of data.entries) await applyStored(entry, false);
-    if (data.more) return;
-    const epoch = typeof data.epoch === 'string' ? data.epoch : null;
-    if (epoch !== savedEpoch) appliedSeq = Number.isInteger(data.seq) ? data.seq : 0;
-    else if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
-    savedEpoch = epoch;
-    syncProgress = null;
-    historyDone = true;
-    resendUnsaved();
-  }
-
-  function noteStored(data: any) {
-    if (typeof data.epoch === 'string') savedEpoch = data.epoch;
-    if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
-    const id = String(data.id);
-    const group = id.split('-')[0];
-    const entry = unsaved.get(group);
-    if (entry) {
-      entry.pending.delete(id);
-      if (!entry.pending.size) unsaved.delete(group);
-      unsavedCount = unsaved.size;
-    }
-    if (data.compact) void compactBoard();
-  }
-
-  // Whatever the server has not confirmed goes out again as one merged update; Yjs ignores the parts it already holds.
-  function resendUnsaved() {
-    if (!unsaved.size) return;
-    const merged = Y.mergeUpdates([...unsaved.values()].map((u) => u.update));
-    unsaved.clear();
-    unsavedCount = 0;
-    queueDocUpdate(merged);
-  }
-
-  // When the server asks, a member holding the whole board seals it as a snapshot covering everything up to appliedSeq.
-  async function compactBoard() {
-    if (!savedBoard || !historyDone || compacting || !ydoc || !ws || assembler.pending || docSending) return;
-    compacting = true;
-    const base = appliedSeq;
-    const parts = docParts(Y.encodeStateAsUpdate(ydoc));
-    if (!parts || !base) { compacting = false; return; }
-    const kind = parts.length === 1 ? 'doc' : 'doc-part';
-    try {
-      for (let index = 0; index < parts.length; index++) {
-        await waitForBudget(Math.ceil(parts[index].length * 16 / 9) + 1024);
-        const payload = await seal(kind, { data: bytesToB64(parts[index]) });
-        if (!payload || !socketSend(JSON.stringify({ type: 'snapshot', base, index, total: parts.length, kind, payload, id: genId() }), true)) {
-          compacting = false;
-          return;
-        }
-      }
-    } catch {
-      compacting = false;
-    }
-  }
-
-  function handleBoardDeleted() {
-    forgetLinkKey();
-    forgetTrustTable(`whiteboard:${roomId}`);
-    boardDeleted = true;
-    verified = false;
-    verifying = false;
-    unsaved.clear();
-    unsavedCount = 0;
-    ws?.close();
-    ws = null;
-  }
-
-  function deleteBoardForEveryone() {
-    menuOpen = false;
-    if (!confirm(t(dict, 'whiteboard.deleteBoardConfirm'))) return;
-    socketSend(JSON.stringify({ type: 'delete' }), true);
+    for (const part of parts) await sendDocEnvelope(kind, part, to);
   }
 
   function roomLink(): string {
     if (typeof window === 'undefined') return '';
-    const base = `${location.origin}${location.pathname}`;
-    return savedBoard && linkKey ? `${base}#k=${linkKey}&p=1` : location.href;
-  }
-
-  async function copyBoardLink() {
-    try {
-      await navigator.clipboard.writeText(roomLink());
-      shareCopiedMenu = true;
-      setTimeout(() => { shareCopiedMenu = false; menuOpen = false; }, 900);
-    } catch {}
+    return location.href;
   }
 
   function shouldAnswerSync(newcomer: string) {
@@ -732,7 +575,7 @@
     ws = new PartySocket({
       host: partyHost || window.location.host,
       room: channelId,
-      party: savedBoard ? 'whiteboard-saved' : 'whiteboard',
+      party: 'whiteboard',
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
       reconnectionDelayGrowFactor: 1.4,
@@ -743,13 +586,10 @@
     ws.addEventListener('open', async () => {
       connected = true;
       const rejoin = verified;
-      historyDone = false;
-      compacting = false;
-      const resume = savedBoard && savedEpoch ? { since: appliedSeq, epoch: savedEpoch } : {};
-      socketSend(JSON.stringify({ type: 'join', token: accessToken, ...resume }), true);
+      socketSend(JSON.stringify({ type: 'join', token: accessToken }), true);
       const verifyPayload = await seal('verify', { alias: aliasWire(alias) });
       if (verifyPayload) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
-      if (!savedBoard && rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
+      if (rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
     ws.addEventListener('close', () => {
@@ -776,13 +616,8 @@
       myConnId = data.connId || '';
       serverPresence = data.presence;
       roomLocked = !!data.locked;
-      if (savedBoard) {
-        verified = true;
-        verifying = false;
-        return;
-      }
       if (verifying && serverPresence <= 1) {
-        // Nobody here means the board does not exist yet; only a password that passes the room policy may create it.
+        // Nobody here means the board does not exist yet; a password at least MIN_PASSWORD_LENGTH long may create it.
         if (!canCreate) {
           verifying = false;
           boardMissing = true;
@@ -805,14 +640,6 @@
       return;
     }
     if (data.type === 'presence') { serverPresence = data.count; return; }
-    if (savedBoard) {
-      if (data.type === 'history') { storedStep(() => applyHistory(data)); return; }
-      if (data.type === 'stored') { storedStep(() => noteStored(data)); return; }
-      if (data.type === 'envelope' && typeof data.seq === 'number') { storedStep(() => applyStored(data, true)); return; }
-      if (data.type === 'board-full') { showNotice(t(dict, 'whiteboard.savedBoardFull').replace('{size}', String(SAVED_BOARD_BYTES / 1024 / 1024))); return; }
-      if (data.type === 'snapshot-saved' || data.type === 'snapshot-busy' || data.type === 'snapshot-stale') { compacting = false; return; }
-      if (data.type === 'room-deleted') { handleBoardDeleted(); return; }
-    }
     if (data.type === 'locked') { roomLocked = true; return; }
     if (data.type === 'unlocked') { roomLocked = false; return; }
     if (data.type === 'peer-leave') {
@@ -875,7 +702,7 @@
         if (verified && ws) {
           const ack = await seal('verify-ack', { alias: aliasWire(alias) });
           if (ack) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
-          if (!savedBoard && (store.size || ychat.length) && shouldAnswerSync(from)) {
+          if ((store.size || ychat.length) && shouldAnswerSync(from)) {
             flushToDoc();
             queueDocUpdate(Y.encodeStateAsUpdate(ydoc), from);
           }
@@ -894,7 +721,7 @@
   type Who = { name: string; color: string; alias?: Alias; key: string };
 
   function addOnlineUser(id: string, who: Who, pk: string, warn: boolean) {
-    const user = { id, name: who.name, initials: getInitials(who.name), color: who.color, alias: who.alias, pk, warn };
+    const user = { id, name: who.name, color: who.color, alias: who.alias, pk, warn };
     onlineUsers = [...onlineUsers.filter(u => u.id !== id && u.pk !== pk), user];
   }
 
@@ -1085,12 +912,14 @@
   }
 
   function pickTool(id: ToolId) {
+    onHaptic?.('light');
     editor?.setTool(id);
     styleOpen = false;
   }
 
   function pickGeo(kind: GeoId) {
     if (!editor) return;
+    onHaptic?.('light');
     editor.setGeoKind(kind);
     editor.setTool('geo');
   }
@@ -1121,6 +950,7 @@
   }
 
   function deleteSelected() {
+    onHaptic?.('medium');
     editor?.deleteSelection();
     focusBoard();
   }
@@ -1128,9 +958,14 @@
   function clearAll() {
     menuOpen = false;
     if (!editor || !store.size) return;
+    const doClear = () => {
+      onHaptic?.('medium');
+      editor?.clearBoard();
+      focusBoard();
+    };
+    if (appMode && onClearRequest) return onClearRequest(doClear);
     if (!confirm(t(dict, 'whiteboard.clearConfirm'))) return;
-    editor.clearBoard();
-    focusBoard();
+    doClear();
   }
 
   function toggleGrid() {
@@ -1173,19 +1008,53 @@
     importInput?.click();
   }
 
-  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
-  async function importBoard() {
-    const file = importInput?.files?.[0];
-    if (importInput) importInput.value = '';
+  function openBackupDialog(mode: 'export' | 'import') {
+    backupMode = mode;
+    backupPassword = '';
+    backupPasswordConfirm = '';
+    backupError = '';
+    backupBusy = false;
+    backupDialog?.showModal();
+  }
+
+  function closeBackupDialog() {
+    backupDialog?.close();
+    backupPassword = '';
+    backupPasswordConfirm = '';
+    backupError = '';
+    backupBusy = false;
+    pendingEncryptedImport = '';
+  }
+
+  function chooseEncryptedExport() {
+    menuOpen = false;
+    if (!ydoc || shapeCount === 0) return;
+    openBackupDialog('export');
+  }
+
+  function chooseEncryptedImport() {
+    menuOpen = false;
+    encryptedImportInput?.click();
+  }
+
+  async function onEncryptedImportPicked() {
+    const file = encryptedImportInput?.files?.[0];
+    if (encryptedImportInput) encryptedImportInput.value = '';
     if (!file || !ydoc) return;
     const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
-    if (file.size > BOARD_BACKUP_MAX_BYTES * 2) { showNotice(tooLarge); return; }
-    const parsed = parseBoardBackup(await file.text());
-    if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
+    if (file.size > BOARD_BACKUP_MAX_BYTES * 3) { showNotice(tooLarge); return; }
+    pendingEncryptedImport = await file.text();
+    openBackupDialog('import');
+  }
+
+  async function applyBoardUpdate(update: Uint8Array) {
+    if (!ydoc) return;
+    const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+    if (update.length > BOARD_BACKUP_MAX_BYTES) { showNotice(tooLarge); return; }
     const probe = new Y.Doc();
     let added = 0;
     try {
-      Y.applyUpdate(probe, parsed.update);
+      Y.applyUpdate(probe, update);
       for (const [key, asset] of probe.getMap<BoardAsset>('assets')) {
         if (!yassets.has(key) && validAssetRecord(asset, key)) added += assetBytes(asset.data);
       }
@@ -1197,9 +1066,69 @@
     }
     if (boardAssetBytes() + added > BOARD_ASSET_BYTES) { boardFullNotice(); return; }
     flushToDoc(true);
-    Y.applyUpdate(ydoc, parsed.update, IMPORT_ORIGIN);
+    Y.applyUpdate(ydoc, update, IMPORT_ORIGIN);
     editor?.fitContent({ animate: 200 });
     showNotice(t(dict, 'whiteboard.importDone'), false);
+  }
+
+  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
+  async function importBoard() {
+    const file = importInput?.files?.[0];
+    if (importInput) importInput.value = '';
+    if (!file || !ydoc) return;
+    const tooLarge = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+    if (file.size > BOARD_BACKUP_MAX_BYTES * 2) { showNotice(tooLarge); return; }
+    const parsed = parseBoardBackup(await file.text());
+    if ('error' in parsed) { showNotice(parsed.error === 'too-large' ? tooLarge : t(dict, 'whiteboard.importInvalid')); return; }
+    await applyBoardUpdate(parsed.update);
+  }
+
+  async function confirmBackupPassword() {
+    if (backupBusy) return;
+    backupError = '';
+    const password = backupPassword.trim();
+    if (!password) {
+      backupError = t(dict, 'whiteboard.encryptedPasswordRequired');
+      return;
+    }
+    if (backupMode === 'export') {
+      if (password !== backupPasswordConfirm.trim()) {
+        backupError = t(dict, 'whiteboard.encryptedPasswordMismatch');
+        return;
+      }
+      if (!ydoc) return;
+      backupBusy = true;
+      try {
+        flushToDoc();
+        const name = roomId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'whiteboard';
+        const text = await encodeEncryptedBoardBackup(Y.encodeStateAsUpdate(ydoc), password);
+        saveFile(new Blob([text], { type: 'application/json' }), `${name}.board.sealed.json`);
+        closeBackupDialog();
+        showNotice(t(dict, 'whiteboard.encryptedExportDone'), false);
+      } catch {
+        backupError = t(dict, 'whiteboard.encryptedExportFailed');
+      } finally {
+        backupBusy = false;
+      }
+      return;
+    }
+    backupBusy = true;
+    try {
+      const update = await decodeEncryptedBoardBackup(pendingEncryptedImport, password);
+      closeBackupDialog();
+      await applyBoardUpdate(update);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (message === 'too-large') {
+        backupError = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
+      } else if (message === 'Wrong password') {
+        backupError = t(dict, 'whiteboard.encryptedWrongPassword');
+      } else {
+        backupError = t(dict, 'whiteboard.encryptedImportInvalid');
+      }
+    } finally {
+      backupBusy = false;
+    }
   }
 
   async function toggleFullscreen() {
@@ -1344,29 +1273,13 @@
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 });
   $: zoomLabel = percent.format(zoom);
 
-  async function copyShareLink() {
-    try {
-      await navigator.clipboard.writeText(roomLink());
-      shareCopiedLink = true;
-      setTimeout(() => { shareCopiedLink = false; }, 1500);
-    } catch {}
-  }
-
-  async function copySharePassword() {
-    try {
-      await navigator.clipboard.writeText(sharePassword);
-      shareCopiedPass = true;
-      setTimeout(() => { shareCopiedPass = false; }, 1500);
-    } catch {}
-  }
-
   function beforeUnloadHandler(e: BeforeUnloadEvent) {
     e.preventDefault();
     e.returnValue = '';
   }
 
   $: if (typeof window !== 'undefined') {
-    if (verified && (!savedBoard || unsavedCount > 0)) window.addEventListener('beforeunload', beforeUnloadHandler);
+    if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 
@@ -1386,6 +1299,9 @@
     document.addEventListener('fullscreenchange', onFullscreenChange);
     window.addEventListener('pointerdown', onWindowPointerDown, true);
     window.addEventListener('keydown', onWindowKeydown);
+    window.addEventListener('online', onNetChange);
+    window.addEventListener('offline', onNetChange);
+    netOffline = !navigator.onLine;
     themeObserver = new MutationObserver(() => {
       themeId = isDarkTheme() ? 'dark' : 'light';
       editor?.setTheme(themeId);
@@ -1411,6 +1327,8 @@
       window.removeEventListener('beforeunload', beforeUnloadHandler);
       window.removeEventListener('pointerdown', onWindowPointerDown, true);
       window.removeEventListener('keydown', onWindowKeydown);
+      window.removeEventListener('online', onNetChange);
+      window.removeEventListener('offline', onNetChange);
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -1428,27 +1346,21 @@
 </script>
 
 <div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
-  {#if boardDeleted || linkFailed}
-    <div class="wb-center">
-      <div class="space-y-4 max-w-xs w-full text-center">
-        <img src="/encrypt_confused.svg" alt="" width="126" height="119" class="state-art" decoding="async" />
-        <p class="status status--error" role="alert">{t(dict, boardDeleted ? 'whiteboard.boardDeleted' : 'whiteboard.errorDeriveKey')}</p>
-        {#if boardDeleted}<p class="hint">{t(dict, 'whiteboard.boardDeletedDetail')}</p>{/if}
-        <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard`}>{t(dict, 'whiteboard.newBoard')}</a>
-      </div>
-    </div>
-
-  {:else if needsPassword}
+  {#if needsPassword}
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          <img src="/encrypt_lock.svg" alt="" width="97" height="129" class="state-art" decoding="async" />
+          {@html illustration('lock', 'state-art')}
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
         {#if boardMissing}
           <p class="status status--warn" role="alert">{t(dict, 'whiteboard.boardMissing')}</p>
-          <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+          {#if appMode}
+            <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+          {:else}
+            <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+          {/if}
         {/if}
         <input
           type="password"
@@ -1470,38 +1382,20 @@
 
   {:else if verifying}
     <div class="wb-center">
-      <p class="status status--busy" role="status">{savedBoard ? t(dict, 'whiteboard.savedOpening') : serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+      <p class="status status--busy" role="status">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
     </div>
 
   {:else}
-    {#if (sharePassword || shareLinkOnly) && !shareDismissed}
+    {#if sharePassword && !shareDismissed}
       <div class="wb-share-banner">
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <span class="text-sm font-bold text-accent">{t(dict, savedBoard ? 'whiteboard.savedShareWarning' : 'whiteboard.sharePasswordWarning')}</span>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'whiteboard.closeSharePanel')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html ICONS.close}</svg>
-          </button>
-        </div>
-        <div class="flex items-center gap-1.5 mb-1.5">
-          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.roomLink')}</span>
-          <code class="wb-share-value">{savedBoard && linkKey ? roomLink() : typeof window !== 'undefined' ? window.location.href : ''}</code>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copyShareLink} aria-label={t(dict, 'whiteboard.copyRoomLink')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedLink} aria-hidden="true">{@html shareCopiedLink ? ICONS.check : ICONS.copy}</svg>
-          </button>
-          <ShareLinkButton url={typeof window !== 'undefined' ? window.location.href : ''} label={t(dict, 'common.shareLink')} className="btn-ghost btn-sm" iconOnly size={14} />
-        </div>
-        {#if sharePassword}
-        <div class="flex items-center gap-1.5">
-          <span class="shrink-0 whitespace-nowrap text-sm text-muted">{t(dict, 'whiteboard.password')}</span>
-          <code class="wb-share-value">{showSharePassword ? sharePassword : '•'.repeat(Math.min(sharePassword.length, 16))}</code>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { showSharePassword = !showSharePassword; }} aria-label={t(dict, 'common.showPassword')} aria-pressed={showSharePassword} title={t(dict, showSharePassword ? 'common.hidePassword' : 'common.showPassword')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html showSharePassword ? '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/>' : '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'}</svg>
-          </button>
-          <button type="button" class="btn-ghost btn-sm btn-icon" on:click={copySharePassword} aria-label={t(dict, 'whiteboard.copyRoomPassword')}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class:text-accent={shareCopiedPass} aria-hidden="true">{@html shareCopiedPass ? ICONS.check : ICONS.copy}</svg>
-          </button>
-        </div>
-        {/if}
+        <RoomInviteCard
+          {dict}
+          title={roomId}
+          url={roomLink()}
+          password={sharePassword}
+          warning={t(dict, 'whiteboard.sharePasswordWarning')}
+          onDismiss={() => { shareDismissed = true; }}
+        />
       </div>
     {/if}
 
@@ -1528,10 +1422,10 @@
 
       <div class="wb-bar wb-bar--start">
         <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.history')}>
-          <button type="button" class="wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
+          <button type="button" class="wb-btn" on:click={() => { onHaptic?.('light'); store.undo(); }} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.undo}</svg>
           </button>
-          <button type="button" class="wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
+          <button type="button" class="wb-btn" on:click={() => { onHaptic?.('light'); store.redo(); }} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.redo}</svg>
           </button>
         </div>
@@ -1592,7 +1486,7 @@
           >
             <span class="wb-swatch" style="background: {swatch}"></span>
           </button>
-          <div id="wb-style-panel" class="menu menu--end wb-panel" class:menu--open={styleOpen}>
+          <div id="wb-style-panel" class="menu wb-menu-panel wb-panel" class:menu--open={styleOpen}>
             <fieldset class="wb-field">
               <legend class="wb-legend">{t(dict, 'whiteboard.color')}</legend>
               <div class="wb-colors">
@@ -1652,6 +1546,7 @@
 
         <div class="wb-pop" data-wb-menu>
           <button
+            bind:this={wbMenuEl}
             id="wb-menu-trigger"
             type="button"
             class="wb-pill wb-btn wb-btn--solo"
@@ -1663,18 +1558,64 @@
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.menu}</svg>
           </button>
-          <div id="wb-menu" class="menu menu--end" class:menu--open={menuOpen}>
+          {#if appMode}
+            <Popover opened={menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
+              <MenuList>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportPng')} onClick={exportPng}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportBoard')} onClick={exportBoard}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportEncrypted')} onClick={chooseEncryptedExport}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.importBoard')} onClick={chooseImport}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.importEncrypted')} onClick={chooseEncryptedImport}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{/snippet}
+                </MenuListItem>
+                <ListItem text={t(dict, 'whiteboard.backupHint')} />
+                <div on:click={() => { menuOpen = false; }} role="presentation">
+                  <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="konsta" />
+                </div>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.zoomFit')} onClick={zoomFit}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.grid')} aria-checked={gridOn} onClick={toggleGrid}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.grid}</svg>{/snippet}
+                  {#snippet after()}{#if gridOn}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.check}</svg>{/if}{/snippet}
+                </MenuListItem>
+                {#if fullscreenSupported}
+                  <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')} onClick={toggleFullscreen}>
+                    {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{/snippet}
+                  </MenuListItem>
+                {/if}
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.clear')} colors={{ menuListItemTextIos: 'text-ios-danger', menuListItemTextMaterial: 'text-md-light-error dark:text-md-dark-error' }} onClick={clearAll}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{/snippet}
+                </MenuListItem>
+              </MenuList>
+            </Popover>
+          {:else}
+          <div id="wb-menu" class="menu wb-menu-panel" class:menu--open={menuOpen}>
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
             </button>
             <button type="button" class="menu__item" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportBoard')}
             </button>
+            <button type="button" class="menu__item" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportEncrypted')}
+            </button>
             <button type="button" class="menu__item" on:click={chooseImport} aria-describedby="wb-backup-hint">
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importBoard')}
             </button>
+            <button type="button" class="menu__item" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
+              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importEncrypted')}
+            </button>
             <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
-            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode={savedBoard ? 'persistent' : 'live'} password={passwordInput} {linkKey} ready={verified} variant="menu" />
+            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
             </button>
@@ -1687,20 +1628,11 @@
                 <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
               </button>
             {/if}
-            {#if savedBoard}
-              <button type="button" class="menu__item" on:click={copyBoardLink}>
-                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html shareCopiedMenu ? ICONS.check : ICONS.copy}</svg>{t(dict, shareCopiedMenu ? 'whiteboard.linkCopied' : 'whiteboard.copyRoomLink')}
-              </button>
-            {/if}
             <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.clear')}
             </button>
-            {#if savedBoard}
-              <button type="button" class="menu__item wb-menu-danger" on:click={deleteBoardForEveryone} disabled={!connected}>
-                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.deleteBoard')}
-              </button>
-            {/if}
           </div>
+          {/if}
         </div>
       </div>
 
@@ -1761,22 +1693,22 @@
           </header>
           <ul class="wb-chat__list">
             <li class="wb-member">
-              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
+              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}"></span>
               <div class="min-w-0 flex-1">
                 <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
-                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{myKeyCode}</code></p>
+                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
               </div>
             </li>
             {#each memberList as member (member.pk)}
               <li class="wb-member" class:wb-member--warn={!member.trusted}>
-                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}">{getInitials(member.name)}</span>
+                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}"></span>
                 <div class="min-w-0 flex-1">
                   <p class="wb-member__name">
                     {member.name}
                     {#if !member.trusted}<span class="wb-key-warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
                   </p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><code class="wb-member__code">{memberCodes[member.pk]?.code ?? ''}</code></p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><code class="wb-member__code wb-member__safety">{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</code></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={memberCodes[member.pk]?.code ?? ''}>{memberCodes[member.pk]?.code ?? ''}</span></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><span class="wb-member__emoji wb-member__safety" aria-label={memberCodes[member.pk]?.safety ?? ''}>{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</span></p>
                   {#if !member.trusted}
                     <p class="hint">{t(dict, 'whiteboard.keyNewHint')}</p>
                     <button type="button" class="btn-outline btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
@@ -1793,6 +1725,32 @@
 
       <input bind:this={imageInput} type="file" accept="image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" on:change={onImagePicked} />
       <input bind:this={importInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={importBoard} />
+      <input bind:this={encryptedImportInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={onEncryptedImportPicked} />
+      <dialog bind:this={backupDialog} class="wb-backup-dialog card" aria-labelledby="wb-backup-title" on:cancel|preventDefault={closeBackupDialog}>
+        <form class="stack" method="dialog" on:submit|preventDefault={confirmBackupPassword}>
+          <div>
+            <h2 id="wb-backup-title" class="section-title">{t(dict, backupMode === 'export' ? 'whiteboard.exportEncrypted' : 'whiteboard.importEncrypted')}</h2>
+            <p class="hint mt-1">{t(dict, 'whiteboard.passwordPrompt')}</p>
+          </div>
+          <div class="field">
+            <label class="label" for="wb-backup-pass">{t(dict, 'whiteboard.password')}</label>
+            <input id="wb-backup-pass" class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+          </div>
+          {#if backupMode === 'export'}
+            <div class="field">
+              <label class="label" for="wb-backup-pass-confirm">{t(dict, 'whiteboard.passwordConfirm')}</label>
+              <input id="wb-backup-pass-confirm" class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+            </div>
+          {/if}
+          {#if backupError}
+            <p class="status status--error" role="alert">{backupError}</p>
+          {/if}
+          <div class="actions">
+            <button type="submit" class="btn" disabled={backupBusy}>{t(dict, backupMode === 'export' ? 'whiteboard.encryptedExportAction' : 'whiteboard.encryptedImportAction')}</button>
+            <button type="button" class="btn-secondary" disabled={backupBusy} on:click={closeBackupDialog}>{t(dict, 'rooms.cancel')}</button>
+          </div>
+        </form>
+      </dialog>
       {#if notice}
         <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
           <span class="min-w-0 flex-1">{notice.text}</span>
@@ -1850,17 +1808,14 @@
           on:click={togglePeople}
         >
           <span class="flex items-center -space-x-1.5">
-            <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
+            <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}"></span>
             {#each onlineUsers as user (user.id)}
-              <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}">{user.initials}</span>
+              <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}"></span>
             {/each}
           </span>
           {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
         </button>
         <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
-        {#if savedBoard}
-          <span class="wb-counter" role="status">{t(dict, unsavedCount ? 'whiteboard.saving' : 'whiteboard.savedState')}</span>
-        {/if}
         {#if syncProgress}
           <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
         {/if}
@@ -1915,10 +1870,11 @@
   .wb-board {
     position: absolute;
     inset: 0;
-    background: #fafafa;
+    background: #fafbfa;
   }
+  :global(html.dark) .wb-board,
   .wb-board:global([data-qd-theme='dark']) {
-    background: #18181b;
+    background: #0d140b;
   }
   .wb-board:focus-visible {
     outline: 2px solid var(--accent);
@@ -2006,6 +1962,26 @@
   }
 
   .wb-pop { position: relative; pointer-events: auto; }
+  .wb-menu-panel {
+    min-width: 14rem;
+    max-width: calc(100vw - 1rem);
+    text-align: left;
+  }
+  .wb-menu-panel :global(.menu__item) {
+    min-height: 2.75rem;
+  }
+  [data-wb-style] .wb-menu-panel {
+    left: auto;
+    right: 0;
+  }
+  [data-wb-menu] .wb-menu-panel {
+    /* Keep the ⋮ panel on-screen; items stay left-aligned inside. */
+    left: auto;
+    right: 0;
+    max-height: min(70dvh, 28rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 
   .wb-panel {
     width: 15.5rem;
@@ -2035,7 +2011,7 @@
     gap: 4px;
   }
   .wb-color {
-    height: 32px;
+    height: 2.75rem;
     border-radius: 0.5rem;
     display: flex;
     align-items: center;
@@ -2056,7 +2032,7 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 2px;
   }
-  .wb-seg .wb-btn { width: 100%; }
+  .wb-seg .wb-btn { width: 100%; height: 2.75rem; }
   .wb-dot {
     width: var(--wb-dot);
     height: var(--wb-dot);
@@ -2329,16 +2305,19 @@
     align-items: baseline;
     gap: 0.375rem;
   }
-  .wb-member__code {
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    letter-spacing: 0.08em;
+  .wb-member__emoji {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    font-size: 1.1rem;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
     color: var(--text);
   }
   .wb-member__safety {
-    display: grid;
-    grid-template-columns: repeat(4, max-content);
-    gap: 0.1rem 0.5rem;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
   }
   .wb-member .btn-outline { justify-self: start; }
   .wb-people__hint {
@@ -2369,18 +2348,31 @@
     border-bottom: 1px solid var(--accent-line);
     background: var(--accent-weak);
   }
-  .wb-share-value {
-    flex: 1;
-    min-width: 0;
-    font-size: 0.75rem;
-    font-family: var(--font-mono);
+  .wb-backup-dialog {
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    margin: auto;
     color: var(--text);
-    background: var(--bg);
-    padding: 4px 8px;
-    border-radius: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: left;
+    visibility: visible;
+    box-shadow: var(--shadow-float);
+    animation: wb-backup-in var(--duration-dialog) var(--ease-out);
+  }
+  .wb-backup-dialog::backdrop {
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(2px);
+  }
+  @keyframes wb-backup-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-backup-dialog {
+      animation: none;
+    }
   }
 
   .wb-footer {
@@ -2421,10 +2413,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.6875rem;
-    font-weight: 800;
-    color: white;
     flex-shrink: 0;
+    overflow: hidden;
+    background-color: var(--surface-2);
     box-shadow: 0 0 0 2px var(--surface);
   }
   .wb-avatar--warn { box-shadow: 0 0 0 2px var(--warn); }

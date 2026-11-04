@@ -1,6 +1,5 @@
 import { NICKNAME_RE } from './alias';
 import { validPad } from './padding';
-import { validCounter, validHead, validPrevHash } from './chatIntegrity';
 import { validMessageRef, validReactionEmoji } from './chatReactions';
 import { validVoiceDuration } from './voiceMessage';
 
@@ -10,7 +9,7 @@ const MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const KEY_HASH_RE = /^[A-Za-z0-9_-]{43}$/;
 const CLIENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction']);
+const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction', 'message-burn']);
 
 const b64url = (value: unknown, max: number, exact = false) =>
   typeof value === 'string' && B64URL_RE.test(value) && (exact ? value.length === max : value.length <= max);
@@ -33,8 +32,6 @@ function validKeyFields(value: any): boolean {
   if (value.fs !== undefined && !b64url(value.fs, 87, true)) return false;
   if (value.kem !== undefined && !b64url(value.kem, 1579, true)) return false;
   if (value.e !== undefined && !b64url(value.e, 1451, true)) return false;
-  if (value.pq !== undefined && !b64url(value.pq, 1750, true)) return false;
-  if (value._pqk !== undefined && !(typeof value._pqk === 'string' && KEY_HASH_RE.test(value._pqk))) return false;
   if (value.clientId !== undefined && !(typeof value.clientId === 'string' && CLIENT_ID_RE.test(value.clientId))) return false;
   if (value.to !== undefined && !(typeof value.to === 'string' && CLIENT_ID_RE.test(value.to))) return false;
   if (value.k !== undefined && !b64url(value.k, 16, true)) return false;
@@ -42,10 +39,6 @@ function validKeyFields(value: any): boolean {
   if (value.c !== undefined && !b64url(value.c, 720_000)) return false;
   if (value.keys !== undefined && !(Array.isArray(value.keys) && value.keys.length <= 64)) return false;
   if (value.want !== undefined && !(Array.isArray(value.want) && value.want.length <= 64 && value.want.every((pk: unknown) => typeof pk === 'string' && KEY_HASH_RE.test(pk)))) return false;
-  if (value.head !== undefined && !validHead(value.head)) return false;
-  if (value._n !== undefined && !validCounter(value._n)) return false;
-  if (value._ph !== undefined && !validPrevHash(value._ph)) return false;
-  if ((value._n === undefined) !== (value._ph === undefined)) return false;
   return true;
 }
 
@@ -67,6 +60,8 @@ export function validPayload(value: any, room: string, history = false): boolean
   if (value.file && !b64url(value.file.key, 43, true)) return false;
   if (value.file && value.file.voice !== undefined && !(value.file.voice === true && validVoiceDuration(value.file.duration))) return false;
   if (value.replyTo !== undefined && !validMessageRef(value.replyTo)) return false;
+  if (value.once !== undefined && !(value.type === 'chat-message' && value.once === true)) return false;
   if (value.type === 'reaction' && !(validMessageRef(value.target) && validReactionEmoji(value.emoji) && (value.remove === undefined || value.remove === true))) return false;
+  if (value.type === 'message-burn' && !validMessageRef(value.target)) return false;
   return validKeyFields(value);
 }

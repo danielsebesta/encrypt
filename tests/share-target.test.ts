@@ -50,7 +50,7 @@ test('title, text and link become one message without repeating each other', () 
   assert.equal(composeSharedText({ title: '', text: '', url: '' }), '');
 });
 
-test('without the service worker the server drops the shared body and sends the visitor to the share page', async () => {
+test('without the service worker the server drops the shared body and sends the visitor to the app files tab', async () => {
   let rendered = false;
   let budgeted = false;
   const platform: Platform = {
@@ -74,7 +74,7 @@ test('without the service worker the server drops the shared body and sends the 
     const body = new ReadableStream<Uint8Array>({ pull(controller) { pulled = true; controller.enqueue(new TextEncoder().encode('secret')); controller.close(); } }, { highWaterMark: 0 });
     const res = await app.fetch(new Request(`https://example.test${path}`, { method: 'POST', body, duplex: 'half', headers: { 'Content-Type': 'multipart/form-data; boundary=x' } } as RequestInit), async () => { rendered = true; return new Response('page'); });
     assert.equal(res.status, 303);
-    assert.equal(res.headers.get('Location'), 'https://example.test/share');
+    assert.equal(res.headers.get('Location'), 'https://example.test/app?tab=files');
     assert.equal(res.headers.get('Cache-Control'), 'no-store');
   }
   assert.equal(pulled, false);

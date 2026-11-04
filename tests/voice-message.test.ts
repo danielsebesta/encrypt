@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_VOICE_SECONDS, formatClock, pickVoiceType, validVoiceDuration, voiceFileName, voiceTypeOf } from '../src/lib/voiceMessage';
+import { MAX_VOICE_SECONDS, VOICE_BARS, formatClock, pickVoiceType, placeholderPeaks, validVoiceDuration, voiceFileName, voicePeaks, voiceTypeOf } from '../src/lib/voiceMessage';
 import { stampPayload, validPayload } from '../src/lib/chatProtocol';
 
 test('recording prefers Opus in WebM and falls back to what the browser supports', () => {
@@ -34,4 +34,19 @@ test('a voice message is a file marked as voice with a duration within the limit
   assert.equal(check({ voice: 'yes', duration: 3 }), false);
   assert.equal(validVoiceDuration(-1), false);
   assert.equal(validVoiceDuration(Number.NaN), false);
+});
+
+test('placeholder waveforms are deterministic, sized to the bar count and bounded', () => {
+  const a = placeholderPeaks('msg-1');
+  assert.equal(a.length, VOICE_BARS);
+  assert.deepEqual(placeholderPeaks('msg-1'), a);
+  assert.notDeepEqual(placeholderPeaks('msg-2'), a);
+  for (const value of a) assert.ok(value >= 0.1 && value <= 1);
+  assert.equal(placeholderPeaks('x', 12).length, 12);
+});
+
+test('peak extraction refuses recordings over the decode limit or missing a decoder', async () => {
+  const blob = new Blob([new Uint8Array(64)], { type: 'audio/webm' });
+  assert.equal(await voicePeaks(blob, 121), null);
+  assert.equal(await voicePeaks(blob, 30), null);
 });

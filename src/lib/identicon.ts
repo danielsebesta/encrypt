@@ -116,57 +116,46 @@ export function normalizeSeed(seed: IdenticonSeed): string {
   return `alias:${seed.a}-${seed.n}-${seed.h}`;
 }
 
-type Draw = (f: string, g: string) => string;
+type Draw = (c: string) => string;
 
-const fill = (d: string, c: string) => `<path d="${d}" fill="${c}"/>`;
-
-/** Every shape is drawn in a 50x50 cell, stays inside it, and may use a second accent color. */
+/**
+ * Side / corner tiles in a unit square. Drawn like Forgejo/Gitea blocks so 90° rotation
+ * and left-right mirroring stay readable inside a circular crop.
+ */
 export const SHAPES: readonly { name: string; draw: Draw }[] = [
-  { name: 'quarter', draw: (f) => fill('M0 0H50A50 50 0 0 1 0 50Z', f) },
-  { name: 'triangle', draw: (f) => fill('M0 0H50L0 50Z', f) },
-  { name: 'dome', draw: (f) => fill('M0 50A25 25 0 0 1 50 50Z', f) },
-  { name: 'disk', draw: (f) => `<circle cx="25" cy="25" r="21" fill="${f}"/>` },
-  { name: 'ring', draw: (f) => `<circle cx="25" cy="25" r="16.5" fill="none" stroke="${f}" stroke-width="9"/>` },
-  { name: 'diamond', draw: (f) => fill('M25 3L47 25L25 47L3 25Z', f) },
-  { name: 'plus', draw: (f) => fill('M19 5H31V19H45V31H31V45H19V31H5V19H19Z', f) },
-  { name: 'pill', draw: (f) => `<rect x="3" y="16" width="44" height="18" rx="9" fill="${f}"/>` },
-  { name: 'chamfer', draw: (f) => fill('M16 0H50V50H0V16Z', f) },
-  { name: 'arch', draw: (f) => fill('M7 50V25A18 18 0 0 1 43 25V50Z', f) },
-  { name: 'hexagon', draw: (f) => fill('M25 3L44 14V36L25 47L6 36V14Z', f) },
-  { name: 'split', draw: (f, g) => `${fill('M0 0H50V50Z', g)}${fill('M0 0V50H50Z', f)}` },
-  { name: 'leaf', draw: (f) => fill('M0 50A50 50 0 0 1 50 0A50 50 0 0 1 0 50Z', f) },
-  { name: 'steps', draw: (f) => fill('M0 50V34H16V18H32V0H50V50Z', f) },
-  {
-    name: 'sparkle',
-    draw: (f) => fill('M25 2C27 15 35 23 48 25C35 27 27 35 25 48C23 35 15 27 2 25C15 23 23 15 25 2Z', f)
-  },
-  {
-    name: 'eclipse',
-    draw: (f, g) => `<circle cx="25" cy="25" r="21" fill="${f}"/><circle cx="31" cy="25" r="13" fill="${g}"/>`
-  },
-  { name: 'checker', draw: (f) => fill('M0 0H25V25H0ZM25 25H50V50H25Z', f) },
-  {
-    name: 'sun',
-    draw: (f, g) => `${fill('M0 0H50A50 50 0 0 1 0 50Z', f)}<circle cx="17" cy="17" r="9" fill="${g}"/>`
-  },
-  { name: 'peak', draw: (f) => fill('M25 5L45 45H5Z', f) },
-  {
-    name: 'yin',
-    draw: (f, g) => `<rect width="25" height="50" fill="${f}"/>${fill('M25 0A25 25 0 0 1 25 50Z', g)}`
-  },
-  {
-    name: 'nested',
-    draw: (f, g) => `${fill('M0 0H50A50 50 0 0 1 0 50Z', f)}${fill('M0 0H26A26 26 0 0 1 0 26Z', g)}`
-  },
-  { name: 'half', draw: (f) => fill('M0 0H25V50H0Z', f) },
-  { name: 'drop', draw: (f) => fill('M0 0H25A25 25 0 0 1 50 25A25 25 0 0 1 25 50A25 25 0 0 1 0 25Z', f) },
-  { name: 'band', draw: (f) => fill('M0 25L25 0H50L0 50Z', f) },
-  { name: 'lens', draw: (f) => fill('M25 0A35 35 0 0 1 25 50A35 35 0 0 1 25 0Z', f) },
-  { name: 'cross', draw: (f) => fill('M0 0H12L50 38V50H38L0 12ZM38 0H50V12L12 50H0V38Z', f) }
+  { name: 'tri-br', draw: (c) => `<path d="M0 1H1V0Z" fill="${c}"/>` },
+  { name: 'tri-bl', draw: (c) => `<path d="M0 0V1H1Z" fill="${c}"/>` },
+  { name: 'half-b', draw: (c) => `<path d="M0 .5H1V1H0Z" fill="${c}"/>` },
+  { name: 'half-l', draw: (c) => `<path d="M0 0H.5V1H0Z" fill="${c}"/>` },
+  { name: 'quarter', draw: (c) => `<path d="M0 0H1A1 1 0 0 1 0 1Z" fill="${c}"/>` },
+  { name: 'corner', draw: (c) => `<path d="M0 0H1V.35H.35V1H0Z" fill="${c}"/>` },
+  { name: 'band', draw: (c) => `<path d="M0 .28H1V.72H0Z" fill="${c}"/>` },
+  { name: 'stripe', draw: (c) => `<path d="M.28 0H.72V1H.28Z" fill="${c}"/>` },
+  { name: 'wedge', draw: (c) => `<path d="M0 0H1L.5 1Z" fill="${c}"/>` },
+  { name: 'steps', draw: (c) => `<path d="M0 1V.66H.33V.33H.66V0H1V1Z" fill="${c}"/>` },
+  { name: 'notch', draw: (c) => `<path d="M0 0H1V1H0ZM.25 .25V.75H.75V.25Z" fill-rule="evenodd" fill="${c}"/>` },
+  { name: 'peak', draw: (c) => `<path d="M0 1L.5 0L1 1Z" fill="${c}"/>` },
+  { name: 'slash', draw: (c) => `<path d="M0 .2L.2 0H1L0 1V.8Z" fill="${c}"/>` },
+  { name: 'dot-row', draw: (c) => `<circle cx=".25" cy=".5" r=".18" fill="${c}"/><circle cx=".75" cy=".5" r=".18" fill="${c}"/>` },
+];
+
+/** Center tiles: denser motifs that sit fully inside the circular crop. */
+export const CENTER_SHAPES: readonly { name: string; draw: Draw }[] = [
+  { name: 'disk', draw: (c) => `<circle cx=".5" cy=".5" r=".42" fill="${c}"/>` },
+  { name: 'ring', draw: (c) => `<circle cx=".5" cy=".5" r=".34" fill="none" stroke="${c}" stroke-width=".22"/>` },
+  { name: 'diamond', draw: (c) => `<path d="M.5 .08L.92 .5L.5 .92L.08 .5Z" fill="${c}"/>` },
+  { name: 'plus', draw: (c) => `<path d="M.38 .12H.62V.38H.88V.62H.62V.88H.38V.62H.12V.38H.38Z" fill="${c}"/>` },
+  { name: 'hex', draw: (c) => `<path d="M.5 .08L.88 .29V.71L.5 .92L.12 .71V.29Z" fill="${c}"/>` },
+  { name: 'square', draw: (c) => `<rect x=".16" y=".16" width=".68" height=".68" rx=".08" fill="${c}"/>` },
+  { name: 'sparkle', draw: (c) => `<path d="M.5 .06C.54 .32 .68 .46 .94 .5C.68 .54 .54 .68 .5 .94C.46 .68 .32 .54 .06 .5C.32 .46 .46 .32 .5 .06Z" fill="${c}"/>` },
+  { name: 'flower', draw: (c) => `<circle cx=".5" cy=".28" r=".18" fill="${c}"/><circle cx=".5" cy=".72" r=".18" fill="${c}"/><circle cx=".28" cy=".5" r=".18" fill="${c}"/><circle cx=".72" cy=".5" r=".18" fill="${c}"/><circle cx=".5" cy=".5" r=".14" fill="${c}"/>` },
+  { name: 'target', draw: (c) => `<circle cx=".5" cy=".5" r=".42" fill="${c}"/><circle cx=".5" cy=".5" r=".2" fill="none" stroke="${c}" stroke-width=".08" opacity=".35"/>` },
+  { name: 'octagon', draw: (c) => `<path d="M.3 .08H.7L.92 .3V.7L.7 .92H.3L.08 .7V.3Z" fill="${c}"/>` },
 ];
 
 export const SHAPE_COUNT = SHAPES.length;
-export const LAYOUT_COUNT = 6;
+export const CENTER_COUNT = CENTER_SHAPES.length;
+export const LAYOUT_COUNT = 1;
 
 const luminanceCache = new Map<string, number>();
 
@@ -203,76 +192,82 @@ function firstReadable(options: string[], against: string, min: number): string 
   return best;
 }
 
-interface Cell {
-  shape: number;
-  rot: number;
-  f: string;
-  g: string;
-  sx: 1 | -1;
-  sy: 1 | -1;
+/** Forgejo-style: one calm field + one strong ink, optionally a second ink for the center. */
+function pickColors(pal: Palette, b: Uint8Array): { bg: string; fg: string; accent: string } {
+  const ranked = [...pal.colors].sort((a, c) => luminance(a) - luminance(c));
+  const darkField = b[0] % 2 === 0;
+  const bg = darkField ? ranked[0] : ranked[ranked.length - 1];
+  const pool = ranked.filter((c) => c !== bg);
+  const fo = b[1] % pool.length;
+  const fg = firstReadable([...pool.slice(fo), ...pool.slice(0, fo)], bg, 2.4);
+  const rest = pool.filter((c) => c !== fg);
+  const ao = b[2] % Math.max(rest.length, 1);
+  const accent = rest.length
+    ? firstReadable([...rest.slice(ao), ...rest.slice(0, ao)], bg, 2.0)
+    : fg;
+  return { bg, fg, accent };
 }
 
-type Slot = { src: number; fx?: boolean; fy?: boolean; turn?: number };
-
-const LAYOUTS: readonly (readonly Slot[])[] = [
-  [{ src: 0 }, { src: 1 }, { src: 2 }, { src: 3 }],
-  [{ src: 0 }, { src: 0, fx: true }, { src: 2 }, { src: 2, fx: true }],
-  [{ src: 0 }, { src: 1 }, { src: 0, fy: true }, { src: 1, fy: true }],
-  [{ src: 0 }, { src: 0, turn: 1 }, { src: 0, turn: 3 }, { src: 0, turn: 2 }],
-  [{ src: 0 }, { src: 1 }, { src: 1 }, { src: 0 }],
-  [{ src: 0 }, { src: 0, fx: true }, { src: 0, fy: true }, { src: 0, fx: true, fy: true }]
-];
-
-function pickColors(colors: readonly string[], bg: string, b: Uint8Array, at: number): { f: string; g: string } {
-  const pool = colors.filter((c) => c !== bg);
-  const fo = b[at] % pool.length;
-  const f = firstReadable([...pool.slice(fo), ...pool.slice(0, fo)], bg, 1.6);
-  const rest = pool.filter((c) => c !== f);
-  const go = b[at + 1] % rest.length;
-  const g = firstReadable([...rest.slice(go), ...rest.slice(0, go)], f, 1.5);
-  return { f, g };
+export function renderShape(shape: number, f: string, g = f): string {
+  void g;
+  return SHAPES[shape % SHAPE_COUNT].draw(f);
 }
 
-/** Geometry follows the layout, but every cell draws its own colors so symmetric avatars still alternate. */
-function layoutCells(b: Uint8Array, colors: readonly string[], bg: string): Cell[] {
-  const slots = LAYOUTS[b[1] % LAYOUT_COUNT];
-  const shapeOf = (k: number) => ({ shape: b[2 + k * 2] % SHAPE_COUNT, rot: b[3 + k * 2] % 4 });
-  return slots.map((slot, k) => {
-    const { shape, rot } = shapeOf(slot.src);
-    const { f, g } = pickColors(colors, bg, b, 10 + k * 2);
-    return { shape, rot: (rot + (slot.turn ?? 0)) % 4, f, g, sx: slot.fx ? -1 : 1, sy: slot.fy ? -1 : 1 };
-  });
+const SIZE = 100;
+/** Keep tiles inside the inscribed circle so CSS `rounded-full` does not clip the motif away. */
+const PAD = 10;
+const GRID = SIZE - PAD * 2;
+const CELL = GRID / 3;
+/** Gap between tiles so the grid reads cleanly at 24–48px. */
+const TILE = CELL * 0.86;
+
+function placeTile(col: number, row: number, markup: string, angle: number, mirrorX = false): string {
+  const cx = PAD + col * CELL + CELL / 2;
+  const cy = PAD + row * CELL + CELL / 2;
+  const sx = (mirrorX ? -TILE : TILE).toFixed(2);
+  const sy = TILE.toFixed(2);
+  // Center the unit tile, flip/scale, rotate, then park on the grid.
+  return `<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${angle * 90}) scale(${sx} ${sy}) translate(-0.5 -0.5)">${markup}</g>`;
 }
 
-export function renderShape(shape: number, f: string, g: string): string {
-  return SHAPES[shape % SHAPE_COUNT].draw(f, g);
+/**
+ * Forgejo/Gitea layout: 3×3 with a center motif, rotating side tiles, then a left-right mirror
+ * so the face stays balanced after circular crop (no mid-cross seam from a 2×2 grid).
+ */
+function renderGrid(b: Uint8Array, fg: string, accent: string): string {
+  const sideA = SHAPES[b[3] % SHAPE_COUNT].draw(fg);
+  const sideB = SHAPES[b[4] % SHAPE_COUNT].draw(fg);
+  const center = CENTER_SHAPES[b[5] % CENTER_COUNT].draw(accent);
+  const next = (a: number) => (a + 1) % 4;
+  const a0 = b[6] % 4;
+  const b0 = b[7] % 4;
+  const a1 = next(a0);
+  const b1 = next(b0);
+  const a2 = next(a1);
+  const b2 = next(b1);
+
+  // Left + center columns, then mirror the left column (Forgejo left-right symmetry).
+  return [
+    placeTile(0, 0, sideA, a0),
+    placeTile(1, 0, sideB, b0),
+    placeTile(0, 1, sideB, b1),
+    placeTile(1, 1, center, 0),
+    placeTile(0, 2, sideA, a2),
+    placeTile(1, 2, sideB, b2),
+    placeTile(2, 0, sideA, a0, true),
+    placeTile(2, 1, sideB, b1, true),
+    placeTile(2, 2, sideA, a2, true),
+  ].join('');
 }
 
-const INSET = 0.9;
-
-function cellMarkup(cell: Cell, x: number, y: number): string {
-  const tx = x + (cell.sx < 0 ? 50 : 0);
-  const ty = y + (cell.sy < 0 ? 50 : 0);
-  const transform = `translate(${tx} ${ty}) scale(${cell.sx} ${cell.sy}) translate(25 25) rotate(${cell.rot * 90}) scale(${INSET}) translate(-25 -25)`;
-  return `<g transform="${transform}">${renderShape(cell.shape, cell.f, cell.g)}</g>`;
-}
-
-const CELL_POSITIONS = [
-  [0, 0],
-  [50, 0],
-  [0, 50],
-  [50, 50]
-];
-
-/** One calm background, four floating shapes with a gap between them, and a slight zoom so no corner seam shows. */
+/** Circle-safe SVG: padded 3×3 motif on a solid field, ready for `rounded-full` CSS. */
 export function identiconSvg(seed: IdenticonSeed, size?: number): string {
   const bytes = sha256Sync(normalizeSeed(seed));
   const pal = ENCRYPT_PALETTES[((bytes[22] << 8) | bytes[23]) % ENCRYPT_PALETTES.length];
-  const bg = pal.colors[bytes[0] % 5];
-  const cells = layoutCells(bytes, pal.colors, bg);
-  const body = cells.map((cell, i) => cellMarkup(cell, CELL_POSITIONS[i][0], CELL_POSITIONS[i][1])).join('');
+  const { bg, fg, accent } = pickColors(pal, bytes);
+  const body = renderGrid(bytes, fg, accent);
   const sizeAttrs = size ? ` width="${size}" height="${size}"` : '';
-  return `<svg viewBox="4 4 92 92"${sizeAttrs} xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><rect x="0" y="0" width="100" height="100" fill="${bg}"/>${body}</svg>`;
+  return `<svg viewBox="0 0 ${SIZE} ${SIZE}"${sizeAttrs} xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true"><rect width="${SIZE}" height="${SIZE}" fill="${bg}"/>${body}</svg>`;
 }
 
 export function identiconDataUri(seed: IdenticonSeed): string {
@@ -280,5 +275,6 @@ export function identiconDataUri(seed: IdenticonSeed): string {
 }
 
 export function identiconBackground(seed: IdenticonSeed): string {
-  return `url("${identiconDataUri(seed)}") center / cover no-repeat`;
+  // SVG is already circle-safe (padded 3×3). Fill the square element; CSS rounds the crop.
+  return `url("${identiconDataUri(seed)}") center / 100% 100% no-repeat`;
 }

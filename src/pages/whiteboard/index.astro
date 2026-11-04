@@ -1,4 +1,5 @@
 ---
+import { illustration } from '../../lib/illustrations';
 import Layout from '../../layouts/Layout.astro';
 import ToolAbout from '../../components/tools/ToolAbout.astro';
 import WhiteboardCreate from '../../components/tools/WhiteboardCreate.svelte';
@@ -15,13 +16,13 @@ export const prerender = true;
   title={t(dict, 'whiteboard.meta.createTitle')}
   description={t(dict, 'whiteboard.meta.createDescription')}
 >
-  <div class="page page--narrow">
+  <div class="page">
     <header class="page-head page-head--art">
       <div>
         <h1 class="page-title">{t(dict, 'whiteboard.pageTitle')}</h1>
         <p class="page-lead">{t(dict, 'whiteboard.pageSubtitle')}</p>
       </div>
-      <img src="/encrypt_whiteboard.svg" alt="" width="222" height="156" class="page-head__art" decoding="async" />
+      <Fragment set:html={illustration('whiteboard', 'page-head__art')} />
     </header>
     <div class="panel">
       <WhiteboardCreate client:idle locale={locale} dict={clientDict} />

@@ -7,10 +7,14 @@
   export let mode: 'link' | 'ghost' | 'local' = 'link';
   export let retention: Retention;
   export let burn = false;
+  /** Timelock + reminder copy: treat unlock as a dead-man's release window. */
+  export let deadMan = false;
   /** datetime-local value, empty for no time lock. */
   export let unlockAt = '';
   /** Retention the upload will really get once the unlock time is taken into account; null when none is long enough. */
   export let effectiveRetention: Retention | null = retention;
+
+  $: if (!unlockAt) deadMan = false;
 
   const localInput = (ms: number) => {
     const d = new Date(ms);
@@ -48,6 +52,11 @@
     </div>
     <p id="ue-burn-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.burnHint')}</p>
   {:else}
+    <label class="check">
+      <input type="checkbox" bind:checked={burn} aria-describedby="ue-view-once-hint" />
+      <span>{t(dict, 'tools.ultimateEncrypt.options.viewOnce')}</span>
+    </label>
+    <p id="ue-view-once-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.viewOnceHint')}</p>
     <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.inlineHint')}</p>
   {/if}
 
@@ -61,4 +70,10 @@
       <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.options.unlockTooFar')}</p>
     {/if}
   </div>
+
+  <label class="check">
+    <input type="checkbox" bind:checked={deadMan} aria-describedby="ue-dead-man-hint" disabled={!unlockAt} />
+    <span>{t(dict, 'tools.ultimateEncrypt.options.deadMan')}</span>
+  </label>
+  <p id="ue-dead-man-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
 {/if}

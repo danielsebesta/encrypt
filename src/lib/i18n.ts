@@ -1,4 +1,5 @@
 import { languages, defaultLocale, locales, type Locale } from './languages';
+import { brandText, isWhitelabeled } from './siteBrand';
 
 import en from '../locales/en.json';
 import cs from '../locales/cs.json';
@@ -14,7 +15,11 @@ export { languages, defaultLocale, locales, type Locale };
 
 export function getTranslations(locale: string | undefined): Record<string, string> {
   const l = (locale && locale in dictionaries ? locale : defaultLocale) as Locale;
-  return dictionaries[l];
+  const base = dictionaries[l];
+  if (!isWhitelabeled()) return base;
+  const branded: Record<string, string> = {};
+  for (const [key, value] of Object.entries(base)) branded[key] = brandText(value);
+  return branded;
 }
 
 export function t(dict: Record<string, string>, key: string): string {

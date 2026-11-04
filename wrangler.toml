@@ -58,19 +58,6 @@ new_sqlite_classes = ["SecurityBudget"]
 tag = "realtime-v1"
 new_sqlite_classes = ["ChatServer", "WhiteboardServer"]
 
-[[durable_objects.bindings]]
-name = "CHAT_PERSISTENT"
-class_name = "PersistentChatServer"
-
-[[migrations]]
-tag = "persistent-v1"
-new_sqlite_classes = ["PersistentChatServer"]
-
-# Saved whiteboards: encrypted update log and snapshots, pinned to the EU jurisdiction like saved chat rooms.
-[[durable_objects.bindings]]
-name = "WHITEBOARD_SAVED"
-class_name = "SavedWhiteboardServer"
-
-[[migrations]]
-tag = "saved-whiteboard-v1"
-new_sqlite_classes = ["SavedWhiteboardServer"]
+# The saved-room classes are gone. To purge their leftover Durable Object storage on production,
+# ship one deploy with a `deleted_classes = ["PersistentChatServer", "SavedWhiteboardServer"]`
+# migration re-added here — wrangler dev cannot apply it locally, so it is left out.

@@ -1,11 +1,15 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import { MAX_VOICE_SECONDS, VoiceRecorder, formatClock, type VoiceRecording } from '../../lib/voiceMessage';
 
-  let { dict, disabled = false, recording = $bindable(false), onrecorded, onerror }: {
+  const WAVE_BARS = 44;
+
+  let { dict, disabled = false, appMode = false, recording = $bindable(false), onrecorded, onerror }: {
     dict: Record<string, string>;
     disabled?: boolean;
+    appMode?: boolean;
     recording?: boolean;
     onrecorded: (recording: VoiceRecording) => void;
     onerror: (message: string) => void;
@@ -16,6 +20,8 @@
   let elapsed = $state(0);
   let recorder: VoiceRecorder | null = null;
   let ticker: ReturnType<typeof setInterval> | undefined;
+  let meterTimer: ReturnType<typeof setInterval> | undefined;
+  let levels = $state<number[]>(Array(WAVE_BARS).fill(0));
   let stopEl: HTMLButtonElement | undefined = $state();
   let micEl: HTMLButtonElement | undefined = $state();
 
@@ -25,13 +31,14 @@
 
   onDestroy(() => {
     clearInterval(ticker);
+    clearInterval(meterTimer);
     recorder?.cancel();
   });
 
   async function start() {
     if (recording || starting || disabled) return;
     starting = true;
-    const next = new VoiceRecorder(() => void stop());
+    const next = new VoiceRecorder(() => void stop(), appMode);
     try {
       await next.start();
     } catch (error) {
@@ -43,7 +50,12 @@
     recorder = next;
     elapsed = 0;
     recording = true;
+    if (appMode) navigator.vibrate?.(15);
     ticker = setInterval(() => { elapsed = (recorder?.elapsedMs ?? 0) / 1000; }, 250);
+    if (appMode) {
+      levels = Array(WAVE_BARS).fill(0);
+      meterTimer = setInterval(() => { levels = [...levels.slice(1), recorder?.level ?? 0]; }, 70);
+    }
     await tick();
     stopEl?.focus();
   }
@@ -53,6 +65,7 @@
     if (!current) return;
     recorder = null;
     clearInterval(ticker);
+    clearInterval(meterTimer);
     recording = false;
     const result = await current.stop();
     await tick();
@@ -64,7 +77,9 @@
   async function cancel() {
     recorder?.cancel();
     recorder = null;
+    if (appMode) navigator.vibrate?.([30, 40, 30]);
     clearInterval(ticker);
+    clearInterval(meterTimer);
     recording = false;
     await tick();
     micEl?.focus();
@@ -72,21 +87,41 @@
 </script>
 
 {#if supported}
-  {#if recording}
+  {#if recording && appMode}
+    <button type="button" class="voice-rec-app__cancel" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['trash']}</svg>
+    </button>
+    <div class="voice-rec-app" role="status" aria-label={t(dict, 'chat.voiceRecording')}>
+      <span class="voice-rec-app__dot" aria-hidden="true"></span>
+      <span class="voice-rec-app__time">{formatClock(elapsed)}</span>
+      <span class="voice-rec-app__wave" aria-hidden="true">
+        {#each levels as level, i (i)}
+          <span style:height="{Math.round(14 + Math.min(1, level) * 86)}%"></span>
+        {/each}
+      </span>
+    </div>
+    <button type="button" class="voice-rec-app__send" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.send')} title={t(dict, 'chat.send')}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['arrow-up']}</svg>
+    </button>
+  {:else if recording}
     <div class="voice-rec" role="status">
       <span class="voice-rec__dot" aria-hidden="true"></span>
       <span class="voice-rec__label">{t(dict, 'chat.voiceRecording')}</span>
       <span class="voice-rec__time">{formatClock(elapsed)} / {formatClock(MAX_VOICE_SECONDS)}</span>
     </div>
     <button type="button" class="btn-ghost btn-sm btn-icon" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['trash']}</svg>
     </button>
     <button type="button" class="voice-rec__stop" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.voiceStop')} title={t(dict, 'chat.voiceStop')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['square']}</svg>
     </button>
   {:else}
-    <button type="button" class="btn-ghost btn-sm btn-icon" bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+    <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-sm btn-icon'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
+      {#if appMode}
+        <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic']}</svg>
+      {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic']}</svg>
+      {/if}
     </button>
   {/if}
 {/if}

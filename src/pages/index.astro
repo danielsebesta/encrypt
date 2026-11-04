@@ -1,48 +1,100 @@
 ---
+import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
-import UltimateEncrypt from '../components/tools/UltimateEncrypt.svelte';
+import HomeTry from '../components/home/HomeTry.svelte';
+import HeroCipher from '../components/home/HeroCipher.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
+import { chatIcon } from '../lib/tools';
+import { LUCIDE } from '../lib/lucideIcons';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
-const encryptDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common']);
+const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
-const paths = [
-  { href: `${localePrefix}/chat`, src: '/encrypt_chat.svg', title: 'landing.paths.chat.title', text: 'landing.paths.chat.text' },
-  { href: `${localePrefix}/whiteboard`, src: '/encrypt_whiteboard.svg', title: 'landing.paths.whiteboard.title', text: 'landing.paths.whiteboard.text' },
-] as const;
+const icons = {
+  shield: LUCIDE['shield-check'],
+  eyeOff: LUCIDE['eye-off'],
+  timer: LUCIDE['timer'],
+  pen: LUCIDE['pen-line'],
+  code: LUCIDE['code'],
+};
+
+const steps = [1, 2, 3];
+const features = [
+  { n: 1, icon: icons.shield },
+  { n: 2, icon: icons.eyeOff },
+  { n: 3, icon: icons.timer },
+  { n: 4, icon: chatIcon },
+  { n: 5, icon: icons.pen },
+  { n: 6, icon: icons.code },
+];
 ---
 
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
-  <div class="page page--wide home">
+  <div class="page home">
     <section class="home-hero">
-      <div>
+      <div class="stack">
         <h1 class="page-title">{t(dict, 'home.hero.title')}</h1>
         <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
-        <p class="hint mt-3">{t(dict, 'landing.hero.note')}</p>
+        <div class="actions">
+          <a href="#try" class="btn btn-lg">{t(dict, 'landing.hero.cta')}</a>
+        </div>
       </div>
-      <img src="/encrypt_privacy.svg" alt="" width="400" height="440" class="home-hero__art" decoding="async" />
+      <div class="home-hero__art">
+        <Fragment set:html={illustration('hero', 'mx-auto h-auto w-full max-w-[400px] md:max-w-none')} />
+      </div>
+      <HeroCipher client:load dict={pickDict(dict, ['landing.demo'])} />
     </section>
 
-    <section class="panel" aria-labelledby="home-share-title">
-      <h2 id="home-share-title" class="section-title mb-4">{t(dict, 'landing.paths.share.title')}</h2>
-      <UltimateEncrypt client:idle locale={locale} dict={encryptDict} />
-    </section>
-
-    <section class="home-paths" aria-label={t(dict, 'landing.paths.label')}>
-      {paths.map((p) => (
-        <a href={p.href} class="home-path">
-          <img src={p.src} alt="" width="64" height="64" class="home-path__art" loading="lazy" decoding="async" />
-          <span>
-            <span class="home-path__title">{t(dict, p.title)}</span>
-            <span class="home-path__text">{t(dict, p.text)}</span>
-          </span>
-        </a>
-      ))}
+    <section id="try" class="panel stack" aria-labelledby="home-try-title">
+      <div>
+        <h2 id="home-try-title" class="section-title">{t(dict, 'landing.try.title')}</h2>
+        <p class="hint mt-1">{t(dict, 'landing.try.subtitle')}</p>
+      </div>
+      <HomeTry client:idle locale={locale} dict={tryDict} />
     </section>
 
     <HomeTools locale={locale} dict={dict} />
+
+    <section aria-labelledby="home-how-title">
+      <h2 id="home-how-title" class="section-title">{t(dict, 'landing.how.title')}</h2>
+      <ol class="home-steps">
+        {steps.map((n) => (
+          <li class="home-step">
+            <span class="home-step__num" aria-hidden="true">{n}</span>
+            <h3 class="home-card__title">{t(dict, `landing.how.${n}.title`)}</h3>
+            <p class="hint">{t(dict, `landing.how.${n}.text`)}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section aria-labelledby="home-features-title">
+      <h2 id="home-features-title" class="section-title">{t(dict, 'landing.features.title')}</h2>
+      <ul class="home-features">
+        {features.map((f) => (
+          <li class="home-feature">
+            <span class="home-feature__icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={f.icon} /></svg>
+            </span>
+            <h3 class="home-card__title">{t(dict, `landing.features.${f.n}.title`)}</h3>
+            <p class="hint">{t(dict, `landing.features.${f.n}.text`)}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="panel" aria-labelledby="home-about-title">
+      <h2 id="home-about-title" class="section-title">{t(dict, 'landing.about.title')}</h2>
+      <p class="mt-2 text-base leading-relaxed text-muted">{t(dict, 'landing.about.text')}</p>
+      <p class="mt-2 text-base leading-relaxed text-muted">{t(dict, 'landing.about.text2')}</p>
+      <div class="actions mt-4">
+        <a href={`${localePrefix}/security`} class="btn-secondary">{t(dict, 'landing.about.security')}</a>
+        <a href="https://github.com/danielsebesta/encrypt" target="_blank" rel="noopener noreferrer" class="btn-secondary">{t(dict, 'landing.about.github')}</a>
+      </div>
+    </section>
+
   </div>
 </Layout>
