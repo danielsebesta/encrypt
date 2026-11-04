@@ -111,6 +111,24 @@ export async function unlock(): Promise<boolean> {
   }
 }
 
+/** Always asks the device again, even when the vault key is already in memory. Used before the lock is turned off. */
+export async function confirmPresence(): Promise<boolean> {
+  if (storedLock() !== VAULT_MARK) return unlock();
+  try {
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rpId: location.hostname,
+        userVerification: 'required',
+        timeout: 60_000,
+      },
+    });
+    return Boolean(assertion);
+  } catch {
+    return false;
+  }
+}
+
 export function clearLock() {
   try {
     localStorage.removeItem(STORAGE_KEY);

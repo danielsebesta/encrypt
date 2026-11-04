@@ -61,7 +61,7 @@
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
   import { haptic } from '../../lib/haptics';
-  import { clearLock, enableLock, lockSupported, shouldLock, storedLock, unlock } from '../../lib/appLock';
+  import { clearLock, enableLock, lockSupported, confirmPresence, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import {
     applyTheme,
@@ -666,7 +666,7 @@
     if (lockBusy) return;
     if (lockEnabled) {
       lockBusy = true;
-      const ok = await unlock();
+      const ok = await confirmPresence();
       lockBusy = false;
       if (!ok) return;
       clearLock();
