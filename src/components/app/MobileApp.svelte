@@ -59,6 +59,7 @@
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
+  import { installSheetSwipe } from '../../lib/sheetSwipe';
   import {
     applyTheme,
     loadThemeState,
@@ -877,7 +878,9 @@
 
     loadRooms();
 
+    const removeSheetSwipe = installSheetSwipe();
     return () => {
+      removeSheetSwipe();
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('beforeinstallprompt', onInstallPrompt);

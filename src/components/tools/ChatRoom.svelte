@@ -347,6 +347,8 @@
     if (was && !netOffline) try { ws?.reconnect(); } catch {}
     reportConn();
   };
+  const onPageHide = () => { try { ws?.close(1000, 'pagehide'); } catch {} };
+  const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) try { ws?.reconnect(); } catch {} };
   const onViewportResize = () => { if (stickToBottom) scrollToBottom(true); };
   let cryptoKey: CryptoKey | null = null;
   let alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
@@ -629,27 +631,45 @@
     return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
   }
 
-  // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so keep pinning until it settles.
+  // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so the bottom keeps
+  // moving. Keep pinning until the height and the distance to the bottom stop changing, and let the user cancel by touching the list.
   // Background tabs pause requestAnimationFrame, so pin once right after the DOM update too.
-  function scrollToBottom(force = false, frames = 4) {
+  let pinning = false;
+
+  function scrollToBottom(force = false) {
     if (!force && !stickToBottom) return;
     stickToBottom = true;
     belowCount = 0;
+    pinning = true;
     void settled().then(() => {
-      if (messagesEl && stickToBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (messagesEl && pinning) messagesEl.scrollTop = messagesEl.scrollHeight;
     });
-    requestAnimationFrame(() => {
-      if (!messagesEl || !stickToBottom) return;
-      const before = messagesEl.scrollHeight;
-      messagesEl.scrollTop = before;
-      if (frames > 1) requestAnimationFrame(() => {
-        if (messagesEl && messagesEl.scrollHeight !== before) scrollToBottom(false, frames - 1);
-      });
-    });
+    let last = -1;
+    let stable = 0;
+    let frames = 0;
+    const step = () => {
+      if (!messagesEl || !pinning) return;
+      const height = messagesEl.scrollHeight;
+      messagesEl.scrollTop = height;
+      stable = height === last && distanceFromBottom() <= 1 ? stable + 1 : 0;
+      last = height;
+      if (stable >= 3 || ++frames > 60) {
+        pinning = false;
+        updateStickToBottom();
+        return;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    setTimeout(() => { if (pinning) { pinning = false; updateStickToBottom(); } }, 1500);
+  }
+
+  function cancelPin() {
+    pinning = false;
   }
 
   function updateStickToBottom() {
-    if (!messagesEl) return;
+    if (!messagesEl || pinning) return;
     const near = distanceFromBottom() <= NEAR_BOTTOM_PX;
     stickToBottom = near;
     if (near) belowCount = 0;
@@ -2771,6 +2791,7 @@
     if (!id || !messageIndex.has(id)) return;
     const el = document.getElementById(`chat-msg-${id}`);
     if (!el) return;
+    pinning = false;
     stickToBottom = false;
     el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     highlightedId = id;
@@ -4630,6 +4651,8 @@
     window.addEventListener('keydown', handleCallFullscreenKeydown);
     window.addEventListener('blur', handleVisibility);
     window.addEventListener('focus', handleVisibility);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onNetChange);
     window.addEventListener('offline', onNetChange);
     netOffline = !navigator.onLine;
@@ -4659,6 +4682,8 @@
       window.removeEventListener('keydown', handleCallFullscreenKeydown);
       window.removeEventListener('blur', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('online', onNetChange);
       window.removeEventListener('offline', onNetChange);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
@@ -5167,7 +5192,7 @@
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
         <div class="chat-messages-shell">
-        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} use:revealSpoilers role="log" aria-live="polite">
+        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
           {@html illustration('chill', 'state-art mb-2')}
