@@ -9,7 +9,8 @@ const MESSAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const KEY_HASH_RE = /^[A-Za-z0-9_-]{43}$/;
 const CLIENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction', 'message-burn']);
+const CONTENT_TYPES = new Set(['chat-message', 'whiteboard-invite', 'reaction', 'message-burn', 'member-event']);
+const MEMBER_EVENT_KINDS = new Set(['joined', 'left', 'renamed']);
 
 const b64url = (value: unknown, max: number, exact = false) =>
   typeof value === 'string' && B64URL_RE.test(value) && (exact ? value.length === max : value.length <= max);
@@ -26,6 +27,13 @@ export function relayedContentOk(value: any, forwardSecrecy: boolean, fromChain:
 export function stampPayload(text: string, room: string): string {
   const value = JSON.parse(text);
   return JSON.stringify({ ...value, _room: room, _sentAt: Date.now(), _id: crypto.randomUUID() });
+}
+
+function validMemberEvent(value: any): boolean {
+  const short = (v: unknown) => typeof v === 'string' && v.length > 0 && v.length <= 128;
+  if (!MEMBER_EVENT_KINDS.has(value.kind)) return false;
+  if (value.kind === 'renamed') return short(value.from) && short(value.to);
+  return value.kind === 'joined' ? true : short(value.name);
 }
 
 function validKeyFields(value: any): boolean {
@@ -63,5 +71,6 @@ export function validPayload(value: any, room: string, history = false): boolean
   if (value.once !== undefined && !(value.type === 'chat-message' && value.once === true)) return false;
   if (value.type === 'reaction' && !(validMessageRef(value.target) && validReactionEmoji(value.emoji) && (value.remove === undefined || value.remove === true))) return false;
   if (value.type === 'message-burn' && !validMessageRef(value.target)) return false;
+  if (value.type === 'member-event' && !validMemberEvent(value)) return false;
   return validKeyFields(value);
 }

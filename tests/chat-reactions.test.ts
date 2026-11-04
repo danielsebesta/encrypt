@@ -89,3 +89,16 @@ test('a quoted message is one line of plain text that keeps spoilers hidden', ()
   assert.equal(plainSnippet('x'.repeat(200), 20), `${'x'.repeat(19)}…`);
   assert.equal(plainSnippet('||line\nbreak||'), '•••');
 });
+
+test('member events are content and validate only in their exact shape', () => {
+  const room = 'room';
+  const stamp = (value: Record<string, unknown>) => JSON.parse(stampPayload(JSON.stringify(value), room));
+  assert.equal(isContent({ type: 'member-event' }), true);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'joined' }), room), true);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'left', name: 'Dast' }), room), true);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'renamed', from: 'a', to: 'b' }), room), true);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'left' }), room), false);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'renamed', from: 'a' }), room), false);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'kicked', name: 'a' }), room), false);
+  assert.equal(validPayload(stamp({ type: 'member-event', id: 'e1', kind: 'left', name: 'x'.repeat(129) }), room), false);
+});

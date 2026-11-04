@@ -59,6 +59,10 @@
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
+  import { installSheetSwipe } from '../../lib/sheetSwipe';
+  import { haptic } from '../../lib/haptics';
+  import { clearLock, enableLock, lockSupported, confirmPresence, shouldLock, storedLock, unlock } from '../../lib/appLock';
+  import { installViewportSync } from '../../lib/viewportSync';
   import {
     applyTheme,
     loadThemeState,
@@ -198,13 +202,7 @@
   }
 
   function triggerHaptic(type: 'light' | 'medium' | 'success' | 'warning' = 'light') {
-    if (!haptics || typeof window === 'undefined' || !('vibrate' in navigator)) return;
-    try {
-      if (type === 'light') navigator.vibrate(8);
-      else if (type === 'medium') navigator.vibrate(15);
-      else if (type === 'success') navigator.vibrate([10, 30, 15]);
-      else if (type === 'warning') navigator.vibrate([30, 40, 30]);
-    } catch {}
+    haptic(type);
   }
 
   function pushOverlayGuard() {
@@ -643,7 +641,57 @@
   const WIPE_SS_KEYS = ['chat-password', 'chat-share-password', 'chat-room-config', 'whiteboard-password', 'whiteboard-share-password'];
   const PANIC_FLAG = 'encrypt.click:panic-wipe';
 
+  let lockEnabled = $state(false);
+  let lockAvailable = $state(false);
+  let locked = $state(false);
+  let lockBusy = $state(false);
+  let lockError = $state('');
+
+  async function tryUnlock(silent = false) {
+    if (lockBusy) return;
+    lockBusy = true;
+    lockError = '';
+    const ok = await unlock();
+    lockBusy = false;
+    if (ok) {
+      locked = false;
+      triggerHaptic('success');
+    } else if (!silent) {
+      lockError = t(dict, 'app.lock.failed');
+      triggerHaptic('warning');
+    }
+  }
+
+  async function toggleLock() {
+    if (lockBusy) return;
+    if (lockEnabled) {
+      lockBusy = true;
+      const ok = await confirmPresence();
+      lockBusy = false;
+      if (!ok) return;
+      clearLock();
+      lockEnabled = false;
+      return;
+    }
+    if (!lockAvailable) {
+      showToast(t(dict, 'app.lock.unsupported'), 'warning');
+      return;
+    }
+    lockBusy = true;
+    const ok = await enableLock('encrypt.click');
+    lockBusy = false;
+    if (ok) {
+      lockEnabled = true;
+      triggerHaptic('success');
+    } else {
+      showToast(t(dict, 'app.lock.enableFailed'), 'warning');
+    }
+  }
+
   function wipeLocalSecrets() {
+    clearLock();
+    lockEnabled = false;
+    locked = false;
     try {
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const key = localStorage.key(i);
@@ -739,6 +787,13 @@
     }
     ready = true;
 
+    lockEnabled = storedLock() !== null;
+    if (lockEnabled) {
+      locked = true;
+      void tryUnlock(true);
+    }
+    void lockSupported().then((ok) => { lockAvailable = ok; });
+
     isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -755,8 +810,18 @@
     };
     window.addEventListener('appinstalled', onAppInstalled);
 
+    let hiddenAt = 0;
     const onVisibility = () => {
-      if (!document.hidden) loadRooms();
+      if (document.hidden) {
+        hiddenAt = Date.now();
+        return;
+      }
+      loadRooms();
+      if (lockEnabled && !locked && shouldLock(hiddenAt, Date.now())) {
+        locked = true;
+        void tryUnlock(true);
+      }
+      hiddenAt = 0;
     };
     document.addEventListener('visibilitychange', onVisibility);
 
@@ -877,7 +942,11 @@
 
     loadRooms();
 
+    const removeSheetSwipe = installSheetSwipe();
+    const removeViewportSync = installViewportSync();
     return () => {
+      removeSheetSwipe();
+      removeViewportSync();
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('beforeinstallprompt', onInstallPrompt);
@@ -978,7 +1047,7 @@
       {#if activeView === 'room'}
         <button
           type="button"
-          class="app-nav-title block truncate max-w-[45vw] sm:max-w-[58vw] mx-auto text-center"
+          class="app-nav-title block truncate max-w-[32vw] sm:max-w-[58vw] mx-auto text-center"
           onclick={() => roomInfo?.()}
           aria-label={t(dict, 'chat.members')}
         >
@@ -1002,7 +1071,7 @@
           {t(dict, roomConn === 'offline' ? 'app.offline' : 'chat.connecting')}
         </button>
       {:else}
-        <span class="inline-flex items-center justify-center gap-1 text-[var(--app-label-2)] truncate max-w-[50vw] pb-0.5 leading-tight">
+        <span class="inline-flex items-center justify-center gap-1 text-[var(--app-label-2)] truncate max-w-[32vw] pb-0.5 leading-tight">
           <AppIcons name="lock" size={10} />
           {t(dict, 'app.room.encrypted')}
         </span>
@@ -1221,6 +1290,14 @@
                     if (haptics) triggerHaptic('medium');
                   }}
                 />
+              {/snippet}
+            </ListItem>
+            <ListItem title={t(dict, 'app.settings.lock')} subtitle={t(dict, 'app.settings.lockHint')}>
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="lock" size={20} /></span>
+              {/snippet}
+              {#snippet after()}
+                <Toggle checked={lockEnabled} component="button" onChange={toggleLock} />
               {/snippet}
             </ListItem>
             <ListItem
@@ -1702,4 +1779,15 @@
       {/snippet}
     </Dialog>
   </Page>
+  {#if locked}
+    <div class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 p-8 text-center bg-[var(--app-bg)]" role="dialog" aria-modal="true" aria-label={t(dict, 'app.lock.title')}>
+      <span class="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--app-tint-container)] text-[var(--app-on-tint-container)]">
+        <AppIcons name="lock" size={28} />
+      </span>
+      <h1 class="text-xl font-semibold">{t(dict, 'app.lock.title')}</h1>
+      <p class="text-sm opacity-70 max-w-xs">{t(dict, 'app.lock.hint')}</p>
+      {#if lockError}<p class="text-sm text-[var(--app-danger,#e5484d)]" role="alert">{lockError}</p>{/if}
+      <Button class="max-w-xs" disabled={lockBusy} onClick={() => tryUnlock()}>{t(dict, 'app.lock.unlock')}</Button>
+    </div>
+  {/if}
 </App>

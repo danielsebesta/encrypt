@@ -154,6 +154,10 @@
     emoji?: ReactionEmoji;
     remove?: true;
     once?: true;
+    kind?: 'joined' | 'left' | 'renamed';
+    name?: string;
+    from?: string;
+    to?: string;
   };
 
   type ServerEnvelope = {
@@ -347,6 +351,9 @@
     if (was && !netOffline) try { ws?.reconnect(); } catch {}
     reportConn();
   };
+  const isIosDevice = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const onPageHide = () => { try { ws?.close(1000, 'pagehide'); } catch {} };
+  const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) try { ws?.reconnect(); } catch {} };
   const onViewportResize = () => { if (stickToBottom) scrollToBottom(true); };
   let cryptoKey: CryptoKey | null = null;
   let alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
@@ -629,27 +636,45 @@
     return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
   }
 
-  // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so keep pinning until it settles.
+  // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so the bottom keeps
+  // moving. Keep pinning until the height and the distance to the bottom stop changing, and let the user cancel by touching the list.
   // Background tabs pause requestAnimationFrame, so pin once right after the DOM update too.
-  function scrollToBottom(force = false, frames = 4) {
+  let pinning = false;
+
+  function scrollToBottom(force = false) {
     if (!force && !stickToBottom) return;
     stickToBottom = true;
     belowCount = 0;
+    pinning = true;
     void settled().then(() => {
-      if (messagesEl && stickToBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+      if (messagesEl && pinning) messagesEl.scrollTop = messagesEl.scrollHeight;
     });
-    requestAnimationFrame(() => {
-      if (!messagesEl || !stickToBottom) return;
-      const before = messagesEl.scrollHeight;
-      messagesEl.scrollTop = before;
-      if (frames > 1) requestAnimationFrame(() => {
-        if (messagesEl && messagesEl.scrollHeight !== before) scrollToBottom(false, frames - 1);
-      });
-    });
+    let last = -1;
+    let stable = 0;
+    let frames = 0;
+    const step = () => {
+      if (!messagesEl || !pinning) return;
+      const height = messagesEl.scrollHeight;
+      messagesEl.scrollTop = height;
+      stable = height === last && distanceFromBottom() <= 1 ? stable + 1 : 0;
+      last = height;
+      if (stable >= 3 || ++frames > 60) {
+        pinning = false;
+        updateStickToBottom();
+        return;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    setTimeout(() => { if (pinning) { pinning = false; updateStickToBottom(); } }, 1500);
+  }
+
+  function cancelPin() {
+    pinning = false;
   }
 
   function updateStickToBottom() {
-    if (!messagesEl) return;
+    if (!messagesEl || pinning) return;
     const near = distanceFromBottom() <= NEAR_BOTTOM_PX;
     stickToBottom = near;
     if (near) belowCount = 0;
@@ -1772,6 +1797,7 @@
 
   // After someone leaves, everyone still here answers with a presence: that is the roll call for the new sender chains.
   async function onMemberLeft(gone?: string) {
+    if (gone) clientDeparted(gone);
     if (fsSession) await fsSession.memberLeft(gone);
     if (fsSession) await sendPresence();
   }
@@ -1812,7 +1838,7 @@
       if (text.length > SYNC_BATCH_CHARS) continue;
       try {
         const value = JSON.parse(text);
-        if ((value?.type !== 'chat-message' && value?.type !== 'reaction') || value.ttl) continue;
+        if ((value?.type !== 'chat-message' && value?.type !== 'reaction' && value?.type !== 'member-event') || value.ttl) continue;
         await processSigned(value, { fromHistory: true, origin: 'sync', signed: text });
       } catch {}
     }
@@ -2277,6 +2303,7 @@
       const who = senderInfo(parsed);
       addOnlineUser(who);
       noteMember(signer, who);
+      clientArrived(signer, parsed.clientId);
       const member = fsMember(parsed, signer);
       if (fsSession && member) {
         if (Array.isArray(parsed.want) && parsed.want.includes(roomIdentity?.publicKey)) await fsSession.memberWants(member);
@@ -2310,11 +2337,7 @@
         await fsSession.memberJoined(member);
         void sendLiveHistorySync(member);
       }
-      messages = [...messages, {
-        id: genId(), text: t(dict, 'chat.joinedRoom').replace('{name}', joiner.name), sender: '', initials: '→',
-        color: 'var(--accent)', mine: false, time: Date.now(), ttl: 15, remaining: 15,
-      }];
-      followIncoming(false);
+      clientArrived(signer, parsed.clientId);
       return true;
     }
 
@@ -2326,7 +2349,7 @@
       const priorName = before?.name ?? members.get(signer)?.name;
       if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
-      if (!fromHistory && priorName && priorName !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', priorName).replace('{to}', who.name), 15);
+      if (!fromHistory) messages = messages.map((m) => (m.pk === signer && !m.mine ? { ...m, sender: who.name, initials: who.initials, color: who.color, alias: who.alias, nick: who.nick } : m));
       return true;
     }
 
@@ -2340,6 +2363,7 @@
       if (verifying) markVerified();
       addOnlineUser(acker);
       noteMember(signer, acker);
+      clientArrived(signer, parsed.clientId);
       return true;
     }
 
@@ -2380,6 +2404,14 @@
       if (!ttl && ctx.signed && origin !== 'local' && keep) {
         void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt).catch(() => {});
       }
+      return true;
+    }
+    if (parsed.type === 'member-event') {
+      applyMemberEvent(id, parsed, signer, who.name, ctx.signed);
+      if (!ttl && ctx.signed && origin !== 'local' && keep) {
+        void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt).catch(() => {});
+      }
+      if (!fromHistory) followIncoming(false);
       return true;
     }
     if (parsed.type === 'message-burn') {
@@ -2771,6 +2803,7 @@
     if (!id || !messageIndex.has(id)) return;
     const el = document.getElementById(`chat-msg-${id}`);
     if (!el) return;
+    pinning = false;
     stickToBottom = false;
     el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     highlightedId = id;
@@ -4264,6 +4297,10 @@
 
   function handleVisibility() {
     if (typeof document === 'undefined') return;
+    if (isIosDevice()) {
+      if (document.hidden) { try { ws?.close(1000, 'hidden'); } catch {} }
+      else { try { ws?.reconnect(); } catch {} }
+    }
     blurred = document.hidden || !document.hasFocus();
     if (!blurred) {
       clearUnread();
@@ -4307,6 +4344,93 @@
         messages = messages;
         return;
       } catch { continue; }
+    }
+  }
+
+  // A person counts as present while any of their connections is, so a reconnect or a second tab never counts twice.
+  // A departure waits briefly: coming straight back, as a phone does after the app was in the background, announces nothing.
+  // Of the people still here, the one with the lowest key signs the notice, so it exists once and reaches everyone alike.
+  const LEAVE_GRACE_MS = 8000;
+  const liveClients = new Map<string, Set<string>>();
+  const leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  function clientArrived(signer: string, clientId: unknown) {
+    if (typeof clientId !== 'string' || !clientId) return;
+    const set = liveClients.get(signer) ?? new Set<string>();
+    set.add(clientId);
+    liveClients.set(signer, set);
+    const pending = leaveTimers.get(signer);
+    if (pending) {
+      clearTimeout(pending);
+      leaveTimers.delete(signer);
+    }
+  }
+
+  function clientDeparted(clientId: string) {
+    const signer = clientSigners.get(clientId);
+    const set = signer ? liveClients.get(signer) : undefined;
+    if (!signer || !set || !set.delete(clientId) || set.size) return;
+    const name = members.get(signer)?.name ?? '';
+    clearTimeout(leaveTimers.get(signer));
+    leaveTimers.set(signer, setTimeout(() => {
+      leaveTimers.delete(signer);
+      if (liveClients.get(signer)?.size) return;
+      liveClients.delete(signer);
+      const present = [...liveClients.keys(), mySignerId].filter(Boolean).sort();
+      if (name && present[0] === mySignerId) void sendMemberEvent('left', { name });
+    }, LEAVE_GRACE_MS));
+  }
+
+  function memberEventText(parsed: any, name: string): string {
+    if (parsed.kind === 'renamed') return t(dict, 'chat.renamed').replace('{from}', parsed.from).replace('{to}', parsed.to);
+    if (parsed.kind === 'left') return t(dict, 'chat.leftRoom').replace('{name}', parsed.name);
+    return t(dict, 'chat.joinedRoom').replace('{name}', name);
+  }
+
+  function applyMemberEvent(id: string, parsed: any, signer: string, name: string, signed?: string) {
+    if (messages.some((m) => m.id === id)) return;
+    const msg: Message = {
+      id, text: memberEventText(parsed, name), sender: '', initials: parsed.kind === 'left' ? '←' : '→', color: 'var(--accent)',
+      mine: false, time: parsed.createdAt || parsed._sentAt || Date.now(), ttl: 0, remaining: 0, pk: signer,
+      ...(signed ? { signed } : {}),
+    };
+    messages = [...messages, msg].sort((x, y) => x.time - y.time);
+  }
+
+  async function sendMemberEvent(kind: 'joined' | 'left' | 'renamed', extra: { name?: string; from?: string; to?: string } = {}): Promise<boolean> {
+    if (!verified || !cryptoKey || (roomConfig.mode === 'live' && !fsSession)) return false;
+    const ttl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    const id = genId();
+    const createdAt = Date.now();
+    const payload: ChatPayload = { type: 'member-event', id, kind, ...extra, alias: aliasWire(alias), nick: nickname || undefined, ttl, createdAt };
+    try {
+      const { signed } = await sendContent(payload, createdAt);
+      seenMessageIds.add(id);
+      applyMemberEvent(id, JSON.parse(signed), mySignerId, identity.name, signed);
+      followIncoming(true);
+      if (!ttl) void storeLocalSigned(id, signed, createdAt).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Everyone gets one notice when a person arrives, not one per reconnect: skip it if this browser announced itself just now.
+  let joinAnnounced = false;
+  $: if (verified && !joinAnnounced && (roomConfig.mode !== 'live' || fsSession)) {
+    joinAnnounced = true;
+    void announceJoin();
+  }
+
+  async function announceJoin() {
+    const key = 'encrypt:joined:' + roomId;
+    try {
+      if (Date.now() - Number(localStorage.getItem(key) || 0) < 5 * 60_000) return;
+    } catch {}
+    if (await sendMemberEvent('joined')) {
+      try { localStorage.setItem(key, String(Date.now())); } catch {}
+    } else {
+      setTimeout(() => { joinAnnounced = false; }, 3000);
     }
   }
 
@@ -4479,6 +4603,7 @@
     const avatarChanged = aliasKey(previewAlias) !== aliasKey(alias);
     if ((next || null) === nickname && !avatarChanged) return;
     const prev = myLabelKey();
+    const oldName = identity.name;
     alias = previewAlias;
     nickname = next || null;
     saveNickname(roomId, nickname);
@@ -4495,6 +4620,7 @@
     }
     if (!verified) return;
     await sendEncryptedControl({ type: 'rename', alias: aliasWire(alias), nick: nickname || undefined, prev });
+    if (identity.name !== oldName) void sendMemberEvent('renamed', { from: oldName, to: identity.name });
   }
 
   function fileGone(msg: Message): boolean {
@@ -4630,6 +4756,8 @@
     window.addEventListener('keydown', handleCallFullscreenKeydown);
     window.addEventListener('blur', handleVisibility);
     window.addEventListener('focus', handleVisibility);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onNetChange);
     window.addEventListener('offline', onNetChange);
     netOffline = !navigator.onLine;
@@ -4659,6 +4787,8 @@
       window.removeEventListener('keydown', handleCallFullscreenKeydown);
       window.removeEventListener('blur', handleVisibility);
       window.removeEventListener('focus', handleVisibility);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('online', onNetChange);
       window.removeEventListener('offline', onNetChange);
       window.visualViewport?.removeEventListener('resize', onViewportResize);
@@ -5167,7 +5297,7 @@
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
         <div class="chat-messages-shell">
-        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} use:revealSpoilers role="log" aria-live="polite">
+        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
           {@html illustration('chill', 'state-art mb-2')}
@@ -5212,7 +5342,7 @@
           <Message
             type={msg.mine ? 'sent' : 'received'}
             colors={kmsgColors}
-            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}`}
+            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}${!msg.mine && !groupEnd ? ' chat-kmsg--gutter' : ''}`}
             avatar={msg.mine || !groupEnd ? undefined : bubbleAvatar}
             name={(!msg.mine && groupStart) || msg.once || msg.keyWarning ? bubbleMeta : undefined}
           >
