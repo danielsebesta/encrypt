@@ -3257,3 +3257,8 @@ html[data-app-platform] ::selection {
 .app-room-wrapper .chat-file__name {
     font-size: 13px;
 }
+
+/* Received bubbles without their own avatar keep its place, so a run of messages lines up and the name sits above the same edge. */
+.chat-kmsg--gutter {
+    padding-inline-start: 38px;
+}

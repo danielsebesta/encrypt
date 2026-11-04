@@ -5342,7 +5342,7 @@
           <Message
             type={msg.mine ? 'sent' : 'received'}
             colors={kmsgColors}
-            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}`}
+            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}${!msg.mine && !groupEnd ? ' chat-kmsg--gutter' : ''}`}
             avatar={msg.mine || !groupEnd ? undefined : bubbleAvatar}
             name={(!msg.mine && groupStart) || msg.once || msg.keyWarning ? bubbleMeta : undefined}
           >
