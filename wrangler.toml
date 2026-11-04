@@ -58,6 +58,17 @@ new_sqlite_classes = ["SecurityBudget"]
 tag = "realtime-v1"
 new_sqlite_classes = ["ChatServer", "WhiteboardServer"]
 
-# The saved-room classes are gone. To purge their leftover Durable Object storage on production,
-# ship one deploy with a `deleted_classes = ["PersistentChatServer", "SavedWhiteboardServer"]`
-# migration re-added here — wrangler dev cannot apply it locally, so it is left out.
+# Production already applied persistent-v1 and saved-whiteboard-v1; wrangler replays every migration when it
+# cannot find the published tag, so they stay listed. The last one drops the removed saved-room classes and
+# their Durable Object storage.
+[[migrations]]
+tag = "persistent-v1"
+new_sqlite_classes = ["PersistentChatServer"]
+
+[[migrations]]
+tag = "saved-whiteboard-v1"
+new_sqlite_classes = ["SavedWhiteboardServer"]
+
+[[migrations]]
+tag = "remove-saved-rooms-v1"
+deleted_classes = ["PersistentChatServer", "SavedWhiteboardServer"]
