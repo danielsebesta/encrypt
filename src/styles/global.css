@@ -1267,6 +1267,33 @@ html.dark {
         @apply min-h-56;
     }
 
+    .demo__file {
+        @apply flex items-center gap-4 self-center rounded-xl border border-line-soft bg-bg p-4 opacity-0;
+        transform: translateY(0.5rem);
+        transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+    }
+
+    .demo__file--in {
+        @apply opacity-100;
+        transform: none;
+    }
+
+    .demo__file-thumb {
+        @apply h-[4.5rem] w-24 shrink-0 rounded-lg border border-line-soft object-cover;
+    }
+
+    .demo__file-meta {
+        @apply grid min-w-0 gap-0.5;
+    }
+
+    .demo__file-name {
+        @apply truncate font-mono text-base font-bold text-text;
+    }
+
+    .demo__file-size {
+        @apply text-sm text-muted;
+    }
+
     .demo__sketch {
         @apply h-32 w-full max-w-[17rem] text-accent-strong;
     }

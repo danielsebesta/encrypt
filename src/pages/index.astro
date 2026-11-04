@@ -45,7 +45,7 @@ const features = [
       <div class="home-hero__art">
         <Fragment set:html={illustration('hero', 'mx-auto h-auto w-full max-w-[400px] md:max-w-none')} />
       </div>
-      <HeroCipher client:load dict={pickDict(dict, ['landing.demo'])} />
+      <HeroCipher client:load locale={locale} dict={pickDict(dict, ['landing.demo'])} />
     </section>
 
     <section id="try" class="panel stack" aria-labelledby="home-try-title">
