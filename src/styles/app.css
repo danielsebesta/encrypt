@@ -315,6 +315,26 @@ html[data-app-platform] body {
     touch-action: pan-y;
 }
 
+/* Native feel: nothing is selectable or draggable; messages are copied through their action sheet */
+html[data-app-platform] body *:not(input):not(textarea):not([contenteditable="true"]) {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+}
+.app-row-press {
+    animation: app-row-hold 0.45s cubic-bezier(0.2, 0, 0, 1) 0.1s forwards;
+}
+@keyframes app-row-hold {
+    to {
+        transform: scale(0.97);
+        background-color: var(--app-tint-container);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-row-press {
+        animation-duration: 0.01s;
+    }
+}
 /* Native feel: chrome is not selectable/draggable, content stays selectable */
 html[data-app-platform] button,
 html[data-app-platform] [role="button"],

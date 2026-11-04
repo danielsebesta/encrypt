@@ -4298,7 +4298,7 @@
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     if (isIosDevice()) {
-      if (document.hidden) { try { ws?.close(1000, 'hidden'); } catch {} }
+      if (document.hidden) { if (!callActive) try { ws?.close(1000, 'hidden'); } catch {} }
       else { try { ws?.reconnect(); } catch {} }
     }
     blurred = document.hidden || !document.hasFocus();

@@ -385,17 +385,23 @@
     consumeOverlayGuard();
   }
 
+  let pressingId = $state('');
+
   function rowPressStart(room: RoomEntry) {
     lpFired = false;
     clearTimeout(lpTimer);
+    pressingId = room.id;
     lpTimer = setTimeout(() => {
       lpFired = true;
+      pressingId = '';
+      triggerHaptic('medium');
       openRowActions(room);
     }, 550);
   }
 
   function rowPressEnd() {
     clearTimeout(lpTimer);
+    pressingId = '';
   }
 
   async function shareRoom() {
@@ -632,6 +638,30 @@
   let wiping = false;
   let wipeEpoch = 0;
 
+  const LAST_VIEW_KEY = 'encrypt.click:chat-last-view';
+  const LAST_VIEW_TTL_MS = 2 * 60 * 60 * 1000;
+
+  function readLastView(): { room: string | null; kind: string | null; tab: string | null } | null {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LAST_VIEW_KEY) ?? 'null');
+      if (!raw || typeof raw.at !== 'number' || Date.now() - raw.at > LAST_VIEW_TTL_MS) return null;
+      const room = typeof raw.room === 'string' && validRoomId(raw.room) ? raw.room : null;
+      const kind = raw.kind === 'whiteboard' ? 'whiteboard' : 'chat';
+      const tab = ['chats', 'boards', 'files', 'settings'].includes(raw.tab) ? (raw.tab as string) : null;
+      return room || tab ? { room, kind: room ? kind : null, tab: room ? null : tab } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveLastView() {
+    if (!ready || wiping) return;
+    const entry = activeView === 'hub' ? { tab: activeTab } : { room: activeRoomId, kind: activeView === 'board' ? 'whiteboard' : 'chat' };
+    try { localStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ ...entry, at: Date.now() })); } catch {}
+  }
+
+  $effect(saveLastView);
+
   // Room-scoped secrets outside the vault DB: signing identities (chat-identity
   // IDB), per-room trust tables / mode / schedule / history / alias keys in
   // localStorage, and password handoffs + sealed scheduled drafts in
@@ -814,6 +844,7 @@
     const onVisibility = () => {
       if (document.hidden) {
         hiddenAt = Date.now();
+        saveLastView();
         return;
       }
       loadRooms();
@@ -845,9 +876,17 @@
     schemeQuery.addEventListener('change', onScheme);
 
     const params = new URLSearchParams(window.location.search);
-    const roomParam = params.get('room');
-    const kindParam = params.get('kind');
-    const tabParam = params.get('tab');
+    let roomParam = params.get('room');
+    let kindParam = params.get('kind');
+    let tabParam = params.get('tab');
+    if (!roomParam && !tabParam && !params.get('action')) {
+      const last = readLastView();
+      if (last) {
+        roomParam = last.room;
+        kindParam = last.kind;
+        tabParam = last.tab;
+      }
+    }
 
     if (roomParam && validRoomId(roomParam)) {
       const kind = kindParam === 'whiteboard' ? 'whiteboard' : 'chat';
@@ -965,6 +1004,7 @@
 
 {#snippet roomRow(room: RoomEntry)}
   <ListItem
+    class={pressingId === room.id ? 'app-row-press' : ''}
     link
     linkComponent="button"
     linkProps={{ type: 'button' }}
