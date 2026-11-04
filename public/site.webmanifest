@@ -1,14 +1,39 @@
 {
-  "name": "Encrypt.click",
-  "short_name": "Encrypt.click",
-  "description": "Privacy-first security toolkit. Encrypt, hash, sign, and hide - 100% in your browser.",
-  "start_url": "/",
+  "name": "Encrypt",
+  "short_name": "Encrypt",
+  "description": "Privacy-first security toolkit & E2EE messenger. Encrypt, hash, chat, and hide - 100% client-side.",
+  "start_url": "/app",
   "scope": "/",
-  "id": "/",
+  "id": "/app",
   "display": "standalone",
-  "theme_color": "#08110a",
-  "background_color": "#08110a",
-  "categories": ["utilities", "security"],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "categories": ["utilities", "security", "social"],
+  "shortcuts": [
+    {
+      "name": "New Chat",
+      "short_name": "Chat",
+      "description": "Open or create encrypted chat room",
+      "url": "/app?tab=chats&action=new",
+      "icons": [{ "src": "/favicon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Send Encrypted File",
+      "short_name": "Send",
+      "description": "Encrypt and send a file or secret message",
+      "url": "/app?tab=files",
+      "icons": [{ "src": "/favicon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Whiteboard",
+      "short_name": "Board",
+      "description": "Open an encrypted collaborative whiteboard",
+      "url": "/app?tab=boards",
+      "icons": [{ "src": "/favicon-96x96.png", "sizes": "96x96" }]
+    }
+  ],
   "share_target": {
     "action": "/share-target",
     "method": "POST",

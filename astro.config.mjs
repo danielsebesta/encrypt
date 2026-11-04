@@ -1,5 +1,6 @@
 // @ts-check
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, passthroughImageService } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
@@ -9,6 +10,9 @@ import { getAdapter as nodeAdapter } from '@astrojs/node';
 
 // Astro invents a random key on every build to encrypt server-island props, which this site does not use. A fixed one keeps the output reproducible.
 process.env.ASTRO_KEY ||= createHash('sha256').update('encrypt.click/astro-key').digest('base64');
+
+// Server code reads config through process.env; dev has no other way to receive .env values.
+if (existsSync('.env')) process.loadEnvFile('.env');
 
 const target = process.env.DEPLOY_TARGET || 'cloudflare';
 if (target !== 'cloudflare' && target !== 'node') throw new Error(`Unknown DEPLOY_TARGET "${target}"`);
@@ -45,7 +49,7 @@ export default defineConfig({
       allowedHosts: [],
     },
     // The Node image ships without node_modules, so the server build carries its dependencies.
-    ...(target === 'node' ? { ssr: { noExternal: true } } : {}),
+    ...(target === 'node' ? { environments: { ssr: { resolve: { noExternal: true } }, prerender: { resolve: { noExternal: true } } } } : {}),
     optimizeDeps: {
       include: ['lz-string', 'tlock-js'],
       exclude: [

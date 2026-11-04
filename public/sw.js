@@ -39,6 +39,6 @@ async function receiveShare(request) {
   } catch {
     await caches.delete(SHARE_INBOX);
   }
-  return Response.redirect(new URL('/share', self.location.origin).href, 303);
+  return Response.redirect(new URL('/app?tab=files', self.location.origin).href, 303);
 }
 // Every other request uses the network and HTTP cache policy. No API or secret URLs are cached.
