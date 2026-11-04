@@ -57,12 +57,17 @@ export async function enableLock(displayName: string, known: VaultState | null =
   try {
     const state = known ?? (await vaultState());
     if (state === 'new') {
-      const created = await createPasskey(displayName);
+      const made: { id?: ArrayBuffer } = {};
+      const created = await createPasskey(displayName, (id) => { made.id = id; });
       if (created === 'ok') {
         localStorage.setItem(STORAGE_KEY, VAULT_MARK);
         return { ok: true };
       }
       if (created === 'cancelled' || created === 'failed') return { ok: false, detail: lastPasskeyError() || created };
+      if (made.id) {
+        localStorage.setItem(STORAGE_KEY, toBase64Url(new Uint8Array(made.id)));
+        return { ok: true };
+      }
     } else if (state === 'locked' || state === 'unlocked') {
       if (await unlockVault()) {
         localStorage.setItem(STORAGE_KEY, VAULT_MARK);
