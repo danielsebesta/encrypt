@@ -36,6 +36,12 @@
   let host = $state('');
   let checked = false;
 
+  // The dialog must outlive the menu it is opened from: inside a closed popover it would be hidden along with it.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy() { node.remove(); } };
+  }
+
   const usable = $derived(validRoomId(roomId) && validMode(kind, mode));
   const secret = $derived.by((): RoomSecret | null => {
     const candidate: RoomSecret = { type: 'password', value: password.trim() };
@@ -110,7 +116,7 @@
     </button>
   {/if}
 
-  <dialog bind:this={dialog} class="save-room card" aria-labelledby="save-room-title" aria-describedby="save-room-intro">
+  <dialog bind:this={dialog} use:portal class="save-room card" aria-labelledby="save-room-title" aria-describedby="save-room-intro">
     <form class="stack" onsubmit={(event) => { event.preventDefault(); void save(withPasskey); }}>
       <div>
         <h2 id="save-room-title" class="section-title">{title}</h2>
