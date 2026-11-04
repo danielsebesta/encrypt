@@ -42,6 +42,7 @@ const dict = getTranslations(locale);
               : tab === 'chats' ? '/chat'
               : tab === 'boards' ? '/whiteboard'
               : '/';
+            try { sessionStorage.setItem('encrypt-app-redirect', mobile ? 'install' : 'desktop'); } catch (e) {}
             window.__encryptAppRedirect = true;
             document.documentElement.style.visibility = 'hidden';
             location.replace(prefix + path + location.hash);
