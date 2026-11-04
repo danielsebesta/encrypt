@@ -3211,3 +3211,13 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="material"] .k-popover .k-list-item > *:active {
     background: color-mix(in srgb, var(--app-label) 10%, transparent);
 }
+
+/* On-screen keyboard: fit the app to the visual viewport (iOS counts its accessory bar there) and drop the home-indicator padding it covers. */
+:root.app-kbd .k-app,
+:root.app-kbd .k-page {
+    height: var(--app-vvh);
+    max-height: var(--app-vvh);
+}
+:root.app-kbd .chat-input {
+    padding-bottom: 0.35rem;
+}

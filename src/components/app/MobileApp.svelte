@@ -60,6 +60,7 @@
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
+  import { installViewportSync } from '../../lib/viewportSync';
   import {
     applyTheme,
     loadThemeState,
@@ -879,8 +880,10 @@
     loadRooms();
 
     const removeSheetSwipe = installSheetSwipe();
+    const removeViewportSync = installViewportSync();
     return () => {
       removeSheetSwipe();
+      removeViewportSync();
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('beforeinstallprompt', onInstallPrompt);
@@ -981,7 +984,7 @@
       {#if activeView === 'room'}
         <button
           type="button"
-          class="app-nav-title block truncate max-w-[45vw] sm:max-w-[58vw] mx-auto text-center"
+          class="app-nav-title block truncate max-w-[32vw] sm:max-w-[58vw] mx-auto text-center"
           onclick={() => roomInfo?.()}
           aria-label={t(dict, 'chat.members')}
         >
@@ -1005,7 +1008,7 @@
           {t(dict, roomConn === 'offline' ? 'app.offline' : 'chat.connecting')}
         </button>
       {:else}
-        <span class="inline-flex items-center justify-center gap-1 text-[var(--app-label-2)] truncate max-w-[50vw] pb-0.5 leading-tight">
+        <span class="inline-flex items-center justify-center gap-1 text-[var(--app-label-2)] truncate max-w-[32vw] pb-0.5 leading-tight">
           <AppIcons name="lock" size={10} />
           {t(dict, 'app.room.encrypted')}
         </span>

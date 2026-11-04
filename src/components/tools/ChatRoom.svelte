@@ -347,6 +347,7 @@
     if (was && !netOffline) try { ws?.reconnect(); } catch {}
     reportConn();
   };
+  const isIosDevice = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   const onPageHide = () => { try { ws?.close(1000, 'pagehide'); } catch {} };
   const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) try { ws?.reconnect(); } catch {} };
   const onViewportResize = () => { if (stickToBottom) scrollToBottom(true); };
@@ -4285,6 +4286,10 @@
 
   function handleVisibility() {
     if (typeof document === 'undefined') return;
+    if (isIosDevice()) {
+      if (document.hidden) { try { ws?.close(1000, 'hidden'); } catch {} }
+      else { try { ws?.reconnect(); } catch {} }
+    }
     blurred = document.hidden || !document.hasFocus();
     if (!blurred) {
       clearUnread();
