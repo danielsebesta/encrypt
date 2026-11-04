@@ -1,3 +1,4 @@
+import { MIC_CONSTRAINTS, buildMicChain, type MicChain } from './micChain';
 export const MAX_VOICE_MS = 5 * 60_000;
 export const MAX_VOICE_SECONDS = MAX_VOICE_MS / 1000;
 
@@ -80,6 +81,7 @@ export async function voicePeaks(blob: Blob, seconds: number, bars = VOICE_BARS)
 export class VoiceRecorder {
   private recorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;
+  private chain: MicChain | null = null;
   private chunks: Blob[] = [];
   private startedAt = 0;
   private limit: ReturnType<typeof setTimeout> | undefined;
@@ -122,10 +124,13 @@ export class VoiceRecorder {
   }
 
   async start(): Promise<void> {
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS });
+    const rawTrack = this.stream.getAudioTracks()[0];
+    this.chain = rawTrack ? buildMicChain(rawTrack) : null;
+    const source = this.chain ? new MediaStream([this.chain.track]) : this.stream;
     const type = pickVoiceType((candidate) => MediaRecorder.isTypeSupported(candidate));
     try {
-      this.recorder = new MediaRecorder(this.stream, { ...(type ? { mimeType: type } : {}), audioBitsPerSecond: 32_000 });
+      this.recorder = new MediaRecorder(source, { ...(type ? { mimeType: type } : {}), audioBitsPerSecond: 32_000 });
     } catch (error) {
       this.release();
       throw error;
@@ -178,6 +183,9 @@ export class VoiceRecorder {
     this.limit = undefined;
     for (const track of this.stream?.getTracks() ?? []) track.stop();
     this.stream = null;
+    this.chain?.track.stop();
+    void this.chain?.context.close().catch(() => {});
+    this.chain = null;
     void this.meterCtx?.close().catch(() => {});
     this.meterCtx = null;
     this.analyser = null;

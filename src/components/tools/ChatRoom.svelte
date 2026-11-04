@@ -49,6 +49,7 @@
   import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
   import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
   import { longPress } from '../../lib/longPress';
+  import { buildMicChain } from '../../lib/micChain';
   import { swipeReply } from '../../lib/swipeReply';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
   import {
@@ -3678,41 +3679,11 @@
     localStream = localStream;
   }
 
-  // Rumble filter, then a gentle compressor that evens out loudness and a limiter that caps an overdriven mic.
   function processMicTrack(raw: MediaStreamTrack): MediaStreamTrack {
-    const AudioContextCtor = getAudioContextConstructor();
-    if (!AudioContextCtor) return raw;
-    try {
-      const context = new AudioContextCtor();
-      const source = context.createMediaStreamSource(new MediaStream([raw]));
-      const highpass = context.createBiquadFilter();
-      highpass.type = 'highpass';
-      highpass.frequency.value = 80;
-      const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -24;
-      compressor.knee.value = 12;
-      compressor.ratio.value = 4;
-      compressor.attack.value = 0.005;
-      compressor.release.value = 0.25;
-      const limiter = context.createDynamicsCompressor();
-      limiter.threshold.value = -6;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.001;
-      limiter.release.value = 0.1;
-      const destination = context.createMediaStreamDestination();
-      source.connect(highpass).connect(compressor).connect(limiter).connect(destination);
-      void context.resume().catch(() => {});
-      const track = destination.stream.getAudioTracks()[0];
-      if (!track) {
-        void context.close().catch(() => {});
-        return raw;
-      }
-      micProcessing = { context, raw };
-      return track;
-    } catch {
-      return raw;
-    }
+    const chain = buildMicChain(raw);
+    if (!chain) return raw;
+    micProcessing = { context: chain.context, raw };
+    return chain.track;
   }
 
   function stopMicProcessing() {
