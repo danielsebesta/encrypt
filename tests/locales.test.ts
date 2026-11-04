@@ -8,6 +8,12 @@ const LOCALES = ['cs', 'sk', 'de', 'es', 'fr', 'pl'] as const;
 
 /** Keys that may legitimately match English (brands, loanwords, cognates, technical labels). */
 const ALLOW_SAME_AS_EN = new Set([
+  'app.filter.live',
+  'app.new.kindChat',
+  'app.settings.app',
+  'app.settings.materialShort',
+  'app.settings.system',
+  'app.tab.chats',
   'chat.about.2.title',
   'chat.alias.format',
   'chat.onceBlurVoice',
@@ -30,9 +36,7 @@ const ALLOW_SAME_AS_EN = new Set([
   'landing.try.tab.whiteboard',
   'nav.chat',
   'nav.menu',
-  'nav.tool.aesWords',
   'nav.whiteboard',
-  'tools.aesWords.h1',
   'chat.inviteCard.link',
   'rooms.kind.chat',
   'rooms.kind.whiteboard',
