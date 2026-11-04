@@ -22,6 +22,31 @@ const dict = getTranslations(locale);
     <script is:inline>
       (function () {
         try {
+          var ua = navigator.userAgent || '';
+          var touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+          var mobile = navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean'
+            ? navigator.userAgentData.mobile || touchMac
+            : /Android|iPhone|iPad|iPod/.test(ua) || touchMac;
+          var installed = navigator.standalone === true ||
+            matchMedia('(display-mode: standalone)').matches ||
+            matchMedia('(display-mode: fullscreen)').matches ||
+            matchMedia('(display-mode: minimal-ui)').matches;
+          if (!(mobile && installed)) {
+            var q = new URLSearchParams(location.search);
+            var lang = document.documentElement.lang;
+            var prefix = /^(cs|de|es|fr|sk|pl)$/.test(lang) ? '/' + lang : '';
+            var room = q.get('room');
+            var tab = q.get('tab');
+            var path = room && /^[A-Za-z0-9_-]{1,64}$/.test(room)
+              ? (q.get('kind') === 'whiteboard' ? '/whiteboard/' : '/chat/') + encodeURIComponent(room)
+              : tab === 'chats' ? '/chat'
+              : tab === 'boards' ? '/whiteboard'
+              : '/';
+            window.__encryptAppRedirect = true;
+            document.documentElement.style.visibility = 'hidden';
+            location.replace(prefix + path + location.hash);
+            return;
+          }
           var ls = localStorage;
           var root = document.documentElement;
           var hint = navigator.userAgentData && navigator.userAgentData.platform;

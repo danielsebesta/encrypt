@@ -726,6 +726,7 @@
   }
 
   onMount(() => {
+    if ((window as Window & { __encryptAppRedirect?: boolean }).__encryptAppRedirect) return;
     const state = loadThemeState();
     platform = state.platform;
     appearance = state.appearance;
