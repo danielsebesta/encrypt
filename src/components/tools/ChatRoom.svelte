@@ -154,6 +154,10 @@
     emoji?: ReactionEmoji;
     remove?: true;
     once?: true;
+    kind?: 'joined' | 'left' | 'renamed';
+    name?: string;
+    from?: string;
+    to?: string;
   };
 
   type ServerEnvelope = {
@@ -1834,7 +1838,7 @@
       if (text.length > SYNC_BATCH_CHARS) continue;
       try {
         const value = JSON.parse(text);
-        if ((value?.type !== 'chat-message' && value?.type !== 'reaction') || value.ttl) continue;
+        if ((value?.type !== 'chat-message' && value?.type !== 'reaction' && value?.type !== 'member-event') || value.ttl) continue;
         await processSigned(value, { fromHistory: true, origin: 'sync', signed: text });
       } catch {}
     }
@@ -2299,7 +2303,7 @@
       const who = senderInfo(parsed);
       addOnlineUser(who);
       noteMember(signer, who);
-      clientArrived(signer, parsed.clientId, who.name, false);
+      clientArrived(signer, parsed.clientId);
       const member = fsMember(parsed, signer);
       if (fsSession && member) {
         if (Array.isArray(parsed.want) && parsed.want.includes(roomIdentity?.publicKey)) await fsSession.memberWants(member);
@@ -2333,7 +2337,7 @@
         await fsSession.memberJoined(member);
         void sendLiveHistorySync(member);
       }
-      clientArrived(signer, parsed.clientId, joiner.name, true);
+      clientArrived(signer, parsed.clientId);
       return true;
     }
 
@@ -2346,7 +2350,6 @@
       if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
       if (!fromHistory) messages = messages.map((m) => (m.pk === signer && !m.mine ? { ...m, sender: who.name, initials: who.initials, color: who.color, alias: who.alias, nick: who.nick } : m));
-      if (!fromHistory && priorName && priorName !== who.name) addSystemMessage(t(dict, 'chat.renamed').replace('{from}', priorName).replace('{to}', who.name), 0);
       return true;
     }
 
@@ -2360,7 +2363,7 @@
       if (verifying) markVerified();
       addOnlineUser(acker);
       noteMember(signer, acker);
-      clientArrived(signer, parsed.clientId, acker.name, false);
+      clientArrived(signer, parsed.clientId);
       return true;
     }
 
@@ -2401,6 +2404,14 @@
       if (!ttl && ctx.signed && origin !== 'local' && keep) {
         void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt).catch(() => {});
       }
+      return true;
+    }
+    if (parsed.type === 'member-event') {
+      applyMemberEvent(id, parsed, signer, who.name, ctx.signed);
+      if (!ttl && ctx.signed && origin !== 'local' && keep) {
+        void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : parsed._sentAt).catch(() => {});
+      }
+      if (!fromHistory) followIncoming(false);
       return true;
     }
     if (parsed.type === 'message-burn') {
@@ -4336,25 +4347,23 @@
     }
   }
 
-  // A person counts as present while any of their connections is, so a reconnect or a second tab never announces them twice.
+  // A person counts as present while any of their connections is, so a reconnect or a second tab never counts twice.
   // A departure waits briefly: coming straight back, as a phone does after the app was in the background, announces nothing.
+  // Of the people still here, the one with the lowest key signs the notice, so it exists once and reaches everyone alike.
   const LEAVE_GRACE_MS = 8000;
   const liveClients = new Map<string, Set<string>>();
   const leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  function clientArrived(signer: string, clientId: unknown, name: string, announce: boolean) {
+  function clientArrived(signer: string, clientId: unknown) {
     if (typeof clientId !== 'string' || !clientId) return;
     const set = liveClients.get(signer) ?? new Set<string>();
-    const wasPresent = set.size > 0;
     set.add(clientId);
     liveClients.set(signer, set);
     const pending = leaveTimers.get(signer);
     if (pending) {
       clearTimeout(pending);
       leaveTimers.delete(signer);
-      return;
     }
-    if (!wasPresent && announce) addSystemMessage(t(dict, 'chat.joinedRoom').replace('{name}', name), 0);
   }
 
   function clientDeparted(clientId: string) {
@@ -4367,8 +4376,62 @@
       leaveTimers.delete(signer);
       if (liveClients.get(signer)?.size) return;
       liveClients.delete(signer);
-      if (name) addSystemMessage(t(dict, 'chat.leftRoom').replace('{name}', name), 0, '←');
+      const present = [...liveClients.keys(), mySignerId].filter(Boolean).sort();
+      if (name && present[0] === mySignerId) void sendMemberEvent('left', { name });
     }, LEAVE_GRACE_MS));
+  }
+
+  function memberEventText(parsed: any, name: string): string {
+    if (parsed.kind === 'renamed') return t(dict, 'chat.renamed').replace('{from}', parsed.from).replace('{to}', parsed.to);
+    if (parsed.kind === 'left') return t(dict, 'chat.leftRoom').replace('{name}', parsed.name);
+    return t(dict, 'chat.joinedRoom').replace('{name}', name);
+  }
+
+  function applyMemberEvent(id: string, parsed: any, signer: string, name: string, signed?: string) {
+    if (messages.some((m) => m.id === id)) return;
+    const msg: Message = {
+      id, text: memberEventText(parsed, name), sender: '', initials: parsed.kind === 'left' ? '←' : '→', color: 'var(--accent)',
+      mine: false, time: parsed.createdAt || parsed._sentAt || Date.now(), ttl: 0, remaining: 0, pk: signer,
+      ...(signed ? { signed } : {}),
+    };
+    messages = [...messages, msg].sort((x, y) => x.time - y.time);
+  }
+
+  async function sendMemberEvent(kind: 'joined' | 'left' | 'renamed', extra: { name?: string; from?: string; to?: string } = {}): Promise<boolean> {
+    if (!verified || !cryptoKey || (roomConfig.mode === 'live' && !fsSession)) return false;
+    const ttl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
+    const id = genId();
+    const createdAt = Date.now();
+    const payload: ChatPayload = { type: 'member-event', id, kind, ...extra, alias: aliasWire(alias), nick: nickname || undefined, ttl, createdAt };
+    try {
+      const { signed } = await sendContent(payload, createdAt);
+      seenMessageIds.add(id);
+      applyMemberEvent(id, JSON.parse(signed), mySignerId, identity.name, signed);
+      followIncoming(true);
+      if (!ttl) void storeLocalSigned(id, signed, createdAt).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Everyone gets one notice when a person arrives, not one per reconnect: skip it if this browser announced itself just now.
+  let joinAnnounced = false;
+  $: if (verified && !joinAnnounced && (roomConfig.mode !== 'live' || fsSession)) {
+    joinAnnounced = true;
+    void announceJoin();
+  }
+
+  async function announceJoin() {
+    const key = 'encrypt:joined:' + roomId;
+    try {
+      if (Date.now() - Number(localStorage.getItem(key) || 0) < 5 * 60_000) return;
+    } catch {}
+    if (await sendMemberEvent('joined')) {
+      try { localStorage.setItem(key, String(Date.now())); } catch {}
+    } else {
+      setTimeout(() => { joinAnnounced = false; }, 3000);
+    }
   }
 
   function addSystemMessage(text: string, ttl: number, initials = '→', color = 'var(--accent)') {
@@ -4540,6 +4603,7 @@
     const avatarChanged = aliasKey(previewAlias) !== aliasKey(alias);
     if ((next || null) === nickname && !avatarChanged) return;
     const prev = myLabelKey();
+    const oldName = identity.name;
     alias = previewAlias;
     nickname = next || null;
     saveNickname(roomId, nickname);
@@ -4556,6 +4620,7 @@
     }
     if (!verified) return;
     await sendEncryptedControl({ type: 'rename', alias: aliasWire(alias), nick: nickname || undefined, prev });
+    if (identity.name !== oldName) void sendMemberEvent('renamed', { from: oldName, to: identity.name });
   }
 
   function fileGone(msg: Message): boolean {
