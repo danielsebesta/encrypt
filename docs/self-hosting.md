@@ -2,7 +2,7 @@
 
 The code that runs encrypt.click on Cloudflare Workers also runs as one long-lived Node.js process. The Docker image bundles everything a public instance needs:
 
-- the Node server: pages, APIs, ciphertext uploads and the chat and whiteboard rooms (WebSockets, state in SQLite),
+- the Node server: pages, APIs, ciphertext uploads and the chat and whiteboard rooms (WebSockets, room settings in SQLite),
 - [Caddy](https://caddyserver.com) for automatic HTTPS when `DOMAIN` is set,
 - [coturn](https://github.com/coturn/coturn) as the TURN relay for calls between browsers that cannot reach each other directly.
 
@@ -143,14 +143,14 @@ Everything lives in the `/data` volume:
 
 | Path | Contents |
 | --- | --- |
-| `rooms.sqlite` | Saved chat rooms (encrypted history the server cannot read) and room settings and expiry times. |
+| `rooms.sqlite` | Chat room settings (mode, format version and creation time) and the alarms that delete empty rooms. Message history and whiteboard state are never stored. |
 | `uploads/` | Encrypted uploads. Each is refused from its expiry time on (1 hour, 24 hours or 7 days after it was stored, or right after its first download if the sender chose that), and an hourly sweep deletes the files. |
 | `uploads.sqlite` | Expiry time and one-time flag of each upload. Files without an entry expire 24 hours after they were written. |
 | `budget/` | Rate-limit and upload accounting. Safe to lose. |
 | `secrets/` | Generated secrets. Losing them only invalidates short-lived grants and upload passes. |
 | `caddy/` | Certificates and the ACME account. |
 
-`rooms.sqlite` is the only file worth backing up. Take a consistent copy while the container runs:
+`rooms.sqlite` only holds room settings, so a backup matters only if you want room links to keep working across a rebuild. Take a consistent copy while the container runs:
 
 ```bash
 docker exec encrypt node -e "new (require('node:sqlite').DatabaseSync)('/data/rooms.sqlite').exec(\"VACUUM INTO '/data/rooms-backup.sqlite'\")"
@@ -191,7 +191,7 @@ The script compares every listed file, the response headers from `_headers` (inc
 ## Differences from encrypt.click on Cloudflare
 
 - **One instance.** All rooms live in one process. Run exactly one container per data volume; a second copy would split rooms between processes.
-- **No jurisdiction pinning.** Saved rooms and uploads are stored where your server is. encrypt.click pins them to the EU.
+- **No jurisdiction pinning.** Room settings and uploads are stored where your server is. encrypt.click pins them to the EU.
 - **No edge network.** No CDN, no DDoS protection in front, and rate limits count only what reaches this one server.
 - **Uploads on local disk.** Size `UPLOAD_DAILY_GB` to the free space on the volume.
 
