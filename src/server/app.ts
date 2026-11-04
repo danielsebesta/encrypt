@@ -92,7 +92,7 @@ export function createApp(platform: Platform) {
       if (path === null) return new Response('Bad request', { status: 400 });
       if (path === '/healthz') return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
       // The service worker answers the share sheet on the device; if it is not running yet, the body is dropped unread.
-      if (SHARE_TARGET.test(path)) return new Response(null, { status: 303, headers: { Location: new URL('/share', request.url).href, 'Cache-Control': 'no-store' } });
+      if (SHARE_TARGET.test(path)) return new Response(null, { status: 303, headers: { Location: new URL('/app?tab=files', request.url).href, 'Cache-Control': 'no-store' } });
       const route = routeOf(path);
       if (route !== null) {
         if (crossSite(request)) return new Response('Forbidden', { status: 403 });

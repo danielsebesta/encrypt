@@ -47,10 +47,6 @@ export function gradientFor(alias: Alias | undefined, name: string): string {
   return identiconBackground(alias ? `${aliasKey(alias)}:${name}` : name);
 }
 
-export function initialsOf(name: string): string {
-  return name.split(' ').map((w) => w[0] ?? '').join('').toUpperCase().slice(0, 2);
-}
-
 /** One alias per room, kept in this browser so a reload keeps the same name and color. */
 export function loadAlias(room: string): Alias {
   const key = `${STORAGE_PREFIX}${room}`;

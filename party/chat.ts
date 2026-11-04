@@ -1,18 +1,12 @@
 import { issueTurnGrant } from "../src/lib/turnGrant";
 import {
   normalizeChatMode,
-  PERSISTENT_HISTORY_BYTES,
-  PERSISTENT_HISTORY_LIMIT,
-  PERSISTENT_IDLE_DAYS,
-  PERSISTENT_PAYLOAD_CHARS,
   type ChatMode,
 } from "../src/lib/chatRoomSettings";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
-// Password rooms are format version 3; a saved room's key comes from the fragment of its link.
-type PasswordConfig = { mode: ChatMode; authMode: "password"; createdAt: number; v: 3 };
-type SavedConfig = { mode: "persistent"; authMode: "fragment"; createdAt: number };
-type RoomConfig = PasswordConfig | SavedConfig;
+// Password rooms are format version 3; the room keeps only this small config, never a message.
+type RoomConfig = { mode: ChatMode; authMode: "password"; createdAt: number; v: 3 };
 
 type RoomState = {
   locked: boolean;
@@ -20,89 +14,46 @@ type RoomState = {
   config: RoomConfig | null;
 };
 
-// In rooms without server history every joined connection gets a random tag, stamped on what it sends and named when it
+// Every joined connection gets a random tag, stamped on what it sends and named when it
 // closes, so members can tell which of them left. It links nothing across connections and the relay learns nothing new.
 type ChatConnectionState = {
   joined: boolean;
-  keyed?: boolean;
   tag?: string;
-};
-
-type MemberKeyRecord = {
-  key: string;
-  at: number;
 };
 
 type ClientMessageEnvelope = {
   type: "message";
   id: string;
   payload: string;
-  persist: boolean;
   createdAt?: number;
-  serverSeq?: number;
-};
-
-type HistoryRecord = {
-  id: string;
-  payload: string;
-  createdAt: number;
-  seq: number;
-};
-
-// The epoch changes whenever history starts over, so a client's "since" cursor from a deleted room is never applied to a new one.
-type HistoryMeta = {
-  epoch: string;
-  seq: number;
-  count: number;
-  bytes: number;
-};
-
-export type ChatRoomOptions = {
-  persistent?: boolean;
 };
 
 const CONFIG_KEY = "room-config";
-const HISTORY_PREFIX = "history:";
-const HISTORY_META_KEY = "history-meta";
-const MEMBER_KEY_PREFIX = "member-key:";
-const MAX_MEMBER_KEYS = 128;
-// An ML-DSA-44 public key (1750 base64url characters) sealed by the client under the room key: 12 + 1750 + 16 bytes.
-const MEMBER_KEY_RE = /^[A-Za-z0-9_-]{2371}$/;
-const HISTORY_BATCH_CHARS = 600_000;
 const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
 const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const PERSISTENT_IDLE_MS = PERSISTENT_IDLE_DAYS * 24 * 60 * 60 * 1000;
 const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
-const DEFAULT_CONFIG: PasswordConfig = {
+const DEFAULT_CONFIG: RoomConfig = {
   mode: "live",
   authMode: "password",
   createdAt: 0,
   v: 3,
 };
-const PERSISTENT_CONFIG: SavedConfig = {
-  mode: "persistent",
-  authMode: "fragment",
-  createdAt: 0,
-};
-
-const historyKey = (seq: number) => `${HISTORY_PREFIX}${String(seq).padStart(12, "0")}`;
-const recordBytes = (record: HistoryRecord) => record.payload.length + record.id.length + 32;
 
 export default class ChatRoom {
   access: RoomAccess;
   private queue = Promise.resolve();
-  private readonly persistent: boolean;
-  private meta: HistoryMeta | null | undefined;
+  // Relayed client message ids, so a retry or reconnect retransmitting the same
+  // envelope reaches members exactly once. Bounded FIFO; rooms are ephemeral.
+  private seenIds = new Set<string>();
   state: RoomState = {
     locked: false,
     lockedBy: null,
     config: null,
   };
 
-  constructor(private host: RoomHost, options: ChatRoomOptions = {}) {
+  constructor(private host: RoomHost) {
     this.access = new RoomAccess(host);
-    this.persistent = options.persistent === true;
   }
 
   async onStart() {
@@ -153,51 +104,31 @@ export default class ChatRoom {
         }
         const configMessage = JSON.stringify({ type: "room-config", config: this.state.config });
         if (!this.isJoined(sender)) {
-          sender.setState({ joined: true, ...(this.persistent ? {} : { tag: crypto.randomUUID() }) });
+          sender.setState({ joined: true, tag: crypto.randomUUID() });
           this.broadcastPresence();
         }
         sender.send(configMessage);
         if (!hadConfig) {
           this.broadcast(configMessage, [sender.id], true);
         }
-        if (this.persistent) await this.sendMemberKeys(sender);
-        await this.sendHistory(sender, parsed.since, parsed.epoch);
         break;
-
-      case "member-key": {
-        const state = sender.state as ChatConnectionState | null;
-        if (!this.persistent || !this.isJoined(sender) || state?.keyed) return;
-        if (typeof parsed.key !== "string" || !MEMBER_KEY_RE.test(parsed.key)) return;
-        sender.setState({ ...state, joined: true, keyed: true });
-        await this.storeMemberKey(parsed.key);
-        break;
-      }
 
       case "message": {
         if (!this.isJoined(sender)) return;
         const envelope = this.normalizeClientMessage(parsed);
         if (!envelope) return;
-        if (envelope.persist) {
-          const stored = await this.storeEnvelope(envelope);
-          this.broadcast(JSON.stringify({ ...envelope, createdAt: stored.createdAt, serverSeq: stored.seq }), [sender.id]);
-          sender.send(JSON.stringify({ type: "stored", id: envelope.id, serverSeq: stored.seq, createdAt: stored.createdAt, epoch: stored.epoch }));
-        } else {
-          const tag = this.tagOf(sender);
-          this.broadcast(JSON.stringify(tag ? { ...envelope, from: tag } : envelope), [sender.id]);
-        }
+        if (this.seenIds.has(envelope.id)) return;
+        this.seenIds.add(envelope.id);
+        if (this.seenIds.size > 50_000) this.seenIds.delete(this.seenIds.values().next().value!);
+        const tag = this.tagOf(sender);
+        this.broadcast(JSON.stringify(tag ? { ...envelope, from: tag } : envelope), [sender.id]);
         break;
       }
 
-      // Members ask the relay to drop a stored ciphertext after a view-once open or an explicit burn.
-      // The encrypted message-burn still travels separately so every client wipes its own copy.
-      case "forget": {
-        if (!this.isJoined(sender)) return;
-        const target = parsed.target;
-        if (typeof target !== "string" || !SAFE_ID_RE.test(target)) return;
-        if (this.persistent) await this.forgetHistory(target);
-        this.broadcast(JSON.stringify({ type: "forgotten", target }));
+      // A client from before the relay stopped storing may still ask for a stored ciphertext to be dropped;
+      // there is nothing to drop, so the request is ignored.
+      case "forget":
         break;
-      }
 
       case "typing":
         if (!this.isJoined(sender)) return;
@@ -218,11 +149,6 @@ export default class ChatRoom {
           this.state.lockedBy = null;
           this.broadcast(JSON.stringify({ type: "unlocked" }));
         }
-        break;
-
-      case "delete":
-        if (!this.persistent || !this.isJoined(sender)) return;
-        await this.deleteRoom();
         break;
 
       case "turn-grant": {
@@ -257,8 +183,7 @@ export default class ChatRoom {
   // The cleanup alarm stays scheduled even while people are connected, so a crash or a restart that never runs
   // onClose still deletes the room once it has been idle long enough.
   private pushBackCleanup() {
-    const idle = this.persistent ? PERSISTENT_IDLE_MS : EMPTY_ROOM_TTL_MS;
-    void this.host.storage.setAlarm(Date.now() + idle).catch(() => {});
+    void this.host.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS).catch(() => {});
   }
 
   async onAlarm() {
@@ -267,13 +192,12 @@ export default class ChatRoom {
       return;
     }
     this.state = { locked: false, lockedBy: null, config: null };
-    this.meta = null;
     await this.host.storage.deleteAll();
   }
 
   private async setRoomConfig(input: unknown) {
     const normalized = this.normalizeConfig(input) ?? {
-      ...(this.persistent ? PERSISTENT_CONFIG : DEFAULT_CONFIG),
+      ...DEFAULT_CONFIG,
       createdAt: Date.now(),
     };
     this.state.config = normalized;
@@ -284,8 +208,6 @@ export default class ChatRoom {
     if (!input || typeof input !== "object") return null;
     const value = input as Record<string, unknown>;
     const createdAt = typeof value.createdAt === "number" ? value.createdAt : Date.now();
-    // A saved room never takes a typed password: ciphertext that stays on the server must not be guessable offline.
-    if (this.persistent) return { ...PERSISTENT_CONFIG, createdAt };
     if (value.authMode !== "password" || value.v !== 3) return null;
     return { mode: normalizeChatMode(value.mode), authMode: "password", createdAt, v: 3 };
   }
@@ -298,15 +220,12 @@ export default class ChatRoom {
     if (typeof parsed.payload !== "string") return null;
     if (parsed.payload.length < 16 || parsed.payload.length > MAX_ENCRYPTED_PAYLOAD_CHARS) return null;
     if (!B64URL_RE.test(parsed.payload)) return null;
-    const persist = this.persistent && parsed.persist === true;
-    if (persist && parsed.payload.length > PERSISTENT_PAYLOAD_CHARS) return null;
     const createdAt = this.safeTimestamp(parsed.createdAt);
 
     return {
       type: "message",
       id: parsed.id,
       payload: parsed.payload,
-      persist,
       ...(createdAt ? { createdAt } : {}),
     };
   }
@@ -314,119 +233,6 @@ export default class ChatRoom {
   private safeTimestamp(value: unknown): number | undefined {
     if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
     return Math.round(value);
-  }
-
-  private async historyMeta(): Promise<HistoryMeta | null> {
-    if (this.meta === undefined) this.meta = (await this.host.storage.get<HistoryMeta>(HISTORY_META_KEY)) ?? null;
-    return this.meta;
-  }
-
-  // The server numbers and timestamps stored messages itself, so a client cannot push real history out of the window.
-  private async storeEnvelope(envelope: ClientMessageEnvelope): Promise<{ seq: number; createdAt: number; epoch: string }> {
-    const meta = (await this.historyMeta()) ?? { epoch: crypto.randomUUID(), seq: 0, count: 0, bytes: 0 };
-    const record: HistoryRecord = { id: envelope.id, payload: envelope.payload, createdAt: Date.now(), seq: meta.seq + 1 };
-    meta.seq = record.seq;
-    meta.count += 1;
-    meta.bytes += recordBytes(record);
-    await this.host.storage.put({ [historyKey(record.seq)]: record, [HISTORY_META_KEY]: meta });
-    this.meta = meta;
-    await this.trimHistory(meta);
-    return { seq: record.seq, createdAt: record.createdAt, epoch: meta.epoch };
-  }
-
-  private async forgetHistory(target: string) {
-    const meta = await this.historyMeta();
-    if (!meta || meta.count <= 0) return;
-    const stored = await this.host.storage.list({ prefix: HISTORY_PREFIX });
-    const drop: string[] = [];
-    let freed = 0;
-    for (const [key, value] of stored) {
-      const record = value as HistoryRecord;
-      if (record?.id !== target) continue;
-      drop.push(key);
-      freed += recordBytes(record);
-    }
-    if (!drop.length) return;
-    await this.host.storage.delete(drop);
-    meta.count = Math.max(0, meta.count - drop.length);
-    meta.bytes = Math.max(0, meta.bytes - freed);
-    await this.host.storage.put(HISTORY_META_KEY, meta);
-    this.meta = meta;
-  }
-
-  private async trimHistory(meta: HistoryMeta) {
-    const over = () => meta.count > PERSISTENT_HISTORY_LIMIT || meta.bytes > PERSISTENT_HISTORY_BYTES;
-    if (!over()) return;
-    while (over()) {
-      const oldest = await this.host.storage.list({ prefix: HISTORY_PREFIX, limit: 16 });
-      if (!oldest.size) { meta.count = 0; meta.bytes = 0; break; }
-      const drop: string[] = [];
-      for (const [key, value] of oldest) {
-        if (!over()) break;
-        drop.push(key);
-        meta.count -= 1;
-        meta.bytes -= recordBytes(value as HistoryRecord);
-      }
-      await this.host.storage.delete(drop);
-    }
-    meta.bytes = Math.max(0, meta.bytes);
-    await this.host.storage.put(HISTORY_META_KEY, meta);
-  }
-
-  private async sendHistory(conn: RoomConnection, since: unknown, epoch: unknown) {
-    const meta = this.persistent ? await this.historyMeta() : null;
-    if (!meta) {
-      conn.send(JSON.stringify({ type: "history", config: this.state.config, epoch: null, messages: [], more: false }));
-      return;
-    }
-    const resume = typeof since === "number" && Number.isInteger(since) && since > 0 && epoch === meta.epoch;
-    const stored = await this.host.storage.list({ prefix: HISTORY_PREFIX, ...(resume ? { startAfter: historyKey(since) } : {}) });
-    let batch: ClientMessageEnvelope[] = [];
-    let chars = 0;
-    const flush = (more: boolean) => {
-      conn.send(JSON.stringify({ type: "history", config: this.state.config, epoch: meta.epoch, messages: batch, more }));
-      batch = [];
-      chars = 0;
-    };
-    for (const value of stored.values()) {
-      const record = value as HistoryRecord;
-      if (batch.length && chars + record.payload.length > HISTORY_BATCH_CHARS) flush(true);
-      batch.push({ type: "message", id: record.id, payload: record.payload, persist: true, createdAt: record.createdAt, serverSeq: record.seq });
-      chars += record.payload.length;
-    }
-    flush(false);
-  }
-
-  // Saved-room messages name their ML-DSA key only by hash, so the room keeps the public keys of members who are offline,
-  // sealed under the room key. Clients file each key under the hash of its own bytes, so an entry can only verify what that key signed.
-  private async storeMemberKey(key: string) {
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)));
-    const name = `${MEMBER_KEY_PREFIX}${Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("")}`;
-    await this.host.storage.put(name, { key, at: Date.now() } satisfies MemberKeyRecord);
-    const stored = await this.host.storage.list({ prefix: MEMBER_KEY_PREFIX });
-    if (stored.size <= MAX_MEMBER_KEYS) return;
-    const oldest = [...stored.entries()]
-      .sort(([, a], [, b]) => (a as MemberKeyRecord).at - (b as MemberKeyRecord).at)
-      .slice(0, stored.size - MAX_MEMBER_KEYS)
-      .map(([id]) => id);
-    await this.host.storage.delete(oldest);
-  }
-
-  private async sendMemberKeys(conn: RoomConnection) {
-    const stored = await this.host.storage.list({ prefix: MEMBER_KEY_PREFIX });
-    const keys = [...stored.values()].map((record) => (record as MemberKeyRecord).key).filter((key) => typeof key === "string" && MEMBER_KEY_RE.test(key));
-    conn.send(JSON.stringify({ type: "member-keys", keys }));
-  }
-
-  private async deleteRoom() {
-    await this.host.storage.deleteAll();
-    this.meta = null;
-    this.state = { locked: false, lockedBy: null, config: null };
-    const notice = JSON.stringify({ type: "room-deleted" });
-    for (const conn of this.host.getConnections()) {
-      conn.send(notice);
-      conn.close(4010, "ROOM_DELETED");
-    }
   }
 
   private getConnectionCount(exclude: string[] = []): number {

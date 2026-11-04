@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { LUCIDE } from '../lib/lucideIcons';
+
   export let id: string;
   export let label: string;
   export let rules: { ok: boolean; label: string }[];
@@ -8,9 +10,9 @@
   {#each rules as rule}
     <li class="pw-rules__item" class:pw-rules__item--ok={rule.ok}>
       {#if rule.ok}
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
       {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">{@html LUCIDE['circle']}</svg>
       {/if}
       <span>{rule.label}</span>
     </li>

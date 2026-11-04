@@ -47,8 +47,8 @@ test('short and long passwords give ciphertexts of the same size', async () => {
 
 test('the wrapping key is HKDF-SHA256 under the vault label and no other', async () => {
   const output = prf();
-  const room = entry({ mode: 'persistent', roomId: 'abc', id: 'chat:abc' });
-  const secret: RoomSecret = { type: 'key', value: KEY };
+  const room = entry({ mode: 'ttl-60', roomId: 'abc', id: 'chat:abc' });
+  const secret: RoomSecret = { type: 'password', value: KEY };
   const wrapped = await wrapSecret(await deriveVaultKey(output), room.id, secret);
   assert.deepEqual(await unwrapSecret(await hkdfWith(output, VAULT_LABEL), { ...room, secret: wrapped }), secret);
   for (const other of ['encrypt.click/room-vault/v2', 'encrypt.click/chat/local', '']) {
@@ -61,21 +61,18 @@ test('the PRF output must be exactly 32 bytes', async () => {
   await assert.rejects(deriveVaultKey(new Uint8Array(64)));
 });
 
-test('secrets must match the room mode', () => {
-  assert.ok(validSecret({ type: 'key', value: KEY }, 'persistent'));
-  assert.ok(!validSecret({ type: 'key', value: KEY }, 'live'));
-  assert.ok(!validSecret({ type: 'key', value: 'short' }, 'persistent'));
-  assert.ok(validSecret({ type: 'password', value: 'x'.repeat(20) }, 'ttl-60'));
-  assert.ok(!validSecret({ type: 'password', value: 'x'.repeat(20) }, 'persistent'));
-  assert.ok(!validSecret({ type: 'password', value: '' }, 'live'));
-  assert.ok(!validSecret({ type: 'password', value: ' padded ' }, 'live'));
-  assert.ok(!validSecret({ type: 'token', value: 'x' }, 'live'));
+test('only a non-empty trimmed password can be a vault secret', () => {
+  assert.ok(validSecret({ type: 'password', value: 'x'.repeat(20) }));
+  assert.ok(!validSecret({ type: 'key', value: KEY }));
+  assert.ok(!validSecret({ type: 'password', value: '' }));
+  assert.ok(!validSecret({ type: 'password', value: ' padded ' }));
+  assert.ok(!validSecret({ type: 'token', value: 'x' }));
 });
 
-test('a secret that does not fit the stored mode is not handed out', async () => {
+test('a wrapped blob that does not hold a password is not handed out', async () => {
   const key = await deriveVaultKey(prf());
   const room = entry();
-  const wrapped = await wrapSecret(key, room.id, { type: 'key', value: KEY });
+  const wrapped = await wrapSecret(key, room.id, { type: 'key', value: KEY } as unknown as RoomSecret);
   assert.equal(await unwrapSecret(key, { ...room, secret: wrapped }), null);
 });
 
@@ -150,7 +147,7 @@ test('the vault falls back to names only without WebAuthn or PRF', async () => {
 
 test('opening hands secrets over outside the address bar', () => {
   assert.deepEqual(openTarget('chat', 'team-room', 'en', { type: 'password', value: 'pw' }), { href: '/chat/team-room', handoff: ['chat-password', 'pw'] });
-  assert.deepEqual(openTarget('chat', 'abc', 'cs', { type: 'key', value: KEY }), { href: '/cs/chat/abc', handoff: ['chat-link-key:abc', KEY] });
+  assert.deepEqual(openTarget('chat', 'abc', 'cs', { type: 'password', value: 'pw' }), { href: '/cs/chat/abc', handoff: ['chat-password', 'pw'] });
   assert.deepEqual(openTarget('whiteboard', 'b1', 'de', { type: 'password', value: 'pw' }), { href: '/de/whiteboard/b1', handoff: ['whiteboard-password', 'pw'] });
   assert.deepEqual(openTarget('whiteboard', 'b1', 'en', null), { href: '/whiteboard/b1', handoff: null });
 });

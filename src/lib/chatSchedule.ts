@@ -90,3 +90,49 @@ export function writeScheduledDrafts(storage: Storage, roomId: string, channel: 
     storage.setItem(key, JSON.stringify(drafts));
   } catch {}
 }
+
+const SEALED_DRAFTS_V = 2;
+
+/** Drafts at rest carry no plaintext: the room key seals the JSON before it touches session storage. */
+export async function writeSealedDrafts(
+  storage: Storage,
+  roomId: string,
+  channel: string,
+  drafts: ScheduledDraft[],
+  seal: (text: string) => Promise<string>,
+): Promise<void> {
+  const key = scheduleStorageKey(roomId, channel);
+  try {
+    if (!drafts.length) {
+      storage.removeItem(key);
+      return;
+    }
+    storage.setItem(key, JSON.stringify({ v: SEALED_DRAFTS_V, data: await seal(JSON.stringify(drafts)) }));
+  } catch {}
+}
+
+/** Reads v2 sealed drafts; a legacy plaintext array still parses and gets resealed on the next write. */
+export async function readSealedDrafts(
+  storage: Storage,
+  roomId: string,
+  channel: string,
+  open: (sealed: string) => Promise<string | null>,
+  now = Date.now(),
+): Promise<ScheduledDraft[]> {
+  let raw: string | null = null;
+  try {
+    raw = storage.getItem(scheduleStorageKey(roomId, channel));
+  } catch {
+    return [];
+  }
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parseScheduledDrafts(raw, now);
+    if (parsed?.v !== SEALED_DRAFTS_V || typeof parsed.data !== 'string') return [];
+    const opened = await open(parsed.data);
+    return opened ? parseScheduledDrafts(opened, now) : [];
+  } catch {
+    return [];
+  }
+}

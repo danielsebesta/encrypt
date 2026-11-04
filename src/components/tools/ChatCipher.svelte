@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
   import CopyButton from '../CopyButton.svelte';
@@ -102,8 +102,8 @@
       error = t(dict, errorKey);
       return;
     }
-    if (mode === 'encrypt' && !roomPasswordOk(password, '')) {
-      error = t(dict, 'common.passwordWeak');
+    if (mode === 'encrypt' && !passwordLongEnough(password)) {
+      error = t(dict, 'common.passwordTooShort');
       return;
     }
     await run(async () => {

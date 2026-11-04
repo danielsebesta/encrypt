@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
 
   export let dict: Record<string, string>;
   export let title = '';
   export let url = '';
   export let password = '';
-  export let safetyNumber = '';
   export let warning = '';
   export let onDismiss: (() => void) | null = null;
+  export let appMode = false;
 
   let qrSvg = '';
   let qrFor = '';
@@ -16,7 +17,6 @@
   let canShare = false;
   let copiedLink = false;
   let copiedPass = false;
-  let copiedSafety = false;
   let copyTimers: ReturnType<typeof setTimeout>[] = [];
 
   function sharePayload(): ShareData {
@@ -63,19 +63,22 @@
 
   $: if (url !== qrFor) void renderQr(url);
 
-  function flash(which: 'link' | 'pass' | 'safety') {
+  onDestroy(() => {
+    for (const timer of copyTimers) clearTimeout(timer);
+    copyTimers = [];
+  });
+
+  function flash(which: 'link' | 'pass') {
     if (which === 'link') copiedLink = true;
     if (which === 'pass') copiedPass = true;
-    if (which === 'safety') copiedSafety = true;
     const timer = setTimeout(() => {
       if (which === 'link') copiedLink = false;
       if (which === 'pass') copiedPass = false;
-      if (which === 'safety') copiedSafety = false;
     }, 1500);
     copyTimers.push(timer);
   }
 
-  async function copy(text: string, which: 'link' | 'pass' | 'safety') {
+  async function copy(text: string, which: 'link' | 'pass') {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -93,7 +96,7 @@
   }
 </script>
 
-<div class="invite-card card">
+<div class="invite-card" class:card={!appMode} class:invite-card--app={appMode}>
   <div class="invite-card__head">
     <div class="min-w-0 flex-1">
       {#if title}
@@ -105,8 +108,8 @@
     </div>
     {#if onDismiss}
       <div class="invite-card__actions">
-        <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => onDismiss?.()} aria-label={t(dict, 'chat.inviteCard.dismiss')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <button type="button" class={appMode ? 'app-icon-btn' : 'btn-ghost btn-sm btn-icon'} on:click={() => onDismiss?.()} aria-label={t(dict, 'chat.inviteCard.dismiss')}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
         </button>
       </div>
     {/if}
@@ -121,9 +124,9 @@
     <code class="invite-card__value">{url}</code>
     <button type="button" class="invite-card__copy" on:click={() => copy(url, 'link')} aria-label={t(dict, 'chat.inviteCard.copyLink')} title={copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}>
       {#if copiedLink}
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true">{@html LUCIDE['check']}</svg>
       {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
       {/if}
     </button>
   </div>
@@ -140,27 +143,13 @@
         aria-pressed={showPassword}
         title={t(dict, showPassword ? 'common.hidePassword' : 'common.showPassword')}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html showPassword ? '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/>' : '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'}</svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html showPassword ? LUCIDE['eye-off'] : LUCIDE['eye']}</svg>
       </button>
       <button type="button" class="invite-card__copy" on:click={() => copy(password, 'pass')} aria-label={t(dict, 'chat.inviteCard.copyPasswordSeparate')} title={copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}>
         {#if copiedPass}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true">{@html LUCIDE['check']}</svg>
         {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        {/if}
-      </button>
-    </div>
-  {/if}
-
-  {#if safetyNumber}
-    <div class="invite-card__row">
-      <span class="invite-card__label">{t(dict, 'chat.inviteCard.safetyNumber')}</span>
-      <span class="invite-card__value invite-card__safety" aria-label={safetyNumber}>{#each safetyNumber.split(' ') as group}<span>{group}</span>{/each}</span>
-      <button type="button" class="invite-card__copy" on:click={() => copy(safetyNumber, 'safety')} aria-label={t(dict, 'chat.inviteCard.copySafetyNumber')} title={copiedSafety ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copySafetyNumber')}>
-        {#if copiedSafety}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-        {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
         {/if}
       </button>
     </div>
@@ -168,17 +157,17 @@
 
   <div class="invite-card__share">
     {#if canShare}
-      <button type="button" class="btn btn-sm w-full" on:click={share} disabled={!url}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      <button type="button" class={appMode ? 'app-sheet-btn w-full' : 'btn btn-sm w-full'} on:click={share} disabled={!url}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['share-2']}</svg>
         <span>{t(dict, 'chat.inviteCard.share')}</span>
       </button>
     {/if}
     <div class="invite-card__share-row">
-      <button type="button" class={canShare ? 'btn-secondary btn-sm flex-1' : 'btn btn-sm flex-1'} on:click={() => copy(url, 'link')} disabled={!url}>
+      <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : canShare ? 'btn-secondary btn-sm flex-1' : 'btn btn-sm flex-1'} on:click={() => copy(url, 'link')} disabled={!url}>
         {copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}
       </button>
       {#if password}
-        <button type="button" class="btn-secondary btn-sm flex-1" on:click={() => copy(password, 'pass')}>
+        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm flex-1'} on:click={() => copy(password, 'pass')}>
           {copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}
         </button>
       {/if}
@@ -247,21 +236,15 @@
   :global(.dark) .invite-card__value {
     color: var(--text);
   }
-  .invite-card__safety {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    font-family: inherit;
-    font-size: 1.05rem;
-    letter-spacing: 0.04em;
-    color: var(--text);
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-  }
   .invite-card__copy {
     flex-shrink: 0;
-    padding: 0.125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: -0.625rem -0.5rem -0.625rem 0;
+    padding: 0;
     color: var(--muted);
     transition: color 0.15s;
   }

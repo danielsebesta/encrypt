@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ListItem, MenuList, MenuListItem, Popover } from 'konsta/svelte';
   import { illustration } from '../../lib/illustrations';
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
@@ -8,17 +9,18 @@
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
   import type { Diff, ShapeRecord, AssetRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import { deriveBoardAccess, deriveSavedBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
   import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, BOARD_ASSET_BYTES, type BoardAsset, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
   import { encodeBoardImage } from '../../lib/whiteboardImages';
-  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, STORED_KINDS, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
+  import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
   import { safetyNumber, keyCode, type SigningIdentity } from '../../lib/chatCrypto';
-  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable } from '../../lib/chatIdentity';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable } from '../../lib/chatIdentity';
   import { parseMarkdown, revealSpoilers } from '../../lib/chatMarkdown';
-  import { parseBurnSuffix, roomPasswordOk, ROOM_KEY_RE } from '../../lib/chatRoomSettings';
-  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES, SAVED_BOARD_BYTES } from '../../lib/whiteboardSync';
+  import { parseBurnSuffix, passwordLongEnough } from '../../lib/chatRoomSettings';
+  import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../../lib/whiteboardSync';
   import { encodeEncryptedBoardBackup, decodeEncryptedBoardBackup } from '../../lib/whiteboardBackupCrypto';
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
 
@@ -26,6 +28,12 @@
   export let roomId = '';
   export let partyHost = '';
   export let initialPassword = '';
+  export let appMode = false;
+  export let onExitApp: (() => void) | undefined = undefined;
+  export let onClearRequest: ((doClear: () => void) => void) | undefined = undefined;
+  export let onConnStatus: ((status: 'connected' | 'connecting' | 'offline') => void) | undefined = undefined;
+  export let onHaptic: ((type: 'light' | 'medium' | 'success' | 'warning') => void) | undefined = undefined;
+  export let requestReconnect = () => {};
 
   export let dict: Record<string, string>;
 
@@ -56,54 +64,54 @@
   THEMES.dark.grid.line = { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' };
 
   const ICONS: Record<string, string> = {
-    select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.43 1.43l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
-    hand: '<path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
-    draw: '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
-    highlight: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
-    eraser: '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
-    laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><path d="m4.9 4.9 2.1 2.1"/><path d="m17 17 2.1 2.1"/>',
-    arrow: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
-    line: '<path d="M5 19 19 5"/>',
-    text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
-    note: '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',
-    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>',
-    rectangle: '<rect x="3" y="5" width="18" height="14" rx="2"/>',
-    ellipse: '<ellipse cx="12" cy="12" rx="9.5" ry="7.5"/>',
-    triangle: '<path d="M12 3.5 21.5 20h-19z"/>',
-    diamond: '<path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/>',
-    hexagon: '<path d="M7.25 3.5h9.5L21.5 12l-4.75 8.5h-9.5L2.5 12z"/>',
-    star: '<path d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z"/>',
-    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
-    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
-    trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
-    duplicate: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/>',
-    front: '<path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/>',
-    back: '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
-    zoomIn: '<path d="M5 12h14"/><path d="M12 5v14"/>',
-    zoomOut: '<path d="M5 12h14"/>',
-    fit: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/>',
-    menu: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
-    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
-    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
-    save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
-    grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
-    fullscreen: '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
-    exitFullscreen: '<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>',
-    lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-    unlock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
-    close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-    chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
-    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-    check: '<path d="M20 6 9 17l-5-5"/>',
-    'dash-draw': '<path d="M3 14c3-5 5 2 8-1.5s5-5 10-1"/>',
-    'dash-solid': '<path d="M4 12h16"/>',
-    'dash-dashed': '<path d="M4 12h3.5"/><path d="M10.25 12h3.5"/><path d="M16.5 12H20"/>',
-    'dash-dotted': '<path d="M4 12h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M20 12h.01"/>',
-    'fill-none': '<rect x="4" y="4" width="16" height="16" rx="3"/>',
-    'fill-semi': '<rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" fill-opacity=".3"/>',
-    'fill-solid': '<rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor"/>',
-    'fill-pattern': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4.5 11.5 11.5 4.5"/><path d="M5 19 19 5"/><path d="m12.5 19.5 7-7"/>',
+    select: LUCIDE['mouse-pointer-2'],
+    hand: LUCIDE['hand'],
+    draw: LUCIDE['pencil'],
+    highlight: LUCIDE['highlighter'],
+    eraser: LUCIDE['eraser'],
+    laser: LUCIDE['laser'],
+    arrow: LUCIDE['arrow-up-right'],
+    line: LUCIDE['slash'],
+    text: LUCIDE['type'],
+    note: LUCIDE['sticky-note'],
+    image: LUCIDE['image'],
+    rectangle: LUCIDE['square'],
+    ellipse: LUCIDE['circle'],
+    triangle: LUCIDE['triangle'],
+    diamond: LUCIDE['diamond'],
+    hexagon: LUCIDE['hexagon'],
+    star: LUCIDE['star'],
+    undo: LUCIDE['undo-2'],
+    redo: LUCIDE['redo-2'],
+    trash: LUCIDE['trash'],
+    duplicate: LUCIDE['copy'],
+    front: LUCIDE['bring-to-front'],
+    back: LUCIDE['send-to-back'],
+    zoomIn: LUCIDE['zoom-in'],
+    zoomOut: LUCIDE['zoom-out'],
+    fit: LUCIDE['maximize'],
+    menu: LUCIDE['ellipsis-vertical'],
+    download: LUCIDE['download'],
+    upload: LUCIDE['upload'],
+    save: LUCIDE['save'],
+    grid: LUCIDE['grid-3x3'],
+    fullscreen: LUCIDE['maximize-2'],
+    exitFullscreen: LUCIDE['minimize-2'],
+    lock: LUCIDE['lock'],
+    unlock: LUCIDE['lock-open'],
+    close: LUCIDE['x'],
+    chat: LUCIDE['message-square'],
+    send: LUCIDE['send'],
+    copy: LUCIDE['copy'],
+    check: LUCIDE['check'],
+    'dash-draw': LUCIDE['spline'],
+    'dash-solid': LUCIDE['minus'],
+    'dash-dashed': LUCIDE['minus'].replace('/>', ' stroke-dasharray="5 3"/>'),
+    'dash-dotted': LUCIDE['minus'].replace('/>', ' stroke-dasharray="0.1 4" stroke-linecap="round"/>'),
+    'fill-none': LUCIDE['square'],
+    'fill-semi': LUCIDE['square'].replace('/>', ' fill="currentColor" fill-opacity=".3"/>'),
+    'fill-solid': LUCIDE['square'].replace('/>', ' fill="currentColor"/>'),
+    'fill-pattern': LUCIDE['square-dashed'],
   };
 
   const TOOLS: { id: ToolId; key: string }[] = [
@@ -125,7 +133,6 @@
   let cryptoKey: CryptoKey | null = null;
   const alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
   const identity = { name: aliasName(dict, alias), color: aliasColor(alias), key: aliasKey(alias) };
-  let myInitials = getInitials(identity.name);
 
   // Every payload is signed, so a sender is named only by a validated alias; free-form names and colors would let a member pass as someone else.
   function senderInfo(p: any) {
@@ -145,23 +152,23 @@
   let canCreate = false;
   let boardMissing = false;
 
-  const LINK_KEY_PREFIX = 'whiteboard-link-key:';
-  let savedBoard = false;
-  let linkKey: string | null = null;
-  let linkFailed = false;
-  let boardDeleted = false;
-  let shareLinkOnly = false;
-  let shareCopiedMenu = false;
-  let historyDone = false;
-  let savedEpoch: string | null = null;
-  let appliedSeq = 0;
-  let compacting = false;
-  let docSending = 0;
-  const unsaved = new Map<string, { update: Uint8Array; pending: Set<string> }>();
-  let unsavedCount = 0;
-  let storedChain: Promise<void> = Promise.resolve();
-
   let connected = false;
+  let netOffline = false;
+  let lastConnStatus = '';
+  function reportConn() {
+    const st = netOffline ? 'offline' : connected ? 'connected' : 'connecting';
+    if (st !== lastConnStatus) { lastConnStatus = st; onConnStatus?.(st); }
+  }
+  $: if (connected !== undefined || netOffline !== undefined) reportConn();
+  requestReconnect = () => {
+    try { ws?.reconnect(); } catch {}
+  };
+  const onNetChange = () => {
+    const was = netOffline;
+    netOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (was && !netOffline) try { ws?.reconnect(); } catch {}
+    reportConn();
+  };
   let verified = false;
   let verifying = false;
   let needsPassword = false;
@@ -169,7 +176,7 @@
   let passwordError = '';
   let serverPresence = 0;
 
-  let onlineUsers: { id: string; name: string; initials: string; color: string; alias?: Alias; pk: string; warn: boolean }[] = [];
+  let onlineUsers: { id: string; name: string; color: string; alias?: Alias; pk: string; warn: boolean }[] = [];
   let myConnId = '';
 
   let sharePassword = '';
@@ -214,6 +221,7 @@
   let themeId: 'light' | 'dark' = 'light';
   let styleOpen = false;
   let menuOpen = false;
+  let wbMenuEl: HTMLButtonElement | undefined = undefined;
   let isFullscreen = false;
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
@@ -234,10 +242,6 @@
 
   let roomLocked = false;
 
-  function getInitials(name: string): string {
-    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  }
-
   function genId(): string {
     const arr = crypto.getRandomValues(new Uint8Array(8));
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
@@ -245,15 +249,6 @@
 
   async function initRoom() {
     if (typeof window === 'undefined') return;
-    linkKey = takeLinkKey();
-    if (linkKey) {
-      if (sessionStorage.getItem('whiteboard-share-link')) {
-        shareLinkOnly = true;
-        sessionStorage.removeItem('whiteboard-share-link');
-      }
-      await enterSavedBoard(linkKey);
-      return;
-    }
     if (initialPassword.trim()) {
       passwordInput = initialPassword.trim();
       await enterWithPassword(initialPassword.trim());
@@ -265,10 +260,11 @@
       sharePassword = sharePass;
       sessionStorage.removeItem('whiteboard-share-password');
     }
-    if (stored) {
-      sessionStorage.removeItem('whiteboard-password');
-      passwordInput = stored;
-      await enterWithPassword(stored);
+    const remembered = stored || sessionStorage.getItem(`wb-pw:${roomId}`);
+    if (stored) sessionStorage.removeItem('whiteboard-password');
+    if (remembered) {
+      passwordInput = remembered;
+      await enterWithPassword(remembered);
     } else {
       needsPassword = true;
     }
@@ -289,50 +285,16 @@
     myKeyCode = await keyCode(myPk);
   }
 
-  // A saved board's key leaves the address bar at once, as in saved chat rooms; this tab keeps it for reloads and sharing.
-  function takeLinkKey(): string | null {
-    const fragment = new URLSearchParams(location.hash.slice(1));
-    const fromLink = fragment.get('k');
-    if (fromLink && ROOM_KEY_RE.test(fromLink) && fragment.get('p') === '1') {
-      try { sessionStorage.setItem(`${LINK_KEY_PREFIX}${roomId}`, fromLink); } catch {}
-      history.replaceState(history.state, '', location.pathname + location.search);
-      return fromLink;
-    }
-    try {
-      const saved = sessionStorage.getItem(`${LINK_KEY_PREFIX}${roomId}`);
-      if (saved && ROOM_KEY_RE.test(saved)) return saved;
-    } catch {}
-    return null;
-  }
-
-  function forgetLinkKey() {
-    try { sessionStorage.removeItem(`${LINK_KEY_PREFIX}${roomId}`); } catch {}
-  }
-
-  async function enterSavedBoard(key: string) {
-    savedBoard = true;
-    try {
-      const access = await deriveSavedBoardAccess(key, roomId);
-      accessToken = access.token; channelId = access.channel;
-      cryptoKey = access.key;
-      await setupIdentity();
-      canCreate = true;
-      setupYjs();
-      connectWs();
-    } catch {
-      linkFailed = true;
-    }
-  }
-
   async function enterWithPassword(pwd: string) {
     try {
       const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
       await setupIdentity();
-      canCreate = roomPasswordOk(pwd, roomId);
+      canCreate = passwordLongEnough(pwd);
       boardMissing = false;
       needsPassword = false;
+      try { sessionStorage.setItem(`wb-pw:${roomId}`, pwd); } catch {}
       setupYjs();
       connectWs();
     } catch {
@@ -557,13 +519,7 @@
   let syncProgress: { received: number; total: number } | null = null;
 
   function queueDocUpdate(update: Uint8Array, to?: string) {
-    let group: string | undefined;
-    if (savedBoard && !to) {
-      group = genId();
-      unsaved.set(group, { update, pending: new Set() });
-      unsavedCount = unsaved.size;
-    }
-    docQueue = docQueue.then(() => sendDocUpdate(update, to, group)).catch(() => {});
+    docQueue = docQueue.then(() => sendDocUpdate(update, to)).catch(() => {});
   }
 
   async function waitForBudget(bytes: number) {
@@ -594,137 +550,17 @@
     return update.length <= DOC_PART_BYTES ? [update] : splitDocUpdate(update);
   }
 
-  async function sendDocUpdate(update: Uint8Array, to?: string, group?: string) {
+  async function sendDocUpdate(update: Uint8Array, to?: string) {
     if (!cryptoKey || !ws || !verified) return;
     const parts = docParts(update);
     if (!parts) return;
     const kind = parts.length === 1 ? 'doc' : 'doc-part';
-    const ids = parts.map((_, i) => group ? `${group}-${i}` : genId());
-    if (group) for (const id of ids) unsaved.get(group)?.pending.add(id);
-    docSending++;
-    try {
-      for (let i = 0; i < parts.length; i++) await sendDocEnvelope(kind, parts[i], to, ids[i]);
-    } finally {
-      docSending--;
-    }
-  }
-
-  function storedStep(step: () => unknown) {
-    storedChain = storedChain.then(step).catch(() => {});
-  }
-
-  // Stored updates are applied strictly in server order, so appliedSeq always names a point the local document has fully reached.
-  async function applyStored(entry: any, live: boolean) {
-    const seq = entry?.seq;
-    if (cryptoKey && ydoc && typeof entry?.payload === 'string' && entry.payload.length <= 720000 && typeof entry.from === 'string' && entry.from &&
-      STORED_KINDS.includes(entry.kind)) {
-      const opened = await openEnvelope(cryptoKey, entry.payload, entry.kind, channelId, Date.now(), true);
-      if (opened && (!live || connectionKeys.bind(entry.from, opened.signer))) {
-        try {
-          const bytes = b64ToBytes(opened.body.data as string);
-          if (entry.kind === 'doc') {
-            Y.applyUpdate(ydoc, bytes, 'remote');
-          } else {
-            const result = assembler.accept(entry.from, bytes);
-            if (result) {
-              syncProgress = result.update ? null : { received: result.received, total: result.total };
-              if (result.update) Y.applyUpdate(ydoc, result.update, 'remote');
-            }
-          }
-        } catch {}
-      }
-    }
-    if (Number.isInteger(seq) && seq > appliedSeq) appliedSeq = seq;
-  }
-
-  async function applyHistory(data: any) {
-    if (!Array.isArray(data.entries)) return;
-    for (const entry of data.entries) await applyStored(entry, false);
-    if (data.more) return;
-    const epoch = typeof data.epoch === 'string' ? data.epoch : null;
-    if (epoch !== savedEpoch) appliedSeq = Number.isInteger(data.seq) ? data.seq : 0;
-    else if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
-    savedEpoch = epoch;
-    syncProgress = null;
-    historyDone = true;
-    resendUnsaved();
-  }
-
-  function noteStored(data: any) {
-    if (typeof data.epoch === 'string') savedEpoch = data.epoch;
-    if (Number.isInteger(data.seq) && data.seq > appliedSeq) appliedSeq = data.seq;
-    const id = String(data.id);
-    const group = id.split('-')[0];
-    const entry = unsaved.get(group);
-    if (entry) {
-      entry.pending.delete(id);
-      if (!entry.pending.size) unsaved.delete(group);
-      unsavedCount = unsaved.size;
-    }
-    if (data.compact) void compactBoard();
-  }
-
-  // Whatever the server has not confirmed goes out again as one merged update; Yjs ignores the parts it already holds.
-  function resendUnsaved() {
-    if (!unsaved.size) return;
-    const merged = Y.mergeUpdates([...unsaved.values()].map((u) => u.update));
-    unsaved.clear();
-    unsavedCount = 0;
-    queueDocUpdate(merged);
-  }
-
-  // When the server asks, a member holding the whole board seals it as a snapshot covering everything up to appliedSeq.
-  async function compactBoard() {
-    if (!savedBoard || !historyDone || compacting || !ydoc || !ws || assembler.pending || docSending) return;
-    compacting = true;
-    const base = appliedSeq;
-    const parts = docParts(Y.encodeStateAsUpdate(ydoc));
-    if (!parts || !base) { compacting = false; return; }
-    const kind = parts.length === 1 ? 'doc' : 'doc-part';
-    try {
-      for (let index = 0; index < parts.length; index++) {
-        await waitForBudget(Math.ceil(parts[index].length * 16 / 9) + 1024);
-        const payload = await seal(kind, { data: bytesToB64(parts[index]) });
-        if (!payload || !socketSend(JSON.stringify({ type: 'snapshot', base, index, total: parts.length, kind, payload, id: genId() }), true)) {
-          compacting = false;
-          return;
-        }
-      }
-    } catch {
-      compacting = false;
-    }
-  }
-
-  function handleBoardDeleted() {
-    forgetLinkKey();
-    forgetTrustTable(`whiteboard:${roomId}`);
-    boardDeleted = true;
-    verified = false;
-    verifying = false;
-    unsaved.clear();
-    unsavedCount = 0;
-    ws?.close();
-    ws = null;
-  }
-
-  function deleteBoardForEveryone() {
-    menuOpen = false;
-    if (!confirm(t(dict, 'whiteboard.deleteBoardConfirm'))) return;
-    socketSend(JSON.stringify({ type: 'delete' }), true);
+    for (const part of parts) await sendDocEnvelope(kind, part, to);
   }
 
   function roomLink(): string {
     if (typeof window === 'undefined') return '';
-    const base = `${location.origin}${location.pathname}`;
-    return savedBoard && linkKey ? `${base}#k=${linkKey}&p=1` : location.href;
-  }
-
-  async function copyBoardLink() {
-    try {
-      await navigator.clipboard.writeText(roomLink());
-      shareCopiedMenu = true;
-      setTimeout(() => { shareCopiedMenu = false; menuOpen = false; }, 900);
-    } catch {}
+    return location.href;
   }
 
   function shouldAnswerSync(newcomer: string) {
@@ -739,7 +575,7 @@
     ws = new PartySocket({
       host: partyHost || window.location.host,
       room: channelId,
-      party: savedBoard ? 'whiteboard-saved' : 'whiteboard',
+      party: 'whiteboard',
       minReconnectionDelay: 500,
       maxReconnectionDelay: 8000,
       reconnectionDelayGrowFactor: 1.4,
@@ -750,13 +586,10 @@
     ws.addEventListener('open', async () => {
       connected = true;
       const rejoin = verified;
-      historyDone = false;
-      compacting = false;
-      const resume = savedBoard && savedEpoch ? { since: appliedSeq, epoch: savedEpoch } : {};
-      socketSend(JSON.stringify({ type: 'join', token: accessToken, ...resume }), true);
+      socketSend(JSON.stringify({ type: 'join', token: accessToken }), true);
       const verifyPayload = await seal('verify', { alias: aliasWire(alias) });
       if (verifyPayload) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify', payload: verifyPayload, id: 'verify-' + genId() }), true);
-      if (!savedBoard && rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
+      if (rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
     ws.addEventListener('close', () => {
@@ -783,13 +616,8 @@
       myConnId = data.connId || '';
       serverPresence = data.presence;
       roomLocked = !!data.locked;
-      if (savedBoard) {
-        verified = true;
-        verifying = false;
-        return;
-      }
       if (verifying && serverPresence <= 1) {
-        // Nobody here means the board does not exist yet; only a password that passes the room policy may create it.
+        // Nobody here means the board does not exist yet; a password at least MIN_PASSWORD_LENGTH long may create it.
         if (!canCreate) {
           verifying = false;
           boardMissing = true;
@@ -812,14 +640,6 @@
       return;
     }
     if (data.type === 'presence') { serverPresence = data.count; return; }
-    if (savedBoard) {
-      if (data.type === 'history') { storedStep(() => applyHistory(data)); return; }
-      if (data.type === 'stored') { storedStep(() => noteStored(data)); return; }
-      if (data.type === 'envelope' && typeof data.seq === 'number') { storedStep(() => applyStored(data, true)); return; }
-      if (data.type === 'board-full') { showNotice(t(dict, 'whiteboard.savedBoardFull').replace('{size}', String(SAVED_BOARD_BYTES / 1024 / 1024))); return; }
-      if (data.type === 'snapshot-saved' || data.type === 'snapshot-busy' || data.type === 'snapshot-stale') { compacting = false; return; }
-      if (data.type === 'room-deleted') { handleBoardDeleted(); return; }
-    }
     if (data.type === 'locked') { roomLocked = true; return; }
     if (data.type === 'unlocked') { roomLocked = false; return; }
     if (data.type === 'peer-leave') {
@@ -882,7 +702,7 @@
         if (verified && ws) {
           const ack = await seal('verify-ack', { alias: aliasWire(alias) });
           if (ack) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
-          if (!savedBoard && (store.size || ychat.length) && shouldAnswerSync(from)) {
+          if ((store.size || ychat.length) && shouldAnswerSync(from)) {
             flushToDoc();
             queueDocUpdate(Y.encodeStateAsUpdate(ydoc), from);
           }
@@ -901,7 +721,7 @@
   type Who = { name: string; color: string; alias?: Alias; key: string };
 
   function addOnlineUser(id: string, who: Who, pk: string, warn: boolean) {
-    const user = { id, name: who.name, initials: getInitials(who.name), color: who.color, alias: who.alias, pk, warn };
+    const user = { id, name: who.name, color: who.color, alias: who.alias, pk, warn };
     onlineUsers = [...onlineUsers.filter(u => u.id !== id && u.pk !== pk), user];
   }
 
@@ -1092,12 +912,14 @@
   }
 
   function pickTool(id: ToolId) {
+    onHaptic?.('light');
     editor?.setTool(id);
     styleOpen = false;
   }
 
   function pickGeo(kind: GeoId) {
     if (!editor) return;
+    onHaptic?.('light');
     editor.setGeoKind(kind);
     editor.setTool('geo');
   }
@@ -1128,6 +950,7 @@
   }
 
   function deleteSelected() {
+    onHaptic?.('medium');
     editor?.deleteSelection();
     focusBoard();
   }
@@ -1135,9 +958,14 @@
   function clearAll() {
     menuOpen = false;
     if (!editor || !store.size) return;
+    const doClear = () => {
+      onHaptic?.('medium');
+      editor?.clearBoard();
+      focusBoard();
+    };
+    if (appMode && onClearRequest) return onClearRequest(doClear);
     if (!confirm(t(dict, 'whiteboard.clearConfirm'))) return;
-    editor.clearBoard();
-    focusBoard();
+    doClear();
   }
 
   function toggleGrid() {
@@ -1451,7 +1279,7 @@
   }
 
   $: if (typeof window !== 'undefined') {
-    if (verified && (!savedBoard || unsavedCount > 0)) window.addEventListener('beforeunload', beforeUnloadHandler);
+    if (verified) window.addEventListener('beforeunload', beforeUnloadHandler);
     else window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 
@@ -1471,6 +1299,9 @@
     document.addEventListener('fullscreenchange', onFullscreenChange);
     window.addEventListener('pointerdown', onWindowPointerDown, true);
     window.addEventListener('keydown', onWindowKeydown);
+    window.addEventListener('online', onNetChange);
+    window.addEventListener('offline', onNetChange);
+    netOffline = !navigator.onLine;
     themeObserver = new MutationObserver(() => {
       themeId = isDarkTheme() ? 'dark' : 'light';
       editor?.setTheme(themeId);
@@ -1496,6 +1327,8 @@
       window.removeEventListener('beforeunload', beforeUnloadHandler);
       window.removeEventListener('pointerdown', onWindowPointerDown, true);
       window.removeEventListener('keydown', onWindowKeydown);
+      window.removeEventListener('online', onNetChange);
+      window.removeEventListener('offline', onNetChange);
     }
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -1513,17 +1346,7 @@
 </script>
 
 <div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
-  {#if boardDeleted || linkFailed}
-    <div class="wb-center">
-      <div class="space-y-4 max-w-xs w-full text-center">
-        {@html illustration('magnify', 'state-art')}
-        <p class="status status--error" role="alert">{t(dict, boardDeleted ? 'whiteboard.boardDeleted' : 'whiteboard.errorDeriveKey')}</p>
-        {#if boardDeleted}<p class="hint">{t(dict, 'whiteboard.boardDeletedDetail')}</p>{/if}
-        <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard`}>{t(dict, 'whiteboard.newBoard')}</a>
-      </div>
-    </div>
-
-  {:else if needsPassword}
+  {#if needsPassword}
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
@@ -1533,7 +1356,11 @@
         </div>
         {#if boardMissing}
           <p class="status status--warn" role="alert">{t(dict, 'whiteboard.boardMissing')}</p>
-          <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+          {#if appMode}
+            <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+          {:else}
+            <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+          {/if}
         {/if}
         <input
           type="password"
@@ -1555,18 +1382,18 @@
 
   {:else if verifying}
     <div class="wb-center">
-      <p class="status status--busy" role="status">{savedBoard ? t(dict, 'whiteboard.savedOpening') : serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+      <p class="status status--busy" role="status">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
     </div>
 
   {:else}
-    {#if (sharePassword || shareLinkOnly) && !shareDismissed}
+    {#if sharePassword && !shareDismissed}
       <div class="wb-share-banner">
         <RoomInviteCard
           {dict}
           title={roomId}
           url={roomLink()}
           password={sharePassword}
-          warning={t(dict, savedBoard ? 'whiteboard.savedShareWarning' : 'whiteboard.sharePasswordWarning')}
+          warning={t(dict, 'whiteboard.sharePasswordWarning')}
           onDismiss={() => { shareDismissed = true; }}
         />
       </div>
@@ -1595,10 +1422,10 @@
 
       <div class="wb-bar wb-bar--start">
         <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.history')}>
-          <button type="button" class="wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
+          <button type="button" class="wb-btn" on:click={() => { onHaptic?.('light'); store.undo(); }} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.undo}</svg>
           </button>
-          <button type="button" class="wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
+          <button type="button" class="wb-btn" on:click={() => { onHaptic?.('light'); store.redo(); }} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.redo}</svg>
           </button>
         </div>
@@ -1719,6 +1546,7 @@
 
         <div class="wb-pop" data-wb-menu>
           <button
+            bind:this={wbMenuEl}
             id="wb-menu-trigger"
             type="button"
             class="wb-pill wb-btn wb-btn--solo"
@@ -1730,6 +1558,46 @@
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.menu}</svg>
           </button>
+          {#if appMode}
+            <Popover opened={menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
+              <MenuList>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportPng')} onClick={exportPng}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportBoard')} onClick={exportBoard}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportEncrypted')} onClick={chooseEncryptedExport}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.importBoard')} onClick={chooseImport}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.importEncrypted')} onClick={chooseEncryptedImport}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{/snippet}
+                </MenuListItem>
+                <ListItem text={t(dict, 'whiteboard.backupHint')} />
+                <div on:click={() => { menuOpen = false; }} role="presentation">
+                  <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="konsta" />
+                </div>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.zoomFit')} onClick={zoomFit}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{/snippet}
+                </MenuListItem>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.grid')} aria-checked={gridOn} onClick={toggleGrid}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.grid}</svg>{/snippet}
+                  {#snippet after()}{#if gridOn}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.check}</svg>{/if}{/snippet}
+                </MenuListItem>
+                {#if fullscreenSupported}
+                  <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')} onClick={toggleFullscreen}>
+                    {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{/snippet}
+                  </MenuListItem>
+                {/if}
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.clear')} colors={{ menuListItemTextIos: 'text-ios-danger', menuListItemTextMaterial: 'text-md-light-error dark:text-md-dark-error' }} onClick={clearAll}>
+                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{/snippet}
+                </MenuListItem>
+              </MenuList>
+            </Popover>
+          {:else}
           <div id="wb-menu" class="menu wb-menu-panel" class:menu--open={menuOpen}>
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
@@ -1747,7 +1615,7 @@
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importEncrypted')}
             </button>
             <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
-            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode={savedBoard ? 'persistent' : 'live'} password={passwordInput} {linkKey} ready={verified} variant="menu" />
+            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
             </button>
@@ -1760,20 +1628,11 @@
                 <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
               </button>
             {/if}
-            {#if savedBoard}
-              <button type="button" class="menu__item" on:click={copyBoardLink}>
-                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html shareCopiedMenu ? ICONS.check : ICONS.copy}</svg>{t(dict, shareCopiedMenu ? 'whiteboard.linkCopied' : 'whiteboard.copyRoomLink')}
-              </button>
-            {/if}
             <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
               <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.clear')}
             </button>
-            {#if savedBoard}
-              <button type="button" class="menu__item wb-menu-danger" on:click={deleteBoardForEveryone} disabled={!connected}>
-                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.deleteBoard')}
-              </button>
-            {/if}
           </div>
+          {/if}
         </div>
       </div>
 
@@ -1834,7 +1693,7 @@
           </header>
           <ul class="wb-chat__list">
             <li class="wb-member">
-              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
+              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}"></span>
               <div class="min-w-0 flex-1">
                 <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
                 <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
@@ -1842,7 +1701,7 @@
             </li>
             {#each memberList as member (member.pk)}
               <li class="wb-member" class:wb-member--warn={!member.trusted}>
-                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}">{getInitials(member.name)}</span>
+                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}"></span>
                 <div class="min-w-0 flex-1">
                   <p class="wb-member__name">
                     {member.name}
@@ -1949,17 +1808,14 @@
           on:click={togglePeople}
         >
           <span class="flex items-center -space-x-1.5">
-            <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}">{myInitials}</span>
+            <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}"></span>
             {#each onlineUsers as user (user.id)}
-              <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}">{user.initials}</span>
+              <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}"></span>
             {/each}
           </span>
           {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
         </button>
         <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
-        {#if savedBoard}
-          <span class="wb-counter" role="status">{t(dict, unsavedCount ? 'whiteboard.saving' : 'whiteboard.savedState')}</span>
-        {/if}
         {#if syncProgress}
           <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
         {/if}
@@ -2108,20 +1964,23 @@
   .wb-pop { position: relative; pointer-events: auto; }
   .wb-menu-panel {
     min-width: 14rem;
+    max-width: calc(100vw - 1rem);
     text-align: left;
   }
-  .wb-menu-panel .menu__item {
-    justify-content: flex-start;
-    text-align: left;
+  .wb-menu-panel :global(.menu__item) {
+    min-height: 2.75rem;
   }
   [data-wb-style] .wb-menu-panel {
-    left: 0;
-    right: auto;
+    left: auto;
+    right: 0;
   }
   [data-wb-menu] .wb-menu-panel {
     /* Keep the ⋮ panel on-screen; items stay left-aligned inside. */
     left: auto;
     right: 0;
+    max-height: min(70dvh, 28rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .wb-panel {
@@ -2152,7 +2011,7 @@
     gap: 4px;
   }
   .wb-color {
-    height: 32px;
+    height: 2.75rem;
     border-radius: 0.5rem;
     display: flex;
     align-items: center;
@@ -2173,7 +2032,7 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 2px;
   }
-  .wb-seg .wb-btn { width: 100%; }
+  .wb-seg .wb-btn { width: 100%; height: 2.75rem; }
   .wb-dot {
     width: var(--wb-dot);
     height: var(--wb-dot);
@@ -2554,9 +2413,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.6875rem;
-    font-weight: 800;
-    color: white;
     flex-shrink: 0;
     overflow: hidden;
     background-color: var(--surface-2);

@@ -120,10 +120,11 @@ export function matchRedirect(rules: RedirectRule[], url: URL): { location: stri
   return null;
 }
 
-/** Prerendered error documents keep their HTTP status when served as static assets. */
+/** Prerendered error documents keep their HTTP status when served as static assets, localized paths included. */
 export function htmlErrorStatus(file: string): number | undefined {
   const stem = file.replace(/\/index\.html$/, '').replace(/\.html$/, '');
-  if (stem === '/403' || stem === '/404' || stem === '/500') return Number(stem.slice(1));
+  const leaf = stem.slice(stem.lastIndexOf('/'));
+  if (leaf === '/403' || leaf === '/404' || leaf === '/500') return Number(leaf.slice(1));
   return undefined;
 }
 

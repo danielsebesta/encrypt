@@ -72,14 +72,14 @@ test('room alarms survive reopening the database and are cleared when taken', as
   const file = path.join(tempDir(), 'rooms.sqlite');
   let db = new RoomDatabase(file);
   await db.storage('main:a').setAlarm(5000);
-  await db.storage('persistent:b').setAlarm(1000);
+  await db.storage('whiteboard:b').setAlarm(1000);
   await db.storage('main:c').setAlarm(9000);
   await db.storage('main:c').deleteAlarm();
   db.close();
   db = new RoomDatabase(file);
   t.after(() => db.close());
   assert.equal(db.nextAlarm(), 1000);
-  assert.deepEqual(db.takeDueAlarms(6000), ['persistent:b', 'main:a']);
+  assert.deepEqual(db.takeDueAlarms(6000), ['whiteboard:b', 'main:a']);
   assert.equal(db.nextAlarm(), null);
 });
 
@@ -94,7 +94,7 @@ test('the SQL adapter runs statement batches and binds values like Durable Objec
   assert.deepEqual(sql.exec('SELECT x FROM b').toArray(), []);
 });
 
-test('chat rooms join, relay between connections and keep saved history across instance eviction', async t => {
+test('chat rooms join, relay between connections and store nothing but the room config', async t => {
   const db = new RoomDatabase(path.join(tempDir(), 'rooms.sqlite'));
   t.after(() => db.close());
   const rooms = new RealtimeRooms(db, {}, 0);
@@ -102,9 +102,9 @@ test('chat rooms join, relay between connections and keep saved history across i
 
   const join = async () => {
     const socket = fakeSocket();
-    const peer = rooms.connect('persistent', name, socket);
+    const peer = rooms.connect('main', name, socket);
     peer.message(JSON.stringify({ type: 'join', token }));
-    await until(() => socket.sent.some(m => m.type === 'history'));
+    await until(() => socket.sent.some(m => m.type === 'room-config'));
     return { socket, peer };
   };
 
@@ -112,9 +112,11 @@ test('chat rooms join, relay between connections and keep saved history across i
   const b = await join();
   assert.equal(a.socket.sent[0].type, 'init');
   assert.notEqual(a.peer.id, b.peer.id);
-  a.peer.message(JSON.stringify({ type: 'message', id: 'm1', payload: PAYLOAD, persist: true }));
+  a.peer.message(JSON.stringify({ type: 'message', id: 'm1', payload: PAYLOAD }));
   await until(() => b.socket.sent.some(m => m.type === 'message'));
-  assert.equal(b.socket.sent.find(m => m.type === 'message').serverSeq, 1);
+  assert.equal(b.socket.sent.find(m => m.type === 'message').payload, PAYLOAD);
+  // A client from before the relay stopped storing may still send forget; it is ignored.
+  b.peer.message(JSON.stringify({ type: 'forget', target: 'm1', pin: 'x' }));
   assert.equal(rooms.size, 1);
 
   a.peer.closed();
@@ -122,24 +124,31 @@ test('chat rooms join, relay between connections and keep saved history across i
   await until(() => rooms.size === 0);
   assert.ok(db.nextAlarm()! > Date.now());
 
+  // A late joiner gets no history back: the room keeps only its config, never a message.
   const late = await join();
-  const history = late.socket.sent.find(m => m.type === 'history');
-  assert.deepEqual(history.messages.map((m: any) => m.id), ['m1']);
+  assert.deepEqual(late.socket.sent.filter(m => m.type === 'message').map((m: any) => m.id), []);
   late.peer.closed();
+  assert.deepEqual([...(await db.storage(`main:${name}`).list()).keys()], ['room-config']);
 });
 
-test('saved whiteboards keep their encrypted update log in SQLite and replay it after instance eviction', async t => {
+test('obsolete saved-room parties no longer exist and whiteboard rooms write no storage', async t => {
   const db = new RoomDatabase(path.join(tempDir(), 'rooms.sqlite'));
   t.after(() => db.close());
   const rooms = new RealtimeRooms(db, {}, 0);
   const name = await accessChannel(token);
   const big = 'B'.repeat(250_000);
 
+  for (const party of ['persistent', 'whiteboard-saved']) {
+    const socket = fakeSocket();
+    rooms.connect(party, name, socket);
+    assert.equal(socket.closed, 1001, party);
+  }
+
   const join = async () => {
     const socket = fakeSocket();
-    const peer = rooms.connect('whiteboard-saved', name, socket);
+    const peer = rooms.connect('whiteboard', name, socket);
     peer.message(JSON.stringify({ type: 'join', token }));
-    await until(() => socket.sent.some(m => m.type === 'history'));
+    await until(() => socket.sent.some(m => m.type === 'init'));
     return { socket, peer };
   };
 
@@ -147,21 +156,13 @@ test('saved whiteboards keep their encrypted update log in SQLite and replay it 
   const b = await join();
   a.peer.message(JSON.stringify({ type: 'envelope', kind: 'doc', payload: PAYLOAD, id: 'u1' }));
   a.peer.message(JSON.stringify({ type: 'envelope', kind: 'doc-part', payload: big, id: 'u2' }));
-  await until(() => a.socket.sent.filter(m => m.type === 'stored').length === 2);
-  assert.deepEqual(b.socket.sent.filter(m => m.type === 'envelope').map(m => m.seq), [1, 2]);
+  await until(() => b.socket.sent.filter(m => m.type === 'envelope').length === 2);
+  assert.deepEqual(b.socket.sent.filter(m => m.type === 'envelope').map(m => m.id), ['u1', 'u2']);
 
   a.peer.closed();
   b.peer.closed();
   await until(() => rooms.size === 0);
-  assert.ok(db.nextAlarm()! > Date.now());
-
-  const late = await join();
-  const entries = late.socket.sent.filter(m => m.type === 'history').flatMap(m => m.entries);
-  assert.deepEqual(entries.map((e: any) => [e.id, e.seq]), [['u1', 1], ['u2', 2]]);
-  assert.equal(entries[1].payload, big);
-  late.peer.message(JSON.stringify({ type: 'delete' }));
-  await until(() => late.socket.sent.some(m => m.type === 'room-deleted'));
-  assert.equal((await db.storage(`whiteboard-saved:${name}`).list()).size, 0);
+  assert.equal((await db.storage(`whiteboard:${name}`).list()).size, 0);
 });
 
 test('a room alarm left by an earlier process fires on start and clears an empty live room', async t => {
@@ -261,23 +262,32 @@ test('HTML lookup follows Cloudflare auto-trailing-slash handling', () => {
   assert.equal(resolve('/missing'), null);
 });
 
-test('prerendered error pages map to their HTTP status', async () => {
+test('prerendered error pages map to their HTTP status, localized paths included', async () => {
   assert.equal(htmlErrorStatus('/404.html'), 404);
   assert.equal(htmlErrorStatus('/403.html'), 403);
   assert.equal(htmlErrorStatus('/500.html'), 500);
   assert.equal(htmlErrorStatus('/403/index.html'), 403);
+  assert.equal(htmlErrorStatus('/cs/404/index.html'), 404);
+  assert.equal(htmlErrorStatus('/de/403/index.html'), 403);
+  assert.equal(htmlErrorStatus('/sk/500/index.html'), 500);
+  assert.equal(htmlErrorStatus('/fr/404.html'), 404);
   assert.equal(htmlErrorStatus('/index.html'), undefined);
+  assert.equal(htmlErrorStatus('/cs/index.html'), undefined);
+  assert.equal(htmlErrorStatus('/tools/4040/index.html'), undefined);
 
   const root = tempDir();
   const client = path.join(root, 'client');
   mkdirSync(client, { recursive: true });
+  mkdirSync(path.join(client, 'cs', '404'), { recursive: true });
   writeFileSync(path.join(client, '403.html'), '<h1>denied</h1>');
   writeFileSync(path.join(client, '404.html'), '<h1>missing</h1>');
   writeFileSync(path.join(client, '500.html'), '<h1>broken</h1>');
+  writeFileSync(path.join(client, 'cs', '404', 'index.html'), '<h1>chybí</h1>');
   const site = await StaticSite.load(client);
   assert.equal(site.serve(new Request('https://site.test/403'))!.status, 403);
   assert.equal(site.serve(new Request('https://site.test/404'))!.status, 404);
   assert.equal(site.serve(new Request('https://site.test/500'))!.status, 500);
+  assert.equal(site.serve(new Request('https://site.test/cs/404/'))!.status, 404);
   assert.equal(site.read('/404.html')!.status, 404);
 });
 

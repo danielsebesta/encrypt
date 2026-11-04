@@ -1,11 +1,10 @@
 export const RETENTION_SECONDS = [5, 10, 30, 60, 300, 900, 3600, 86400] as const;
 
-export type ChatMode = 'live' | 'persistent' | `ttl-${number}`;
+export type ChatMode = 'live' | `ttl-${number}`;
 
-// Saved rooms live in their own Durable Object class, so the persistent mode is only valid where that class asks for it.
-export function normalizeChatMode(value: unknown, allowPersistent = false): ChatMode {
-  if (value === 'live') return 'live';
-  if (value === 'persistent') return allowPersistent ? 'persistent' : 'live';
+// The old saved-room mode no longer exists; a stored value of "persistent" reads as a live room everywhere.
+export function normalizeChatMode(value: unknown): ChatMode {
+  if (value === 'live' || value === 'persistent') return 'live';
   if (typeof value === 'string') {
     const match = /^ttl-(\d{1,6})$/.exec(value);
     if (match && (RETENTION_SECONDS as readonly number[]).includes(Number(match[1]))) return value as ChatMode;
@@ -18,7 +17,7 @@ export function chatModeTtlSeconds(mode: ChatMode): number {
 }
 
 export function chatModeKeepsHistory(mode: ChatMode): boolean {
-  return mode === 'live' || mode === 'persistent';
+  return mode === 'live';
 }
 
 export type RoomVersionStamp = { mode: string; v?: number };
@@ -38,12 +37,6 @@ export function roomLookup(config: RoomVersionStamp | null, remembered: string |
   if (config.v !== 3 || (remembered && remembered !== configStamp(config))) return 'mismatch';
   return 'open';
 }
-
-export const PERSISTENT_HISTORY_LIMIT = 1000;
-export const PERSISTENT_HISTORY_BYTES = 24 * 1024 * 1024;
-export const PERSISTENT_PAYLOAD_CHARS = 64_000;
-export const PERSISTENT_IDLE_DAYS = 90;
-export const ROOM_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
 
 const UNITS = [['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]] as const;
 
@@ -211,6 +204,13 @@ export function checkRoomPassword(password: string, roomName: string): PasswordC
 export function roomPasswordOk(password: string, roomName: string): boolean {
   const checks = checkRoomPassword(password, roomName);
   return checks.length && checks.variety && checks.strength && checks.distinct;
+}
+
+// The checklist above is advice; the only hard floor is that a password exists and is not trivially empty.
+export const MIN_PASSWORD_LENGTH = 5;
+
+export function passwordLongEnough(password: string): boolean {
+  return password.trim().length >= MIN_PASSWORD_LENGTH;
 }
 
 // A trailing "!N" makes one message disappear after N seconds in any room mode. Out-of-range or

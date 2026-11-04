@@ -1,3 +1,4 @@
+import { parseShareFragment } from './shareLink';
 import {
   createPasskey,
   unlockVault,
@@ -44,7 +45,11 @@ async function withStore<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) =
 }
 
 export async function sharePasswordId(fragment: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fragment));
+  // Optional params (burn, expiry, time-lock) reshape the link but not the share inside it, so the saved
+  // password is keyed by the payload — the same secret unlocks every variant of that share.
+  const link = parseShareFragment(fragment);
+  const identity = link ? link.payload : fragment;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity));
   return [...new Uint8Array(digest).subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -86,6 +91,16 @@ export async function saveSharePassword(
   } catch {
     return 'failed';
   }
+}
+
+/** Drops every saved share password on this device (entries are vault-wrapped; the panic wipe removes both). */
+export async function forgetSharePasswords(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => resolve();
+  });
 }
 
 export async function loadSharePassword(fragment: string): Promise<string | null> {

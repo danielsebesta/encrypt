@@ -1,19 +1,12 @@
-import { accessChannel } from './roomAccess';
 import { hkdfAesKey, hkdfBytes } from './kdf';
 
 const ED25519 = { name: 'Ed25519' };
 const SIGNATURE_RE = /^[A-Za-z0-9_-]{86}$/;
 const PUBLIC_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
-const PQ_SIGNATURE_RE = /^[A-Za-z0-9_-]{3227}$/;
 const SIGNER_ID_RE = /^[A-Za-z0-9_-]{43}(\.[A-Za-z0-9_-]{43})?$/;
 
 function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-}
-
-export async function generateRoomKey(): Promise<string> {
-  const key = crypto.getRandomValues(new Uint8Array(32));
-  return arrayToB64url(key);
 }
 
 /**
@@ -56,34 +49,6 @@ export async function openLocal(key: CryptoKey, id: string, sealed: string): Pro
   }
 }
 
-/** Hash of exactly the bytes both signatures cover, so a sender's history still links up in copies without the ML-DSA signature. */
-export async function chainHash(value: Record<string, unknown>): Promise<string> {
-  const { _sig, _pq, ...signed } = value;
-  return arrayToB64url(await sha256Bytes(`encrypt.click/chat/history-chain/v1\n${stableStringify(signed)}`));
-}
-
-export type PersistentRoomAccess = { token: string; channel: string; key: CryptoKey; localKey: CryptoKey };
-
-// A saved room's secret is 32 random bytes, so a slow password hash would add nothing but delay;
-// HKDF splits it into the access token the server checks and the message key it never sees.
-export async function derivePersistentRoom(keyB64: string, roomId: string): Promise<PersistentRoomAccess> {
-  const raw = b64urlToArray(keyB64);
-  if (raw.length !== 32) throw new Error('Invalid room key');
-  const enc = new TextEncoder();
-  const ikm = await crypto.subtle.importKey('raw', bytesToArrayBuffer(raw), 'HKDF', false, ['deriveBits', 'deriveKey']);
-  const params = (info: string) => ({
-    name: 'HKDF',
-    hash: 'SHA-256',
-    salt: bytesToArrayBuffer(enc.encode(`encrypt.click:chat-persistent:${roomId}`)),
-    info: bytesToArrayBuffer(enc.encode(info)),
-  });
-  const tokenBytes = new Uint8Array(await crypto.subtle.deriveBits(params('access'), ikm, 256));
-  const token = Array.from(tokenBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  const key = await crypto.subtle.deriveKey(params('messages'), ikm, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-  const localKey = await crypto.subtle.deriveKey(params('local'), ikm, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-  return { token, channel: await accessChannel(token), key, localKey };
-}
-
 export type SigningIdentity = { publicKey: string; privateKey: CryptoKey };
 
 // The private half is created non-extractable so it can be stored in IndexedDB but never read back as bytes.
@@ -101,24 +66,14 @@ export function validSignerId(value: unknown): value is string {
   return typeof value === 'string' && SIGNER_ID_RE.test(value);
 }
 
-/** A member of a saved room is the pair of keys: Ed25519 and the hash of its ML-DSA-44 key. */
-export function signerId(ed: string, pq: string | null): string {
-  return pq ? `${ed}.${pq}` : ed;
-}
-
-export type PqSigner = { keyHash: string; sign: (message: Uint8Array) => Uint8Array };
-/** True or false for a known key, null when the key behind the hash is not known. */
-export type PqVerifier = (keyHash: string, message: Uint8Array, signature: Uint8Array) => boolean | null;
-
 // The signature covers the stable JSON of every field but itself, including the room and stamp fields.
-// With a post-quantum signer both signatures cover the same bytes, which name both keys, so neither can be swapped alone.
-export async function signPayload(identity: SigningIdentity, json: string, pq?: PqSigner): Promise<string> {
+export async function signPayload(identity: SigningIdentity, json: string): Promise<string> {
   const value = JSON.parse(json) as Record<string, unknown>;
-  const { _sig, _pq, _pqk, ...rest } = value;
-  const unsigned: Record<string, unknown> = { ...rest, _pk: identity.publicKey, ...(pq ? { _pqk: pq.keyHash } : {}) };
+  const { _sig, ...rest } = value;
+  const unsigned: Record<string, unknown> = { ...rest, _pk: identity.publicKey };
   const bytes = new TextEncoder().encode(stableStringify(unsigned));
   const sig = await crypto.subtle.sign(ED25519, identity.privateKey, bytesToArrayBuffer(bytes));
-  return JSON.stringify({ ...unsigned, _sig: arrayToB64url(new Uint8Array(sig)), ...(pq ? { _pq: arrayToB64url(pq.sign(bytes)) } : {}) });
+  return JSON.stringify({ ...unsigned, _sig: arrayToB64url(new Uint8Array(sig)) });
 }
 
 const verifyKeys = new Map<string, Promise<CryptoKey>>();
@@ -141,25 +96,6 @@ export async function verifyPayload(value: unknown): Promise<string | null> {
     const bytes = new TextEncoder().encode(stableStringify(unsigned));
     const ok = await crypto.subtle.verify(ED25519, await verifyKey(unsigned._pk), bytesToArrayBuffer(b64urlToArray(_sig)), bytesToArrayBuffer(bytes));
     return ok ? unsigned._pk : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Hybrid check: the payload has to name an ML-DSA key and carry valid signatures under it and under its Ed25519 key,
- * both over the same bytes. Anything signed with Ed25519 alone, or by an ML-DSA key the verifier does not know, fails.
- */
-export async function verifySigned(value: unknown, pq?: PqVerifier): Promise<{ ed: string; pq: string } | null> {
-  if (!value || typeof value !== 'object') return null;
-  const { _pq, ...rest } = value as Record<string, unknown>;
-  const hash = rest._pqk;
-  if (!pq || !validPublicKey(hash) || typeof _pq !== 'string' || !PQ_SIGNATURE_RE.test(_pq)) return null;
-  const ed = await verifyPayload(rest);
-  if (!ed) return null;
-  const { _sig, ...unsigned } = rest;
-  try {
-    return pq(hash, new TextEncoder().encode(stableStringify(unsigned)), b64urlToArray(_pq)) === true ? { ed, pq: hash } : null;
   } catch {
     return null;
   }
