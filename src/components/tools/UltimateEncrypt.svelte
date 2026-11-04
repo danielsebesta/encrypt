@@ -1,5 +1,6 @@
 <script lang="ts">
   import { illustration } from '../../lib/illustrations';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
@@ -112,8 +113,9 @@
   $: deliveryMode = isHuge ? 'local' : isLarge ? 'ghost' : 'link';
   $: shareUrl = shortUrl || resultUrl;
   $: resultPass = resultPassword || password;
+  // The blurb carries only the link — sharing link and password in one message defeats the point of sharing them separately.
   $: resultBlurb = shareUrl && resultPass
-    ? t(dict, 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl).replace('{password}', resultPass)
+    ? t(dict, 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl)
     : '';
   $: if (step === 'result' && shareUrl) {
     void generateQr(shareUrl);
@@ -892,7 +894,7 @@
               on:dragover={handleDragOver}
               on:dragleave={handleDragLeave}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['upload']}</svg>
               <span class="dropzone__title">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
               <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
             </label>
@@ -1046,9 +1048,9 @@
               title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
             >
               {#if resultPasswordVisible}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="m2 2 20 20"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye-off']}</svg>
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
               {/if}
             </button>
           </div>

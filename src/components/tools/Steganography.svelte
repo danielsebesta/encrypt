@@ -1,8 +1,9 @@
 <script lang="ts">
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
-  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -159,8 +160,8 @@
       status = t(dict, 'tools.steganography.pleaseProvide');
       return;
     }
-    if (!roomPasswordOk(password, '')) {
-      status = t(dict, 'common.passwordWeak');
+    if (!passwordLongEnough(password)) {
+      status = t(dict, 'common.passwordTooShort');
       return;
     }
     processing = true;
@@ -282,7 +283,7 @@
           {:else if imageUrl}
             <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} />
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['image']}</svg>
             <span class="dropzone__title">{t(dict, 'tools.steganography.sourceImage')}</span>
             <span>{mode === 'encode' ? t(dict, 'tools.steganography.batchHint') : t(dict, 'tools.steganography.pngRecommended')}</span>
           {/if}

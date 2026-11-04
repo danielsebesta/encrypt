@@ -1,12 +1,13 @@
 <script lang="ts">
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
 
   let { dict }: { dict: Record<string, string> } = $props();
 
   const ITEMS = [
-    { title: 'rooms.passkeyExplain.tab1', body: 'rooms.passkeyExplain.body1', icon: '<path d="M12 10v12"/><path d="M12 2a4 4 0 0 0-4 4v8"/><path d="M16 6a4 4 0 0 1 0 8"/><path d="M8 14a4 4 0 0 0 8 0"/>' },
-    { title: 'rooms.passkeyExplain.tab2', body: 'rooms.passkeyExplain.body2', icon: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
-    { title: 'rooms.passkeyExplain.tab3', body: 'rooms.passkeyExplain.body3', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>' },
+    { title: 'rooms.passkeyExplain.tab1', body: 'rooms.passkeyExplain.body1', icon: LUCIDE['fingerprint-pattern'] },
+    { title: 'rooms.passkeyExplain.tab2', body: 'rooms.passkeyExplain.body2', icon: LUCIDE['lock'] },
+    { title: 'rooms.passkeyExplain.tab3', body: 'rooms.passkeyExplain.body3', icon: LUCIDE['shield'] },
   ];
 </script>
 

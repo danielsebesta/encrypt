@@ -3,9 +3,10 @@
   import { t } from '../../lib/t';
   import PasskeyExplain from './PasskeyExplain.svelte';
   import {
-    LABEL_MAX, canOpen, compareRooms, forgetEverything, forgetRoom, listRooms, openRoom, relativeTime, renameRoom, setRoomPinned, unlockVault, vaultState,
+    LABEL_MAX, compareRooms, forgetEverything, forgetRoom, listRooms, openRoom, relativeTime, renameRoom, setRoomPinned, unlockVault, vaultState,
     type RoomEntry, type VaultState,
   } from '../../lib/roomVault';
+  import { LUCIDE } from '../../lib/lucideIcons';
 
   let { dict, locale = 'en' }: { dict: Record<string, string>; locale?: string } = $props();
 
@@ -47,15 +48,12 @@
   });
 
   function modeLabel(room: RoomEntry): string {
-    if (room.kind === 'whiteboard') return t(dict, room.mode === 'persistent' ? 'rooms.mode.savedBoard' : 'rooms.mode.board');
-    if (room.mode === 'persistent') return t(dict, 'rooms.mode.persistent');
+    if (room.kind === 'whiteboard') return t(dict, 'rooms.mode.board');
     return t(dict, room.mode === 'live' ? 'rooms.mode.live' : 'rooms.mode.ttl');
   }
 
   function secretLabel(room: RoomEntry): string {
-    const link = room.mode === 'persistent';
-    if (room.secret) return t(dict, link ? 'rooms.linkSaved' : 'rooms.passwordSaved');
-    return t(dict, link ? 'rooms.needsLink' : 'rooms.needsPassword');
+    return t(dict, room.secret ? 'rooms.passwordSaved' : 'rooms.needsPassword');
   }
 
   function visited(room: RoomEntry): string {
@@ -167,7 +165,7 @@
       {:else if locked}
         <div class="status items-center justify-between gap-3">
           <p class="flex items-center gap-2 font-bold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 text-accent-strong"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 text-accent-strong">{@html LUCIDE['lock']}</svg>
             {t(dict, 'rooms.locked')}
           </p>
           <button type="button" class="btn btn-sm shrink-0" onclick={unlock} disabled={busy}>{t(dict, 'rooms.unlock')}</button>
@@ -210,7 +208,7 @@
                   <p id="my-room-{i}-label" class="font-bold text-text break-words">
                     {#if room.pinned}
                       <span class="mr-1.5 inline-flex align-middle text-accent-strong" title={t(dict, 'rooms.pinned')} aria-label={t(dict, 'rooms.pinned')}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pin']}</svg>
                       </span>
                     {/if}
                     {room.label}
@@ -222,7 +220,7 @@
                     <span>{visited(room)}</span>
                   </p>
                   <p class="mt-1 flex items-center gap-1.5 text-sm" class:text-accent-strong={Boolean(room.secret)} class:text-muted={!room.secret}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{#if room.secret}<path d="M20 6 9 17l-5-5"/>{:else}<path d="M18 6 6 18M6 6l12 12"/>{/if}</svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html room.secret ? LUCIDE['check'] : LUCIDE['x']}</svg>
                     {secretLabel(room)}
                   </p>
                 </div>
@@ -236,9 +234,7 @@
                   </div>
                 {:else}
                   <div class="actions gap-2">
-                    {#if canOpen(room)}
-                      <button type="button" class="btn btn-sm" aria-describedby="my-room-{i}-label" onclick={() => open(room)} disabled={busy}>{t(dict, 'rooms.open')}</button>
-                    {/if}
+                    <button type="button" class="btn btn-sm" aria-describedby="my-room-{i}-label" onclick={() => open(room)} disabled={busy}>{t(dict, 'rooms.open')}</button>
                     <button
                       type="button"
                       class="btn-ghost btn-sm"

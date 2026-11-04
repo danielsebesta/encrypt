@@ -1,5 +1,6 @@
 <script lang="ts">
   import CopyButton from '../CopyButton.svelte';
+  import { LUCIDE } from '../../lib/lucideIcons';
 
   export let id: string;
   export let url: string;
@@ -39,7 +40,7 @@
     <div class="flex items-center gap-1">
       {#if qrSvg}
         <button type="button" class="btn-ghost btn-sm" aria-pressed={showQr} on:click={() => (showQr = !showQr)}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6v6H4z"/><path d="M14 4h6v6h-6z"/><path d="M4 14h6v6H4z"/><path d="M14 14h2"/><path d="M18 14h2v2"/><path d="M14 18h2v2h-2z"/><path d="M18 18h2v2h-2z"/></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['qr-code']}</svg>
           {qrLabel}
         </button>
       {/if}

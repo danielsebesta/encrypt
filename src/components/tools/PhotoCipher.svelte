@@ -1,9 +1,10 @@
 <script lang="ts">
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
-  import { checkRoomPassword, roomPasswordOk } from '../../lib/chatRoomSettings';
+  import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { PASSWORD_ENVELOPE_OVERHEAD } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
+  import { LUCIDE } from '../../lib/lucideIcons';
   import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -300,8 +301,8 @@
     if (!imageFiles.length || !message || !password) {
       status = t(dict, 'tools.photoCipher.pleaseProvide'); return;
     }
-    if (!roomPasswordOk(password, '')) {
-      status = t(dict, 'common.passwordWeak'); return;
+    if (!passwordLongEnough(password)) {
+      status = t(dict, 'common.passwordTooShort'); return;
     }
     processing = true;
     encodedImageUrl = null;
@@ -421,7 +422,7 @@
           {:else if imageUrl}
             <img src={imageUrl} alt={t(dict, 'tools.photoCipher.previewAlt')} />
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['camera']}</svg>
             <span class="dropzone__title">{t(dict, 'tools.photoCipher.sourceImage')}</span>
             <span>{mode === 'encode' ? t(dict, 'tools.photoCipher.batchHint') : t(dict, 'tools.photoCipher.anyFormat')}</span>
           {/if}

@@ -1,6 +1,7 @@
 ---
 import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
+import { LUCIDE } from '../lib/lucideIcons';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -38,10 +39,10 @@ const sections: Section[] = [
 ];
 
 const glance = [
-  { n: 1, icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m17 8 5 5m0-5-5 5"/>' },
-  { n: 2, icon: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
-  { n: 3, icon: '<path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>' },
-  { n: 4, icon: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="m3 3 18 18"/>' },
+  { n: 1, icon: LUCIDE['user-x'] },
+  { n: 2, icon: LUCIDE['lock'] },
+  { n: 3, icon: LUCIDE['key'] },
+  { n: 4, icon: LUCIDE['database-x'] },
 ];
 
 const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u);

@@ -5,7 +5,8 @@ export const PRODUCT_NAME = 'encrypt.click';
 export const PRODUCT_ORIGIN = 'https://encrypt.click';
 
 const MAX_NAME = 64;
-const NAME_RE = /^[^\x00-\x1f<>]{1,64}$/;
+// The name is spliced into HTML and script contexts raw, so quotes, backslashes, backticks and markup are out.
+const NAME_RE = /^[^\x00-\x1f<>"'\\`&]{1,64}$/;
 
 function cleanName(raw: string): string {
   const value = raw.trim().replace(/\s+/g, ' ');
@@ -64,6 +65,9 @@ function shortenerHost(): string | null {
   }
 }
 
+// `l.encrypt.click` must match as a whole host label, not inside another name like `portal.encrypt.click`.
+const SHORTENER_HOST_RE = /(?<![A-Za-z0-9@._-])l\.encrypt\.click/g;
+
 /** Rewrite user-facing brand mentions. Leaves `encrypt.click/` and `encrypt.click:` protocol labels alone when used via brandHtml. */
 export function brandText(input: string): string {
   const name = siteName();
@@ -73,7 +77,7 @@ export function brandText(input: string): string {
   const shortHost = shortenerHost() ?? host;
   let out = input;
   out = out.replaceAll('https://encrypt.click', siteOrigin());
-  out = out.replaceAll('l.encrypt.click', shortHost);
+  out = out.replaceAll(SHORTENER_HOST_RE, shortHost);
   out = out.replaceAll('mail@encrypt.click', contact);
   out = out.replaceAll('encrypt.click/u', `${host}/u`);
   out = out.replaceAll("encrypt.click's", `${name}'s`);
@@ -92,12 +96,14 @@ const PROTO_MARK = '\uE000PROTO\uE001';
 export function brandHtml(input: string): string {
   if (!isWhitelabeled()) return input;
   const host = siteHost();
+  const shortHost = shortenerHost() ?? host;
   let out = input;
   // Keep the product name in the nav/footer brand mark.
   out = out.replaceAll(`>${PRODUCT_NAME}<`, `>${PRODUCT_MARK}<`);
   // Rewrites that must run before protocol-label protection (those use encrypt.click/).
   out = out.replaceAll(PRODUCT_ORIGIN, siteOrigin());
   out = out.replaceAll('encrypt.click/u', `${host}/u`);
+  out = out.replaceAll(SHORTENER_HOST_RE, shortHost);
   // Leave crypto / storage labels intact (encrypt.click/chat/…, encrypt.click:alias:…).
   out = out.replaceAll(/encrypt\.click([/:])/g, `${PROTO_MARK}$1`);
   out = brandText(out);
