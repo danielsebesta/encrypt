@@ -639,20 +639,6 @@
     window.location.replace(url.href);
   }
 
-  async function installPwa() {
-    triggerHaptic('medium');
-    if (deferredInstallPrompt) {
-      const prompt = deferredInstallPrompt;
-      deferredInstallPrompt = null;
-      try {
-        await prompt.prompt();
-        await prompt.userChoice;
-      } catch {}
-    } else if (platform === 'ios') {
-      showIosInstallSheet = true;
-    }
-  }
-
   let wiping = false;
   let wipeEpoch = 0;
 
@@ -1387,19 +1373,6 @@
 
           <BlockTitle>{t(dict, 'app.settings.app')}</BlockTitle>
           <List strong inset>
-            <ListItem
-              title={t(dict, 'app.settings.install')}
-              subtitle={isStandalone ? t(dict, 'app.settings.standalone') : t(dict, 'app.settings.inBrowser')}
-            >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="install" size={20} /></span>
-              {/snippet}
-              {#snippet after()}
-                {#if !isStandalone && (deferredInstallPrompt || platform === 'ios')}
-                  <Button small rounded tonal class="min-h-10!" onClick={installPwa}>{t(dict, 'app.settings.installNow')}</Button>
-                {/if}
-              {/snippet}
-            </ListItem>
             <ListItem title={t(dict, 'app.settings.version')} subtitle={`${t(dict, 'app.settings.updateHint')} · ${__APP_COMMIT__}`}>
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="install" size={20} /></span>
