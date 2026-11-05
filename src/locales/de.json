@@ -1248,7 +1248,7 @@
   "app.settings.language": "Sprache",
   "app.settings.haptics": "Haptisches Feedback",
   "app.settings.lock": "App-Sperre",
-  "app.settings.lockHint": "Beim Öffnen der App Face ID, Fingerabdruck oder Geräte-PIN verlangen",
+  "app.settings.lockHint": "Beim Aktivieren wird auf diesem Gerät ein Passkey erstellt. Er entsperrt die App und deine gespeicherten Räume.",
   "app.lock.title": "Gesperrt",
   "app.lock.unlock": "Entsperren",
   "app.lock.hint": "Bestätige, dass du es bist, um encrypt.click zu öffnen.",

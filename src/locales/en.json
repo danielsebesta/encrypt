@@ -1248,7 +1248,7 @@
   "app.settings.language": "Language",
   "app.settings.haptics": "Haptic feedback",
   "app.settings.lock": "App lock",
-  "app.settings.lockHint": "Ask for Face ID, fingerprint or device PIN when the app opens",
+  "app.settings.lockHint": "Turning it on creates a passkey on this device. It opens the app and your saved rooms.",
   "app.lock.title": "Locked",
   "app.lock.unlock": "Unlock",
   "app.lock.hint": "Confirm it is you to open encrypt.click.",

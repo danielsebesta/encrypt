@@ -1248,7 +1248,7 @@
   "app.settings.language": "Idioma",
   "app.settings.haptics": "Respuesta háptica",
   "app.settings.lock": "Bloqueo de la app",
-  "app.settings.lockHint": "Pedir Face ID, huella o PIN del dispositivo al abrir la app",
+  "app.settings.lockHint": "Al activarlo se crea una passkey en este dispositivo. Desbloquea la app y tus salas guardadas.",
   "app.lock.title": "Bloqueado",
   "app.lock.unlock": "Desbloquear",
   "app.lock.hint": "Confirma que eres tú para abrir encrypt.click.",

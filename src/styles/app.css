@@ -314,6 +314,18 @@ html[data-app-platform] body {
     -webkit-text-size-adjust: 100%;
     touch-action: pan-y;
 }
+/* Pinned to the screen so iOS cannot pan the page when the keyboard opens or closes. */
+html[data-app-platform] body {
+    position: fixed;
+    inset: 0;
+}
+.app-room-title {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    margin-inline: 0.5rem;
+    text-align: center;
+}
 
 /* Native feel: nothing is selectable or draggable; messages are copied through their action sheet */
 html[data-app-platform] body *:not(input):not(textarea):not([contenteditable="true"]) {
@@ -409,11 +421,19 @@ html[data-app-platform] ::selection {
     color: var(--app-error);
 }
 .app-sheet__handle {
+    position: relative;
     width: 36px;
     height: 5px;
     border-radius: 999px;
     margin: 6px auto 2px;
     background: var(--app-label-3);
+    touch-action: none;
+    cursor: grab;
+}
+.app-sheet__handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px -72px -14px;
 }
 /* Konsta popovers are fixed and unconstrained in height — a tall menu (e.g.
    whiteboard tools) can overflow the viewport and Konsta clamps position
@@ -1878,12 +1898,12 @@ html[data-app-platform] ::selection {
 
 /* iOS — iMessage-level details */
 :root[data-app-platform="ios"] .chat-input {
-    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.35rem 0.5rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
     border-top: none;
     gap: 0.35rem;
 }
 :root[data-app-platform="material"] .chat-input {
-    padding: 0.4rem 0.6rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.4rem 0.6rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
     border-top: none;
     gap: 0.4rem;
 }
@@ -3239,7 +3259,7 @@ html[data-app-platform] ::selection {
     max-height: var(--app-vvh);
 }
 :root.app-kbd .chat-input {
-    padding-bottom: 0.35rem;
+    padding-bottom: 0.5rem;
 }
 
 /* Composer: the whole pill takes the tap, not just the thin line of text. */
