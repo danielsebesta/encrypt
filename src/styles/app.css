@@ -581,6 +581,10 @@ html[data-app-platform] ::selection {
 
 /* Image preview fullscreen lightbox (app chat) */
 /* Queued-outbox bubbles: dimmed with a small status chip until the wire confirms */
+.chat-kmsg--photo .k-message-bubble {
+    padding: 3px !important;
+    overflow: hidden;
+}
 .chat-kmsg--pending .k-message-bubble {
     opacity: 0.7;
 }
@@ -623,11 +627,27 @@ html[data-app-platform] ::selection {
     padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
     animation: app-fade-in 0.15s ease;
 }
+.chat-lightbox__stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: calc(4rem + env(safe-area-inset-top, 0px)) 0 calc(1rem + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    cursor: zoom-in;
+}
 .chat-lightbox__img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 0.75rem;
+    user-select: none;
+    -webkit-user-drag: none;
+    will-change: transform;
+}
+.chat-lightbox__save {
+    right: calc(0.75rem + 44px + 0.5rem);
 }
 .chat-lightbox__close {
     position: absolute;

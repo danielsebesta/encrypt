@@ -52,6 +52,7 @@
   import { buildMicChain } from '../../lib/micChain';
   import { swipeReply } from '../../lib/swipeReply';
   import { subscribeForPush } from '../../lib/pushClient';
+  import { zoomPan } from '../../lib/zoomPan';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
   import {
     SCHEDULE_PRESETS,
@@ -321,13 +322,22 @@
 
   let ws: PartySocket | null = null;
   let netOffline = false;
-  let lightboxUrl: string | null = null;
-  function openLightbox(url: string) {
-    lightboxUrl = url;
+  let lightbox: { url: string; name: string } | null = null;
+  function openLightbox(url: string, name = '') {
+    lightbox = { url, name };
     window.addEventListener('keydown', onLightboxKey);
   }
+  function saveLightboxImage() {
+    if (!lightbox) return;
+    const a = document.createElement('a');
+    a.href = lightbox.url;
+    a.download = lightbox.name || 'image';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
   function closeLightbox() {
-    lightboxUrl = null;
+    lightbox = null;
     window.removeEventListener('keydown', onLightboxKey);
   }
   function onLightboxKey(e: KeyboardEvent) {
@@ -5427,7 +5437,7 @@
           <Message
             type={msg.mine ? 'sent' : 'received'}
             colors={kmsgColors}
-            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}${!msg.mine && !groupEnd ? ' chat-kmsg--gutter' : ''}`}
+            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}${!msg.mine && !groupEnd ? ' chat-kmsg--gutter' : ''}${msg.preview?.type === 'image' && msg.previewState === 'ready' && !msg.text ? ' chat-kmsg--photo' : ''}`}
             avatar={msg.mine || !groupEnd ? undefined : bubbleAvatar}
             name={(!msg.mine && groupStart) || msg.once || msg.keyWarning ? bubbleMeta : undefined}
           >
@@ -5447,6 +5457,8 @@
                 <ChatVoiceMessage {dict} {appMode} seed={msg.id} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
               {:else if msg.file && msg.previewState === 'loading'}
                 <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
+              {:else if msg.file && appMode && msg.previewState === 'ready' && msg.preview?.type === 'image'}
+                <!-- the picture alone: tap it for the detail view -->
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -5490,7 +5502,7 @@
               {#if msg.preview}
                 {#if msg.preview.type === 'image' && msg.preview.url}
                   {#if appMode}
-                    <button type="button" class="chat-preview-img-btn" on:click={() => openLightbox(msg.preview!.url!)} aria-label={t(dict, 'app.lightbox.image')}>
+                    <button type="button" class="chat-preview-img-btn" on:click={() => openLightbox(msg.preview!.url!, msg.file?.name)} aria-label={t(dict, 'app.lightbox.image')}>
                       <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" decoding="async" style={msg.preview.width && msg.preview.height ? `aspect-ratio: ${msg.preview.width} / ${msg.preview.height}` : undefined} />
                     </button>
                   {:else}
@@ -5597,6 +5609,8 @@
                 <ChatVoiceMessage {dict} {appMode} seed={msg.id} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
               {:else if msg.file && msg.previewState === 'loading'}
                 <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
+              {:else if msg.file && appMode && msg.previewState === 'ready' && msg.preview?.type === 'image'}
+                <!-- the picture alone: tap it for the detail view -->
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -5773,15 +5787,16 @@
 
 </div>
 
-{#if appMode && lightboxUrl}
+{#if appMode && lightbox}
   <div
     class="chat-lightbox"
     role="dialog"
     aria-modal="true"
     aria-label={t(dict, 'app.lightbox.image')}
-    on:click={closeLightbox}
   >
-    <img src={lightboxUrl} alt="" class="chat-lightbox__img" />
+    <div class="chat-lightbox__stage" use:zoomPan={{ onDismiss: closeLightbox }}>
+      <img src={lightbox.url} alt={lightbox.name} class="chat-lightbox__img" draggable="false" />
+    </div>
     <button
       type="button"
       class="chat-lightbox__close"
@@ -5789,6 +5804,14 @@
       aria-label={t(dict, 'app.lightbox.close')}
     >
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
+    </button>
+    <button
+      type="button"
+      class="chat-lightbox__close chat-lightbox__save"
+      on:click={saveLightboxImage}
+      aria-label={t(dict, 'chat.downloadFile')}
+    >
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['download']}</svg>
     </button>
   </div>
 {/if}
