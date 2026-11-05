@@ -80,6 +80,7 @@
   export let appMode = false;
   export let onOpenBoardApp: ((roomId: string, password: string) => void) | undefined = undefined;
   export let onExitApp: (() => void) | undefined = undefined;
+  export let onSavedPassword: (() => Promise<string | null>) | undefined = undefined;
   export let onNotice: ((message: string) => void) | undefined = undefined;
   export let onConnStatus: ((status: 'connected' | 'connecting' | 'offline') => void) | undefined = undefined;
   export let requestReconnect = () => {};
@@ -1920,7 +1921,7 @@
     if (remembered) {
       passwordInput = remembered;
       await enterWithPassword(remembered);
-    } else {
+    } else if (!(await usePasskeyPassword(false))) {
       checkingRoom = false; needsPassword = true;
     }
   }
@@ -1935,6 +1936,19 @@
       shareCopiedLink = true;
       setTimeout(() => { shareCopiedLink = false; }, 1500);
     } catch {}
+  }
+
+  // A room saved with a passkey gets its password back from it, so coming back to the app never asks for it again.
+  async function usePasskeyPassword(showFailure: boolean): Promise<boolean> {
+    if (!appMode || !onSavedPassword) return false;
+    const saved = await onSavedPassword().catch(() => null);
+    if (!saved) {
+      if (showFailure) passwordError = t(dict, 'rooms.unlockFailed');
+      return false;
+    }
+    passwordInput = saved;
+    await enterWithPassword(saved);
+    return true;
   }
 
   async function submitPassword() {
@@ -4892,6 +4906,9 @@
           <p class="status status--error" role="alert">{passwordError}</p>
         {/if}
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
+        {#if appMode && onSavedPassword}
+          <button class="btn btn-secondary w-full" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
+        {/if}
       </div>
     </div>
 

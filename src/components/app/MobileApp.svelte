@@ -305,6 +305,12 @@
     enterRoom(room.roomId, room.kind, room.label);
   }
 
+  async function savedRoomPassword(): Promise<string | null> {
+    const room = await getRoom('chat', activeRoomId).catch(() => null);
+    if (!room?.secret || !(await unlockVault())) return null;
+    return (await revealSecret(room))?.value ?? null;
+  }
+
   function openBoardInvite(roomId: string, password: string) {
     boardReturnRoom = activeView === 'room' ? activeRoomId : null;
     roomConn = 'connecting';
@@ -1227,6 +1233,7 @@
           appMode={true}
           onOpenBoardApp={openBoardInvite}
           onExitApp={leaveRoom}
+          onSavedPassword={savedRoomPassword}
           onNotice={showToast}
           onConnStatus={(s) => (roomConn = s)}
           bind:requestReconnect={roomReconnect}
