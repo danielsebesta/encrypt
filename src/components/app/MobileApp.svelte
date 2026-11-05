@@ -284,6 +284,9 @@
 
   // A saved room opens with its passkey-sealed password and stored mode, so one that expired on the server is made again instead of showing a dead end.
   async function openSavedRoom(room: RoomEntry) {
+    if (room.kind !== 'whiteboard') {
+      try { sessionStorage.setItem('chat-room-config', JSON.stringify({ mode: room.mode, authMode: 'password', createdAt: Date.now(), v: 3 })); } catch {}
+    }
     if (room.secret && (await unlockVault())) {
       const secret = await revealSecret(room);
       if (secret) {
@@ -295,7 +298,6 @@
             sessionStorage.setItem('chat-password', secret.value);
             sessionStorage.setItem('chat-share-password', secret.value);
             sessionStorage.setItem(`chat-pw:${room.roomId}`, secret.value);
-            sessionStorage.setItem('chat-room-config', JSON.stringify({ mode: room.mode, authMode: 'password', createdAt: Date.now(), v: 3 }));
           }
         } catch {}
       }

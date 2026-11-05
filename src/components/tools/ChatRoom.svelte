@@ -2054,7 +2054,13 @@
   async function openWithConfig(config: RoomConfig | null) {
     if (!pendingSecret || cryptoKey) return;
     const next = roomLookup(config, rememberedMode());
-    if (next === 'missing') {
+    if (next === 'missing' && appMode) {
+      // In the app a name and password are the whole identity: nothing there yet means this is the first person to arrive.
+      const remembered = rememberedMode()?.split(':')[1];
+      const created: RoomConfig = { mode: normalizeChatMode(remembered ?? roomConfig.mode), authMode: 'password', createdAt: Date.now(), v: 3 };
+      pendingRoomConfig = created;
+      await unlockRoom(created);
+    } else if (next === 'missing') {
       pendingSecret = null;
       roomMissing = true;
       checkingRoom = false;
