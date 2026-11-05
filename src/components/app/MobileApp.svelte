@@ -67,6 +67,7 @@
   import { haptic } from '../../lib/haptics';
   import { clearLock, enableLock, lockSupported, confirmPresence, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
+  import { CURRENT_VERSION, isDevBuild, fetchLatestVersion, describeVersion, type AppVersion } from '../../lib/appVersion';
   import {
     applyTheme,
     loadThemeState,
@@ -654,6 +655,23 @@
     window.location.href = `/_lang/${code}?to=${encodeURIComponent(target)}`;
   }
 
+  let latestVersion = $state<AppVersion | null>(null);
+  let updateToastOpen = $state(false);
+  let dismissedUpdate = '';
+  const updateAvailable = $derived(Boolean(latestVersion && !isDevBuild && latestVersion.commit !== CURRENT_VERSION.commit));
+
+  async function checkForUpdate() {
+    const latest = await fetchLatestVersion();
+    if (!latest) return;
+    latestVersion = latest;
+    if (!isDevBuild && latest.commit !== CURRENT_VERSION.commit && dismissedUpdate !== latest.commit) updateToastOpen = true;
+  }
+
+  function dismissUpdateToast() {
+    updateToastOpen = false;
+    if (latestVersion) dismissedUpdate = latestVersion.commit;
+  }
+
   let updating = false;
   async function updateApp() {
     if (updating) return;
@@ -896,6 +914,7 @@
         return;
       }
       loadRooms();
+      void checkForUpdate();
       if (lockEnabled && !locked && shouldLock(hiddenAt, Date.now())) {
         locked = true;
         void tryUnlock(true);
@@ -903,6 +922,8 @@
       hiddenAt = 0;
     };
     document.addEventListener('visibilitychange', onVisibility);
+    void checkForUpdate();
+    const updateTimer = setInterval(() => void checkForUpdate(), 30 * 60_000);
 
     const onOffline = () => showToast(t(dict, 'app.offline'));
     const onOnline = () => showToast(t(dict, 'app.backOnline'), 'success');
@@ -1046,6 +1067,7 @@
       schemeQuery.removeEventListener('change', onScheme);
       clearTimeout(toastTimer);
       clearTimeout(lpTimer);
+      clearInterval(updateTimer);
     };
   });
 </script>
@@ -1406,7 +1428,11 @@
 
           <BlockTitle>{t(dict, 'app.settings.app')}</BlockTitle>
           <List strong inset>
-            <ListItem title={t(dict, 'app.settings.version')} subtitle={`${t(dict, 'app.settings.updateHint')} · ${__APP_COMMIT__}`}>
+            <ListItem
+              class="app-version-row"
+              title={t(dict, 'app.settings.version')}
+              subtitle={`${describeVersion(CURRENT_VERSION, locale)}\n${updateAvailable && latestVersion ? t(dict, 'app.settings.newVersion').replace('{version}', describeVersion(latestVersion, locale)) : latestVersion ? t(dict, 'app.settings.upToDate') : t(dict, 'app.settings.updateHint')}`}
+            >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="install" size={20} /></span>
               {/snippet}
@@ -1690,6 +1716,20 @@
         </Button>
       </div>
     </Sheet>
+
+    <Toast
+      position="center"
+      opened={updateToastOpen && !toastOpen}
+      role="status"
+      aria-live="polite"
+      style="bottom: calc(env(safe-area-inset-bottom, 0px) + {activeView === 'hub' ? '6.5rem' : '4.75rem'})"
+    >
+      <span class="text-[15px]">{t(dict, 'app.update.available')}</span>
+      {#snippet button()}
+        <Button clear small onClick={updateApp}>{t(dict, 'app.update.now')}</Button>
+        <Button clear small onClick={dismissUpdateToast}>{t(dict, 'app.close')}</Button>
+      {/snippet}
+    </Toast>
 
     <Toast
       position="center"

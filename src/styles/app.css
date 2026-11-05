@@ -3326,3 +3326,7 @@ html[data-app-platform] ::selection {
 .chat-kmsg--gutter {
     padding-inline-start: 38px;
 }
+
+.app-version-row .text-sm {
+    white-space: pre-line;
+}

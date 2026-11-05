@@ -9,9 +9,15 @@ import svelte from '@astrojs/svelte';
 import cloudflare from '@astrojs/cloudflare';
 import { getAdapter as nodeAdapter } from '@astrojs/node';
 
-const commit = (() => {
-  try { return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch {}
-  return (process.env.BUILD_COMMIT_SHA || process.env.GITHUB_SHA || 'dev').slice(0, 7);
+const git = (/** @type {string} */ args) => {
+  try { return execSync(`git ${args}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; }
+};
+const commit = git('rev-parse HEAD') || process.env.BUILD_COMMIT_SHA || process.env.GITHUB_SHA || 'dev';
+const committedAt = (() => {
+  const epoch = process.env.SOURCE_DATE_EPOCH;
+  if (epoch && /^\d+$/.test(epoch)) return new Date(Number(epoch) * 1000).toISOString();
+  const iso = git('show -s --format=%cI HEAD');
+  return iso ? new Date(iso).toISOString() : '';
 })();
 
 // Astro invents a random key on every build to encrypt server-island props, which this site does not use. A fixed one keeps the output reproducible.
@@ -48,7 +54,7 @@ export default defineConfig({
   },
 
   vite: {
-    define: { __APP_COMMIT__: JSON.stringify(commit) },
+    define: { __APP_COMMIT__: JSON.stringify(commit), __APP_DATE__: JSON.stringify(committedAt) },
     plugins: [
       tailwindcss(),
     ],
