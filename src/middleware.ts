@@ -15,10 +15,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
-  headers.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains; preload');
+  headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   headers.set('Cache-Control', 'no-store');
   let body: BodyInit | null = response.body;
-  if (headers.get('Content-Type')?.includes('text/html')) {
+  const contentType = headers.get('Content-Type') ?? '';
+  if (contentType.includes('text/html') && !/charset=/i.test(contentType)) {
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+  }
+  if (contentType.includes('text/html')) {
     // Our inline scripts are allowed by the hashes the build swaps in, so the HTML is never rewritten and no script that
     // reaches a page later can run: nothing the build did not produce gets to touch keys, including scripts a CDN injects.
     // The dev server, where the placeholder stays, tags our scripts with a nonce instead.

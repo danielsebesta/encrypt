@@ -18,7 +18,18 @@
     | 'key'
     | 'share'
     | 'call'
-    | 'more';
+    | 'more'
+    | 'dices'
+    | 'eye'
+    | 'eye-off'
+    | 'history'
+    | 'timer'
+    | 'search'
+    | 'pencil'
+    | 'hash'
+    | 'join'
+    | 'list'
+    | 'home';
 
   const MAP: Record<IconName, string> = {
     chat: 'message-square',
@@ -38,6 +49,17 @@
     share: 'share',
     call: 'phone',
     more: 'ellipsis-vertical',
+    dices: 'dices',
+    eye: 'eye',
+    'eye-off': 'eye-off',
+    history: 'rotate-ccw-clock',
+    timer: 'timer',
+    search: 'search',
+    pencil: 'pencil',
+    hash: 'hash',
+    join: 'log-in',
+    list: 'list',
+    home: 'house',
   };
 
   let {

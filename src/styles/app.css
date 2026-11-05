@@ -334,6 +334,39 @@ html[data-app-platform] body {
 /* Keep the room title optically centered between asymmetric left/right actions. */
 :root[data-app-platform] .k-navbar .k-navbar-inner {
     align-items: center;
+    min-height: 3.5rem;
+}
+/* Hub brand mark: tall padlock must stay readable next to the tab title */
+.app-hub-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    max-width: 100%;
+}
+.app-hub-mark {
+    --hub-mark-h: 2.85rem;
+    height: var(--hub-mark-h);
+    width: calc(var(--hub-mark-h) * 278 / 423);
+    flex: 0 0 auto;
+    background-color: #5f8f36;
+    -webkit-mask: url("/encryptclick_icon.svg") center / contain no-repeat;
+    mask: url("/encryptclick_icon.svg") center / contain no-repeat;
+}
+:root[data-app-platform="material"] .app-hub-mark {
+    --hub-mark-h: 3.1rem;
+}
+:root[data-app-scheme="dark"] .app-hub-mark {
+    background-color: #86b94a;
+}
+.app-hub-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 :root[data-app-platform] .k-navbar .app-room-title {
     position: absolute;
@@ -550,6 +583,10 @@ html[data-app-platform] ::selection {
     min-width: 0;
     padding-inline: 0;
 }
+/* Active-tab pill: a bit taller so the icon isn’t flush with the top/bottom edge. */
+:root[data-app-platform="material"] .app-tabbar .k-tabbar-link-icon {
+    height: 2.5rem; /* Konsta default h-8 (2rem) */
+}
 
 /* iOS 26: tab presses contract with a spring settle (Material uses ink ripple instead) */
 :root[data-app-platform="ios"] .k-toolbar .k-link {
@@ -590,6 +627,92 @@ html[data-app-platform] ::selection {
 
 :root[data-app-platform="material"] .app-form .k-list-input > div.ml-4 {
     margin-inline: 0;
+}
+
+/* Passphrase row inside a Konsta list — dice + eye sit in the field like the web PassphraseField. */
+.app-pass-row .k-item-inner,
+.app-pass-row .item-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+}
+.app-passphrase {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    width: 100%;
+    min-width: 0;
+}
+.app-passphrase__input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--app-label);
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.35;
+    padding: 0.35rem 0;
+    outline: none;
+}
+.app-passphrase__input::placeholder {
+    color: var(--app-label-3);
+}
+.app-passphrase__btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--app-label-2);
+}
+.app-passphrase__btn:active {
+    background: color-mix(in srgb, var(--app-label) 8%, transparent);
+}
+.app-passphrase--invalid .app-passphrase__input {
+    color: var(--app-error);
+}
+.app-passphrase__error {
+    margin: 0.15rem 0 0;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--app-error);
+}
+
+.app-sheet-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--app-label);
+    line-height: 1.25;
+}
+.app-sheet-title__icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+.app-seg,
+.app-btn-label,
+.app-action-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+.app-row-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 /* Retention picker inside a ListItem: the inner content is a flex row, so the
@@ -704,45 +827,90 @@ html[data-app-platform] ::selection {
     .chat-lightbox { animation: none; }
 }
 
-/* Connection status pill in the room bar: tap forces a reconnect. */
-.app-conn-pill {
+/* Room-bar connection / boot loaders: quiet spinner, no pulsing pills. */
+.app-spinner {
+    box-sizing: border-box;
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--app-tint) 22%, transparent);
+    border-top-color: var(--app-tint);
+    animation: app-spin 0.7s linear infinite;
+    will-change: transform;
+    backface-visibility: hidden;
+}
+.app-spinner--lg {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-width: 2.5px;
+}
+@keyframes app-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-spinner {
+        animation: none;
+        will-change: auto;
+        border-color: color-mix(in srgb, var(--app-tint) 35%, transparent);
+        border-top-color: var(--app-tint);
+        opacity: 0.85;
+    }
+}
+
+.app-conn-status {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 1.375rem;
+    min-width: 1.375rem;
+    padding: 0.125rem;
+    border: 0;
     border-radius: 999px;
+    background: transparent;
+    color: var(--app-label-2);
+    line-height: 1;
+}
+.app-conn-status::after {
+    content: '';
+    position: absolute;
+    inset: -10px -8px;
+}
+.app-conn-status:disabled {
+    opacity: 1;
+}
+.app-conn-status--offline {
     padding: 0.1875rem 0.5rem;
-    min-height: 22px;
+    background: var(--app-error-weak);
+    color: var(--app-on-error-weak);
     font-size: 0.6875rem;
     font-weight: 600;
-    line-height: 1.2;
     max-width: 50vw;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-.app-conn-pill::after {
-    content: '';
-    position: absolute;
-    inset: -11px -6px;
+
+/* Chat/whiteboard center loaders inside /app use the same spinner. */
+:root[data-app-platform] .chat-center .animate-spin,
+:root[data-app-platform] .wb-center .animate-spin {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    padding: 0;
+    color: transparent !important;
+    border-radius: 50%;
+    border: 2.5px solid color-mix(in srgb, var(--app-tint) 22%, transparent);
+    border-top-color: var(--app-tint);
+    background: transparent;
+    animation: app-spin 0.7s linear infinite !important;
+    stroke: none !important;
 }
-.app-conn-pill--connecting {
-    background: var(--app-warn-weak);
-    color: var(--app-on-warn-weak);
-    animation: app-conn-pulse 1.2s ease-in-out infinite;
-}
-.app-conn-pill--offline {
-    background: var(--app-error-weak);
-    color: var(--app-on-error-weak);
-}
-@keyframes app-conn-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .app-conn-pill--connecting {
-        animation: none;
-    }
+:root[data-app-platform] .chat-center .animate-spin :is(path, circle, line),
+:root[data-app-platform] .wb-center .animate-spin :is(path, circle, line) {
+    display: none;
 }
 
 /* Large screens read like native tablet layouts: bars stay full-width, content
@@ -1240,11 +1408,23 @@ html[data-app-platform] ::selection {
         outline-color: var(--app-tint);
     }
     .chat-status {
-        background: var(--app-warn);
+        background: transparent;
+        border: 1.5px solid color-mix(in srgb, var(--app-tint) 28%, transparent);
+        border-top-color: var(--app-tint);
+        animation: app-spin 0.7s linear infinite;
+        will-change: transform;
+        backface-visibility: hidden;
     }
     .chat-status--connected {
+        border: 0;
         background: var(--app-tint);
         box-shadow: none;
+        animation: none;
+        will-change: auto;
+    }
+    .chat-loader {
+        border-color: color-mix(in srgb, var(--app-tint) 25%, transparent);
+        border-top-color: var(--app-tint);
     }
 
     /* Whiteboard chrome — glass on ::before, same Backdrop-Root reason as .chat-header */
@@ -1774,11 +1954,23 @@ html[data-app-platform] ::selection {
         outline-color: var(--app-tint);
     }
     .chat-status {
-        background: var(--app-warn);
+        background: transparent;
+        border: 1.5px solid color-mix(in srgb, var(--app-tint) 28%, transparent);
+        border-top-color: var(--app-tint);
+        animation: app-spin 0.7s linear infinite;
+        will-change: transform;
+        backface-visibility: hidden;
     }
     .chat-status--connected {
+        border: 0;
         background: var(--app-tint);
         box-shadow: none;
+        animation: none;
+        will-change: auto;
+    }
+    .chat-loader {
+        border-color: color-mix(in srgb, var(--app-tint) 25%, transparent);
+        border-top-color: var(--app-tint);
     }
 
     /* Whiteboard chrome — MD3 floating tonal toolbar */

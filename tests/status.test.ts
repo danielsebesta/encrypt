@@ -102,3 +102,18 @@ test('TURN counts as configured by the same settings /api/turn reads', () => {
   assert.deepEqual(turnProviders({ TURN_AUTH_SECRET: 's', TURN_URLS: 'turn:turn.example:3478' }), ['coturn']);
   assert.deepEqual(turnProviders({ TURN_AUTH_SECRET: 's', TURN_URLS: 'https://nope' }), []);
 });
+
+test('www hosts permanently redirect to the apex host', async () => {
+  const site = app();
+  const res = await site.fetch(new Request('https://www.example.test/chat?room=a'), render);
+  assert.equal(res.status, 301);
+  assert.equal(res.headers.get('Location'), 'https://example.test/chat?room=a');
+});
+
+test('HTML responses without a charset get UTF-8 declared', async () => {
+  const site = app();
+  const res = await site.fetch(new Request('https://example.test/'), async () =>
+    new Response('<html></html>', { headers: { 'Content-Type': 'text/html' } }),
+  );
+  assert.equal(res.headers.get('Content-Type'), 'text/html; charset=utf-8');
+});

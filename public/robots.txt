@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /upload
+Disallow: /upload/
+Disallow: /dl/
+Disallow: /parties/
+Disallow: /share-target
+Disallow: /healthz

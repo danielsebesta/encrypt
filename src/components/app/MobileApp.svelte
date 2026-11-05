@@ -125,7 +125,7 @@
   let pendingClearBoard = $state<(() => void) | null>(null);
   let actionsRoom = $state<RoomEntry | null>(null);
   let actionTarget = $state<RoomEntry | null>(null);
-  let roomConn = $state<'connected' | 'connecting' | 'offline'>('connected');
+  let roomConn = $state<'connected' | 'connecting' | 'loading' | 'offline'>('connected');
   let roomCall = $state<(() => void) | undefined>(undefined);
   let roomMenu = $state<(() => void) | undefined>(undefined);
   let roomInfo = $state<(() => void) | undefined>(undefined);
@@ -143,10 +143,12 @@
   let newRoomName = $state('');
   let newRoomPassword = $state('');
   let newRoomKind = $state<'chat' | 'whiteboard'>('chat');
+  let newRoomNameError = $state(false);
   let newRoomPwError = $state(false);
   let newRoomMode = $state<'live' | 'ttl'>('live');
   let retentionIndex = $state(RETENTION_SECONDS.indexOf(3600));
   let showNewPw = $state(false);
+  let newPwShownByUser = $state(false);
   const retentionSeconds = $derived(RETENTION_SECONDS[retentionIndex] ?? 3600);
   const retentionLabel = $derived(t(dict, 'chat.retentionTtl').replace('{time}', formatDuration(retentionSeconds, locale)));
   let joinRoomId = $state('');
@@ -272,7 +274,7 @@
   function enterRoom(id: string, kind: 'chat' | 'whiteboard' = 'chat', label = '', bump = true) {
     triggerHaptic('medium');
     if (scroller) tabScroll[activeTab] = scroller.scrollTop;
-    roomConn = 'connecting';
+    roomConn = 'loading';
     roomReconnect = null;
     activeRoomId = id;
     activeRoomLabel = label;
@@ -315,7 +317,7 @@
 
   function openBoardInvite(roomId: string, password: string) {
     boardReturnRoom = activeView === 'room' ? activeRoomId : null;
-    roomConn = 'connecting';
+    roomConn = 'loading';
     roomReconnect = null;
     activeRoomId = roomId;
     activeRoomLabel = labelForRoom(roomId, '', 'whiteboard');
@@ -371,10 +373,12 @@
     newRoomSheetOpen = false;
     newRoomName = '';
     newRoomPassword = '';
+    newRoomNameError = false;
     newRoomPwError = false;
     newRoomMode = 'live';
-    retentionIndex = RETENTION_SECONDS.indexOf(3600);
     showNewPw = false;
+    newPwShownByUser = false;
+    retentionIndex = RETENTION_SECONDS.indexOf(3600);
     creatingRoom = false;
     if (popGuard) consumeOverlayGuard();
   }
@@ -576,7 +580,13 @@
   let creatingRoom = false;
   async function handleCreateRoom() {
     if (creatingRoom) return;
+    const id = normalizeRoomId(newRoomName);
     const password = newRoomPassword.trim();
+    if (!id) {
+      newRoomNameError = true;
+      triggerHaptic('warning');
+      return;
+    }
     if (!passwordLongEnough(password)) {
       newRoomPwError = true;
       triggerHaptic('warning');
@@ -584,8 +594,6 @@
     }
     creatingRoom = true;
     triggerHaptic('medium');
-    let id = normalizeRoomId(newRoomName);
-    if (!id) id = `room-${Math.random().toString(36).slice(2, 8)}`;
     newRoomSheetOpen = false;
     const mode: ChatMode = newRoomKind === 'chat' && newRoomMode === 'ttl' ? `ttl-${retentionSeconds}` : 'live';
     try {
@@ -600,11 +608,19 @@
         sessionStorage.setItem(`chat-pw:${id}`, password);
       }
     } catch {}
-    const label = newRoomName.trim();
-    persistRoom(newRoomKind, id, label || id, Boolean(label), mode);
+    const label = newRoomName.trim() || id;
+    persistRoom(newRoomKind, id, label, true, mode);
     closeNewRoomSheet(false);
     enterRoom(id, newRoomKind, label, false);
     creatingRoom = false;
+  }
+
+  function generateNewRoomPassphrase() {
+    newRoomPassword = genRoomPassphrase();
+    showNewPw = true;
+    newPwShownByUser = false;
+    newRoomPwError = false;
+    triggerHaptic('light');
   }
 
   // Existing entries keep their label, pin and any passkey-wrapped secret —
@@ -1130,22 +1146,29 @@
       ></div>
     {/snippet}
     {#snippet after()}
-      {#if room.pinned}
-        <span class="text-[var(--app-label-3)]"><AppIcons name="pin" size={14} /></span>
-        <span class="sr-only">{t(dict, 'app.filter.pinned')}</span>
-      {/if}
-      {#if room.mode === 'live' && room.kind !== 'whiteboard'}
-        <span class="w-2 h-2 rounded-full bg-[var(--app-tint)]"></span>
-        <span class="sr-only">{t(dict, 'app.filter.live')}</span>
-      {/if}
+      <span class="app-row-meta">
+        {#if room.kind !== 'whiteboard'}
+          {#if !room.mode || room.mode === 'live'}
+            <span class="text-[var(--app-tint)]" title={t(dict, 'chat.modeLiveTitle')}><AppIcons name="history" size={15} /></span>
+            <span class="sr-only">{t(dict, 'app.filter.live')}</span>
+          {:else}
+            <span class="text-[var(--app-label-3)]" title={t(dict, 'chat.modeTtlTitle')}><AppIcons name="timer" size={15} /></span>
+            <span class="sr-only">{t(dict, 'chat.modeTtlTitle')}</span>
+          {/if}
+        {/if}
+        {#if room.pinned}
+          <span class="text-[var(--app-label-3)]"><AppIcons name="pin" size={14} /></span>
+          <span class="sr-only">{t(dict, 'app.filter.pinned')}</span>
+        {/if}
+      </span>
     {/snippet}
   </ListItem>
 {/snippet}
 
 {#snippet hubTitle()}
-  <span class="inline-flex items-center gap-2">
-    <img src="/encryptclick_icon.svg" alt="" class="w-5 h-5 object-contain" />
-    {t(dict, `app.tab.${activeTab}`)}
+  <span class="app-hub-title">
+    <span class="app-hub-mark" aria-hidden="true"></span>
+    <span class="app-hub-label">{t(dict, `app.tab.${activeTab}`)}</span>
   </span>
 {/snippet}
 
@@ -1158,7 +1181,7 @@
       newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat';
       newRoomSheetOpen = true;
     }}
-    aria-label={t(dict, 'app.new.title')}
+    aria-label={t(dict, activeTab === 'boards' ? 'app.new.titleBoard' : 'app.new.titleChat')}
   >
     <AppIcons name="plus" size={22} />
   </button>
@@ -1188,17 +1211,34 @@
       {/if}
     {/snippet}
     {#snippet subtitle()}
-      {#if roomConn === 'connecting' || roomConn === 'offline'}
+      {#if roomConn === 'offline'}
         <button
           type="button"
-          class="app-conn-pill {roomConn === 'connecting' ? 'app-conn-pill--connecting' : 'app-conn-pill--offline'}"
+          class="app-conn-status app-conn-status--offline"
           onclick={() => {
             triggerHaptic('medium');
             roomReconnect?.();
           }}
-          aria-label={`${t(dict, roomConn === 'offline' ? 'app.offline' : 'chat.connecting')} — ${t(dict, 'app.room.reconnect')}`}
+          aria-label={`${t(dict, 'app.offline')} — ${t(dict, 'app.room.reconnect')}`}
         >
-          {t(dict, roomConn === 'offline' ? 'app.offline' : 'chat.connecting')}
+          {t(dict, 'app.offline')}
+        </button>
+      {:else if roomConn === 'connecting' || roomConn === 'loading'}
+        <button
+          type="button"
+          class="app-conn-status"
+          onclick={() => {
+            if (roomConn === 'connecting') {
+              triggerHaptic('medium');
+              roomReconnect?.();
+            }
+          }}
+          aria-label={roomConn === 'connecting'
+            ? `${t(dict, 'chat.connecting')} — ${t(dict, 'app.room.reconnect')}`
+            : t(dict, 'common.working')}
+          disabled={roomConn === 'loading'}
+        >
+          <span class="app-spinner" aria-hidden="true"></span>
         </button>
       {:else}
         <span class="flex items-center justify-center gap-1 min-w-0 text-[var(--app-label-2)] leading-tight">
@@ -1263,7 +1303,9 @@
 <App theme={platform} dark={scheme === 'dark'} safeAreas={true}>
   <Page class="app-page-bg h-full flex flex-col overflow-hidden">
     {#if !ready}
-      <div class="flex-1" style="background: var(--app-bg)"></div>
+      <div class="flex-1 flex items-center justify-center" style="background: var(--app-bg)" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
+        <span class="app-spinner app-spinner--lg" aria-hidden="true"></span>
+      </div>
     {:else if activeView === 'room'}
       {@render roomBar()}
       <div class="app-room-wrapper">
@@ -1331,13 +1373,13 @@
             <div class="mt-2">
               <Segmented strong rounded={platform === 'material'} colors={{ strongHighlightBgMaterial: 'bg-md-light-secondary-container dark:bg-md-dark-secondary-container' }}>
                 <SegmentedButton active={chatFilter === 'all'} onClick={() => { triggerHaptic('light'); chatFilter = 'all'; }}>
-                  {t(dict, 'app.filter.all')}
+                  <span class="app-seg"><AppIcons name="list" size={14} />{t(dict, 'app.filter.all')}</span>
                 </SegmentedButton>
                 <SegmentedButton active={chatFilter === 'live'} onClick={() => { triggerHaptic('light'); chatFilter = 'live'; }}>
-                  {t(dict, 'app.filter.live')}
+                  <span class="app-seg"><AppIcons name="history" size={14} />{t(dict, 'app.filter.live')}</span>
                 </SegmentedButton>
                 <SegmentedButton active={chatFilter === 'pinned'} onClick={() => { triggerHaptic('light'); chatFilter = 'pinned'; }}>
-                  {t(dict, 'app.filter.pinned')}
+                  <span class="app-seg"><AppIcons name="pin" size={14} />{t(dict, 'app.filter.pinned')}</span>
                 </SegmentedButton>
               </Segmented>
             </div>
@@ -1353,6 +1395,9 @@
             </List>
           {:else if searchQuery.trim() || chatFilter !== 'all'}
             <div class="px-8 py-16 text-center flex flex-col items-center">
+              <div class="w-16 h-16 rounded-full mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
+                <AppIcons name="search" size={28} />
+              </div>
               <p class="text-[17px] font-semibold text-[var(--app-label)]">
                 {t(dict, 'app.empty.noResults')}
               </p>
@@ -1370,11 +1415,11 @@
               </p>
               <div class="flex flex-wrap gap-3 justify-center">
                 <Button rounded class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { triggerHaptic('medium'); newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat'; newRoomSheetOpen = true; }}>
-                  {t(dict, 'app.empty.new')}
+                  <span class="app-btn-label"><AppIcons name="plus" size={16} />{t(dict, 'app.empty.new')}</span>
                 </Button>
                 {#if activeTab === 'chats'}
                   <Button rounded tonal class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { triggerHaptic('light'); joinRoomSheetOpen = true; }}>
-                    {t(dict, 'app.empty.join')}
+                    <span class="app-btn-label"><AppIcons name="join" size={16} />{t(dict, 'app.empty.join')}</span>
                   </Button>
                 {/if}
               </div>
@@ -1561,7 +1606,7 @@
       </Tabbar>
     {/if}
 
-    <!-- NEW ROOM SHEET -->
+    <!-- NEW ROOM SHEET (kind locked to the tab that opened it) -->
     <Sheet
       opened={newRoomSheetOpen}
       onBackdropClick={() => closeNewRoomSheet()}
@@ -1569,49 +1614,99 @@
     >
       <div class="app-sheet__handle"></div>
       <div class="px-5 pb-6 pt-3 space-y-4">
-        <h3 class="text-[17px] font-semibold text-[var(--app-label)]">{t(dict, 'app.new.title')}</h3>
-        <Segmented strong rounded={platform === 'material'} colors={{ strongHighlightBgMaterial: 'bg-md-light-secondary-container dark:bg-md-dark-secondary-container' }}>
-          <SegmentedButton active={newRoomKind === 'chat'} onClick={() => { newRoomKind = 'chat'; triggerHaptic('light'); }}>
-            {t(dict, 'app.new.kindChat')}
-          </SegmentedButton>
-          <SegmentedButton active={newRoomKind === 'whiteboard'} onClick={() => { newRoomKind = 'whiteboard'; triggerHaptic('light'); }}>
-            {t(dict, 'app.new.kindBoard')}
-          </SegmentedButton>
-        </Segmented>
+        <h3 class="app-sheet-title">
+          <span class="app-sheet-title__icon text-[var(--app-tint)]">
+            <AppIcons name={newRoomKind === 'whiteboard' ? 'whiteboard' : 'chat'} size={20} />
+          </span>
+          {t(dict, newRoomKind === 'whiteboard' ? 'app.new.titleBoard' : 'app.new.titleChat')}
+        </h3>
         <List strong inset class="m-0! app-form">
           <ListInput
-            label={t(dict, 'app.new.name')}
             type="text"
-            placeholder={t(dict, 'app.new.namePlaceholder')}
+            placeholder={t(dict, newRoomKind === 'whiteboard' ? 'whiteboard.customRoomIdPlaceholder' : 'chat.customRoomIdPlaceholder')}
             bind:value={newRoomName}
             maxlength={64}
-          />
-          <ListInput
-            label={t(dict, 'app.new.password')}
-            type={showNewPw ? 'text' : 'password'}
-            placeholder={t(dict, 'app.new.passwordPlaceholder')}
-            bind:value={newRoomPassword}
-            autocomplete="new-password"
-            info={t(dict, 'chat.createDescription')}
-            error={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)) ? t(dict, 'app.new.passwordShort') : undefined}
-            onInput={() => (newRoomPwError = false)}
-            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleCreateRoom(); }}
-          />
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck={false}
+            error={newRoomNameError ? t(dict, 'chat.roomNameRequired') : undefined}
+            onInput={() => (newRoomNameError = false)}
+            aria-label={t(dict, 'app.new.name')}
+          >
+            {#snippet media()}
+              <span class="text-[var(--app-label-3)]"><AppIcons name="hash" size={18} /></span>
+            {/snippet}
+          </ListInput>
+          <ListItem class="app-pass-row">
+            {#snippet media()}
+              <span class="text-[var(--app-label-3)]"><AppIcons name="lock" size={18} /></span>
+            {/snippet}
+            {#snippet inner()}
+              <div class="app-passphrase" class:app-passphrase--invalid={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword))}>
+                <input
+                  class="app-passphrase__input"
+                  type={showNewPw ? 'text' : 'password'}
+                  placeholder={t(dict, 'app.new.passwordPlaceholder')}
+                  bind:value={newRoomPassword}
+                  autocomplete="new-password"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-bwignore="true"
+                  aria-label={t(dict, 'app.new.password')}
+                  aria-invalid={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)) ? 'true' : undefined}
+                  oninput={() => {
+                    newRoomPwError = false;
+                    if (!newPwShownByUser) showNewPw = false;
+                  }}
+                  onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleCreateRoom(); }}
+                />
+                <button
+                  type="button"
+                  class="app-passphrase__btn"
+                  aria-label={t(dict, showNewPw ? 'common.hidePassword' : 'common.showPassword')}
+                  aria-pressed={showNewPw}
+                  title={t(dict, showNewPw ? 'common.hidePassword' : 'common.showPassword')}
+                  onclick={() => {
+                    showNewPw = !showNewPw;
+                    newPwShownByUser = showNewPw;
+                    triggerHaptic('light');
+                  }}
+                >
+                  <AppIcons name={showNewPw ? 'eye-off' : 'eye'} size={18} />
+                </button>
+                <button
+                  type="button"
+                  class="app-passphrase__btn"
+                  aria-label={t(dict, 'common.generatePassphrase')}
+                  title={t(dict, 'common.generatePassphrase')}
+                  onclick={generateNewRoomPassphrase}
+                >
+                  <AppIcons name="dices" size={18} />
+                </button>
+              </div>
+              {#if newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword))}
+                <p class="app-passphrase__error" role="alert">{t(dict, 'app.new.passwordShort')}</p>
+              {/if}
+            {/snippet}
+          </ListItem>
         </List>
-        <div class="flex">
-          <Button small tonal rounded class="min-h-10!" onClick={() => { newRoomPassword = genRoomPassphrase(); showNewPw = true; newRoomPwError = false; triggerHaptic('light'); }}>
-            {t(dict, 'common.generatePassphrase')}
-          </Button>
-        </div>
         {#if newRoomKind === 'chat'}
           <List strong inset class="m-0! app-form">
             <ListItem label title={t(dict, 'chat.modeLiveTitle')} text={t(dict, 'chat.modeLiveHint')} onClick={() => { newRoomMode = 'live'; triggerHaptic('light'); }}>
               {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="history" size={20} /></span>
+              {/snippet}
+              {#snippet after()}
                 <Radio component="span" name="new-room-mode" checked={newRoomMode === 'live'} readonly />
               {/snippet}
             </ListItem>
             <ListItem label title={t(dict, 'chat.modeTtlTitle')} text={t(dict, 'chat.modeTtlHint')} onClick={() => { newRoomMode = 'ttl'; triggerHaptic('light'); }}>
               {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="timer" size={20} /></span>
+              {/snippet}
+              {#snippet after()}
                 <Radio component="span" name="new-room-mode" checked={newRoomMode === 'ttl'} readonly />
               {/snippet}
             </ListItem>
@@ -1638,8 +1733,14 @@
             {/if}
           </List>
         {/if}
-        <Button large rounded class="w-full" disabled={!passwordLongEnough(newRoomPassword.trim())} onClick={handleCreateRoom}>
-          {t(dict, 'app.new.open')}
+        <Button
+          large
+          rounded
+          class="w-full"
+          disabled={!normalizeRoomId(newRoomName) || !passwordLongEnough(newRoomPassword.trim())}
+          onClick={handleCreateRoom}
+        >
+          <span class="app-btn-label"><AppIcons name="lock" size={18} />{t(dict, 'app.new.open')}</span>
         </Button>
       </div>
     </Sheet>
@@ -1652,29 +1753,40 @@
     >
       <div class="app-sheet__handle"></div>
       <div class="px-5 pb-6 pt-3 space-y-4">
-        <h3 class="text-[17px] font-semibold text-[var(--app-label)]">{t(dict, 'app.join.title')}</h3>
+        <h3 class="app-sheet-title">
+          <span class="app-sheet-title__icon text-[var(--app-tint)]"><AppIcons name="join" size={20} /></span>
+          {t(dict, 'app.join.title')}
+        </h3>
         <List strong inset class="m-0! app-form">
           <ListInput
-            label={t(dict, 'app.join.id')}
             type="text"
             placeholder={t(dict, 'app.join.idPlaceholder')}
             bind:value={joinRoomId}
             autocapitalize="none"
             autocorrect="off"
             spellcheck={false}
+            aria-label={t(dict, 'app.join.id')}
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' && joinRoomId.trim()) handleJoinRoom(); }}
-          />
+          >
+            {#snippet media()}
+              <span class="text-[var(--app-label-3)]"><AppIcons name="hash" size={18} /></span>
+            {/snippet}
+          </ListInput>
           <ListInput
-            label={t(dict, 'app.join.password')}
             type="password"
             placeholder={t(dict, 'app.join.passwordPlaceholder')}
             bind:value={joinRoomPassword}
             autocomplete="current-password"
+            aria-label={t(dict, 'app.join.password')}
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' && joinRoomId.trim()) handleJoinRoom(); }}
-          />
+          >
+            {#snippet media()}
+              <span class="text-[var(--app-label-3)]"><AppIcons name="lock" size={18} /></span>
+            {/snippet}
+          </ListInput>
         </List>
         <Button large rounded class="w-full" disabled={!joinRoomId.trim()} onClick={handleJoinRoom}>
-          {t(dict, 'app.join.connect')}
+          <span class="app-btn-label"><AppIcons name="join" size={18} />{t(dict, 'app.join.connect')}</span>
         </Button>
       </div>
     </Sheet>
@@ -1687,7 +1799,10 @@
     >
       <div class="app-sheet__handle"></div>
       <div class="px-4 pt-3 pb-2 flex items-center justify-between">
-        <h3 class="text-[17px] font-semibold text-[var(--app-label)]">{t(dict, 'app.settings.language')}</h3>
+        <h3 class="app-sheet-title">
+          <span class="app-sheet-title__icon text-[var(--app-tint)]"><AppIcons name="globe" size={20} /></span>
+          {t(dict, 'app.settings.language')}
+        </h3>
         <Button clear small class="w-auto! min-h-10!" onClick={() => { langSheetOpen = false; consumeOverlayGuard(); }}>
           {t(dict, 'app.done')}
         </Button>
@@ -1726,9 +1841,21 @@
         <h3 class="text-[17px] font-semibold text-[var(--app-label)] text-center">{t(dict, 'app.install.title')}</h3>
         <p class="text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.install.hint')}</p>
         <List strong inset class="m-0! app-form">
-          <ListItem title={t(dict, 'app.install.step1')} />
-          <ListItem title={t(dict, 'app.install.step2')} />
-          <ListItem title={t(dict, 'app.install.step3')} />
+          <ListItem title={t(dict, 'app.install.step1')}>
+            {#snippet media()}
+              <span class="text-[var(--app-tint)]"><AppIcons name="share" size={18} /></span>
+            {/snippet}
+          </ListItem>
+          <ListItem title={t(dict, 'app.install.step2')}>
+            {#snippet media()}
+              <span class="text-[var(--app-tint)]"><AppIcons name="plus" size={18} /></span>
+            {/snippet}
+          </ListItem>
+          <ListItem title={t(dict, 'app.install.step3')}>
+            {#snippet media()}
+              <span class="text-[var(--app-tint)]"><AppIcons name="home" size={18} /></span>
+            {/snippet}
+          </ListItem>
         </List>
         <Button large rounded tonal class="w-full" onClick={() => { showIosInstallSheet = false; consumeOverlayGuard(); }}>
           {t(dict, 'app.close')}
@@ -1846,14 +1973,16 @@
       <ActionsGroup>
         <ActionsLabel>{actionTarget?.label || actionTarget?.roomId || ''}</ActionsLabel>
         <ActionsButton onClick={togglePin}>
-          {t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin')}
+          <span class="app-action-label"><AppIcons name="pin" size={18} />{t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin')}</span>
         </ActionsButton>
-        <ActionsButton onClick={openRename}>{t(dict, 'app.row.rename')}</ActionsButton>
+        <ActionsButton onClick={openRename}>
+          <span class="app-action-label"><AppIcons name="pencil" size={18} />{t(dict, 'app.row.rename')}</span>
+        </ActionsButton>
         <ActionsButton
           onClick={openDelete}
           colors={{ textIos: 'text-[var(--app-error)]', textMaterial: 'text-[var(--app-error)]' }}
         >
-          {t(dict, 'app.row.remove')}
+          <span class="app-action-label"><AppIcons name="trash" size={18} />{t(dict, 'app.row.remove')}</span>
         </ActionsButton>
       </ActionsGroup>
       <ActionsGroup>

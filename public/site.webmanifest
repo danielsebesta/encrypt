@@ -6,32 +6,61 @@
   "scope": "/",
   "id": "/app",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait-primary",
-  "theme_color": "#000000",
-  "background_color": "#000000",
-  "categories": ["utilities", "security", "social"],
+  "theme_color": "#08110a",
+  "background_color": "#08110a",
+  "categories": [
+    "utilities",
+    "security",
+    "social"
+  ],
   "shortcuts": [
     {
       "name": "New Chat",
       "short_name": "Chat",
       "description": "Open or create encrypted chat room",
       "url": "/app?tab=chats&action=new",
-      "icons": [{ "src": "/favicon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/web-app-manifest-192x192-any.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
     },
     {
       "name": "Send Encrypted File",
       "short_name": "Send",
       "description": "Encrypt and send a file or secret message",
       "url": "/app?tab=files",
-      "icons": [{ "src": "/favicon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/web-app-manifest-192x192-any.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
     },
     {
       "name": "Whiteboard",
       "short_name": "Board",
       "description": "Open an encrypted collaborative whiteboard",
       "url": "/app?tab=boards",
-      "icons": [{ "src": "/favicon-96x96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/web-app-manifest-192x192-any.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any"
+        }
+      ]
     }
   ],
   "share_target": {
@@ -42,10 +71,29 @@
       "title": "title",
       "text": "text",
       "url": "url",
-      "files": [{ "name": "files", "accept": ["*/*"] }]
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "*/*"
+          ]
+        }
+      ]
     }
   },
   "icons": [
+    {
+      "src": "/web-app-manifest-192x192-any.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/web-app-manifest-512x512-any.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/web-app-manifest-192x192.png",
       "sizes": "192x192",
@@ -70,5 +118,14 @@
       "type": "image/png",
       "purpose": "any"
     }
-  ]
+  ],
+  "lang": "en",
+  "dir": "ltr",
+  "launch_handler": {
+    "client_mode": [
+      "focus-existing",
+      "navigate-existing",
+      "auto"
+    ]
+  }
 }

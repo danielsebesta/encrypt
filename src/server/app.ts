@@ -26,6 +26,14 @@ function crossSite(request: Request): boolean {
   return Boolean(origin && origin !== new URL(request.url).origin);
 }
 
+function ensureHtmlCharset(response: Response): Response {
+  const type = response.headers.get('Content-Type') ?? '';
+  if (!type.includes('text/html') || /charset=/i.test(type)) return response;
+  const headers = new Headers(response.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function routeOf(path: string): string | null {
   const lower = path.toLowerCase();
   if (lower.startsWith('/parties/')) return '/parties';
@@ -88,7 +96,16 @@ export function createApp(platform: Platform) {
 
   return {
     async fetch(request: Request, render: (request: Request) => Promise<Response>): Promise<Response> {
-      const path = routingPath(new URL(request.url).pathname);
+      const url = new URL(request.url);
+      // One canonical host: www.* permanently redirects to the apex.
+      if (url.hostname.startsWith('www.')) {
+        url.hostname = url.hostname.slice(4);
+        return new Response(null, {
+          status: 301,
+          headers: { Location: url.href, 'Cache-Control': 'public, max-age=3600' },
+        });
+      }
+      const path = routingPath(url.pathname);
       if (path === null) return new Response('Bad request', { status: 400 });
       if (path === '/healthz') return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
       // The service worker answers the share sheet on the device; if it is not running yet, the body is dropped unread.
@@ -108,7 +125,7 @@ export function createApp(platform: Platform) {
         if (handled) return handled;
       }
       const response = localeResponse(request) ?? await render(request);
-      return applySiteBrand(response);
+      return ensureHtmlCharset(await applySiteBrand(response));
     },
 
     async guardRealtime(request: Request): Promise<Response | null> {

@@ -31,7 +31,7 @@
   export let appMode = false;
   export let onExitApp: (() => void) | undefined = undefined;
   export let onClearRequest: ((doClear: () => void) => void) | undefined = undefined;
-  export let onConnStatus: ((status: 'connected' | 'connecting' | 'offline') => void) | undefined = undefined;
+  export let onConnStatus: ((status: 'connected' | 'connecting' | 'loading' | 'offline') => void) | undefined = undefined;
   export let onHaptic: ((type: 'light' | 'medium' | 'success' | 'warning') => void) | undefined = undefined;
   export let requestReconnect = () => {};
 
@@ -156,10 +156,18 @@
   let netOffline = false;
   let lastConnStatus = '';
   function reportConn() {
-    const st = netOffline ? 'offline' : connected ? 'connected' : 'connecting';
+    // "connecting" only while a board key exists and the socket is coming up.
+    // Verify → loading spinner. Password prompt waits on the user (no spinner).
+    const st = netOffline
+      ? 'offline'
+      : connected || needsPassword
+        ? 'connected'
+        : (cryptoKey && !verifying)
+          ? 'connecting'
+          : 'loading';
     if (st !== lastConnStatus) { lastConnStatus = st; onConnStatus?.(st); }
   }
-  $: if (connected !== undefined || netOffline !== undefined) reportConn();
+  $: if (connected !== undefined || netOffline !== undefined || cryptoKey || needsPassword || verifying) reportConn();
   requestReconnect = () => {
     try { ws?.reconnect(); } catch {}
   };
@@ -1382,7 +1390,10 @@
 
   {:else if verifying}
     <div class="wb-center">
-      <p class="status status--busy" role="status">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+      <div class="text-center space-y-2" role="status" aria-live="polite">
+        <span class="wb-loader" aria-hidden="true"></span>
+        <p class="hint">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
+      </div>
     </div>
 
   {:else}
@@ -1795,8 +1806,10 @@
 
     <div class="wb-footer">
       <div class="flex items-center gap-2 min-w-0">
-        <span class="wb-status" class:wb-status--connected={connected} aria-hidden="true"></span>
-        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : t(dict, 'whiteboard.connecting')}</span>
+        {#if !appMode}
+          <span class="wb-status" class:wb-status--connected={connected} aria-hidden="true"></span>
+          <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : cryptoKey ? t(dict, 'whiteboard.connecting') : t(dict, 'common.working')}</span>
+        {/if}
         <button
           id="wb-people-trigger"
           type="button"
@@ -1849,6 +1862,22 @@
     height: 100dvh;
     border-radius: 0;
     border: 0;
+  }
+
+  .wb-loader {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2.5px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-top-color: var(--accent);
+    animation: wb-spin 0.7s linear infinite;
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-loader { animation: none; will-change: auto; opacity: 0.85; }
   }
 
   .wb-center {
@@ -2390,20 +2419,27 @@
     width: 8px;
     height: 8px;
     flex: none;
+    box-sizing: border-box;
     border-radius: 9999px;
-    background: var(--warn);
-    animation: wb-pulse 1.2s ease-in-out infinite;
+    border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-top-color: var(--accent);
+    background: transparent;
+    animation: wb-spin 0.7s linear infinite;
+    will-change: transform;
+    backface-visibility: hidden;
   }
   .wb-status--connected {
+    border: 0;
     background: var(--accent);
     animation: none;
+    will-change: auto;
   }
-  @keyframes wb-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+  @keyframes wb-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .wb-status { animation: none; }
+    .wb-status { animation: none; will-change: auto; opacity: 0.85; }
   }
 
   .wb-avatar {

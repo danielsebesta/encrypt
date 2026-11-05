@@ -90,7 +90,7 @@
   export let onExitApp: (() => void) | undefined = undefined;
   export let onSavedPassword: (() => Promise<string | null>) | undefined = undefined;
   export let onNotice: ((message: string) => void) | undefined = undefined;
-  export let onConnStatus: ((status: 'connected' | 'connecting' | 'offline') => void) | undefined = undefined;
+  export let onConnStatus: ((status: 'connected' | 'connecting' | 'loading' | 'offline') => void) | undefined = undefined;
   export let requestReconnect = () => {};
   export let requestCall: () => void = () => {};
   export let requestRoomMenu: () => void = () => {};
@@ -357,10 +357,18 @@
   }
   let lastConnStatus = '';
   function reportConn() {
-    const st = netOffline ? 'offline' : connected ? 'connected' : 'connecting';
+    // "connecting" only while a room key exists and the socket is coming up.
+    // Probe / verify → loading spinner. Password prompt waits on the user (no spinner).
+    const st = netOffline
+      ? 'offline'
+      : connected || needsPassword
+        ? 'connected'
+        : (cryptoKey && !checkingRoom && !(verifying && !everVerified))
+          ? 'connecting'
+          : 'loading';
     if (st !== lastConnStatus) { lastConnStatus = st; onConnStatus?.(st); }
   }
-  $: if (connected !== undefined || netOffline !== undefined) reportConn();
+  $: if (connected !== undefined || netOffline !== undefined || cryptoKey || needsPassword || checkingRoom || verifying || everVerified) reportConn();
   requestReconnect = () => {
     try { ws?.reconnect(); } catch {}
   };
@@ -5069,8 +5077,8 @@
 
   {:else if checkingRoom}
     <div class="chat-center">
-      <div class="text-center space-y-2">
-        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
+      <div class="text-center space-y-2" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
+        <span class="chat-loader" aria-hidden="true"></span>
         <p class="hint">{t(dict, 'common.working')}</p>
       </div>
     </div>
@@ -5107,8 +5115,8 @@
 
   {:else if verifying && !everVerified}
     <div class="chat-center">
-      <div class="text-center space-y-2">
-        <svg class="animate-spin mx-auto h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
+      <div class="text-center space-y-2" role="status" aria-live="polite">
+        <span class="chat-loader" aria-hidden="true"></span>
         <p class="hint">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
       </div>
     </div>
@@ -5148,7 +5156,7 @@
         </div>
       </div>
       <div class="flex flex-wrap items-center justify-end gap-1.5">
-        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'chat.connected') : t(dict, 'chat.connecting')}</span>
+        <span class="sr-only" aria-live="polite">{connected ? t(dict, 'chat.connected') : cryptoKey ? t(dict, 'chat.connecting') : t(dict, 'common.working')}</span>
         <div class="chat-room-chips" aria-label={getRoomModeLabel()}>
           <span class="chat-mode-badge chat-mode-badge--soft" title={t(dict, 'chat.chip.online').replace('{n}', String(serverPresence))}>{t(dict, 'chat.chip.online').replace('{n}', String(Math.max(0, serverPresence)))}</span>
         </div>
@@ -6262,19 +6270,45 @@
     color: var(--text);
     background: rgba(20, 31, 18, 0.65);
   }
+  .chat-loader {
+    display: block;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin: 0 auto;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2.5px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-top-color: var(--accent);
+    animation: chat-spin 0.7s linear infinite;
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-loader { animation: none; will-change: auto; opacity: 0.85; }
+  }
   .chat-status {
     width: 8px; height: 8px; border-radius: 9999px;
-    background: rgb(245, 158, 11);
-    animation: chat-pulse 1.2s ease-in-out infinite;
+    box-sizing: border-box;
+    border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-top-color: var(--accent);
+    background: transparent;
+    animation: chat-spin 0.7s linear infinite;
+    will-change: transform;
+    backface-visibility: hidden;
   }
   .chat-status--connected {
+    border: 0;
     background: var(--accent);
     box-shadow: 0 0 0 3px oklch(0.7019 0.1577 160.44 / 0.2);
     animation: none;
+    will-change: auto;
   }
-  @keyframes chat-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+  @keyframes chat-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-status { animation: none; will-change: auto; opacity: 0.85; }
   }
   .chat-messages {
     scrollbar-width: auto;
@@ -6507,13 +6541,31 @@
     margin: 0;
   }
   .chat-preview-skeleton {
-    width: 100%; max-width: min(300px, 70vw); aspect-ratio: 4 / 3; margin-top: 0.25rem;
-    border-radius: 0.5rem; background: color-mix(in srgb, var(--text) 8%, transparent);
-    animation: chat-preview-pulse 1.2s ease-in-out infinite;
+    position: relative;
+    width: 100%;
+    max-width: min(300px, 70vw);
+    aspect-ratio: 4 / 3;
+    margin-top: 0.25rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--text) 8%, transparent);
   }
   .chat-preview-skeleton--text { aspect-ratio: 16 / 5; }
-  @keyframes chat-preview-pulse { 50% { opacity: 0.55; } }
-  @media (prefers-reduced-motion: reduce) { .chat-preview-skeleton { animation: none; } }
+  .chat-preview-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: -0.625rem 0 0 -0.625rem;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-top-color: var(--accent);
+    animation: chat-spin 0.7s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-preview-skeleton::after { animation: none; opacity: 0.85; }
+  }
   .chat-preview-img {
     max-width: 100%; max-height: 240px;
     border-radius: 0.5rem; margin-top: 0.25rem;
