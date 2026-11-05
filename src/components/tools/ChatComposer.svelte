@@ -61,14 +61,6 @@
   } = $props();
 
   let keepFocus = false;
-  /** Mobile Autofill only; desktop must never start read-only or the caret never lands. */
-  let composeLocked = appMode;
-
-  function unlockCompose() {
-    if (!composeLocked) return;
-    composeLocked = false;
-    queuePromise.resolve().then(() => inputEl?.focus());
-  }
 
   function presetLabel(id: string): string {
     return t(dict, `chat.schedule.${id}`);
@@ -234,7 +226,7 @@
     <div class="app-composer">
       {#if !voiceRecording}
         {@render attachMenu()}
-        <div class="app-composer__field" role="presentation" on:pointerdown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); unlockCompose(); inputEl?.focus(); } }}>
+        <div class="app-composer__field" role="presentation" on:pointerdown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); inputEl?.focus(); } }}>
           <textarea
             id="chat-compose-input"
             class="app-composer__input"
@@ -244,11 +236,9 @@
             bind:value={inputText}
             bind:this={inputEl}
             on:input={autogrow}
-            on:pointerdown={unlockCompose}
-            on:focus={() => { unlockCompose(); closeMenus(); }}
+            on:focus={closeMenus}
             on:keydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onsend(); } else if (e.key === 'Escape' && hasReply) onclearreply(); }}
             disabled={(!connected && !allowQueue) || uploading}
-            readonly={composeLocked}
             autocomplete="off"
             autocorrect="off"
             autocapitalize="sentences"
