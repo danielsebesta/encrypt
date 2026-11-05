@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from '../../lib/t';
+  import { t, tApp } from '../../lib/t';
   import { aliasGradient, gradientFor, type Alias } from '../../lib/alias';
   import { LUCIDE } from '../../lib/lucideIcons';
 
@@ -40,6 +40,7 @@
 
   let {
     dict,
+    appMode = false,
     callActive,
     callError = '',
     callPeers,
@@ -93,6 +94,7 @@
     onpreventcontextmenu,
   }: {
     dict: Record<string, string>;
+    appMode?: boolean;
     callActive: boolean;
     callError?: string;
     callPeers: ChatCallPeer[];
@@ -238,7 +240,7 @@
                 <span aria-hidden="true">{callPeers.length + 1}</span>
               </span>
               <span aria-hidden="true">·</span>
-              <span class="call__count" title={t(dict, 'chat.callE2eeTitle')}>
+              <span class="call__count" title={tApp(dict, 'chat.callE2eeTitle', appMode)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['lock']}</svg>
                 <span>{t(dict, 'chat.callE2ee')}</span>
               </span>
@@ -481,8 +483,8 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    background: #070b06;
-    color: #ecf39e;
+    background: #0a0a0b;
+    color: #f4f4f5;
   }
   .call--error {
     background: transparent;
@@ -505,13 +507,13 @@
     gap: 0.4rem;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #c4d0bd;
+    color: #a1a1aa;
   }
   .call__dot {
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: #6b7f63;
+    background: #71717a;
   }
   .call__dot--good { background: #6fa23c; }
   .call__dot--fair { background: #f0b232; }
@@ -533,7 +535,7 @@
     container-type: inline-size;
     border-radius: 0.75rem;
     overflow: hidden;
-    background: #0d140b;
+    background: #161618;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -667,26 +669,26 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #0d140b;
-    color: #ecf39e;
+    background: #161618;
+    color: #f4f4f5;
     transition: background-color 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
   }
   .call__btn:hover:not(:disabled) {
-    background: #1f301b;
+    background: #2a2a2d;
   }
   .call__btn:active:not(:disabled) {
     transform: scale(0.96);
   }
   .call__btn--off {
-    background: #ecf39e;
+    background: #f4f4f5;
     color: #f23f43;
   }
   .call__btn--off:hover:not(:disabled) {
     background: #fff;
   }
   .call__btn--on {
-    background: #ecf39e;
-    color: #070b06;
+    background: #f4f4f5;
+    color: #0a0a0b;
   }
   .call__btn--on:hover:not(:disabled) {
     background: #fff;
@@ -704,7 +706,7 @@
     height: 9px;
     border-radius: 999px;
     background: #f23f43;
-    box-shadow: 0 0 0 2px #070b06;
+    box-shadow: 0 0 0 2px #0a0a0b;
   }
   .call__btn--leave:hover:not(:disabled) {
     background: #da373c;
@@ -727,8 +729,8 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
     padding: 0.5rem 0.65rem 0.65rem;
     border-radius: 0.75rem;
-    border: 1px solid #1f301b;
-    background: #0d140b;
+    border: 1px solid #2a2a2d;
+    background: #161618;
     display: grid;
     gap: 0.4rem;
     font-size: 0.8125rem;
@@ -743,11 +745,11 @@
   }
   .call__settings .label,
   .call__settings .check {
-    color: #ecf39e;
+    color: #f4f4f5;
   }
   .call__settings .label {
     font-size: 0.75rem;
-    color: #c4d0bd;
+    color: #a1a1aa;
   }
   .call__settings .field {
     gap: 0.25rem;
@@ -761,19 +763,19 @@
     height: 1.25rem;
   }
   .call__settings .input {
-    background: #070b06;
-    border-color: #1f301b;
-    color: #ecf39e;
+    background: #0a0a0b;
+    border-color: #2a2a2d;
+    color: #f4f4f5;
     min-height: 2rem;
     padding-top: 0.25rem;
     padding-bottom: 0.25rem;
     font-size: 0.8125rem;
   }
   .call__settings .btn-ghost {
-    color: #c4d0bd;
+    color: #a1a1aa;
   }
   .call__settings .btn-ghost:hover {
-    background: #1f301b;
+    background: #2a2a2d;
     color: #fff;
   }
   .call__settings .btn-ghost.text-danger {
@@ -810,7 +812,7 @@
   }
   .call__relay {
     font-size: 0.75rem;
-    color: #c4d0bd;
+    color: #a1a1aa;
   }
   .call .status--error {
     margin: 0.75rem;
@@ -859,7 +861,7 @@
     align-items: center;
     justify-content: center;
     color: white;
-    background: rgba(7, 11, 6, 0.68);
+    background: rgba(10, 10, 11, 0.68);
     border: 1px solid rgba(255, 255, 255, 0.16);
     opacity: 0;
     transform: translateY(-2px);
@@ -904,7 +906,7 @@
     padding: 0.38rem 0.55rem;
     border-radius: 0.55rem;
     color: white;
-    background: rgba(7, 11, 6, 0.74);
+    background: rgba(10, 10, 11, 0.74);
     border: 1px solid rgba(255, 255, 255, 0.12);
     font-size: 12px;
     font-weight: 700;
@@ -928,7 +930,7 @@
     align-items: center;
     justify-content: center;
     color: white;
-    background: rgba(7, 11, 6, 0.74);
+    background: rgba(10, 10, 11, 0.74);
     border: 1px solid rgba(255, 255, 255, 0.12);
     pointer-events: auto;
   }

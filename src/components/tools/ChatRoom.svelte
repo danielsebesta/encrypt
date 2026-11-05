@@ -39,7 +39,7 @@
     transferRatio,
     type TransferSnapshot,
   } from '../../lib/transferProgress';
-  import { t } from '../../lib/t';
+  import { t, tApp } from '../../lib/t';
   import { LUCIDE } from '../../lib/lucideIcons';
   import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
@@ -1101,7 +1101,7 @@
       relayRoute.location ? `${t(dict, 'chat.callRelayLocation')}: ${relayRoute.location}` : '',
       relayRoute.host ? `${t(dict, 'chat.callRelayHost')}: ${relayRoute.host}` : '',
       relayRoute.protocol ? `${t(dict, 'chat.callRelayTransport')}: ${relayRoute.protocol}` : '',
-      relayConnected && relayRttMs === null ? t(dict, 'chat.callRelayConnectedNoRtt') : '',
+      relayConnected && relayRttMs === null ? tApp(dict, 'chat.callRelayConnectedNoRtt', appMode) : '',
       relayRttMs !== null ? `${t(dict, 'chat.callRelayRtt')}: ${relayRttMs} ms` : '',
     ].filter(Boolean);
     return parts.join(' · ');
@@ -2571,7 +2571,7 @@
     let permission = Notification.permission;
     if (permission === 'default') permission = await Notification.requestPermission().catch(() => 'denied' as NotificationPermission);
     if (permission !== 'granted') {
-      fileError = t(dict, 'chat.notifyDenied');
+      fileError = tApp(dict, 'chat.notifyDenied', appMode);
       return;
     }
     notifyOn = true;
@@ -3910,12 +3910,12 @@
   async function startCall() {
     if (callActive || callJoining || !connected || !verified) return;
     if (typeof RTCPeerConnection === 'undefined') {
-      callError = t(dict, 'chat.callUnsupported');
+      callError = tApp(dict, 'chat.callUnsupported', appMode);
       return;
     }
     const transformMode = frameTransformMode();
     if (!transformMode) {
-      callError = t(dict, 'chat.callE2eeUnsupported');
+      callError = tApp(dict, 'chat.callE2eeUnsupported', appMode);
       return;
     }
 
@@ -4053,7 +4053,7 @@
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      callError = t(dict, 'chat.callUnsupported');
+      callError = tApp(dict, 'chat.callUnsupported', appMode);
       return;
     }
 
@@ -4114,7 +4114,7 @@
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      callError = t(dict, 'chat.callUnsupported');
+      callError = tApp(dict, 'chat.callUnsupported', appMode);
       return;
     }
 
@@ -4191,7 +4191,7 @@
   async function startScreenShare() {
     if (!callActive || callJoining) return;
     if (!navigator.mediaDevices?.getDisplayMedia) {
-      callError = t(dict, 'chat.callScreenUnsupported');
+      callError = tApp(dict, 'chat.callScreenUnsupported', appMode);
       return;
     }
 
@@ -5337,6 +5337,7 @@
     <div class="chat-body" class:chat-body--call={callActive} class:chat-body--chat-hidden={callActive && !callChatOpen}>
       <ChatCall
         {dict}
+        {appMode}
         {callActive}
         {callError}
         {callPeers}

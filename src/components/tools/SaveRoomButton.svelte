@@ -1,6 +1,6 @@
 <script lang="ts">
   import { MenuListItem } from 'konsta/svelte';
-  import { t } from '../../lib/t';
+  import { t, tApp } from '../../lib/t';
   import { LUCIDE } from '../../lib/lucideIcons';
   import PasskeyExplain from './PasskeyExplain.svelte';
   import {
@@ -83,7 +83,7 @@
     );
     entry = await getRoom(kind, roomId);
     vault = await vaultState();
-    [message, tone] = [t(dict, MESSAGES[result][0]), MESSAGES[result][1]];
+    [message, tone] = [tApp(dict, MESSAGES[result][0], variant === 'konsta'), MESSAGES[result][1]];
     busy = false;
   }
 
@@ -94,7 +94,7 @@
       entry = null;
       [message, tone] = [t(dict, 'rooms.forgotten'), 'ok'];
     } catch {
-      [message, tone] = [t(dict, 'rooms.saveFailed'), 'error'];
+      [message, tone] = [tApp(dict, 'rooms.saveFailed', variant === 'konsta'), 'error'];
     }
   }
 </script>
@@ -120,9 +120,9 @@
     <form class="stack" onsubmit={(event) => { event.preventDefault(); void save(withPasskey); }}>
       <div>
         <h2 id="save-room-title" class="section-title">{title}</h2>
-        <p id="save-room-intro" class="hint mt-1">{t(dict, withPasskey ? 'rooms.saveIntro' : 'rooms.saveNamesOnly')}</p>
+        <p id="save-room-intro" class="hint mt-1">{tApp(dict, withPasskey ? 'rooms.saveIntro' : 'rooms.saveNamesOnly', variant === 'konsta')}</p>
         {#if withPasskey && vault === 'new'}
-          <p class="hint mt-2">{t(dict, 'rooms.saveNewPasskey').replace('{host}', host)}</p>
+          <p class="hint mt-2">{tApp(dict, 'rooms.saveNewPasskey', variant === 'konsta').replace('{host}', host)}</p>
         {/if}
       </div>
       {#if withPasskey}
