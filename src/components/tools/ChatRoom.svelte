@@ -53,6 +53,7 @@
   import { swipeReply } from '../../lib/swipeReply';
   import { subscribeForPush } from '../../lib/pushClient';
   import { zoomPan } from '../../lib/zoomPan';
+  import ChatMembers from './ChatMembers.svelte';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
   import {
     SCHEDULE_PRESETS,
@@ -540,6 +541,30 @@
   const burnedIds = new Set<string>();
   let scheduleClock = Date.now();
   let safetyPrompt: Member | null = null;
+  let onlinePks = new Set<string>();
+  let verifiedPks = new Set<string>();
+  const VERIFIED_PREFIX = 'encrypt.click:chat-verified:';
+
+  function loadVerified(room: string): Set<string> {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(`${VERIFIED_PREFIX}${room}`) || '[]');
+      return new Set(Array.isArray(parsed) ? parsed.filter((pk): pk is string => typeof pk === 'string') : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function setVerified(pk: string, ok: boolean) {
+    const next = new Set(verifiedPks);
+    if (ok) next.add(pk); else next.delete(pk);
+    verifiedPks = next;
+    try { localStorage.setItem(`${VERIFIED_PREFIX}${trustRoom}`, JSON.stringify([...next])); } catch {}
+    if (ok && safetyPrompt?.pk === pk) dismissSafetyPrompt();
+  }
+
+  function refreshOnline() {
+    onlinePks = new Set([...liveClients].filter(([, ids]) => ids.size > 0).map(([pk]) => pk));
+  }
   const safetyPromptSeen = new Set<string>();
   let inputEl: HTMLInputElement | HTMLTextAreaElement | undefined;
   const kmsgColors = {
@@ -2165,6 +2190,7 @@
     mySignerId = roomIdentity.publicKey;
     trustRoom = room;
     trustTable = loadTrustTable(trustRoom);
+    verifiedPks = loadVerified(trustRoom);
     const mine = myLabelKey();
     if (!trustTable[mine]?.includes(mySignerId)) {
       trustTable[mine] = [...(trustTable[mine] || []), mySignerId];
@@ -4460,6 +4486,7 @@
     const set = liveClients.get(signer) ?? new Set<string>();
     set.add(clientId);
     liveClients.set(signer, set);
+    refreshOnline();
     const pending = leaveTimers.get(signer);
     if (pending) {
       clearTimeout(pending);
@@ -4470,7 +4497,9 @@
   function clientDeparted(clientId: string) {
     const signer = clientSigners.get(clientId);
     const set = signer ? liveClients.get(signer) : undefined;
-    if (!signer || !set || !set.delete(clientId) || set.size) return;
+    if (!signer || !set || !set.delete(clientId)) return;
+    refreshOnline();
+    if (set.size) return;
     const name = members.get(signer)?.name ?? '';
     clearTimeout(leaveTimers.get(signer));
     leaveTimers.set(signer, setTimeout(() => {
@@ -5212,30 +5241,9 @@
           <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
           <div class="min-w-0 flex-1">
             <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
-            <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
-          </div>
-        </div>
-        {#if memberList.length === 0}
-          <p class="hint">{t(dict, 'chat.noMembersYet')}</p>
-        {/if}
-        {#each memberList as member (member.pk)}
-          <div class="chat-member" class:chat-member--warn={!member.trusted}>
-            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}" title={member.name} aria-label={member.name}></div>
-            <div class="min-w-0 flex-1">
-              <p class="chat-member__name">
-                {member.name}
-                {#if !member.trusted}<span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>{/if}
-              </p>
-              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={member.code}>{member.code}</span></p>
-              <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><span class="chat-member__emoji chat-member__safety" aria-label={member.safety}>{#each member.safety.split(' ') as group}<span>{group}</span>{/each}</span></p>
-              {#if !member.trusted}
-                <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
-                <button type="button" class="btn-outline btn-sm" on:click={() => trustKey(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
-              {/if}
             </div>
-          </div>
-        {/each}
-        <p class="hint">{t(dict, 'chat.safetyNumberHint')}</p>
+        </div>
+        <ChatMembers {dict} members={memberList} online={onlinePks} verified={verifiedPks} {myKeyCode} ontrust={trustKey} onverify={setVerified} />
       </div>
     {/if}
 
@@ -5249,8 +5257,7 @@
               <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
               <div class="min-w-0 flex-1">
                 <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
-                <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
-              </div>
+                    </div>
               <button type="button" class="chat-profile-edit" on:click={appProfileToggle} aria-expanded={appProfileOpen} aria-label={t(dict, 'chat.editProfile')}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
               </button>
@@ -5272,27 +5279,7 @@
                 <p class="chat-profile__hint" class:chat-profile__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
               </form>
             {/if}
-            {#if memberList.length === 0}
-              <p class="hint">{t(dict, 'chat.noMembersYet')}</p>
-            {/if}
-            {#each memberList as member (member.pk)}
-              <div class="chat-member" class:chat-member--warn={!member.trusted}>
-                <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}" title={member.name} aria-label={member.name}></div>
-                <div class="min-w-0 flex-1">
-                  <p class="chat-member__name">
-                    {member.name}
-                    {#if !member.trusted}<span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>{/if}
-                  </p>
-                  <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={member.code}>{member.code}</span></p>
-                  <p class="chat-member__line"><span class="hint">{t(dict, 'chat.safetyNumber')}</span><span class="chat-member__emoji chat-member__safety" aria-label={member.safety}>{#each member.safety.split(' ') as group}<span>{group}</span>{/each}</span></p>
-                  {#if !member.trusted}
-                    <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
-                    <button type="button" class="app-sheet-btn app-sheet-btn--tonal" on:click={() => trustKey(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-            <p class="hint">{t(dict, 'chat.safetyNumberHint')}</p>
+            <ChatMembers {dict} appMode members={memberList} online={onlinePks} verified={verifiedPks} {myKeyCode} ontrust={trustKey} onverify={setVerified} />
           </div>
         </div>
       </Sheet>
