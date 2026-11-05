@@ -87,11 +87,18 @@ export class CallFrameEncryption {
   private preferSafeVideoCodecs(transceiver: RTCRtpTransceiver) {
     if (this.codecsSet.has(transceiver) || typeof transceiver.setCodecPreferences !== 'function') return;
     const codecs = safeVideoCodecs(RTCRtpReceiver.getCapabilities?.('video')?.codecs ?? []);
-    if (!codecs.length) return;
+    // Never leave Safari/Chrome free to prefer H.264 under frame encryption — that yields a live
+    // track with zero decodable frames. Prefer an empty VP8/VP9 list over silent H.264.
+    if (!codecs.length) {
+      this.codecsSet.add(transceiver);
+      return;
+    }
     try {
       transceiver.setCodecPreferences(codecs);
       this.codecsSet.add(transceiver);
-    } catch {}
+    } catch {
+      this.codecsSet.add(transceiver);
+    }
   }
 
   setSendKey(key: MediaKey) {

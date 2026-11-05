@@ -224,6 +224,8 @@
     cameraOff: boolean;
     screenSharing: boolean;
     makingOffer: boolean;
+    /** Camera/mic toggles that hit glare must retry once signaling is free. */
+    needsRenegotiation: boolean;
     restartTimer?: ReturnType<typeof setTimeout>;
     restartAttempts: number;
     lastRestartAt: number;
@@ -380,6 +382,9 @@
   let disconnectedAt = 0;
   const noteSocketGone = () => { if (!disconnectedAt) disconnectedAt = Date.now(); };
   const onPageHide = () => {
+    // Keep signaling up for an active call — iOS fires pagehide for Control Center /
+    // permission sheets, and closing here dropped ICE restarts and camera renegotiation.
+    if (callActive) return;
     noteSocketGone();
     try { ws?.close(1000, 'pagehide'); } catch {}
   };
@@ -2266,6 +2271,14 @@
       if (cryptoKey) await announceJoined();
       sendServerPing();
       restartDisconnectedPeers();
+      if (callActive) {
+        for (const peer of callPeerMap.values()) {
+          if (peer.needsRenegotiation || !peerMediaConnected(peer.pc)) {
+            void createAndSendOffer(peer, true, !peerMediaConnected(peer.pc));
+          }
+        }
+        void sendCallSignal({ action: 'presence' }).catch(() => {});
+      }
       void flushOutbox();
     });
     ws.addEventListener('close', () => {
@@ -3291,6 +3304,7 @@
       cameraOff: false,
       screenSharing: false,
       makingOffer: false,
+      needsRenegotiation: false,
       restartAttempts: 0,
       lastRestartAt: 0,
       volume: 1,
@@ -3533,14 +3547,21 @@
   }
 
   async function createAndSendOffer(peer: CallPeer, waitForStable = false, iceRestart = false) {
-    if (peer.makingOffer) return;
+    if (peer.makingOffer) {
+      peer.needsRenegotiation = true;
+      return;
+    }
     if (peer.pc.signalingState !== 'stable') {
       if (iceRestart && peer.pc.signalingState === 'have-local-offer') {
         await peer.pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit).catch(() => {});
-      } else if (!waitForStable || !(await waitForStableSignaling(peer.pc))) return;
+      } else if (!waitForStable || !(await waitForStableSignaling(peer.pc))) {
+        peer.needsRenegotiation = true;
+        return;
+      }
     }
     if (iceRestart) peer.lastRestartAt = Date.now();
     peer.makingOffer = true;
+    peer.needsRenegotiation = false;
     try {
       frameCrypto?.secure(peer.pc, peer.id);
       const offer = await peer.pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
@@ -3553,10 +3574,19 @@
         sdp,
       });
     } catch (e: any) {
+      peer.needsRenegotiation = true;
       if (!iceRestart) callError = e?.message || t(dict, 'chat.callConnectionFailed');
     } finally {
+      const retry = peer.needsRenegotiation;
       peer.makingOffer = false;
       syncCallPeers();
+      if (retry && callActive) {
+        setTimeout(() => {
+          if (!callActive || peer.makingOffer || !callPeerMap.has(peer.id)) return;
+          peer.needsRenegotiation = false;
+          void createAndSendOffer(peer, true);
+        }, 250);
+      }
     }
   }
 

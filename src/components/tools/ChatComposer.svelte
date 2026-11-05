@@ -61,6 +61,14 @@
   } = $props();
 
   let keepFocus = false;
+  /** iOS Autofill treats chat fields as contacts unless the control starts read-only. */
+  let composeLocked = true;
+
+  function unlockCompose() {
+    if (!composeLocked) return;
+    composeLocked = false;
+    queuePromise.resolve().then(() => inputEl?.focus());
+  }
 
   function presetLabel(id: string): string {
     return t(dict, `chat.schedule.${id}`);
@@ -226,7 +234,7 @@
     <div class="app-composer">
       {#if !voiceRecording}
         {@render attachMenu()}
-        <div class="app-composer__field" role="presentation" on:pointerdown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); inputEl?.focus(); } }}>
+        <div class="app-composer__field" role="presentation" on:pointerdown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); unlockCompose(); inputEl?.focus(); } }}>
           <textarea
             id="chat-compose-input"
             class="app-composer__input"
@@ -236,9 +244,11 @@
             bind:value={inputText}
             bind:this={inputEl}
             on:input={autogrow}
-            on:focus={closeMenus}
+            on:pointerdown={unlockCompose}
+            on:focus={() => { unlockCompose(); closeMenus(); }}
             on:keydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onsend(); } else if (e.key === 'Escape' && hasReply) onclearreply(); }}
             disabled={(!connected && !allowQueue) || uploading}
+            readonly={composeLocked}
             autocomplete="off"
             autocorrect="off"
             autocapitalize="sentences"
@@ -271,9 +281,11 @@
       bind:value={inputText}
       bind:this={inputEl}
       on:input={ontyping}
+      on:pointerdown={unlockCompose}
       on:keydown={(e) => { if (e.key === 'Enter') onsend(); else if (e.key === 'Escape' && hasReply) onclearreply(); }}
-      on:focus={closeMenus}
+      on:focus={() => { unlockCompose(); closeMenus(); }}
       disabled={(!connected && !allowQueue) || uploading}
+      readonly={composeLocked}
       autocomplete="off"
       autocorrect="off"
       autocapitalize="sentences"
