@@ -646,18 +646,20 @@
     window.location.href = `/_lang/${code}?to=${encodeURIComponent(target)}`;
   }
 
-  async function installPwa() {
+  let updating = false;
+  async function updateApp() {
+    if (updating) return;
+    updating = true;
     triggerHaptic('medium');
-    if (deferredInstallPrompt) {
-      const prompt = deferredInstallPrompt;
-      deferredInstallPrompt = null;
-      try {
-        await prompt.prompt();
-        await prompt.userChoice;
-      } catch {}
-    } else if (platform === 'ios') {
-      showIosInstallSheet = true;
-    }
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      await reg?.update().catch(() => {});
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key.startsWith('encrypt-')).map((key) => caches.delete(key)));
+    } catch {}
+    const url = new URL('/app', window.location.origin);
+    url.searchParams.set('v', String(Date.now()));
+    window.location.replace(url.href);
   }
 
   let wiping = false;
@@ -1395,17 +1397,12 @@
 
           <BlockTitle>{t(dict, 'app.settings.app')}</BlockTitle>
           <List strong inset>
-            <ListItem
-              title={t(dict, 'app.settings.install')}
-              subtitle={isStandalone ? t(dict, 'app.settings.standalone') : t(dict, 'app.settings.inBrowser')}
-            >
+            <ListItem title={t(dict, 'app.settings.version')} subtitle={`${t(dict, 'app.settings.updateHint')} · ${__APP_COMMIT__}`}>
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="install" size={20} /></span>
               {/snippet}
               {#snippet after()}
-                {#if !isStandalone && (deferredInstallPrompt || platform === 'ios')}
-                  <Button small rounded tonal class="min-h-10!" onClick={installPwa}>{t(dict, 'app.settings.installNow')}</Button>
-                {/if}
+                <Button small rounded tonal class="min-h-10!" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
               {/snippet}
             </ListItem>
           </List>

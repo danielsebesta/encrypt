@@ -1,5 +1,6 @@
 // @ts-check
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, passthroughImageService } from 'astro/config';
@@ -7,6 +8,11 @@ import tailwindcss from '@tailwindcss/vite';
 import svelte from '@astrojs/svelte';
 import cloudflare from '@astrojs/cloudflare';
 import { getAdapter as nodeAdapter } from '@astrojs/node';
+
+const commit = (() => {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
+  try { return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'dev'; }
+})();
 
 // Astro invents a random key on every build to encrypt server-island props, which this site does not use. A fixed one keeps the output reproducible.
 process.env.ASTRO_KEY ||= createHash('sha256').update('encrypt.click/astro-key').digest('base64');
@@ -42,6 +48,7 @@ export default defineConfig({
   },
 
   vite: {
+    define: { __APP_COMMIT__: JSON.stringify(commit) },
     plugins: [
       tailwindcss(),
     ],

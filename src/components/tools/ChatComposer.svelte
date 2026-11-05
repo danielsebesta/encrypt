@@ -60,6 +60,8 @@
     onschedule: (offsetMs: number) => void;
   } = $props();
 
+  let keepFocus = false;
+
   function presetLabel(id: string): string {
     return t(dict, `chat.schedule.${id}`);
   }
@@ -196,7 +198,7 @@
 
 {#snippet sendBtn()}
   {#if !voiceRecording}
-  <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:mousedown|preventDefault on:click={() => { if (appMode) haptic('light'); const keep = document.activeElement === inputEl; onsend(); if (keep) inputEl?.focus(); }} disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}>
+  <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:mousedown|preventDefault on:pointerdown={() => { keepFocus = document.activeElement === inputEl; }} on:touchstart|preventDefault={() => { keepFocus = document.activeElement === inputEl; }} on:click={() => { if (appMode) haptic('light'); const keep = keepFocus || document.activeElement === inputEl; keepFocus = false; if (keep) inputEl?.focus(); onsend(); if (keep) { setTimeout(() => inputEl?.focus(), 60); } }} disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}>
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['send']}</svg>
   </button>
   {/if}
