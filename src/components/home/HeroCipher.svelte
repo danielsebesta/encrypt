@@ -30,8 +30,7 @@
   const HOLD_MS = 1600;
 
   let scene: Scene = 'text';
-  const start = Math.floor(Math.random() * 5);
-  const pick: Record<Scene, number> = { text: start, file: (start + 2) % 5, draw: (start + 4) % 5 };
+  const pick: Record<Scene, number> = { text: 0, file: 2, draw: 4 };
   let plain = MESSAGES[pick.text];
   let photo = PHOTOS[pick.file];
   let sketch = SKETCHES[pick.draw];
@@ -103,6 +102,13 @@
   }
 
   onMount(() => {
+    const start = Math.floor(Math.random() * 5);
+    pick.text = start;
+    pick.file = (start + 2) % 5;
+    pick.draw = (start + 4) % 5;
+    plain = MESSAGES[pick.text];
+    photo = PHOTOS[pick.file];
+    sketch = SKETCHES[pick.draw];
     let alive = true;
     let gen = 0;
     let timer: ReturnType<typeof setTimeout>;

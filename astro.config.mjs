@@ -10,8 +10,8 @@ import cloudflare from '@astrojs/cloudflare';
 import { getAdapter as nodeAdapter } from '@astrojs/node';
 
 const commit = (() => {
-  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
-  try { return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'dev'; }
+  try { return execSync('git rev-parse --short=7 HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch {}
+  return (process.env.BUILD_COMMIT_SHA || process.env.GITHUB_SHA || 'dev').slice(0, 7);
 })();
 
 // Astro invents a random key on every build to encrypt server-island props, which this site does not use. A fixed one keeps the output reproducible.
