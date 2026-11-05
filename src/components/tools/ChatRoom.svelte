@@ -51,6 +51,7 @@
   import { longPress } from '../../lib/longPress';
   import { buildMicChain } from '../../lib/micChain';
   import { swipeReply } from '../../lib/swipeReply';
+  import { subscribeForPush } from '../../lib/pushClient';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
   import {
     SCHEDULE_PRESETS,
@@ -1998,6 +1999,7 @@
 
     joinedRoom = true;
     ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig }));
+    void syncPush();
 
     // An empty room shows its own notice only after peers had a moment to hand their local copies over.
     historyReady = serverPresence <= 1;
@@ -2200,6 +2202,7 @@
     try { data = JSON.parse(event.data); } catch { return; }
 
     if (data.type === 'init') {
+      pushKey = typeof data.push === 'string' ? data.push : '';
       serverPresence = typeof data.presence === 'number' ? data.presence : 0;
       lastPresenceCount = serverPresence;
       const config = applyRoomConfig(data.config);
@@ -2511,11 +2514,20 @@
     } catch {}
   }
 
+  let pushKey = '';
+
+  async function syncPush() {
+    if (!notifyOn || !pushKey || !ws || ws.readyState !== 1) return;
+    const endpoint = await subscribeForPush(pushKey, t(dict, 'chat.notifyTitle'), t(dict, 'chat.notifyBody'));
+    if (endpoint && ws?.readyState === 1) ws.send(JSON.stringify({ type: 'push-subscribe', endpoint }));
+  }
+
   async function toggleNotifications() {
     if (notifyOn) {
       notifyOn = false;
       notifyBurst.reset();
       saveNotifyPref(localStorage, roomId, false);
+      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'push-unsubscribe' }));
       return;
     }
     if (!notifySupported) return;
@@ -2527,6 +2539,7 @@
     }
     notifyOn = true;
     saveNotifyPref(localStorage, roomId, true);
+    void syncPush();
   }
 
   /** Sends `text` as a chat message without touching the composer input, so scheduled drafts and typed text never collide. */

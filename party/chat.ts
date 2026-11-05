@@ -3,6 +3,7 @@ import {
   normalizeChatMode,
   type ChatMode,
 } from "../src/lib/chatRoomSettings";
+import { isPushEndpoint, readVapidKeys, sendPush } from "../src/lib/webPush";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
 // Password rooms are format version 3; the room keeps only this small config, never a message.
@@ -19,6 +20,7 @@ type RoomState = {
 type ChatConnectionState = {
   joined: boolean;
   tag?: string;
+  push?: string;
 };
 
 type ClientMessageEnvelope = {
@@ -29,6 +31,9 @@ type ClientMessageEnvelope = {
 };
 
 const CONFIG_KEY = "room-config";
+const PUSH_KEY = "push-endpoints";
+const MAX_PUSH_ENDPOINTS = 64;
+const PUSH_COOLDOWN_MS = 15_000;
 const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
 const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
@@ -46,6 +51,7 @@ export default class ChatRoom {
   // Relayed client message ids, so a retry or reconnect retransmitting the same
   // envelope reaches members exactly once. Bounded FIFO; rooms are ephemeral.
   private seenIds = new Set<string>();
+  private lastPushAt = 0;
   state: RoomState = {
     locked: false,
     lockedBy: null,
@@ -71,12 +77,14 @@ export default class ChatRoom {
     this.pushBackCleanup();
     conn.setState({ joined: false });
     this.access.open(conn);
+    const pushKey = readVapidKeys(this.host.env)?.publicKey;
 
     conn.send(JSON.stringify({
       type: "init",
       presence: this.getJoinedConnectionCount(),
       locked: this.state.locked,
       config: this.state.config,
+      ...(pushKey ? { push: pushKey } : {}),
     }));
   }
 
@@ -122,6 +130,26 @@ export default class ChatRoom {
         if (this.seenIds.size > 50_000) this.seenIds.delete(this.seenIds.values().next().value!);
         const tag = this.tagOf(sender);
         this.broadcast(JSON.stringify(tag ? { ...envelope, from: tag } : envelope), [sender.id]);
+        void this.wakeSleepers().catch(() => {});
+        break;
+      }
+
+      case "push-subscribe": {
+        if (!this.isJoined(sender) || !readVapidKeys(this.host.env) || !isPushEndpoint(parsed.endpoint)) return;
+        const endpoints = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
+        const next = [...endpoints.filter(item => item !== parsed.endpoint), parsed.endpoint].slice(-MAX_PUSH_ENDPOINTS);
+        await this.host.storage.put(PUSH_KEY, next);
+        sender.setState({ ...(sender.state as ChatConnectionState), push: parsed.endpoint });
+        break;
+      }
+
+      case "push-unsubscribe": {
+        if (!this.isJoined(sender)) return;
+        const endpoint = (sender.state as ChatConnectionState).push;
+        if (!endpoint) return;
+        sender.setState({ ...(sender.state as ChatConnectionState), push: undefined });
+        const endpoints = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
+        await this.host.storage.put(PUSH_KEY, endpoints.filter(item => item !== endpoint));
         break;
       }
 
@@ -193,6 +221,28 @@ export default class ChatRoom {
     }
     this.state = { locked: false, lockedBy: null, config: null };
     await this.host.storage.deleteAll();
+  }
+
+  // Devices that enabled notifications but have no open connection get an empty push; the ones still connected show their own.
+  private async wakeSleepers() {
+    const keys = readVapidKeys(this.host.env);
+    const now = Date.now();
+    if (!keys || now - this.lastPushAt < PUSH_COOLDOWN_MS) return;
+    const endpoints = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
+    const awake = new Set<string>();
+    for (const conn of this.host.getConnections()) {
+      const endpoint = (conn.state as ChatConnectionState | null)?.push;
+      if (endpoint) awake.add(endpoint);
+    }
+    const sleeping = endpoints.filter(endpoint => !awake.has(endpoint));
+    if (!sleeping.length) return;
+    this.lastPushAt = now;
+    const results = await Promise.all(sleeping.map(endpoint => sendPush(endpoint, keys)));
+    const gone = new Set(sleeping.filter((_, index) => results[index] === "gone"));
+    if (gone.size) {
+      const current = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
+      await this.host.storage.put(PUSH_KEY, current.filter(endpoint => !gone.has(endpoint)));
+    }
   }
 
   private async setRoomConfig(input: unknown) {
