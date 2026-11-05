@@ -61,8 +61,8 @@
   } = $props();
 
   let keepFocus = false;
-  /** iOS Autofill treats chat fields as contacts unless the control starts read-only. */
-  let composeLocked = true;
+  /** Mobile Autofill only; desktop must never start read-only or the caret never lands. */
+  let composeLocked = appMode;
 
   function unlockCompose() {
     if (!composeLocked) return;
