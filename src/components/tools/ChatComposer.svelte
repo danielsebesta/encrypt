@@ -198,7 +198,22 @@
 
 {#snippet sendBtn()}
   {#if !voiceRecording}
-  <button type="button" class="chat-send-btn" aria-label={t(dict, 'chat.send')} on:mousedown|preventDefault on:pointerdown={() => { keepFocus = document.activeElement === inputEl; }} on:touchstart|preventDefault={() => { keepFocus = document.activeElement === inputEl; }} on:click={() => { if (appMode) haptic('light'); const keep = keepFocus || document.activeElement === inputEl; keepFocus = false; if (keep) inputEl?.focus(); onsend(); if (keep) { setTimeout(() => inputEl?.focus(), 60); } }} disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}>
+  <button
+    type="button"
+    class="chat-send-btn"
+    aria-label={t(dict, 'chat.send')}
+    on:mousedown|preventDefault
+    on:pointerdown={() => { keepFocus = document.activeElement === inputEl; }}
+    on:click={() => {
+      if (appMode) haptic('light');
+      const keep = keepFocus || document.activeElement === inputEl;
+      keepFocus = false;
+      if (keep) inputEl?.focus();
+      onsend();
+      if (keep) setTimeout(() => inputEl?.focus(), 60);
+    }}
+    disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}
+  >
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['send']}</svg>
   </button>
   {/if}
@@ -212,8 +227,9 @@
         {@render attachMenu()}
         <div class="app-composer__field" role="presentation" on:pointerdown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); inputEl?.focus(); } }}>
           <textarea
-            id="chat-messagebar-input"
+            id="chat-compose-input"
             class="app-composer__input"
+            name="encrypt-chat-compose"
             aria-label={t(dict, 'chat.messagePlaceholder')}
             placeholder={uploading ? t(dict, 'chat.uploading') : (onceEnabled ? t(dict, 'chat.oncePlaceholder') : t(dict, 'chat.messagePlaceholder'))}
             bind:value={inputText}
@@ -223,9 +239,15 @@
             on:keydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onsend(); } else if (e.key === 'Escape' && hasReply) onclearreply(); }}
             disabled={(!connected && !allowQueue) || uploading}
             autocomplete="off"
+            autocorrect="off"
+            autocapitalize="sentences"
             spellcheck="false"
+            enterkeyhint="send"
+            inputmode="text"
+            data-form-type="other"
             data-lpignore="true"
             data-1p-ignore
+            data-bwignore
             rows="1"
           ></textarea>
         </div>
@@ -241,19 +263,27 @@
     <input
       type="text"
       class="chat-input-field"
-    aria-label={t(dict, 'chat.messagePlaceholder')}
-    placeholder={uploading ? t(dict, 'chat.uploading') : (onceEnabled ? t(dict, 'chat.oncePlaceholder') : t(dict, 'chat.messagePlaceholder'))}
-    bind:value={inputText}
-    bind:this={inputEl}
-    on:input={ontyping}
-    on:keydown={(e) => { if (e.key === 'Enter') onsend(); else if (e.key === 'Escape' && hasReply) onclearreply(); }}
-    on:focus={closeMenus}
-    disabled={(!connected && !allowQueue) || uploading}
-    autocomplete="off"
-    spellcheck="false"
-    data-lpignore="true"
-    data-1p-ignore
-  />
+      id="chat-compose-input"
+      name="encrypt-chat-compose"
+      aria-label={t(dict, 'chat.messagePlaceholder')}
+      placeholder={uploading ? t(dict, 'chat.uploading') : (onceEnabled ? t(dict, 'chat.oncePlaceholder') : t(dict, 'chat.messagePlaceholder'))}
+      bind:value={inputText}
+      bind:this={inputEl}
+      on:input={ontyping}
+      on:keydown={(e) => { if (e.key === 'Enter') onsend(); else if (e.key === 'Escape' && hasReply) onclearreply(); }}
+      on:focus={closeMenus}
+      disabled={(!connected && !allowQueue) || uploading}
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="sentences"
+      spellcheck="false"
+      enterkeyhint="send"
+      inputmode="text"
+      data-form-type="other"
+      data-lpignore="true"
+      data-1p-ignore
+      data-bwignore
+    />
     {/if}
   {/if}
   {#if !appMode}

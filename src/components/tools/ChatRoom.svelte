@@ -373,18 +373,20 @@
     reportConn();
   };
   const isIosDevice = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  // iOS may background the page without tearing the JS context down. We close the socket while
+  // hidden so a stale connection does not linger as a ghost member, then join again on return.
+  // Pause follows document.hidden only — pagehide alone must not sticky-block rejoining.
   let socketPaused = false;
   let disconnectedAt = 0;
   const noteSocketGone = () => { if (!disconnectedAt) disconnectedAt = Date.now(); };
   const onPageHide = () => {
-    socketPaused = true;
     noteSocketGone();
     try { ws?.close(1000, 'pagehide'); } catch {}
   };
-  const onPageShow = (event: PageTransitionEvent) => {
-    if (!event.persisted) return;
-    socketPaused = false;
-    try { ws?.reconnect(); } catch {}
+  const onPageShow = () => {
+    if (!isIosDevice()) return;
+    socketPaused = typeof document !== 'undefined' && document.hidden;
+    if (!socketPaused) try { ws?.reconnect(); } catch {}
   };
   const onViewportResize = () => { if (stickToBottom) scrollToBottom(true); };
   let cryptoKey: CryptoKey | null = null;
@@ -2063,7 +2065,8 @@
 
   async function announceJoined(activePeerCount?: number) {
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
-    if (socketPaused || (typeof document !== 'undefined' && document.hidden && isIosDevice() && !callActive)) {
+    // A background iOS tab must not complete join; PartySocket may open while still hidden.
+    if (isIosDevice() && !callActive && (socketPaused || (typeof document !== 'undefined' && document.hidden))) {
       try { ws.close(1000, 'hidden'); } catch {}
       return;
     }
