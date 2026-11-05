@@ -362,11 +362,22 @@ async function main() {
         ignored.push(...explained);
       } else {
         const offset = firstDifference(localBytes, served);
+        const settle = (buffer) => withoutUids(file, withoutStars(file, buffer));
+        const settledLocal = settle(localBytes);
+        const settledServed = settle(served);
+        const settledOffset = firstDifference(settledLocal, settledServed);
         details.push(
           `local ${short(sha256(localBytes))} differs from served ${short(sha256(served))}, first difference at byte ${offset}`,
           `local  ${excerpt(localBytes, offset)}`,
           `served ${excerpt(served, offset)}`,
         );
+        if (settledOffset !== -1 && settledOffset !== offset) {
+          details.push(
+            `after ignoring island ids and the star count the first difference is at byte ${settledOffset} (local ${settledLocal.length} bytes, served ${settledServed.length})`,
+            `local  ${excerpt(settledLocal, settledOffset)}`,
+            `served ${excerpt(settledServed, settledOffset)}`,
+          );
+        }
       }
     }
     if (details.length > 0) problem('mismatch', file, details);
