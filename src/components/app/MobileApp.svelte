@@ -1842,7 +1842,7 @@
     </Dialog>
 
     <!-- ROOM ROW ACTIONS -->
-    <Actions opened={actionsRoom !== null} onBackdropClick={closeRowActions}>
+    <Actions class="app-actions-sheet" opened={actionsRoom !== null} onBackdropClick={closeRowActions}>
       <ActionsGroup>
         <ActionsLabel>{actionTarget?.label || actionTarget?.roomId || ''}</ActionsLabel>
         <ActionsButton onClick={togglePin}>

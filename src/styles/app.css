@@ -355,17 +355,18 @@ html[data-app-platform] body *:not(input):not(textarea):not([contenteditable="tr
     user-select: none !important;
     -webkit-touch-callout: none !important;
 }
-.app-row-press {
+/* Long-press highlight on the full-width row content (not a shrink-wrapped button). */
+.k-list-item.app-row-press > :is(a, button, label) {
     animation: app-row-hold 0.45s cubic-bezier(0.2, 0, 0, 1) 0.1s forwards;
 }
 @keyframes app-row-hold {
     to {
-        transform: scale(0.97);
+        transform: scale(0.985);
         background-color: var(--app-tint-container);
     }
 }
 @media (prefers-reduced-motion: reduce) {
-    .app-row-press {
+    .k-list-item.app-row-press > :is(a, button, label) {
         animation-duration: 0.01s;
     }
 }
@@ -378,8 +379,14 @@ html[data-app-platform] .k-list-item > a {
     -webkit-user-select: none;
     user-select: none;
 }
-/* ListItem link rows render as <button> for keyboard access: undo UA centering */
-html[data-app-platform] li > button {
+/* ListItem link rows use <button>: stretch to the full row so press/ripple isn't a left stub */
+html[data-app-platform] .k-list-item > a,
+html[data-app-platform] .k-list-item > button,
+html[data-app-platform] .k-list-item > label {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     text-align: start;
 }
 html[data-app-platform] img {
@@ -444,18 +451,24 @@ html[data-app-platform] ::selection {
 }
 .app-sheet__handle {
     position: relative;
-    width: 36px;
+    width: 44px;
     height: 5px;
     border-radius: 999px;
-    margin: 6px auto 2px;
+    margin: 10px auto 6px;
     background: var(--app-label-3);
     touch-action: none;
     cursor: grab;
+    flex: 0 0 auto;
 }
+/* Wide grab strip across the sheet so dismiss doesn't need a pixel-perfect handle hit */
 .app-sheet__handle::before {
     content: '';
     position: absolute;
-    inset: -14px -72px -14px;
+    left: 50%;
+    translate: -50% 0;
+    top: -18px;
+    bottom: -28px;
+    width: min(100vw, 28rem);
 }
 /* Konsta popovers are fixed and unconstrained in height — a tall menu (e.g.
    whiteboard tools) can overflow the viewport and Konsta clamps position
@@ -2994,6 +3007,26 @@ html[data-app-platform] ::selection {
     :root[data-app-platform] .k-popover {
         transition-duration: 0s;
     }
+}
+
+/* Action sheets: Konsta centers with left-1/2 + -translate-x-1/2 + max-w-md. On Tailwind v4 that
+   X translate often drops when translate-y opens/closes, so only a left strip stays on screen.
+   Pin left/right instead and keep Y motion for the closed state. */
+:root[data-app-platform] .k-actions {
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    translate: 0 0;
+}
+:root[data-app-platform] .k-actions.translate-y-full {
+    translate: 0 100%;
+}
+:root[data-app-platform] .k-actions .k-actions-group,
+:root[data-app-platform] .k-actions .k-actions-button,
+:root[data-app-platform] .k-actions .k-actions-label {
+    width: 100%;
+    max-width: none;
 }
 
 /* iOS alerts and action sheets use the system blue, not the brand green; destructive buttons stay red.
