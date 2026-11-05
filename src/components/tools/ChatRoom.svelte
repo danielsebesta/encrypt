@@ -2026,6 +2026,11 @@
       needsPassword = false;
       try { sessionStorage.setItem(`chat-pw:${roomId}`, pwd); } catch {}
       checkingRoom = true;
+      // The mode this device last saw for the room keys its local history, so it outranks a saved entry that says otherwise.
+      const remembered = rememberedMode()?.split(':')[1];
+      if (pendingRoomConfig && remembered && normalizeChatMode(remembered) !== pendingRoomConfig.mode) {
+        pendingRoomConfig = { ...pendingRoomConfig, mode: normalizeChatMode(remembered) };
+      }
       if (pendingRoomConfig) {
         roomConfig = pendingRoomConfig;
         await unlockRoom(pendingRoomConfig);
