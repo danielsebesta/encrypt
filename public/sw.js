@@ -14,6 +14,32 @@ self.addEventListener('activate', event => {
   )).then(() => self.clients.claim()));
 });
 
+self.addEventListener('push', event => {
+  event.waitUntil(showPush());
+});
+
+// A push carries no content. The text was left here by the page, in the language the user chose.
+async function showPush() {
+  let text = { title: 'encrypt.click', body: 'New message' };
+  try {
+    const hit = await (await caches.open('push-text')).match('/push-text');
+    if (hit) text = await hit.json();
+  } catch {}
+  await self.registration.showNotification(String(text.title), {
+    body: String(text.body),
+    tag: 'encrypt-click-push',
+    icon: '/web-app-manifest-192x192.png',
+  });
+}
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const open = list.find(client => new URL(client.url).pathname.startsWith('/app'));
+    return open ? open.focus() : self.clients.openWindow('/app');
+  }));
+});
+
 // What the device share sheet hands over stays on the device until the share form takes it out of the inbox.
 self.addEventListener('fetch', event => {
   const { request } = event;

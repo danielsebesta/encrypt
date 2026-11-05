@@ -7,6 +7,9 @@ export type RealtimeEnv = {
   CHAT: DurableObjectNamespace<RoomServer>;
   WHITEBOARD: DurableObjectNamespace<RoomServer>;
   ROOM_TURN_SECRET?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 };
 
 export abstract class RoomServer extends Server<RealtimeEnv> {

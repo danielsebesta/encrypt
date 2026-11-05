@@ -54,6 +54,7 @@ Everything is set with environment variables.
 | `TRUST_PROXY` | off | Number of reverse proxies in front of Node whose `X-Forwarded-For` and `X-Forwarded-Proto` are believed (`true` means 1). Leave it off when Node is reachable directly, or clients can pick their own address for rate limits. |
 | `DATA_DIR` | `/data` | Where rooms, uploads, rate-limit state, secrets and certificates live. |
 | `ROOM_TURN_SECRET`, `RATE_LIMIT_SECRET`, `UPLOAD_PASS_SECRET`, `TURN_AUTH_SECRET` | generated | Random secrets (32 bytes or more). Values you do not pass are generated once into `$DATA_DIR/secrets`. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | off | Web push for chat rooms. Generate the pair with `node scripts/vapid-keys.mjs`; `VAPID_SUBJECT` is a `mailto:` or `https:` contact. Rooms then wake devices that enabled notifications with an empty push (no message, no room name); each room keeps those device endpoints until it is deleted. Without the keys nothing is stored and the option stays off. |
 | `TURN_ENABLED` | `auto` | `false` keeps the bundled coturn off. |
 | `TURN_HOST` | `DOMAIN`, or the host of `PUBLIC_URL` | Name browsers use to reach the TURN relay. |
 | `TURN_PORT` | `3478` | TURN listening port, UDP and TCP. |
