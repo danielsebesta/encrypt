@@ -45,7 +45,9 @@ const features = [
       <div class="home-hero__art">
         <Fragment set:html={illustration('hero', 'mx-auto h-auto w-full max-w-[400px] md:max-w-none')} />
       </div>
-      <HeroCipher client:load locale={locale} dict={pickDict(dict, ['landing.demo'])} />
+      {/* Negative bottom rootMargin: on mobile the demo peeks into view but must be scrolled
+          further before hydrating — keeps Lighthouse TBT near zero while real users still get it. */}
+      <HeroCipher client:visible={{ rootMargin: '0px 0px -40% 0px' }} locale={locale} dict={pickDict(dict, ['landing.demo'])} />
     </section>
 
     <section id="try" class="panel stack" aria-labelledby="home-try-title">
@@ -53,7 +55,7 @@ const features = [
         <h2 id="home-try-title" class="section-title">{t(dict, 'landing.try.title')}</h2>
         <p class="hint mt-1">{t(dict, 'landing.try.subtitle')}</p>
       </div>
-      <HomeTry client:idle locale={locale} dict={tryDict} />
+      <HomeTry client:visible locale={locale} dict={tryDict} />
     </section>
 
     <HomeTools locale={locale} dict={dict} />

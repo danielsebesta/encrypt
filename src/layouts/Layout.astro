@@ -95,7 +95,24 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<link rel="preload" href="/fonts/strichpunkt-400.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href="/fonts/redaction-700.woff2" as="font" type="font/woff2" crossorigin />
 		{enableIntegrityCheck && <script is:inline src="/integrity-check.js" defer></script>}
-		<script is:inline src="/boot.js?v=security-v2"></script>
+		{/* Theme before first paint — inlined so it is not a render-blocking network request. */}
+		<script is:inline>
+			(function () {
+				var root = document.documentElement;
+				root.classList.add('theme-instant');
+				try {
+					var t = localStorage.getItem('theme');
+					var d = t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches);
+					if (d) root.classList.add('dark');
+					root.style.colorScheme = d ? 'only dark' : 'only light';
+				} catch (e) {}
+				requestAnimationFrame(function () {
+					requestAnimationFrame(function () {
+						root.classList.remove('theme-instant');
+					});
+				});
+			})();
+		</script>
 	</head>
 	<body>
 		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
@@ -242,6 +259,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			</div>
 		</footer>
 		<script is:inline src="/ui.js?v=security-v2" defer></script>
-		<script is:inline src="/pwa.js?v=pwa-v1" defer></script>
+		<script is:inline src="/pwa.js?v=pwa-v2" defer></script>
 	</body>
 </html>

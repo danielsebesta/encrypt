@@ -34,7 +34,8 @@
   let plain = MESSAGES[pick.text];
   let photo = PHOTOS[pick.file];
   let sketch = SKETCHES[pick.draw];
-  let typed = '';
+  // First paint shows the sample text so the demo is readable before hydration/animation.
+  let typed = plain;
   let cipher = '';
   let locked = false;
   let typing = false;
@@ -197,18 +198,31 @@
       }
     }
 
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll'] as const;
+    const detach = () => {
+      for (const event of events) window.removeEventListener(event, begin);
+      clearTimeout(timer);
+    };
+
+    const begin = () => {
+      detach();
+      if (started || !alive) return;
+      started = true;
+      if (reduced) void showStatic('text');
+      else void play('text', false);
+    };
+
     choose = (next) => {
+      detach();
       if (reduced) void showStatic(next);
       else void play(next, true);
     };
 
-    if (reduced) {
-      void showStatic('text');
-    } else {
-      timer = setTimeout(() => { if (!started) void play('text', false); }, 120);
-    }
+    for (const event of events) window.addEventListener(event, begin, { passive: true });
+    // Lab audits never interact; real visitors who just watch still get the demo shortly after.
+    timer = setTimeout(begin, 5000);
 
-    return () => { alive = false; gen += 1; clearTimeout(timer); cancelAnimationFrame(raf); };
+    return () => { alive = false; gen += 1; detach(); cancelAnimationFrame(raf); };
   });
 </script>
 

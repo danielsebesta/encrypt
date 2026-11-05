@@ -12,8 +12,4 @@
       root.classList.remove('theme-instant');
     });
   });
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
 })();

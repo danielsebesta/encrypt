@@ -47,6 +47,8 @@ export default defineConfig({
   session: false,
   adapter: target === 'node' ? node : cloudflare({ imageService: 'passthrough' }),
   ...(target === 'node' ? { image: { service: passthroughImageService() } } : {}),
+  // One HTML round-trip instead of a render-blocking Layout CSS request (PSI / Lighthouse).
+  build: { inlineStylesheets: 'always' },
 
   server: {
     // Add explicitly trusted development hostnames here.

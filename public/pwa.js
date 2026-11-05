@@ -1,6 +1,15 @@
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
+  // Deferred from boot.js so theme paint is not blocked by SW registration.
+  if ('serviceWorker' in navigator) {
+    var register = function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    };
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register, { once: true });
+  }
+
   var ua = navigator.userAgent || '';
   var touchMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
   var ios = /iPhone|iPad|iPod/.test(ua) || touchMac;
