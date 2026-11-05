@@ -3291,6 +3291,64 @@ html[data-app-platform] ::selection {
     min-height: 24px;
 }
 
+.app-incoming {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 1.75rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+}
+.app-incoming__avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 999px;
+    margin-bottom: 0.5rem;
+}
+.app-incoming__label {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--app-label-2);
+}
+.app-incoming__name {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.app-incoming__actions {
+    display: flex;
+    justify-content: center;
+    gap: 4rem;
+    margin-top: 1.75rem;
+}
+.app-incoming__choice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+.app-incoming__btn {
+    width: 72px;
+    height: 72px;
+    border: 0;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.12s ease;
+}
+.app-incoming__btn:active { transform: scale(0.92); }
+.app-incoming__btn--accept { background: #34c759; }
+.app-incoming__btn--decline { background: #ff3b30; }
+:root[data-app-platform="material"] .app-incoming__btn--accept { background: #2e9e4d; }
+:root[data-app-platform="material"] .app-incoming__btn--decline { background: #d93025; }
+:root[data-app-platform="material"] .app-incoming__btn { width: 64px; height: 64px; }
+
 /* Photos in chat: a rounded picture that fills the bubble, with the file row tucked underneath. */
 .app-room-wrapper .chat-preview-img-btn {
     width: 100%;

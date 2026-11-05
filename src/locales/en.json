@@ -623,6 +623,7 @@
   "chat.callIncomingAudio": "Incoming audio call",
   "chat.callIncomingVideo": "Incoming video call",
   "chat.callAccept": "Accept",
+  "chat.callIncoming": "Incoming call",
   "chat.callDecline": "Decline",
   "chat.callAudioActive": "Audio call",
   "chat.callVideoActive": "Video call",

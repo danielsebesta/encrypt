@@ -3967,6 +3967,15 @@
     }
   }
 
+  function dismissCallNotice() {
+    activeCallNotice = null;
+    callNoticeDismissed = true;
+  }
+
+  $: if (appMode && activeCallNotice && !callActive) {
+    try { navigator.vibrate?.([280, 160, 280]); } catch {}
+  }
+
   async function joinActiveCall() {
     activeCallNotice = null;
     callNoticeDismissed = false;
@@ -5318,7 +5327,31 @@
       {/if}
     {/if}
 
-    {#if activeCallNotice && !callActive}
+    {#if appMode}
+      <Sheet class="app-incoming-call" opened={Boolean(activeCallNotice && !callActive)} onBackdropClick={dismissCallNotice}>
+        {#if activeCallNotice}
+          <div class="app-incoming" role="alertdialog" aria-label={t(dict, 'chat.callIncoming')}>
+            <div class="chat-avatar app-incoming__avatar" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" aria-hidden="true"></div>
+            <p class="app-incoming__label">{t(dict, 'chat.callIncoming')}</p>
+            <p class="app-incoming__name">{activeCallNotice.name}</p>
+            <div class="app-incoming__actions">
+              <div class="app-incoming__choice">
+                <button type="button" class="app-incoming__btn app-incoming__btn--decline" on:click={dismissCallNotice} aria-label={t(dict, 'chat.callDecline')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+                </button>
+                <span>{t(dict, 'chat.callDecline')}</span>
+              </div>
+              <div class="app-incoming__choice">
+                <button type="button" class="app-incoming__btn app-incoming__btn--accept" on:click={joinActiveCall} aria-label={t(dict, 'chat.callAccept')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone']}</svg>
+                </button>
+                <span>{t(dict, 'chat.callAccept')}</span>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </Sheet>
+    {:else if activeCallNotice && !callActive}
       <div class="chat-call-banner">
         <div class="chat-call-banner__meta">
           <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" title={activeCallNotice.name} aria-label={activeCallNotice.name}></div>

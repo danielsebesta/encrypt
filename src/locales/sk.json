@@ -623,6 +623,7 @@
   "chat.callIncomingAudio": "Prichádzajúci zvukový hovor",
   "chat.callIncomingVideo": "Prichádzajúci video hovor",
   "chat.callAccept": "Prijať",
+  "chat.callIncoming": "Prichádzajúci hovor",
   "chat.callDecline": "Odmietnuť",
   "chat.callAudioActive": "Zvukový hovor",
   "chat.callVideoActive": "Video hovor",
