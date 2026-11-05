@@ -733,7 +733,24 @@
 
   const callMediaSessionActions = ['play', 'pause', 'stop', 'seekbackward', 'seekforward', 'seekto', 'previoustrack', 'nexttrack'] as const;
 
+  let callWakeLock: WakeLockSentinel | null = null;
+
+  async function holdCallWakeLock(enabled: boolean) {
+    if (!enabled) {
+      const lock = callWakeLock;
+      callWakeLock = null;
+      await lock?.release().catch(() => {});
+      return;
+    }
+    if (callWakeLock || document.visibilityState !== 'visible') return;
+    try {
+      callWakeLock = (await navigator.wakeLock?.request('screen')) ?? null;
+      callWakeLock?.addEventListener('release', () => { callWakeLock = null; });
+    } catch {}
+  }
+
   function setCallMediaSessionHandlers(enabled: boolean) {
+    void holdCallWakeLock(enabled);
     const mediaSession = typeof navigator !== 'undefined' ? (navigator as Navigator & { mediaSession?: MediaSession }).mediaSession : undefined;
     if (!mediaSession?.setActionHandler) return;
 
@@ -4273,6 +4290,7 @@
       else { try { ws?.reconnect(); } catch {} }
     }
     blurred = document.hidden || !document.hasFocus();
+    if (callActive && !document.hidden) void holdCallWakeLock(true);
     if (!blurred) {
       clearUnread();
       sendServerPing();

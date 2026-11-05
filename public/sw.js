@@ -1,27 +1,69 @@
-// Retire older caches so security updates cannot be held by cache-first scripts.
+const SHELL_CACHE = 'encrypt-shell-v1';
+const SHELL_MAX_ENTRIES = 160;
 const SHARE_INBOX = 'share-target-inbox';
 const MAX_SHARED_FILES = 100;
+const NETWORK_WAIT_MS = 4000;
 
-self.addEventListener('install', event => {
+self.addEventListener('install', () => {
   self.skipWaiting();
-  // Where the browser supports it, everything except the share POST skips the worker entirely.
-  const bypass = event.addRoutes?.({ condition: { not: { requestMethod: 'POST' } }, source: 'network' });
-  if (bypass) event.waitUntil(bypass.catch(() => {}));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.filter(key => key.startsWith('encrypt-')).map(key => caches.delete(key))
+    keys.filter(key => key.startsWith('encrypt-') && key !== SHELL_CACHE).map(key => caches.delete(key))
   )).then(() => self.clients.claim()));
 });
 
 // What the device share sheet hands over stays on the device until the share form takes it out of the inbox.
 self.addEventListener('fetch', event => {
   const { request } = event;
-  if (request.method !== 'POST') return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname !== '/share-target') return;
-  event.respondWith(receiveShare(request));
+  if (url.origin !== self.location.origin) return;
+  if (request.method === 'POST') {
+    if (url.pathname === '/share-target') event.respondWith(receiveShare(request));
+    return;
+  }
+  if (request.method !== 'GET' || request.cache === 'no-store' || request.headers.has('range')) return;
+  if (request.mode === 'navigate' && (url.pathname === '/app' || url.pathname === '/app/')) {
+    event.respondWith(appShell(request));
+  } else if (!url.search && (url.pathname.startsWith('/_astro/') || url.pathname.startsWith('/fonts/'))) {
+    event.respondWith(immutableAsset(request));
+  }
 });
+
+async function trim(cache) {
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - SHELL_MAX_ENTRIES)).map(key => cache.delete(key)));
+}
+
+async function immutableAsset(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  const response = await fetch(request);
+  if (response.ok && response.type === 'basic') {
+    await cache.put(request, response.clone());
+    await trim(cache);
+  }
+  return response;
+}
+
+async function appShell(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  const key = new URL('/app', self.location.origin).href;
+  const cached = await cache.match(key);
+  const controller = new AbortController();
+  const timer = cached ? setTimeout(() => controller.abort(), NETWORK_WAIT_MS) : 0;
+  try {
+    const response = await fetch(request, { signal: controller.signal });
+    clearTimeout(timer);
+    if (response.ok && !response.redirected && response.type === 'basic') await cache.put(key, response.clone());
+    return response;
+  } catch (error) {
+    clearTimeout(timer);
+    if (cached) return cached;
+    throw error;
+  }
+}
 
 async function receiveShare(request) {
   await caches.delete(SHARE_INBOX);
@@ -41,4 +83,4 @@ async function receiveShare(request) {
   }
   return Response.redirect(new URL('/app?tab=files', self.location.origin).href, 303);
 }
-// Every other request uses the network and HTTP cache policy. No API or secret URLs are cached.
+// Only the /app shell and hashed build assets are cached, so the app opens offline. API, upload and room traffic always uses the network.
