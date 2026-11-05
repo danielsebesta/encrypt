@@ -15,7 +15,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
-  headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  headers.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains; preload');
   headers.set('Cache-Control', 'no-store');
   let body: BodyInit | null = response.body;
   if (headers.get('Content-Type')?.includes('text/html')) {
