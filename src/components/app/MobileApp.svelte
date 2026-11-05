@@ -1148,7 +1148,7 @@
 {#snippet roomBar()}
   <Navbar
     class="{platform === 'material' ? 'app-bar ' : ''}z-40"
-    centerTitle={false}
+    centerTitle={true}
     titleClass="app-room-title"
   >
     {#snippet left()}
@@ -1182,7 +1182,7 @@
           {t(dict, roomConn === 'offline' ? 'app.offline' : 'chat.connecting')}
         </button>
       {:else}
-        <span class="flex items-center justify-center gap-1 min-w-0 text-[var(--app-label-2)] pb-0.5 leading-tight">
+        <span class="flex items-center justify-center gap-1 min-w-0 text-[var(--app-label-2)] leading-tight">
           <AppIcons name="lock" size={10} />
           <span class="truncate">{t(dict, 'app.room.encrypted')}</span>
         </span>
