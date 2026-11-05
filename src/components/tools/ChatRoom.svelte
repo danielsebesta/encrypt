@@ -2,6 +2,12 @@
   import { List, ListItem, MenuList, MenuListItem, Popover, Sheet } from 'konsta/svelte';
   import { illustration } from '../../lib/illustrations';
   import { isContent, relayedContentOk, stampPayload, validPayload } from '../../lib/chatProtocol';
+  import {
+    MEMBER_LEAVE_GRACE_MS,
+    isDuplicateMemberNotice,
+    memberEventId,
+    shouldSuppressJoin,
+  } from '../../lib/chatMemberEvents';
   import { padPayload, SIGNATURE_BYTES } from '../../lib/padding';
   import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
   import { ForwardSecrecySession, MAX_SYNC_ITEMS, PENDING, validEphemeralKey, type FsMember } from '../../lib/chatRatchet';
@@ -367,8 +373,19 @@
     reportConn();
   };
   const isIosDevice = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-  const onPageHide = () => { try { ws?.close(1000, 'pagehide'); } catch {} };
-  const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) try { ws?.reconnect(); } catch {} };
+  let socketPaused = false;
+  let disconnectedAt = 0;
+  const noteSocketGone = () => { if (!disconnectedAt) disconnectedAt = Date.now(); };
+  const onPageHide = () => {
+    socketPaused = true;
+    noteSocketGone();
+    try { ws?.close(1000, 'pagehide'); } catch {}
+  };
+  const onPageShow = (event: PageTransitionEvent) => {
+    if (!event.persisted) return;
+    socketPaused = false;
+    try { ws?.reconnect(); } catch {}
+  };
   const onViewportResize = () => { if (stickToBottom) scrollToBottom(true); };
   let cryptoKey: CryptoKey | null = null;
   let alias: Alias = typeof localStorage === 'undefined' ? newAlias() : loadAlias(roomId);
@@ -2046,6 +2063,17 @@
 
   async function announceJoined(activePeerCount?: number) {
     if (!cryptoKey || !ws || ws.readyState !== 1) return;
+    if (socketPaused || (typeof document !== 'undefined' && document.hidden && isIosDevice() && !callActive)) {
+      try { ws.close(1000, 'hidden'); } catch {}
+      return;
+    }
+
+    // After a real leave window, this tab may announce join again; soft reconnects stay quiet.
+    if (disconnectedAt && Date.now() - disconnectedAt >= MEMBER_LEAVE_GRACE_MS) {
+      joinAnnounced = false;
+      try { localStorage.removeItem('encrypt:joined:' + roomId); } catch {}
+    }
+    disconnectedAt = 0;
 
     joinedRoom = true;
     ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig }));
@@ -2240,6 +2268,7 @@
     ws.addEventListener('close', () => {
       connected = false;
       joinedRoom = false;
+      noteSocketGone();
       serverLatencyMs = null;
       serverConnectStartedAt = 0;
       updateServerQuality();
@@ -4374,8 +4403,16 @@
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     if (isIosDevice()) {
-      if (document.hidden) { if (!callActive) try { ws?.close(1000, 'hidden'); } catch {} }
-      else { try { ws?.reconnect(); } catch {} }
+      if (document.hidden) {
+        if (!callActive) {
+          socketPaused = true;
+          noteSocketGone();
+          try { ws?.close(1000, 'hidden'); } catch {}
+        }
+      } else {
+        socketPaused = false;
+        try { ws?.reconnect(); } catch {}
+      }
     }
     blurred = document.hidden || !document.hasFocus();
     if (callActive && !document.hidden) void holdCallWakeLock(true);
@@ -4477,9 +4514,9 @@
   // A person counts as present while any of their connections is, so a reconnect or a second tab never counts twice.
   // A departure waits briefly: coming straight back, as a phone does after the app was in the background, announces nothing.
   // Of the people still here, the one with the lowest key signs the notice, so it exists once and reaches everyone alike.
-  const LEAVE_GRACE_MS = 8000;
   const liveClients = new Map<string, Set<string>>();
   const leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const recentMemberNotices: { kind: string; subject: string; time: number }[] = [];
 
   function clientArrived(signer: string, clientId: unknown) {
     if (typeof clientId !== 'string' || !clientId) return;
@@ -4507,8 +4544,8 @@
       if (liveClients.get(signer)?.size) return;
       liveClients.delete(signer);
       const present = [...liveClients.keys(), mySignerId].filter(Boolean).sort();
-      if (name && present[0] === mySignerId) void sendMemberEvent('left', { name });
-    }, LEAVE_GRACE_MS));
+      if (name && present[0] === mySignerId) void sendMemberEvent('left', { name }, signer);
+    }, MEMBER_LEAVE_GRACE_MS));
   }
 
   function memberEventText(parsed: any, name: string): string {
@@ -4517,21 +4554,41 @@
     return t(dict, 'chat.joinedRoom').replace('{name}', name);
   }
 
+  function memberEventSubject(parsed: any, signer: string): string {
+    if (parsed.kind === 'left') return typeof parsed.name === 'string' ? parsed.name : '';
+    if (parsed.kind === 'renamed') return `${parsed.from}\n${parsed.to}`;
+    return signer;
+  }
+
   function applyMemberEvent(id: string, parsed: any, signer: string, name: string, signed?: string) {
     if (messages.some((m) => m.id === id)) return;
+    const subject = memberEventSubject(parsed, signer);
+    const at = parsed.createdAt || parsed._sentAt || Date.now();
+    if (subject && recentMemberNotices.some((n) => isDuplicateMemberNotice(n, parsed.kind, subject, at))) return;
+    if (subject) {
+      recentMemberNotices.push({ kind: parsed.kind, subject, time: at });
+      if (recentMemberNotices.length > 64) recentMemberNotices.splice(0, recentMemberNotices.length - 64);
+    }
     const msg: Message = {
       id, text: memberEventText(parsed, name), sender: '', initials: parsed.kind === 'left' ? '←' : '→', color: 'var(--accent)',
-      mine: false, time: parsed.createdAt || parsed._sentAt || Date.now(), ttl: 0, remaining: 0, pk: signer,
+      mine: false, time: at, ttl: 0, remaining: 0, pk: signer,
       ...(signed ? { signed } : {}),
     };
     messages = [...messages, msg].sort((x, y) => x.time - y.time);
   }
 
-  async function sendMemberEvent(kind: 'joined' | 'left' | 'renamed', extra: { name?: string; from?: string; to?: string } = {}): Promise<boolean> {
+  async function sendMemberEvent(
+    kind: 'joined' | 'left' | 'renamed',
+    extra: { name?: string; from?: string; to?: string } = {},
+    subject = '',
+  ): Promise<boolean> {
     if (!verified || !cryptoKey || (roomConfig.mode === 'live' && !fsSession)) return false;
     const ttl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
-    const id = genId();
     const createdAt = Date.now();
+    const dedupeSubject = subject
+      || (kind === 'left' ? String(extra.name || '') : kind === 'renamed' ? `${extra.from}\n${extra.to}` : mySignerId);
+    const id = dedupeSubject ? await memberEventId(roomId, kind, dedupeSubject, createdAt) : genId();
+    if (seenMessageIds.has(id) || messages.some((m) => m.id === id)) return true;
     const payload: ChatPayload = { type: 'member-event', id, kind, ...extra, alias: aliasWire(alias), nick: nickname || undefined, ttl, createdAt };
     try {
       const { signed } = await sendContent(payload, createdAt);
@@ -4555,9 +4612,9 @@
   async function announceJoin() {
     const key = 'encrypt:joined:' + roomId;
     try {
-      if (Date.now() - Number(localStorage.getItem(key) || 0) < 5 * 60_000) return;
+      if (shouldSuppressJoin(Number(localStorage.getItem(key) || 0))) return;
     } catch {}
-    if (await sendMemberEvent('joined')) {
+    if (await sendMemberEvent('joined', {}, mySignerId)) {
       try { localStorage.setItem(key, String(Date.now())); } catch {}
     } else {
       setTimeout(() => { joinAnnounced = false; }, 3000);
