@@ -3290,6 +3290,10 @@ html[data-app-platform] ::selection {
     border-radius: 16px;
     object-fit: cover;
 }
+.app-room-wrapper .chat-preview-skeleton {
+    margin: 2px 0 0;
+    border-radius: 16px;
+}
 .app-room-wrapper .chat-file {
     padding: 6px 8px;
     font-size: 12px;

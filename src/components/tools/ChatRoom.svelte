@@ -106,7 +106,8 @@
     remaining: number;
     file?: ChatFile;
     fileError?: boolean;
-    preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean };
+    preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean; width?: number; height?: number };
+    previewState?: 'loading' | 'ready' | 'failed';
     revealed?: boolean;
     once?: boolean;
     whiteboard?: WhiteboardInvite;
@@ -2395,7 +2396,7 @@
       const priorName = before?.name ?? members.get(signer)?.name;
       if (!fromHistory) onlineUsers = [...onlineUsers.filter((u) => u.key !== prev && u.key !== who.key), who];
       noteMember(signer, who);
-      if (!fromHistory) messages = messages.map((m) => (m.pk === signer && !m.mine ? { ...m, sender: who.name, initials: who.initials, color: who.color, alias: who.alias, nick: who.nick } : m));
+      if (!fromHistory) messages = messages.map((m) => (m.pk === signer && !m.mine && m.sender ? { ...m, sender: who.name, initials: who.initials, color: who.color, alias: who.alias, nick: who.nick } : m));
       return true;
     }
 
@@ -2494,6 +2495,7 @@
       ...(validMessageRef(parsed.replyTo) ? { replyTo: parsed.replyTo } : {}),
     };
     seenMessageIds.add(id);
+    if (msg.file && msg.revealed && isPreviewable(msg)) msg.previewState = 'loading';
     messages = [...messages, msg];
     typing = null;
     if (!fromHistory) followIncoming(mine);
@@ -2687,7 +2689,9 @@
   async function revealOnce(msg: Message) {
     if (!msg.once || msg.mine || msg.revealed) return;
     msg.revealed = true;
+    if (isPreviewable(msg)) msg.previewState = 'loading';
     messages = messages;
+    if (isPreviewable(msg)) void autoPreview(msg);
     await sendMessageBurn(msg.id);
     clearOnceTimer(msg.id);
     onceClearTimers.set(msg.id, setTimeout(() => {
@@ -3058,14 +3062,15 @@
         file: { name: file.name, size: file.size, urls: uploadUrls, key: fileKey, ...voiceMeta },
         once, revealed: true, pk: mySignerId, signed,
       };
+      if (isPreviewable(ownMsg)) ownMsg.previewState = 'loading';
       if (queueId) {
         messages = messages.map((m) => (m.id === queueId ? ownMsg : m));
-        autoPreview(ownMsg);
+        void autoPreview(ownMsg, file);
       } else {
         messages = [...messages, ownMsg];
         onceEnabled = false;
         scrollToBottom(true);
-        autoPreview(ownMsg);
+        void autoPreview(ownMsg, file);
       }
     } finally {
       uploading = false;
@@ -4344,34 +4349,84 @@
     return name.split('.').pop()?.toLowerCase() ?? '';
   }
 
-  async function autoPreview(msg: Message) {
-    if (!msg.file) return;
-    const ext = getFileExt(msg.file.name);
+  const IMAGE_MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', ico: 'image/x-icon' };
+  const PREVIEW_CONCURRENCY = 3;
+  let previewActive = 0;
+  const previewWaiting: Array<() => void> = [];
 
-    if (!IMAGE_EXTS.has(ext) && !TEXT_EXTS.has(ext)) return;
+  function isPreviewable(msg: Message): boolean {
+    if (!msg.file || msg.file.voice) return false;
+    const ext = getFileExt(msg.file.name);
+    return IMAGE_EXTS.has(ext) || TEXT_EXTS.has(ext);
+  }
+
+  async function withPreviewSlot<T>(run: () => Promise<T>): Promise<T> {
+    if (previewActive >= PREVIEW_CONCURRENCY) await new Promise<void>((resolve) => previewWaiting.push(resolve));
+    previewActive++;
+    try {
+      return await run();
+    } finally {
+      previewActive--;
+      previewWaiting.shift()?.();
+    }
+  }
+
+  async function decodeImage(url: string): Promise<{ width: number; height: number }> {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return { width: img.naturalWidth, height: img.naturalHeight };
+  }
+
+  // A preview is shown only once it is fetched, decrypted and decoded, so it appears whole instead of growing into place.
+  // `local` is the file itself for messages this device just sent, which skips the round trip through the relay.
+  async function autoPreview(msg: Message, local?: Blob) {
+    if (!msg.file || !isPreviewable(msg)) return;
+    const ext = getFileExt(msg.file.name);
+    const isImage = IMAGE_EXTS.has(ext);
+    msg.previewState = 'loading';
+
+    const finish = async (data: BlobPart | null) => {
+      if (data === null) {
+        msg.previewState = 'failed';
+      } else if (isImage) {
+        const url = URL.createObjectURL(new Blob([data], { type: IMAGE_MIME[ext] || 'image/png' }));
+        try {
+          const size = await decodeImage(url);
+          msg.preview = { type: 'image', url, ...size };
+          msg.previewState = 'ready';
+        } catch {
+          URL.revokeObjectURL(url);
+          msg.previewState = 'failed';
+        }
+      } else {
+        msg.preview = { type: 'text', text: new TextDecoder().decode(data as ArrayBuffer), expanded: false };
+        msg.previewState = 'ready';
+      }
+      const pinned = stickToBottom;
+      messages = messages;
+      if (pinned) scrollToBottom();
+    };
+
+    if (local) {
+      await finish(await local.arrayBuffer());
+      return;
+    }
 
     const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
-
-    for (const fileUrl of msg.file.urls) {
-      try {
-        const res = await ghostFetch(fileUrl);
-        if (!res.ok) continue;
-        let bytes = new Uint8Array(await res.arrayBuffer());
-        if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
-        const { data } = await decryptData(bytes, msg.file.key);
-
-        if (IMAGE_EXTS.has(ext)) {
-          const mimeMap: Record<string, string> = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', bmp:'image/bmp', ico:'image/x-icon' };
-          const blob = new Blob([data], { type: mimeMap[ext] || 'image/png' });
-          msg.preview = { type: 'image', url: URL.createObjectURL(blob) };
-        } else {
-          const text = new TextDecoder().decode(data);
-          msg.preview = { type: 'text', text, expanded: false };
-        }
-        messages = messages;
-        return;
-      } catch { continue; }
-    }
+    const data = await withPreviewSlot(async () => {
+      for (const fileUrl of msg.file!.urls) {
+        try {
+          const res = await ghostFetch(fileUrl);
+          if (!res.ok) continue;
+          let bytes = new Uint8Array(await res.arrayBuffer());
+          if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
+          return (await decryptData(bytes, msg.file!.key)).data;
+        } catch { continue; }
+      }
+      return null;
+    });
+    await finish(data);
   }
 
   // A person counts as present while any of their connections is, so a reconnect or a second tab never counts twice.
@@ -5390,6 +5445,8 @@
               {#if msg.file?.voice && !msg.pending}
                 {@const gone = fileGone(msg)}
                 <ChatVoiceMessage {dict} {appMode} seed={msg.id} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
+              {:else if msg.file && msg.previewState === 'loading'}
+                <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -5434,10 +5491,10 @@
                 {#if msg.preview.type === 'image' && msg.preview.url}
                   {#if appMode}
                     <button type="button" class="chat-preview-img-btn" on:click={() => openLightbox(msg.preview!.url!)} aria-label={t(dict, 'app.lightbox.image')}>
-                      <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
+                      <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" decoding="async" style={msg.preview.width && msg.preview.height ? `aspect-ratio: ${msg.preview.width} / ${msg.preview.height}` : undefined} />
                     </button>
                   {:else}
-                    <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
+                    <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" decoding="async" style={msg.preview.width && msg.preview.height ? `aspect-ratio: ${msg.preview.width} / ${msg.preview.height}` : undefined} />
                   {/if}
                 {:else if msg.preview.type === 'text' && msg.preview.text}
                   <div class="chat-preview-text">
@@ -5538,6 +5595,8 @@
               {#if msg.file?.voice && !msg.pending}
                 {@const gone = fileGone(msg)}
                 <ChatVoiceMessage {dict} {appMode} seed={msg.id} seconds={msg.file.duration ?? 0} {gone} note={gone ? t(dict, 'chat.fileExpired') : fileTimeLeft(msg)} load={() => loadVoice(msg)} />
+              {:else if msg.file && msg.previewState === 'loading'}
+                <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -5580,7 +5639,7 @@
               {/if}
               {#if msg.preview}
                 {#if msg.preview.type === 'image' && msg.preview.url}
-                  <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" />
+                  <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" decoding="async" style={msg.preview.width && msg.preview.height ? `aspect-ratio: ${msg.preview.width} / ${msg.preview.height}` : undefined} />
                 {:else if msg.preview.type === 'text' && msg.preview.text}
                   <div class="chat-preview-text">
                     <pre class="chat-preview-code">{msg.preview.expanded ? msg.preview.text : msg.preview.text.slice(0, PREVIEW_TEXT_LIMIT)}{!msg.preview.expanded && msg.preview.text.length > PREVIEW_TEXT_LIMIT ? '…' : ''}</pre>
@@ -6313,6 +6372,14 @@
   .chat-upload-progress :global(.status) {
     margin: 0;
   }
+  .chat-preview-skeleton {
+    width: 100%; max-width: min(300px, 70vw); aspect-ratio: 4 / 3; margin-top: 0.25rem;
+    border-radius: 0.5rem; background: color-mix(in srgb, var(--text) 8%, transparent);
+    animation: chat-preview-pulse 1.2s ease-in-out infinite;
+  }
+  .chat-preview-skeleton--text { aspect-ratio: 16 / 5; }
+  @keyframes chat-preview-pulse { 50% { opacity: 0.55; } }
+  @media (prefers-reduced-motion: reduce) { .chat-preview-skeleton { animation: none; } }
   .chat-preview-img {
     max-width: 100%; max-height: 240px;
     border-radius: 0.5rem; margin-top: 0.25rem;
