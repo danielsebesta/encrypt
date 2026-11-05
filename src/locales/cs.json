@@ -1271,6 +1271,7 @@
   "app.settings.lockHint": "Zapnutí vytvoří na tomto zařízení klíč (passkey). Odemykáš jím aplikaci i uložené místnosti.",
   "app.lock.title": "Zamčeno",
   "app.lock.unlock": "Odemknout",
+  "app.lock.retry": "Zkusit znovu",
   "app.lock.hint": "Potvrď, že jsi to ty, a otevři encrypt.click.",
   "app.lock.failed": "Odemknutí se nepovedlo. Zkus to znovu.",
   "app.lock.unsupported": "Toto zařízení nemá zámek obrazovky, který by šel použít.",

@@ -1271,6 +1271,7 @@
   "app.settings.lockHint": "Turning it on creates a passkey on this device. It opens the app and your saved rooms.",
   "app.lock.title": "Locked",
   "app.lock.unlock": "Unlock",
+  "app.lock.retry": "Try again",
   "app.lock.hint": "Confirm it is you to open encrypt.click.",
   "app.lock.failed": "Could not unlock. Try again.",
   "app.lock.unsupported": "This device has no screen lock to use.",

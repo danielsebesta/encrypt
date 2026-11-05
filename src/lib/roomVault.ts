@@ -190,10 +190,23 @@ export function relativeTime(then: number, now: number): { value: number; unit: 
 }
 
 let sessionKey: CryptoKey | null = null;
+/** Cached so a lock-screen tap can call credentials.get() without an IndexedDB await that drops the user gesture. */
+let cachedRef: PasskeyRef | null = null;
 
 /** In-memory vault key after unlock; null when locked. Used by share password vault. */
 export function vaultSessionKey(): CryptoKey | null {
   return sessionKey;
+}
+
+/** Drops the in-memory vault key so the next unlock asks the passkey again. */
+export function lockVaultSession(): void {
+  sessionKey = null;
+}
+
+/** Prefetch the passkey id/salt before the unlock tap (keeps WebAuthn inside the user gesture). */
+export async function warmPasskeyRef(): Promise<PasskeyRef | null> {
+  cachedRef = await readRef().catch(() => null);
+  return cachedRef;
 }
 
 function webauthnAvailable(): boolean {
@@ -325,6 +338,7 @@ export async function forgetRoom(entry: RoomEntry): Promise<void> {
 /** Removes every entry and the passkey reference. The passkey itself can only be deleted where the device keeps it. */
 export async function forgetEverything(): Promise<void> {
   sessionKey = null;
+  cachedRef = null;
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(DB_NAME);
     request.onsuccess = () => resolve();
@@ -389,16 +403,22 @@ export async function createPasskey(userName: string, onCreated?: (rawId: ArrayB
     await withStore(META, 'readwrite', (s) => s.put(true, NAMES_ONLY));
     return 'no-prf';
   }
-  await withStore(META, 'readwrite', (s) => s.put({ credentialId: new Uint8Array(credential.rawId), salt, createdAt: Date.now() }, PASSKEY));
+  const ref: PasskeyRef = { credentialId: new Uint8Array(credential.rawId), salt, createdAt: Date.now() };
+  await withStore(META, 'readwrite', (s) => s.put(ref, PASSKEY));
+  cachedRef = ref;
   if (first) sessionKey = await keyFromPrf(first);
   return 'ok';
 }
 
+export type UnlockVaultOptions = { signal?: AbortSignal; force?: boolean };
+
 /** Asks the passkey for its PRF output and keeps the derived key in memory for this page only. */
-export async function unlockVault(): Promise<boolean> {
-  if (sessionKey) return true;
-  const ref = await readRef().catch(() => null);
+export async function unlockVault(options: UnlockVaultOptions = {}): Promise<boolean> {
+  if (sessionKey && !options.force) return true;
+  if (options.force) sessionKey = null;
+  const ref = cachedRef ?? await readRef().catch(() => null);
   if (!ref || !webauthnAvailable()) return false;
+  cachedRef = ref;
   try {
     const assertion = await navigator.credentials.get({
       publicKey: {
@@ -409,6 +429,7 @@ export async function unlockVault(): Promise<boolean> {
         timeout: 120_000,
         extensions: { prf: { eval: { first: ref.salt as BufferSource } } },
       },
+      signal: options.signal,
     }) as PublicKeyCredential | null;
     const first = prfBytes(assertion?.getClientExtensionResults().prf);
     if (!first) return false;

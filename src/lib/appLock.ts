@@ -1,4 +1,4 @@
-import { createPasskey, lastPasskeyError, unlockVault, vaultState, type VaultState } from './roomVault';
+import { createPasskey, lastPasskeyError, lockVaultSession, unlockVault, vaultState, type VaultState } from './roomVault';
 
 const STORAGE_KEY = 'encrypt-app-lock';
 const VAULT_MARK = 'vault';
@@ -98,10 +98,18 @@ export async function enableLock(displayName: string, known: VaultState | null =
   }
 }
 
-export async function unlock(): Promise<boolean> {
+export type UnlockOptions = { signal?: AbortSignal };
+
+/**
+ * Asks for the passkey. Call only from a user gesture: IndexedDB / vaultState must not run first or iOS
+ * drops transient activation and credentials.get() fails with NotAllowedError.
+ */
+export async function unlock(options: UnlockOptions = {}): Promise<boolean> {
   const id = storedLock();
   if (!id) return true;
   if (id === VAULT_MARK) {
+    const ok = await unlockVault({ signal: options.signal, force: true });
+    if (ok) return true;
     try {
       const state = await vaultState();
       if (state === 'new' || state === 'names') {
@@ -109,7 +117,7 @@ export async function unlock(): Promise<boolean> {
         return true;
       }
     } catch {}
-    return unlockVault();
+    return false;
   }
   try {
     const assertion = await navigator.credentials.get({
@@ -120,6 +128,7 @@ export async function unlock(): Promise<boolean> {
         userVerification: 'required',
         timeout: 60_000,
       },
+      signal: options.signal,
     });
     return Boolean(assertion);
   } catch {
@@ -128,8 +137,8 @@ export async function unlock(): Promise<boolean> {
 }
 
 /** Always asks the device again, even when the vault key is already in memory. Used before the lock is turned off. */
-export async function confirmPresence(): Promise<boolean> {
-  if (storedLock() !== VAULT_MARK) return unlock();
+export async function confirmPresence(options: UnlockOptions = {}): Promise<boolean> {
+  if (storedLock() !== VAULT_MARK) return unlock(options);
   try {
     const assertion = await navigator.credentials.get({
       publicKey: {
@@ -138,11 +147,17 @@ export async function confirmPresence(): Promise<boolean> {
         userVerification: 'required',
         timeout: 60_000,
       },
+      signal: options.signal,
     });
     return Boolean(assertion);
   } catch {
     return false;
   }
+}
+
+/** Clear the in-memory vault key when the lock screen is shown so Unlock always re-prompts. */
+export function prepareLockScreen(): void {
+  if (storedLock() === VAULT_MARK) lockVaultSession();
 }
 
 export function clearLock() {

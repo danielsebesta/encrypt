@@ -1271,6 +1271,7 @@
   "app.settings.lockHint": "L'activation crée une passkey sur cet appareil. Elle déverrouille l'app et tes salons enregistrés.",
   "app.lock.title": "Verrouillé",
   "app.lock.unlock": "Déverrouiller",
+  "app.lock.retry": "Réessayer",
   "app.lock.hint": "Confirme que c’est toi pour ouvrir encrypt.click.",
   "app.lock.failed": "Déverrouillage impossible. Réessaie.",
   "app.lock.unsupported": "Cet appareil n'a pas de verrouillage d'écran utilisable.",

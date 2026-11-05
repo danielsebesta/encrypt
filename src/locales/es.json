@@ -1271,6 +1271,7 @@
   "app.settings.lockHint": "Al activarlo se crea una passkey en este dispositivo. Desbloquea la app y tus salas guardadas.",
   "app.lock.title": "Bloqueado",
   "app.lock.unlock": "Desbloquear",
+  "app.lock.retry": "Intentar de nuevo",
   "app.lock.hint": "Confirma que eres tú para abrir encrypt.click.",
   "app.lock.failed": "No se pudo desbloquear. Inténtalo de nuevo.",
   "app.lock.unsupported": "Este dispositivo no tiene un bloqueo de pantalla utilizable.",

@@ -52,6 +52,7 @@
     importVaultRows,
     vaultState,
     unlockVault,
+    warmPasskeyRef,
     revealSecret,
     type VaultState,
     type RoomEntry,
@@ -65,7 +66,7 @@
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
   import { haptic } from '../../lib/haptics';
-  import { clearLock, enableLock, lockSupported, confirmPresence, shouldLock, storedLock, unlock } from '../../lib/appLock';
+  import { clearLock, enableLock, lockSupported, confirmPresence, prepareLockScreen, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import { CURRENT_VERSION, isDevBuild, fetchLatestVersion, describeVersion, type AppVersion } from '../../lib/appVersion';
   import {
@@ -731,19 +732,37 @@
   let lockBusy = $state(false);
   let lockToggleKey = $state(0);
   let lockError = $state('');
+  let unlockAbort: AbortController | null = null;
 
-  async function tryUnlock(silent = false) {
-    if (lockBusy) return;
+  /** Show the lock overlay and warm the passkey ref; never auto-prompt (needs a tap for WebAuthn). */
+  function engageLock() {
+    prepareLockScreen();
+    locked = true;
+    lockError = '';
+    void warmPasskeyRef();
+  }
+
+  async function tryUnlock() {
+    unlockAbort?.abort();
+    const ac = new AbortController();
+    unlockAbort = ac;
     lockBusy = true;
     lockError = '';
-    const ok = await unlock();
-    lockBusy = false;
-    if (ok) {
-      locked = false;
-      triggerHaptic('success');
-    } else if (!silent) {
-      lockError = t(dict, 'app.lock.failed');
-      triggerHaptic('warning');
+    try {
+      const ok = await unlock({ signal: ac.signal });
+      if (ac.signal.aborted) return;
+      if (ok) {
+        locked = false;
+        triggerHaptic('success');
+      } else {
+        lockError = t(dict, 'app.lock.failed');
+        triggerHaptic('warning');
+      }
+    } finally {
+      if (unlockAbort === ac) {
+        lockBusy = false;
+        unlockAbort = null;
+      }
     }
   }
 
@@ -784,9 +803,13 @@
   }
 
   function wipeLocalSecrets() {
+    unlockAbort?.abort();
+    unlockAbort = null;
     clearLock();
     lockEnabled = false;
     locked = false;
+    lockBusy = false;
+    lockError = '';
     try {
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const key = localStorage.key(i);
@@ -883,10 +906,7 @@
     ready = true;
 
     lockEnabled = storedLock() !== null;
-    if (lockEnabled) {
-      locked = true;
-      void tryUnlock(true);
-    }
+    if (lockEnabled) engageLock();
     void lockSupported().then((ok) => { lockAvailable = ok; });
     void vaultState().then((v) => { vaultKnown = v; }).catch(() => {});
 
@@ -916,8 +936,7 @@
       loadRooms();
       void checkForUpdate();
       if (lockEnabled && !locked && shouldLock(hiddenAt, Date.now())) {
-        locked = true;
-        void tryUnlock(true);
+        engageLock();
       }
       hiddenAt = 0;
     };
@@ -1912,7 +1931,17 @@
       <h1 class="text-xl font-semibold">{t(dict, 'app.lock.title')}</h1>
       <p class="text-sm opacity-70 max-w-xs">{t(dict, 'app.lock.hint')}</p>
       {#if lockError}<p class="text-sm text-[var(--app-danger,#e5484d)]" role="alert">{lockError}</p>{/if}
-      <Button class="max-w-xs" disabled={lockBusy} onClick={() => tryUnlock()}>{t(dict, 'app.lock.unlock')}</Button>
+      <Button
+        large
+        rounded
+        class="max-w-xs w-full"
+        onClick={() => {
+          triggerHaptic('medium');
+          void tryUnlock();
+        }}
+      >
+        {lockError ? t(dict, 'app.lock.retry') : t(dict, 'app.lock.unlock')}
+      </Button>
     </div>
   {/if}
 </App>

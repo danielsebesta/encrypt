@@ -1271,6 +1271,7 @@
   "app.settings.lockHint": "Beim Aktivieren wird auf diesem Gerät ein Passkey erstellt. Er entsperrt die App und deine gespeicherten Räume.",
   "app.lock.title": "Gesperrt",
   "app.lock.unlock": "Entsperren",
+  "app.lock.retry": "Erneut versuchen",
   "app.lock.hint": "Bestätige, dass du es bist, um encrypt.click zu öffnen.",
   "app.lock.failed": "Entsperren fehlgeschlagen. Versuch es erneut.",
   "app.lock.unsupported": "Dieses Gerät hat keine nutzbare Bildschirmsperre.",

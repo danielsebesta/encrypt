@@ -1271,6 +1271,7 @@
   "app.settings.lockHint": "Włączenie tworzy na tym urządzeniu klucz dostępu (passkey). Odblokowuje on aplikację i zapisane pokoje.",
   "app.lock.title": "Zablokowano",
   "app.lock.unlock": "Odblokuj",
+  "app.lock.retry": "Spróbuj ponownie",
   "app.lock.hint": "Potwierdź, że to ty, aby otworzyć encrypt.click.",
   "app.lock.failed": "Nie udało się odblokować. Spróbuj ponownie.",
   "app.lock.unsupported": "To urządzenie nie ma blokady ekranu, której można użyć.",
