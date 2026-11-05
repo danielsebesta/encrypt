@@ -201,6 +201,7 @@
   <button
     type="button"
     class="chat-send-btn"
+    class:chat-send-btn--ready={Boolean(inputText.trim()) || uploading}
     aria-label={t(dict, 'chat.send')}
     on:mousedown|preventDefault
     on:pointerdown={() => { keepFocus = document.activeElement === inputEl; }}
@@ -214,7 +215,7 @@
     }}
     disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}
   >
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['send']}</svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['send']}</svg>
   </button>
   {/if}
 {/snippet}
@@ -369,10 +370,19 @@
   :global(.dark) .chat-attach-option {
     color: var(--text);
   }
+  /* Desktop site only — /app paints a filled primary circle in app.css */
   .chat-send-btn {
-    padding: 0.4rem; border-radius: 0.5rem;
-    color: var(--accent); transition: background 0.15s;
+    padding: 0.4rem;
+    border-radius: 0.5rem;
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
   }
-  .chat-send-btn:hover:not(:disabled) { background: oklch(0.7019 0.1577 160.44 / 0.1); }
-  .chat-send-btn:disabled { opacity: 0.3; }
+  :global(:root:not([data-app-platform])) .chat-send-btn {
+    color: var(--accent);
+  }
+  :global(:root:not([data-app-platform])) .chat-send-btn:hover:not(:disabled) {
+    background: oklch(0.7019 0.1577 160.44 / 0.1);
+  }
+  :global(:root:not([data-app-platform])) .chat-send-btn:disabled {
+    opacity: 0.3;
+  }
 </style>

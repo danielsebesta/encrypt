@@ -2392,16 +2392,24 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .chat-input .chat-send-btn {
     width: 38px;
     height: 38px;
+    min-width: 38px;
+    min-height: 38px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     border-radius: 999px;
+    background: var(--app-fill);
+    color: var(--app-label-3);
+    opacity: 1;
+    box-shadow: none;
+    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+:root[data-app-platform="ios"] .chat-input .chat-send-btn.chat-send-btn--ready:not(:disabled) {
     background: var(--app-tint);
     color: var(--app-on-tint);
-    opacity: 1;
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease, color 0.2s ease;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--app-tint) 40%, transparent);
 }
 :root[data-app-platform="ios"] .chat-input .chat-send-btn:active:not(:disabled) { transform: scale(0.9); }
 :root[data-app-platform="ios"] .chat-input .chat-send-btn:focus-visible {
@@ -2411,10 +2419,12 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .chat-input .chat-send-btn:disabled {
     background: var(--app-fill);
     color: var(--app-label-3);
+    opacity: 1;
+    box-shadow: none;
     cursor: default;
 }
 @media (hover: hover) {
-    :root[data-app-platform="ios"] .chat-input .chat-send-btn:hover:not(:disabled) {
+    :root[data-app-platform="ios"] .chat-input .chat-send-btn.chat-send-btn--ready:hover:not(:disabled) {
         background: var(--app-tint-strong);
     }
 }
@@ -2587,25 +2597,42 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="material"] .chat-attach-option--on svg,
 :root[data-app-platform="material"] .chat-attach-option:hover svg { color: var(--app-tint); }
 
-:root[data-app-platform="material"] .chat-send-btn {
-    width: 40px;
-    height: 40px;
+:root[data-app-platform="material"] .chat-input .chat-send-btn {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     border-radius: 999px;
+    background: var(--app-surface-3);
+    color: var(--app-label-3);
+    opacity: 1;
+    box-shadow: none;
+    transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+:root[data-app-platform="material"] .chat-input .chat-send-btn.chat-send-btn--ready:not(:disabled) {
     background: var(--app-tint);
     color: var(--app-on-tint);
-    transition: transform 0.1s, opacity 0.15s;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--app-tint) 35%, transparent);
 }
 :root[data-app-platform="material"] .chat-input .chat-send-btn:active:not(:disabled) { transform: scale(0.92); }
+:root[data-app-platform="material"] .chat-input .chat-send-btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
 :root[data-app-platform="material"] .chat-input .chat-send-btn:disabled {
-    background: var(--app-fill);
+    background: var(--app-surface-3);
     color: var(--app-label-3);
+    opacity: 1;
+    box-shadow: none;
+    cursor: default;
 }
 @media (hover: hover) {
-    :root[data-app-platform="material"] .chat-input .chat-send-btn:hover:not(:disabled) {
+    :root[data-app-platform="material"] .chat-input .chat-send-btn.chat-send-btn--ready:hover:not(:disabled) {
         background: color-mix(in srgb, var(--app-on-tint) 10%, var(--app-tint));
     }
 }
