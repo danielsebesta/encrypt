@@ -1248,7 +1248,7 @@
   "app.settings.language": "Langue",
   "app.settings.haptics": "Retour haptique",
   "app.settings.lock": "Verrouillage de l'app",
-  "app.settings.lockHint": "Demander Face ID, l'empreinte ou le code de l'appareil à l'ouverture de l'app",
+  "app.settings.lockHint": "L'activation crée une passkey sur cet appareil. Elle déverrouille l'app et tes salons enregistrés.",
   "app.lock.title": "Verrouillé",
   "app.lock.unlock": "Déverrouiller",
   "app.lock.hint": "Confirme que c’est toi pour ouvrir encrypt.click.",

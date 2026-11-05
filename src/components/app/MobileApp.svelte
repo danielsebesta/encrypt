@@ -51,6 +51,8 @@
     decodeVaultBackup,
     importVaultRows,
     vaultState,
+    unlockVault,
+    revealSecret,
     type VaultState,
     type RoomEntry,
   } from '../../lib/roomVault';
@@ -278,6 +280,27 @@
     roomEnteredViaPush = true;
     pushViewState({ view: activeView, roomId: id, kind, label }, `?room=${encodeURIComponent(id)}&kind=${kind}`);
     if (bump) void touchRoom(kind, id).then(loadRooms).catch(() => {});
+  }
+
+  // A saved room opens with its passkey-sealed password and stored mode, so one that expired on the server is made again instead of showing a dead end.
+  async function openSavedRoom(room: RoomEntry) {
+    if (room.secret && (await unlockVault())) {
+      const secret = await revealSecret(room);
+      if (secret) {
+        try {
+          if (room.kind === 'whiteboard') {
+            sessionStorage.setItem('whiteboard-password', secret.value);
+            sessionStorage.setItem(`wb-pw:${room.roomId}`, secret.value);
+          } else {
+            sessionStorage.setItem('chat-password', secret.value);
+            sessionStorage.setItem('chat-share-password', secret.value);
+            sessionStorage.setItem(`chat-pw:${room.roomId}`, secret.value);
+            sessionStorage.setItem('chat-room-config', JSON.stringify({ mode: room.mode, authMode: 'password', createdAt: Date.now(), v: 3 }));
+          }
+        } catch {}
+      }
+    }
+    enterRoom(room.roomId, room.kind, room.label);
   }
 
   function openBoardInvite(roomId: string, password: string) {
@@ -1028,7 +1051,7 @@
         lpFired = false;
         return;
       }
-      enterRoom(room.roomId, room.kind, room.label);
+      void openSavedRoom(room);
     }}
     onpointerdown={(e: PointerEvent) => {
       lpX = e.clientX;
@@ -1093,7 +1116,8 @@
 {#snippet roomBar()}
   <Navbar
     class="{platform === 'material' ? 'app-bar ' : ''}z-40"
-    centerTitle
+    centerTitle={false}
+    titleClass="app-room-title"
   >
     {#snippet left()}
       <NavbarBackLink component="button" type="button" text={backLabel} showText={false} iconOnly onClick={leaveRoom} aria-label={`${t(dict, 'common.back')}: ${backLabel}`} />
@@ -1102,14 +1126,14 @@
       {#if activeView === 'room'}
         <button
           type="button"
-          class="app-nav-title block truncate max-w-[32vw] sm:max-w-[58vw] mx-auto text-center"
+          class="app-nav-title block truncate w-full text-center"
           onclick={() => roomInfo?.()}
           aria-label={t(dict, 'chat.members')}
         >
           {activeRoomLabel || activeRoomId}
         </button>
       {:else}
-        <span class="block truncate max-w-[45vw] sm:max-w-[58vw] mx-auto text-center">{activeRoomLabel || activeRoomId}</span>
+        <span class="block truncate w-full text-center">{activeRoomLabel || activeRoomId}</span>
       {/if}
     {/snippet}
     {#snippet subtitle()}
@@ -1126,9 +1150,9 @@
           {t(dict, roomConn === 'offline' ? 'app.offline' : 'chat.connecting')}
         </button>
       {:else}
-        <span class="inline-flex items-center justify-center gap-1 text-[var(--app-label-2)] truncate max-w-[32vw] pb-0.5 leading-tight">
+        <span class="flex items-center justify-center gap-1 min-w-0 text-[var(--app-label-2)] pb-0.5 leading-tight">
           <AppIcons name="lock" size={10} />
-          {t(dict, 'app.room.encrypted')}
+          <span class="truncate">{t(dict, 'app.room.encrypted')}</span>
         </span>
       {/if}
     {/snippet}

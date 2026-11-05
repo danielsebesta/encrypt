@@ -1248,7 +1248,7 @@
   "app.settings.language": "Jazyk",
   "app.settings.haptics": "Haptická odozva",
   "app.settings.lock": "Zámok aplikácie",
-  "app.settings.lockHint": "Pri otvorení aplikácie vyžiadať Face ID, odtlačok prsta alebo PIN zariadenia",
+  "app.settings.lockHint": "Zapnutie vytvorí na tomto zariadení kľúč (passkey). Odomykáš ním aplikáciu aj uložené miestnosti.",
   "app.lock.title": "Zamknuté",
   "app.lock.unlock": "Odomknúť",
   "app.lock.hint": "Potvrď, že si to ty, a otvor encrypt.click.",

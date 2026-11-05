@@ -1248,7 +1248,7 @@
   "app.settings.language": "Język",
   "app.settings.haptics": "Haptyka",
   "app.settings.lock": "Blokada aplikacji",
-  "app.settings.lockHint": "Przy otwarciu aplikacji wymagaj Face ID, odcisku palca lub kodu urządzenia",
+  "app.settings.lockHint": "Włączenie tworzy na tym urządzeniu klucz dostępu (passkey). Odblokowuje on aplikację i zapisane pokoje.",
   "app.lock.title": "Zablokowano",
   "app.lock.unlock": "Odblokuj",
   "app.lock.hint": "Potwierdź, że to ty, aby otworzyć encrypt.click.",
