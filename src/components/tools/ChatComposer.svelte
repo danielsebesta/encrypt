@@ -281,11 +281,9 @@
       bind:value={inputText}
       bind:this={inputEl}
       on:input={ontyping}
-      on:pointerdown={unlockCompose}
       on:keydown={(e) => { if (e.key === 'Enter') onsend(); else if (e.key === 'Escape' && hasReply) onclearreply(); }}
-      on:focus={() => { unlockCompose(); closeMenus(); }}
+      on:focus={closeMenus}
       disabled={(!connected && !allowQueue) || uploading}
-      readonly={composeLocked}
       autocomplete="off"
       autocorrect="off"
       autocapitalize="sentences"
