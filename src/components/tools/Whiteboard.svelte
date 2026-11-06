@@ -341,11 +341,26 @@
   }
 
   let persistingLocal = false;
+  let persistAgain = false;
 
   function scheduleLocalPersist() {
-    if (persistingLocal || !localKey || !channelId || !ydoc) return;
+    if (!localKey || !channelId || !ydoc) return;
+    if (persistingLocal) {
+      persistAgain = true;
+      return;
+    }
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = setTimeout(() => { void persistLocalBoard(); }, LOCAL_PERSIST_MS);
+  }
+
+  /** Snapshot bytes for IDB. Never deletes an existing snapshot — empty boards just skip the write (explicit clear calls clearLocalBoard). */
+  function captureLocalUpdate(): Uint8Array | null {
+    if (!localKey || !channelId || !ydoc) return null;
+    flushToDoc(true);
+    if (!boardHasContent()) return null;
+    const update = Y.encodeStateAsUpdate(ydoc);
+    if (!update.length || update.length > BOARD_BACKUP_MAX_BYTES) return null;
+    return update;
   }
 
   async function persistLocalBoard() {
@@ -354,26 +369,35 @@
     const epoch = ++persistEpoch;
     const key = localKey;
     const channel = channelId;
-    const doc = ydoc;
+    const update = captureLocalUpdate();
+    if (!update) return;
     persistingLocal = true;
+    persistAgain = false;
     try {
-      flushToDoc(true);
-      if (!boardHasContent()) {
-        await clearLocalBoard(channel);
-        return;
-      }
-      const update = Y.encodeStateAsUpdate(doc);
-      if (update.length > BOARD_BACKUP_MAX_BYTES) {
-        await clearLocalBoard(channel);
-        return;
-      }
       const sealed = await sealLocalBoard(key, channel, update);
       if (epoch !== persistEpoch) return;
       await saveLocalBoard(channel, sealed);
     } catch {
     } finally {
       persistingLocal = false;
+      if (persistAgain) {
+        persistAgain = false;
+        scheduleLocalPersist();
+      }
     }
+  }
+
+  /** Sync encode before teardown so leave/Back cannot race ydoc.destroy() or wipe IDB. */
+  function flushLocalBoardOnLeave() {
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+    persistEpoch++;
+    try {
+      const key = localKey;
+      const channel = channelId;
+      const update = captureLocalUpdate();
+      if (!key || !channel || !update) return;
+      void sealLocalBoard(key, channel, update).then((sealed) => saveLocalBoard(channel, sealed));
+    } catch {}
   }
 
   const sentLog: { at: number; bytes: number }[] = [];
@@ -1035,6 +1059,7 @@
       onHaptic?.('medium');
       editor?.clearBoard();
       focusBoard();
+      if (channelId) void clearLocalBoard(channelId);
     };
     if (appMode && onClearRequest) return onClearRequest(doClear);
     if (!confirm(t(dict, 'whiteboard.clearConfirm'))) return;
@@ -1401,7 +1426,7 @@
   });
 
   onDestroy(() => {
-    void persistLocalBoard();
+    flushLocalBoardOnLeave();
     ws?.close();
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', beforeUnloadHandler);

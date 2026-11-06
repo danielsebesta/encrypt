@@ -58,7 +58,7 @@
     type RoomEntry,
   } from '../../lib/roomVault';
   import { forgetChatIdentity } from '../../lib/chatIdentity';
-  import { forgetLocalBoards, suppressLocalBoards } from '../../lib/whiteboardLocalStore';
+  import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { identiconBackground } from '../../lib/identicon';
   import { passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
@@ -288,6 +288,14 @@
     void tick().then(() => {
       if (scroller) scroller.scrollTop = tabScroll[activeTab];
     });
+  }
+
+  function boardSessionPassword(id: string): string {
+    try {
+      return sessionStorage.getItem(`wb-pw:${id}`) || sessionStorage.getItem('whiteboard-password') || '';
+    } catch {
+      return '';
+    }
   }
 
   function enterRoom(id: string, kind: 'chat' | 'whiteboard' = 'chat', label = '', bump = true) {
@@ -865,6 +873,9 @@
       try { localStorage.setItem(PANIC_FLAG, String(Date.now())); } catch {}
       await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards()]);
       wipeLocalSecrets();
+      // Drop the flag so later board saves are not permanently suppressed in this tab.
+      try { localStorage.removeItem(PANIC_FLAG); } catch {}
+      allowLocalBoards();
     } catch {
       ok = false;
     } finally {
@@ -987,9 +998,16 @@
       if (e.key === PANIC_FLAG && e.newValue) {
         suppressLocalBoards();
         wipeLocalSecrets();
-        void forgetLocalBoards().finally(() => location.reload());
+        void forgetLocalBoards().finally(() => {
+          try { localStorage.removeItem(PANIC_FLAG); } catch {}
+          location.reload();
+        });
       }
     };
+    // Stale panic flag from an older wipe would silently block board-local saves forever.
+    try {
+      if (localStorage.getItem(PANIC_FLAG)) localStorage.removeItem(PANIC_FLAG);
+    } catch {}
     window.addEventListener('storage', onStorage);
 
     const schemeQuery = window.matchMedia('(prefers-color-scheme: light)');
@@ -1352,6 +1370,7 @@
           {locale}
           {dict}
           appMode={true}
+          initialPassword={boardSessionPassword(activeRoomId)}
           onExitApp={leaveRoom}
           onConnStatus={(s) => (roomConn = s)}
           onHaptic={triggerHaptic}
@@ -1660,11 +1679,15 @@
               <span class="text-[var(--app-label-3)]"><AppIcons name="hash" size={18} /></span>
             {/snippet}
           </ListInput>
-          <ListItem class="app-pass-row">
+          <ListInput
+            class="app-pass-row"
+            error={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)) ? t(dict, 'app.new.passwordShort') : undefined}
+            aria-label={t(dict, 'app.new.password')}
+          >
             {#snippet media()}
               <span class="text-[var(--app-label-3)]"><AppIcons name="lock" size={18} /></span>
             {/snippet}
-            {#snippet inner()}
+            {#snippet input()}
               <div class="app-passphrase" class:app-passphrase--invalid={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword))}>
                 <input
                   class="app-passphrase__input"
@@ -1708,11 +1731,8 @@
                   <AppIcons name="dices" size={18} />
                 </button>
               </div>
-              {#if newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword))}
-                <p class="app-passphrase__error" role="alert">{t(dict, 'app.new.passwordShort')}</p>
-              {/if}
             {/snippet}
-          </ListItem>
+          </ListInput>
         </List>
         {#if newRoomKind === 'chat'}
           <List strong inset class="m-0! app-form">

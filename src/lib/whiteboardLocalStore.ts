@@ -15,6 +15,11 @@ export function suppressLocalBoards() {
   suppressed = true;
 }
 
+/** Re-enables local saves after a panic wipe finishes (flag must be cleared too). */
+export function allowLocalBoards() {
+  suppressed = false;
+}
+
 function panicActive(): boolean {
   try {
     return typeof localStorage !== 'undefined' && Boolean(localStorage.getItem(PANIC_FLAG));
