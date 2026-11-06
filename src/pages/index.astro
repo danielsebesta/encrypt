@@ -35,15 +35,17 @@ const features = [
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
   <div class="page home">
     <section class="home-hero">
-      <div class="stack">
-        <h1 class="page-title">{t(dict, 'home.hero.title')}</h1>
-        <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
-        <div class="actions">
-          <a href="#try" class="btn btn-lg">{t(dict, 'landing.hero.cta')}</a>
+      <div class="home-hero__intro">
+        <div class="stack home-hero__copy">
+          <h1 class="page-title">{t(dict, 'home.hero.title')}</h1>
+          <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
+          <div class="actions">
+            <a href="#try" class="btn btn-lg">{t(dict, 'landing.hero.cta')}</a>
+          </div>
         </div>
-      </div>
-      <div class="home-hero__art">
-        <Fragment set:html={illustration('hero', 'mx-auto h-auto w-full max-w-[400px] md:max-w-none')} />
+        <div class="home-hero__art" aria-hidden="true">
+          <Fragment set:html={illustration('hero', 'home-hero__ill')} />
+        </div>
       </div>
       {/* Negative bottom rootMargin: on mobile the demo peeks into view but must be scrolled
           further before hydrating — keeps Lighthouse TBT near zero while real users still get it. */}

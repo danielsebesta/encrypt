@@ -9,7 +9,7 @@
   import { Editor, Store, THEMES, COLOR_IDS, SIZE_IDS, DASH_IDS, FILL_IDS, GEO_IDS, FONTS } from '@quickdrawjs/core';
   import type { Diff, ShapeRecord, AssetRecord, ScribbleStroke, ToolId, GeoId, Styles } from '@quickdrawjs/core';
   import '@quickdrawjs/core/quickdraw.css';
-  import { deriveBoardAccess, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
+  import { deriveBoardAccess, boardLocalKey, sealLocalBoard, openLocalBoard, bytesToB64, b64ToBytes } from '../../lib/whiteboardCrypto';
   import { validShapeRecord, validAssetRecord, assetBytes, sanitizeScribbles, validBoardChatItem, BOARD_CHAT_MAX_TEXT, BOARD_CHAT_KEEP, BOARD_ASSET_BYTES, type BoardAsset, type BoardChatItem, type UnsignedBoardChatItem } from '../../lib/whiteboardRecords';
   import { encodeBoardImage } from '../../lib/whiteboardImages';
   import { sealEnvelope, openEnvelope, signBoardItem, verifyBoardItem, ConnectionKeys, BoardTrust, type WhiteboardKind, type BoardMember } from '../../lib/whiteboardProtocol';
@@ -19,6 +19,7 @@
   import { parseBurnSuffix, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { DOC_PART_BYTES, splitDocUpdate, DocPartAssembler, encodeBoardBackup, parseBoardBackup, BOARD_BACKUP_MAX_BYTES } from '../../lib/whiteboardSync';
   import { encodeEncryptedBoardBackup, decodeEncryptedBoardBackup } from '../../lib/whiteboardBackupCrypto';
+  import { loadLocalBoard, saveLocalBoard, clearLocalBoard } from '../../lib/whiteboardLocalStore';
   import { t } from '../../lib/t';
   import { LUCIDE } from '../../lib/lucideIcons';
   import SaveRoomButton from './SaveRoomButton.svelte';
@@ -53,6 +54,8 @@
   const RATE_OPTIONAL_SHARE = 0.6;
   const LOCAL_ORIGIN = 'local';
   const IMPORT_ORIGIN = 'import';
+  const RESTORE_ORIGIN = 'local-restore';
+  const LOCAL_PERSIST_MS = 800;
   const NOTICE_MS = 6000;
 
   // Quickdraw ships a warm paper look; use the site's surface colors and a green-tinted grid instead.
@@ -151,6 +154,10 @@
   let peopleOpen = false;
   let canCreate = false;
   let boardMissing = false;
+  let localKey: CryptoKey | null = null;
+  let localRestored = false;
+  let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  let persistEpoch = 0;
 
   let connected = false;
   let netOffline = false;
@@ -294,20 +301,78 @@
   }
 
   async function enterWithPassword(pwd: string) {
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+    persistEpoch++;
     try {
       const access = await deriveBoardAccess(pwd, roomId);
       accessToken = access.token; channelId = access.channel;
       cryptoKey = access.key;
+      localKey = await boardLocalKey(access.key);
       await setupIdentity();
       canCreate = passwordLongEnough(pwd);
       boardMissing = false;
       needsPassword = false;
       try { sessionStorage.setItem(`wb-pw:${roomId}`, pwd); } catch {}
+      localRestored = false;
       setupYjs();
+      await restoreLocalBoard();
       connectWs();
     } catch {
       passwordError = t(dict, 'whiteboard.errorDeriveKey');
       needsPassword = true;
+    }
+  }
+
+  function boardHasContent(): boolean {
+    return !!(ydoc && (store.size || ychat?.length));
+  }
+
+  async function restoreLocalBoard() {
+    if (!localKey || !channelId || !ydoc || localRestored) return;
+    localRestored = true;
+    const record = await loadLocalBoard(channelId);
+    if (!record) return;
+    const update = await openLocalBoard(localKey, channelId, record.sealed);
+    if (!update || update.length > BOARD_BACKUP_MAX_BYTES) return;
+    try {
+      Y.applyUpdate(ydoc, update, RESTORE_ORIGIN);
+      if (boardHasContent()) pendingFit = true;
+    } catch {}
+  }
+
+  let persistingLocal = false;
+
+  function scheduleLocalPersist() {
+    if (persistingLocal || !localKey || !channelId || !ydoc) return;
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => { void persistLocalBoard(); }, LOCAL_PERSIST_MS);
+  }
+
+  async function persistLocalBoard() {
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+    if (persistingLocal || !localKey || !channelId || !ydoc) return;
+    const epoch = ++persistEpoch;
+    const key = localKey;
+    const channel = channelId;
+    const doc = ydoc;
+    persistingLocal = true;
+    try {
+      flushToDoc(true);
+      if (!boardHasContent()) {
+        await clearLocalBoard(channel);
+        return;
+      }
+      const update = Y.encodeStateAsUpdate(doc);
+      if (update.length > BOARD_BACKUP_MAX_BYTES) {
+        await clearLocalBoard(channel);
+        return;
+      }
+      const sealed = await sealLocalBoard(key, channel, update);
+      if (epoch !== persistEpoch) return;
+      await saveLocalBoard(channel, sealed);
+    } catch {
+    } finally {
+      persistingLocal = false;
     }
   }
 
@@ -471,7 +536,9 @@
     yrecords = ydoc.getMap('records');
     yassets = ydoc.getMap('assets');
     ychat = ydoc.getArray('chat');
-    ychat.observe((event, tr) => { void refreshSavedChat(tr.origin !== LOCAL_ORIGIN); });
+    ychat.observe((_event, tr) => {
+      void refreshSavedChat(tr.origin !== LOCAL_ORIGIN && tr.origin !== RESTORE_ORIGIN);
+    });
 
     store.listen((diff: Diff) => {
       for (const id of Object.keys(diff.added)) dirty.add(id);
@@ -516,8 +583,8 @@
     });
 
     ydoc.on('update', (update: Uint8Array, origin: any) => {
-      if (origin === 'remote') return;
-      queueDocUpdate(update);
+      if (origin !== 'remote' && origin !== RESTORE_ORIGIN) queueDocUpdate(update);
+      if (origin !== RESTORE_ORIGIN) scheduleLocalPersist();
     });
   }
 
@@ -625,8 +692,8 @@
       serverPresence = data.presence;
       roomLocked = !!data.locked;
       if (verifying && serverPresence <= 1) {
-        // Nobody here means the board does not exist yet; a password at least MIN_PASSWORD_LENGTH long may create it.
-        if (!canCreate) {
+        // Nobody online: recreate only with a long enough password, or reopen a sealed local copy from this browser.
+        if (!canCreate && !boardHasContent()) {
           verifying = false;
           boardMissing = true;
           needsPassword = true;
@@ -1294,6 +1361,11 @@
   function handleVisibility() {
     if (typeof document === 'undefined') return;
     pageHidden = document.hidden;
+    if (pageHidden) void persistLocalBoard();
+  }
+
+  function handlePageHide() {
+    void persistLocalBoard();
   }
 
   let cursorCleanInterval: ReturnType<typeof setInterval>;
@@ -1305,6 +1377,7 @@
     fullscreenSupported = !!document.fullscreenEnabled;
     document.addEventListener('visibilitychange', handleVisibility);
     document.addEventListener('fullscreenchange', onFullscreenChange);
+    window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pointerdown', onWindowPointerDown, true);
     window.addEventListener('keydown', onWindowKeydown);
     window.addEventListener('online', onNetChange);
@@ -1330,9 +1403,11 @@
   });
 
   onDestroy(() => {
+    void persistLocalBoard();
     ws?.close();
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', beforeUnloadHandler);
+      window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pointerdown', onWindowPointerDown, true);
       window.removeEventListener('keydown', onWindowKeydown);
       window.removeEventListener('online', onNetChange);
@@ -1347,6 +1422,7 @@
     clearInterval(chatTimer);
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     if (flushTimer) clearTimeout(flushTimer);
+    if (persistTimer) clearTimeout(persistTimer);
     if (laserTimer) clearTimeout(laserTimer);
     if (noticeTimer) clearTimeout(noticeTimer);
     ydoc?.destroy();

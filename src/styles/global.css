@@ -1202,7 +1202,11 @@ html.dark {
     }
 
     .home-hero {
-        @apply grid items-center gap-6 py-4 text-center md:grid-cols-[1fr_minmax(300px,400px)] md:gap-10 md:py-8 md:text-left;
+        @apply grid gap-6 py-4 text-center md:grid-cols-[1fr_minmax(300px,400px)] md:items-center md:gap-10 md:py-8 md:text-left;
+    }
+
+    .home-hero__intro {
+        @apply relative isolate md:contents;
     }
 
     .home-hero .page-title {
@@ -1213,8 +1217,16 @@ html.dark {
         @apply mx-auto text-lg md:mx-0 md:text-xl;
     }
 
+    .home-hero .actions {
+        @apply justify-center md:justify-start;
+    }
+
+    .home-hero__copy {
+        @apply relative z-10;
+    }
+
     .home-hero__art {
-        @apply relative;
+        @apply pointer-events-none relative;
     }
 
     .home-hero__art::before {
@@ -1223,12 +1235,66 @@ html.dark {
         background: radial-gradient(closest-side, var(--accent-weak), transparent);
     }
 
-    .home-hero .actions {
-        @apply justify-center md:justify-start;
+    .home-hero__ill {
+        @apply mx-auto h-auto w-full;
     }
 
-    .home-hero__art {
-        @apply order-first mx-auto h-auto w-full max-w-[200px] md:order-none md:max-w-none;
+    /* Mobile (normal browser): large faded hand sits behind the headline so copy stays readable. */
+    @media (max-width: 767px) {
+        .home-hero__intro {
+            @apply min-h-[22rem] overflow-hidden px-1 pt-2 pb-4;
+        }
+
+        .home-hero__art {
+            @apply absolute left-1/2 top-[-8%] z-0 w-[min(140vw,34rem)] -translate-x-1/2;
+            opacity: 0.38;
+            mask-image: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(0, 0, 0, 0.55) 18%,
+                rgba(0, 0, 0, 0.85) 42%,
+                rgba(0, 0, 0, 0.35) 72%,
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(0, 0, 0, 0.55) 18%,
+                rgba(0, 0, 0, 0.85) 42%,
+                rgba(0, 0, 0, 0.35) 72%,
+                transparent 100%
+            );
+        }
+
+        .home-hero__art::before {
+            @apply -inset-6 opacity-70;
+        }
+
+        .home-hero__ill {
+            @apply max-w-none;
+        }
+
+        .home-hero__copy {
+            @apply pt-[4.5rem];
+        }
+
+        .home-hero .page-title,
+        .home-hero .page-lead {
+            text-shadow:
+                0 0 18px color-mix(in srgb, var(--bg) 88%, transparent),
+                0 1px 0 color-mix(in srgb, var(--bg) 70%, transparent);
+        }
+    }
+
+    @media (min-width: 768px) {
+        .home-hero__art {
+            @apply mx-auto w-full max-w-none;
+            opacity: 1;
+        }
+
+        .home-hero__ill {
+            @apply max-w-none;
+        }
     }
 
     .demo {

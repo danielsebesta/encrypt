@@ -99,6 +99,7 @@ manifest.theme_color = DARK_BG;
 manifest.background_color = DARK_BG;
 manifest.lang = manifest.lang || 'en';
 manifest.dir = manifest.dir || 'ltr';
+manifest.prefer_related_applications = false;
 manifest.launch_handler = manifest.launch_handler || { client_mode: ['focus-existing', 'navigate-existing', 'auto'] };
 manifest.icons = [
   { src: '/web-app-manifest-192x192-any.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -107,6 +108,37 @@ manifest.icons = [
   { src: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
   { src: '/favicon-96x96.png', sizes: '96x96', type: 'image/png', purpose: 'any' },
   { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+];
+// PNGs come from `node scripts/capture-app-screenshots.mjs` (real /app?shots=1 captures).
+manifest.screenshots = [
+  {
+    src: '/screenshot-wide.png',
+    sizes: '1920x1080',
+    type: 'image/png',
+    form_factor: 'wide',
+    label: 'Encrypted chat in the Encrypt app',
+  },
+  {
+    src: '/screenshot-narrow.png',
+    sizes: '1179x1980',
+    type: 'image/png',
+    form_factor: 'narrow',
+    label: 'Encrypted chat with people, files and reactions',
+  },
+  {
+    src: '/screenshot-hub-chats.png',
+    sizes: '1179x1980',
+    type: 'image/png',
+    form_factor: 'narrow',
+    label: 'Saved encrypted chat rooms',
+  },
+  {
+    src: '/screenshot-hub-boards.png',
+    sizes: '1179x1980',
+    type: 'image/png',
+    form_factor: 'narrow',
+    label: 'Encrypted whiteboard rooms',
+  },
 ];
 for (const shortcut of manifest.shortcuts ?? []) {
   shortcut.icons = [

@@ -81,6 +81,13 @@
   import { MediaKeySchedule, createCallKeyPair, deriveWrapKey, isCallPublicKey, isMediaKeyId, mediaKeyContext, unwrapMediaKey, hideVoiceActivity, wrapMediaKey, type CallKeyPair } from '../../lib/callCrypto';
   import { createKemKeyPair, kemOpen, kemSeal, validKemCiphertext, validKemKey, type KemKeyPair, type KemSeal } from '../../lib/hybridKem';
   import { CallFrameEncryption, frameTransformMode } from '../../lib/callTransform';
+  import {
+    appShotsEnabled,
+    shotChatMessages,
+    shotMembers,
+    shotReactions,
+    SHOT_SIGNER,
+  } from '../../lib/appStoreShots';
 
   export let locale = 'en';
   export let roomId = '';
@@ -1970,6 +1977,27 @@
   async function initChat() {
     if (typeof window === 'undefined') return;
     checkingRoom = true;
+    if (appShotsEnabled()) {
+      roomConfig = { mode: 'live', authMode: 'password', createdAt: Date.now(), v: 3 };
+      needsPassword = false;
+      checkingRoom = false;
+      verifying = false;
+      everVerified = true;
+      verified = true;
+      connected = true;
+      historyReady = true;
+      mySignerId = SHOT_SIGNER;
+      identity = { name: t(dict, 'chat.you'), color: aliasColor({ a: 3, n: 7, h: 142 }) };
+      messages = shotChatMessages(dict) as Message[];
+      for (const member of shotMembers(dict)) {
+        noteMember(member.pk, member);
+      }
+      for (const event of shotReactions(dict)) reactionBook.apply(event);
+      reactionTick += 1;
+      appCallState = { ready: true, joining: false, active: false };
+      reportConn();
+      return;
+    }
     const storedConfig = sessionStorage.getItem('chat-room-config');
     if (storedConfig) {
       sessionStorage.removeItem('chat-room-config');

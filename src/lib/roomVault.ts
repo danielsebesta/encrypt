@@ -1,6 +1,7 @@
 import { hkdfAesKey, hkdfKey } from './kdf';
 import { normalizeChatMode } from './chatRoomSettings';
 import { sealPassword, openPassword } from './passwordEnvelope';
+import { deleteIdbDatabase } from './idbDelete';
 
 export type RoomKind = 'chat' | 'whiteboard';
 export type RoomSecret = { type: 'password'; value: string };
@@ -339,12 +340,7 @@ export async function forgetRoom(entry: RoomEntry): Promise<void> {
 export async function forgetEverything(): Promise<void> {
   sessionKey = null;
   cachedRef = null;
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => resolve();
-  });
+  await deleteIdbDatabase(DB_NAME);
 }
 
 const random = (length: number) => crypto.getRandomValues(new Uint8Array(length));

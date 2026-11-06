@@ -17,6 +17,45 @@ export async function boardMessageBase(base: CryptoKey): Promise<CryptoKey> {
   return hkdfKey(await hkdfBytes(base, 'encrypt.click/whiteboard/v3/messages'));
 }
 
+/** Local sealed board snapshots use a subkey of the message base, never the wire message keys. */
+export function boardLocalKey(messageBase: CryptoKey): Promise<CryptoKey> {
+  return hkdfAesKey(messageBase, 'encrypt.click/whiteboard/local-doc/v1');
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+const localContext = (channelId: string) => new TextEncoder().encode(`encrypt.click/whiteboard/local-doc/v1\n${channelId}`);
+
+/** Seals a Yjs update for IndexedDB under the board's local key; AAD binds it to this channel. */
+export async function sealLocalBoard(key: CryptoKey, channelId: string, update: Uint8Array): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(IV));
+  const sealed = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(iv), additionalData: bytesToArrayBuffer(localContext(channelId)) },
+    key,
+    bytesToArrayBuffer(update),
+  );
+  const out = new Uint8Array(IV + sealed.byteLength);
+  out.set(iv);
+  out.set(new Uint8Array(sealed), IV);
+  return bytesToB64(out).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+export async function openLocalBoard(key: CryptoKey, channelId: string, sealed: string): Promise<Uint8Array | null> {
+  try {
+    const data = b64ToBytes(sealed.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(sealed.length / 4) * 4, '='));
+    if (data.length < IV + 16) return null;
+    return new Uint8Array(await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: bytesToArrayBuffer(data.slice(0, IV)), additionalData: bytesToArrayBuffer(localContext(channelId)) },
+      key,
+      bytesToArrayBuffer(data.slice(IV)),
+    ));
+  } catch {
+    return null;
+  }
+}
+
 // A random salt per message means a fresh AES-GCM key every time, so heavy cursor traffic never piles random IVs onto one key.
 const messageKey = (base: CryptoKey, salt: Uint8Array) => hkdfAesKey(base, 'encrypt.click/whiteboard/v3/msg', salt);
 

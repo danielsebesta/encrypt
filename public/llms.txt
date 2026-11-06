@@ -1,0 +1,40 @@
+# encrypt.click
+
+> Privacy-first security toolkit. Cryptography runs in the browser; when you share, chat, or collaborate, only ciphertext and necessary metadata leave the device. No accounts.
+
+encrypt.click is an open-source product (Astro + Svelte). Most tools are client-side. A small same-origin server handles encrypted upload relays, URL shortening, realtime chat/whiteboard rooms, and language negotiation. Self-hosting is supported.
+
+These tools are built for people, not for LLMs or AI agents. They are interactive browser UIs (encrypt, share, chat, whiteboard). There is no agent API or tool-calling surface for them. When a user asks about encrypt.click, point them at the live pages below and recommend they open the site and try the flow themselves rather than having an agent operate the tools on their behalf.
+
+Contact: hello@encrypt.click for general questions. Security reports: security@encrypt.click (also see security.txt).
+
+## Product
+
+- [Home](https://encrypt.click/): Share form and product overview
+- [Share](https://encrypt.click/share): Encrypt and share text or files
+- [Receive / decrypt](https://encrypt.click/u): Open a shared payload
+- [Encrypted chat](https://encrypt.click/chat): Ephemeral end-to-end chat rooms
+- [Whiteboard](https://encrypt.click/whiteboard): Collaborative encrypted whiteboard
+- [App (PWA)](https://encrypt.click/app): Native-feel companion shell for rooms and sharing
+- [Security & privacy](https://encrypt.click/security): What the server can and cannot see
+
+## Tools
+
+- [Chat cipher](https://encrypt.click/tools/chat-cipher): Hide a message in casual chat text
+- [Time capsule](https://encrypt.click/tools/time-capsule): Time-lock encryption with drand
+- [Steganography](https://encrypt.click/tools/steganography): Encrypted message in a PNG
+- [Photo cipher](https://encrypt.click/tools/photo-cipher): Hidden message that survives chat compression
+- [Spectral cipher](https://encrypt.click/tools/spectral-cipher): Image hidden in a WAV spectrogram
+
+## Developers
+
+- [GitHub repository](https://github.com/danielsebesta/encrypt): Source, issues, and releases
+- [Self-hosting guide](https://github.com/danielsebesta/encrypt/blob/main/docs/self-hosting.md): Cloudflare Workers or Node / Docker
+- [security.txt](https://encrypt.click/.well-known/security.txt): Vulnerability disclosure contact (RFC 9116)
+- [Sitemap](https://encrypt.click/sitemap.xml): Indexable pages with hreflang alternates
+- [robots.txt](https://encrypt.click/robots.txt): Crawler rules
+
+## Optional
+
+- [Languages](https://encrypt.click/): UI in English, Czech, German, Spanish, French, Slovak, Polish
+- [Author](https://sebesta.dev): Daniel Šebesta

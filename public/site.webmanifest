@@ -127,5 +127,36 @@
       "navigate-existing",
       "auto"
     ]
-  }
+  },
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Encrypt app — chats and encrypted room"
+    },
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "1179x1980",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Encrypted group chat with photos and voice"
+    },
+    {
+      "src": "/screenshot-hub-chats.png",
+      "sizes": "1179x1980",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Saved encrypted chat rooms"
+    },
+    {
+      "src": "/screenshot-hub-boards.png",
+      "sizes": "1179x1980",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Encrypted whiteboard rooms"
+    }
+  ]
 }

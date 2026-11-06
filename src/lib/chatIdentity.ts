@@ -1,4 +1,5 @@
 import { generateSigningIdentity, validPublicKey, validSignerId, type SigningIdentity } from './chatCrypto';
+import { deleteIdbDatabase } from './idbDelete';
 
 const DB_NAME = 'encrypt.click:chat-identity';
 const STORE = 'rooms';
@@ -74,10 +75,5 @@ export function forgetTrustTable(room: string) {
 
 /** Drops every per-room signing identity kept on this device. */
 export async function forgetChatIdentity(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => resolve();
-  });
+  await deleteIdbDatabase(DB_NAME);
 }

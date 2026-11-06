@@ -8,6 +8,7 @@ import {
   brandText,
   isWhitelabeled,
   siteContact,
+  siteHello,
   siteName,
 } from '../src/lib/siteBrand';
 import { getTranslations } from '../src/lib/i18n';
@@ -22,6 +23,12 @@ test('SITE_NAME unset keeps encrypt.click branding', () => {
   assert.equal(getTranslations('en')['meta.defaultTitle'], 'encrypt.click - Your privacy toolkit');
 });
 
+test('default contacts on the official brand', () => {
+  setRuntimeEnv({});
+  assert.equal(siteContact(), 'security@encrypt.click');
+  assert.equal(siteHello(), 'hello@encrypt.click');
+});
+
 test('SITE_NAME rewrites UI copy but not protocol labels in HTML', () => {
   setRuntimeEnv({
     SITE_NAME: 'Acme Vault',
@@ -32,8 +39,10 @@ test('SITE_NAME rewrites UI copy but not protocol labels in HTML', () => {
   assert.equal(siteName(), 'Acme Vault');
   assert.equal(isWhitelabeled(), true);
   assert.equal(siteContact(), 'sec@example.com');
+  assert.equal(siteHello(), 'hello@vault.example.com');
   assert.equal(brandText('Open on encrypt.click/u'), 'Open on vault.example.com/u');
-  assert.equal(brandText('mail@encrypt.click and l.encrypt.click'), 'sec@example.com and s.example.com');
+  assert.equal(brandText('security@encrypt.click and l.encrypt.click'), 'sec@example.com and s.example.com');
+  assert.equal(brandText('hello@encrypt.click'), 'hello@vault.example.com');
   assert.equal(brandText("encrypt.click's server"), "Acme Vault's server");
 
   const html = brandHtml(

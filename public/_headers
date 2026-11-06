@@ -14,6 +14,18 @@
 /.well-known/security.txt
   Content-Type: text/plain; charset=utf-8
 
+/security.txt
+  Content-Type: text/plain; charset=utf-8
+
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+
+/sitemap
+  Content-Type: application/xml; charset=utf-8
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
+
 /_astro/*
   Cache-Control: public, max-age=31536000, immutable
 

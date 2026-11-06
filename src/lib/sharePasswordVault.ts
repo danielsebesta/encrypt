@@ -8,6 +8,7 @@ import {
   wrapSecret,
   type WrappedSecret,
 } from './roomVault';
+import { deleteIdbDatabase } from './idbDelete';
 
 const DB_NAME = 'encrypt.click:share-passwords';
 const STORE = 'shares';
@@ -95,12 +96,7 @@ export async function saveSharePassword(
 
 /** Drops every saved share password on this device (entries are vault-wrapped; the panic wipe removes both). */
 export async function forgetSharePasswords(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => resolve();
-  });
+  await deleteIdbDatabase(DB_NAME);
 }
 
 export async function loadSharePassword(fragment: string): Promise<string | null> {

@@ -46,13 +46,22 @@ export function siteHost(fallback = 'encrypt.click'): string {
   }
 }
 
-/** Security contact shown in disclosure copy. */
+/** Security contact shown in disclosure copy and security.txt. */
 export function siteContact(): string {
   const email = envString('SITE_CONTACT_EMAIL').trim();
   if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 128) return email;
   const host = siteHost();
   if (isWhitelabeled() && host !== 'encrypt.click') return `security@${host}`;
-  return 'mail@encrypt.click';
+  return 'security@encrypt.click';
+}
+
+/** General contact (support, press, hello). */
+export function siteHello(): string {
+  const email = envString('SITE_HELLO_EMAIL').trim();
+  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 128) return email;
+  const host = siteHost();
+  if (isWhitelabeled() && host !== 'encrypt.click') return `hello@${host}`;
+  return 'hello@encrypt.click';
 }
 
 function shortenerHost(): string | null {
@@ -74,11 +83,14 @@ export function brandText(input: string): string {
   if (name === PRODUCT_NAME) return input;
   const host = siteHost();
   const contact = siteContact();
+  const hello = siteHello();
   const shortHost = shortenerHost() ?? host;
   let out = input;
   out = out.replaceAll('https://encrypt.click', siteOrigin());
   out = out.replaceAll(SHORTENER_HOST_RE, shortHost);
+  out = out.replaceAll('security@encrypt.click', contact);
   out = out.replaceAll('mail@encrypt.click', contact);
+  out = out.replaceAll('hello@encrypt.click', hello);
   out = out.replaceAll('encrypt.click/u', `${host}/u`);
   out = out.replaceAll("encrypt.click's", `${name}'s`);
   out = out.replaceAll('Encrypt.click', name);

@@ -1,0 +1,15 @@
+CC0 / Public Domain photos used only for /app?shots=1 store screenshots.
+
+dinner.jpg  File:Pizza 14.jpg
+            https://commons.wikimedia.org/wiki/File:Pizza_14.jpg
+            License: CC0
+
+dog.jpg     File:Fawn and white Welsh Corgi puppy standing on rear legs and sticking out the tongue.jpg
+            https://commons.wikimedia.org/wiki/File:Fawn_and_white_Welsh_Corgi_puppy_standing_on_rear_legs_and_sticking_out_the_tongue.jpg
+            License: CC0
+
+street.jpg  File:Coffee in Montreal (Unsplash).jpg
+            https://commons.wikimedia.org/wiki/File:Coffee_in_Montreal_(Unsplash).jpg
+            License: CC0
+
+Downloaded by: pnpm capture:screenshots

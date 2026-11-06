@@ -32,8 +32,10 @@ const dict = getTranslations(locale);
             matchMedia('(display-mode: standalone)').matches ||
             matchMedia('(display-mode: fullscreen)').matches ||
             matchMedia('(display-mode: minimal-ui)').matches;
+          var q = new URLSearchParams(location.search);
+          // Store-screenshot captures use ?shots=1 and never need the install gate.
+          if (q.get('shots') === '1') installed = true;
           if (!(mobile && installed)) {
-            var q = new URLSearchParams(location.search);
             var lang = document.documentElement.lang;
             var prefix = /^(cs|de|es|fr|sk|pl)$/.test(lang) ? '/' + lang : '';
             var room = q.get('room');

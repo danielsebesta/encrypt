@@ -13,9 +13,15 @@ test('the manifest posts shared files and text to the path the service worker ha
   assert.equal(manifest.share_target.method, 'POST');
   assert.equal(manifest.share_target.enctype, 'multipart/form-data');
   assert.deepEqual(manifest.share_target.params.files, [{ name: 'files', accept: ['*/*'] }]);
+  assert.equal(manifest.prefer_related_applications, false);
+  assert.ok(Array.isArray(manifest.screenshots) && manifest.screenshots.length >= 3);
+  assert.ok(manifest.screenshots.some((shot) => shot.form_factor === 'wide'));
+  assert.ok(manifest.screenshots.filter((shot) => shot.form_factor === 'narrow').length >= 2);
   const worker = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
   assert.ok(worker.includes(`'${SHARE_INBOX}'`));
   assert.ok(worker.includes("'/share-target'"));
+  assert.ok(worker.includes("cache.add('/app')"));
+  assert.ok(worker.includes('navigateWithAppFallback'));
   assert.ok(!SHARE_INBOX.startsWith('encrypt-'));
 });
 

@@ -319,22 +319,62 @@ html[data-app-platform] body {
     position: fixed;
     inset: 0;
 }
+/* Room title: true screen-center, with side padding so text never paints under
+   the back chevron or the call/share/menu glass. Clear Tailwind v4 `translate`
+   (Konsta's -translate-x-1/2) — transform:none alone is not enough. */
 .app-room-title {
-    flex: 1 1 0;
-    min-width: 0;
-    overflow: hidden;
-    margin-inline: 0.5rem;
-    text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     line-height: 1.15;
+    text-align: center;
+    overflow: hidden;
 }
-/* Keep the room title optically centered between asymmetric left/right actions. */
 :root[data-app-platform] .k-navbar .k-navbar-inner {
     align-items: center;
     min-height: 3.5rem;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .k-navbar-inner > .k-glass:last-child {
+    margin-left: auto;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    /* Back glass ~60px; action cluster ~136px + trailing inset. */
+    padding-left: 4rem;
+    padding-right: 9.75rem;
+    margin: 0;
+    transform: none;
+    translate: 0 -50%;
+    pointer-events: none;
+    z-index: 1;
+}
+:root[data-app-platform] .k-navbar.app-room-bar:not(:has(.app-nav-btn:nth-of-type(2))) .app-room-title {
+    padding-right: 4.5rem;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-room-title .app-nav-title,
+:root[data-app-platform] .k-navbar.app-room-bar .app-room-title > * {
+    pointer-events: auto;
+    max-width: 100%;
+}
+/* Konsta fades the iOS navbar to transparent (mask + /50 surface) so thread
+   media bleeds through the title — keep the room bar readable. */
+:root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(1),
+:root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(2) {
+    background: #000 !important;
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    opacity: 1 !important;
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
 }
 /* Hub brand mark: tall padlock must stay readable next to the tab title */
 .app-hub-title {
@@ -367,19 +407,6 @@ html[data-app-platform] body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-:root[data-app-platform] .k-navbar .app-room-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(56%, 16rem);
-    margin-inline: 0;
-    pointer-events: none;
-}
-:root[data-app-platform] .k-navbar .app-room-title .app-nav-title,
-:root[data-app-platform] .k-navbar .app-room-title > * {
-    pointer-events: auto;
-    max-width: 100%;
 }
 
 /* Native feel: nothing is selectable or draggable; messages are copied through their action sheet */
@@ -728,9 +755,13 @@ html[data-app-platform] ::selection {
     width: 100%;
 }
 
-/* Single source of truth for space under the fixed tab bar */
+/* Single source of truth for space under the fixed tab bar.
+   iOS floating labels tabbar is taller; keep the last list row fully clear. */
 .app-scroll {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
+}
+:root[data-app-platform="ios"] .app-scroll {
+    padding-bottom: calc(8.25rem + env(safe-area-inset-bottom, 0px));
 }
 /* Material: the extended FAB sits above the tabbar — clear its top edge */
 :root[data-app-platform="material"] .app-scroll {

@@ -49,6 +49,8 @@ export default defineConfig({
   ...(target === 'node' ? { image: { service: passthroughImageService() } } : {}),
   // One HTML round-trip instead of a render-blocking Layout CSS request (PSI / Lighthouse).
   build: { inlineStylesheets: 'always' },
+  // Store screenshot captures must not bake the Astro inspector into PNGs.
+  devToolbar: { enabled: process.env.ASTRO_SCREENSHOTS !== '1' },
 
   server: {
     // Add explicitly trusted development hostnames here.

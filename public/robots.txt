@@ -8,3 +8,8 @@ Disallow: /dl/
 Disallow: /parties/
 Disallow: /share-target
 Disallow: /healthz
+
+Sitemap: https://encrypt.click/sitemap.xml
+
+# LLM / agent overview: /llms.txt
+# Security disclosure (RFC 9116): /.well-known/security.txt

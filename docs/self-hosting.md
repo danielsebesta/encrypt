@@ -70,7 +70,8 @@ Everything is set with environment variables.
 | `UPLOAD_MONTHLY_GB`, `UPLOAD_MONTHLY_FILES` | `1000`, `500000` | Monthly upload ceilings. |
 | `SHORTENER_URL` | none | HTTPS endpoint of a Shlink-style shortener for receive links. Without it links stay long. |
 | `SITE_NAME` | `encrypt.click` | Optional white-label display name for page titles, meta, PWA name and UI copy. The navbar and footer still show **encrypt.click** (the product). Crypto protocol labels stay `encrypt.click/…` so shares and rooms stay compatible. Leave unset on the official deploy. |
-| `SITE_CONTACT_EMAIL` | `security@$host` when `SITE_NAME` is set, else `mail@encrypt.click` | Address shown in the security disclosure text. |
+| `SITE_CONTACT_EMAIL` | `security@$host` when `SITE_NAME` is set, else `security@encrypt.click` | Address shown in the security disclosure text and `security.txt`. |
+| `SITE_HELLO_EMAIL` | `hello@$host` when `SITE_NAME` is set, else `hello@encrypt.click` | General contact address (footer, `llms.txt`). |
 | `STATUS_TOKEN` | none | When set, `/status` answers only requests with `Authorization: Bearer <token>`. Without it `/status` is public. |
 | `BUILD_COMMIT_SHA` | from `build-integrity.json` | Commit `/status` reports. The Docker build records it from `--build-arg COMMIT_SHA`. |
 

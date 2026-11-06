@@ -58,6 +58,7 @@
     type RoomEntry,
   } from '../../lib/roomVault';
   import { forgetChatIdentity } from '../../lib/chatIdentity';
+  import { forgetLocalBoards, suppressLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { identiconBackground } from '../../lib/identicon';
   import { passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
@@ -77,6 +78,10 @@
     type AppAppearance,
     type AppScheme,
   } from '../../lib/appTheme';
+  import {
+    appShotsEnabled,
+    shotRooms,
+  } from '../../lib/appStoreShots';
 
   let { locale = 'en', dict = {} }: { locale?: string; dict?: Record<string, string> } = $props();
 
@@ -107,6 +112,12 @@
   let showIosInstallSheet = $state(false);
 
   let rooms = $state<RoomEntry[]>([]);
+  let shotsMode = $state(false);
+
+  function withShots(url: string): string {
+    if (!shotsMode) return url;
+    return url.includes('shots=1') ? url : `${url}${url.includes('?') ? '&' : '?'}shots=1`;
+  }
   let searchQuery = $state('');
   let chatFilter = $state<'all' | 'live' | 'pinned'>('all');
   let newRoomSheetOpen = $state(false);
@@ -240,6 +251,13 @@
 
   async function loadRooms() {
     if (wiping) return;
+    if (appShotsEnabled()) {
+      rooms = shotRooms().sort(compareRooms);
+      if (activeRoomId && !activeRoomLabel) {
+        activeRoomLabel = labelForRoom(activeRoomId, '', activeView === 'board' ? 'whiteboard' : 'chat');
+      }
+      return;
+    }
     try {
       const stored = await listRooms();
       if (wiping) return;
@@ -282,8 +300,8 @@
     activeView = kind === 'whiteboard' ? 'board' : 'room';
     boardReturnRoom = null;
     roomEnteredViaPush = true;
-    pushViewState({ view: activeView, roomId: id, kind, label }, `?room=${encodeURIComponent(id)}&kind=${kind}`);
-    if (bump) void touchRoom(kind, id).then(loadRooms).catch(() => {});
+    pushViewState({ view: activeView, roomId: id, kind, label }, withShots(`?room=${encodeURIComponent(id)}&kind=${kind}`));
+    if (bump && !shotsMode) void touchRoom(kind, id).then(loadRooms).catch(() => {});
   }
 
   // A saved room opens with its passkey-sealed password and stored mode, so one that expired on the server is made again instead of showing a dead end.
@@ -348,7 +366,7 @@
     roomConn = 'connected';
     roomReconnect = null;
     boardReturnRoom = null;
-    window.history.replaceState({ view: 'hub', tab: activeTab }, '', `?tab=${activeTab}`);
+    window.history.replaceState({ view: 'hub', tab: activeTab }, '', withShots(`?tab=${activeTab}`));
     loadRooms();
     restoreHubScroll();
   }
@@ -365,7 +383,7 @@
     activeTab = tab;
     searchQuery = '';
     chatFilter = 'all';
-    window.history.replaceState({ view: 'hub', tab }, '', `?tab=${tab}`);
+    window.history.replaceState({ view: 'hub', tab }, '', withShots(`?tab=${tab}`));
     restoreHubScroll();
   }
 
@@ -733,9 +751,9 @@
   $effect(saveLastView);
 
   // Room-scoped secrets outside the vault DB: signing identities (chat-identity
-  // IDB), per-room trust tables / mode / schedule / history / alias keys in
-  // localStorage, and password handoffs + sealed scheduled drafts in
-  // sessionStorage.
+  // IDB), sealed whiteboard docs (board-local IDB), per-room trust tables /
+  // mode / schedule / history / alias keys in localStorage, and password
+  // handoffs + sealed scheduled drafts in sessionStorage.
   const WIPE_LS_PREFIXES = ['encrypt.click:chat-', 'encrypt.click:alias:', 'encrypt.click:nick:'];
   const WIPE_SS_PREFIXES = ['chat-pw:', 'wb-pw:', 'encrypt-click:once:', 'encrypt.click:chat-'];
   const WIPE_SS_KEYS = ['chat-password', 'chat-share-password', 'chat-room-config', 'whiteboard-password', 'whiteboard-share-password'];
@@ -847,11 +865,12 @@
     triggerHaptic('warning');
     let ok = true;
     try {
-      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords()]);
-      wipeLocalSecrets();
-      // Broadcast to other open /app tabs: they wipe their own sessionStorage
-      // and reload to drop in-memory keys a storage sweep cannot reach.
+      suppressLocalBoards();
+      // Broadcast first so sibling tabs and in-flight board saves see the flag
+      // before IndexedDB deletes finish.
       try { localStorage.setItem(PANIC_FLAG, String(Date.now())); } catch {}
+      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards()]);
+      wipeLocalSecrets();
     } catch {
       ok = false;
     } finally {
@@ -914,6 +933,11 @@
     appearance = state.appearance;
     seed = state.seed;
     scheme = applyTheme(state);
+    if (appShotsEnabled()) {
+      platform = 'ios';
+      appearance = 'dark';
+      scheme = applyTheme({ platform: 'ios', appearance: 'dark', seed });
+    }
     try {
       haptics = localStorage.getItem('encrypt-app-haptics') !== '0';
     } catch {
@@ -967,8 +991,9 @@
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === PANIC_FLAG && e.newValue) {
+        suppressLocalBoards();
         wipeLocalSecrets();
-        location.reload();
+        void forgetLocalBoards().finally(() => location.reload());
       }
     };
     window.addEventListener('storage', onStorage);
@@ -983,7 +1008,12 @@
     let roomParam = params.get('room');
     let kindParam = params.get('kind');
     let tabParam = params.get('tab');
-    if (!roomParam && !tabParam && !params.get('action')) {
+    shotsMode = appShotsEnabled(window.location.search);
+    if (shotsMode) {
+      rooms = shotRooms().sort(compareRooms);
+      if (!roomParam && !tabParam) tabParam = 'chats';
+    }
+    if (!shotsMode && !roomParam && !tabParam && !params.get('action')) {
       const last = readLastView();
       if (last) {
         roomParam = last.room;
@@ -995,12 +1025,13 @@
     if (roomParam && validRoomId(roomParam)) {
       const kind = kindParam === 'whiteboard' ? 'whiteboard' : 'chat';
       activeRoomId = roomParam;
+      activeRoomLabel = labelForRoom(roomParam, roomParam, kind);
       activeView = kind === 'whiteboard' ? 'board' : 'room';
       activeTab = tabForKind(kind);
-      window.history.replaceState({ view: 'hub', tab: activeTab }, '', `?tab=${activeTab}`);
-      window.history.pushState({ view: activeView, roomId: roomParam, kind, label: '' }, '', `?room=${encodeURIComponent(roomParam)}&kind=${kind}`);
+      window.history.replaceState({ view: 'hub', tab: activeTab }, '', withShots(`?tab=${activeTab}`));
+      window.history.pushState({ view: activeView, roomId: roomParam, kind, label: activeRoomLabel }, '', withShots(`?room=${encodeURIComponent(roomParam)}&kind=${kind}`));
       roomEnteredViaPush = true;
-      persistRoom(kind, roomParam, roomParam);
+      if (!shotsMode) persistRoom(kind, roomParam, roomParam);
     } else if (tabParam === 'files' || tabParam === 'boards' || tabParam === 'settings' || tabParam === 'chats') {
       activeTab = tabParam;
       if (roomParam) window.history.replaceState({ view: 'hub', tab: activeTab }, '', `?tab=${activeTab}`);
@@ -1189,7 +1220,7 @@
 
 {#snippet roomBar()}
   <Navbar
-    class="{platform === 'material' ? 'app-bar ' : ''}z-40"
+    class="app-room-bar {platform === 'material' ? 'app-bar ' : ''}z-40"
     centerTitle={true}
     titleClass="app-room-title"
   >
@@ -1495,13 +1526,17 @@
             <ListItem
               class="app-version-row"
               title={t(dict, 'app.settings.version')}
-              subtitle={`${describeVersion(CURRENT_VERSION, locale)}\n${updateAvailable && latestVersion ? t(dict, 'app.settings.newVersion').replace('{version}', describeVersion(latestVersion, locale)) : latestVersion ? t(dict, 'app.settings.upToDate') : t(dict, 'app.settings.updateHint')}`}
+              subtitle={shotsMode
+                ? t(dict, 'app.settings.upToDate')
+                : `${describeVersion(CURRENT_VERSION, locale)}\n${updateAvailable && latestVersion ? t(dict, 'app.settings.newVersion').replace('{version}', describeVersion(latestVersion, locale)) : latestVersion ? t(dict, 'app.settings.upToDate') : t(dict, 'app.settings.updateHint')}`}
             >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="install" size={20} /></span>
               {/snippet}
               {#snippet after()}
-                <Button small rounded tonal class="min-h-10!" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
+                {#if !shotsMode}
+                  <Button small rounded tonal class="min-h-10!" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
+                {/if}
               {/snippet}
             </ListItem>
           </List>

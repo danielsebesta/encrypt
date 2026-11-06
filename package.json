@@ -14,7 +14,8 @@
     "build:node": "node scripts/build-node.mjs",
     "start:node": "node dist/node/server.mjs",
     "astro": "astro",
-    "build:icons": "node scripts/build-icons.mjs"
+    "build:icons": "node scripts/build-icons.mjs",
+    "capture:screenshots": "node scripts/capture-app-screenshots.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.12",
@@ -70,6 +71,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/ws": "8.18.2",
     "esbuild": "0.28.2",
+    "playwright": "^1.64.1",
     "sharp": "0.35.5",
     "tsx": "^4.20.0",
     "typescript": "~6.0.3",

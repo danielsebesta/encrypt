@@ -9,6 +9,8 @@ import {
   encodeEncryptedBoardBackup,
   decodeEncryptedBoardBackup,
 } from '../src/lib/whiteboardBackupCrypto';
+import { boardLocalKey, sealLocalBoard, openLocalBoard } from '../src/lib/whiteboardCrypto';
+import { hkdfKey } from '../src/lib/kdf';
 
 const FAST = { memory: 8192, iterations: 1, parallelism: 1 };
 
@@ -129,6 +131,36 @@ test('a board backup round-trips the whole document and merges into another boar
   other.getMap('records').set('shape:b', shape('text', { text: 'there', color: 'black', size: 'm' }) as any);
   Y.applyUpdate(other, result.update);
   assert.deepEqual([...other.getMap('records').keys()].sort(), ['shape:a', 'shape:b']);
+});
+
+test('a sealed local board snapshot round-trips under the room-derived local key', async () => {
+  const messageBase = await hkdfKey(crypto.getRandomValues(new Uint8Array(32)));
+  const localKey = await boardLocalKey(messageBase);
+  const channel = 'a'.repeat(64);
+  const doc = new Y.Doc();
+  doc.getMap('records').set('shape:a', shape('text', { text: 'kept', color: 'black', size: 'm' }) as any);
+  const update = Y.encodeStateAsUpdate(doc);
+  const sealed = await sealLocalBoard(localKey, channel, update);
+  assert.match(sealed, /^[A-Za-z0-9_-]+$/);
+  assert.equal(await openLocalBoard(localKey, 'b'.repeat(64), sealed), null);
+  const opened = await openLocalBoard(localKey, channel, sealed);
+  assert.ok(opened);
+  const other = new Y.Doc();
+  other.getMap('records').set('shape:b', shape('text', { text: 'peer', color: 'black', size: 'm' }) as any);
+  Y.applyUpdate(other, opened!);
+  assert.deepEqual([...other.getMap('records').keys()].sort(), ['shape:a', 'shape:b']);
+  assert.equal((other.getMap('records').get('shape:a') as any).props.text, 'kept');
+});
+
+test('a sealed local board rejects a wrong key or a tampered ciphertext', async () => {
+  const messageBase = await hkdfKey(crypto.getRandomValues(new Uint8Array(32)));
+  const localKey = await boardLocalKey(messageBase);
+  const otherKey = await boardLocalKey(await hkdfKey(crypto.getRandomValues(new Uint8Array(32))));
+  const channel = 'c'.repeat(64);
+  const sealed = await sealLocalBoard(localKey, channel, new Uint8Array([1, 2, 3, 4]));
+  assert.equal(await openLocalBoard(otherKey, channel, sealed), null);
+  const flipped = sealed.slice(0, -1) + (sealed.endsWith('A') ? 'B' : 'A');
+  assert.equal(await openLocalBoard(localKey, channel, flipped), null);
 });
 
 test('an encrypted board backup round-trips and rejects a wrong password', async () => {
