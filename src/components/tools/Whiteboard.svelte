@@ -987,14 +987,12 @@
   }
 
   function pickTool(id: ToolId) {
-    onHaptic?.('light');
     editor?.setTool(id);
     styleOpen = false;
   }
 
   function pickGeo(kind: GeoId) {
     if (!editor) return;
-    onHaptic?.('light');
     editor.setGeoKind(kind);
     editor.setTool('geo');
   }
@@ -1509,10 +1507,10 @@
 
       <div class="wb-bar wb-bar--start">
         <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.history')}>
-          <button type="button" class="wb-btn" on:click={() => { onHaptic?.('light'); store.undo(); }} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
+          <button type="button" class="wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.undo}</svg>
           </button>
-          <button type="button" class="wb-btn" on:click={() => { onHaptic?.('light'); store.redo(); }} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
+          <button type="button" class="wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.redo}</svg>
           </button>
         </div>

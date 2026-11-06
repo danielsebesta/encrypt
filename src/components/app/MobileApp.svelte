@@ -66,7 +66,7 @@
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
-  import { haptic, hapticsAvailable } from '../../lib/haptics';
+  import { haptic, hapticsAvailable, installHapticGrant } from '../../lib/haptics';
   import { clearLock, enableLock, lockSupported, confirmPresence, prepareLockScreen, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import { CURRENT_VERSION, isDevBuild, fetchLatestVersion, describeVersion, type AppVersion } from '../../lib/appVersion';
@@ -213,10 +213,10 @@
     toastOpen = false;
   });
 
-  function showToast(message: string, haptic: 'warning' | 'success' = 'warning') {
+  function showToast(message: string, feel: 'warning' | 'success' | false = 'warning') {
     toastMessage = message;
     toastOpen = true;
-    triggerHaptic(haptic);
+    if (feel) triggerHaptic(feel);
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => (toastOpen = false), 5000);
   }
@@ -291,7 +291,6 @@
   }
 
   function enterRoom(id: string, kind: 'chat' | 'whiteboard' = 'chat', label = '', bump = true) {
-    triggerHaptic('medium');
     if (scroller) tabScroll[activeTab] = scroller.scrollTop;
     roomConn = 'loading';
     roomReconnect = null;
@@ -353,7 +352,6 @@
   }
 
   function leaveRoom() {
-    triggerHaptic('light');
     if (roomEnteredViaPush) {
       roomEnteredViaPush = false;
       const skip = overlayGuard ? -2 : -1;
@@ -373,7 +371,6 @@
   }
 
   function switchTab(tab: TabId) {
-    triggerHaptic('light');
     if (tab === activeTab) {
       // Native behavior: re-tapping the active tab scrolls its content to top.
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -425,6 +422,7 @@
   }
 
   function openRowActions(room: RoomEntry) {
+    // Long-press / context menu recognition — the one chrome haptic that earns its keep.
     triggerHaptic('medium');
     lastRowFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     actionTarget = room;
@@ -452,7 +450,6 @@
     lpTimer = setTimeout(() => {
       lpFired = true;
       pressingId = '';
-      triggerHaptic('medium');
       openRowActions(room);
     }, 550);
   }
@@ -463,7 +460,6 @@
   }
 
   async function shareRoom() {
-    triggerHaptic('light');
     const url = window.location.href;
     const title = activeRoomLabel || activeRoomId;
     if (typeof navigator !== 'undefined' && 'share' in navigator) {
@@ -486,7 +482,6 @@
     const target = actionTarget;
     closeRowActions();
     if (!target) return;
-    triggerHaptic('light');
     try {
       await setRoomPinned(target, !target.pinned);
     } catch {
@@ -521,7 +516,6 @@
     consumeOverlayGuard();
     endRowInteraction();
     if (!target) return;
-    triggerHaptic('light');
     try {
       await renameRoom(target, renameValue);
     } catch {
@@ -539,7 +533,7 @@
     triggerHaptic('warning');
     try {
       await forgetRoom(target);
-      showToast(t(dict, 'app.row.removed'), 'success');
+      showToast(t(dict, 'app.row.removed'), false);
     } catch {
       showToast(t(dict, 'app.error'));
     }
@@ -681,7 +675,6 @@
   }
 
   function pickLanguage(code: Locale) {
-    triggerHaptic('light');
     langSheetOpen = false;
     overlayGuard = false;
     const target = code === 'en' ? '/app' : `/${code}/app`;
@@ -878,13 +871,12 @@
       wiping = false;
     }
     rooms = [];
-    showToast(t(dict, ok ? 'app.settings.wipeDone' : 'app.settings.wipeError'), ok ? 'success' : 'warning');
+    showToast(t(dict, ok ? 'app.settings.wipeDone' : 'app.settings.wipeError'), false);
   }
 
   async function handleVaultExport() {
     if (vaultExportBusy || !vaultExportPw.trim()) return;
     vaultExportBusy = true;
-    triggerHaptic('light');
     try {
       const text = await encodeVaultBackup(vaultExportPw.trim());
       const blob = new Blob([text], { type: 'application/json' });
@@ -910,7 +902,6 @@
     if (!file || vaultImportBusy) return;
     vaultImportBusy = true;
     vaultImportError = '';
-    triggerHaptic('light');
     try {
       const rows = await decodeVaultBackup(await file.text(), vaultImportPw.trim());
       const count = await importVaultRows(rows);
@@ -945,6 +936,7 @@
       haptics = true;
     }
     hapticsOk = hapticsAvailable();
+    if (hapticsOk) installHapticGrant();
     ready = true;
 
     lockEnabled = storedLock() !== null;
@@ -986,8 +978,8 @@
     void checkForUpdate();
     const updateTimer = setInterval(() => void checkForUpdate(), 30 * 60_000);
 
-    const onOffline = () => showToast(t(dict, 'app.offline'));
-    const onOnline = () => showToast(t(dict, 'app.backOnline'), 'success');
+    const onOffline = () => showToast(t(dict, 'app.offline'), false);
+    const onOnline = () => showToast(t(dict, 'app.backOnline'), false);
     window.addEventListener('offline', onOffline);
     window.addEventListener('online', onOnline);
 
@@ -1210,7 +1202,6 @@
     type="button"
     class="w-11 h-11 flex items-center justify-center text-primary rounded-full"
     onclick={() => {
-      triggerHaptic('medium');
       newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat';
       newRoomSheetOpen = true;
     }}
@@ -1248,10 +1239,7 @@
         <button
           type="button"
           class="app-conn-status app-conn-status--offline"
-          onclick={() => {
-            triggerHaptic('medium');
-            roomReconnect?.();
-          }}
+          onclick={() => roomReconnect?.()}
           aria-label={`${t(dict, 'app.offline')} — ${t(dict, 'app.room.reconnect')}`}
         >
           {t(dict, 'app.offline')}
@@ -1261,10 +1249,7 @@
           type="button"
           class="app-conn-status"
           onclick={() => {
-            if (roomConn === 'connecting') {
-              triggerHaptic('medium');
-              roomReconnect?.();
-            }
+            if (roomConn === 'connecting') roomReconnect?.();
           }}
           aria-label={roomConn === 'connecting'
             ? `${t(dict, 'chat.connecting')} — ${t(dict, 'app.room.reconnect')}`
@@ -1323,7 +1308,6 @@
       style="bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px))"
       text={t(dict, 'app.empty.new')}
       onClick={() => {
-        triggerHaptic('medium');
         newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat';
         newRoomSheetOpen = true;
       }}
@@ -1405,13 +1389,13 @@
           {#if activeTab === 'chats'}
             <div class="mt-2">
               <Segmented strong rounded={platform === 'material'} colors={{ strongHighlightBgMaterial: 'bg-md-light-secondary-container dark:bg-md-dark-secondary-container' }}>
-                <SegmentedButton active={chatFilter === 'all'} onClick={() => { triggerHaptic('light'); chatFilter = 'all'; }}>
+                <SegmentedButton active={chatFilter === 'all'} onClick={() => { chatFilter = 'all'; }}>
                   <span class="app-seg"><AppIcons name="list" size={14} />{t(dict, 'app.filter.all')}</span>
                 </SegmentedButton>
-                <SegmentedButton active={chatFilter === 'live'} onClick={() => { triggerHaptic('light'); chatFilter = 'live'; }}>
+                <SegmentedButton active={chatFilter === 'live'} onClick={() => { chatFilter = 'live'; }}>
                   <span class="app-seg"><AppIcons name="history" size={14} />{t(dict, 'app.filter.live')}</span>
                 </SegmentedButton>
-                <SegmentedButton active={chatFilter === 'pinned'} onClick={() => { triggerHaptic('light'); chatFilter = 'pinned'; }}>
+                <SegmentedButton active={chatFilter === 'pinned'} onClick={() => { chatFilter = 'pinned'; }}>
                   <span class="app-seg"><AppIcons name="pin" size={14} />{t(dict, 'app.filter.pinned')}</span>
                 </SegmentedButton>
               </Segmented>
@@ -1447,11 +1431,11 @@
                 {t(dict, activeTab === 'boards' ? 'app.empty.hintBoards' : 'app.empty.hint')}
               </p>
               <div class="flex flex-wrap gap-3 justify-center">
-                <Button rounded class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { triggerHaptic('medium'); newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat'; newRoomSheetOpen = true; }}>
+                <Button rounded class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat'; newRoomSheetOpen = true; }}>
                   <span class="app-btn-label"><AppIcons name="plus" size={16} />{t(dict, 'app.empty.new')}</span>
                 </Button>
                 {#if activeTab === 'chats'}
-                  <Button rounded tonal class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { triggerHaptic('light'); joinRoomSheetOpen = true; }}>
+                  <Button rounded tonal class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
                     <span class="app-btn-label"><AppIcons name="join" size={16} />{t(dict, 'app.empty.join')}</span>
                   </Button>
                 {/if}
@@ -1466,7 +1450,7 @@
                 linkComponent="button"
                 linkProps={{ type: 'button' }}
                 title={t(dict, 'app.join.row')}
-                onClick={() => { triggerHaptic('light'); joinRoomSheetOpen = true; }}
+                onClick={() => { joinRoomSheetOpen = true; }}
                 colors={{ primaryTextIos: 'text-[var(--app-tint)]', primaryTextMaterial: 'text-[var(--app-tint)]' }}
               >
                 {#snippet media()}
@@ -1517,7 +1501,7 @@
               linkProps={{ type: 'button' }}
               title={t(dict, 'app.settings.language')}
               subtitle={(languages as Record<string, { name: string }>)[locale]?.name ?? 'English'}
-              onClick={() => { triggerHaptic('light'); langSheetOpen = true; }}
+              onClick={() => { langSheetOpen = true; }}
             >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="globe" size={20} /></span>
@@ -1559,7 +1543,7 @@
               chevron={false}
               title={t(dict, 'app.backup.export')}
               subtitle={t(dict, 'app.backup.exportHint')}
-              onClick={() => { triggerHaptic('light'); vaultExportOpen = true; }}
+              onClick={() => { vaultExportOpen = true; }}
             >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="share" size={20} /></span>
@@ -1572,7 +1556,7 @@
               chevron={false}
               title={t(dict, 'app.backup.import')}
               subtitle={t(dict, 'app.backup.importHint')}
-              onClick={() => { triggerHaptic('light'); vaultImportOpen = true; }}
+              onClick={() => { vaultImportOpen = true; }}
             >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="key" size={20} /></span>
@@ -1584,7 +1568,7 @@
               linkProps={{ type: 'button' }}
               chevron={false}
               subtitle={t(dict, 'app.settings.wipeHint')}
-              onClick={() => { triggerHaptic('warning'); panicDialogOpen = true; }}
+              onClick={() => { panicDialogOpen = true; }}
             >
               {#snippet title()}
                 <span class="app-danger-text">{t(dict, 'app.settings.wipe')}</span>
@@ -1710,7 +1694,6 @@
                   onclick={() => {
                     showNewPw = !showNewPw;
                     newPwShownByUser = showNewPw;
-                    triggerHaptic('light');
                   }}
                 >
                   <AppIcons name={showNewPw ? 'eye-off' : 'eye'} size={18} />
@@ -1733,7 +1716,7 @@
         </List>
         {#if newRoomKind === 'chat'}
           <List strong inset class="m-0! app-form">
-            <ListItem label title={t(dict, 'chat.modeLiveTitle')} text={t(dict, 'chat.modeLiveHint')} onClick={() => { newRoomMode = 'live'; triggerHaptic('light'); }}>
+            <ListItem label title={t(dict, 'chat.modeLiveTitle')} text={t(dict, 'chat.modeLiveHint')} onClick={() => { newRoomMode = 'live'; }}>
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="history" size={20} /></span>
               {/snippet}
@@ -1741,7 +1724,7 @@
                 <Radio component="span" name="new-room-mode" checked={newRoomMode === 'live'} readonly />
               {/snippet}
             </ListItem>
-            <ListItem label title={t(dict, 'chat.modeTtlTitle')} text={t(dict, 'chat.modeTtlHint')} onClick={() => { newRoomMode = 'ttl'; triggerHaptic('light'); }}>
+            <ListItem label title={t(dict, 'chat.modeTtlTitle')} text={t(dict, 'chat.modeTtlHint')} onClick={() => { newRoomMode = 'ttl'; }}>
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="timer" size={20} /></span>
               {/snippet}
@@ -2103,10 +2086,7 @@
         large
         rounded
         class="max-w-xs w-full"
-        onClick={() => {
-          triggerHaptic('medium');
-          void tryUnlock();
-        }}
+        onClick={() => void tryUnlock()}
       >
         {lockError ? t(dict, 'app.lock.retry') : t(dict, 'app.lock.unlock')}
       </Button>

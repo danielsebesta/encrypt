@@ -23,11 +23,20 @@ const PATTERNS: Record<HapticKind, Vibration[]> = {
 const STORAGE_KEY = 'encrypt-app-haptics';
 const PWM_CYCLE = 20;
 const MAX_PHASE_MS = 1000;
+/**
+ * iOS 18.4+ / 26 ("granted" mode in ios-vibrator-pro-max): programmatic switch
+ * clicks only work for ~850ms after a trusted click/touchend — not forever.
+ */
+const GRANT_MS = 850;
+/** Empirically good switch-toggle spacing while the grant is live (Sam Denty's MAGIC_NUMBER). */
+const TICK_MS = 26;
 const TOGGLE_MIN = 16;
 const TOGGLE_MAX = 184;
 
 let tickLabel: HTMLLabelElement | null = null;
 let rafId: number | null = null;
+let grantUntil = 0;
+let grantInstalled = false;
 
 function enabled(): boolean {
   try {
@@ -62,6 +71,35 @@ export function hapticsAvailable(): boolean {
   if (isIosTouch()) return true;
   if (typeof navigator.vibrate !== 'function') return false;
   return isTouchPrimary() || /Android|Mobile/i.test(navigator.userAgent);
+}
+
+function refreshGrant() {
+  grantUntil = Date.now() + GRANT_MS;
+}
+
+function grantAlive() {
+  if (typeof navigator !== 'undefined' && navigator.userActivation?.isActive) {
+    refreshGrant();
+    return true;
+  }
+  return Date.now() < grantUntil;
+}
+
+/**
+ * Listen for trusted gestures so programmatic switch ticks can run inside the
+ * post-gesture grant (required on iOS 18.4+ / 26 — same events Sam authorizes on).
+ */
+export function installHapticGrant() {
+  if (grantInstalled || typeof window === 'undefined') return;
+  grantInstalled = true;
+  const onGesture = (e: Event) => {
+    if (!(e as UIEvent).isTrusted) return;
+    refreshGrant();
+  };
+  window.addEventListener('click', onGesture, true);
+  window.addEventListener('touchend', onGesture, true);
+  window.addEventListener('pointerup', onGesture, true);
+  window.addEventListener('keyup', onGesture, true);
 }
 
 /** PWM: Vibration API is on/off only, so intensity becomes rapid duty-cycle. */
@@ -112,21 +150,21 @@ export function toVibratePattern(vibrations: Vibration[], defaultIntensity = 0.5
   return result;
 }
 
-/** iOS has no vibrate(); clicking a native switch control fires a system haptic tick. */
+/**
+ * iOS has no vibrate(); toggling a native `<input switch>` fires a system haptic.
+ * Shape matches Sam's hiddenTrigger: input inside label, display:none (grant + .click()).
+ */
 function ensureTick(): HTMLLabelElement | null {
   if (typeof document === 'undefined') return null;
   if (tickLabel) return tickLabel;
   const input = document.createElement('input');
   input.type = 'checkbox';
   input.setAttribute('switch', '');
-  input.id = 'encrypt-haptic-tick';
+  input.setAttribute('style', 'display: none !important');
   input.tabIndex = -1;
-  // Safari needs a real control appearance for the switch haptic to fire.
-  input.style.all = 'initial';
-  input.style.appearance = 'auto';
   const label = document.createElement('label');
-  label.htmlFor = input.id;
   label.setAttribute('aria-hidden', 'true');
+  label.tabIndex = -1;
   Object.assign(label.style, {
     position: 'fixed',
     left: '-100px',
@@ -155,14 +193,18 @@ function fireTick() {
 }
 
 /**
- * Replay phases on iOS by clicking the switch: first click stays inside the
- * user-gesture window; later taps follow an rAF timeline with intensity-based
- * spacing (same approach as web-haptics).
+ * Replay phases on iOS by clicking the switch inside the post-click grant
+ * window (ios-vibrator-pro-max insight: only a real click counts on 18.4+,
+ * and it expires ~1s — keep ticks sync + ~26ms while the grant lives).
  */
 function runIosPattern(vibrations: Vibration[]) {
   stopIosPattern();
+  installHapticGrant();
   const label = ensureTick();
   if (!label) return;
+
+  // Calling from a tap handler refreshes the grant immediately.
+  if (navigator.userActivation?.isActive) refreshGrant();
 
   const phases: { end: number; isOn: boolean; intensity: number }[] = [];
   let cumulative = 0;
@@ -181,7 +223,7 @@ function runIosPattern(vibrations: Vibration[]) {
     return;
   }
 
-  // Sync first click when the pattern starts "on" — keeps user activation.
+  // Sync first click when the pattern starts "on" — must stay in the gesture stack.
   const startsOn = (vibrations[0]?.delay ?? 0) === 0;
   let firstClickFired = false;
   if (startsOn) {
@@ -195,7 +237,7 @@ function runIosPattern(vibrations: Vibration[]) {
   const loop = (time: number) => {
     if (startTime === 0) startTime = time;
     const elapsed = time - startTime;
-    if (elapsed >= cumulative) {
+    if (elapsed >= cumulative || !grantAlive()) {
       rafId = null;
       return;
     }
@@ -207,7 +249,11 @@ function runIosPattern(vibrations: Vibration[]) {
       }
     }
     if (phase.isOn) {
-      const toggleInterval = TOGGLE_MIN + (1 - phase.intensity) * TOGGLE_MAX;
+      // Prefer Sam's ~26ms cadence; fall back to intensity-scaled spacing for soft taps.
+      const toggleInterval = Math.max(
+        TICK_MS,
+        TOGGLE_MIN + (1 - phase.intensity) * (TOGGLE_MAX * 0.35),
+      );
       if (lastToggleTime === -1) {
         lastToggleTime = time;
         if (!firstClickFired) {
@@ -233,6 +279,8 @@ export function haptic(kind: HapticKind = 'light') {
       if (pattern.length) navigator.vibrate(pattern);
       return;
     }
+    // iOS 26 / Safari: ring/silent switch does not kill system haptics; Settings →
+    // Sounds & Haptics → System Haptics does. Call sync from the gesture (no await).
     runIosPattern(vibrations);
   } catch {}
 }

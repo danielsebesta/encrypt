@@ -94,7 +94,7 @@
       type="button"
       class="chat-attach-btn"
       class:chat-attach-btn--active={composerMenuOpen || onceEnabled}
-      on:click={() => { composerMenuOpen = !composerMenuOpen; scheduleMenuOpen = false; if (appMode) haptic('light'); }}
+      on:click={() => { composerMenuOpen = !composerMenuOpen; scheduleMenuOpen = false; }}
       disabled={(!connected && !allowQueue) || uploading}
       aria-haspopup="menu"
       aria-expanded={composerMenuOpen}

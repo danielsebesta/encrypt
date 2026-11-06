@@ -39,6 +39,8 @@
   async function start() {
     if (recording || starting || disabled) return;
     starting = true;
+    // iOS 18.4+/26: haptic must run sync inside the tap grant — before getUserMedia await.
+    if (appMode) haptic('medium');
     const next = new VoiceRecorder(() => void stop(), appMode);
     try {
       await next.start();
@@ -51,7 +53,6 @@
     recorder = next;
     elapsed = 0;
     recording = true;
-    if (appMode) haptic('medium');
     ticker = setInterval(() => { elapsed = (recorder?.elapsedMs ?? 0) / 1000; }, 250);
     if (appMode) {
       levels = Array(WAVE_BARS).fill(0);

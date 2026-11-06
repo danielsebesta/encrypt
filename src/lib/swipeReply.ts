@@ -71,9 +71,7 @@ export function swipeReply(node: HTMLElement, options: Options) {
     const eased = dx <= ARM_PX ? dx : ARM_PX + (dx - ARM_PX) * 0.25;
     const shown = Math.max(0, Math.min(MAX_PX, eased));
     render(shown);
-    const nowArmed = shown >= ARM_PX;
-    if (nowArmed && !armed) haptic('light');
-    armed = nowArmed;
+    armed = shown >= ARM_PX;
   }
 
   function end() {
@@ -82,7 +80,11 @@ export function swipeReply(node: HTMLElement, options: Options) {
     start = null;
     intent = '';
     reset(true);
-    if (fire) opts.onreply();
+    if (fire) {
+      // iOS 26 only allows switch ticks inside the post-touchend grant — fire here, not mid-move.
+      haptic('light');
+      opts.onreply();
+    }
   }
 
   node.addEventListener('pointerdown', down);
