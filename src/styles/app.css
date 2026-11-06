@@ -331,6 +331,22 @@ html[data-app-platform] body {
 html[data-app-platform] body {
     position: fixed;
     inset: 0;
+    /* The initial containing block (and 100vh) spans past Safari's collapsed-toolbars
+       area, which pushed the composer under the tab bar; dvh tracks the visible
+       viewport instead. The web base layer's min-height: 100dvh would beat any
+       height, so it is dropped here. */
+    top: 0;
+    bottom: auto;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+}
+/* Konsta's min-h-screen (100vh) would keep the app taller than the visible viewport
+   wherever browser chrome takes a bite — and min-height beats the keyboard
+   max-height below, leaving the app behind the keyboard. */
+html[data-app-platform] .k-app {
+    min-height: 100vh;
+    min-height: 100dvh;
 }
 /* Room title: true screen-center, with side padding so text never paints under
    the back chevron or the call/share/menu glass. Clear Tailwind v4 `translate`
@@ -2271,12 +2287,12 @@ html[data-app-platform] ::selection {
 
 /* iOS — iMessage-level details */
 :root[data-app-platform="ios"] .chat-input {
-    padding: 0.35rem 0.5rem calc(0.5rem + max(env(safe-area-inset-bottom, 0px), 0.75rem));
+    padding: 0.35rem 0.5rem calc(0.5rem + max(env(safe-area-inset-bottom, 0px), 1.75rem));
     border-top: none;
     gap: 0.35rem;
 }
 :root[data-app-platform="material"] .chat-input {
-    padding: 0.4rem 0.6rem calc(0.5rem + max(env(safe-area-inset-bottom, 0px), 0.75rem));
+    padding: 0.4rem 0.6rem calc(0.5rem + max(env(safe-area-inset-bottom, 0px), 1.75rem));
     border-top: none;
     gap: 0.4rem;
 }
@@ -3736,11 +3752,19 @@ html[data-app-platform] ::selection {
     }
 }
 
-/* On-screen keyboard: fit the app to the visual viewport (iOS counts its accessory bar there) and drop the home-indicator padding it covers. */
+/* On-screen keyboard: fit the app to the visual viewport (iOS counts its accessory bar there),
+   follow WebKit's reveal-pan so the app never ends up above the visible window, and drop the
+   home-indicator padding the keyboard covers. */
+:root.app-kbd body {
+    top: var(--app-vvo, 0px);
+    bottom: auto;
+    height: var(--app-vvh);
+}
 :root.app-kbd .k-app,
 :root.app-kbd .k-page {
     height: var(--app-vvh);
     max-height: var(--app-vvh);
+    min-height: 0;
 }
 :root.app-kbd .chat-input {
     padding-bottom: 0.5rem;
