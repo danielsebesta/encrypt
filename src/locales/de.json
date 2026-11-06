@@ -1343,6 +1343,7 @@
   "app.settings.hapticsEssential": "Nur Wichtiges",
   "app.settings.hapticsAll": "Alle Aktionen",
   "app.settings.hapticsHint": "Wie oft das Telefon in der App vibriert",
+  "app.settings.hapticsTest": "Feedback testen",
   "app.settings.lock": "App-Sperre",
   "app.settings.lockHint": "Beim Aktivieren wird auf diesem Gerät ein Passkey erstellt. Er entsperrt die App und deine gespeicherten Räume.",
   "app.settings.lockTimeout": "Autom. Sperre",

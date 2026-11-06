@@ -1,16 +1,39 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { modulateVibration, toVibratePattern, hapticsAvailable } from '../src/lib/haptics';
+import {
+  modulateVibration,
+  toVibratePattern,
+  hapticsAvailable,
+  hapticAllowed,
+  haptic,
+  noteNativeHapticTick,
+} from '../src/lib/haptics';
 
 const original = {
   navigator: globalThis.navigator,
   window: globalThis.window,
+  localStorage: (globalThis as { localStorage?: unknown }).localStorage,
 };
 
 afterEach(() => {
   Object.defineProperty(globalThis, 'navigator', { value: original.navigator, configurable: true });
   if (original.window) Object.defineProperty(globalThis, 'window', { value: original.window, configurable: true });
+  if (original.localStorage !== undefined) {
+    Object.defineProperty(globalThis, 'localStorage', { value: original.localStorage, configurable: true, writable: true });
+  } else {
+    Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true, writable: true });
+  }
 });
+
+function stubLocalStorage(initial?: Record<string, string>) {
+  const store = new Map<string, string>(Object.entries(initial ?? {}));
+  const ls = {
+    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k: string, v: string) => void store.set(k, String(v)),
+    removeItem: (k: string) => void store.delete(k),
+  };
+  Object.defineProperty(globalThis, 'localStorage', { value: ls, configurable: true, writable: true });
+}
 
 function stubEnv(opts: {
   vibrate?: unknown;
@@ -79,4 +102,32 @@ test('toVibratePattern merges delay into the off gap between pulses', () => {
     ]),
     [30, 60, 40],
   );
+});
+
+test('hapticAllowed follows the preference mode', () => {
+  stubLocalStorage({ 'encrypt-app-haptics-mode': 'off' });
+  assert.equal(hapticAllowed('medium'), false);
+  stubLocalStorage({ 'encrypt-app-haptics-mode': 'essential' });
+  assert.equal(hapticAllowed('light'), false);
+  assert.equal(hapticAllowed('medium'), true);
+  stubLocalStorage({ 'encrypt-app-haptics-mode': 'all' });
+  assert.equal(hapticAllowed('light'), true);
+});
+
+test('a native overlay tick suppresses the programmatic haptic in the same tap', () => {
+  stubLocalStorage({ 'encrypt-app-haptics-mode': 'all' });
+  const calls: number[][] = [];
+  stubEnv({
+    vibrate: (pattern: number | number[]) => {
+      calls.push(typeof pattern === 'number' ? [pattern] : pattern);
+      return true;
+    },
+    userAgent: 'Mozilla/5.0 (Linux; Android 14)',
+    coarse: true,
+  });
+  haptic('light');
+  assert.equal(calls.length, 1, 'vibrates without a native tick');
+  noteNativeHapticTick();
+  haptic('light');
+  assert.equal(calls.length, 1, 'the overlay tick already fired the system haptic');
 });

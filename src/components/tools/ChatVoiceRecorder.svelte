@@ -1,5 +1,6 @@
 <script lang="ts">
   import { haptic } from '../../lib/haptics';
+  import { hapticTap } from '../../lib/hapticTap';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from '../../lib/t';
   import { LUCIDE } from '../../lib/lucideIcons';
@@ -90,7 +91,7 @@
 
 {#if supported}
   {#if recording && appMode}
-    <button type="button" class="voice-rec-app__cancel" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
+    <button type="button" class="voice-rec-app__cancel" use:hapticTap={'warning'} onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['trash']}</svg>
     </button>
     <div class="voice-rec-app" role="status" aria-label={t(dict, 'chat.voiceRecording')}>
@@ -118,7 +119,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['square']}</svg>
     </button>
   {:else}
-    <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-sm btn-icon'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
+    <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-sm btn-icon'} use:hapticTap={'medium'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
       {#if appMode}
         <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic']}</svg>
       {:else}

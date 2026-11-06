@@ -70,6 +70,7 @@
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
   import { haptic, hapticsAvailable, hapticsNeedGestureEnd, installHapticGrant } from '../../lib/haptics';
+  import { hapticTap } from '../../lib/hapticTap';
   import { clearLock, enableLock, lockSupported, confirmPresence, prepareLockScreen, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import { CURRENT_VERSION, isDevBuild, fetchLatestVersion, describeVersion, type AppVersion } from '../../lib/appVersion';
@@ -2520,6 +2521,13 @@
             {@render choiceRow(roomModeLabel('ttl'), defaultRoomMode === 'ttl', () => setDefaultRoomMode('ttl'), t(dict, 'chat.modeTtlHint'))}
           {/if}
         </List>
+        {#if prefSheet === 'haptics' && hapticsOk}
+          <div class="app-pref-test">
+            <button type="button" class="app-sheet-btn app-sheet-btn--tonal" use:hapticTap={'medium'} onclick={() => haptic('medium')}>
+              {t(dict, 'app.settings.hapticsTest')}
+            </button>
+          </div>
+        {/if}
       </div>
     </Sheet>
 

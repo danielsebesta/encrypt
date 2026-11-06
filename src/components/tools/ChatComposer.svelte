@@ -1,5 +1,6 @@
 <script lang="ts">
   import { haptic } from '../../lib/haptics';
+  import { hapticTap } from '../../lib/hapticTap';
   import { untrack } from 'svelte';
   import { List, ListItem, Sheet } from 'konsta/svelte';
   import { t } from '../../lib/t';
@@ -110,6 +111,7 @@
       type="button"
       class="chat-attach-btn"
       class:chat-attach-btn--active={composerMenuOpen || onceEnabled}
+      use:hapticTap
       on:click={() => { composerMenuOpen = !composerMenuOpen; scheduleMenuOpen = false; }}
       disabled={(!connected && !allowQueue) || uploading}
       aria-haspopup="menu"
@@ -219,6 +221,7 @@
     class="chat-send-btn"
     class:chat-send-btn--ready={Boolean(inputText.trim()) || uploading}
     aria-label={t(dict, 'chat.send')}
+    use:hapticTap
     on:mousedown|preventDefault
     on:pointerdown={() => { keepFocus = document.activeElement === inputEl; }}
     on:click={() => {
@@ -242,6 +245,7 @@
       type="button"
       class={cls}
       class:chat-emoji-btn--active={emojiOpen}
+      use:hapticTap
       aria-label={t(dict, 'emoji.label')}
       title={t(dict, 'emoji.label')}
       aria-haspopup="dialog"

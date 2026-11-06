@@ -1353,6 +1353,7 @@
   "app.settings.hapticsEssential": "Important only",
   "app.settings.hapticsAll": "All actions",
   "app.settings.hapticsHint": "How often the phone vibrates in the app",
+  "app.settings.hapticsTest": "Test feedback",
   "app.settings.lock": "App lock",
   "app.settings.lockHint": "Turning it on creates a passkey on this device. It opens the app and your saved rooms.",
   "app.settings.lockTimeout": "Auto-lock",

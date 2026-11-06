@@ -1343,6 +1343,7 @@
   "app.settings.hapticsEssential": "Important seulement",
   "app.settings.hapticsAll": "Toutes les actions",
   "app.settings.hapticsHint": "À quelle fréquence le téléphone vibre dans l'app",
+  "app.settings.hapticsTest": "Tester la réponse",
   "app.settings.lock": "Verrouillage de l'app",
   "app.settings.lockHint": "L'activation crée une passkey sur cet appareil. Elle déverrouille l'app et tes salons enregistrés.",
   "app.settings.lockTimeout": "Verrouillage auto",

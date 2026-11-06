@@ -1343,6 +1343,7 @@
   "app.settings.hapticsEssential": "Tylko ważne",
   "app.settings.hapticsAll": "Wszystkie działania",
   "app.settings.hapticsHint": "Jak często telefon wibruje w aplikacji",
+  "app.settings.hapticsTest": "Przetestuj wibracje",
   "app.settings.lock": "Blokada aplikacji",
   "app.settings.lockHint": "Włączenie tworzy na tym urządzeniu klucz dostępu (passkey). Odblokowuje on aplikację i zapisane pokoje.",
   "app.settings.lockTimeout": "Auto-blokada",

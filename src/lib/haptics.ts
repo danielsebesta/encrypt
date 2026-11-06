@@ -46,10 +46,29 @@ function allows(kind: HapticKind): boolean {
   return true;
 }
 
-function isIosTouch(): boolean {
+/** Whether a haptic of this kind should fire under the current preference (for the tap overlay). */
+export function hapticAllowed(kind: HapticKind): boolean {
+  return allows(kind);
+}
+
+/** iOS touch device (iPhone/iPad or touch-capable Mac): haptics use the switch-input tick. */
+export function isIosTouch(): boolean {
   if (typeof navigator === 'undefined') return false;
   if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) return true;
   return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
+}
+
+/**
+ * The last moment a real user gesture toggled the hidden switch overlay
+ * (hapticTap) and the system haptic already fired. A programmatic tick in the
+ * same instant would double-tap on builds where the grant route also works.
+ */
+let nativeTickAt = 0;
+const NATIVE_TICK_DEDUP_MS = 60;
+
+/** Called by the hapticTap overlay when the user's own tap toggled the switch. */
+export function noteNativeHapticTick() {
+  nativeTickAt = Date.now();
 }
 
 /** iOS 18.4+/26 only grants switch ticks after a real click/touchend — not mid long-press. */
@@ -279,6 +298,9 @@ function runIosPattern(vibrations: Vibration[]) {
 
 export function haptic(kind: HapticKind = 'light') {
   if (typeof window === 'undefined' || !allows(kind) || !hapticsAvailable()) return;
+  // The tap overlay already made the user's own gesture toggle the switch —
+  // the system haptic fired; a second, programmatic tick would double-tap.
+  if (Date.now() - nativeTickAt < NATIVE_TICK_DEDUP_MS) return;
   const vibrations = PATTERNS[kind];
   try {
     if (typeof navigator.vibrate === 'function' && !isIosTouch()) {

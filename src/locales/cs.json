@@ -1343,6 +1343,7 @@
   "app.settings.hapticsEssential": "Jen důležité",
   "app.settings.hapticsAll": "Všechny akce",
   "app.settings.hapticsHint": "Jak často telefon v aplikaci vibruje",
+  "app.settings.hapticsTest": "Vyzkoušet odezvu",
   "app.settings.lock": "Zámek aplikace",
   "app.settings.lockHint": "Zapnutí vytvoří na tomto zařízení klíč (passkey). Odemykáš jím aplikaci i uložené místnosti.",
   "app.settings.lockTimeout": "Automatický zámek",

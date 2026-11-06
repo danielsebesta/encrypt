@@ -1343,6 +1343,7 @@
   "app.settings.hapticsEssential": "Solo lo importante",
   "app.settings.hapticsAll": "Todas las acciones",
   "app.settings.hapticsHint": "Con qué frecuencia vibra el teléfono en la app",
+  "app.settings.hapticsTest": "Probar respuesta",
   "app.settings.lock": "Bloqueo de la app",
   "app.settings.lockHint": "Al activarlo se crea una passkey en este dispositivo. Desbloquea la app y tus salas guardadas.",
   "app.settings.lockTimeout": "Bloqueo automático",

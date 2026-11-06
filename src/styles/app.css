@@ -4170,6 +4170,15 @@ html[data-app-platform] ::selection {
     gap: 0.5rem;
     padding-bottom: 1.25rem;
 }
+/* Preference-sheet inline action (haptics self-test) */
+.app-pref-test {
+    display: flex;
+    justify-content: center;
+    padding: 0.25rem 1rem 0.75rem;
+}
+.app-pref-test .app-sheet-btn {
+    min-width: 60%;
+}
 :root[data-app-platform="material"] .app-sheet-body {
     padding-inline: 1rem;
 }
