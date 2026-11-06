@@ -340,23 +340,28 @@ html[data-app-platform] body {
 }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
     position: absolute;
+    inset: auto 0 auto 0;
     top: 50%;
-    left: 0;
-    right: 0;
     bottom: auto;
-    width: 100%;
-    max-width: none;
+    /* Kill Konsta's left-1/2 + -translate-x/y-1/2 so the title stays on-screen. */
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
     box-sizing: border-box;
-    /* Back glass ~60px; action cluster ~136px + trailing inset. */
-    padding-left: 4rem;
+    /* Symmetric side gutters = widest chrome (3 action buttons) so the label stays optically centered. */
+    padding-left: 9.75rem;
     padding-right: 9.75rem;
-    margin: 0;
-    transform: none;
-    translate: 0 -50%;
+    margin: 0 !important;
+    transform: translateY(-50%) !important;
+    translate: none !important;
+    --tw-translate-x: 0 !important;
+    --tw-translate-y: 0 !important;
     pointer-events: none;
     z-index: 1;
 }
 :root[data-app-platform] .k-navbar.app-room-bar:not(:has(.app-nav-btn:nth-of-type(2))) .app-room-title {
+    padding-left: 4.5rem;
     padding-right: 4.5rem;
 }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title .app-nav-title,
