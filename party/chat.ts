@@ -3,7 +3,7 @@ import {
   normalizeChatMode,
   type ChatMode,
 } from "../src/lib/chatRoomSettings";
-import { isPushEndpoint, readVapidKeys, sendPush } from "../src/lib/webPush";
+import { isPushEndpoint, normalizePushTarget, readVapidKeys, sendPush, type PushTarget } from "../src/lib/webPush";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
 // Password rooms are format version 3; the room keeps only this small config, never a message.
@@ -84,6 +84,7 @@ export default class ChatRoom {
       presence: this.getJoinedConnectionCount(),
       locked: this.state.locked,
       config: this.state.config,
+      acks: true,
       ...(pushKey ? { push: pushKey } : {}),
     }));
   }
@@ -124,7 +125,11 @@ export default class ChatRoom {
       case "message": {
         if (!this.isJoined(sender)) return;
         const envelope = this.normalizeClientMessage(parsed);
-        if (!envelope) return;
+        if (!envelope) {
+          if (typeof parsed.id === "string" && SAFE_ID_RE.test(parsed.id)) sender.send(JSON.stringify({ type: "nack", id: parsed.id }));
+          return;
+        }
+        sender.send(JSON.stringify({ type: "ack", id: envelope.id }));
         if (this.seenIds.has(envelope.id)) return;
         this.seenIds.add(envelope.id);
         if (this.seenIds.size > 50_000) this.seenIds.delete(this.seenIds.values().next().value!);
@@ -136,8 +141,10 @@ export default class ChatRoom {
 
       case "push-subscribe": {
         if (!this.isJoined(sender) || !readVapidKeys(this.host.env) || !isPushEndpoint(parsed.endpoint)) return;
-        const endpoints = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
-        const next = [...endpoints.filter(item => item !== parsed.endpoint), parsed.endpoint].slice(-MAX_PUSH_ENDPOINTS);
+        const target = normalizePushTarget({ endpoint: parsed.endpoint, tag: parsed.tag, p256dh: parsed.keys?.p256dh, auth: parsed.keys?.auth });
+        if (!target) return;
+        const targets = await this.pushTargets();
+        const next = [...targets.filter(item => item.endpoint !== target.endpoint), target].slice(-MAX_PUSH_ENDPOINTS);
         await this.host.storage.put(PUSH_KEY, next);
         sender.setState({ ...(sender.state as ChatConnectionState), push: parsed.endpoint });
         break;
@@ -148,8 +155,8 @@ export default class ChatRoom {
         const endpoint = (sender.state as ChatConnectionState).push;
         if (!endpoint) return;
         sender.setState({ ...(sender.state as ChatConnectionState), push: undefined });
-        const endpoints = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
-        await this.host.storage.put(PUSH_KEY, endpoints.filter(item => item !== endpoint));
+        const targets = await this.pushTargets();
+        await this.host.storage.put(PUSH_KEY, targets.filter(item => item.endpoint !== endpoint));
         break;
       }
 
@@ -223,26 +230,35 @@ export default class ChatRoom {
     await this.host.storage.deleteAll();
   }
 
-  // Devices that enabled notifications but have no open connection get an empty push; the ones still connected show their own.
+  private async pushTargets(): Promise<PushTarget[]> {
+    const stored = (await this.host.storage.get<unknown[]>(PUSH_KEY)) ?? [];
+    return (Array.isArray(stored) ? stored : []).map(normalizePushTarget).filter((item): item is PushTarget => item !== null);
+  }
+
+  // Devices that enabled notifications but have no open connection get a push; the ones still connected show their own.
   private async wakeSleepers() {
     const keys = readVapidKeys(this.host.env);
     const now = Date.now();
     if (!keys || now - this.lastPushAt < PUSH_COOLDOWN_MS) return;
-    const endpoints = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
+    const targets = await this.pushTargets();
     const awake = new Set<string>();
     for (const conn of this.host.getConnections()) {
       const endpoint = (conn.state as ChatConnectionState | null)?.push;
       if (endpoint) awake.add(endpoint);
     }
-    const sleeping = endpoints.filter(endpoint => !awake.has(endpoint));
+    const sleeping = targets.filter(target => !awake.has(target.endpoint));
     if (!sleeping.length) return;
     this.lastPushAt = now;
-    const results = await Promise.all(sleeping.map(endpoint => sendPush(endpoint, keys)));
-    const gone = new Set(sleeping.filter((_, index) => results[index] === "gone"));
-    if (gone.size) {
-      const current = (await this.host.storage.get<string[]>(PUSH_KEY)) ?? [];
-      await this.host.storage.put(PUSH_KEY, current.filter(endpoint => !gone.has(endpoint)));
-    }
+    const results = await Promise.all(sleeping.map(target => sendPush(target, keys)));
+    const gone = new Set(sleeping.filter((_, index) => results[index] === "gone").map(target => target.endpoint));
+    if (!gone.size) return;
+    this.queue = this.queue
+      .then(async () => {
+        const current = await this.pushTargets();
+        await this.host.storage.put(PUSH_KEY, current.filter(target => !gone.has(target.endpoint)));
+      })
+      .catch(() => {});
+    await this.queue;
   }
 
   private async setRoomConfig(input: unknown) {

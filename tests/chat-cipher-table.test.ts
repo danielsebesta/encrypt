@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createCoverCodec, parseCoverTable } from '../src/lib/chatCipher/tableCodec';
-import { COVER_TABLE_SHA256, COVER_TABLE_URL } from '../src/lib/chatCipher/coverTable';
+import { COVER_LANGS, COVER_TABLES, COVER_TABLE_SHA256, COVER_TABLE_URL, isCoverLang, preferredCoverLang } from '../src/lib/chatCipher/coverTable';
 import { chatCipherErrorKey } from '../src/lib/chatCipher/errors';
 import { foldWord } from '../src/lib/chatNoise';
 import { openPasswordWithSurplus, restoreFixedHeader, sealPassword, stripFixedHeader } from '../src/lib/passwordEnvelope';
@@ -25,6 +25,32 @@ const bytes = (length: number, rand: () => number) => Uint8Array.from({ length }
 
 test('the table on disk is the one the code pins', () => {
   assert.equal(createHash('sha256').update(packed).digest('hex'), COVER_TABLE_SHA256);
+});
+
+test('every cover language pack on disk matches its pinned checksum', () => {
+  for (const lang of COVER_LANGS) {
+    const pack = COVER_TABLES[lang];
+    const bytes = readFileSync(new URL(`../public${pack.url}`, import.meta.url));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), pack.sha256, lang);
+    const words = parseCoverTable(gunzipSync(bytes)).words.slice(2).map(foldWord);
+    assert.ok(words.every(Boolean), lang);
+    assert.equal(new Set(words).size, words.length, lang);
+  }
+});
+
+test('non-Czech packs round-trip short payloads', async () => {
+  for (const lang of COVER_LANGS) {
+    if (lang === 'cs') continue;
+    const pack = COVER_TABLES[lang];
+    const langCodec = createCoverCodec(parseCoverTable(gunzipSync(readFileSync(new URL(`../public${pack.url}`, import.meta.url)))));
+    for (let seed = 1; seed <= 20; seed++) {
+      const rand = seeded(seed * 17 + lang.charCodeAt(0));
+      const data = bytes(1 + Math.floor(rand() * 48), rand);
+      const text = await langCodec.encode(data, rand);
+      const back = await langCodec.decode(text);
+      assert.deepEqual(back.subarray(0, data.length), data, `${lang} seed ${seed}`);
+    }
+  }
 });
 
 test('words fold to unique spellings and leave out the banned list', () => {
@@ -126,13 +152,44 @@ test('an altered cover never opens', async () => {
   const rand = seeded(5);
   const text = await codec.encode(body, rand);
   const words = text.split(' ');
-  words[Math.floor(words.length / 2)] = words[Math.floor(words.length / 2)] === 'a' ? 'to' : 'a';
-  const altered = words.join(' ');
-  let failed = false;
-  try {
-    await openPasswordWithSurplus(restoreFixedHeader(await codec.decode(altered)), 'pw');
-  } catch {
-    failed = true;
+  let altered: Uint8Array | null = null;
+  for (let at = Math.floor(words.length / 2); at < words.length && !altered; at++) {
+    const copy = [...words];
+    copy[at] = copy[at] === 'a' ? 'to' : 'a';
+    const decoded = await codec.decode(copy.join(' ')).catch(() => null);
+    if (decoded && decoded.subarray(0, body.length).some((byte, i) => byte !== body[i])) altered = decoded;
   }
-  assert.ok(failed);
+  assert.ok(altered);
+  await assert.rejects(openPasswordWithSurplus(restoreFixedHeader(altered), 'pw'));
+});
+
+test('the automatic cover language follows the site, then the browser', () => {
+  assert.equal(preferredCoverLang('cs', ['cs-CZ', 'en']), 'cs');
+  assert.equal(preferredCoverLang('en', ['cs-CZ', 'en-US']), 'en');
+  assert.equal(preferredCoverLang('de', ['sk-SK', 'cs']), 'sk');
+  assert.equal(preferredCoverLang('fr', ['ja', 'zh-CN']), 'fr');
+  assert.equal(preferredCoverLang('pl', []), 'pl');
+  assert.equal(preferredCoverLang(null, ['ES-mx']), 'es');
+  assert.equal(preferredCoverLang('xx', []), 'cs');
+  assert.equal(isCoverLang('constructor'), false);
+});
+
+test('each cover is recognised by its own table and refused by the others', async () => {
+  const codecs = COVER_LANGS.map(lang => ({
+    lang,
+    codec: createCoverCodec(parseCoverTable(gunzipSync(readFileSync(new URL(`../public${COVER_TABLES[lang].url}`, import.meta.url))))),
+  }));
+  for (const { lang, codec } of codecs) {
+    for (let seed = 1; seed <= 4; seed++) {
+      const rand = seeded(seed * 31 + lang.charCodeAt(1));
+      const cover = await codec.encode(bytes(40 + seed * 20, rand), rand);
+      const own = codec.coverage(cover);
+      assert.ok(own >= 0.95, `${lang} seed ${seed}: own ${own}`);
+      for (const other of codecs) {
+        if (other.lang === lang) continue;
+        assert.ok(other.codec.coverage(cover) < 0.9, `${lang} cover vs ${other.lang}`);
+        await assert.rejects(other.codec.decode(cover), `${lang} cover decoded by ${other.lang}`);
+      }
+    }
+  }
 });

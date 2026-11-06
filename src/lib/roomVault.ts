@@ -323,6 +323,14 @@ export async function renameRoom(entry: RoomEntry, label: string): Promise<RoomE
   return next;
 }
 
+/** The secret is sealed to the entry id only, so the mode can follow what the room reports. */
+export async function setRoomMode(entry: RoomEntry, mode: string): Promise<RoomEntry> {
+  if (entry.mode === mode || !validMode(entry.kind, mode)) return entry;
+  const next: RoomEntry = { ...entry, mode };
+  await withStore(ROOMS, 'readwrite', (s) => s.put(next));
+  return next;
+}
+
 /** Pin is plaintext vault metadata beside name/mode; it never touches the sealed secret. */
 export async function setRoomPinned(entry: RoomEntry, pinned: boolean): Promise<RoomEntry> {
   const next: RoomEntry = { ...entry };

@@ -7,22 +7,31 @@
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
+  import CoverStream from './CoverStream.svelte';
   import {
+    COVER_LANGS,
     chatCipherErrorKey,
     chatCipherErrorRetryable,
     decryptFromChat,
+    decryptFromChatAuto,
     dropRetiredModels,
     encryptToChat,
+    preferredCoverLang,
     reloadCoverCodec,
     warmCoverTable,
     type ChatCipherErrorKey,
     type ChatCipherPhase,
     type ChatCipherProgressInfo,
+    type CoverLang,
   } from '../../lib/chatCipher';
 
   export let dict: Record<string, string>;
+  export let pageLang: string = 'en';
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
+  let coverChoice: CoverLang | 'auto' = 'auto';
+  let autoLang: CoverLang = preferredCoverLang(pageLang);
+  let detectedLang: CoverLang | null = null;
   let inputText = '';
   let password = '';
   let result = '';
@@ -31,7 +40,13 @@
   let busy = false;
   let progressTitle = '';
   let progressDetail = '';
+  let coverRatio: number | null = null;
+  let streamWaiting = false;
+  let streamDone = true;
+  let streamWaiter: (() => void) | null = null;
 
+  $: coverLang = coverChoice === 'auto' ? autoLang : coverChoice;
+  $: autoLabel = t(dict, 'tools.chatCipher.lang.auto').replace('{lang}', t(dict, `tools.chatCipher.lang.${autoLang}`));
   $: passwordChecks = checkRoomPassword(password, '');
   $: passwordRules = [
     { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
@@ -40,9 +55,17 @@
   ];
 
   onMount(() => {
-    void warmCoverTable();
+    autoLang = preferredCoverLang(pageLang, navigator.languages?.length ? navigator.languages : [navigator.language]);
+    void warmCoverTable(autoLang);
     void dropRetiredModels().catch(() => {});
   });
+
+  function onCoverLangChange() {
+    clearError();
+    result = '';
+    detectedLang = null;
+    void warmCoverTable(coverChoice === 'auto' ? autoLang : coverChoice);
+  }
 
   function clearError() {
     error = '';
@@ -52,12 +75,15 @@
   function showError(e: unknown) {
     errorKey = chatCipherErrorKey(e);
     error = t(dict, errorKey);
+    if (errorKey === 'tools.chatCipher.errorCoverMismatch' && coverChoice !== 'auto') error += ` ${t(dict, 'tools.chatCipher.errorTryAuto')}`;
     const detail = e instanceof Error && e.message ? e.message : '';
     if (detail && typeof console !== 'undefined') console.error('[chat-cipher]', detail, e);
   }
 
   function setProgress(phase: ChatCipherPhase, info?: ChatCipherProgressInfo) {
     if (phase === 'seal') {
+      streamWaiting = mode === 'encrypt';
+      coverRatio = null;
       progressTitle = t(dict, 'tools.chatCipher.progress.sealTitle');
       progressDetail = t(dict, 'tools.chatCipher.progress.sealDetail');
     } else if (phase === 'cover') {
@@ -65,6 +91,8 @@
         info && info.total && info.total > 0 && typeof info.done === 'number'
           ? Math.min(100, Math.round((100 * info.done) / info.total))
           : null;
+      coverRatio = pct == null ? null : pct / 100;
+      streamWaiting = mode === 'encrypt';
       progressTitle =
         mode === 'encrypt'
           ? t(dict, 'tools.chatCipher.progress.writeTitle')
@@ -79,6 +107,20 @@
     }
   }
 
+  function onStreamDone() {
+    streamDone = true;
+    streamWaiting = false;
+    streamWaiter?.();
+    streamWaiter = null;
+  }
+
+  function waitForStream(): Promise<void> {
+    if (streamDone) return Promise.resolve();
+    return new Promise(resolve => {
+      streamWaiter = resolve;
+    });
+  }
+
   async function run(work: () => Promise<void>) {
     busy = true;
     progressTitle = t(dict, 'tools.chatCipher.progress.startingTitle');
@@ -87,6 +129,9 @@
       await work();
     } catch (e: unknown) {
       showError(e);
+      streamWaiting = false;
+      streamDone = true;
+      coverRatio = null;
     } finally {
       busy = false;
       progressTitle = '';
@@ -97,27 +142,50 @@
   async function handleProcess() {
     clearError();
     result = '';
+    detectedLang = null;
+    coverRatio = null;
+    streamDone = true;
+    streamWaiting = mode === 'encrypt';
     if (!inputText || !password) {
       errorKey = 'tools.chatCipher.errorBoth';
       error = t(dict, errorKey);
+      streamWaiting = false;
       return;
     }
     if (mode === 'encrypt' && !passwordLongEnough(password)) {
       error = t(dict, 'common.passwordTooShort');
+      streamWaiting = false;
       return;
     }
     await run(async () => {
-      result =
-        mode === 'encrypt'
-          ? await encryptToChat(inputText, password, setProgress)
-          : await decryptFromChat(inputText, password, setProgress);
+      let text: string;
+      if (mode === 'encrypt') {
+        text = await encryptToChat(inputText, password, setProgress, coverLang);
+      } else if (coverChoice === 'auto') {
+        const opened = await decryptFromChatAuto(inputText, password, setProgress, autoLang);
+        text = opened.text;
+        detectedLang = opened.lang;
+      } else {
+        text = await decryptFromChat(inputText, password, setProgress, coverChoice);
+      }
+      if (mode === 'encrypt') {
+        streamDone = false;
+        streamWaiting = false;
+        progressTitle = '';
+        progressDetail = '';
+        coverRatio = null;
+        result = text;
+        await waitForStream();
+      } else {
+        result = text;
+      }
     });
   }
 
   async function redownloadTable() {
     clearError();
     await run(async () => {
-      await reloadCoverCodec();
+      await reloadCoverCodec(coverLang);
     });
   }
 
@@ -125,6 +193,9 @@
     mode = mode === 'encrypt' ? 'decrypt' : 'encrypt';
     inputText = '';
     result = '';
+    detectedLang = null;
+    onStreamDone();
+    coverRatio = null;
     clearError();
   }
 </script>
@@ -137,6 +208,22 @@
 
   <div id="chat-cipher-panel" role="tabpanel" class="stack">
     <p class="status">{t(dict, 'tools.chatCipher.tableNote')}</p>
+
+    <div class="field">
+      <label for="chat-cipher-lang" class="label">{t(dict, 'tools.chatCipher.coverLang')}</label>
+      <select
+        id="chat-cipher-lang"
+        class="input"
+        bind:value={coverChoice}
+        disabled={busy}
+        on:change={onCoverLangChange}
+      >
+        <option value="auto">{autoLabel}</option>
+        {#each COVER_LANGS as lang}
+          <option value={lang}>{t(dict, `tools.chatCipher.lang.${lang}`)}</option>
+        {/each}
+      </select>
+    </div>
 
     <div class="field">
       <label for="chat-cipher-input" class="label">{mode === 'encrypt' ? t(dict, 'tools.chatCipher.inputText') : t(dict, 'tools.chatCipher.coverText')}</label>
@@ -183,7 +270,7 @@
     </button>
 
     {#if busy}
-      <ProgressPulse title={progressTitle} detail={progressDetail} />
+      <ProgressPulse title={progressTitle} detail={progressDetail} ratio={coverRatio} />
     {/if}
 
     {#if error}
@@ -198,26 +285,36 @@
         </div>
       </div>
     {/if}
-    {#if result}
+    {#if mode === 'encrypt' && (streamWaiting || result)}
       <div class="field">
         <div class="output-head">
-          <span class="label" id="chat-cipher-out-label">{mode === 'encrypt' ? t(dict, 'tools.chatCipher.coverOutput') : t(dict, 'tools.chatCipher.plainOutput')}</span>
+          <span class="label" id="chat-cipher-out-label">{t(dict, 'tools.chatCipher.coverOutput')}</span>
+          {#if result && streamDone}
+            <CopyButton text={result} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+          {/if}
+        </div>
+        <CoverStream
+          target={result}
+          waiting={streamWaiting && !result}
+          labelledby="chat-cipher-out-label"
+          on:done={onStreamDone}
+        />
+      </div>
+    {:else if result}
+      <div class="field">
+        <div class="output-head">
+          <span class="label" id="chat-cipher-out-label">{t(dict, 'tools.chatCipher.plainOutput')}</span>
           <CopyButton text={result} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
         </div>
         <output
-          class="output output--ok {mode === 'encrypt' ? 'cipher-cover' : 'break-words'}"
+          class="output output--ok break-words"
           aria-labelledby="chat-cipher-out-label"
           aria-live="polite"
         >{result}</output>
+        {#if detectedLang}
+          <p class="hint">{t(dict, 'tools.chatCipher.detectedLang').replace('{lang}', t(dict, `tools.chatCipher.lang.${detectedLang}`))}</p>
+        {/if}
       </div>
     {/if}
   </div>
 </div>
-
-<style>
-  :global(.cipher-cover) {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    word-break: normal;
-  }
-</style>

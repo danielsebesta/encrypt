@@ -57,7 +57,7 @@
   import { longPress } from '../../lib/longPress';
   import { buildMicChain } from '../../lib/micChain';
   import { swipeReply } from '../../lib/swipeReply';
-  import { subscribeForPush } from '../../lib/pushClient';
+  import { forgetPushRoom, pushTagFor, rememberPushRoom, subscribeForPush } from '../../lib/pushClient';
   import { zoomPan } from '../../lib/zoomPan';
   import ChatMembers from './ChatMembers.svelte';
   import { NotificationBurst, loadNotifyPref, saveNotifyPref, titleWithUnread } from '../../lib/chatAttention';
@@ -70,11 +70,13 @@
     writeSealedDrafts,
     type ScheduledDraft,
   } from '../../lib/chatSchedule';
+  import { readSealedOutbox, writeSealedOutbox, type OutboxEntry } from '../../lib/chatOutbox';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
   import ChatQuote from './ChatQuote.svelte';
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
   import ChatComposer from './ChatComposer.svelte';
+  import EmojiPicker from './EmojiPicker.svelte';
   import ChatCall from './ChatCall.svelte';
   import { formatClock, validVoiceDuration, voiceFileName, voiceTypeOf, type VoiceRecording } from '../../lib/voiceMessage';
   import { buildChatHistoryExport, chatHistoryExportJson, chatHistoryFileName } from '../../lib/chatHistoryExport';
@@ -93,6 +95,7 @@
   export let roomId = '';
   export let partyHost = '';
   export let appMode = false;
+  export let roomLabel = '';
   export let onOpenBoardApp: ((roomId: string, password: string) => void) | undefined = undefined;
   export let onExitApp: (() => void) | undefined = undefined;
   export let onSavedPassword: (() => Promise<string | null>) | undefined = undefined;
@@ -100,10 +103,16 @@
   export let onConnStatus: ((status: 'connected' | 'connecting' | 'loading' | 'offline') => void) | undefined = undefined;
   export let requestReconnect = () => {};
   export let requestCall: () => void = () => {};
+  export let requestHangup: () => void = () => {};
+  export let notifyIntent: boolean | null = null;
+  export let onNotifyIntent: (on: boolean) => void = () => {};
+  export let onRoomMode: ((mode: ChatMode) => void) | undefined = undefined;
   export let requestRoomMenu: () => void = () => {};
   export let requestRoomInfo: () => void = () => {};
   export let onShareApp: (() => void) | undefined = undefined;
   export let appCallState = { ready: false, joining: false, active: false };
+  export let onOverlayChange: ((open: boolean) => void) | undefined = undefined;
+  export let closeOverlay: () => boolean = () => false;
 
   export let dict: Record<string, string>;
 
@@ -131,6 +140,8 @@
     signed?: string;
     replyTo?: string;
     pending?: boolean;
+    unacked?: boolean;
+    slow?: boolean;
     failed?: boolean;
   };
 
@@ -380,8 +391,22 @@
     try { ws?.reconnect(); } catch {}
   };
   requestCall = () => { closeHeaderMenu(); void startCall(); };
+  requestHangup = () => { if (callActive) void endCall(true); };
   requestRoomMenu = () => { headerMenuOpen = !headerMenuOpen; membersOpen = false; burnConfirmMsg = null; profileOpen = false; };
   requestRoomInfo = () => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; };
+  closeOverlay = () => {
+    if (lightbox) { closeLightbox(); return true; }
+    if (emojiTarget) { closeEmoji(false); return true; }
+    if (actionMenuFor) { actionMenuFor = null; return true; }
+    if (composerMenuOpen) { composerMenuOpen = false; return true; }
+    if (headerMenuOpen) { headerMenuOpen = false; return true; }
+    if (profileOpen) { profileOpen = false; return true; }
+    if (callSettingsOpen) { callSettingsOpen = false; return true; }
+    if (membersOpen) { membersOpen = false; nameEditing = false; return true; }
+    if (sharePassword && !shareDismissed) { shareDismissed = true; return true; }
+    if (activeCallNotice && !callActive) { dismissCallNotice(); return true; }
+    return false;
+  };
   const onNetChange = () => {
     const was = netOffline;
     netOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -440,8 +465,24 @@
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
-  let typing: { sender: string; initials: string; color: string; alias?: Alias } | null = null;
-  let typingTimeout: ReturnType<typeof setTimeout>;
+  type Typer = { id: string; sender: string; color: string; alias?: Alias; until: number };
+  const TYPING_HOLD_MS = 6000;
+  const TYPING_PING_MS = 2500;
+  let typers: Typer[] = [];
+  let typingSweep: ReturnType<typeof setTimeout> | undefined;
+  function sweepTypers() {
+    clearTimeout(typingSweep);
+    const now = Date.now();
+    const live = typers.filter((x) => x.until > now);
+    if (live.length !== typers.length) typers = live;
+    if (live.length) typingSweep = setTimeout(sweepTypers, Math.max(120, Math.min(...live.map((x) => x.until)) - now + 20));
+  }
+  function typingFade(_node: Element, { duration = 180 } = {}) {
+    return { duration, css: (k: number) => `opacity:${k};transform:translateY(${(1 - k) * 4}px)` };
+  }
+  function dropTyper(id: string) {
+    if (typers.some((x) => x.id === id)) typers = typers.filter((x) => x.id !== id);
+  }
   let blurred = false;
   let roomConfig: RoomConfig = { mode: 'live', authMode: 'password', createdAt: 0, v: 3 };
   let pendingRoomConfig: RoomConfig | null = null;
@@ -469,15 +510,13 @@
   let burnConfirmMsg: Message | null = null;
   let membersOpen = false;
   let headerMenuOpen = false;
-  let appProfileOpen = false;
-  let appProfileFormEl: HTMLElement | null = null;
+  let nameEditing = false;
+  let nameInputEl: HTMLInputElement | null = null;
   let unsupportedBrowser = false;
   let profileOpen = false;
   let profileEl: HTMLElement | null = null;
   let nickInput = '';
   let previewAlias: Alias = alias;
-  let previewName = '';
-  $: previewName = nickInput.trim() || aliasName(dict, alias);
 
   function rerollAvatar() {
     previewAlias = { ...alias, h: newAlias().h };
@@ -508,6 +547,7 @@
   let callActive = false;
   let callJoining = false;
   $: appCallState = { ready: connected && verified && !callJoining && !callActive, joining: callJoining, active: callActive };
+  $: if (appMode && onNotice && callError && !callActive) { onNotice(callError); callError = ''; }
   let callError = '';
   let activeCallNotice: ActiveCallNotice | null = null;
   let callNoticeDismissed = false;
@@ -521,6 +561,139 @@
   let callVolume = 1;
   let callSettingsOpen = false;
   let callChatOpen = true;
+  let callMinimized = false;
+  let chatBodyWidth = 0;
+  $: callWide = chatBodyWidth >= 760;
+  $: if (!callActive) callMinimized = false;
+  $: callChatVisible = !callActive || callMinimized || (callWide && callChatOpen);
+  let screenShareSupported = false;
+  let pipSupported = false;
+  let pipWindow: Window | null = null;
+  let pipVideo: HTMLVideoElement | null = null;
+  let callErrorTimer: ReturnType<typeof setTimeout> | undefined;
+  $: if (callActive && callError) {
+    clearTimeout(callErrorTimer);
+    callErrorTimer = setTimeout(() => { callError = ''; }, 5000);
+  }
+
+  function pipStream(): MediaStream | null {
+    return callPeers.find((peer) => peer.stream && peer.screenSharing)?.stream
+      ?? callPeers.find((peer) => peer.stream && peer.stream.getVideoTracks().length && !peer.cameraOff)?.stream
+      ?? null;
+  }
+
+  function closeCallPip() {
+    try { pipWindow?.close(); } catch {}
+    pipWindow = null;
+    if (typeof document !== 'undefined' && document.pictureInPictureElement) void document.exitPictureInPicture().catch(() => {});
+    if (pipVideo) { pipVideo.srcObject = null; pipVideo.remove(); pipVideo = null; }
+  }
+
+  function renderPip() {
+    const w = pipWindow;
+    if (!w) return;
+    const d = w.document;
+    const stream = pipStream();
+    const speaking = callPeers.find((peer) => peer.speaking && !peer.muted);
+    let video = d.querySelector('video');
+    const stage = d.getElementById('stage')!;
+    if (stream) {
+      if (!video) {
+        stage.textContent = '';
+        video = d.createElement('video');
+        video.autoplay = true; video.muted = true; video.playsInline = true;
+        video.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;border-radius:10px';
+        stage.append(video);
+      }
+      if (video.srcObject !== stream) { video.srcObject = stream; void video.play().catch(() => {}); }
+    } else {
+      if (video) video.remove();
+      stage.textContent = '';
+      const row = d.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center';
+      const people = [{ name: identity.name, bg: aliasGradient(alias, identity.name), on: localSpeaking && !micMuted }, ...callPeers.slice(0, 4).map((peer) => ({ name: peer.name, bg: gradientFor(peer.alias, peer.name), on: peer.speaking && !peer.muted }))];
+      for (const person of people) {
+        const dot = d.createElement('span');
+        dot.title = person.name;
+        dot.style.cssText = `width:44px;height:44px;border-radius:50%;background:${person.bg};box-shadow:${person.on ? '0 0 0 3px #0a0a0b,0 0 0 5px #4ade80' : 'none'};transition:box-shadow .15s`;
+        row.append(dot);
+      }
+      stage.append(row);
+    }
+    d.getElementById('label')!.textContent = speaking ? t(dict, 'chat.callNameSpeaking').replace('{name}', speaking.name) : `${t(dict, 'chat.callInCall')} · ${callPeers.length + 1}`;
+    const mic = d.getElementById('mic') as HTMLButtonElement;
+    mic.textContent = micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute');
+    mic.style.color = micMuted ? '#f87171' : '#f4f4f5';
+  }
+
+  async function openCallPip() {
+    if (!callActive) return;
+    const dpip = (window as unknown as { documentPictureInPicture?: { requestWindow: (o: { width: number; height: number }) => Promise<Window> } }).documentPictureInPicture;
+    if (dpip) {
+      if (pipWindow) { pipWindow.focus(); return; }
+      try {
+        const w = await dpip.requestWindow({ width: 340, height: 220 });
+        pipWindow = w;
+        const d = w.document;
+        d.title = roomLabel || roomId;
+        d.body.style.cssText = 'margin:0;height:100vh;display:flex;flex-direction:column;gap:8px;padding:8px;box-sizing:border-box;background:#0a0a0b;color:#f4f4f5;font:13px/1.3 system-ui,-apple-system,sans-serif';
+        const btn = 'flex:1;min-height:36px;border:0;border-radius:999px;background:rgba(255,255,255,.1);color:#f4f4f5;font:600 13px system-ui,sans-serif;cursor:pointer';
+        d.body.innerHTML = `<div id="stage" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center"></div><div id="label" style="text-align:center;color:#a1a1aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div style="display:flex;gap:6px"><button id="mic" type="button" style="${btn}"></button><button id="back" type="button" style="${btn}"></button><button id="end" type="button" style="${btn};background:#dc2626;color:#fff"></button></div>`;
+        (d.getElementById('back') as HTMLButtonElement).textContent = t(dict, 'chat.callReturn');
+        (d.getElementById('end') as HTMLButtonElement).textContent = t(dict, 'chat.callHangUp');
+        d.getElementById('mic')!.addEventListener('click', () => void toggleMic());
+        d.getElementById('back')!.addEventListener('click', () => { window.focus(); callMinimized = false; closeCallPip(); });
+        d.getElementById('end')!.addEventListener('click', () => { closeCallPip(); void endCall(true); });
+        w.addEventListener('pagehide', () => { pipWindow = null; });
+        renderPip();
+      } catch {
+        pipWindow = null;
+      }
+      return;
+    }
+    const stream = pipStream();
+    if (!stream || !document.pictureInPictureEnabled) return;
+    try {
+      if (!pipVideo) {
+        pipVideo = document.createElement('video');
+        pipVideo.muted = true; pipVideo.playsInline = true; pipVideo.autoplay = true;
+        pipVideo.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;bottom:0;right:0';
+        document.body.append(pipVideo);
+      }
+      pipVideo.srcObject = stream;
+      await pipVideo.play().catch(() => {});
+      await pipVideo.requestPictureInPicture();
+    } catch {}
+  }
+
+  $: if (pipWindow) { void callPeers; void micMuted; void localSpeaking; renderPip(); }
+  $: if (!callActive && (pipWindow || pipVideo)) closeCallPip();
+
+  function setupCallMediaSession(active: boolean) {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    const set = (action: string, handler: (() => void) | null) => {
+      try { ms.setActionHandler(action as MediaSessionAction, handler); } catch {}
+    };
+    if (active) {
+      try {
+        ms.metadata = new MediaMetadata({ title: roomLabel || roomId, artist: t(dict, 'chat.callInCall'), artwork: [{ src: '/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png' }] });
+      } catch {}
+      set('togglemicrophone', () => void toggleMic());
+      set('togglecamera', () => void toggleCamera());
+      set('hangup', () => void endCall(true));
+      if (pipSupported) set('enterpictureinpicture', () => void openCallPip());
+    } else {
+      for (const action of ['togglemicrophone', 'togglecamera', 'hangup', 'enterpictureinpicture']) set(action, null);
+      try { ms.metadata = null; } catch {}
+    }
+  }
+  $: setupCallMediaSession(callActive);
+  $: if (callActive && typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+    const ms = navigator.mediaSession as MediaSession & { setMicrophoneActive?: (on: boolean) => Promise<void>; setCameraActive?: (on: boolean) => Promise<void> };
+    void ms.setMicrophoneActive?.(!micMuted)?.catch?.(() => {});
+    void ms.setCameraActive?.(!cameraOff)?.catch?.(() => {});
+  }
   let callChatSeen = 0;
   let callChatUnread = false;
   let callDebugEnabled = false;
@@ -577,6 +750,8 @@
   let scheduledDrafts: ScheduledDraft[] = [];
   const scheduleTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let scheduledRestoredFor = '';
+  let outboxRestoredFor = '';
+  let outboxPersistTimer: ReturnType<typeof setTimeout> | undefined;
   const burnedIds = new Set<string>();
   let scheduleClock = Date.now();
   let safetyPrompt: Member | null = null;
@@ -614,11 +789,73 @@
   };
   let replyTarget: Message | null = null;
   let actionMenuFor: string | null = null;
+  type EmojiTarget = { kind: 'insert' } | { kind: 'react'; msg: Message };
+  let emojiTarget: EmojiTarget | null = null;
+  let emojiSkin: 'web' | 'ios' | 'material' = 'web';
+  let emojiPos = { left: 0, top: 0, width: 352, height: 380 };
+  let emojiPopEl: HTMLDivElement | undefined;
+
+  function openEmoji(target: EmojiTarget, anchor?: HTMLElement | null) {
+    if (emojiTarget?.kind === 'insert' && target.kind === 'insert') { closeEmoji(); return; }
+    emojiSkin = appMode ? (document.documentElement.dataset.appPlatform === 'material' ? 'material' : 'ios') : 'web';
+    if (!appMode) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const width = Math.min(352, vw - 16);
+      const height = Math.min(400, vh - 24);
+      const rect = anchor?.getBoundingClientRect() ?? new DOMRect(vw / 2, vh / 2, 0, 0);
+      const left = Math.min(Math.max(8, rect.right - width), vw - width - 8);
+      const above = rect.top - height - 8;
+      const top = above >= 8 ? above : Math.min(rect.bottom + 8, vh - height - 8);
+      emojiPos = { left, top: Math.max(8, top), width, height };
+    }
+    composerMenuOpen = false;
+    emojiTarget = target;
+  }
+
+  function closeEmoji(refocus = true) {
+    const wasInsert = emojiTarget?.kind === 'insert';
+    emojiTarget = null;
+    if (refocus && wasInsert && !appMode) inputEl?.focus();
+  }
+
+  function insertAtCursor(text: string) {
+    const el = inputEl;
+    const start = el?.selectionStart ?? inputText.length;
+    const end = el?.selectionEnd ?? start;
+    inputText = inputText.slice(0, start) + text + inputText.slice(end);
+    handleTyping();
+    void settled().then(() => {
+      if (!el) return;
+      const pos = start + text.length;
+      if (!appMode) el.focus();
+      try { el.setSelectionRange(pos, pos); } catch {}
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  function pickEmoji(emoji: string) {
+    const target = emojiTarget;
+    if (!target) return;
+    if (target.kind === 'react') {
+      if (!reactionBook.has(target.msg.id, emoji, mySignerId)) void toggleReaction(target.msg, emoji);
+      return;
+    }
+    insertAtCursor(emoji);
+  }
+
+  function onEmojiOutside(event: PointerEvent) {
+    if (!emojiTarget || appMode) return;
+    const el = event.target as Element | null;
+    if (emojiPopEl?.contains(el) || el?.closest?.('.chat-emoji-btn')) return;
+    closeEmoji(false);
+  }
   let sheetMsg: Message | undefined;
   $: if (appMode && actionMenuFor) sheetMsg = messageIndex.get(actionMenuFor) ?? sheetMsg;
   let openOverlays: Record<string, boolean> = {};
-  $: syncOverlays({ header: headerMenuOpen, profile: profileOpen, composer: composerMenuOpen, action: actionMenuFor !== null, call: callSettingsOpen, members: membersOpen, invite: sharePassword !== null && !shareDismissed });
+  $: syncOverlays({ emoji: emojiTarget !== null, header: headerMenuOpen, profile: profileOpen, composer: composerMenuOpen, action: actionMenuFor !== null, call: callSettingsOpen, members: membersOpen, invite: Boolean(sharePassword) && !shareDismissed });
   $: if (!composerMenuOpen) scheduleMenuOpen = false;
+  $: if (appMode) onOverlayChange?.(Object.values(openOverlays).some(Boolean) || Boolean(lightbox) || Boolean(activeCallNotice && !callActive));
   function syncOverlays(now: Record<string, boolean>) {
     const opened = Object.keys(now).filter((key) => now[key] && !openOverlays[key]);
     if (opened.length) {
@@ -1385,7 +1622,7 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as TurnConfig;
       if (!data.turnReady || !Array.isArray(data.iceServers) || !hasTurnCredentials(data.iceServers)) {
-        throw new Error(t(dict, 'chat.callTurnRequired'));
+        throw new Error(tApp(dict, 'chat.callTurnRequired', appMode));
       }
       iceServers = data.iceServers;
       iceServersFetchedAt = Date.now();
@@ -1404,7 +1641,7 @@
       iceServersFetchedAt = Date.now();
       iceServersExpiresAt = Date.now() + 30_000;
       updateRelayRoute();
-      throw new Error(t(dict, 'chat.callTurnRequired'));
+      throw new Error(tApp(dict, 'chat.callTurnRequired', appMode));
     }
 
     return iceServers;
@@ -1802,6 +2039,76 @@
   let outbox: ChatPayload[] = [];
   let outboxFlush = false;
 
+  const SLOW_SEND_MS = 1500;
+  const ACK_TIMEOUT_MS = 12000;
+  const ACK_MAX_TRIES = 3;
+  let relayAcks = false;
+  type Inflight = { payload: ChatPayload; signed: string; createdAt: number; at: number; keep: boolean };
+  const inflight = new Map<string, Inflight>();
+  const sendTries = new Map<string, number>();
+  const failedPayloads = new Map<string, ChatPayload>();
+  let ackWatch: ReturnType<typeof setInterval> | undefined;
+
+  function patchMessage(id: string, patch: Partial<Message>) {
+    if (messages.some((m) => m.id === id)) messages = messages.map((m) => (m.id === id ? { ...m, ...patch } : m));
+  }
+
+  function markSlowLater(id: string) {
+    setTimeout(() => {
+      const m = messages.find((x) => x.id === id);
+      if (m && (m.pending || m.unacked) && !m.slow) patchMessage(id, { slow: true });
+    }, SLOW_SEND_MS);
+  }
+
+  function awaitAck(payload: ChatPayload, signed: string, createdAt: number, keep: boolean) {
+    inflight.set(payload.id!, { payload, signed, createdAt, at: Date.now(), keep });
+    markSlowLater(payload.id!);
+    if (ackWatch) return;
+    ackWatch = setInterval(() => {
+      if (!inflight.size) { clearInterval(ackWatch); ackWatch = undefined; return; }
+      const now = Date.now();
+      if (![...inflight.values()].some((x) => now - x.at > ACK_TIMEOUT_MS)) return;
+      requeueInflight(true);
+      if (ws && ws.readyState === 1) ws.reconnect();
+    }, 1000);
+  }
+
+  function onRelayAck(id: string, ok: boolean) {
+    const item = inflight.get(id);
+    if (!item) return;
+    inflight.delete(id);
+    sendTries.delete(id);
+    if (!ok) {
+      failedPayloads.set(id, item.payload);
+      patchMessage(id, { pending: false, unacked: false, slow: false, failed: true });
+      return;
+    }
+    if (item.keep) void storeLocalSigned(id, item.signed, item.createdAt).catch(() => {});
+    patchMessage(id, { pending: false, unacked: false, slow: false, failed: false, signed: item.signed });
+  }
+
+  function requeueInflight(countTry = false) {
+    if (!inflight.size) return;
+    const items = [...inflight.values()].sort((a, b) => a.createdAt - b.createdAt);
+    inflight.clear();
+    const back: ChatPayload[] = [];
+    for (const item of items) {
+      const id = item.payload.id!;
+      const tries = (sendTries.get(id) ?? 0) + (countTry ? 1 : 0);
+      sendTries.set(id, tries);
+      if (tries >= ACK_MAX_TRIES) {
+        sendTries.delete(id);
+        failedPayloads.set(id, item.payload);
+        patchMessage(id, { pending: false, unacked: false, slow: false, failed: true });
+        continue;
+      }
+      back.push(item.payload);
+      patchMessage(id, { pending: true, unacked: false });
+    }
+    const queued = new Set(outbox.map((p) => p.id));
+    outbox = [...back.filter((p) => !queued.has(p.id)), ...outbox];
+  }
+
   async function flushOutbox() {
     if (outboxFlush || (!outbox.length && !fileOutbox.length)) return;
     if (!cryptoKey || !ws || ws.readyState !== 1 || !joinedRoom) return;
@@ -1817,7 +2124,13 @@
         try {
           const { signed, wire } = await buildContent(payload);
           if (!transmit(wire, msgId, createdAt)) { requeue.push(payload); continue; }
-          if (!payload.once && !payload.ttl) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
+          const keepIt = !payload.once && !payload.ttl;
+          if (relayAcks) {
+            awaitAck(payload, signed, createdAt, keepIt);
+            patchMessage(msgId, { pending: false, unacked: true, failed: false });
+            continue;
+          }
+          if (keepIt) void storeLocalSigned(msgId, signed, createdAt).catch(() => {});
           messages = messages.map((m) => (m.id === msgId ? { ...m, pending: false, failed: false, signed } : m));
         } catch {
           requeue.push(payload);
@@ -1868,7 +2181,13 @@
 
   function retryQueued(msg: Message) {
     if (!msg.failed) return;
-    messages = messages.map((m) => (m.id === msg.id ? { ...m, failed: false, pending: true } : m));
+    const payload = failedPayloads.get(msg.id);
+    if (payload) {
+      failedPayloads.delete(msg.id);
+      if (!outbox.some((p) => p.id === msg.id)) outbox = [...outbox, payload];
+    }
+    messages = messages.map((m) => (m.id === msg.id ? { ...m, failed: false, pending: true, slow: false } : m));
+    markSlowLater(msg.id);
     void flushOutbox();
   }
 
@@ -2125,6 +2444,7 @@
     joinedRoom = true;
     ws.send(JSON.stringify({ type: 'join', token: accessToken, config: pendingRoomConfig || roomConfig }));
     void syncPush();
+    void flushOutbox();
 
     // An empty room shows its own notice only after peers had a moment to hand their local copies over.
     historyReady = serverPresence <= 1;
@@ -2221,12 +2541,14 @@
     });
     fsSecret.fill(0);
     try { localStorage.setItem(`${MODE_PREFIX}${channelId}`, configStamp(config)); } catch {}
+    onRoomMode?.(config.mode);
     localHistoryKey = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
     localHistoryLoaded = false;
     needsPassword = false;
     checkingRoom = false;
     await restoreLocalHistory();
     void restoreScheduledDrafts();
+    await restoreOutbox();
     if (ws && ws.readyState === 1) {
       await announceJoined(serverPresence);
     } else if (!ws) {
@@ -2323,6 +2645,7 @@
     ws.addEventListener('close', () => {
       connected = false;
       joinedRoom = false;
+      requeueInflight();
       noteSocketGone();
       serverLatencyMs = null;
       serverConnectStartedAt = 0;
@@ -2347,7 +2670,12 @@
     let data: any;
     try { data = JSON.parse(event.data); } catch { return; }
 
+    if (data.type === 'ack' || data.type === 'nack') {
+      if (typeof data.id === 'string') onRelayAck(data.id, data.type === 'ack');
+      return;
+    }
     if (data.type === 'init') {
+      relayAcks = data.acks === true;
       pushKey = typeof data.push === 'string' ? data.push : '';
       serverPresence = typeof data.presence === 'number' ? data.presence : 0;
       lastPresenceCount = serverPresence;
@@ -2481,10 +2809,12 @@
 
     if (parsed.type === 'typing') {
       if (fromHistory) return true;
+      if (signer === mySignerId) return true;
+      if (parsed.stop === true) { dropTyper(signer); return true; }
       const who = senderInfo(parsed);
-      typing = { sender: who.name, initials: who.initials, color: who.color, alias: who.alias };
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => { typing = null; }, 3000);
+      const next: Typer = { id: signer, sender: who.name, color: who.color, alias: who.alias, until: Date.now() + TYPING_HOLD_MS };
+      typers = typers.some((x) => x.id === signer) ? typers.map((x) => (x.id === signer ? next : x)) : [...typers, next];
+      sweepTypers();
       return true;
     }
 
@@ -2617,7 +2947,7 @@
     seenMessageIds.add(id);
     if (msg.file && msg.revealed && isPreviewable(msg)) msg.previewState = 'loading';
     messages = [...messages, msg];
-    typing = null;
+    dropTyper(signer);
     if (!fromHistory) followIncoming(mine);
     if (!ttl && ctx.signed && origin !== 'local' && keep) {
       void storeLocalSigned(id, ctx.signed, typeof ctx.createdAt === 'number' ? ctx.createdAt : msg.time).catch(() => {});
@@ -2662,11 +2992,34 @@
   }
 
   let pushKey = '';
+  let pushSyncing: Promise<void> = Promise.resolve();
+  let notifyIntentBusy = false;
 
-  async function syncPush() {
+  function syncPush(): Promise<void> {
+    pushSyncing = pushSyncing.then(subscribePush).catch(() => {});
+    return pushSyncing;
+  }
+
+  $: if (notifyIntent !== null && joinedRoom && !notifyIntentBusy) void applyNotifyIntent(notifyIntent);
+
+  async function applyNotifyIntent(want: boolean) {
+    notifyIntentBusy = true;
+    try {
+      await pushSyncing;
+      if (want !== notifyOn) await toggleNotifications();
+      onNotifyIntent(notifyOn);
+    } finally {
+      notifyIntentBusy = false;
+    }
+  }
+
+  async function subscribePush() {
     if (!notifyOn || !pushKey || !ws || ws.readyState !== 1) return;
-    const endpoint = await subscribeForPush(pushKey, t(dict, 'chat.notifyTitle'), t(dict, 'chat.notifyBody'));
-    if (endpoint && ws?.readyState === 1) ws.send(JSON.stringify({ type: 'push-subscribe', endpoint }));
+    const sub = await subscribeForPush(pushKey, t(dict, 'chat.notifyTitle'), t(dict, 'chat.notifyBody'));
+    if (!sub || ws?.readyState !== 1) return;
+    const tag = pushTagFor(roomId);
+    if (sub.keys) await rememberPushRoom(tag, { roomId, label: roomLabel || roomId, kind: 'chat' }).catch(() => {});
+    if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'push-subscribe', endpoint: sub.endpoint, ...(sub.keys ? { tag, keys: sub.keys } : {}) }));
   }
 
   async function toggleNotifications() {
@@ -2675,6 +3028,7 @@
       notifyBurst.reset();
       saveNotifyPref(localStorage, roomId, false);
       if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'push-unsubscribe' }));
+      void forgetPushRoom(pushTagFor(roomId)).catch(() => {});
       return;
     }
     if (!notifySupported) return;
@@ -2723,9 +3077,12 @@
       return false;
     }
     const delivered = transmit(built.wire, msgId, createdAt);
+    const acked = delivered && !relayAcks;
     if (!delivered) {
       outbox = [...outbox, payload];
-      if (netOffline) onNotice?.(t(dict, 'chat.offlineSend'));
+      markSlowLater(msgId);
+    } else if (relayAcks) {
+      awaitAck(payload, built.signed, createdAt, keep);
     } else if (keep) {
       void storeLocalSigned(msgId, built.signed, createdAt).catch(() => {});
     }
@@ -2735,8 +3092,9 @@
       id: msgId, text: body, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
       color: identity.color, mine: true, time: createdAt,
       ttl: finalTtl, remaining: finalTtl,
-      once, revealed: true, pk: mySignerId, signed: delivered ? built.signed : undefined,
+      once, revealed: true, pk: mySignerId, signed: acked ? built.signed : undefined,
       pending: !delivered,
+      unacked: delivered && relayAcks,
       ...(replyTo ? { replyTo } : {}),
     }];
     return true;
@@ -2751,6 +3109,7 @@
       const once = onceEnabled;
       const replyTo = replyTarget?.id;
       if (!(await sendChatMessage(text, { once, replyTo }))) return;
+      typingSent = 0;
       inputText = '';
       replyTarget = null;
       onceEnabled = false;
@@ -2847,6 +3206,78 @@
     await writeSealedDrafts(sessionStorage, roomId, channelId, scheduledDrafts, (text) => sealMessage(key, text));
   }
 
+  function unsentEntries(): OutboxEntry[] {
+    const byId = new Map<string, ChatPayload>();
+    for (const payload of outbox) if (payload.id) byId.set(payload.id, payload);
+    for (const item of inflight.values()) if (item.payload.id) byId.set(item.payload.id, item.payload);
+    for (const [id, payload] of failedPayloads) byId.set(id, payload);
+    const out: OutboxEntry[] = [];
+    for (const payload of byId.values()) {
+      if (payload.type !== 'chat-message' || typeof payload.text !== 'string' || !payload.text.trim()) continue;
+      out.push({
+        id: payload.id!,
+        text: payload.text,
+        createdAt: typeof payload.createdAt === 'number' ? payload.createdAt : Date.now(),
+        ttl: typeof payload.ttl === 'number' ? payload.ttl : 0,
+        ...(payload.once ? { once: true } : {}),
+        ...(typeof payload.replyTo === 'string' ? { replyTo: payload.replyTo } : {}),
+      });
+    }
+    return out;
+  }
+
+  function persistOutboxSoon() {
+    if (typeof sessionStorage === 'undefined' || !channelId || !cryptoKey || outboxRestoredFor !== channelId) return;
+    if (outboxPersistTimer) return;
+    const key = cryptoKey;
+    const channel = channelId;
+    outboxPersistTimer = setTimeout(() => {
+      outboxPersistTimer = undefined;
+      if (channelId !== channel || cryptoKey !== key) { persistOutboxSoon(); return; }
+      void writeSealedOutbox(sessionStorage, roomId, channel, unsentEntries(), (text) => sealMessage(key, text));
+    }, 250);
+  }
+  $: if (messages) persistOutboxSoon();
+
+  async function restoreOutbox() {
+    if (typeof sessionStorage === 'undefined' || !channelId || !cryptoKey) return;
+    if (outboxRestoredFor === channelId) return;
+    const key = cryptoKey;
+    const entries = await readSealedOutbox(sessionStorage, roomId, channelId, (data) => decryptMessage(key, data).catch(() => null));
+    outboxRestoredFor = channelId;
+    const fresh = entries.filter((entry) => !messages.some((m) => m.id === entry.id));
+    if (!fresh.length) { persistOutboxSoon(); return; }
+    const queued = new Set(outbox.map((p) => p.id));
+    for (const entry of fresh) {
+      seenMessageIds.add(entry.id);
+      if (queued.has(entry.id)) continue;
+      outbox = [...outbox, {
+        type: 'chat-message',
+        id: entry.id,
+        text: entry.text,
+        alias: aliasWire(alias), nick: nickname || undefined,
+        ttl: entry.ttl,
+        createdAt: entry.createdAt,
+        ...(entry.once ? { once: true as const } : {}),
+        ...(entry.replyTo ? { replyTo: entry.replyTo } : {}),
+      }];
+    }
+    const now = Date.now();
+    messages = [...messages, ...fresh.map((entry): Message => {
+      const remaining = entry.ttl ? Math.max(1, Math.round(entry.ttl - (now - entry.createdAt) / 1000)) : 0;
+      return {
+        id: entry.id, text: entry.text, sender: identity.name, initials: myInitials, alias, nick: nickname || undefined,
+        color: identity.color, mine: true, time: entry.createdAt,
+        ttl: entry.ttl, remaining,
+        once: Boolean(entry.once), revealed: true, pk: mySignerId,
+        pending: true, slow: true,
+        ...(entry.replyTo ? { replyTo: entry.replyTo } : {}),
+      };
+    })].sort((a, b) => a.time - b.time);
+    scrollToBottom(true);
+    void flushOutbox();
+  }
+
   async function restoreScheduledDrafts() {
     if (typeof sessionStorage === 'undefined' || !channelId || !cryptoKey) return;
     if (scheduledRestoredFor === channelId) return;
@@ -2928,7 +3359,7 @@
   }
 
   function myReactions(target: string, _tick: number): ReactionEmoji[] {
-    return REACTION_EMOJI.filter((emoji) => reactionBook.has(target, emoji, mySignerId));
+    return reactionBook.mine(target, mySignerId);
   }
 
   async function toggleReaction(target: Message, emoji: ReactionEmoji) {
@@ -3254,18 +3685,26 @@
   }
 
   let typingSent = 0;
+  async function sendTypingState(stop: boolean) {
+    if (!ws || !connected || !cryptoKey || ws.readyState !== 1) return;
+    const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', alias: aliasWire(alias), nick: nickname || undefined, ...(stop ? { stop: true } : {}) }));
+    ws?.send(JSON.stringify({ type: 'message', payload, id: genId() }));
+  }
   async function handleTyping() {
     if (!ws || !connected || !cryptoKey) return;
-    // No one to show the indicator to - skip the send, save a request.
     if (serverPresence <= 1) return;
+    if (!inputText.trim()) { stopTyping(); return; }
     const now = Date.now();
-    if (now - typingSent > 3000) {
-      // Send typing indicator as encrypted message (no leaking to wrong-password users)
-      const payload = await encryptMessage(cryptoKey, JSON.stringify({ type: 'typing', alias: aliasWire(alias), nick: nickname || undefined }));
-      ws.send(JSON.stringify({ type: 'message', payload, id: genId() }));
-      typingSent = now;
-    }
+    if (now - typingSent < TYPING_PING_MS) return;
+    typingSent = now;
+    await sendTypingState(false).catch(() => {});
   }
+  function stopTyping() {
+    if (!typingSent) return;
+    typingSent = 0;
+    void sendTypingState(true).catch(() => {});
+  }
+  $: if (!inputText && typingSent) stopTyping();
 
   function getCallVideoStream(track: MediaStreamTrack | null): MediaStream | null {
     if (!track) return null;
@@ -4790,22 +5229,30 @@
     offerPendingSafetyCompares();
   }
 
-  function appProfileToggle() {
-    if (appProfileOpen) { appProfileOpen = false; return; }
+  function startNameEdit() {
     nickInput = nickname || '';
     previewAlias = alias;
     nickError = '';
-    appProfileOpen = true;
-    void settled().then(() => {
-      const el = appProfileFormEl;
-      let scroller = el?.parentElement ?? null;
-      while (scroller && scroller !== document.body && scroller.scrollHeight <= scroller.clientHeight + 8) scroller = scroller.parentElement;
-      if (el && scroller && scroller !== document.body) {
-        const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-        scroller.scrollTo({ top: Math.max(0, top - 24), behavior: 'smooth' });
-      }
-      el?.querySelector('input')?.focus();
-    });
+    nameEditing = true;
+    void settled().then(() => { nameInputEl?.focus(); nameInputEl?.select(); });
+  }
+
+  function cancelNameEdit() {
+    nameEditing = false;
+    nickError = '';
+  }
+
+  async function saveName() {
+    previewAlias = alias;
+    await applyProfile();
+    if (!nickError) nameEditing = false;
+  }
+
+  async function quickReroll() {
+    nickInput = nickname || '';
+    previewAlias = { ...alias, h: newAlias().h };
+    nickError = '';
+    await applyProfile();
   }
 
   function toggleProfile() {
@@ -4820,7 +5267,7 @@
     membersOpen = false;
     burnConfirmMsg = null;
     headerMenuOpen = false;
-    requestAnimationFrame(() => document.getElementById('chat-nickname')?.focus());
+    nameEditing = false;
   }
 
   function closeHeaderMenu() {
@@ -4857,8 +5304,6 @@
       return;
     }
     nickError = '';
-    profileOpen = false;
-    appProfileOpen = false;
     const avatarChanged = aliasKey(previewAlias) !== aliasKey(alias);
     if ((next || null) === nickname && !avatarChanged) return;
     const prev = myLabelKey();
@@ -4985,8 +5430,8 @@
   $: localHasVisibleVideo = Boolean(localPreviewTrack);
   $: callHasVideo = localHasVisibleVideo || callPeers.some((peer) => Boolean(peer.stream?.getVideoTracks().length) && (peer.screenSharing || !peer.cameraOff));
   $: callHasScreenSharing = screenSharing || callPeers.some((peer) => peer.screenSharing);
-  $: if (callChatOpen || !callActive) callChatSeen = messages.length;
-  $: callChatUnread = callActive && !callChatOpen && messages.length > callChatSeen;
+  $: if (callChatVisible) callChatSeen = messages.length;
+  $: callChatUnread = callActive && !callChatVisible && messages.length > callChatSeen;
   $: callFullscreenMedia = getCallFullscreenMedia(callFullscreenTarget);
   $: if (callFullscreenTarget && !callFullscreenMedia) closeCallFullscreen(false);
   $: if (callActive && !callMediaSessionHandlersActive) {
@@ -4998,6 +5443,8 @@
   }
 
   onMount(() => {
+    screenShareSupported = Boolean(navigator.mediaDevices?.getDisplayMedia);
+    pipSupported = 'documentPictureInPicture' in window || Boolean(document.pictureInPictureEnabled);
     clientId = genId();
     baseTitle = document.title;
     notifySupported = 'Notification' in window;
@@ -5024,6 +5471,16 @@
   });
 
   onDestroy(() => {
+    closeCallPip();
+    setupCallMediaSession(false);
+    clearTimeout(callErrorTimer);
+    clearTimeout(typingSweep);
+    if (ackWatch) clearInterval(ackWatch);
+    if (outboxPersistTimer && cryptoKey && channelId && typeof sessionStorage !== 'undefined') {
+      clearTimeout(outboxPersistTimer);
+      const key = cryptoKey;
+      void writeSealedOutbox(sessionStorage, roomId, channelId, unsentEntries(), (text) => sealMessage(key, text));
+    }
     uploadMeter.dispose();
     if (typeof document !== 'undefined') clearUnread();
     if (callActive) void sendCallSignal({ action: 'leave' });
@@ -5066,13 +5523,58 @@
   }
 </script>
 
-<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); closeHeaderMenuOnOutside(e); closeMenusOnOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); closeHeaderMenuOnEscape(e); }} />
+{#snippet chatSkeleton(caption: string)}
+  <div class="app-skel-chat" role="status" aria-live="polite">
+    <span class="app-skel" style="width: 58%"></span>
+    <span class="app-skel" style="width: 36%"></span>
+    <span class="app-skel app-skel--mine" style="width: 46%"></span>
+    <span class="app-skel" style="width: 64%"></span>
+    <span class="app-skel app-skel--mine" style="width: 30%"></span>
+    <p class="app-skel-chat__caption">{caption}</p>
+  </div>
+{/snippet}
+
+{#snippet identityCard()}
+  <section class="chat-me" aria-label={t(dict, 'chat.yourProfile')}>
+    <div class="chat-me__row">
+      <span class="chat-avatar chat-me__avatar" style="background: {aliasGradient(alias, identity.name)}" aria-hidden="true"></span>
+      <div class="chat-me__text">
+        <p class="chat-me__label">{t(dict, 'chat.youAppearAs')}</p>
+        <p class="chat-me__name">{identity.name}</p>
+        {#if myKeyCode}<p class="chat-me__code" title={t(dict, 'chat.safetyNumberHint')}>{t(dict, 'chat.keyCode')} <span aria-label={myKeyCode}>{myKeyCode}</span></p>{/if}
+      </div>
+    </div>
+    {#if nameEditing}
+      <form class="chat-me__form" on:submit|preventDefault={saveName}>
+        <input class={appMode ? 'app-dialog-input chat-me__input' : 'input chat-me__input'} bind:this={nameInputEl} bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} aria-label={t(dict, 'chat.yourName')} autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-invalid={nickError ? 'true' : undefined} aria-describedby="chat-me-hint" on:keydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); cancelNameEdit(); } }} />
+        <div class="chat-me__actions">
+          <button type="submit" class={appMode ? 'app-sheet-btn' : 'btn btn-sm'}>{t(dict, 'chat.nicknameSave')}</button>
+          <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} on:click={cancelNameEdit}>{t(dict, 'chat.cancel')}</button>
+        </div>
+        <p id="chat-me-hint" class="chat-me__hint" class:chat-me__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
+      </form>
+    {:else}
+      <div class="chat-me__actions">
+        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} on:click={startNameEdit}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
+          {t(dict, 'chat.changeName')}
+        </button>
+        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} on:click={quickReroll}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['dices']}</svg>
+          {t(dict, 'chat.rerollAvatar')}
+        </button>
+      </div>
+    {/if}
+  </section>
+{/snippet}
+
+<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); closeHeaderMenuOnOutside(e); closeMenusOnOutside(e); onEmojiOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); closeHeaderMenuOnEscape(e); }} />
 
 <div class="chat-container">
   {#if unsupportedBrowser}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {@html illustration('magnify', 'state-art')}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{:else}{@html illustration('magnify', 'state-art')}{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.unsupportedBrowser')}</p>
       </div>
     </div>
@@ -5080,7 +5582,7 @@
   {:else if configChanged}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {@html illustration('magnify', 'state-art')}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{:else}{@html illustration('magnify', 'state-art')}{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.configChanged')}</p>
         <p class="hint">{t(dict, 'chat.configChangedDetail')}</p>
         {#if appMode}
@@ -5094,7 +5596,7 @@
   {:else if roomMissing}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {@html illustration('magnify', 'state-art')}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{:else}{@html illustration('magnify', 'state-art')}{/if}
         <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
         {#if appMode}
@@ -5107,36 +5609,44 @@
     </div>
 
   {:else if checkingRoom}
+    {#if appMode}
+      {@render chatSkeleton(t(dict, 'chat.opening'))}
+    {:else}
     <div class="chat-center">
       <div class="text-center space-y-2" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
         <span class="chat-loader" aria-hidden="true"></span>
         <p class="hint">{t(dict, 'common.working')}</p>
       </div>
     </div>
+    {/if}
 
   {:else if needsPassword}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
-          {@html illustration('lock', 'state-art')}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{:else}{@html illustration('lock', 'state-art')}{/if}
           <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
-        <input
-          type="password"
-          class="input w-full"
-          aria-label={t(dict, 'chat.password')}
-          placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
-          bind:value={passwordInput}
-          on:keydown={(e) => e.key === 'Enter' && submitPassword()}
-          autocomplete="off"
-          data-lpignore="true"
-          data-1p-ignore
-          data-bwignore="true"
-        />
-        {#if passwordError}
-          <p class="status status--error" role="alert">{passwordError}</p>
-        {/if}
+        <div class="field">
+          <input
+            type="password"
+            class="input w-full"
+            aria-label={t(dict, 'chat.password')}
+            aria-invalid={passwordError ? 'true' : undefined}
+            aria-describedby={passwordError ? 'chat-password-error' : undefined}
+            placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
+            bind:value={passwordInput}
+            on:keydown={(e) => e.key === 'Enter' && submitPassword()}
+            autocomplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore="true"
+          />
+          {#if passwordError}
+            <p class="status status--error" id="chat-password-error" role="alert">{passwordError}</p>
+          {/if}
+        </div>
         <button class="btn w-full" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
         {#if appMode && onSavedPassword}
           <button class="btn btn-secondary w-full" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
@@ -5145,12 +5655,16 @@
     </div>
 
   {:else if verifying && !everVerified}
+    {#if appMode}
+      {@render chatSkeleton(serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone'))}
+    {:else}
     <div class="chat-center">
       <div class="text-center space-y-2" role="status" aria-live="polite">
         <span class="chat-loader" aria-hidden="true"></span>
         <p class="hint">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
       </div>
     </div>
+    {/if}
 
   {:else}
     {#if !appMode}
@@ -5159,26 +5673,15 @@
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
           <div class="chat-profile" bind:this={profileEl}>
-            <button type="button" class="chat-avatar chat-avatar--sm chat-avatar--btn" style="background: {aliasGradient(alias, identity.name)}" title="{identity.name} · {t(dict, 'chat.editProfile')}" aria-label="{identity.name} · {t(dict, 'chat.editProfile')}" aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
-              <span class="chat-avatar__edit" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['pencil']}</svg></span>
+            <button type="button" class="chat-me-pill" title={t(dict, 'chat.editProfile')} aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
+              <span class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" aria-hidden="true"></span>
+              <span class="chat-me-pill__name">{identity.name}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
             </button>
             {#if profileOpen}
-              <form id="chat-profile-pop" class="chat-profile__pop" on:submit|preventDefault={applyProfile}>
-                <div class="chat-profile__avatar">
-                  <span class="chat-avatar chat-avatar--lg" style="background: {gradientFor(previewAlias, previewName)}" aria-hidden="true"></span>
-                  <button type="button" class="btn-secondary btn-sm" on:click={rerollAvatar}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['dices']}</svg>
-                    {t(dict, 'chat.rerollAvatar')}
-                  </button>
-                </div>
-                <label class="chat-profile__label" for="chat-nickname">{t(dict, 'chat.yourName')}</label>
-                <div class="chat-profile__row">
-                  <input id="chat-nickname" class="input chat-profile__input" bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} autocomplete="off" autocapitalize="off" spellcheck="false" aria-invalid={nickError ? 'true' : undefined} aria-describedby="chat-nickname-hint" />
-                  <button type="submit" class="btn btn-sm">{t(dict, 'chat.nicknameSave')}</button>
-                </div>
-                <p id="chat-nickname-hint" class="chat-profile__hint" class:chat-profile__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
-                
-              </form>
+              <div id="chat-profile-pop" class="chat-profile__pop">
+                {@render identityCard()}
+              </div>
             {/if}
           </div>
           {#each onlineUsers as user}
@@ -5248,7 +5751,7 @@
     {/if}
 
     {#if appMode}
-      <Popover class="w-72!" opened={headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu}>
+      <Popover class="w-72!" opened={headerMenuOpen} inert={!headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu}>
         <MenuList>
           {#if onShareApp}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'common.shareLink')} onClick={() => { closeHeaderMenu(); onShareApp(); }}>
@@ -5295,7 +5798,7 @@
     {/if}
 
     {#if appMode}
-      <Sheet opened={actionMenuFor !== null} onBackdropClick={() => { actionMenuFor = null; }} class="app-sheet chat-msg-sheet pb-[env(safe-area-inset-bottom)]">
+      <Sheet opened={actionMenuFor !== null} inert={actionMenuFor === null} onBackdropClick={() => { actionMenuFor = null; }} class="app-sheet chat-msg-sheet pb-[env(safe-area-inset-bottom)]">
         <div class="app-sheet__handle"></div>
         {#if sheetMsg}
           {@const picked = myReactions(sheetMsg.id, reactionTick)}
@@ -5310,6 +5813,12 @@
                 on:click={() => { if (sheetMsg) void toggleReaction(sheetMsg, emoji); actionMenuFor = null; }}
               >{emoji}</button>
             {/each}
+            <button
+              type="button"
+              class="chat-react-btn chat-react-btn--more"
+              aria-label={t(dict, 'chat.reactMore')}
+              on:click={() => { const target = sheetMsg; actionMenuFor = null; if (target) openEmoji({ kind: 'react', msg: target }); }}
+            ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['smile-plus']}</svg></button>
           </div>
           <List strongIos insetIos class="mt-1! mb-3!">
             <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.reply')} onClick={() => { if (sheetMsg) startReply(sheetMsg); }}>
@@ -5366,49 +5875,20 @@
 
     {#if membersOpen && !appMode}
       <div class="chat-members">
-        <div class="chat-member">
-          <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
-          <div class="min-w-0 flex-1">
-            <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
-            </div>
-        </div>
-        <ChatMembers {dict} members={memberList} online={onlinePks} verified={verifiedPks} {myKeyCode} ontrust={trustKey} onverify={setVerified} />
+        {@render identityCard()}
+        <ChatMembers {dict} members={memberList} online={onlinePks} verified={verifiedPks} self={mySignerId} ontrust={trustKey} onverify={setVerified} />
       </div>
     {/if}
 
     {#if appMode}
-      <Sheet opened={membersOpen} onBackdropClick={() => { membersOpen = false; appProfileOpen = false; }} class="pb-safe">
+      <Sheet opened={membersOpen} inert={!membersOpen} onBackdropClick={() => { membersOpen = false; nameEditing = false; }} class="app-sheet pb-safe">
+        <div class="app-sheet__handle"></div>
         <div class="app-room-info">
-          <p class="app-room-info__title">{roomId}</p>
+          <p class="app-room-info__title">{roomLabel || roomId}</p>
           <p class="app-room-info__meta">{t(dict, 'chat.chip.online').replace('{n}', String(Math.max(0, serverPresence)))} · {getRoomModeLabel()}</p>
           <div class="chat-members">
-            <div class="chat-member">
-              <div class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" title={identity.name} aria-label={identity.name}></div>
-              <div class="min-w-0 flex-1">
-                <p class="chat-member__name">{identity.name} <span class="text-muted">· {t(dict, 'chat.you')}</span></p>
-                    </div>
-              <button type="button" class="chat-profile-edit" on:click={appProfileToggle} aria-expanded={appProfileOpen} aria-label={t(dict, 'chat.editProfile')}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
-              </button>
-            </div>
-            {#if appProfileOpen}
-              <form class="chat-profile__pop chat-profile__pop--inline" bind:this={appProfileFormEl} on:submit|preventDefault={applyProfile}>
-                <div class="chat-profile__avatar">
-                  <span class="chat-avatar chat-avatar--lg" style="background: {gradientFor(previewAlias, previewName)}" aria-hidden="true"></span>
-                  <button type="button" class="app-sheet-btn app-sheet-btn--tonal" on:click={rerollAvatar}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['dices']}</svg>
-                    {t(dict, 'chat.rerollAvatar')}
-                  </button>
-                </div>
-                <label class="chat-profile__label" for="chat-nickname-app">{t(dict, 'chat.yourName')}</label>
-                <div class="chat-profile__row">
-                  <input id="chat-nickname-app" class="app-dialog-input" bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} autocomplete="off" autocapitalize="off" spellcheck="false" aria-invalid={nickError ? 'true' : undefined} />
-                  <button type="submit" class="app-sheet-btn">{t(dict, 'chat.nicknameSave')}</button>
-                </div>
-                <p class="chat-profile__hint" class:chat-profile__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
-              </form>
-            {/if}
-            <ChatMembers {dict} appMode members={memberList} online={onlinePks} verified={verifiedPks} {myKeyCode} ontrust={trustKey} onverify={setVerified} />
+            {@render identityCard()}
+            <ChatMembers {dict} appMode members={memberList} online={onlinePks} verified={verifiedPks} self={mySignerId} ontrust={trustKey} onverify={setVerified} />
           </div>
         </div>
       </Sheet>
@@ -5416,7 +5896,8 @@
 
     {#if sharePassword && !shareDismissed}
       {#if appMode}
-        <Sheet opened onBackdropClick={() => { shareDismissed = true; }} class="pb-safe">
+        <Sheet opened onBackdropClick={() => { shareDismissed = true; }} class="app-sheet pb-safe">
+          <div class="app-sheet__handle"></div>
           <div class="app-invite-sheet">
             <RoomInviteCard
               {dict}
@@ -5444,7 +5925,7 @@
     {/if}
 
     {#if appMode}
-      <Sheet class="app-incoming-call" opened={Boolean(activeCallNotice && !callActive)} onBackdropClick={dismissCallNotice}>
+      <Sheet class="app-incoming-call" opened={Boolean(activeCallNotice && !callActive)} inert={!activeCallNotice || callActive} onBackdropClick={dismissCallNotice}>
         {#if activeCallNotice}
           <div class="app-incoming" role="alertdialog" aria-label={t(dict, 'chat.callIncoming')}>
             <div class="chat-avatar app-incoming__avatar" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" aria-hidden="true"></div>
@@ -5483,7 +5964,7 @@
       </div>
     {/if}
 
-    <div class="chat-body" class:chat-body--call={callActive} class:chat-body--chat-hidden={callActive && !callChatOpen}>
+    <div class="chat-body" bind:clientWidth={chatBodyWidth} class:chat-body--call={callActive} class:chat-body--call-mini={callActive && callMinimized} class:chat-body--chat-hidden={callActive && !callChatVisible}>
       <ChatCall
         {dict}
         {appMode}
@@ -5538,6 +6019,12 @@
         onclosefullscreen={() => closeCallFullscreen()}
         onkeepplaying={keepCallMediaPlaying}
         onpreventcontextmenu={preventMediaContextMenu}
+        bind:minimized={callMinimized}
+        wide={callWide}
+        {callStartedAt}
+        {screenShareSupported}
+        {pipSupported}
+        onpip={openCallPip}
       />
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
@@ -5545,7 +6032,7 @@
         <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
-          {@html illustration('chill', 'state-art mb-2')}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['message-circle']}</svg></span>{:else}{@html illustration('chill', 'state-art mb-2')}{/if}
           <p class="empty__title">{t(dict, serverPresence > 1 ? 'chat.emptyRoomNoticeOthers' : 'chat.emptyRoomNotice')}</p>
           <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
           <p class="hint">{t(dict, roomConfig.mode === 'live' ? 'chat.emptyRoomNotice3' : 'chat.emptyRoomNotice3Ttl')}</p>
@@ -5587,7 +6074,7 @@
           <Message
             type={msg.mine ? 'sent' : 'received'}
             colors={kmsgColors}
-            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${msg.pending ? ' chat-kmsg--pending' : ''}${!msg.mine && !groupEnd ? ' chat-kmsg--gutter' : ''}${msg.preview?.type === 'image' && msg.previewState === 'ready' && !msg.text ? ' chat-kmsg--photo' : ''}`}
+            class={`${msg.mine ? 'chat-kmsg chat-kmsg--mine' : 'chat-kmsg'}${(msg.pending || msg.unacked) && msg.slow ? ' chat-kmsg--pending' : ''}${!msg.mine && !groupEnd ? ' chat-kmsg--gutter' : ''}${msg.preview?.type === 'image' && msg.previewState === 'ready' && !msg.text ? ' chat-kmsg--photo' : ''}`}
             avatar={msg.mine || !groupEnd ? undefined : bubbleAvatar}
             name={(!msg.mine && groupStart) || msg.once || msg.keyWarning ? bubbleMeta : undefined}
           >
@@ -5670,7 +6157,7 @@
                 {/if}
               {/if}
               {#if msg.text}
-                <p class="chat-text">{@html messageHtml(msg)}</p>
+                <div class="chat-text chat-md">{@html messageHtml(msg)}</div>
               {/if}
               {#if msg.once && !msg.mine && msg.revealed}
                 <p class="chat-once-note">{t(dict, 'chat.onceBurned')}</p>
@@ -5679,7 +6166,7 @@
             {/snippet}
             {#snippet footer()}
               <div class="chat-kmsg-meta">
-                {#if msg.pending}
+                {#if (msg.pending || msg.unacked) && msg.slow}
                   <span class="chat-kmsg-pending" role="status">
                     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['clock']}</svg>
                     {t(dict, 'chat.queued')}
@@ -5730,6 +6217,17 @@
                 {#if msg.keyWarning}
                   <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
+                {#if (msg.pending || msg.unacked) && msg.slow}
+                  <span class="chat-send-state" role="status">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['clock']}</svg>
+                    {t(dict, 'chat.queued')}
+                  </span>
+                {:else if msg.failed}
+                  <button type="button" class="chat-send-state chat-send-state--failed" on:click={() => retryQueued(msg)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['rotate-ccw-clock']}</svg>
+                    {t(dict, 'chat.tryAgain')}
+                  </button>
+                {/if}
                 {#if verified}
                   <ChatMessageActions
                     {dict}
@@ -5740,6 +6238,7 @@
                     ontoggle={(open) => { actionMenuFor = open ? msg.id : actionMenuFor === msg.id ? null : actionMenuFor; }}
                     onreply={() => startReply(msg)}
                     onreact={(emoji) => toggleReaction(msg, emoji)}
+                    onmore={(anchor) => openEmoji({ kind: 'react', msg }, anchor)}
                     onburn={() => burnOwnMessage(msg)}
                   />
                 {/if}
@@ -5816,7 +6315,7 @@
                 {/if}
               {/if}
               {#if msg.text}
-                <p class="chat-text">{@html messageHtml(msg)}</p>
+                <div class="chat-text chat-md">{@html messageHtml(msg)}</div>
               {/if}
               {#if msg.once && !msg.mine && msg.revealed}
                 <p class="chat-once-note">{t(dict, 'chat.onceBurned')}</p>
@@ -5856,10 +6355,25 @@
         {/if}
         </div>
 
-        <div class="chat-typing" aria-live="polite">
-          {#if typing}
-            <span class="chat-avatar chat-avatar--xs" style="background: {gradientFor(typing.alias, typing.sender)}" aria-hidden="true"></span>
-            <span><strong style="color: {safeColor(typing.color)}">{typing.sender}</strong> {t(dict, 'chat.isTyping')}</span>
+        <div class="chat-typing" aria-live="polite" aria-atomic="true">
+          {#if typers.length}
+            <div class="chat-typing__row" transition:typingFade>
+              <span class="chat-typing__avatars" aria-hidden="true">
+                {#each typers.slice(0, 3) as typer (typer.id)}
+                  <span class="chat-avatar chat-avatar--xs" style="background: {gradientFor(typer.alias, typer.sender)}"></span>
+                {/each}
+              </span>
+              <span class="chat-typing__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="chat-typing__text">
+                {#if typers.length === 1}
+                  <strong style="color: {safeColor(typers[0].color)}">{typers[0].sender}</strong> {t(dict, 'chat.isTyping')}
+                {:else if typers.length === 2}
+                  <strong>{typers[0].sender}</strong> {t(dict, 'chat.typingAnd')} <strong>{typers[1].sender}</strong> {t(dict, 'chat.areTyping')}
+                {:else}
+                  {t(dict, 'chat.severalTyping')}
+                {/if}
+              </span>
+            </div>
           {/if}
         </div>
 
@@ -5930,12 +6444,33 @@
           onvoiceerror={(message) => { fileError = message; }}
           onclearreply={() => { replyTarget = null; }}
           onschedule={(offsetMs) => queueScheduled(offsetMs)}
+          emojiOpen={emojiTarget?.kind === 'insert'}
+          onemoji={(anchor) => openEmoji({ kind: 'insert' }, anchor)}
         />
       </div>
     </div>
   {/if}
 
 </div>
+
+{#if appMode}
+  <Sheet opened={emojiTarget !== null} inert={emojiTarget === null} onBackdropClick={() => closeEmoji(false)} class="app-sheet app-emoji-sheet pb-[env(safe-area-inset-bottom)]">
+    <div class="app-sheet__handle"></div>
+    {#if emojiTarget}
+      <EmojiPicker {locale} {dict} skin={emojiSkin} mode={emojiTarget.kind === 'react' ? 'reaction' : 'insert'} onpick={pickEmoji} onclose={() => closeEmoji(false)} />
+    {/if}
+  </Sheet>
+{:else if emojiTarget}
+  <div
+    class="chat-emoji-pop"
+    role="dialog"
+    aria-label={t(dict, 'emoji.label')}
+    bind:this={emojiPopEl}
+    style="left: {emojiPos.left}px; top: {emojiPos.top}px; width: {emojiPos.width}px; --emoji-picker-h: {emojiPos.height}px;"
+  >
+    <EmojiPicker {locale} {dict} skin="web" autofocus mode={emojiTarget.kind === 'react' ? 'reaction' : 'insert'} onpick={pickEmoji} onclose={() => closeEmoji()} />
+  </div>
+{/if}
 
 {#if appMode && lightbox}
   <div
@@ -6022,73 +6557,20 @@
     color: var(--danger);
   }
   .chat-profile { position: relative; z-index: 3; }
-  .chat-avatar--btn {
-    position: relative;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    overflow: visible;
-    transition: transform var(--duration-fast) var(--ease-out);
-  }
-  .chat-avatar--btn:hover { transform: scale(1.08); }
-  .chat-avatar__edit {
-    position: absolute;
-    right: -5px;
-    top: -5px;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 9999px;
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: 0 0 0 1px var(--line);
-  }
   .chat-profile__pop {
     position: absolute;
     top: calc(100% + 0.5rem);
     left: 0;
     z-index: 30;
-    width: min(18rem, calc(100vw - 2rem));
+    width: min(20rem, calc(100vw - 2rem));
     max-height: calc(100dvh - 4rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    display: grid;
-    gap: 0.4rem;
-    padding: 0.75rem;
-    border-radius: 0.875rem;
-    border: 1px solid var(--line);
+    padding: 1rem;
+    border-radius: 1rem;
     background: var(--surface);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-float);
   }
-  .chat-profile__label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .chat-profile__row {
-    display: flex;
-    gap: 0.4rem;
-  }
-  .chat-profile__input {
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-    min-height: 2.25rem;
-    padding-top: 0.35rem;
-    padding-bottom: 0.35rem;
-    font-size: 0.9rem;
-  }
-  .chat-profile__hint {
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--muted);
-  }
-  .chat-profile__hint--error { color: var(--danger); }
   .chat-body {
     flex: 1;
     min-height: 0;
@@ -6199,32 +6681,47 @@
     font-size: 1.15rem;
     letter-spacing: 0.08em;
   }
+  .chat-emoji-pop {
+    position: fixed;
+    z-index: 60;
+    border-radius: 0.875rem;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-float);
+    animation: chat-emoji-pop-in 0.14s ease-out;
+  }
+  @keyframes chat-emoji-pop-in { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .chat-emoji-pop { animation: none; } }
+  .chat-react-btn--more { color: var(--muted); }
+  .chat-me-pill {
+    display: inline-flex; align-items: center; gap: 0.5rem; max-width: 14rem;
+    padding: 0.25rem 0.625rem 0.25rem 0.25rem; border-radius: 999px;
+    border: 0; background: var(--surface-2); color: var(--muted); cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  }
+  .chat-me-pill:hover, .chat-me-pill[aria-expanded="true"] { color: var(--text); background: var(--line-soft); }
+  .chat-me-pill__name { font-size: 0.8125rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-me { display: grid; gap: 0.875rem; padding: 0.875rem; border-radius: 0.875rem; background: var(--surface-2); }
+  .chat-profile__pop .chat-me { padding: 0; background: none; }
+  .chat-me__row { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
+  .chat-me .chat-me__avatar { width: 52px; height: 52px; flex: none; box-shadow: none; }
+  .chat-me__text { min-width: 0; display: grid; gap: 0.0625rem; }
+  .chat-me__label { margin: 0; font-size: 0.75rem; color: var(--muted); }
+  .chat-me__name { margin: 0; font-size: 1.125rem; font-weight: 700; line-height: 1.25; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-me__code { margin: 0; font-size: 0.75rem; color: var(--muted); }
+  .chat-me__code span { font-size: 0.9375rem; letter-spacing: 0.06em; margin-left: 0.25rem; }
+  .chat-me__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chat-me__actions > button { display: inline-flex; align-items: center; gap: 0.375rem; }
+  .chat-me__form { display: grid; gap: 0.5rem; }
+  .chat-me__input { width: 100%; }
+  .chat-me__hint { margin: 0; font-size: 0.75rem; line-height: 1.35; color: var(--muted); }
+  .chat-me__hint--error { color: var(--danger); }
   .chat-members {
     display: grid;
-    gap: 0.6rem;
+    gap: 0.75rem;
     padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--line-soft);
-  }
-  .chat-member {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-  }
-  .chat-member--warn {
-    padding: 0.5rem;
-    border-radius: 0.6rem;
-    background: rgba(240, 178, 50, 0.12);
-  }
-  .chat-member__name {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .chat-member__line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.4rem;
   }
   .chat-member__emoji {
     display: inline-flex;
@@ -6246,10 +6743,8 @@
     margin-left: 0.35rem;
     padding: 0 0.4rem;
     border-radius: 999px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 600;
     color: rgb(122, 75, 0);
     background: rgb(253, 230, 138);
   }
@@ -6419,11 +6914,9 @@
     gap: 0.1rem;
   }
   .chat-schedule-item__when {
-    font-size: 0.7rem;
-    font-weight: 800;
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .chat-schedule-item__text {
     font-size: 0.85rem;
@@ -6445,10 +6938,8 @@
     align-items: center;
     padding: 0.05rem 0.4rem;
     border-radius: 0.35rem;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 600;
     color: var(--accent);
     background: oklch(0.7019 0.1577 160.44 / 0.12);
   }
@@ -6505,47 +6996,42 @@
     font-size: 0.75rem; font-weight: 700; color: var(--muted);
     position: relative; z-index: 1;
   }
-  .chat-text :global(strong) { font-weight: 700; }
-  .chat-text :global(em) { font-style: italic; }
-  .chat-text :global(del) { text-decoration: line-through; opacity: 0.6; }
-  .chat-text :global(.chat-code-inline) {
-    font-family: var(--font-mono); font-size: 13px;
-    background: oklch(0.7019 0.1577 160.44 / 0.08); border-radius: 4px;
-    padding: 2px 5px;
+  .chat-send-state {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--muted);
+    animation: chat-send-state-in 0.2s ease-out;
   }
-  :global(.dark) .chat-text :global(.chat-code-inline) {
-    background: oklch(0.7019 0.1577 160.44 / 0.12);
-  }
-  .chat-text :global(.chat-code-block) {
-    font-family: var(--font-mono); font-size: 13px;
-    background: rgba(0, 0, 0, 0.04); border-radius: 8px;
-    padding: 8px 10px; margin: 6px 0; overflow-x: auto;
-    white-space: pre-wrap; word-break: break-all;
-  }
-  :global(.dark) .chat-text :global(.chat-code-block) {
-    background: rgba(255, 255, 255, 0.05);
-  }
-  .chat-text :global(.chat-spoiler) {
-    background: var(--line); color: transparent; border-radius: 3px;
-    padding: 0 3px; cursor: pointer; transition: all 0.2s;
-  }
-  .chat-text :global(.chat-spoiler.revealed) {
-    background: oklch(0.7019 0.1577 160.44 / 0.1); color: inherit;
-  }
-  .chat-text :global(.chat-quote) {
-    border-left: 3px solid oklch(0.7019 0.1577 160.44 / 0.4);
-    padding-left: 8px; margin: 2px 0;
-    color: var(--muted);
-  }
+  .chat-send-state--failed { color: var(--danger); background: none; border: 0; padding: 0; cursor: pointer; }
+  .chat-send-state--failed:hover { text-decoration: underline; }
+  @keyframes chat-send-state-in { from { opacity: 0; } to { opacity: 1; } }
   .chat-typing {
     height: 1.5rem; flex: none;
     font-size: 12px; color: var(--muted); padding: 0 1.25rem;
-    display: flex; align-items: center; gap: 0.4rem;
-    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    position: relative; overflow: hidden;
+  }
+  .chat-typing__row {
+    position: absolute; inset: 0 1.25rem; display: flex; align-items: center; gap: 0.45rem;
+    white-space: nowrap; min-width: 0;
+  }
+  .chat-typing__avatars { display: inline-flex; flex: none; }
+  .chat-typing__avatars .chat-avatar + .chat-avatar { margin-left: -5px; box-shadow: 0 0 0 1.5px var(--bg); }
+  .chat-typing__text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .chat-typing__dots { display: inline-flex; gap: 3px; flex: none; align-items: center; }
+  .chat-typing__dots i {
+    width: 4px; height: 4px; border-radius: 50%; background: currentColor;
+    animation: chat-typing-dot 1.2s ease-in-out infinite;
+  }
+  .chat-typing__dots i:nth-child(2) { animation-delay: 0.15s; }
+  .chat-typing__dots i:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes chat-typing-dot {
+    0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2.5px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-typing__dots i { animation: none; opacity: 0.7; }
   }
   .chat-avatar--xs { width: 16px; height: 16px; box-shadow: none; }
   .chat-avatar--lg { width: 48px; height: 48px; }
-  .chat-profile__avatar { display: flex; align-items: center; gap: 0.75rem; }
   .chat-wrong-password {
     display: flex; align-items: center; gap: 0.4rem;
     font-size: 0.75rem; color: var(--danger);
@@ -6556,7 +7042,6 @@
   .chat-file-error {
     display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
     padding: 0.375rem 0.75rem 0.375rem 1rem;
-    border-top: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
     background: var(--danger-weak);
     color: var(--danger);
     font-size: 0.875rem;

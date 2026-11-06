@@ -1,15 +1,18 @@
+import { isEmoji } from './emoji';
+
 export const REACTION_EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥'] as const;
-export type ReactionEmoji = (typeof REACTION_EMOJI)[number];
+export type ReactionEmoji = string;
 
 const MESSAGE_REF_RE = /^[A-Za-z0-9_:-]{1,64}$/;
 const MAX_TARGETS = 2000;
+const MAX_EMOJI_PER_TARGET = 20;
 
 export function validMessageRef(value: unknown): value is string {
   return typeof value === 'string' && MESSAGE_REF_RE.test(value);
 }
 
 export function validReactionEmoji(value: unknown): value is ReactionEmoji {
-  return typeof value === 'string' && (REACTION_EMOJI as readonly string[]).includes(value);
+  return isEmoji(value);
 }
 
 export type ReactionEvent = {
@@ -43,6 +46,7 @@ export class ReactionBook {
     }
     let marks = byEmoji.get(event.emoji);
     if (!marks) {
+      if (byEmoji.size >= MAX_EMOJI_PER_TARGET) return false;
       marks = new Map();
       byEmoji.set(event.emoji, marks);
     }
@@ -56,16 +60,25 @@ export class ReactionBook {
     return Boolean(this.targets.get(target)?.get(emoji)?.get(reactor)?.on);
   }
 
+  mine(target: string, reactor: string): string[] {
+    const byEmoji = this.targets.get(target);
+    if (!byEmoji) return [];
+    return [...byEmoji].filter(([, marks]) => marks.get(reactor)?.on).map(([emoji]) => emoji);
+  }
+
   summary(target: string, me: string, meLabel?: string): ReactionSummary[] {
     const byEmoji = this.targets.get(target);
     if (!byEmoji) return [];
-    const out: ReactionSummary[] = [];
-    for (const emoji of REACTION_EMOJI) {
-      const on = [...byEmoji.get(emoji)?.entries() ?? []].filter(([, mark]) => mark.on);
+    const out: (ReactionSummary & { first: number })[] = [];
+    for (const [emoji, marks] of byEmoji) {
+      const on = [...marks.entries()].filter(([, mark]) => mark.on);
       if (!on.length) continue;
-      out.push({ emoji, count: on.length, mine: on.some(([reactor]) => reactor === me), names: on.map(([reactor, mark]) => reactor === me && meLabel ? meLabel : mark.name) });
+      const first = Math.min(...on.map(([, mark]) => mark.at));
+      out.push({ emoji, first, count: on.length, mine: on.some(([reactor]) => reactor === me), names: on.map(([reactor, mark]) => reactor === me && meLabel ? meLabel : mark.name) });
     }
-    return out;
+    return out
+      .sort((a, b) => a.first - b.first || (a.emoji < b.emoji ? -1 : a.emoji > b.emoji ? 1 : 0))
+      .map(({ first: _first, ...rest }) => rest);
   }
 
   forget(target: string) {

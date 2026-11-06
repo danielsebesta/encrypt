@@ -110,10 +110,10 @@
 :root[data-app-platform="ios"][data-app-scheme="dark"],
 :root:not([data-app-platform]) {
     color-scheme: dark;
-    --app-bg: #000000;
-    --app-surface: #1c1c1e;
-    --app-surface-2: #2c2c2e;
-    --app-surface-3: #3a3a3c;
+    --app-bg: #1c1c1e;
+    --app-surface: #2c2c2e;
+    --app-surface-2: #3a3a3c;
+    --app-surface-3: #48484a;
     --app-fill: rgba(120, 120, 128, 0.24);
     --app-fill-2: rgba(120, 120, 128, 0.32);
     --app-separator: rgba(84, 84, 88, 0.6);
@@ -135,9 +135,9 @@
     --app-warn: #ff9f0a;
     --app-warn-weak: rgba(255, 159, 10, 0.17);
     --app-on-warn-weak: #ffb340;
-    --app-bar: rgba(10, 10, 12, 0.72);
-    --app-sheet: #1c1c1e;
-    --app-bubble: #26262a;
+    --app-bar: rgba(28, 28, 30, 0.74);
+    --app-sheet: #2c2c2e;
+    --app-bubble: #3a3a3c;
     --app-on-bubble: #f2f2f7;
     --app-bubble-mine: #198038;
     --app-on-bubble-mine: #ffffff;
@@ -159,15 +159,28 @@
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", monospace;
 
-    --color-ios-dark-surface: #000000;
-    --color-ios-dark-surface-1: #1c1c1e;
-    --color-ios-dark-surface-variant: #3a3a3c;
+    --color-ios-dark-surface: #1c1c1e;
+    --color-ios-dark-surface-1: #2c2c2e;
+    --color-ios-dark-surface-variant: #48484a;
 
     --k-color-primary: #30d158;
     --k-color-brand-primary: #30d158;
     --k-color-ios-primary: #30d158;
     --k-color-ios-primary-tint: #4ade77;
     --k-color-ios-primary-shade: #25ac4a;
+}
+
+:root[data-app-platform="ios"][data-app-scheme="dark"][data-app-amoled] {
+    --app-bg: #000000;
+    --app-surface: #1c1c1e;
+    --app-surface-2: #2c2c2e;
+    --app-surface-3: #3a3a3c;
+    --app-bar: rgba(10, 10, 12, 0.72);
+    --app-sheet: #1c1c1e;
+    --app-bubble: #26262a;
+    --color-ios-dark-surface: #000000;
+    --color-ios-dark-surface-1: #1c1c1e;
+    --color-ios-dark-surface-variant: #3a3a3c;
 }
 
 /* -- Material You fallback tokens (default seed #86b94a, replaced
@@ -370,7 +383,7 @@ html[data-app-platform] body {
    media bleeds through the title — keep the room bar readable. */
 :root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(1),
 :root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(2) {
-    background: #000 !important;
+    background: var(--app-bg) !important;
     background-image: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -378,37 +391,18 @@ html[data-app-platform] body {
     mask-image: none !important;
     -webkit-mask-image: none !important;
 }
-/* Hub brand mark: tall padlock must stay readable next to the tab title */
-.app-hub-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
+/* Hub tab titles: Konsta sizes them per platform (iOS 34pt bold large title
+   collapsing to a 17pt inline title, M3 22sp title-large); only truncate here. */
+.app-hub-label {
+    display: block;
     min-width: 0;
     max-width: 100%;
-}
-.app-hub-mark {
-    --hub-mark-h: 1.75rem;
-    height: var(--hub-mark-h);
-    width: calc(var(--hub-mark-h) * 278 / 423);
-    flex: 0 0 auto;
-    background-color: #5f8f36;
-    -webkit-mask: url("/encryptclick_icon.svg") center / contain no-repeat;
-    mask: url("/encryptclick_icon.svg") center / contain no-repeat;
-}
-:root[data-app-platform="material"] .app-hub-mark {
-    --hub-mark-h: 1.9rem;
-}
-:root[data-app-scheme="dark"] .app-hub-mark {
-    background-color: #86b94a;
-}
-.app-hub-label {
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+:root[data-app-platform="ios"] .k-navbar.app-hub-bar > div:last-child .app-hub-label {
+    letter-spacing: 0.01em;
 }
 
 /* Native feel: nothing is selectable or draggable; messages are copied through their action sheet */
@@ -713,23 +707,8 @@ html[data-app-platform] ::selection {
     color: var(--app-error);
 }
 
-.app-sheet-title {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    margin: 0;
-    font-size: 1.0625rem;
-    font-weight: 600;
-    color: var(--app-label);
-    line-height: 1.25;
-}
-.app-sheet-title__icon {
-    display: inline-flex;
-    flex: 0 0 auto;
-}
 .app-seg,
-.app-btn-label,
-.app-action-label {
+.app-btn-label {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -769,11 +748,14 @@ html[data-app-platform] ::selection {
 
 /* Image preview fullscreen lightbox (app chat) */
 /* Queued-outbox bubbles: dimmed with a small status chip until the wire confirms */
-.chat-kmsg--photo .k-message-bubble {
+.chat-kmsg--photo > .flex-col > .break-words {
     padding: 3px !important;
     overflow: hidden;
 }
-.chat-kmsg--pending .k-message-bubble {
+.chat-kmsg > .flex-col > .break-words {
+    transition: opacity 0.25s ease;
+}
+.chat-kmsg--pending > .flex-col > .break-words {
     opacity: 0.7;
 }
 .chat-kmsg-pending {
@@ -889,6 +871,63 @@ html[data-app-platform] ::selection {
     }
 }
 
+.app-conn-status .app-spinner {
+    animation: app-spin 0.7s linear infinite, app-delayed-in 0.2s ease-out 0.6s both;
+}
+@keyframes app-delayed-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.app-skel {
+    display: block;
+    border-radius: 999px;
+    background: var(--app-fill);
+    animation: app-skel-pulse 1.4s ease-in-out infinite;
+}
+@keyframes app-skel-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+}
+.app-skel-hub {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: calc(env(safe-area-inset-top, 0px) + 3.25rem) 1rem 1rem;
+    background: var(--app-bg);
+    animation: app-delayed-in 0.2s ease-out 0.15s both;
+}
+.app-skel--title { width: 9rem; height: 1.75rem; border-radius: 0.5rem; }
+.app-skel--search { height: 2.25rem; border-radius: 0.75rem; margin-bottom: 0.5rem; }
+:root[data-app-platform="material"] .app-skel--search { height: 3.5rem; border-radius: 999px; }
+.app-skel-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.375rem 0; }
+.app-skel--avatar { width: 2.75rem; height: 2.75rem; flex: none; }
+.app-skel-row__lines { flex: 1; display: grid; gap: 0.5rem; }
+.app-skel--line { height: 0.75rem; }
+.app-skel--sm { height: 0.625rem; opacity: 0.7; }
+.app-skel-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 0.75rem 1.5rem;
+    animation: app-delayed-in 0.2s ease-out 0.15s both;
+}
+.app-skel-chat .app-skel { height: 2.25rem; border-radius: 1.125rem; }
+.app-skel-chat .app-skel--mine { align-self: flex-end; background: color-mix(in srgb, var(--app-tint) 22%, transparent); }
+.app-skel-chat__caption {
+    margin: 0.75rem 0 0;
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--app-label-2);
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-skel { animation: none; }
+}
+:root[data-app-reduce-motion="1"] .app-skel { animation: none; }
+
 .app-conn-status {
     position: relative;
     display: inline-flex;
@@ -987,12 +1026,13 @@ html[data-app-platform] ::selection {
    ============================================================ */
 
 :root[data-app-platform="ios"] {
-    /* Buttons: filled = tint, secondary = gray fill + tint text */
+    /* Buttons: filled = tint, secondary = gray fill + tint text. iOS 26
+       content buttons are capsules. */
     .btn,
     .btn-secondary,
     .btn-ghost,
     .btn-outline {
-        border-radius: 12px;
+        border-radius: 999px;
         border: none;
         font-weight: 600;
         min-height: 44px;
@@ -1002,8 +1042,10 @@ html[data-app-platform] ::selection {
         background: var(--app-tint);
         color: var(--app-on-tint);
     }
-    .btn:not(:disabled):hover {
-        background: var(--app-tint-strong);
+    @media (hover: hover) {
+        .btn:not(:disabled):hover {
+            background: var(--app-tint-strong);
+        }
     }
     .btn:not(:disabled):active {
         opacity: 0.7;
@@ -1016,30 +1058,36 @@ html[data-app-platform] ::selection {
         background: var(--app-fill);
         color: var(--app-tint);
     }
-    .btn-secondary:not(:disabled):hover {
-        background: var(--app-fill-2);
-        border-color: transparent;
+    @media (hover: hover) {
+        .btn-secondary:not(:disabled):hover {
+            background: var(--app-fill-2);
+            border-color: transparent;
+        }
     }
     .btn-outline {
         background: transparent;
         color: var(--app-tint);
         border: 1px solid var(--app-outline);
     }
-    .btn-outline:not(:disabled):hover {
-        border-color: var(--app-tint);
-        background: var(--app-tint-container);
+    @media (hover: hover) {
+        .btn-outline:not(:disabled):hover {
+            border-color: var(--app-tint);
+            background: var(--app-tint-container);
+        }
     }
     .btn-ghost {
         background: transparent;
         color: var(--app-tint);
         font-weight: 500;
     }
-    .btn-ghost:not(:disabled):hover {
-        background: var(--app-fill);
-        color: var(--app-tint);
+    @media (hover: hover) {
+        .btn-ghost:not(:disabled):hover {
+            background: var(--app-fill);
+            color: var(--app-tint);
+        }
     }
     .btn-sm {
-        border-radius: 10px;
+        border-radius: 999px;
         min-height: 34px;
     }
     .btn-icon {
@@ -1060,8 +1108,10 @@ html[data-app-platform] ::selection {
     .input::placeholder {
         color: var(--app-label-3);
     }
-    .input:hover {
-        border: none;
+    @media (hover: hover) {
+        .input:hover {
+            border: none;
+        }
     }
     .input:focus-visible {
         outline: 1.5px solid var(--app-tint);
@@ -1164,10 +1214,15 @@ html[data-app-platform] ::selection {
         color: var(--app-label);
         font-weight: 500;
     }
-    .menu__item:not(:disabled):hover,
     .menu__item:not(:disabled):focus-visible {
         background: var(--app-fill);
         color: var(--app-label);
+    }
+    @media (hover: hover) {
+        .menu__item:not(:disabled):hover {
+            background: var(--app-fill);
+            color: var(--app-label);
+        }
     }
     .chat-jump-latest {
         background: var(--app-glass);
@@ -1231,7 +1286,7 @@ html[data-app-platform] ::selection {
     .chat-system {
         margin-block: 8px;
     }
-    .chat-kmsg-wrap.chat-bubble--highlight .k-message-bubble {
+    .chat-kmsg-wrap.chat-bubble--highlight .k-message > .flex-col > .break-words {
         box-shadow: 0 0 0 2px var(--accent-line);
     }
     .chat-kmsg {
@@ -1243,11 +1298,11 @@ html[data-app-platform] ::selection {
             max-width: min(65%, 34rem);
         }
     }
-    .chat-kmsg .k-message-bubble {
+    .chat-kmsg > .flex-col > .break-words {
         border-radius: 18px 18px 18px 5px;
         position: relative;
     }
-    .chat-kmsg--mine .k-message-bubble {
+    .chat-kmsg--mine > .flex-col > .break-words {
         border-radius: 18px 18px 5px 18px;
     }
     /* actions float beside the bubble, hover/long-press reveals */
@@ -1264,10 +1319,14 @@ html[data-app-platform] ::selection {
         left: auto;
         right: calc(100% + 6px);
     }
-    .chat-kmsg-wrap:hover .chat-kmsg-actions,
     .chat-kmsg-actions:focus-within,
     .chat-kmsg-wrap.chat-bubble--menu .chat-kmsg-actions {
         opacity: 1;
+    }
+    @media (hover: hover) {
+        .chat-kmsg-wrap:hover .chat-kmsg-actions {
+            opacity: 1;
+        }
     }
     .chat-kmsg--mine .chat-sender-row,
     .chat-kmsg--mine .chat-kmsg-meta {
@@ -1296,10 +1355,15 @@ html[data-app-platform] ::selection {
     .chat-kmsg--mine .msg-actions__trigger {
         color: color-mix(in srgb, var(--app-on-bubble-mine) 82%, transparent) !important;
     }
-    .chat-kmsg--mine .msg-actions__trigger:hover,
     .chat-kmsg--mine .msg-actions--open .msg-actions__trigger {
         background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
         color: var(--app-on-bubble-mine) !important;
+    }
+    @media (hover: hover) {
+        .chat-kmsg--mine .msg-actions__trigger:hover {
+            background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
+            color: var(--app-on-bubble-mine) !important;
+        }
     }
     .chat-kmsg--mine .chat-once-badge {
         background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
@@ -1369,8 +1433,10 @@ html[data-app-platform] ::selection {
         background: rgba(0, 0, 0, 0.12);
         color: var(--app-on-bubble-mine);
     }
-    .chat-file__dl:hover {
-        background: var(--app-fill-2);
+    @media (hover: hover) {
+        .chat-file__dl:hover {
+            background: var(--app-fill-2);
+        }
     }
     .chat-whiteboard-card {
         border: none;
@@ -1488,8 +1554,10 @@ html[data-app-platform] ::selection {
         min-width: 44px !important;
         min-height: 44px !important;
     }
-    .wb-btn:not(:disabled):hover {
-        background: var(--app-fill);
+    @media (hover: hover) {
+        .wb-btn:not(:disabled):hover {
+            background: var(--app-fill);
+        }
     }
     .wb-btn[aria-pressed="true"],
     .wb-btn--active {
@@ -1572,11 +1640,13 @@ html[data-app-platform] ::selection {
         background: var(--app-tint);
         color: var(--app-on-tint);
     }
-    .btn:not(:disabled):hover {
-        background: var(--app-tint);
-        background-image: linear-gradient(
-            color-mix(in srgb, var(--app-on-tint) 8%, transparent) 0 0
-        );
+    @media (hover: hover) {
+        .btn:not(:disabled):hover {
+            background: var(--app-tint);
+            background-image: linear-gradient(
+                color-mix(in srgb, var(--app-on-tint) 8%, transparent) 0 0
+            );
+        }
     }
     .btn:not(:disabled):active {
         background-image: linear-gradient(
@@ -1591,28 +1661,34 @@ html[data-app-platform] ::selection {
         background: var(--app-tint-weak);
         color: var(--app-on-tint-weak);
     }
-    .btn-secondary:not(:disabled):hover {
-        background: var(--app-tint-weak);
-        background-image: linear-gradient(
-            color-mix(in srgb, var(--app-on-tint-weak) 8%, transparent) 0 0
-        );
+    @media (hover: hover) {
+        .btn-secondary:not(:disabled):hover {
+            background: var(--app-tint-weak);
+            background-image: linear-gradient(
+                color-mix(in srgb, var(--app-on-tint-weak) 8%, transparent) 0 0
+            );
+        }
     }
     .btn-outline {
         background: transparent;
         border: 1px solid var(--app-outline);
         color: var(--app-tint);
     }
-    .btn-outline:not(:disabled):hover {
-        border-color: var(--app-outline);
-        background: color-mix(in srgb, var(--app-tint) 8%, transparent);
+    @media (hover: hover) {
+        .btn-outline:not(:disabled):hover {
+            border-color: var(--app-outline);
+            background: color-mix(in srgb, var(--app-tint) 8%, transparent);
+        }
     }
     .btn-ghost {
         background: transparent;
         color: var(--app-tint);
     }
-    .btn-ghost:not(:disabled):hover {
-        background: color-mix(in srgb, var(--app-tint) 10%, transparent);
-        color: var(--app-tint);
+    @media (hover: hover) {
+        .btn-ghost:not(:disabled):hover {
+            background: color-mix(in srgb, var(--app-tint) 10%, transparent);
+            color: var(--app-tint);
+        }
     }
     .btn-sm {
         min-height: 32px;
@@ -1637,10 +1713,12 @@ html[data-app-platform] ::selection {
     .input::placeholder {
         color: var(--app-label-2);
     }
-    .input:hover {
-        border: none;
-        border-bottom: 1px solid var(--app-label);
-        background: color-mix(in srgb, var(--app-fill) 92%, var(--app-label));
+    @media (hover: hover) {
+        .input:hover {
+            border: none;
+            border-bottom: 1px solid var(--app-label);
+            background: color-mix(in srgb, var(--app-fill) 92%, var(--app-label));
+        }
     }
     .input:focus-visible {
         outline: none;
@@ -1729,10 +1807,15 @@ html[data-app-platform] ::selection {
         color: var(--app-label);
         font-weight: 500;
     }
-    .menu__item:not(:disabled):hover,
     .menu__item:not(:disabled):focus-visible {
         background: color-mix(in srgb, var(--app-label) 8%, transparent);
         color: var(--app-label);
+    }
+    @media (hover: hover) {
+        .menu__item:not(:disabled):hover {
+            background: color-mix(in srgb, var(--app-label) 8%, transparent);
+            color: var(--app-label);
+        }
     }
 
     /* Chat chrome — MD3 app bar = tonal container */
@@ -1770,7 +1853,7 @@ html[data-app-platform] ::selection {
     .chat-system {
         margin-block: 8px;
     }
-    .chat-kmsg-wrap.chat-bubble--highlight .k-message-bubble {
+    .chat-kmsg-wrap.chat-bubble--highlight .k-message > .flex-col > .break-words {
         box-shadow: 0 0 0 2px var(--accent-line);
     }
     .chat-kmsg {
@@ -1782,11 +1865,11 @@ html[data-app-platform] ::selection {
             max-width: min(65%, 34rem);
         }
     }
-    .chat-kmsg .k-message-bubble {
+    .chat-kmsg > .flex-col > .break-words {
         border-radius: 20px 20px 20px 6px;
         position: relative;
     }
-    .chat-kmsg--mine .k-message-bubble {
+    .chat-kmsg--mine > .flex-col > .break-words {
         border-radius: 20px 20px 6px 20px;
     }
     /* actions float beside the bubble, hover/long-press reveals */
@@ -1803,10 +1886,14 @@ html[data-app-platform] ::selection {
         left: auto;
         right: calc(100% + 6px);
     }
-    .chat-kmsg-wrap:hover .chat-kmsg-actions,
     .chat-kmsg-actions:focus-within,
     .chat-kmsg-wrap.chat-bubble--menu .chat-kmsg-actions {
         opacity: 1;
+    }
+    @media (hover: hover) {
+        .chat-kmsg-wrap:hover .chat-kmsg-actions {
+            opacity: 1;
+        }
     }
     .chat-kmsg--mine .chat-sender-row,
     .chat-kmsg--mine .chat-kmsg-meta {
@@ -1835,10 +1922,15 @@ html[data-app-platform] ::selection {
     .chat-kmsg--mine .msg-actions__trigger {
         color: color-mix(in srgb, var(--app-on-bubble-mine) 82%, transparent) !important;
     }
-    .chat-kmsg--mine .msg-actions__trigger:hover,
     .chat-kmsg--mine .msg-actions--open .msg-actions__trigger {
         background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
         color: var(--app-on-bubble-mine) !important;
+    }
+    @media (hover: hover) {
+        .chat-kmsg--mine .msg-actions__trigger:hover {
+            background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
+            color: var(--app-on-bubble-mine) !important;
+        }
     }
     .chat-kmsg--mine .chat-once-badge {
         background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
@@ -1916,8 +2008,10 @@ html[data-app-platform] ::selection {
         background: color-mix(in srgb, var(--app-on-bubble-mine) 10%, transparent);
         color: var(--app-on-bubble-mine);
     }
-    .chat-file__dl:hover {
-        background: var(--app-fill-2);
+    @media (hover: hover) {
+        .chat-file__dl:hover {
+            background: var(--app-fill-2);
+        }
     }
     .chat-whiteboard-card {
         border: none;
@@ -2022,8 +2116,10 @@ html[data-app-platform] ::selection {
         min-width: 44px !important;
         min-height: 44px !important;
     }
-    .wb-btn:not(:disabled):hover {
-        background: color-mix(in srgb, var(--app-label) 8%, transparent);
+    @media (hover: hover) {
+        .wb-btn:not(:disabled):hover {
+            background: color-mix(in srgb, var(--app-label) 8%, transparent);
+        }
     }
     .wb-btn[aria-pressed="true"],
     .wb-btn--active {
@@ -2235,9 +2331,11 @@ html[data-app-platform] ::selection {
 .app-composer .btn-ghost {
     color: var(--app-label-2);
 }
-.app-composer .btn-ghost:hover {
-    background: var(--app-fill);
-    color: var(--app-label);
+@media (hover: hover) {
+    .app-composer .btn-ghost:hover {
+        background: var(--app-fill);
+        color: var(--app-label);
+    }
 }
 /* 44px touch targets for composer icon buttons (base styles are ~30px desktop) */
 .app-composer .chat-attach-btn,
@@ -2755,7 +2853,9 @@ html[data-app-platform] ::selection {
     justify-content: center;
     transition: background 0.12s, color 0.12s;
 }
-:root[data-app-platform="ios"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
+}
 
 :root[data-app-platform="ios"] .chat-typing { color: var(--app-label-2); font-size: 13px; }
 
@@ -2863,12 +2963,16 @@ html[data-app-platform] ::selection {
     text-align: left;
     transition: background 0.12s;
 }
-:root[data-app-platform="material"] .chat-attach-option:hover { background: var(--app-fill); }
+@media (hover: hover) {
+    :root[data-app-platform="material"] .chat-attach-option:hover { background: var(--app-fill); }
+}
 :root[data-app-platform="material"] .chat-attach-option:disabled { opacity: 0.4; }
 :root[data-app-platform="material"] .chat-attach-option--on { color: var(--app-tint); }
 :root[data-app-platform="material"] .chat-attach-option svg { color: var(--app-label-2); }
-:root[data-app-platform="material"] .chat-attach-option--on svg,
-:root[data-app-platform="material"] .chat-attach-option:hover svg { color: var(--app-tint); }
+:root[data-app-platform="material"] .chat-attach-option--on svg { color: var(--app-tint); }
+@media (hover: hover) {
+    :root[data-app-platform="material"] .chat-attach-option:hover svg { color: var(--app-tint); }
+}
 
 :root[data-app-platform="material"] .chat-input .chat-send-btn {
     width: 48px;
@@ -2956,7 +3060,9 @@ html[data-app-platform] ::selection {
     justify-content: center;
     transition: background 0.12s, color 0.12s;
 }
-:root[data-app-platform="material"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
+@media (hover: hover) {
+    :root[data-app-platform="material"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
+}
 
 :root[data-app-platform="material"] .chat-typing { color: var(--app-label-2); font-size: 13px; }
 
@@ -3106,9 +3212,14 @@ html[data-app-platform] ::selection {
     color: var(--app-label-2);
     text-align: center;
 }
-.app-room-info .chat-members {
-    padding: 0.75rem 0;
+:root[data-app-platform] .app-room-info .chat-members {
+    padding: 0.75rem 0 0;
     border-bottom: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 .app-sheet-btn {
     display: inline-flex;
@@ -3152,21 +3263,6 @@ html[data-app-platform] ::selection {
 .app-icon-btn:active {
     background: var(--app-fill);
     color: var(--app-label);
-}
-.chat-profile-edit {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    margin: -0.25rem 0;
-    flex-shrink: 0;
-    border-radius: 50%;
-    color: var(--app-tint);
-    -webkit-tap-highlight-color: transparent;
-}
-.chat-profile-edit:active {
-    background: var(--app-tint-container);
 }
 .app-room-info .chat-members .chat-profile__pop--inline {
     position: static;
@@ -3251,23 +3347,33 @@ html[data-app-platform] ::selection {
     max-width: none;
 }
 
-/* iOS alerts and action sheets use the system blue, not the brand green; destructive buttons stay red.
+/* iOS alerts follow the app tint, as UIAlertController follows the window tintColor.
    Konsta resolves --color-primary once on :root, so the --color-* tokens are overridden at this scope. */
 :root[data-app-platform="ios"] .k-dialog,
 :root[data-app-platform="ios"] .k-actions {
-    --color-primary: #007aff;
-    --color-brand-primary: #007aff;
-    --color-ios-primary: #007aff;
-    --color-ios-primary-tint: #3395ff;
-    --color-ios-primary-shade: #0062cc;
+    --color-primary: var(--app-tint);
+    --color-brand-primary: var(--app-tint);
+    --color-ios-primary: var(--app-tint);
+    --color-ios-primary-tint: var(--app-tint);
+    --color-ios-primary-shade: var(--app-tint-strong);
 }
-:root[data-app-platform="ios"][data-app-scheme="dark"] .k-dialog,
-:root[data-app-platform="ios"][data-app-scheme="dark"] .k-actions {
-    --color-primary: #0a84ff;
-    --color-brand-primary: #0a84ff;
-    --color-ios-primary: #0a84ff;
-    --color-ios-primary-tint: #409cff;
-    --color-ios-primary-shade: #0071e3;
+:root[data-app-platform="ios"] .k-dialog .app-dialog-primary:not(:disabled) {
+    color: var(--app-on-tint);
+}
+:root[data-app-platform="ios"] .k-dialog .app-dialog-cancel {
+    --color-primary: var(--app-label);
+    --color-brand-primary: var(--app-label);
+    --color-ios-primary: var(--app-label);
+}
+:root[data-app-platform="ios"] .k-dialog .k-button {
+    padding-inline: 0.875rem;
+}
+:root[data-app-platform="ios"] .k-dialog.app-dialog--stack > div:has(> .k-button) {
+    flex-direction: column-reverse;
+    align-items: stretch;
+}
+:root[data-app-platform="ios"] .k-dialog.app-dialog--stack > div:has(> .k-button) > .k-button {
+    width: 100%;
 }
 :root[data-app-platform="ios"] .k-dialog .app-dialog-destructive {
     --color-primary: var(--app-error);
@@ -3380,25 +3486,38 @@ html[data-app-platform] ::selection {
     background: transparent;
     color: #fff;
 }
-:root[data-app-platform="ios"] .call__btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.12);
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .call__btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.12);
+    }
 }
 :root[data-app-platform="ios"] .call__btn:active:not(:disabled) {
     background: rgba(255, 255, 255, 0.22);
     transform: scale(0.94);
 }
 :root[data-app-platform="ios"] .call__btn--off,
-:root[data-app-platform="ios"] .call__btn--on,
-:root[data-app-platform="ios"] .call__btn--off:hover:not(:disabled),
-:root[data-app-platform="ios"] .call__btn--on:hover:not(:disabled) {
+:root[data-app-platform="ios"] .call__btn--on {
     background: #fff;
     color: #000;
 }
-:root[data-app-platform="ios"] .call__btn--leave,
-:root[data-app-platform="ios"] .call__btn--leave:hover:not(:disabled) {
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .call__btn--off:hover:not(:disabled),
+    :root[data-app-platform="ios"] .call__btn--on:hover:not(:disabled) {
+        background: #fff;
+        color: #000;
+    }
+}
+:root[data-app-platform="ios"] .call__btn--leave {
     width: 68px;
     background: #ff3b30;
     color: #fff;
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .call__btn--leave:hover:not(:disabled) {
+        width: 68px;
+        background: #ff3b30;
+        color: #fff;
+    }
 }
 :root[data-app-platform="ios"] .call__btn--leave:active:not(:disabled) {
     background: #d9302a;
@@ -3439,24 +3558,42 @@ html[data-app-platform] ::selection {
     background: rgba(255, 255, 255, 0.12);
     color: #e3e3e3;
 }
-:root[data-app-platform="material"] .call__btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.2);
+@media (hover: hover) {
+    :root[data-app-platform="material"] .call__btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.2);
+    }
 }
-:root[data-app-platform="material"] .call__btn--on,
-:root[data-app-platform="material"] .call__btn--on:hover:not(:disabled) {
+:root[data-app-platform="material"] .call__btn--on {
     background: var(--app-tint-container);
     color: var(--app-on-tint-container);
 }
-:root[data-app-platform="material"] .call__btn--off,
-:root[data-app-platform="material"] .call__btn--off:hover:not(:disabled) {
+@media (hover: hover) {
+    :root[data-app-platform="material"] .call__btn--on:hover:not(:disabled) {
+        background: var(--app-tint-container);
+        color: var(--app-on-tint-container);
+    }
+}
+:root[data-app-platform="material"] .call__btn--off {
     background: var(--app-error-weak);
     color: var(--app-error);
 }
-:root[data-app-platform="material"] .call__btn--leave,
-:root[data-app-platform="material"] .call__btn--leave:hover:not(:disabled) {
+@media (hover: hover) {
+    :root[data-app-platform="material"] .call__btn--off:hover:not(:disabled) {
+        background: var(--app-error-weak);
+        color: var(--app-error);
+    }
+}
+:root[data-app-platform="material"] .call__btn--leave {
     width: 72px;
     background: var(--app-error);
     color: var(--app-on-error);
+}
+@media (hover: hover) {
+    :root[data-app-platform="material"] .call__btn--leave:hover:not(:disabled) {
+        width: 72px;
+        background: var(--app-error);
+        color: var(--app-on-error);
+    }
 }
 :root[data-app-platform="material"] .call__settings {
     border: none;
@@ -3479,9 +3616,11 @@ html[data-app-platform] ::selection {
 :root[data-app-platform] .call__settings .btn-ghost {
     color: rgba(255, 255, 255, 0.8);
 }
-:root[data-app-platform] .call__settings .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
+@media (hover: hover) {
+    :root[data-app-platform] .call__settings .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+    }
 }
 :root[data-app-platform] .call__settings .btn-ghost.text-danger {
     color: var(--app-error);
@@ -3587,10 +3726,14 @@ html[data-app-platform] ::selection {
     background: transparent;
     padding-inline-start: 12px;
 }
-:root[data-app-platform="material"] .k-popover .k-list-item > *:hover,
 :root[data-app-platform="material"] .k-popover .k-list-item > *:focus-visible,
 :root[data-app-platform="material"] .k-popover .k-list-item > *:active {
     background: color-mix(in srgb, var(--app-label) 10%, transparent);
+}
+@media (hover: hover) {
+    :root[data-app-platform="material"] .k-popover .k-list-item > *:hover {
+        background: color-mix(in srgb, var(--app-label) 10%, transparent);
+    }
 }
 
 /* On-screen keyboard: fit the app to the visual viewport (iOS counts its accessory bar there) and drop the home-indicator padding it covers. */
@@ -3671,7 +3814,7 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="material"] .app-incoming__btn { width: 64px; height: 64px; }
 
 /* Photos in chat: a rounded picture that fills the bubble, with the file row tucked underneath. */
-.app-room-wrapper .chat-preview-img-btn {
+:root .app-room-wrapper .chat-preview-img-btn {
     width: 100%;
     margin-top: 2px;
     border: 0;
@@ -3680,11 +3823,12 @@ html[data-app-platform] ::selection {
     overflow: hidden;
     line-height: 0;
 }
-.app-room-wrapper .chat-preview-img {
+:root .app-room-wrapper .chat-preview-img {
     display: block;
-    width: 100%;
-    max-width: min(300px, 70vw);
-    max-height: 360px;
+    width: min(260px, 64vw);
+    max-width: 100%;
+    height: auto;
+    max-height: 340px;
     margin: 0;
     border-radius: 16px;
     object-fit: cover;
@@ -3847,4 +3991,965 @@ html[data-app-platform] ::selection {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+}
+
+/* In-content search field: glass belongs to chrome only, so the iOS field is a
+   flat capsule on the tertiary fill like Messages / Settings. */
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass {
+    background: var(--app-fill) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass::before,
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass::after {
+    display: none;
+}
+:root[data-app-platform="ios"] .app-content .k-searchbar input {
+    height: 2.25rem;
+    background: transparent;
+}
+
+/* Settings icons. iOS: white glyph on a 29pt system-colour squircle, as in
+   Settings. Material: bare 24dp outline icon in on-surface-variant (M3 list
+   leading icon); colour is reserved for the destructive row. */
+.app-icon-tile {
+    --tile: #8e8e93;
+    width: 29px;
+    height: 29px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: var(--tile);
+    color: #fff;
+}
+.app-icon-tile--blue { --tile: #007aff; }
+.app-icon-tile--indigo { --tile: #5856d6; }
+.app-icon-tile--teal { --tile: #30b0c7; }
+.app-icon-tile--pink { --tile: #ff2d55; }
+.app-icon-tile--green { --tile: #34c759; }
+.app-icon-tile--orange { --tile: #ff9500; }
+.app-icon-tile--red { --tile: #ff3b30; }
+.app-icon-tile--gray { --tile: #8e8e93; }
+:root[data-app-scheme="dark"] .app-icon-tile--blue { --tile: #0a84ff; }
+:root[data-app-scheme="dark"] .app-icon-tile--indigo { --tile: #5e5ce6; }
+:root[data-app-scheme="dark"] .app-icon-tile--teal { --tile: #40c8e0; }
+:root[data-app-scheme="dark"] .app-icon-tile--pink { --tile: #ff375f; }
+:root[data-app-scheme="dark"] .app-icon-tile--green { --tile: #30d158; }
+:root[data-app-scheme="dark"] .app-icon-tile--orange { --tile: #ff9f0a; }
+:root[data-app-scheme="dark"] .app-icon-tile--red { --tile: #ff453a; }
+:root[data-app-scheme="dark"] .app-icon-tile--gray { --tile: #636366; }
+.app-icon-plain {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    color: var(--app-label-2);
+}
+.app-icon-plain--danger {
+    color: var(--app-error);
+}
+
+/* List subtitles: Konsta leaves them in the primary label colour. Both
+   platforms show supporting text in the secondary role (iOS secondaryLabel,
+   M3 on-surface-variant body-medium). Settings hints drop to iOS footnote. */
+:root[data-app-platform] .k-list-item [class="text-sm"] {
+    color: var(--app-label-2);
+    line-height: 1.3;
+}
+:root[data-app-platform="ios"] .k-list-item [class="text-sm"] {
+    font-size: 15px;
+    margin-top: 1px;
+}
+:root[data-app-platform="ios"] .app-settings .k-list-item [class="text-sm"] {
+    font-size: 13px;
+}
+:root[data-app-platform="material"] .k-list-item [class="text-sm"] {
+    font-size: 14px;
+    letter-spacing: 0.016em;
+}
+
+/* Room rows: Messages-style trailing stamp with small status glyphs before it. */
+.app-row-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--app-label-2);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+:root[data-app-platform="material"] .app-row-meta {
+    font-size: 12px;
+    letter-spacing: 0.03em;
+}
+.app-row-meta__icon {
+    display: inline-flex;
+    color: var(--app-label-3);
+}
+:root[data-app-platform="material"] .app-row-meta__icon {
+    color: var(--app-label-2);
+}
+
+/* Grouped cells inside iOS dark sheets step up one surface or they vanish into the sheet. */
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list ul,
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list > div,
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list {
+    --color-ios-dark-surface-1: var(--app-surface-2);
+}
+
+/* Material 3 Expressive grouped lists (Android 16 Settings): each row is its
+   own surface, 2dp apart, with large outer and small inner corners. */
+:root[data-app-platform="material"] .k-list.app-group {
+    background: transparent !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+:root[data-app-platform="material"] .k-list.app-group > ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+:root[data-app-platform="material"] .k-list.app-group > ul > li {
+    background: var(--app-surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+:root[data-app-platform="material"] .k-list.app-group > ul > li:first-child {
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+}
+:root[data-app-platform="material"] .k-list.app-group > ul > li:last-child {
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+:root[data-app-platform="material"] .k-list.app-group .k-list-item > :is(a, button, label, div) {
+    margin-inline: 0;
+    border-radius: 0;
+}
+:root[data-app-platform="material"] .app-settings .k-block-title {
+    color: var(--app-tint);
+}
+.app-filter .app-seg {
+    gap: 0.375rem;
+}
+
+/* Sheet layout shared by every /app sheet. */
+.app-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.25rem 1rem 1.5rem;
+}
+.app-sheet-body--list {
+    gap: 0.5rem;
+    padding-bottom: 1.25rem;
+}
+:root[data-app-platform="material"] .app-sheet-body {
+    padding-inline: 1rem;
+}
+
+/* iOS 26 sheet toolbar: round glass Close on the leading edge, prominent
+   tinted checkmark for the confirming action, centered headline title.
+   Sticky inside the sheet scroller so it stays put over long forms. */
+.app-sheet-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem 0.25rem;
+    background: var(--app-sheet);
+}
+.app-sheet-bar__title {
+    margin: 0;
+    min-width: 0;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--app-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.app-sheet-bar__btn {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    color: var(--app-label);
+    background: var(--app-glass);
+    box-shadow: var(--app-glass-shadow-sm);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease, background-color 0.2s ease;
+}
+.app-sheet-bar__btn:active:not(:disabled) {
+    transform: scale(0.92);
+}
+.app-sheet-bar__btn--spacer {
+    visibility: hidden;
+}
+.app-sheet-bar__btn--confirm {
+    background: var(--app-tint);
+    color: #fff;
+}
+:root[data-app-scheme="dark"] .app-sheet-bar__btn--confirm {
+    color: #03280f;
+}
+.app-sheet-bar__btn--confirm:disabled {
+    background: var(--app-fill);
+    color: var(--app-label-3);
+    box-shadow: none;
+}
+.app-sheet-bar__btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-sheet-bar__btn { transition: none; }
+}
+
+/* iOS: the full-height form detent has no grabber (Calendar / Reminders);
+   pull-to-dismiss still works from the body. Partial sheets keep it. */
+:root[data-app-platform="ios"] .app-sheet--tall > .app-sheet__handle {
+    height: 0;
+    margin: 6px auto 0;
+    visibility: hidden;
+}
+:root[data-app-platform="ios"] .app-sheet {
+    border-radius: 34px 34px 0 0;
+}
+
+/* M3 bottom sheet: optional headline (title-large 22sp) under the handle. */
+.app-sheet-headline {
+    margin: 0;
+    padding: 0.25rem 0.5rem 0.25rem;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 28px;
+    color: var(--app-label);
+}
+
+/* M3 radio button (20dp ring, 10dp dot) as row media in choice sheets. */
+.app-radio {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    margin: 2px;
+    border-radius: 999px;
+    border: 2px solid var(--app-label-2);
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+.app-radio::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    background: var(--app-tint);
+    transform: scale(0);
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+.app-radio--on {
+    border-color: var(--app-tint);
+}
+.app-radio--on::after {
+    transform: scale(1);
+}
+
+/* Row context menu (long-press / right-click on a saved room). iOS: light dim
+   behind a glass menu with trailing glyphs. M3 menus float without a scrim. */
+:root[data-app-platform="ios"] div:has(+ .k-popover.app-row-menu) {
+    background: rgba(0, 0, 0, 0.18);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] div:has(+ .k-popover.app-row-menu) {
+    background: rgba(0, 0, 0, 0.4);
+}
+:root[data-app-platform="material"] div:has(+ .k-popover.app-row-menu) {
+    background: transparent;
+}
+.app-row-menu .app-menu-danger,
+.app-row-menu .app-menu-danger :is(button, span, div, svg) {
+    color: var(--app-error) !important;
+}
+:root[data-app-platform="ios"] .app-row-menu .k-list-item button {
+    font-size: 17px;
+}
+.k-list-item.app-row-active > :is(a, button, label) {
+    background-color: var(--app-fill);
+}
+
+/* Files tab (share form inside /app): grouped-form look instead of a web form.
+   Section labels follow the platform list header, fields sit on the grouped
+   cell surface, the file picker is a solid tappable cell, not a dashed
+   desktop drop target. */
+.app-upload-wrapper textarea.input {
+    resize: none;
+}
+.app-upload-wrapper .wizard-progress .hint {
+    font-size: 13px;
+}
+:root[data-app-platform="ios"] .app-upload-wrapper .label {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--app-label-2);
+    padding-inline: 1rem;
+}
+:root[data-app-platform="material"] .app-upload-wrapper .label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--app-tint);
+    padding-inline: 0.25rem;
+}
+:root[data-app-platform="ios"] .app-upload-wrapper :is(.input, .dropzone) {
+    background: var(--app-surface);
+    border-radius: 26px;
+}
+:root[data-app-platform="ios"] .app-upload-wrapper textarea.input {
+    padding: 0.75rem 1rem;
+    font-size: 17px;
+}
+:root[data-app-platform="material"] .app-upload-wrapper .dropzone {
+    background: var(--app-surface-2);
+    border-radius: 20px;
+}
+.app-upload-wrapper .dropzone {
+    border: 0 !important;
+    gap: 0.25rem;
+    transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.app-upload-wrapper .dropzone:active {
+    transform: scale(0.985);
+}
+.app-upload-wrapper .dropzone--dragging {
+    background: var(--app-tint-container) !important;
+}
+.app-upload-wrapper .dropzone__icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.5rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--app-tint-container);
+    color: var(--app-on-tint-container);
+}
+:root[data-app-platform="material"] .app-upload-wrapper .dropzone__icon {
+    border-radius: 16px;
+}
+.app-upload-wrapper .dropzone__title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--app-tint);
+}
+:root[data-app-platform="material"] .app-upload-wrapper .dropzone__title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--app-label);
+}
+.app-upload-wrapper .dropzone__hint {
+    font-size: 13px;
+    color: var(--app-label-2);
+}
+.app-upload-wrapper .dropzone--active {
+    background: var(--app-tint-container) !important;
+}
+
+/* Room gates and empty states inside /app: one platform glyph in a tinted
+   circle instead of the website's illustrations. */
+.app-state-glyph {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 0.75rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--app-tint-container);
+    color: var(--app-on-tint-container);
+}
+:root[data-app-platform="material"] .app-state-glyph {
+    border-radius: 22px;
+}
+:root[data-app-platform] :is(.chat-center, .wb-center) .text-base.font-bold {
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+:root[data-app-platform="material"] :is(.chat-center, .wb-center) .text-base.font-bold {
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+:root[data-app-platform="ios"] :is(.chat-center, .wb-center) .input {
+    background: var(--app-surface);
+    min-height: 50px;
+    border-radius: 14px;
+    padding-inline: 1rem;
+    font-size: 17px;
+}
+:root[data-app-platform] :is(.chat-center, .wb-center) .btn {
+    min-height: 50px;
+    font-size: 17px;
+}
+:root[data-app-platform="material"] :is(.chat-center, .wb-center) .btn {
+    min-height: 48px;
+    font-size: 15px;
+}
+
+/* M3 top app bar: flat on the surface at rest, surface-container once content
+   scrolls beneath it. */
+:root[data-app-platform="material"] .k-navbar.app-hub-bar {
+    --app-bar: var(--app-bg);
+}
+:root[data-app-platform="material"] .k-navbar.app-hub-bar > div:first-child {
+    background-color: var(--app-bar);
+    transition: background-color 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+:root[data-app-platform="material"] .app-scroll--scrolled .k-navbar.app-hub-bar {
+    --app-bar: var(--app-surface-2);
+}
+
+/* Transient notices. iOS has no snackbar: a compact glass capsule that taps
+   away. Material: M3 snackbar on inverse-surface with a close icon. */
+:root[data-app-platform="material"][data-app-scheme="light"] {
+    --app-inverse-surface: #2f312a;
+    --app-inverse-on-surface: #f1f2e6;
+    --app-inverse-primary: #b1d18a;
+}
+:root[data-app-platform="material"][data-app-scheme="dark"] {
+    --app-inverse-surface: #e2e3d8;
+    --app-inverse-on-surface: #2f312a;
+    --app-inverse-primary: #4b662c;
+}
+:root[data-app-platform="ios"] .app-toast > div {
+    border-radius: 999px;
+    background: var(--app-glass);
+    box-shadow: var(--app-glass-shadow);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    color: var(--app-label);
+}
+:root[data-app-platform="ios"] .app-toast > div > div {
+    padding: 0;
+}
+.app-toast__pill {
+    display: block;
+    max-width: min(22rem, calc(100vw - 2rem));
+    padding: 0.75rem 1.25rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: center;
+}
+:root[data-app-platform="material"] .app-toast > div {
+    border-radius: 4px;
+    background: var(--app-inverse-surface);
+    color: var(--app-inverse-on-surface);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.14);
+    width: 100%;
+    max-width: 36rem;
+}
+:root[data-app-platform="material"] .app-toast > div > div {
+    min-height: 48px;
+    padding: 0.25rem 0.25rem 0.25rem 1rem;
+}
+.app-toast__text {
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0.016em;
+    padding-block: 0.5rem;
+}
+.app-toast__close {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--app-inverse-on-surface);
+}
+.app-toast__close:active {
+    background: color-mix(in srgb, var(--app-inverse-on-surface) 12%, transparent);
+}
+:root[data-app-platform="material"] .app-toast {
+    justify-content: stretch;
+}
+
+/* Switches sit centred on the whole row (iOS Settings, M3 list items), and the text reserves their width. */
+.k-list-item div.relative:has(> div > div > .k-toggle) {
+    padding-inline-end: calc(var(--app-switch-w) + 1.75rem + env(safe-area-inset-right, 0px));
+}
+.k-list-item div.relative > div > div.ms-auto:has(> .k-toggle) {
+    position: absolute;
+    inset-inline-end: calc(1rem + env(safe-area-inset-right, 0px));
+    top: 50%;
+    transform: translateY(-50%);
+}
+:root[data-app-platform="ios"] { --app-switch-w: 4rem; }
+:root[data-app-platform="material"] { --app-switch-w: 3.25rem; }
+
+/* Material search keeps its leading magnifier while typing; there is no separate search view to back out of. */
+:root[data-app-platform="material"] .k-searchbar .k-glass > span > svg {
+    opacity: 1;
+    transform: none;
+    scale: 1;
+    rotate: none;
+}
+
+/* Mode descriptions in the new-room form are the explanation itself; never cut them off mid-sentence. */
+.app-form .k-list-item .line-clamp-2 {
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    display: block;
+    overflow: visible;
+}
+
+/* App lock: same glyph and type scale as the room gates, centred in the safe area. */
+.app-lock {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: calc(2rem + env(safe-area-inset-top, 0px)) 2rem calc(2rem + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+    background: var(--app-bg);
+    color: var(--app-label);
+}
+.app-lock .app-state-glyph {
+    margin-bottom: 0.5rem;
+}
+.app-lock__title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+:root[data-app-platform="material"] .app-lock__title {
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+.app-lock__hint {
+    margin: 0;
+    max-width: 20rem;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--app-label-2);
+}
+:root[data-app-platform="material"] .app-lock__hint {
+    font-size: 14px;
+}
+.app-lock__error {
+    margin: 0;
+    max-width: 20rem;
+    font-size: 14px;
+    color: var(--app-error);
+}
+.app-lock__btn {
+    width: 100%;
+    max-width: 20rem;
+    margin-top: 1.25rem;
+    gap: 0.5rem;
+}
+
+/* Invite sheet: native type scale, quiet footnote instead of a bold accent warning, full-width stacked actions. */
+.app-invite-sheet .invite-card__head {
+    margin-bottom: 1rem;
+}
+.app-invite-sheet .invite-card__title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    word-break: break-all;
+}
+:root[data-app-platform="material"] .app-invite-sheet .invite-card__title {
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+.app-invite-sheet .invite-card__warn {
+    margin-top: 0.375rem;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--app-label-2);
+}
+.app-invite-sheet .invite-card__qr {
+    margin-bottom: 1rem;
+}
+.app-invite-sheet .invite-card__row {
+    margin-bottom: 0.5rem;
+}
+.app-invite-sheet .invite-card__label {
+    min-width: 4.75rem;
+    font-size: 15px;
+    color: var(--app-label-2);
+}
+.app-invite-sheet .invite-card__value {
+    font-size: 13px;
+    padding: 0.5rem 0.625rem;
+    border-radius: 10px;
+}
+.app-invite-sheet .invite-card__share {
+    margin-top: 1rem;
+}
+.app-invite-sheet .invite-card__share-row {
+    flex-direction: column;
+}
+.app-invite-sheet .invite-card__share-row > .app-sheet-btn {
+    width: 100%;
+}
+
+/* The call stage is dark in both schemes, so Material call controls use dark-stage tones instead of
+   scheme roles: hang-up is the strongest control (filled red, white glyph), muted toggles a dark red container. */
+:root[data-app-platform="material"] .call__btn--leave,
+:root[data-app-platform="material"] .call__btn--leave:hover:not(:disabled) {
+    background: #dc362e;
+    color: #fff;
+}
+:root[data-app-platform="material"] .call__btn--leave:active:not(:disabled) {
+    background: #b3261e;
+}
+:root[data-app-platform="material"] .call__btn--off,
+:root[data-app-platform="material"] .call__btn--off:hover:not(:disabled) {
+    background: #8c1d18;
+    color: #f9dedc;
+}
+:root[data-app-platform="material"] .call__btn--on,
+:root[data-app-platform="material"] .call__btn--on:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--app-tint) 34%, #000);
+    color: color-mix(in srgb, var(--app-tint) 35%, #fff);
+}
+
+.app-composer__emoji {
+    flex: none;
+    align-self: flex-end;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 38px;
+    margin: 0 -8px 0 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--app-label-2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+:root[data-app-platform="material"] .app-composer__emoji {
+    height: 48px;
+    width: 36px;
+}
+.app-composer__emoji.chat-emoji-btn--active,
+.app-composer__emoji:active {
+    color: var(--app-tint, var(--accent));
+}
+.app-composer__emoji:disabled {
+    opacity: 0.35;
+}
+
+:root[data-app-platform] .call--mini {
+    background: transparent;
+    color: inherit;
+    padding: 26px 10px 4px;
+}
+:root[data-app-platform="ios"] .call-mini {
+    background: var(--app-bar, var(--app-surface));
+    border: 0.5px solid var(--app-separator);
+    border-radius: 26px;
+    padding: 5px 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+}
+:root[data-app-platform="material"] .call-mini {
+    background: var(--app-surface-3, var(--app-surface));
+    border: 0;
+    border-radius: 28px;
+    padding: 6px 8px 6px 6px;
+}
+:root[data-app-platform] .call-mini__avatar {
+    box-shadow: 0 0 0 2px var(--app-surface);
+}
+:root[data-app-platform] .call-mini__avatar--speaking {
+    box-shadow: 0 0 0 2px var(--app-surface), 0 0 0 4px var(--app-tint);
+}
+:root[data-app-platform] .call-mini__title {
+    color: var(--app-label);
+}
+:root[data-app-platform] .call-mini__sub {
+    color: var(--app-label-2);
+}
+:root[data-app-platform] .call-mini__btn {
+    width: 44px;
+    height: 44px;
+    background: var(--app-fill);
+    color: var(--app-label);
+}
+:root[data-app-platform] .call-mini__btn--off {
+    color: #ff3b30;
+}
+:root[data-app-platform] .call-mini__btn--leave {
+    background: #ff3b30;
+    color: #fff;
+}
+:root[data-app-platform="material"] .call-mini__btn--leave {
+    background: var(--app-error, #ba1a1a);
+    color: var(--app-on-error, #fff);
+}
+:root[data-app-platform] .call-mini__main:focus-visible,
+:root[data-app-platform] .call-mini__btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+}
+:root[data-app-platform] .call__top-btn {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.14);
+}
+:root[data-app-platform] .call__toast {
+    bottom: calc(6.5rem + env(safe-area-inset-bottom));
+}
+.app-emoji-sheet .ep {
+    --emoji-picker-h: min(56dvh, 420px);
+}
+
+.app-room-wrapper--hidden {
+    display: none !important;
+}
+.app-call-return {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 66px);
+    z-index: 41;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 5px 5px 6px;
+    border-radius: 26px;
+    background: var(--app-bar, var(--app-surface));
+    border: 0.5px solid var(--app-separator);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    animation: app-call-return-in 0.24s ease-out;
+}
+:root[data-app-platform="material"] .app-call-return {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+    background: var(--app-surface-3, var(--app-surface));
+    border: 0;
+    border-radius: 28px;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+:root[data-app-platform="material"] .app-call-return ~ .k-fab,
+:root[data-app-platform="material"] .k-fab:has(~ .app-call-return) {
+    transform: translateY(-70px);
+}
+@keyframes app-call-return-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+.app-call-return__main {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 20px;
+    background: none;
+    color: var(--app-label);
+    text-align: start;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.app-call-return__dot {
+    width: 10px;
+    height: 10px;
+    flex: none;
+    border-radius: 50%;
+    background: #34c759;
+    box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.2);
+}
+.app-call-return__text {
+    min-width: 0;
+    display: grid;
+}
+.app-call-return__title {
+    font-size: 15px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.app-call-return__sub {
+    font-size: 13px;
+    color: var(--app-label-2);
+}
+.app-call-return__end {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: #ff3b30;
+    color: #fff;
+    cursor: pointer;
+}
+:root[data-app-platform="material"] .app-call-return__end {
+    background: var(--app-error, #ba1a1a);
+    color: var(--app-on-error, #fff);
+}
+.app-call-return__main:focus-visible,
+.app-call-return__end:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-call-return { animation: none; }
+}
+:root[data-app-reduce-motion="1"] .app-call-return { animation: none; }
+
+.app-filter-hit {
+    --app-filter-slop: 6px;
+    margin-top: calc(0.5rem - var(--app-filter-slop));
+    margin-bottom: calc(-1 * var(--app-filter-slop));
+    padding-block: var(--app-filter-slop);
+}
+.app-filter button {
+    min-width: 0;
+    padding-inline: 6px;
+}
+.app-filter .app-seg {
+    min-width: 0;
+    max-width: 100%;
+}
+:root[data-app-platform="ios"] .app-filter .app-seg {
+    display: block;
+}
+.app-filter .app-seg,
+.app-filter button > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width: 380px) {
+    .app-filter button {
+        font-size: 14px;
+    }
+}
+
+.app-saved-icon { color: var(--app-tint); }
+
+:root[data-app-platform] :is(.k-button, .k-fab, .k-searchbar > button):focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+    z-index: 1;
+}
+:root[data-app-platform="ios"] .k-searchbar > button[style*="margin-right: -"] {
+    visibility: hidden;
+    transition: all 0.3s, visibility 0s 0.3s;
+}
+@media (hover: hover) and (pointer: fine) {
+    :root[data-app-platform] .k-searchbar > :first-child:has(input:focus-visible),
+    :root[data-app-platform] .k-list-input:has(input:focus-visible, textarea:focus-visible) {
+        outline: 2px solid var(--app-tint);
+        outline-offset: 2px;
+    }
+}
+
+:root[data-app-platform="ios"] .app-value-row div:has(> div > div.ms-auto) {
+    min-width: 0;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(> div.ms-auto) {
+    flex-wrap: wrap;
+    column-gap: 0.5rem;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(+ div.ms-auto) {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+:root[data-app-platform="ios"] .app-value-row div.ms-auto {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(> div.ms-auto):has(> svg) {
+    padding-inline-end: 1.25rem;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(> div.ms-auto) > svg {
+    position: absolute;
+    inset-inline-end: calc(1rem + env(safe-area-inset-right, 0px));
+    top: 50%;
+    translate: 0 -50%;
+    margin: 0;
+}
+
+/* Touch targets: 44 pt hit region on iOS (HIG), 48 dp on Material (M3). Visuals keep their
+   platform size; only the hit area grows. */
+:root[data-app-platform] { --app-hit: 44px; }
+:root[data-app-platform="material"] { --app-hit: 48px; }
+:root[data-app-platform="material"] .k-navbar .app-nav-btn {
+    width: 48px;
+    height: 48px;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
+    min-height: var(--app-hit);
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-room-title > :not(.app-nav-title):not(:has(button)) {
+    pointer-events: none;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-nav-title::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-conn-status {
+    position: relative;
+    z-index: 1;
+}
+:root[data-app-platform] :is(.app-composer__emoji, .app-sheet-btn, .ep__tone-toggle) {
+    position: relative;
+}
+:root[data-app-platform] :is(.app-composer__emoji, .app-sheet-btn, .ep__tone-toggle)::after {
+    content: '';
+    position: absolute;
+    top: min(0px, calc((100% - var(--app-hit)) / 2));
+    bottom: min(0px, calc((100% - var(--app-hit)) / 2));
+    left: min(0px, calc((100% - var(--app-hit)) / 2));
+    right: min(0px, calc((100% - var(--app-hit)) / 2));
+}
+:root[data-app-platform] .k-button.app-hit-btn {
+    height: auto;
+    min-height: var(--app-hit);
+    border-block: calc((var(--app-hit) - 40px) / 2) solid transparent;
+    background-clip: padding-box;
 }

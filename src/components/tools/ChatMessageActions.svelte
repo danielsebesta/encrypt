@@ -4,7 +4,7 @@
   import { LUCIDE } from '../../lib/lucideIcons';
   import { REACTION_EMOJI, type ReactionEmoji } from '../../lib/chatReactions';
 
-  let { dict, open, align = 'start', mine = [], canBurn = false, ontoggle, onreply, onreact, onburn }: {
+  let { dict, open, align = 'start', mine = [], canBurn = false, ontoggle, onreply, onreact, onmore, onburn }: {
     dict: Record<string, string>;
     open: boolean;
     align?: 'start' | 'end';
@@ -13,6 +13,7 @@
     ontoggle: (open: boolean) => void;
     onreply: () => void;
     onreact: (emoji: ReactionEmoji) => void;
+    onmore?: (anchor: HTMLElement) => void;
     onburn?: () => void;
   } = $props();
 
@@ -119,6 +120,16 @@
             onclick={() => { onreact(emoji); close(true); }}
           >{emoji}</button>
         {/each}
+        {#if onmore}
+          <button
+            type="button"
+            role="menuitem"
+            class="msg-actions__react msg-actions__more chat-emoji-btn"
+            aria-label={t(dict, 'chat.reactMore')}
+            title={t(dict, 'chat.reactMore')}
+            onclick={() => { const anchor = triggerEl; ontoggle(false); if (anchor) onmore(anchor); }}
+          ><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['smile-plus']}</svg></button>
+        {/if}
       </div>
       <button type="button" role="menuitem" class="menu__item msg-actions__reply" onclick={() => { ontoggle(false); onreply(); }}>
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['reply']}</svg>
@@ -210,6 +221,7 @@
   .msg-actions__react:focus-visible {
     background: var(--surface-2);
   }
+  .msg-actions__more { color: var(--muted); }
   .msg-actions__react--on {
     background: var(--accent-weak);
   }

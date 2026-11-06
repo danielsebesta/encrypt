@@ -1,7 +1,5 @@
-<script lang="ts">
-  import { LUCIDE } from '../../lib/lucideIcons';
-
-  type IconName =
+<script lang="ts" module>
+  export type IconName =
     | 'chat'
     | 'settings'
     | 'plus'
@@ -40,7 +38,15 @@
     | 'bell'
     | 'bell-off'
     | 'eraser'
-    | 'database';
+    | 'database'
+    | 'close'
+    | 'more-h'
+    | 'share-android'
+    | 'pin-off';
+</script>
+
+<script lang="ts">
+  import { LUCIDE } from '../../lib/lucideIcons';
 
   const MAP: Record<IconName, string> = {
     chat: 'message-square',
@@ -82,6 +88,10 @@
     'bell-off': 'bell-off',
     eraser: 'eraser',
     database: 'database-x',
+    close: 'x',
+    'more-h': 'ellipsis',
+    'share-android': 'share-2',
+    'pin-off': 'pin-off',
   };
 
   let {

@@ -1,4 +1,5 @@
 const SHELL_CACHE = 'encrypt-shell-v2';
+const PUSH_ROOMS = 'encrypt-push-rooms';
 const SHELL_MAX_ENTRIES = 160;
 const SHARE_INBOX = 'share-target-inbox';
 const MAX_SHARED_FILES = 100;
@@ -12,33 +13,55 @@ self.addEventListener('install', (event) => {
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.filter(key => key.startsWith('encrypt-') && key !== SHELL_CACHE).map(key => caches.delete(key))
+    keys.filter(key => key.startsWith('encrypt-') && key !== SHELL_CACHE && key !== PUSH_ROOMS).map(key => caches.delete(key))
   )).then(() => self.clients.claim()));
 });
 
 self.addEventListener('push', event => {
-  event.waitUntil(showPush());
+  event.waitUntil(showPush(event.data));
 });
 
-// A push carries no content. The text was left here by the page, in the language the user chose.
-async function showPush() {
+const ROOM_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const TAG_RE = /^[A-Za-z0-9_-]{16,43}$/;
+
+// A push carries at most this device's own random room tag. The text was left here by the page, in the language the user chose,
+// and the tag maps back to a room only through what this device stored when notifications were turned on.
+async function showPush(data) {
   let text = { title: 'encrypt.click', body: 'New message' };
   try {
     const hit = await (await caches.open('push-text')).match('/push-text');
     if (hit) text = await hit.json();
   } catch {}
-  await self.registration.showNotification(String(text.title), {
+  let room = null;
+  let tag = '';
+  try {
+    const parsed = data ? data.json() : null;
+    if (parsed && typeof parsed.t === 'string' && TAG_RE.test(parsed.t)) {
+      tag = parsed.t;
+      const hit = await (await caches.open(PUSH_ROOMS)).match(`/push-room/${tag}`);
+      const stored = hit ? await hit.json() : null;
+      if (stored && typeof stored.roomId === 'string' && ROOM_RE.test(stored.roomId)) room = stored;
+    }
+  } catch {}
+  const title = room && typeof room.label === 'string' && room.label.trim() ? room.label.trim().slice(0, 80) : String(text.title);
+  await self.registration.showNotification(title, {
     body: String(text.body),
-    tag: 'encrypt-click-push',
+    tag: room ? `encrypt-room-${tag}` : 'encrypt-click-push',
     icon: '/web-app-manifest-192x192.png',
+    data: room ? { roomId: room.roomId, kind: 'chat' } : null,
   });
 }
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+  const data = event.notification.data;
+  const roomId = data && typeof data.roomId === 'string' && ROOM_RE.test(data.roomId) ? data.roomId : '';
+  const url = roomId ? `/app/?room=${encodeURIComponent(roomId)}&kind=chat` : '/app';
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async list => {
     const open = list.find(client => new URL(client.url).pathname.startsWith('/app'));
-    return open ? open.focus() : self.clients.openWindow('/app');
+    if (!open) return self.clients.openWindow(url);
+    if (roomId) open.postMessage({ type: 'encrypt-open-room', roomId, kind: 'chat' });
+    return open.focus();
   }));
 });
 

@@ -34,6 +34,7 @@
   export let locale = 'en';
   export let dict: Record<string, string>;
   export let resultArt = true;
+  export let appMode = false;
 
   type Step = 'input' | 'password' | 'confirm' | 'fallback' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
@@ -894,8 +895,14 @@
               on:dragover={handleDragOver}
               on:dragleave={handleDragLeave}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['upload']}</svg>
-              <span class="dropzone__title">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
+              {#if appMode}
+                <span class="dropzone__icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['plus']}</svg></span>
+                <span class="dropzone__title">{t(dict, 'app.files.choose')}</span>
+                <span class="dropzone__hint">{t(dict, 'app.files.chooseHint')}</span>
+              {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['upload']}</svg>
+                <span class="dropzone__title">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
+              {/if}
               <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
             </label>
           {/if}

@@ -625,7 +625,7 @@ html.dark {
     }
 
     .stack {
-        @apply grid gap-5;
+        @apply grid grid-cols-[minmax(0,1fr)] gap-5;
     }
 
     .actions {
@@ -645,7 +645,7 @@ html.dark {
 
     .tab,
     .tab-btn {
-        @apply flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold text-muted;
+        @apply flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-md px-3 text-center text-sm font-bold leading-tight text-muted;
         transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
     }
 
@@ -667,7 +667,7 @@ html.dark {
 
     .status,
     .error-box {
-        @apply flex items-start gap-2.5 rounded-lg border border-line-soft bg-surface px-3.5 py-3 text-sm leading-snug text-text;
+        @apply flex items-start gap-2.5 rounded-xl bg-surface-2 px-3.5 py-3 text-sm leading-snug text-text;
     }
 
     .status svg {
@@ -675,22 +675,20 @@ html.dark {
     }
 
     .status--ok {
-        @apply border-accent-line bg-accent-weak text-accent-strong;
+        @apply bg-accent-weak text-accent-strong;
     }
 
     .status--warn {
         @apply bg-warn-weak text-warn;
-        border-color: color-mix(in srgb, var(--warn) 35%, transparent);
     }
 
     .status--error,
     .error-box {
         @apply bg-danger-weak text-danger;
-        border-color: color-mix(in srgb, var(--danger) 35%, transparent);
     }
 
     .field > .status--error:not(.status--box) {
-        @apply items-center gap-1.5 rounded-none border-0 bg-transparent p-0 font-bold;
+        @apply items-center gap-1.5 rounded-none bg-transparent p-0 font-semibold;
     }
 
     .status--error::before {
@@ -701,7 +699,7 @@ html.dark {
     }
 
     .status--busy {
-        @apply border-accent-line bg-accent-weak text-text;
+        @apply bg-accent-weak text-text;
     }
 
     .status--busy::before {
@@ -1198,7 +1196,7 @@ html.dark {
     /* ── Home ── */
 
     .home {
-        @apply grid gap-10 md:gap-14;
+        @apply grid grid-cols-[minmax(0,1fr)] gap-10 md:gap-14;
     }
 
     .home-hero {
@@ -1315,7 +1313,7 @@ html.dark {
     }
 
     .demo__label {
-        @apply flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider text-muted;
+        @apply flex items-center justify-between gap-2 text-xs font-semibold text-muted;
     }
 
     .demo__tag {
@@ -1756,5 +1754,217 @@ html.dark {
     .ud-code-tag {
         color: var(--accent-strong);
         font-weight: 600;
+    }
+
+    /* ── Chat markdown (output of src/lib/chatMarkdown.ts) ── */
+
+    .chat-md {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .chat-md > :first-child {
+        margin-top: 0;
+    }
+
+    .chat-md > :last-child {
+        margin-bottom: 0;
+    }
+
+    .chat-md strong {
+        font-weight: 700;
+    }
+
+    .chat-md em {
+        font-style: italic;
+    }
+
+    .chat-md u {
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+    }
+
+    .chat-md del {
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+
+    .chat-md :is(h1, h2, h3) {
+        margin: 0.4em 0 0.15em;
+        font-family: inherit;
+        font-weight: 700;
+        line-height: 1.25;
+        letter-spacing: normal;
+        color: inherit;
+        text-wrap: pretty;
+    }
+
+    .chat-md h1 {
+        font-size: 1.35em;
+    }
+
+    .chat-md h2 {
+        font-size: 1.2em;
+    }
+
+    .chat-md h3 {
+        font-size: 1.05em;
+    }
+
+    .chat-md .chat-subtext {
+        display: block;
+        font-size: 0.8em;
+        line-height: 1.4;
+        color: var(--muted);
+    }
+
+    .chat-md .chat-quote {
+        margin: 0.2em 0;
+        padding-inline-start: 0.65em;
+        border-inline-start: 4px solid var(--line);
+        border-radius: 2px;
+        color: inherit;
+    }
+
+    .chat-md :is(ul, ol) {
+        margin: 0.2em 0;
+        padding-inline-start: 1.35em;
+    }
+
+    .chat-md ul {
+        list-style: disc;
+    }
+
+    .chat-md ol {
+        list-style: decimal;
+    }
+
+    .chat-md li :is(ul, ol) {
+        margin: 0;
+    }
+
+    .chat-md li ul {
+        list-style: circle;
+    }
+
+    .chat-md li::marker {
+        color: var(--muted);
+    }
+
+    .chat-md .chat-code-inline {
+        padding: 0.1em 0.35em;
+        border: 1px solid var(--line);
+        border-radius: 0.3em;
+        background: var(--surface-2);
+        font-family: var(--font-mono);
+        font-size: 0.85em;
+        overflow-wrap: anywhere;
+    }
+
+    .chat-md .chat-code-block {
+        display: block;
+        max-width: 100%;
+        margin: 0.3em 0;
+        padding: 0.5em 0.7em;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: var(--surface-2);
+        font-family: var(--font-mono);
+        font-size: 0.8125em;
+        line-height: 1.5;
+        white-space: pre;
+        word-break: normal;
+        overflow-wrap: normal;
+        tab-size: 4;
+        overscroll-behavior-x: contain;
+    }
+
+    .chat-md .chat-code-block code {
+        font: inherit;
+        white-space: inherit;
+    }
+
+    .chat-md .chat-code-lang {
+        display: block;
+        margin-bottom: 0.25em;
+        font-family: var(--font-sans);
+        font-size: 0.75em;
+        font-weight: 700;
+        color: var(--muted);
+        user-select: none;
+    }
+
+    .chat-md .chat-link {
+        color: var(--accent-strong);
+        text-decoration: underline;
+        text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+        text-underline-offset: 0.15em;
+        overflow-wrap: anywhere;
+    }
+
+    .chat-md .chat-link:hover {
+        text-decoration-color: currentColor;
+    }
+
+    .chat-md .chat-spoiler {
+        padding: 0 3px;
+        border-radius: 3px;
+        background: var(--line);
+        color: transparent;
+        cursor: pointer;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+        transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+    }
+
+    .chat-md .chat-spoiler:not(.revealed) * {
+        color: transparent;
+        background: transparent;
+        border-color: transparent;
+        text-decoration-color: transparent;
+        pointer-events: none;
+    }
+
+    .chat-md .chat-spoiler.revealed {
+        background: var(--accent-weak);
+        color: inherit;
+    }
+
+    html.dark .chat-md .chat-spoiler:not(.revealed) {
+        background: color-mix(in oklab, var(--muted) 40%, var(--line));
+    }
+
+    .chat-md .chat-jumbo {
+        display: inline-block;
+        font-size: 2.4em;
+        line-height: 1.1;
+    }
+
+    :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md .chat-link {
+        color: inherit;
+        text-decoration-color: currentColor;
+    }
+
+    :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md :is(.chat-code-inline, .chat-code-block) {
+        border-color: color-mix(in oklab, currentColor 22%, transparent);
+        background: color-mix(in oklab, currentColor 10%, transparent);
+    }
+
+    :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md :is(.chat-subtext, .chat-code-lang) {
+        color: inherit;
+        opacity: 0.75;
+    }
+
+    :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md .chat-quote {
+        border-color: color-mix(in oklab, currentColor 35%, transparent);
+    }
+
+    :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md .chat-spoiler.revealed {
+        background: color-mix(in oklab, currentColor 12%, transparent);
+    }
+
+    :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md li::marker {
+        color: inherit;
     }
 }

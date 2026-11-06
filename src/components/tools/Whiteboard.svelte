@@ -35,6 +35,8 @@
   export let onConnStatus: ((status: 'connected' | 'connecting' | 'loading' | 'offline') => void) | undefined = undefined;
   export let onHaptic: ((type: 'light' | 'medium' | 'success' | 'warning') => void) | undefined = undefined;
   export let requestReconnect = () => {};
+  export let onOverlayChange: ((open: boolean) => void) | undefined = undefined;
+  export let closeOverlay: () => boolean = () => false;
 
   export let dict: Record<string, string>;
 
@@ -236,6 +238,12 @@
   let themeId: 'light' | 'dark' = 'light';
   let styleOpen = false;
   let menuOpen = false;
+  $: if (appMode) onOverlayChange?.(menuOpen || styleOpen);
+  closeOverlay = () => {
+    if (menuOpen) { menuOpen = false; return true; }
+    if (styleOpen) { styleOpen = false; return true; }
+    return false;
+  };
   let wbMenuEl: HTMLButtonElement | undefined = undefined;
   let isFullscreen = false;
   let fullscreenSupported = false;
@@ -1457,7 +1465,7 @@
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          {@html illustration('lock', 'state-art')}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{:else}{@html illustration('lock', 'state-art')}{/if}
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
@@ -1469,20 +1477,24 @@
             <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
           {/if}
         {/if}
-        <input
-          type="password"
-          class="input w-full"
-          aria-label={t(dict, 'whiteboard.password')}
-          placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
-          bind:value={passwordInput}
-          autocomplete="off"
-          data-lpignore="true"
-          data-1p-ignore
-          data-bwignore="true"
-        />
-        {#if passwordError}
-          <p class="status status--error" role="alert">{passwordError}</p>
-        {/if}
+        <div class="field">
+          <input
+            type="password"
+            class="input w-full"
+            aria-label={t(dict, 'whiteboard.password')}
+            aria-invalid={passwordError ? 'true' : undefined}
+            aria-describedby={passwordError ? 'wb-password-error' : undefined}
+            placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
+            bind:value={passwordInput}
+            autocomplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore="true"
+          />
+          {#if passwordError}
+            <p class="status status--error" id="wb-password-error" role="alert">{passwordError}</p>
+          {/if}
+        </div>
         <button type="submit" class="btn w-full">{t(dict, 'whiteboard.enterRoom')}</button>
       </form>
     </div>
@@ -1669,7 +1681,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.menu}</svg>
           </button>
           {#if appMode}
-            <Popover opened={menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
+            <Popover opened={menuOpen} inert={!menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
               <MenuList>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportPng')} onClick={exportPng}>
                   {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{/snippet}
@@ -1763,7 +1775,7 @@
                     <button type="button" class="wb-key-warn" title={t(dict, 'whiteboard.keyNewHint')} on:click={togglePeople}>{t(dict, 'whiteboard.keyNew')}</button>
                   {/if}
                 </span>
-                <span class="wb-chat__text">{@html m.html}</span>
+                <div class="wb-chat__text chat-md">{@html m.html}</div>
                 {#if m.expiresAt}
                   <span class="wb-chat__timer" title={t(dict, 'whiteboard.chatDisappears')}>{Math.max(0, Math.ceil((m.expiresAt - chatNow) / 1000))} s</span>
                 {/if}
@@ -2339,50 +2351,16 @@
     font-size: 0.8125rem;
     color: var(--muted);
   }
-  .wb-chat__text :global(.chat-code-inline),
-  .wb-chat__text :global(.chat-code-block) {
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    background: var(--surface);
-    border-radius: 4px;
-    padding: 1px 4px;
-  }
-  .wb-chat__text :global(.chat-code-block) {
-    display: block;
-    padding: 6px 8px;
-    white-space: pre-wrap;
-  }
-  .wb-chat__text :global(del) { opacity: 0.6; }
-  .wb-chat__text :global(.chat-spoiler) {
-    background: var(--muted);
-    color: transparent;
-    border-radius: 3px;
-    padding: 0 3px;
-    cursor: pointer;
-  }
-  .wb-chat__text :global(.chat-spoiler.revealed) {
-    background: transparent;
-    color: inherit;
-  }
-  .wb-chat__text :global(.chat-quote) {
-    display: block;
-    border-left: 3px solid var(--accent-line);
-    padding-left: 6px;
-    color: var(--muted);
-  }
   .wb-key-warn {
     display: inline-flex;
     align-items: center;
     margin-left: 0.25rem;
     padding: 0 0.375rem;
     border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
     background: var(--warn-weak);
     color: var(--warn);
-    font-size: 0.625rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-size: 0.6875rem;
+    font-weight: 600;
     vertical-align: middle;
   }
   button.wb-key-warn:focus-visible {
