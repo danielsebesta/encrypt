@@ -6,8 +6,25 @@ export function cryptoRand(): number {
   return value[0] / 0x100000000;
 }
 
+/** Map letters that NFD does not turn into ASCII, so Polish/German/French covers still fold uniquely. */
+const LATIN_FOLD: Record<string, string> = {
+  ł: 'l',
+  ß: 'ss',
+  œ: 'oe',
+  æ: 'ae',
+  ø: 'o',
+  đ: 'd',
+  ð: 'd',
+  þ: 'th',
+  ı: 'i',
+};
+
 export function foldWord(word: string): string {
-  return word.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  let out = '';
+  for (const ch of word.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()) {
+    out += LATIN_FOLD[ch] ?? ch;
+  }
+  return out.replace(/[^a-z]/g, '');
 }
 
 const ROWS = ['qwertzuiop', 'asdfghjkl', 'yxcvbnm'];

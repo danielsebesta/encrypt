@@ -23,8 +23,16 @@ const HALF = 2 ** 31;
 const QUARTER = 2 ** 30;
 
 const MARKS = /[,.?!…;:\n\r]/;
-const QUESTION_STARTS = new Set(['co', 'kdy', 'kde', 'kam', 'kdo', 'jak', 'proc', 'kolik', 'ktery', 'ktera', 'ktere', 'mas', 'muzes', 'jsi', 'jses', 'chces', 'nechces', 'vis', 'nevis', 'budes', 'pujdes', 'prijdes', 'nemas', 'neni']);
-const QUESTION_ENDS = new Set(['ne', 'jo', 'co', 'ty', 'vid', 'nebo']);
+/** Lines that start or end with one of these words often get a question mark. Punctuation never carries data. */
+export interface QuestionWords {
+  starts: readonly string[];
+  ends: readonly string[];
+}
+
+const CZECH_QUESTIONS: QuestionWords = {
+  starts: ['co', 'kdy', 'kde', 'kam', 'kdo', 'jak', 'proc', 'kolik', 'ktery', 'ktera', 'ktere', 'mas', 'muzes', 'jsi', 'jses', 'chces', 'nechces', 'vis', 'nevis', 'budes', 'pujdes', 'prijdes', 'nemas', 'neni'],
+  ends: ['ne', 'jo', 'co', 'ty', 'vid', 'nebo'],
+};
 
 interface Level {
   stride: number;
@@ -47,6 +55,8 @@ export interface CoverCodec {
   chooseWords(data: Uint8Array, rand?: Rand, onProgress?: (done: number, total: number) => void): Promise<number[]>;
   encode(data: Uint8Array, rand?: Rand, onProgress?: (done: number, total: number) => void): Promise<string>;
   decode(text: string, onProgress?: (done: number, total: number) => void): Promise<Uint8Array>;
+  /** Share of the words in a text that this table spells exactly, from 0 to 1. */
+  coverage(text: string): number;
 }
 
 function pair(bytes: Uint8Array, at: number, count: number): Uint16Array {
@@ -152,8 +162,10 @@ function randomStyle(rand: Rand): Style {
 
 const yieldToPage = () => new Promise<void>(resolve => setTimeout(resolve));
 
-export function createCoverCodec(table: CoverTable): CoverCodec {
+export function createCoverCodec(table: CoverTable, questions: QuestionWords = CZECH_QUESTIONS): CoverCodec {
   const { words, keep, levels, unigramWords, unigramShares } = table;
+  const questionStarts = new Set(questions.starts);
+  const questionEnds = new Set(questions.ends);
   const folded = words.map(foldWord);
   const idOf = new Map<string, number>();
   folded.forEach((word, id) => {
@@ -349,7 +361,7 @@ export function createCoverCodec(table: CoverTable): CoverCodec {
   function endOfLine(line: number[], style: Style, rand: Rand): string {
     const first = folded[line[0]];
     const last = folded[line[line.length - 1]];
-    if ((QUESTION_STARTS.has(first) || QUESTION_ENDS.has(last)) && rand() < 0.7) return '?';
+    if ((questionStarts.has(first) || questionEnds.has(last)) && rand() < 0.7) return '?';
     const roll = rand();
     if (roll < style.commas) return ',';
     if (roll < style.commas + 0.06) return '...';
@@ -405,6 +417,12 @@ export function createCoverCodec(table: CoverTable): CoverCodec {
 
   return {
     chooseWords,
+
+    coverage(text) {
+      const tokens = parse(text).filter((token): token is string => token !== null);
+      if (!tokens.length) return 0;
+      return tokens.filter(token => idOf.has(token)).length / tokens.length;
+    },
 
     async encode(data, rand = cryptoRand, onProgress) {
       if (data.length > MAX_BYTES) throw new Error('Message too large');
