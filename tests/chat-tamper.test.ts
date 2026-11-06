@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   generateSigningIdentity, signPayload, verifyPayload, encryptMessage, decryptMessage,
-  roomMessageKey, sealLocal, openLocal, importRoomKey, arrayToB64url, b64urlToArray,
+  roomMessageKey, sealLocal, openLocal, importRoomKey, arrayToB64url,
 } from '../src/lib/chatCrypto';
 import { validPayload, stampPayload } from '../src/lib/chatProtocol';
 import { ReplayWindow } from '../src/lib/roomAccess';

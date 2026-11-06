@@ -15,8 +15,9 @@ test('the manifest posts shared files and text to the path the service worker ha
   assert.deepEqual(manifest.share_target.params.files, [{ name: 'files', accept: ['*/*'] }]);
   assert.equal(manifest.prefer_related_applications, false);
   assert.ok(Array.isArray(manifest.screenshots) && manifest.screenshots.length >= 3);
-  assert.ok(manifest.screenshots.some((shot) => shot.form_factor === 'wide'));
-  assert.ok(manifest.screenshots.filter((shot) => shot.form_factor === 'narrow').length >= 2);
+  const shots = manifest.screenshots as { form_factor?: string }[];
+  assert.ok(shots.some((shot) => shot.form_factor === 'wide'));
+  assert.ok(shots.filter((shot) => shot.form_factor === 'narrow').length >= 2);
   const worker = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
   assert.ok(worker.includes(`'${SHARE_INBOX}'`));
   assert.ok(worker.includes("'/share-target'"));
