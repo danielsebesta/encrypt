@@ -340,18 +340,16 @@ html[data-app-platform] body {
 }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
     position: absolute;
-    inset: auto 0 auto 0;
     top: 50%;
     bottom: auto;
-    /* Kill Konsta's left-1/2 + -translate-x/y-1/2 so the title stays on-screen. */
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
+    /* Sit between the back glass and the action cluster — do not use left-1/2.
+       Konsta's -translate-x-1/2 on a full-width title shoved it off-screen. */
+    left: 4rem !important;
+    right: 9.75rem !important;
+    width: auto !important;
     max-width: none !important;
     box-sizing: border-box;
-    /* Symmetric side gutters = widest chrome (3 action buttons) so the label stays optically centered. */
-    padding-left: 9.75rem;
-    padding-right: 9.75rem;
+    padding: 0;
     margin: 0 !important;
     transform: translateY(-50%) !important;
     translate: none !important;
@@ -361,8 +359,7 @@ html[data-app-platform] body {
     z-index: 1;
 }
 :root[data-app-platform] .k-navbar.app-room-bar:not(:has(.app-nav-btn:nth-of-type(2))) .app-room-title {
-    padding-left: 4.5rem;
-    padding-right: 4.5rem;
+    right: 4.5rem !important;
 }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title .app-nav-title,
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title > * {
