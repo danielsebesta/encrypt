@@ -66,7 +66,7 @@
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
-  import { haptic } from '../../lib/haptics';
+  import { haptic, hapticsAvailable } from '../../lib/haptics';
   import { clearLock, enableLock, lockSupported, confirmPresence, prepareLockScreen, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import { CURRENT_VERSION, isDevBuild, fetchLatestVersion, describeVersion, type AppVersion } from '../../lib/appVersion';
@@ -105,6 +105,7 @@
   let scheme = $state<AppScheme>('dark');
   let seed = $state<string>(DEFAULT_SEED);
   let haptics = $state(true);
+  let hapticsOk = $state(false);
   let ready = $state(false);
 
   let isStandalone = $state(false);
@@ -943,6 +944,7 @@
     } catch {
       haptics = true;
     }
+    hapticsOk = hapticsAvailable();
     ready = true;
 
     lockEnabled = storedLock() !== null;
@@ -1484,21 +1486,23 @@
         <div class="app-content">
           <BlockTitle>{t(dict, 'app.settings.appearance')}</BlockTitle>
           <List strong inset>
-            <ListItem title={t(dict, 'app.settings.haptics')}>
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="haptic" size={20} /></span>
-              {/snippet}
-              {#snippet after()}
-                <Toggle
-                  checked={haptics}
-                  onChange={() => {
-                    haptics = !haptics;
-                    try { localStorage.setItem('encrypt-app-haptics', haptics ? '1' : '0'); } catch {}
-                    if (haptics) triggerHaptic('medium');
-                  }}
-                />
-              {/snippet}
-            </ListItem>
+            {#if hapticsOk}
+              <ListItem title={t(dict, 'app.settings.haptics')}>
+                {#snippet media()}
+                  <span class="text-[var(--app-tint)]"><AppIcons name="haptic" size={20} /></span>
+                {/snippet}
+                {#snippet after()}
+                  <Toggle
+                    checked={haptics}
+                    onChange={() => {
+                      haptics = !haptics;
+                      try { localStorage.setItem('encrypt-app-haptics', haptics ? '1' : '0'); } catch {}
+                      if (haptics) triggerHaptic('medium');
+                    }}
+                  />
+                {/snippet}
+              </ListItem>
+            {/if}
             <ListItem title={t(dict, 'app.settings.lock')} subtitle={t(dict, 'app.settings.lockHint')}>
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="lock" size={20} /></span>
