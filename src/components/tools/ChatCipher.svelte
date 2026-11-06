@@ -194,8 +194,7 @@
     inputText = '';
     result = '';
     detectedLang = null;
-    streamWaiting = false;
-    streamDone = true;
+    onStreamDone();
     coverRatio = null;
     clearError();
   }

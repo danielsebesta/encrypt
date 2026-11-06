@@ -1087,7 +1087,7 @@
   "tools.chatCipher.errorRetryTable": "Worttabelle erneut laden",
   "tools.chatCipher.tableNote": "Wählen Sie die Sprache des Cover-Chats. Es gibt kein Modell zum Download: eine kleine Worttabelle für diese Sprache lädt in diesem Browser und nichts verlässt das Gerät.",
   "tools.chatCipher.about.1.title": "Wozu es dient",
-  "tools.chatCipher.about.1": "Chat cipher verschlüsselt Ihre Nachricht mit einem Passwort und schreibt den Geheimtext als Reihe lockerer Ein-Personen-Chatnachrichten in der gewählten Cover-Sprache. Automatisch nimmt die Sprache dieser Website, wenn auch Ihr Browser sie angibt, sonst die erste Sprache des Browsers. Fügen Sie den Cover-Text hier mit demselben Passwort ein, um das Original wiederherzustellen; im Modus Automatisch wird die Cover-Sprache am Text erkannt.",
+  "tools.chatCipher.about.1": "Chat cipher verschlüsselt Ihre Nachricht mit einem Passwort und schreibt den Geheimtext als Reihe lockerer Ein-Personen-Chatnachrichten in der gewählten Cover-Sprache. Automatisch nimmt die Sprache dieser Website, wenn auch Ihr Browser sie angibt, sonst die erste Browsersprache mit einer Cover-Tabelle und, falls es keine gibt, die Sprache der Website. Fügen Sie den Cover-Text hier mit demselben Passwort ein, um das Original wiederherzustellen; im Modus Automatisch wird die Cover-Sprache am Text erkannt.",
   "tools.chatCipher.about.2.title": "Die Verschlüsselung",
   "tools.chatCipher.about.2": "Dein Passwort wird mit Argon2id und einem zufälligen Salt zu einem 256-Bit-Schlüssel gestreckt. Die Nachricht wird mit AES-256-GCM versiegelt. Ein falsches Passwort oder ein veränderter Tarntext führt zu einem Fehler statt zu unsinnigen Daten.",
   "tools.chatCipher.about.3.title": "Chat-Deckmantel",

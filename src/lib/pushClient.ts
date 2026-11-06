@@ -71,6 +71,11 @@ export async function rememberPushRoom(tag: string, room: { roomId: string; labe
   await cache.put(`${ROOM_URL}${tag}`, new Response(JSON.stringify(room), { headers: { 'Content-Type': 'application/json' } }));
 }
 
+export async function forgetPushRooms(): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  await caches.delete(PUSH_ROOMS_CACHE);
+}
+
 export async function forgetPushRoom(tag: string): Promise<void> {
   if (typeof caches === 'undefined') return;
   const cache = await caches.open(PUSH_ROOMS_CACHE);

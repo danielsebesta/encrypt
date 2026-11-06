@@ -106,6 +106,7 @@
   export let requestHangup: () => void = () => {};
   export let notifyIntent: boolean | null = null;
   export let onNotifyIntent: (on: boolean) => void = () => {};
+  export let onRoomMode: ((mode: ChatMode) => void) | undefined = undefined;
   export let requestRoomMenu: () => void = () => {};
   export let requestRoomInfo: () => void = () => {};
   export let onShareApp: (() => void) | undefined = undefined;
@@ -2540,6 +2541,7 @@
     });
     fsSecret.fill(0);
     try { localStorage.setItem(`${MODE_PREFIX}${channelId}`, configStamp(config)); } catch {}
+    onRoomMode?.(config.mode);
     localHistoryKey = `${LOCAL_HISTORY_PREFIX}${roomId}:${channelId}`;
     localHistoryLoaded = false;
     needsPassword = false;
@@ -3226,10 +3228,12 @@
 
   function persistOutboxSoon() {
     if (typeof sessionStorage === 'undefined' || !channelId || !cryptoKey || outboxRestoredFor !== channelId) return;
-    clearTimeout(outboxPersistTimer);
+    if (outboxPersistTimer) return;
     const key = cryptoKey;
     const channel = channelId;
     outboxPersistTimer = setTimeout(() => {
+      outboxPersistTimer = undefined;
+      if (channelId !== channel || cryptoKey !== key) { persistOutboxSoon(); return; }
       void writeSealedOutbox(sessionStorage, roomId, channel, unsentEntries(), (text) => sealMessage(key, text));
     }, 250);
   }

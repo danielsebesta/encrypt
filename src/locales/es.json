@@ -1087,7 +1087,7 @@
   "tools.chatCipher.errorRetryTable": "Descargar de nuevo la tabla de palabras",
   "tools.chatCipher.tableNote": "Elige el idioma del chat de cubierta. No hay modelo que descargar: una pequeña tabla de palabras para ese idioma se carga en este navegador y nada sale del dispositivo.",
   "tools.chatCipher.about.1.title": "Para qué sirve",
-  "tools.chatCipher.about.1": "Chat cipher cifra tu mensaje con una contraseña y escribe el texto cifrado como una cadena de mensajes de chat casual de una sola persona en el idioma de cubierta que elijas. Automático usa el idioma de este sitio si tu navegador también lo indica y, si no, el primer idioma del navegador. Pega ese texto aquí con la misma contraseña para recuperar el original; en modo Automático el idioma de cubierta se reconoce por el texto.",
+  "tools.chatCipher.about.1": "Chat cipher cifra tu mensaje con una contraseña y escribe el texto cifrado como una cadena de mensajes de chat casual de una sola persona en el idioma de cubierta que elijas. Automático usa el idioma de este sitio si tu navegador también lo indica; si no, el primer idioma del navegador que tenga tabla de cubierta y, si no hay ninguno, el idioma del sitio. Pega ese texto aquí con la misma contraseña para recuperar el original; en modo Automático el idioma de cubierta se reconoce por el texto.",
   "tools.chatCipher.about.2.title": "El cifrado",
   "tools.chatCipher.about.2": "Tu contraseña se refuerza con Argon2id y una sal aleatoria hasta obtener una clave de 256 bits. El mensaje se sella con AES-256-GCM. Una contraseña incorrecta o un texto de cobertura modificado dan error en lugar de devolver datos sin sentido.",
   "tools.chatCipher.about.3.title": "Texto de cobertura",

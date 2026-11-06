@@ -301,7 +301,7 @@
           </div>
         {/if}
         {#if callActive}
-          <div class="call__stage" aria-hidden={minimized || undefined}>
+          <div class="call__stage" inert={minimized || undefined}>
             <div class="call__top">
             <div class="call__status" title={relayTitle}>
               <span class="call__dot call__dot--{serverQuality}"></span>
@@ -415,7 +415,7 @@
             </div>
           </div>
 
-          <div class="call__bar" aria-hidden={minimized || undefined}>
+          <div class="call__bar" inert={minimized || undefined}>
             <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
               {#if micMuted}
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic-off']}</svg>

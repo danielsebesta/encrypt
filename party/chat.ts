@@ -251,10 +251,14 @@ export default class ChatRoom {
     this.lastPushAt = now;
     const results = await Promise.all(sleeping.map(target => sendPush(target, keys)));
     const gone = new Set(sleeping.filter((_, index) => results[index] === "gone").map(target => target.endpoint));
-    if (gone.size) {
-      const current = await this.pushTargets();
-      await this.host.storage.put(PUSH_KEY, current.filter(target => !gone.has(target.endpoint)));
-    }
+    if (!gone.size) return;
+    this.queue = this.queue
+      .then(async () => {
+        const current = await this.pushTargets();
+        await this.host.storage.put(PUSH_KEY, current.filter(target => !gone.has(target.endpoint)));
+      })
+      .catch(() => {});
+    await this.queue;
   }
 
   private async setRoomConfig(input: unknown) {

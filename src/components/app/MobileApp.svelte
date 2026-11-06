@@ -43,6 +43,7 @@
     getRoom,
     saveRoom,
     setRoomPinned,
+    setRoomMode,
     renameRoom,
     forgetRoom,
     touchRoom,
@@ -59,6 +60,7 @@
   } from '../../lib/roomVault';
   import { forgetChatIdentity } from '../../lib/chatIdentity';
   import { loadNotifyPref, saveNotifyPref } from '../../lib/chatAttention';
+  import { forgetPushRooms } from '../../lib/pushClient';
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { identiconBackground } from '../../lib/identicon';
@@ -992,6 +994,22 @@
 
   // Existing entries keep their label, pin and any passkey-wrapped secret —
   // only touched (optionally renamed); fresh ones are stored without secret.
+  const reportedModes = new Map<string, ChatMode>();
+
+  function syncRoomMode(roomId: string, mode: ChatMode) {
+    if (wiping) return;
+    reportedModes.set(roomId, mode);
+    const epoch = wipeEpoch;
+    void (async () => {
+      try {
+        const known = await getRoom('chat', roomId);
+        if (!known || known.mode === mode || wiping || wipeEpoch !== epoch) return;
+        await setRoomMode(known, mode);
+        if (!wiping && wipeEpoch === epoch) await loadRooms();
+      } catch {}
+    })();
+  }
+
   function persistRoom(kind: 'chat' | 'whiteboard', roomId: string, label: string, rename = false, mode: ChatMode = 'live') {
     if (wiping || !validRoomId(roomId)) return;
     const epoch = wipeEpoch;
@@ -1003,7 +1021,7 @@
           if (rename && label) await renameRoom(known, label);
           await touchRoom(kind, roomId);
         } else {
-          await saveRoom({ kind, roomId, mode, label }, null, { withSecret: false, passkeyName: '' });
+          await saveRoom({ kind, roomId, mode: (kind === 'chat' && reportedModes.get(roomId)) || mode, label }, null, { withSecret: false, passkeyName: '' });
         }
         if (!wiping && wipeEpoch === epoch) await loadRooms();
       } catch {}
@@ -1204,6 +1222,7 @@
   }
 
   function wipeLocalSecrets() {
+    reportedModes.clear();
     unlockAbort?.abort();
     unlockAbort = null;
     clearLock();
@@ -1236,7 +1255,7 @@
       // Broadcast first so sibling tabs and in-flight board saves see the flag
       // before IndexedDB deletes finish.
       try { localStorage.setItem(PANIC_FLAG, String(Date.now())); } catch {}
-      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards()]);
+      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards(), forgetPushRooms()]);
       wipeLocalSecrets();
       // Drop the flag so later board saves are not permanently suppressed in this tab.
       try { localStorage.removeItem(PANIC_FLAG); } catch {}
@@ -2254,6 +2273,7 @@
             bind:closeOverlay={closeChildOverlay}
             notifyIntent={notifyIntent?.roomId === mountedRoomId ? notifyIntent.on : null}
             onNotifyIntent={notifyIntentDone}
+            onRoomMode={(mode) => syncRoomMode(mountedRoomId, mode)}
           />
         </div>
       {/key}

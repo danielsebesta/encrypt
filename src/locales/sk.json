@@ -1087,7 +1087,7 @@
   "tools.chatCipher.errorRetryTable": "Stiahnuť tabuľku slov znova",
   "tools.chatCipher.tableNote": "Zvoľte jazyk krycieho chatu. Nie je čo sťahovať za model: malá slovná tabuľka pre daný jazyk sa načíta v tomto prehliadači a nič neopúšťa zariadenie.",
   "tools.chatCipher.about.1.title": "Na čo to je",
-  "tools.chatCipher.about.1": "Chat cipher zašifruje správu heslom a zapíše šifrotext ako reťazec bežných chatových správ od jedného človeka v jazyku krytia, ktorý zvolíte. Voľba Automaticky použije jazyk tohto webu, ak ho uvádza aj váš prehliadač, inak prvý jazyk prehliadača. Vložte ten text sem s rovnakým heslom a získate originál; v režime Automaticky sa jazyk krytia rozpozná z textu.",
+  "tools.chatCipher.about.1": "Chat cipher zašifruje správu heslom a zapíše šifrotext ako reťazec bežných chatových správ od jedného človeka v jazyku krytia, ktorý zvolíte. Voľba Automaticky použije jazyk tohto webu, ak ho uvádza aj váš prehliadač, inak prvý jazyk prehliadača, pre ktorý existuje tabuľka krytia, a ak taký nie je, jazyk webu. Vložte ten text sem s rovnakým heslom a získate originál; v režime Automaticky sa jazyk krytia rozpozná z textu.",
   "tools.chatCipher.about.2.title": "Šifrovanie",
   "tools.chatCipher.about.2": "Heslo sa s náhodnou soľou natiahne cez Argon2id na 256-bitový kľúč. Správu potom zapečatí AES-256-GCM. Nesprávne heslo alebo zmenený krycí text skončí chybou, nikdy nevráti nezmysly.",
   "tools.chatCipher.about.3.title": "Krycí chat",

@@ -1087,7 +1087,7 @@
   "tools.chatCipher.errorRetryTable": "Pobierz tabelę słów ponownie",
   "tools.chatCipher.tableNote": "Wybierz język czatu pokrywy. Nie ma modelu do pobrania: mała tabela słów dla tego języka ładuje się w tej przeglądarce i nic nie opuszcza urządzenia.",
   "tools.chatCipher.about.1.title": "Do czego służy",
-  "tools.chatCipher.about.1": "Chat cipher szyfruje wiadomość hasłem, a potem zapisuje szyfrogram jako ciąg swobodnych wiadomości czatu od jednej osoby w wybranym języku pokrywy. Opcja Automatycznie używa języka tej strony, jeśli podaje go też Twoja przeglądarka, a w przeciwnym razie pierwszego języka przeglądarki. Wklej ten tekst tutaj z tym samym hasłem, aby odzyskać oryginał; w trybie Automatycznie język pokrywy rozpoznaje się po tekście.",
+  "tools.chatCipher.about.1": "Chat cipher szyfruje wiadomość hasłem, a potem zapisuje szyfrogram jako ciąg swobodnych wiadomości czatu od jednej osoby w wybranym języku pokrywy. Opcja Automatycznie używa języka tej strony, jeśli podaje go też Twoja przeglądarka, w przeciwnym razie pierwszego języka przeglądarki, który ma tabelę pokrywy, a gdy takiego nie ma, języka strony. Wklej ten tekst tutaj z tym samym hasłem, aby odzyskać oryginał; w trybie Automatycznie język pokrywy rozpoznaje się po tekście.",
   "tools.chatCipher.about.2.title": "Szyfrowanie",
   "tools.chatCipher.about.2": "Hasło jest wzmacniane przez Argon2id z losową solą do klucza 256-bitowego. Wiadomość jest pieczętowana przez AES-256-GCM. Złe hasło lub zmieniony tekst maskujący kończy się błędem zamiast zwracać bezsensowne dane.",
   "tools.chatCipher.about.3.title": "Tekst osłonowy",

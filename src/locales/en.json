@@ -1097,7 +1097,7 @@
   "tools.chatCipher.lang.pl": "Polish",
   "tools.chatCipher.tableNote": "Choose the language of the cover chat. There is no model to download: a small word table for that language loads in this browser and nothing leaves the device.",
   "tools.chatCipher.about.1.title": "What it does",
-  "tools.chatCipher.about.1": "Chat cipher encrypts your message with a password, then writes the ciphertext as a string of casual one-person chat messages in the cover language you pick. Automatic uses the language of this site when your browser lists it too, and otherwise your browser’s first language. Paste that cover text back here with the same password to recover the original; in Automatic mode the cover language is recognised from the text.",
+  "tools.chatCipher.about.1": "Chat cipher encrypts your message with a password, then writes the ciphertext as a string of casual one-person chat messages in the cover language you pick. Automatic uses the language of this site when your browser lists it too, otherwise the first browser language that has a cover table, and the site language if none does. Paste that cover text back here with the same password to recover the original; in Automatic mode the cover language is recognised from the text.",
   "tools.chatCipher.about.2.title": "The encryption",
   "tools.chatCipher.about.2": "Your password is stretched with Argon2id and a random salt into a 256-bit key. The message is sealed with AES-256-GCM. A wrong password or a changed cover text fails closed instead of returning garbage.",
   "tools.chatCipher.about.3.title": "Chat cover text",

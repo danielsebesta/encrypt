@@ -92,7 +92,7 @@
     ontyping();
   }
   function onkeyComposer(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); onsend(); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); onsend(); }
     else if (e.key === 'Escape' && hasReply) onclearreply();
   }
   $effect(() => {
