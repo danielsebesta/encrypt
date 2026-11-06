@@ -66,7 +66,7 @@
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
-  import { haptic, hapticsAvailable, installHapticGrant } from '../../lib/haptics';
+  import { haptic, hapticsAvailable, hapticsNeedGestureEnd, installHapticGrant } from '../../lib/haptics';
   import { clearLock, enableLock, lockSupported, confirmPresence, prepareLockScreen, shouldLock, storedLock, unlock } from '../../lib/appLock';
   import { installViewportSync } from '../../lib/viewportSync';
   import { CURRENT_VERSION, isDevBuild, fetchLatestVersion, describeVersion, type AppVersion } from '../../lib/appVersion';
@@ -429,12 +429,26 @@
     if (deleteDialogOpen) { deleteDialogOpen = false; endRowInteraction(); consumeOverlayGuard(); }
   }
 
-  function openRowActions(room: RoomEntry) {
-    // Long-press / context menu recognition — the one chrome haptic that earns its keep.
-    triggerHaptic('medium');
+  /** Swallow the backdrop tap that Android/iOS synthesizes when the long-press finger lifts. */
+  let ignoreActionsBackdrop = false;
+  let actionsBackdropTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingActionsHaptic = false;
+
+  function openRowActions(room: RoomEntry, fromLongPress = false) {
     lastRowFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     actionTarget = room;
     actionsRoom = room;
+    if (fromLongPress) {
+      // Finger is still down over the new backdrop — ignore dismiss until after lift.
+      ignoreActionsBackdrop = true;
+      clearTimeout(actionsBackdropTimer);
+      actionsBackdropTimer = setTimeout(() => { ignoreActionsBackdrop = false; }, 450);
+      if (hapticsNeedGestureEnd()) pendingActionsHaptic = true;
+      else triggerHaptic('medium');
+    } else {
+      ignoreActionsBackdrop = false;
+      triggerHaptic('medium');
+    }
   }
 
   function endRowInteraction() {
@@ -445,8 +459,16 @@
 
   function closeRowActions() {
     actionsRoom = null;
+    pendingActionsHaptic = false;
+    ignoreActionsBackdrop = false;
+    clearTimeout(actionsBackdropTimer);
     endRowInteraction();
     consumeOverlayGuard();
+  }
+
+  function onActionsBackdrop() {
+    if (ignoreActionsBackdrop) return;
+    closeRowActions();
   }
 
   let pressingId = $state('');
@@ -458,13 +480,18 @@
     lpTimer = setTimeout(() => {
       lpFired = true;
       pressingId = '';
-      openRowActions(room);
+      openRowActions(room, true);
     }, 550);
   }
 
   function rowPressEnd() {
     clearTimeout(lpTimer);
     pressingId = '';
+    // iOS: switch-tick grant arrives on touchend — buzz now so long-press feedback lands.
+    if (pendingActionsHaptic) {
+      pendingActionsHaptic = false;
+      triggerHaptic('medium');
+    }
   }
 
   async function shareRoom() {
@@ -1176,7 +1203,7 @@
     oncontextmenu={(e: MouseEvent) => {
       e.preventDefault();
       lpFired = true;
-      openRowActions(room);
+      openRowActions(room, false);
     }}
     title={room.label || room.roomId}
     subtitle={modeLabel(room)}
@@ -2011,7 +2038,7 @@
     </Dialog>
 
     <!-- ROOM ROW ACTIONS -->
-    <Actions class="app-actions-sheet" opened={actionsRoom !== null} onBackdropClick={closeRowActions}>
+    <Actions class="app-actions-sheet" opened={actionsRoom !== null} onBackdropClick={onActionsBackdrop}>
       <ActionsGroup>
         <ActionsLabel>{actionTarget?.label || actionTarget?.roomId || ''}</ActionsLabel>
         <ActionsButton onClick={togglePin}>

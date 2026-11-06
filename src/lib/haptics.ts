@@ -52,6 +52,11 @@ function isIosTouch(): boolean {
   return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1;
 }
 
+/** iOS 18.4+/26 only grants switch ticks after a real click/touchend — not mid long-press. */
+export function hapticsNeedGestureEnd(): boolean {
+  return isIosTouch();
+}
+
 function isTouchPrimary(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -99,6 +104,8 @@ export function installHapticGrant() {
   window.addEventListener('click', onGesture, true);
   window.addEventListener('touchend', onGesture, true);
   window.addEventListener('pointerup', onGesture, true);
+  // pointerdown refreshes the grant clock for patterns that must wait until lift (long-press).
+  window.addEventListener('pointerdown', onGesture, true);
   window.addEventListener('keyup', onGesture, true);
 }
 

@@ -4,14 +4,6 @@ export const CLOSE_PX = 44;
 export const CLOSE_VELOCITY = 0.28;
 const SLOP_PX = 6;
 
-type PanelKind = 'sheet' | 'actions';
-
-function panelKind(el: HTMLElement): PanelKind | null {
-  if (el.classList.contains('k-sheet')) return 'sheet';
-  if (el.classList.contains('k-actions')) return 'actions';
-  return null;
-}
-
 function scrollChild(sheet: HTMLElement): HTMLElement | null {
   return sheet.querySelector<HTMLElement>(':scope > *:not(.app-sheet__handle)');
 }
@@ -19,17 +11,14 @@ function scrollChild(sheet: HTMLElement): HTMLElement | null {
 function allowStart(target: HTMLElement): boolean {
   // Don't steal text-field caret / selection gestures.
   if (target.closest('input, textarea, select, [contenteditable="true"]')) return false;
-  return Boolean(target.closest('.k-sheet, .k-actions'));
+  // Only modal sheets — not action sheets (long-press menus). Swiping those
+  // races the opening pointer and dismisses as soon as the finger lifts.
+  return Boolean(target.closest('.k-sheet'));
 }
 
-function applyDrag(el: HTMLElement, kind: PanelKind, dy: number) {
-  const y = Math.max(0, dy);
-  if (kind === 'sheet') {
-    // Open sheet sits at translate(0, -100%); pull down toward closed.
-    el.style.translate = `0 calc(-100% + ${y}px)`;
-    return;
-  }
-  el.style.translate = `0 ${y}px`;
+function applyDrag(el: HTMLElement, dy: number) {
+  // Open sheet sits at translate(0, -100%); pull down toward closed.
+  el.style.translate = `0 calc(-100% + ${Math.max(0, dy)}px)`;
 }
 
 function clearDrag(el: HTMLElement) {
@@ -37,11 +26,10 @@ function clearDrag(el: HTMLElement) {
   el.style.translate = '';
 }
 
-/** Lets touch users pull a Konsta sheet/actions panel down from anywhere (not only the handle). */
+/** Lets touch users pull a Konsta sheet down from anywhere (not only the handle). */
 export function installSheetSwipe(): () => void {
   let panel: HTMLElement | null = null;
   let backdrop: HTMLElement | null = null;
-  let kind: PanelKind = 'sheet';
   let startY = 0;
   let lastY = 0;
   let lastT = 0;
@@ -54,15 +42,13 @@ export function installSheetSwipe(): () => void {
     if (event.pointerType === 'mouse' || !event.isPrimary) return;
     const target = event.target as HTMLElement | null;
     if (!target || !allowStart(target)) return;
-    const found = target.closest<HTMLElement>('.k-sheet, .k-actions');
+    const found = target.closest<HTMLElement>('.k-sheet');
     if (!found) return;
-    const nextKind = panelKind(found);
-    if (!nextKind) return;
 
     // Body drags only dismiss when the sheet's scrollable pane is at the top;
     // the handle can always start a dismiss even if content is scrolled.
     const onHandle = Boolean(target.closest('.app-sheet__handle'));
-    needsTopScroll = nextKind === 'sheet' && !onHandle;
+    needsTopScroll = !onHandle;
     if (needsTopScroll) {
       const scroller = scrollChild(found);
       if (scroller && scroller.scrollTop > 0) return;
@@ -70,10 +56,7 @@ export function installSheetSwipe(): () => void {
 
     const prev = found.previousElementSibling;
     panel = found;
-    kind = nextKind;
-    backdrop = prev instanceof HTMLElement && !prev.classList.contains('k-sheet') && !prev.classList.contains('k-actions')
-      ? prev
-      : null;
+    backdrop = prev instanceof HTMLElement && !prev.classList.contains('k-sheet') ? prev : null;
     startY = lastY = event.clientY;
     lastT = event.timeStamp;
     velocity = 0;
@@ -103,7 +86,7 @@ export function installSheetSwipe(): () => void {
     velocity = (event.clientY - lastY) / dt;
     lastY = event.clientY;
     lastT = event.timeStamp;
-    applyDrag(panel, kind, dy);
+    applyDrag(panel, dy);
   }
 
   function up(event: PointerEvent) {
