@@ -58,7 +58,13 @@ const dict = getTranslations(locale);
             ? /^(ios|macos)$/i.test(hint) ? 'ios' : 'material'
             : /Android/i.test(navigator.userAgent) ? 'material'
             : /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? 'ios' : 'material';
+          var storedPlatform = ls.getItem('encrypt-app-platform');
+          if (storedPlatform === 'ios' || storedPlatform === 'material') platform = storedPlatform;
           var scheme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          var storedAppearance = ls.getItem('encrypt-app-appearance');
+          if (storedAppearance === 'light' || storedAppearance === 'dark') scheme = storedAppearance;
+          var amoled = scheme === 'dark' && ls.getItem('encrypt-app-amoled') === '1';
+          if (amoled) root.dataset.appAmoled = '';
           root.dataset.appPlatform = platform;
           root.dataset.appScheme = scheme;
           root.classList.toggle('dark', scheme === 'dark');
@@ -73,14 +79,15 @@ const dict = getTranslations(locale);
               if (cached.light) apply(cached.light);
               if (cached.dark) apply(cached.dark);
               apply(scheme === 'dark' ? cached.dark : cached.light);
+              if (amoled && cached.amoled) apply(cached.amoled);
             }
           }
           var bg;
           if (platform === 'material') {
             bg = cached && cached[scheme === 'dark' ? 'dark' : 'light'] && cached[scheme === 'dark' ? 'dark' : 'light']['--app-bg'];
-            bg = bg || (scheme === 'dark' ? '#12140e' : '#f9faef');
+            bg = amoled ? '#000000' : bg || (scheme === 'dark' ? '#12140e' : '#f9faef');
           } else {
-            bg = scheme === 'dark' ? '#000000' : '#f2f2f7';
+            bg = scheme === 'dark' ? (amoled ? '#000000' : '#1c1c1e') : '#f2f2f7';
           }
           var themeMeta = document.querySelector('meta[name="theme-color"]');
           if (themeMeta) themeMeta.setAttribute('content', bg);

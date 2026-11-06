@@ -6,7 +6,7 @@ const sources = Object.fromEntries(
 
 export type IllustrationName = 'chat' | 'chill' | 'hero' | 'lock' | 'magnify' | 'send' | 'shield' | 'whiteboard';
 
-const fades: Partial<Record<IllustrationName, string>> = { hero: 'ill--fade-bl' };
+const fades: Partial<Record<IllustrationName, string>> = { hero: 'ill--fade-bl', send: 'ill--fade-bl', whiteboard: 'ill--fade-bl' };
 
 export function illustration(name: IllustrationName, className = ''): string {
   const svg = sources[name];

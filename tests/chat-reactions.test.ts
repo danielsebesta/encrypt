@@ -6,10 +6,11 @@ import { plainSnippet } from '../src/lib/chatMarkdown';
 
 const event = (over: Partial<ReactionEvent>): ReactionEvent => ({ id: 'e1', target: 'm1', emoji: '👍', remove: false, reactor: 'alice', name: 'Alice', at: 1000, ...over });
 
-test('there are exactly six reactions and anything else is refused', () => {
+test('six quick reactions, any single emoji accepted, anything else refused', () => {
   assert.deepEqual([...REACTION_EMOJI], ['👍', '❤️', '😂', '😮', '😢', '🔥']);
   for (const emoji of REACTION_EMOJI) assert.equal(validReactionEmoji(emoji), true);
-  for (const bad of ['💩', '❤', '', 'x', 1, null]) assert.equal(validReactionEmoji(bad), false);
+  for (const ok of ['💩', '👍🏽', '🏳️‍🌈', '🇨🇿']) assert.equal(validReactionEmoji(ok), true);
+  for (const bad of ['❤', '', 'x', '1', '©', '👍👍', '👍 ', 1, null]) assert.equal(validReactionEmoji(bad), false);
   assert.equal(validMessageRef('0123456789abcdef'), true);
   assert.equal(validMessageRef('whiteboard-0123'), true);
   for (const bad of ['', 'a'.repeat(65), 'has space', '<b>', 7]) assert.equal(validMessageRef(bad), false);
@@ -33,6 +34,17 @@ test('reactions fold per reactor, count, mark your own and toggle off', () => {
   assert.deepEqual(book.summary('other', 'bob'), []);
 });
 
+test('reactions order by first use and cap distinct emoji per message', () => {
+  const book = new ReactionBook();
+  book.apply(event({ id: 'a', emoji: '🍕', at: 5 }));
+  book.apply(event({ id: 'b', emoji: '👍', reactor: 'bob', at: 9 }));
+  assert.deepEqual(book.summary('m1', 'x').map((r) => r.emoji), ['🍕', '👍']);
+  const many = ['😀', '😁', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '😚', '🙂', '🤗'];
+  many.forEach((emoji, i) => book.apply(event({ id: `m${i}`, emoji, reactor: `r${i}`, at: 20 + i })));
+  assert.equal(book.summary('m1', 'x').length, 20);
+  assert.equal(book.apply(event({ id: 'over', emoji: '🤩', reactor: 'z', at: 99 })), false);
+});
+
 test('replaying the same reactions again or in another order ends in the same state', () => {
   const events = [
     event({ id: 'a', at: 1 }),
@@ -49,7 +61,7 @@ test('replaying the same reactions again or in another order ends in the same st
   assert.deepEqual(backward.summary('m1', 'x'), forward.summary('m1', 'x'));
   assert.deepEqual(forward.summary('m1', 'x'), [{ emoji: '👍', count: 1, mine: false, names: ['Alice'] }]);
   assert.equal(forward.apply(event({ id: 'a', at: 1 })), false);
-  assert.equal(forward.apply(event({ emoji: '💩' as any })), false);
+  assert.equal(forward.apply(event({ emoji: 'xx' })), false);
 });
 
 test('replies and reactions pass validation only in their exact shape and count as content', () => {
@@ -60,7 +72,8 @@ test('replies and reactions pass validation only in their exact shape and count 
   assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: '❤️' }), room), true);
   assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: '❤️', remove: true }), room), true);
   assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: '❤️', remove: false }), room), false);
-  assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: '🍕' }), room), false);
+  assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: '🍕' }), room), true);
+  assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', target: 'm1', emoji: 'pizza' }), room), false);
   assert.equal(validPayload(stamp({ type: 'reaction', id: 'r1', emoji: '❤️' }), room), false);
   const reaction = { type: 'reaction' };
   assert.equal(isContent(reaction), true);
@@ -85,7 +98,7 @@ test('view-once messages and burns pass validation only in their exact shape and
 });
 
 test('a quoted message is one line of plain text that keeps spoilers hidden', () => {
-  assert.equal(plainSnippet('**bold** and _it_ ||secret|| `code`\n> quoted'), 'bold and _it_ ••• code quoted');
+  assert.equal(plainSnippet('**bold** and _it_ ||secret|| `code`\n> quoted'), 'bold and it ••• code quoted');
   assert.equal(plainSnippet('x'.repeat(200), 20), `${'x'.repeat(19)}…`);
   assert.equal(plainSnippet('||line\nbreak||'), '•••');
 });

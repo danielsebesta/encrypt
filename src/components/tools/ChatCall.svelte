@@ -69,6 +69,11 @@
     relayTitle,
     relayStatusLabel,
     fullscreenMedia = null,
+    wide = true,
+    callStartedAt = 0,
+    screenShareSupported = true,
+    pipSupported = false,
+    minimized = $bindable(false),
     callSettingsOpen = $bindable(false),
     callChatOpen = $bindable(true),
     selectedAudioInputId = $bindable(''),
@@ -92,6 +97,7 @@
     onclosefullscreen,
     onkeepplaying,
     onpreventcontextmenu,
+    onpip,
   }: {
     dict: Record<string, string>;
     appMode?: boolean;
@@ -123,6 +129,11 @@
     relayTitle: string;
     relayStatusLabel: string;
     fullscreenMedia?: ChatCallFullscreenMedia | null;
+    wide?: boolean;
+    callStartedAt?: number;
+    screenShareSupported?: boolean;
+    pipSupported?: boolean;
+    minimized?: boolean;
     callSettingsOpen?: boolean;
     callChatOpen?: boolean;
     selectedAudioInputId?: string;
@@ -146,7 +157,36 @@
     onclosefullscreen: () => void;
     onkeepplaying: (event?: Event) => void;
     onpreventcontextmenu: (event: MouseEvent) => void;
+    onpip?: () => void;
   } = $props();
+
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!callActive || !minimized) return;
+    now = Date.now();
+    const timer = setInterval(() => { now = Date.now(); }, 1000);
+    return () => clearInterval(timer);
+  });
+
+  function elapsed(ms: number): string {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const sec = String(total % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+  }
+
+  const miniVideo = $derived(
+    callPeers.find((peer) => peer.stream && peer.screenSharing)?.stream
+      ?? callPeers.find((peer) => peer.stream && peer.stream.getVideoTracks().length && !peer.cameraOff)?.stream
+      ?? null,
+  );
+  const speakingPeer = $derived(callPeers.find((peer) => peer.speaking && !peer.muted));
+
+  function showChat() {
+    if (wide) callChatOpen = !callChatOpen;
+    else minimized = true;
+  }
 
   function mediaElementHasLiveStream(node: HTMLMediaElement): boolean {
     const stream = node.srcObject instanceof MediaStream ? node.srcObject : null;
@@ -228,9 +268,41 @@
 </script>
 
     {#if callActive || callError}
-      <div class="call" class:call--error={!callActive && Boolean(callError)}>
+      <div class="call" class:call--error={!callActive && Boolean(callError)} class:call--mini={callActive && minimized}>
+        {#if callActive && minimized}
+          <div class="call-mini">
+            <button type="button" class="call-mini__main" on:click={() => { minimized = false; }} aria-label={t(dict, 'chat.callReturn')}>
+              {#if miniVideo}
+                <video class="call-mini__video" use:streamMedia={{ stream: miniVideo, muted: true, volume: 0 }} autoplay muted playsinline disablepictureinpicture disableremoteplayback on:pause={onkeepplaying}></video>
+              {:else}
+                <span class="call-mini__avatars" aria-hidden="true">
+                  <span class="call-mini__avatar" class:call-mini__avatar--speaking={localSpeaking && !micMuted} style="background: {aliasGradient(alias, localName)}"></span>
+                  {#each callPeers.slice(0, 3) as peer (peer.id)}
+                    <span class="call-mini__avatar" class:call-mini__avatar--speaking={peer.speaking && !peer.muted} style="background: {gradientFor(peer.alias, peer.name)}"></span>
+                  {/each}
+                </span>
+              {/if}
+              <span class="call-mini__text">
+                <span class="call-mini__title"><span class="call__dot call__dot--{serverQuality}"></span>{t(dict, 'chat.callInCall')} · {callPeers.length + 1}</span>
+                <span class="call-mini__sub">{speakingPeer ? t(dict, 'chat.callNameSpeaking').replace('{name}', speakingPeer.name) : callStartedAt ? elapsed(now - callStartedAt) : t(dict, 'chat.callE2ee')}</span>
+              </span>
+            </button>
+            {#if pipSupported && onpip}
+              <button type="button" class="call-mini__btn" title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['picture-in-picture-2']}</svg>
+              </button>
+            {/if}
+            <button type="button" class="call-mini__btn" class:call-mini__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE[micMuted ? 'mic-off' : 'mic']}</svg>
+            </button>
+            <button type="button" class="call-mini__btn call-mini__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+            </button>
+          </div>
+        {/if}
         {#if callActive}
-          <div class="call__stage">
+          <div class="call__stage" aria-hidden={minimized || undefined}>
+            <div class="call__top">
             <div class="call__status" title={relayTitle}>
               <span class="call__dot call__dot--{serverQuality}"></span>
               <span>{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</span>
@@ -244,7 +316,18 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['lock']}</svg>
                 <span>{t(dict, 'chat.callE2ee')}</span>
               </span>
-              {#if serverLatencyMs !== null}<span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span>{/if}
+              {#if serverLatencyMs !== null && !appMode}<span class="call__latency"><span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span></span>{/if}
+            </div>
+            <div class="call__top-actions">
+              {#if pipSupported && onpip}
+                <button type="button" class="call__top-btn" title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['picture-in-picture-2']}</svg>
+                </button>
+              {/if}
+              <button type="button" class="call__top-btn" title={t(dict, 'chat.callMinimize')} aria-label={t(dict, 'chat.callMinimize')} on:click={() => { minimized = true; callSettingsOpen = false; }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['chevron-down']}</svg>
+              </button>
+            </div>
             </div>
 
             <div class="call__grid" use:fitTiles={{ count: callPeers.length + 1, ratio: 16 / 10, max: callHasVideo ? 1280 : 280 }}>
@@ -262,6 +345,7 @@
                     disableremoteplayback
                     on:pause={onkeepplaying}
                     on:contextmenu={onpreventcontextmenu}
+                    on:dblclick={() => onopenfullscreen({ source: 'local' })}
                   ></video>
                   <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'local' })}>
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['maximize']}</svg>
@@ -296,6 +380,7 @@
                       disableremoteplayback
                       on:pause={onkeepplaying}
                       on:contextmenu={onpreventcontextmenu}
+                      on:dblclick={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}
                     ></video>
                     <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['maximize']}</svg>
@@ -330,7 +415,7 @@
             </div>
           </div>
 
-          <div class="call__bar">
+          <div class="call__bar" aria-hidden={minimized || undefined}>
             <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
               {#if micMuted}
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic-off']}</svg>
@@ -345,13 +430,15 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['video']}</svg>
               {/if}
             </button>
-            <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={ontogglescreen}>
+{#if screenShareSupported || screenSharing}
+                        <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={ontogglescreen}>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['monitor-up']}</svg>
             </button>
+            {/if}
             <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['settings']}</svg>
             </button>
-            <button type="button" class="call__btn call__btn--chat" class:call__btn--on={callChatOpen} title={callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={callChatOpen} on:click={() => { callChatOpen = !callChatOpen; }}>
+            <button type="button" class="call__btn call__btn--chat" class:call__btn--on={wide && callChatOpen} title={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={wide ? callChatOpen : undefined} on:click={showChat}>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['message-square']}</svg>
               {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
             </button>
@@ -437,7 +524,14 @@
           {/if}
         {/if}
         {#if callError}
-          <p class="status status--error" role="alert">{callError}</p>
+          {#if callActive}
+            <div class="call__toast" role="alert">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['info']}</svg>
+              <span>{callError}</span>
+            </div>
+          {:else}
+            <p class="status status--error" role="alert">{callError}</p>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -508,6 +602,112 @@
     font-size: 0.75rem;
     font-weight: 700;
     color: #a1a1aa;
+  }
+  .call__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .call__top .call__status { min-width: 0; }
+  .call__latency { display: inline-flex; gap: 0.4rem; white-space: nowrap; }
+  .call__top-actions { display: flex; align-items: center; gap: 0.25rem; flex: none; }
+  .call__top-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.25rem; height: 2.25rem; border-radius: 999px; border: 0;
+    background: rgba(255, 255, 255, 0.08); color: #f4f4f5; cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .call__top-btn:hover { background: rgba(255, 255, 255, 0.16); }
+  .call__top-btn:focus-visible { outline: 2px solid #f4f4f5; outline-offset: 2px; }
+  .call--mini { background: transparent; color: inherit; }
+  .call--mini .call__stage,
+  .call--mini .call__bar,
+  .call--mini .call__settings {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0;
+    pointer-events: none;
+    clip-path: inset(50%);
+  }
+  .call-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem 0.375rem 0.375rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-soft);
+    animation: call-mini-in 0.22s ease-out;
+  }
+  @keyframes call-mini-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .call-mini__main {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.25rem 0.375rem; border: 0; border-radius: 0.75rem;
+    background: none; color: inherit; text-align: start; cursor: pointer;
+  }
+  .call-mini__main:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+  .call-mini__main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .call-mini__video {
+    width: 64px; height: 40px; flex: none; border-radius: 0.5rem; object-fit: cover; background: #0a0a0b;
+  }
+  .call-mini__avatars { display: inline-flex; flex: none; }
+  .call-mini__avatar {
+    width: 30px; height: 30px; border-radius: 999px; flex: none;
+    box-shadow: 0 0 0 2px var(--surface-2);
+    transition: box-shadow 0.15s ease;
+  }
+  .call-mini__avatar + .call-mini__avatar { margin-left: -8px; }
+  .call-mini__avatar--speaking { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent); }
+  .call-mini__text { min-width: 0; display: grid; }
+  .call-mini__title {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    font-size: 0.875rem; font-weight: 600; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .call-mini__sub {
+    font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .call-mini__btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.5rem; height: 2.5rem; flex: none; border-radius: 999px; border: 0;
+    background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .call-mini__btn:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
+  .call-mini__btn--off { color: var(--danger); }
+  .call-mini__btn--leave { background: #dc2626; color: #fff; }
+  .call-mini__btn--leave:hover { background: #b91c1c; }
+  .call-mini__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .call__toast {
+    position: absolute;
+    left: 50%;
+    bottom: 5.25rem;
+    z-index: 6;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: min(26rem, calc(100% - 2rem));
+    padding: 0.625rem 0.875rem;
+    border-radius: 999px;
+    background: rgba(28, 28, 30, 0.92);
+    color: #f4f4f5;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    animation: call-toast-in 0.22s ease-out;
+  }
+  .call__toast svg { flex: none; color: #fbbf24; }
+  @keyframes call-toast-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @media (prefers-reduced-motion: reduce) {
+    .call-mini, .call__toast { animation: none; }
   }
   .call__dot {
     width: 8px;
@@ -817,6 +1017,17 @@
   .call .status--error {
     margin: 0.75rem;
   }
+  :global(.chat-body--call.chat-body--call-mini) {
+    flex-direction: column !important;
+  }
+  :global(.chat-body--call-mini) > .call {
+    flex: none !important;
+    min-height: 0 !important;
+  }
+  :global(.chat-body--call-mini > .chat-thread) {
+    flex: 1 1 auto !important;
+    border-left: 0 !important;
+  }
   :global(.chat-body--call) > .call {
     flex: 1 1 58%;
     min-height: 240px;
@@ -830,7 +1041,7 @@
     display: none;
   }
   @container chat-body (min-width: 760px) {
-    :global(.chat-body--call) {
+    :global(.chat-container .chat-body.chat-body--call:not(.chat-body--call-mini)) {
       flex-direction: row;
     }
     :global(.chat-body--call) > .call {

@@ -159,7 +159,8 @@ test('a sealed local board rejects a wrong key or a tampered ciphertext', async 
   const channel = 'c'.repeat(64);
   const sealed = await sealLocalBoard(localKey, channel, new Uint8Array([1, 2, 3, 4]));
   assert.equal(await openLocalBoard(otherKey, channel, sealed), null);
-  const flipped = sealed.slice(0, -1) + (sealed.endsWith('A') ? 'B' : 'A');
+  const at = sealed.length >> 1;
+  const flipped = sealed.slice(0, at) + (sealed[at] === 'A' ? 'B' : 'A') + sealed.slice(at + 1);
   assert.equal(await openLocalBoard(localKey, channel, flipped), null);
 });
 

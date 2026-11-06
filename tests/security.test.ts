@@ -12,6 +12,7 @@ import Whiteboard from '../party/whiteboard';
 import { RoomAccess, connectionRequest } from '../party/access';
 import { GET as fetchFile } from '../src/pages/api/ghost/fetch';
 import { SEND_AUTH_KEY_HEADER } from '../src/lib/nologSend';
+import { generateVapidKeys } from '../src/lib/webPush';
 
 test('new text encryption round trips Unicode, randomizes output and authenticates every part', async () => {
   const first = await encrypt('Příliš 🔒', 'secret');
@@ -177,4 +178,44 @@ test('authenticated chat context rejects cross-room and stale control messages',
   assert.equal(validPayload(rename, 'room'), true);
   assert.equal(validPayload({ ...rename, prev: 'x'.repeat(65) }, 'room'), false);
   assert.equal(validPayload(rename, 'room', true), false);
+});
+
+test('chat relay pushes sleeping devices: encrypted tag for keyed targets, empty wake for old ones', async () => {
+  const token = 'a'.repeat(64);
+  const room = fakeRoom(await accessChannel(token));
+  const vapid = await generateVapidKeys();
+  room.host.env = { VAPID_PUBLIC_KEY: vapid.publicKey, VAPID_PRIVATE_KEY: vapid.privateKey };
+  const legacy = 'https://fcm.googleapis.com/fcm/send/legacy';
+  room.stored.set('push-endpoints', [legacy, 'https://evil.example/x']);
+  const server = new Chat(room.host);
+  const sleeper = room.conn('sleeper'), sender = room.conn('sender');
+  server.onConnect(sleeper as any); server.onConnect(sender as any);
+  for (const c of [sleeper, sender]) await server.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } }), c as any);
+  const endpoint = 'https://fcm.googleapis.com/fcm/send/keyed';
+  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
+  const p256dh = Buffer.from(await crypto.subtle.exportKey('raw', ua.publicKey)).toString('base64url');
+  const auth = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url');
+  const tag = 'T'.repeat(22);
+  await server.onMessage(JSON.stringify({ type: 'push-subscribe', endpoint, tag, keys: { p256dh, auth } }), sleeper as any);
+  await server.onMessage(JSON.stringify({ type: 'push-subscribe', endpoint: 'https://evil.example/y', tag, keys: { p256dh, auth } }), sender as any);
+  const stored = room.stored.get('push-endpoints');
+  assert.equal(stored.length, 2);
+  assert.deepEqual(stored[1], { endpoint, tag, p256dh, auth });
+  room.drop(sleeper); server.onClose(sleeper as any);
+  const original = globalThis.fetch;
+  const calls: { url: string; init: RequestInit }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => { calls.push({ url, init }); return new Response(null, { status: 201 }); }) as any;
+  try {
+    await server.onMessage(JSON.stringify({ type: 'message', id: 'm1', payload: 'A'.repeat(64) }), sender as any);
+    for (let i = 0; i < 20 && calls.length < 2; i++) await new Promise((r) => setTimeout(r, 20));
+  } finally { globalThis.fetch = original; }
+  assert.deepEqual(calls.map((c) => c.url).sort(), [endpoint, legacy].sort());
+  const keyed = calls.find((c) => c.url === endpoint)!;
+  const headers = keyed.init.headers as Record<string, string>;
+  assert.equal(headers['Content-Encoding'], 'aes128gcm');
+  const body = keyed.init.body as Uint8Array;
+  assert.ok(body.length > 86 && !Buffer.from(body).toString('latin1').includes(tag));
+  const plain = calls.find((c) => c.url === legacy)!;
+  assert.equal(plain.init.body, undefined);
+  server.onClose(sender as any);
 });

@@ -23,15 +23,15 @@
     DialogButton,
     Fab,
     Toast,
-    Actions,
-    ActionsGroup,
-    ActionsLabel,
-    ActionsButton,
+    Popover,
+    MenuList,
+    MenuListItem,
     Radio,
     Range,
   } from 'konsta/svelte';
 
-  import AppIcons from './AppIcons.svelte';
+  import { LUCIDE } from '../../lib/lucideIcons';
+  import AppIcons, { type IconName } from './AppIcons.svelte';
   import ChatRoom from '../tools/ChatRoom.svelte';
   import Whiteboard from '../tools/Whiteboard.svelte';
   import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
@@ -58,6 +58,7 @@
     type RoomEntry,
   } from '../../lib/roomVault';
   import { forgetChatIdentity } from '../../lib/chatIdentity';
+  import { loadNotifyPref, saveNotifyPref } from '../../lib/chatAttention';
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { identiconBackground } from '../../lib/identicon';
@@ -122,6 +123,7 @@
 
   let platform = $state<AppPlatform>('ios');
   let appearance = $state<AppAppearance>('system');
+  let amoled = $state(false);
   let scheme = $state<AppScheme>('dark');
   let seed = $state<string>(DEFAULT_SEED);
   let hapticsMode = $state<HapticsMode>('all');
@@ -148,7 +150,7 @@
     return url.includes('shots=1') ? url : `${url}${url.includes('?') ? '&' : '?'}shots=1`;
   }
   let searchQuery = $state('');
-  let chatFilter = $state<'all' | 'live' | 'pinned'>('all');
+  let chatFilter = $state<'all' | 'ttl' | 'pinned'>('all');
   let newRoomSheetOpen = $state(false);
   let joinRoomSheetOpen = $state(false);
   let langSheetOpen = $state(false);
@@ -166,14 +168,26 @@
   let pendingClearBoard = $state<(() => void) | null>(null);
   let actionsRoom = $state<RoomEntry | null>(null);
   let actionTarget = $state<RoomEntry | null>(null);
+  let notifyEpoch = $state(0);
+  let notifyIntent = $state<{ roomId: string; on: boolean } | null>(null);
+  const notifyRooms = $derived.by(() => {
+    void notifyEpoch;
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return new Set<string>();
+    return new Set(rooms.filter((room) => room.kind !== 'whiteboard' && loadNotifyPref(localStorage, room.roomId)).map((room) => room.roomId));
+  });
+  let actionsAnchor = $state<HTMLElement | null>(null);
   let roomConn = $state<'connected' | 'connecting' | 'loading' | 'offline'>('connected');
   let roomCall = $state<(() => void) | undefined>(undefined);
+  let roomHangup = $state<(() => void) | undefined>(undefined);
+  let callRoom = $state<{ id: string; label: string } | null>(null);
   let roomMenu = $state<(() => void) | undefined>(undefined);
   let roomInfo = $state<(() => void) | undefined>(undefined);
   let roomCallState = $state<{ ready: boolean; joining: boolean; active: boolean }>({ ready: false, joining: false, active: false });
   let roomReconnect = $state<(() => void) | null>(null);
   let renameDialogOpen = $state(false);
   let renameValue = $state('');
+  let renameInput = $state<HTMLInputElement | null>(null);
+  let newPwInput = $state<HTMLInputElement | null>(null);
   let deleteDialogOpen = $state(false);
   let lpTimer: ReturnType<typeof setTimeout> | undefined;
   let lpFired = false;
@@ -199,12 +213,55 @@
   // system-back press dismisses the overlay instead of leaving /app.
   let overlayGuard = $state(false);
   let scroller = $state<HTMLElement | null>(null);
+  let hubScrolled = $state(false);
   const tabScroll: Record<TabId, number> = { chats: 0, files: 0, boards: 0, settings: 0 };
   let toastMessage = $state('');
   let toastOpen = $state(false);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   let openOverlays: Record<string, boolean> = {};
+  let childOverlay = $state(false);
+  let closeChildOverlay = $state<() => boolean>(() => false);
+  let childGuardTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function labelSearchButtons(node: HTMLElement, labels: { cancel: string; clear: string }) {
+    const apply = () => {
+      for (const button of node.querySelectorAll<HTMLButtonElement>('.k-searchbar button')) {
+        const label = button.parentElement?.classList.contains('k-searchbar') ? labels.cancel : labels.clear;
+        if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+      }
+    };
+    const observer = new MutationObserver(apply);
+    observer.observe(node, { childList: true, subtree: true });
+    apply();
+    return {
+      update(next: { cancel: string; clear: string }) { labels = next; apply(); },
+      destroy() { observer.disconnect(); },
+    };
+  }
+
+  function segmentHitSlop(node: HTMLElement) {
+    const onClick = (event: MouseEvent) => {
+      if ((event.target as Element).closest('button')) return;
+      const target = [...node.querySelectorAll<HTMLButtonElement>('button')].find((button) => {
+        const rect = button.getBoundingClientRect();
+        return event.clientX >= rect.left && event.clientX <= rect.right;
+      });
+      target?.click();
+    };
+    node.addEventListener('click', onClick);
+    return { destroy() { node.removeEventListener('click', onClick); } };
+  }
+
+  function onChildOverlay(open: boolean) {
+    if (open === childOverlay) return;
+    childOverlay = open;
+    clearTimeout(childGuardTimer);
+    if (open) return;
+    childGuardTimer = setTimeout(() => {
+      if (!childOverlay && !Object.entries(openOverlays).some(([k, v]) => k !== 'child' && v)) consumeOverlayGuard();
+    }, 60);
+  }
 
   $effect(() => {
     const now: Record<string, boolean> = {
@@ -220,13 +277,14 @@
       actions: actionsRoom !== null,
       rename: renameDialogOpen,
       del: deleteDialogOpen,
+      child: childOverlay,
     };
     const opened = Object.keys(now).filter((key) => now[key] && !openOverlays[key]);
     if (!opened.length) {
       openOverlays = now;
       return;
     }
-    if (!Object.values(openOverlays).some(Boolean)) pushOverlayGuard();
+    pushOverlayGuard();
     const keep = opened[opened.length - 1];
     if (keep !== 'newRoom' && newRoomSheetOpen) closeNewRoomSheet(false);
     if (keep !== 'join' && joinRoomSheetOpen) closeJoinRoomSheet(false);
@@ -240,6 +298,7 @@
     if (keep !== 'actions') actionsRoom = null;
     if (keep !== 'rename') renameDialogOpen = false;
     if (keep !== 'del') deleteDialogOpen = false;
+    if (keep !== 'child' && childOverlay) closeChildOverlay();
     openOverlays = { [keep]: true };
     toastOpen = false;
   });
@@ -318,6 +377,7 @@
   function restoreHubScroll() {
     void tick().then(() => {
       if (scroller) scroller.scrollTop = tabScroll[activeTab];
+      hubScrolled = (scroller?.scrollTop ?? 0) > 2;
     });
   }
 
@@ -329,10 +389,37 @@
     }
   }
 
+  $effect(() => {
+    if (roomCallState.active) {
+      if (activeView === 'room' && activeRoomId && callRoom?.id !== activeRoomId) callRoom = { id: activeRoomId, label: activeRoomLabel };
+    } else if (callRoom) {
+      callRoom = null;
+    }
+  });
+  let callBarBottom = $state(0);
+  $effect(() => {
+    if (!callRoom || activeView !== 'hub') return;
+    const measure = () => {
+      const bar = document.querySelector('.app-main-tabbar');
+      callBarBottom = bar ? Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) + 8 : 0;
+    };
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
+  });
+  const mountedRoomId = $derived(activeView === 'room' ? activeRoomId : (callRoom?.id ?? ''));
+
   function enterRoom(id: string, kind: 'chat' | 'whiteboard' = 'chat', label = '', bump = true) {
     if (scroller) tabScroll[activeTab] = scroller.scrollTop;
-    roomConn = 'loading';
-    roomReconnect = null;
+    const keepCall = callRoom?.id === id && kind === 'chat';
+    if (callRoom && !keepCall) {
+      callRoom = null;
+      roomCallState = { ready: false, joining: false, active: false };
+    }
+    if (!keepCall) {
+      roomConn = 'loading';
+      roomReconnect = null;
+    }
     activeRoomId = id;
     activeRoomLabel = label;
     activeTab = tabForKind(kind);
@@ -391,6 +478,7 @@
   }
 
   function leaveRoom() {
+    notifyEpoch++;
     if (roomEnteredViaPush) {
       roomEnteredViaPush = false;
       const skip = overlayGuard ? -2 : -1;
@@ -401,8 +489,10 @@
     activeView = 'hub';
     activeRoomId = '';
     activeRoomLabel = '';
-    roomConn = 'connected';
-    roomReconnect = null;
+    if (!callRoom) {
+      roomConn = 'connected';
+      roomReconnect = null;
+    }
     boardReturnRoom = null;
     window.history.replaceState({ view: 'hub', tab: activeTab }, '', withShots(`?tab=${activeTab}`));
     loadRooms();
@@ -452,10 +542,11 @@
     prefSheet = kind;
   }
 
-  function applyAppTheme(next: { platform?: AppPlatform; appearance?: AppAppearance }) {
+  function applyAppTheme(next: { platform?: AppPlatform; appearance?: AppAppearance; amoled?: boolean }) {
     if (next.platform) platform = next.platform;
     if (next.appearance) appearance = next.appearance;
-    const state = { platform, appearance, seed };
+    if (next.amoled !== undefined) amoled = next.amoled;
+    const state = { platform, appearance, seed, amoled };
     saveThemeState(state);
     scheme = applyTheme(state);
     triggerHaptic('medium');
@@ -498,11 +589,28 @@
     return t(dict, 'app.settings.hapticsAll');
   }
 
-  function lockTimeoutLabel(): string {
-    if (lockTimeoutMs === 0) return t(dict, 'app.settings.lockTimeout.immediate');
-    if (lockTimeoutMs === 60_000) return t(dict, 'app.settings.lockTimeout.1m');
-    if (lockTimeoutMs === 300_000) return t(dict, 'app.settings.lockTimeout.5m');
+  function dialogStack(...labels: string[]): string {
+    return platform === 'ios' && labels.some((l) => l.length > 11) ? 'app-dialog--stack' : '';
+  }
+
+  function lockTimeoutText(ms: LockTimeoutMs): string {
+    if (ms === 0) return t(dict, 'app.settings.lockTimeout.immediate');
+    if (ms === 60_000) return t(dict, 'app.settings.lockTimeout.1m');
+    if (ms === 300_000) return t(dict, 'app.settings.lockTimeout.5m');
     return t(dict, 'app.settings.lockTimeout.30s');
+  }
+
+  function lockTimeoutLabel(): string {
+    return lockTimeoutText(lockTimeoutMs);
+  }
+
+  function prefSheetTitle(): string {
+    if (prefSheet === 'platform') return t(dict, 'app.settings.design');
+    if (prefSheet === 'theme') return t(dict, 'app.settings.theme');
+    if (prefSheet === 'haptics') return t(dict, 'app.settings.haptics');
+    if (prefSheet === 'lockTimeout') return t(dict, 'app.settings.lockTimeout');
+    if (prefSheet === 'roomMode') return t(dict, 'app.settings.defaultRoomMode');
+    return '';
   }
 
   function roomModeLabel(mode: DefaultRoomMode = defaultRoomMode): string {
@@ -514,6 +622,33 @@
     if (notifPermission === 'denied') return t(dict, 'app.settings.notificationsDenied');
     if (notifPermission === 'default') return t(dict, 'app.settings.notificationsDefault');
     return t(dict, 'app.settings.notificationsUnsupported');
+  }
+
+  function languageName(): string {
+    return (languages as Record<string, { name: string }>)[locale]?.name ?? 'English';
+  }
+
+  const shareIcon = $derived<IconName>(platform === 'ios' ? 'share' : 'share-android');
+  const moreIcon = $derived<IconName>(platform === 'ios' ? 'more-h' : 'more');
+
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  // Messages-style row stamp: time today, "Yesterday", weekday this week, short date after.
+  function rowStamp(ts: number | undefined): string {
+    if (!ts || !Number.isFinite(ts)) return '';
+    const now = new Date();
+    const then = new Date(ts);
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    try {
+      if (ts >= startToday) return then.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+      if (ts >= startToday - DAY_MS) {
+        const word = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-1, 'day');
+        return word.charAt(0).toLocaleUpperCase(locale) + word.slice(1);
+      }
+      if (ts >= startToday - 6 * DAY_MS) return then.toLocaleDateString(locale, { weekday: 'short' });
+      return then.toLocaleDateString(locale, { day: 'numeric', month: 'numeric', year: '2-digit' });
+    } catch {
+      return '';
+    }
   }
 
   function refreshNotifPermission() {
@@ -575,7 +710,8 @@
     if (clearBoardDialogOpen) { clearBoardDialogOpen = false; pendingClearBoard = null; consumeOverlayGuard(); return; }
     if (actionsRoom) { closeRowActions(); return; }
     if (renameDialogOpen) { renameDialogOpen = false; endRowInteraction(); consumeOverlayGuard(); return; }
-    if (deleteDialogOpen) { deleteDialogOpen = false; endRowInteraction(); consumeOverlayGuard(); }
+    if (deleteDialogOpen) { deleteDialogOpen = false; endRowInteraction(); consumeOverlayGuard(); return; }
+    if (childOverlay) closeChildOverlay();
   }
 
   /** Swallow the backdrop tap that Android/iOS synthesizes when the long-press finger lifts. */
@@ -662,6 +798,37 @@
     }
   }
 
+  async function toggleRowNotify() {
+    const target = actionTarget;
+    actionsRoom = null;
+    pendingActionsHaptic = false;
+    ignoreActionsBackdrop = false;
+    clearTimeout(actionsBackdropTimer);
+    endRowInteraction();
+    const fail = (message?: string) => {
+      consumeOverlayGuard();
+      if (message) showToast(message);
+    };
+    if (!target) return fail();
+    const on = !notifyRooms.has(target.roomId);
+    if (on) {
+      if (!('Notification' in window)) return fail(t(dict, 'app.settings.notificationsUnsupported'));
+      let permission = Notification.permission;
+      if (permission === 'default') permission = await Notification.requestPermission().catch(() => 'denied' as NotificationPermission);
+      if (permission !== 'granted') return fail(t(dict, 'chat.notifyDenied.app'));
+      saveNotifyPref(localStorage, target.roomId, true);
+    }
+    notifyIntent = { roomId: target.roomId, on };
+    notifyEpoch++;
+    enterRoom(target.roomId, 'chat', target.label);
+  }
+
+  function notifyIntentDone(on: boolean) {
+    notifyIntent = null;
+    notifyEpoch++;
+    showToast(t(dict, on ? 'app.row.notifyOnDone' : 'app.row.notifyOffDone'), on ? 'success' : false);
+  }
+
   async function togglePin() {
     const target = actionTarget;
     closeRowActions();
@@ -683,6 +850,7 @@
     actionsRoom = null;
     renameValue = target.label || target.roomId;
     renameDialogOpen = true;
+    void tick().then(() => { renameInput?.focus(); renameInput?.select(); });
   }
 
   function openDelete() {
@@ -749,7 +917,7 @@
     return rooms.filter((r) => {
       if (r.kind === 'whiteboard') return false;
       if (chatFilter === 'pinned' && !r.pinned) return false;
-      if (chatFilter === 'live' && r.mode !== 'live') return false;
+      if (chatFilter === 'ttl' && (!r.mode || r.mode === 'live')) return false;
       if (!q) return true;
       return (r.label || r.roomId).toLowerCase().includes(q) || r.roomId.toLowerCase().includes(q);
     });
@@ -773,6 +941,8 @@
     if (room.kind === 'whiteboard') return t(dict, 'rooms.mode.board');
     return room.mode === 'live' ? t(dict, 'rooms.mode.live') : t(dict, 'rooms.mode.ttl');
   }
+
+  const canCreateRoom = $derived(Boolean(normalizeRoomId(newRoomName)) && passwordLongEnough(newRoomPassword.trim()));
 
   let creatingRoom = false;
   async function handleCreateRoom() {
@@ -1129,12 +1299,14 @@
     const state = loadThemeState();
     platform = state.platform;
     appearance = state.appearance;
+    amoled = Boolean(state.amoled);
     seed = state.seed;
     scheme = applyTheme(state);
     if (appShotsEnabled()) {
-      platform = 'ios';
-      appearance = 'dark';
-      scheme = applyTheme({ platform: 'ios', appearance: 'dark', seed });
+      const q = new URLSearchParams(window.location.search);
+      platform = q.get('platform') === 'material' ? 'material' : 'ios';
+      appearance = q.get('scheme') === 'light' ? 'light' : 'dark';
+      scheme = applyTheme({ platform, appearance, seed, amoled });
     }
     hapticsMode = loadHapticsMode();
     hapticsOk = hapticsAvailable();
@@ -1209,7 +1381,7 @@
 
     const schemeQuery = window.matchMedia('(prefers-color-scheme: light)');
     const onScheme = () => {
-      if (appearance === 'system') scheme = applyTheme({ platform, appearance, seed });
+      if (appearance === 'system') scheme = applyTheme({ platform, appearance, seed, amoled });
     };
     schemeQuery.addEventListener('change', onScheme);
 
@@ -1270,6 +1442,9 @@
       endRowInteraction();
       renameDialogOpen = false;
       deleteDialogOpen = false;
+      clearTimeout(childGuardTimer);
+      if (childOverlay) closeChildOverlay();
+      childOverlay = false;
       openOverlays = {};
       const state = e.state as { view?: ViewState; roomId?: string; kind?: string; label?: string; tab?: TabId; overlay?: boolean } | null;
       if (state?.overlay) {
@@ -1322,6 +1497,13 @@
     window.addEventListener('keydown', onKeydown);
     window.addEventListener('popstate', handlePopState);
     document.addEventListener('click', guardLinks, true);
+    const onSwMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string; roomId?: unknown } | null;
+      if (data?.type !== 'encrypt-open-room' || typeof data.roomId !== 'string' || !validRoomId(data.roomId) || wiping) return;
+      if (activeView === 'room' && activeRoomId === data.roomId) return;
+      enterRoom(data.roomId, 'chat', labelForRoom(data.roomId, '', 'chat'));
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
 
     loadRooms();
 
@@ -1332,6 +1514,7 @@
       removeViewportSync();
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('popstate', handlePopState);
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
       window.removeEventListener('beforeinstallprompt', onInstallPrompt);
       window.removeEventListener('appinstalled', onAppInstalled);
       document.removeEventListener('visibilitychange', onVisibility);
@@ -1349,8 +1532,9 @@
 
 {#snippet roomRow(room: RoomEntry)}
   <ListItem
-    class={pressingId === room.id ? 'app-row-press' : ''}
+    class={pressingId === room.id ? 'app-row-press' : actionsRoom?.id === room.id ? 'app-row-active' : ''}
     link
+    chevronMaterial={false}
     linkComponent="button"
     linkProps={{ type: 'button' }}
     onClick={() => {
@@ -1361,6 +1545,7 @@
       void openSavedRoom(room);
     }}
     onpointerdown={(e: PointerEvent) => {
+      actionsAnchor = e.currentTarget as HTMLElement;
       lpX = e.clientX;
       lpY = e.clientY;
       rowPressStart(room);
@@ -1372,6 +1557,7 @@
     }}
     oncontextmenu={(e: MouseEvent) => {
       e.preventDefault();
+      actionsAnchor = e.currentTarget as HTMLElement;
       lpFired = true;
       openRowActions(room, false);
     }}
@@ -1387,29 +1573,79 @@
     {/snippet}
     {#snippet after()}
       <span class="app-row-meta">
-        {#if room.kind !== 'whiteboard'}
-          {#if !room.mode || room.mode === 'live'}
-            <span class="text-[var(--app-tint)]" title={t(dict, 'chat.modeLiveTitle')}><AppIcons name="history" size={15} /></span>
-            <span class="sr-only">{t(dict, 'app.filter.live')}</span>
-          {:else}
-            <span class="text-[var(--app-label-3)]" title={t(dict, 'chat.modeTtlTitle')}><AppIcons name="timer" size={15} /></span>
-            <span class="sr-only">{t(dict, 'chat.modeTtlTitle')}</span>
-          {/if}
-        {/if}
         {#if room.pinned}
-          <span class="text-[var(--app-label-3)]"><AppIcons name="pin" size={14} /></span>
+          <span class="app-row-meta__icon"><AppIcons name="pin" size={13} strokeWidth={2.25} /></span>
           <span class="sr-only">{t(dict, 'app.filter.pinned')}</span>
         {/if}
+        {#if room.kind !== 'whiteboard' && room.mode && room.mode !== 'live'}
+          <span class="app-row-meta__icon"><AppIcons name="timer" size={13} strokeWidth={2.25} /></span>
+        {/if}
+        {#if notifyRooms.has(room.roomId)}
+          <span class="app-row-meta__icon"><AppIcons name="bell" size={13} strokeWidth={2.25} /></span>
+          <span class="sr-only">{t(dict, 'app.row.notifyOnDone')}</span>
+        {/if}
+        <span class="app-row-meta__time">{rowStamp(room.lastSeen)}</span>
       </span>
     {/snippet}
   </ListItem>
 {/snippet}
 
+{#snippet toastDismiss()}
+  <button type="button" class="app-toast__close" tabindex={toastOpen ? 0 : -1} onclick={() => (toastOpen = false)} aria-label={t(dict, 'app.close')}>
+    <AppIcons name="close" size={20} />
+  </button>
+{/snippet}
+
+{#snippet sheetHeader(title: string, onClose: () => void, confirm?: { label: string; disabled: boolean; run: () => void })}
+  {#if platform === 'ios'}
+    <div class="app-sheet-bar">
+      {#if confirm}
+        <button type="button" class="app-sheet-bar__btn" onclick={onClose} aria-label={t(dict, 'app.cancel')}>
+          <AppIcons name="close" size={19} strokeWidth={2.4} />
+        </button>
+      {:else}
+        <span class="app-sheet-bar__btn app-sheet-bar__btn--spacer" aria-hidden="true"></span>
+      {/if}
+      <h3 class="app-sheet-bar__title">{title}</h3>
+      {#if confirm}
+        <button type="button" class="app-sheet-bar__btn app-sheet-bar__btn--confirm" onclick={confirm.run} disabled={confirm.disabled} aria-label={confirm.label}>
+          <AppIcons name="check" size={20} strokeWidth={2.75} />
+        </button>
+      {:else}
+        <button type="button" class="app-sheet-bar__btn" onclick={onClose} aria-label={t(dict, 'app.close')}>
+          <AppIcons name="close" size={19} strokeWidth={2.4} />
+        </button>
+      {/if}
+    </div>
+  {:else}
+    <h3 class="app-sheet-headline">{title}</h3>
+  {/if}
+{/snippet}
+
+{#snippet choiceRow(title: string, selected: boolean, pick: () => void, text?: string)}
+  {#if platform === 'material'}
+    <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected }} {title} {text} onClick={pick}>
+      {#snippet media()}<span class="app-radio" class:app-radio--on={selected} aria-hidden="true"></span>{/snippet}
+    </ListItem>
+  {:else}
+    <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected }} {title} {text} onClick={pick}>
+      {#snippet after()}
+        {#if selected}<AppIcons name="check" size={20} class="text-[var(--app-tint)]" strokeWidth={2.75} />{/if}
+      {/snippet}
+    </ListItem>
+  {/if}
+{/snippet}
+
+{#snippet settingIcon(name: IconName, tone: 'blue' | 'indigo' | 'teal' | 'pink' | 'green' | 'orange' | 'red' | 'gray')}
+  {#if platform === 'ios'}
+    <span class="app-icon-tile app-icon-tile--{tone}" aria-hidden="true"><AppIcons {name} size={17} strokeWidth={2.25} /></span>
+  {:else}
+    <span class="app-icon-plain" class:app-icon-plain--danger={tone === 'red' && name === 'trash'} aria-hidden="true"><AppIcons {name} size={24} strokeWidth={1.75} /></span>
+  {/if}
+{/snippet}
+
 {#snippet hubTitle()}
-  <span class="app-hub-title">
-    <span class="app-hub-mark" aria-hidden="true"></span>
-    <span class="app-hub-label">{t(dict, `app.tab.${activeTab}`)}</span>
-  </span>
+  <span class="app-hub-label">{t(dict, `app.tab.${activeTab}`)}</span>
 {/snippet}
 
 {#snippet hubPlus()}
@@ -1485,8 +1721,9 @@
           onclick={() => roomCall?.()}
           aria-label={roomCallState.active ? t(dict, 'chat.callInProgress') : t(dict, 'chat.callStart')}
           disabled={!roomCallState.ready && !roomCallState.active}
+          aria-busy={roomCallState.joining}
         >
-          <AppIcons name="call" size={20} />
+          {#if roomCallState.joining}<span class="app-spinner" aria-hidden="true"></span>{:else}<AppIcons name="call" size={20} />{/if}
         </button>
       {/if}
       <button
@@ -1495,7 +1732,7 @@
         onclick={shareRoom}
         aria-label={t(dict, 'common.shareLink')}
       >
-        <AppIcons name="share" size={20} />
+        <AppIcons name={shareIcon} size={20} />
       </button>
       {#if activeView === 'room'}
         <button
@@ -1506,7 +1743,7 @@
           aria-label={t(dict, 'chat.roomMenu')}
           aria-haspopup="menu"
         >
-          <AppIcons name="more" size={20} />
+          <AppIcons name={moreIcon} size={20} />
         </button>
       {/if}
     {/snippet}
@@ -1514,7 +1751,7 @@
 {/snippet}
 
 {#snippet newRoomFab()}
-  {#if platform === 'material' && (activeTab === 'chats' || activeTab === 'boards') && visibleRooms.length > 0}
+  {#if platform === 'material' && (activeTab === 'chats' || activeTab === 'boards') && (visibleRooms.length > 0 || searchQuery.trim() || chatFilter !== 'all')}
     <Fab
       class="fixed right-4 z-40"
       style="bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px))"
@@ -1529,30 +1766,21 @@
 <App theme={platform} dark={scheme === 'dark'} safeAreas={true}>
   <Page class="app-page-bg h-full flex flex-col overflow-hidden">
     {#if !ready}
-      <div class="flex-1 flex items-center justify-center" style="background: var(--app-bg)" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
-        <span class="app-spinner app-spinner--lg" aria-hidden="true"></span>
+      <div class="app-skel-hub" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
+        <span class="app-skel app-skel--title"></span>
+        <span class="app-skel app-skel--search"></span>
+        {#each [64, 52, 70, 46, 58] as width, i (i)}
+          <div class="app-skel-row">
+            <span class="app-skel app-skel--avatar"></span>
+            <span class="app-skel-row__lines">
+              <span class="app-skel app-skel--line" style="width: {width}%"></span>
+              <span class="app-skel app-skel--line app-skel--sm" style="width: {width - 18}%"></span>
+            </span>
+          </div>
+        {/each}
       </div>
     {:else if activeView === 'room'}
       {@render roomBar()}
-      <div class="app-room-wrapper">
-        <ChatRoom
-          roomId={activeRoomId}
-          {locale}
-          {dict}
-          appMode={true}
-          onOpenBoardApp={openBoardInvite}
-          onExitApp={leaveRoom}
-          onSavedPassword={savedRoomPassword}
-          onNotice={showToast}
-          onConnStatus={(s) => (roomConn = s)}
-          bind:requestReconnect={roomReconnect}
-          onShareApp={shareRoom}
-          bind:requestCall={roomCall}
-          bind:requestRoomMenu={roomMenu}
-          bind:requestRoomInfo={roomInfo}
-          bind:appCallState={roomCallState}
-        />
-      </div>
     {:else if activeView === 'board'}
       {@render roomBar()}
       <div class="app-wb-wrapper">
@@ -1566,6 +1794,8 @@
           onConnStatus={(s) => (roomConn = s)}
           onHaptic={triggerHaptic}
           bind:requestReconnect={roomReconnect}
+          onOverlayChange={onChildOverlay}
+          bind:closeOverlay={closeChildOverlay}
           onClearRequest={(doClear) => {
             pendingClearBoard = doClear;
             clearBoardDialogOpen = true;
@@ -1574,20 +1804,24 @@
       </div>
     {:else}
       {@const showPlus = platform === 'ios' && (activeTab === 'chats' || activeTab === 'boards')}
-      <div class="flex-1 overflow-y-auto min-h-0 app-scroll" bind:this={scroller}>
+      <div class="flex-1 overflow-y-auto min-h-0 app-scroll" class:app-scroll--scrolled={hubScrolled} bind:this={scroller} onscroll={() => { hubScrolled = (scroller?.scrollTop ?? 0) > 2; }}>
         {#if showPlus}
-          <Navbar class="{platform === 'material' ? 'app-bar ' : ''}z-40">
+          <Navbar large transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
             {#snippet right()}{@render hubPlus()}{/snippet}
           </Navbar>
+        {:else if platform === 'ios'}
+          <Navbar large transparent class="app-hub-bar z-40">
+            {#snippet title()}{@render hubTitle()}{/snippet}
+          </Navbar>
         {:else}
-          <Navbar class="{platform === 'material' ? 'app-bar ' : ''}z-40">
+          <Navbar class="app-bar app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {/if}
 
       {#if activeTab === 'chats' || activeTab === 'boards'}
-        <div class="app-content px-4 pt-2 pb-1">
+        <div class="app-content px-4 pt-2 pb-1" use:labelSearchButtons={{ cancel: t(dict, 'app.cancel'), clear: t(dict, 'emoji.clearSearch') }}>
           <Searchbar
             class="mx-0! w-full!"
             bind:value={searchQuery}
@@ -1597,17 +1831,16 @@
             placeholder={t(dict, 'app.search')}
           />
           {#if activeTab === 'chats'}
-            <div class="mt-2">
-              <Segmented strong rounded={platform === 'material'} colors={{ strongHighlightBgMaterial: 'bg-md-light-secondary-container dark:bg-md-dark-secondary-container' }}>
-                <SegmentedButton active={chatFilter === 'all'} onClick={() => { chatFilter = 'all'; }}>
-                  <span class="app-seg"><AppIcons name="list" size={14} />{t(dict, 'app.filter.all')}</span>
-                </SegmentedButton>
-                <SegmentedButton active={chatFilter === 'live'} onClick={() => { chatFilter = 'live'; }}>
-                  <span class="app-seg"><AppIcons name="history" size={14} />{t(dict, 'app.filter.live')}</span>
-                </SegmentedButton>
-                <SegmentedButton active={chatFilter === 'pinned'} onClick={() => { chatFilter = 'pinned'; }}>
-                  <span class="app-seg"><AppIcons name="pin" size={14} />{t(dict, 'app.filter.pinned')}</span>
-                </SegmentedButton>
+            <div class="app-filter-hit" use:segmentHitSlop>
+              <Segmented strong rounded class="app-filter" colors={{ strongHighlightBgMaterial: 'bg-md-light-secondary-container dark:bg-md-dark-secondary-container' }}>
+                {#each [['all', 'app.filter.all'], ['ttl', 'app.filter.ttl'], ['pinned', 'app.filter.pinned']] as [value, key] (value)}
+                  <SegmentedButton active={chatFilter === value} aria-pressed={chatFilter === value} onClick={() => { chatFilter = value as typeof chatFilter; triggerHaptic('light'); }}>
+                    <span class="app-seg">
+                      {#if platform === 'material' && chatFilter === value}<AppIcons name="check" size={16} strokeWidth={2.5} />{/if}
+                      {t(dict, key)}
+                    </span>
+                  </SegmentedButton>
+                {/each}
               </Segmented>
             </div>
           {/if}
@@ -1615,19 +1848,28 @@
 
         <div class="app-content">
           {#if visibleRooms.length > 0}
-            <List strong inset dividersMaterial={false} class="my-3!">
+            <List strong inset dividersMaterial={false} class="app-group my-3!">
               {#each visibleRooms as room (room.id)}
                 {@render roomRow(room)}
               {/each}
             </List>
           {:else if searchQuery.trim() || chatFilter !== 'all'}
+            {@const filtered = !searchQuery.trim()}
             <div class="px-8 py-16 text-center flex flex-col items-center">
               <div class="w-16 h-16 rounded-full mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
-                <AppIcons name="search" size={28} />
+                <AppIcons name={filtered ? (chatFilter === 'pinned' ? 'pin' : 'timer') : 'search'} size={28} />
               </div>
               <p class="text-[17px] font-semibold text-[var(--app-label)]">
-                {t(dict, 'app.empty.noResults')}
+                {t(dict, filtered ? (chatFilter === 'pinned' ? 'app.empty.noPinned' : 'app.empty.noTtl') : 'app.empty.noResults')}
               </p>
+              <p class="text-[14px] text-[var(--app-label-2)] mt-1 max-w-[260px]">
+                {t(dict, filtered ? (chatFilter === 'pinned' ? 'app.empty.noPinnedHint' : 'app.empty.noTtlHint') : 'app.empty.noResultsHint')}
+              </p>
+              {#if filtered}
+                <Button rounded tonal class="app-hit-btn px-5 w-auto! whitespace-nowrap mt-6" onClick={() => { chatFilter = 'all'; triggerHaptic('light'); }}>
+                  {t(dict, 'app.filter.showAll')}
+                </Button>
+              {/if}
             </div>
           {:else}
             <div class="px-8 py-16 text-center flex flex-col items-center">
@@ -1641,11 +1883,11 @@
                 {t(dict, activeTab === 'boards' ? 'app.empty.hintBoards' : 'app.empty.hint')}
               </p>
               <div class="flex flex-wrap gap-3 justify-center">
-                <Button rounded class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}>
+                <Button rounded class="app-hit-btn px-5 w-auto! whitespace-nowrap" onClick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}>
                   <span class="app-btn-label"><AppIcons name="plus" size={16} />{t(dict, 'app.empty.new')}</span>
                 </Button>
                 {#if activeTab === 'chats'}
-                  <Button rounded tonal class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
+                  <Button rounded tonal class="app-hit-btn px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
                     <span class="app-btn-label"><AppIcons name="join" size={16} />{t(dict, 'app.empty.join')}</span>
                   </Button>
                 {/if}
@@ -1654,9 +1896,10 @@
           {/if}
 
           {#if visibleRooms.length > 0 && activeTab === 'chats'}
-            <List strong inset dividersMaterial={false} class="my-3!">
+            <List strong inset dividersMaterial={false} class="app-group my-3!">
               <ListItem
                 link
+                chevronMaterial={false}
                 linkComponent="button"
                 linkProps={{ type: 'button' }}
                 title={t(dict, 'app.join.row')}
@@ -1671,46 +1914,57 @@
               </ListItem>
             </List>
           {/if}
+          {#if platform === 'material' && visibleRooms.length > 0}
+            <div class="h-20" aria-hidden="true"></div>
+          {/if}
         </div>
       {:else if activeTab === 'files'}
         <div class="app-upload-wrapper app-content">
-          <UltimateEncrypt {locale} {dict} resultArt={false} />
+          <UltimateEncrypt {locale} {dict} resultArt={false} appMode />
         </div>
       {:else if activeTab === 'settings'}
-        <div class="app-content">
+        {@const ios = platform === 'ios'}
+        <div class="app-content app-settings">
           <BlockTitle>{t(dict, 'app.settings.appearance')}</BlockTitle>
-          <List strong inset>
+          <List strong inset class="app-group">
             <ListItem
               link
+              chevronMaterial={false}
               linkComponent="button"
               linkProps={{ type: 'button' }}
               title={t(dict, 'app.settings.design')}
-              subtitle={designLabel()}
+              after={ios ? designLabel() : undefined}
+              class="app-value-row"
+              subtitle={ios ? undefined : designLabel()}
               onClick={() => openPrefSheet('platform')}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="smartphone" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('smartphone', 'blue')}{/snippet}
             </ListItem>
             <ListItem
               link
+              chevronMaterial={false}
               linkComponent="button"
               linkProps={{ type: 'button' }}
               title={t(dict, 'app.settings.theme')}
-              subtitle={themeLabel()}
+              after={ios ? themeLabel() : undefined}
+              class="app-value-row"
+              subtitle={ios ? undefined : themeLabel()}
               onClick={() => openPrefSheet('theme')}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name={appearance === 'light' ? 'sun' : appearance === 'dark' ? 'moon' : 'monitor'} size={20} /></span>
+              {#snippet media()}{@render settingIcon(appearance === 'light' ? 'sun' : appearance === 'dark' ? 'moon' : 'monitor', 'indigo')}{/snippet}
+            </ListItem>
+            <ListItem title={t(dict, 'app.settings.amoled')} subtitle={t(dict, 'app.settings.amoledHint')}>
+              {#snippet media()}{@render settingIcon('moon', 'gray')}{/snippet}
+              {#snippet after()}
+                <Toggle checked={amoled} aria-label={t(dict, 'app.settings.amoled')} onChange={() => applyAppTheme({ amoled: !amoled })} />
               {/snippet}
             </ListItem>
             <ListItem title={t(dict, 'app.settings.reduceMotion')} subtitle={t(dict, 'app.settings.reduceMotionHint')}>
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="eraser" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('eraser', 'teal')}{/snippet}
               {#snippet after()}
                 <Toggle
                   checked={reduceMotion}
+                  aria-label={t(dict, 'app.settings.reduceMotion')}
                   onChange={() => {
                     reduceMotion = !reduceMotion;
                     saveReduceMotion(reduceMotion);
@@ -1723,40 +1977,41 @@
             {#if hapticsOk}
               <ListItem
                 link
+                chevronMaterial={false}
                 linkComponent="button"
                 linkProps={{ type: 'button' }}
                 title={t(dict, 'app.settings.haptics')}
-                subtitle={hapticsLabel()}
+                after={ios ? hapticsLabel() : undefined}
+                class="app-value-row"
+                subtitle={ios ? undefined : hapticsLabel()}
                 onClick={() => openPrefSheet('haptics')}
               >
-                {#snippet media()}
-                  <span class="text-[var(--app-tint)]"><AppIcons name="haptic" size={20} /></span>
-                {/snippet}
+                {#snippet media()}{@render settingIcon('haptic', 'pink')}{/snippet}
               </ListItem>
             {/if}
           </List>
 
           <BlockTitle>{t(dict, 'app.settings.rooms')}</BlockTitle>
-          <List strong inset>
+          <List strong inset class="app-group">
             <ListItem
               link
+              chevronMaterial={false}
               linkComponent="button"
               linkProps={{ type: 'button' }}
               title={t(dict, 'app.settings.defaultRoomMode')}
-              subtitle={roomModeLabel()}
+              after={ios ? roomModeLabel() : undefined}
+              class="app-value-row"
+              subtitle={ios ? undefined : roomModeLabel()}
               onClick={() => openPrefSheet('roomMode')}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name={defaultRoomMode === 'ttl' ? 'timer' : 'history'} size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon(defaultRoomMode === 'ttl' ? 'timer' : 'history', 'green')}{/snippet}
             </ListItem>
             <ListItem title={t(dict, 'app.settings.keepAwake')} subtitle={t(dict, 'app.settings.keepAwakeHint')}>
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="call" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('call', 'orange')}{/snippet}
               {#snippet after()}
                 <Toggle
                   checked={keepAwake}
+                  aria-label={t(dict, 'app.settings.keepAwake')}
                   onChange={() => {
                     keepAwake = !keepAwake;
                     saveKeepAwake(keepAwake);
@@ -1768,18 +2023,19 @@
           </List>
 
           <BlockTitle>{t(dict, 'app.settings.app')}</BlockTitle>
-          <List strong inset>
+          <List strong inset class="app-group">
             <ListItem
               link
+              chevronMaterial={false}
               linkComponent="button"
               linkProps={{ type: 'button' }}
               title={t(dict, 'app.settings.language')}
-              subtitle={(languages as Record<string, { name: string }>)[locale]?.name ?? 'English'}
+              after={ios ? languageName() : undefined}
+              class="app-value-row"
+              subtitle={ios ? undefined : languageName()}
               onClick={() => { langSheetOpen = true; }}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="globe" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('globe', 'blue')}{/snippet}
             </ListItem>
             {#if notifPermission !== 'unsupported'}
               <ListItem
@@ -1791,53 +2047,38 @@
                 subtitle={notifLabel()}
                 onClick={() => void handleNotificationSetting()}
               >
-                {#snippet media()}
-                  <span class="text-[var(--app-tint)]"><AppIcons name={notifPermission === 'granted' ? 'bell' : 'bell-off'} size={20} /></span>
-                {/snippet}
-                {#snippet after()}
-                  {#if notifPermission === 'default'}
-                    <Button small rounded class="min-h-10!" onClick={(e: MouseEvent) => { e.stopPropagation(); void handleNotificationSetting(); }}>{t(dict, 'app.settings.notificationsAllow')}</Button>
-                  {/if}
-                {/snippet}
+                {#snippet media()}{@render settingIcon(notifPermission === 'granted' ? 'bell' : 'bell-off', 'red')}{/snippet}
               </ListItem>
             {/if}
             <ListItem
               title={t(dict, 'app.settings.version')}
               subtitle={shotsMode ? t(dict, 'app.settings.upToDate') : describeVersion(CURRENT_VERSION, locale)}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name={updateAvailable ? 'update' : 'check'} size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon(updateAvailable ? 'update' : 'check', 'gray')}{/snippet}
               {#snippet after()}
                 {#if !shotsMode && updateAvailable}
-                  <Button small rounded class="min-h-10!" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
+                  <Button small rounded tonal class="w-auto! px-3" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
                 {:else if !shotsMode && latestVersion && !updateAvailable}
                   <span class="app-version-ok">{t(dict, 'app.settings.upToDate')}</span>
                 {/if}
               {/snippet}
             </ListItem>
-            {#if !shotsMode}
+            {#if !shotsMode && !updateAvailable}
               <ListItem
                 link
                 linkComponent="button"
                 linkProps={{ type: 'button', disabled: checkingUpdate || updating }}
                 chevron={false}
-                title={checkingUpdate
-                  ? t(dict, 'app.settings.checkingUpdates')
-                  : updateAvailable
-                    ? t(dict, 'app.settings.newVersion').replace('{version}', latestVersion ? describeVersion(latestVersion, locale) : '')
-                    : t(dict, 'app.settings.checkUpdates')}
-                subtitle={updateAvailable ? t(dict, 'app.settings.updateHint') : t(dict, 'app.settings.checkUpdatesHint')}
+                title={checkingUpdate ? t(dict, 'app.settings.checkingUpdates') : t(dict, 'app.settings.checkUpdates')}
+                subtitle={t(dict, 'app.settings.checkUpdatesHint')}
                 onClick={() => {
                   triggerHaptic('light');
-                  if (updateAvailable) void updateApp();
-                  else void checkForUpdate(true);
+                  void checkForUpdate(true);
                 }}
               >
-                {#snippet media()}
-                  <span class="text-[var(--app-tint)]" class:app-spin-once={checkingUpdate}>
-                    <AppIcons name={updateAvailable ? 'update' : 'refresh'} size={20} />
-                  </span>
+                {#snippet media()}{@render settingIcon('refresh', 'gray')}{/snippet}
+                {#snippet after()}
+                  {#if checkingUpdate}<span class="app-spinner" aria-hidden="true"></span>{/if}
                 {/snippet}
               </ListItem>
             {/if}
@@ -1850,40 +2091,39 @@
               subtitle={t(dict, 'app.settings.clearCacheHint')}
               onClick={() => void handleClearCache()}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="database" size={20} /></span>
+              {#snippet media()}{@render settingIcon('database', 'gray')}{/snippet}
+              {#snippet after()}
+                {#if clearingCache}<span class="app-spinner" aria-hidden="true"></span>{/if}
               {/snippet}
             </ListItem>
           </List>
 
           <BlockTitle>{t(dict, 'app.settings.security')}</BlockTitle>
-          <List strong inset>
+          <List strong inset class="app-group">
             <ListItem title={t(dict, 'app.settings.lock')} subtitle={t(dict, 'app.settings.lockHint')}>
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="lock" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('lock', 'green')}{/snippet}
               {#snippet after()}
-                {#key lockToggleKey}<Toggle checked={lockEnabled} onChange={toggleLock} />{/key}
+                {#if lockBusy}<span class="app-spinner me-3" aria-hidden="true"></span>{/if}
+                {#key lockToggleKey}<Toggle checked={lockEnabled} aria-label={t(dict, 'app.settings.lock')} onChange={toggleLock} />{/key}
               {/snippet}
             </ListItem>
             {#if lockEnabled}
               <ListItem
                 link
+                chevronMaterial={false}
                 linkComponent="button"
                 linkProps={{ type: 'button' }}
                 title={t(dict, 'app.settings.lockTimeout')}
-                subtitle={lockTimeoutLabel()}
+                after={ios ? lockTimeoutLabel() : undefined}
+                class="app-value-row"
+                subtitle={ios ? undefined : lockTimeoutLabel()}
                 onClick={() => openPrefSheet('lockTimeout')}
               >
-                {#snippet media()}
-                  <span class="text-[var(--app-tint)]"><AppIcons name="timer" size={20} /></span>
-                {/snippet}
+                {#snippet media()}{@render settingIcon('timer', 'green')}{/snippet}
               </ListItem>
             {/if}
             <ListItem title={t(dict, 'app.settings.crypto')} subtitle={t(dict, 'app.settings.cryptoValue')}>
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="shield" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('shield', 'gray')}{/snippet}
             </ListItem>
             <ListItem
               link
@@ -1894,9 +2134,7 @@
               subtitle={t(dict, 'app.backup.exportHint')}
               onClick={() => { vaultExportOpen = true; }}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="share" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon(shareIcon, 'blue')}{/snippet}
             </ListItem>
             <ListItem
               link
@@ -1907,10 +2145,11 @@
               subtitle={t(dict, 'app.backup.importHint')}
               onClick={() => { vaultImportOpen = true; }}
             >
-              {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="key" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('key', 'blue')}{/snippet}
             </ListItem>
+          </List>
+
+          <List strong inset class="app-group">
             <ListItem
               link
               linkComponent="button"
@@ -1922,24 +2161,36 @@
               {#snippet title()}
                 <span class="app-danger-text">{t(dict, 'app.settings.wipe')}</span>
               {/snippet}
-              {#snippet media()}
-                <span class="text-[var(--app-error)]"><AppIcons name="trash" size={20} /></span>
-              {/snippet}
+              {#snippet media()}{@render settingIcon('trash', 'red')}{/snippet}
             </ListItem>
           </List>
-          <div class="h-6"></div>
         </div>
       {/if}
       </div>
 
       {@render newRoomFab()}
 
+      {#if callRoom}
+        <div class="app-call-return" style={callBarBottom ? `bottom: ${callBarBottom}px` : undefined} role="group" aria-label={t(dict, 'chat.callInCall')}>
+          <button type="button" class="app-call-return__main" onclick={() => { const r = callRoom; if (r) enterRoom(r.id, 'chat', r.label, false); }}>
+            <span class="app-call-return__dot" aria-hidden="true"></span>
+            <span class="app-call-return__text">
+              <span class="app-call-return__title">{callRoom.label || callRoom.id}</span>
+              <span class="app-call-return__sub">{t(dict, 'chat.callReturn')}</span>
+            </span>
+          </button>
+          <button type="button" class="app-call-return__end" aria-label={t(dict, 'chat.callHangUp')} title={t(dict, 'chat.callHangUp')} onclick={() => roomHangup?.()}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+          </button>
+        </div>
+      {/if}
+
       <Tabbar
         labels={true}
         icons={true}
         class={platform === 'ios'
-          ? 'left-0 bottom-0 fixed z-40'
-          : 'app-tabbar left-0 bottom-0 fixed z-40'}
+          ? 'app-main-tabbar left-0 bottom-0 fixed z-40'
+          : 'app-main-tabbar app-tabbar left-0 bottom-0 fixed z-40'}
       >
         <ToolbarPane>
           <TabbarLink active={activeTab === 'chats'} component="button" linkProps={{ type: 'button' }} aria-current={activeTab === 'chats' ? 'page' : undefined} onclick={() => switchTab('chats')} label={t(dict, 'app.tab.chats')}>
@@ -1978,20 +2229,50 @@
       </Tabbar>
     {/if}
 
+    {#if ready && mountedRoomId}
+      {#key mountedRoomId}
+        <div class="app-room-wrapper" class:app-room-wrapper--hidden={activeView !== 'room'} inert={activeView !== 'room' || undefined}>
+          <ChatRoom
+            roomId={mountedRoomId}
+            roomLabel={activeView === 'room' ? activeRoomLabel : (callRoom?.label ?? activeRoomLabel)}
+            {locale}
+            {dict}
+            appMode={true}
+            onOpenBoardApp={openBoardInvite}
+            onExitApp={leaveRoom}
+            onSavedPassword={savedRoomPassword}
+            onNotice={showToast}
+            onConnStatus={(s) => (roomConn = s)}
+            bind:requestReconnect={roomReconnect}
+            onShareApp={shareRoom}
+            bind:requestCall={roomCall}
+            bind:requestHangup={roomHangup}
+            bind:requestRoomMenu={roomMenu}
+            bind:requestRoomInfo={roomInfo}
+            bind:appCallState={roomCallState}
+            onOverlayChange={onChildOverlay}
+            bind:closeOverlay={closeChildOverlay}
+            notifyIntent={notifyIntent?.roomId === mountedRoomId ? notifyIntent.on : null}
+            onNotifyIntent={notifyIntentDone}
+          />
+        </div>
+      {/key}
+    {/if}
+
     <!-- NEW ROOM SHEET (kind locked to the tab that opened it) -->
     <Sheet
       opened={newRoomSheetOpen}
+      inert={!newRoomSheetOpen}
       onBackdropClick={() => closeNewRoomSheet()}
       class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
     >
       <div class="app-sheet__handle"></div>
-      <div class="px-5 pb-6 pt-3 space-y-4">
-        <h3 class="app-sheet-title">
-          <span class="app-sheet-title__icon text-[var(--app-tint)]">
-            <AppIcons name={newRoomKind === 'whiteboard' ? 'whiteboard' : 'chat'} size={20} />
-          </span>
-          {t(dict, newRoomKind === 'whiteboard' ? 'app.new.titleBoard' : 'app.new.titleChat')}
-        </h3>
+      <div class="app-sheet-body">
+        {@render sheetHeader(
+          t(dict, newRoomKind === 'whiteboard' ? 'app.new.titleBoard' : 'app.new.titleChat'),
+          () => closeNewRoomSheet(),
+          { label: t(dict, 'app.new.open'), disabled: !canCreateRoom, run: handleCreateRoom },
+        )}
         <List strong inset class="m-0! app-form">
           <ListInput
             type="text"
@@ -2003,6 +2284,8 @@
             spellcheck={false}
             error={newRoomNameError ? t(dict, 'chat.roomNameRequired') : undefined}
             onInput={() => (newRoomNameError = false)}
+            enterkeyhint="next"
+            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); newPwInput?.focus(); } }}
             aria-label={t(dict, 'app.new.name')}
           >
             {#snippet media()}
@@ -2020,7 +2303,9 @@
             {#snippet input()}
               <div class="app-passphrase" class:app-passphrase--invalid={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword))}>
                 <input
+                  bind:this={newPwInput}
                   class="app-passphrase__input"
+                  enterkeyhint="go"
                   type={showNewPw ? 'text' : 'password'}
                   placeholder={t(dict, 'app.new.passwordPlaceholder')}
                   bind:value={newRoomPassword}
@@ -2105,30 +2390,28 @@
             {/if}
           </List>
         {/if}
-        <Button
-          large
-          rounded
-          class="w-full"
-          disabled={!normalizeRoomId(newRoomName) || !passwordLongEnough(newRoomPassword.trim())}
-          onClick={handleCreateRoom}
-        >
-          <span class="app-btn-label"><AppIcons name="lock" size={18} />{t(dict, 'app.new.open')}</span>
-        </Button>
+        {#if platform === 'material'}
+          <Button large rounded class="w-full" disabled={!canCreateRoom} onClick={handleCreateRoom}>
+            {t(dict, 'app.new.open')}
+          </Button>
+        {/if}
       </div>
     </Sheet>
 
     <!-- JOIN ROOM SHEET -->
     <Sheet
       opened={joinRoomSheetOpen}
+      inert={!joinRoomSheetOpen}
       onBackdropClick={() => closeJoinRoomSheet()}
       class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
     >
       <div class="app-sheet__handle"></div>
-      <div class="px-5 pb-6 pt-3 space-y-4">
-        <h3 class="app-sheet-title">
-          <span class="app-sheet-title__icon text-[var(--app-tint)]"><AppIcons name="join" size={20} /></span>
-          {t(dict, 'app.join.title')}
-        </h3>
+      <div class="app-sheet-body">
+        {@render sheetHeader(t(dict, 'app.join.title'), () => closeJoinRoomSheet(), {
+          label: t(dict, 'app.join.connect'),
+          disabled: !joinRoomId.trim(),
+          run: handleJoinRoom,
+        })}
         <List strong inset class="m-0! app-form">
           <ListInput
             type="text"
@@ -2138,17 +2421,20 @@
             autocorrect="off"
             spellcheck={false}
             aria-label={t(dict, 'app.join.id')}
-            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' && joinRoomId.trim()) handleJoinRoom(); }}
+            enterkeyhint="next"
+            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector<HTMLInputElement>('.app-join-pw input')?.focus(); } }}
           >
             {#snippet media()}
               <span class="text-[var(--app-label-3)]"><AppIcons name="hash" size={18} /></span>
             {/snippet}
           </ListInput>
           <ListInput
+            class="app-join-pw"
             type="password"
             placeholder={t(dict, 'app.join.passwordPlaceholder')}
             bind:value={joinRoomPassword}
             autocomplete="current-password"
+            enterkeyhint="go"
             aria-label={t(dict, 'app.join.password')}
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' && joinRoomId.trim()) handleJoinRoom(); }}
           >
@@ -2157,9 +2443,11 @@
             {/snippet}
           </ListInput>
         </List>
-        <Button large rounded class="w-full" disabled={!joinRoomId.trim()} onClick={handleJoinRoom}>
-          <span class="app-btn-label"><AppIcons name="join" size={18} />{t(dict, 'app.join.connect')}</span>
-        </Button>
+        {#if platform === 'material'}
+          <Button large rounded class="w-full" disabled={!joinRoomId.trim()} onClick={handleJoinRoom}>
+            {t(dict, 'app.join.connect')}
+          </Button>
+        {/if}
       </div>
     </Sheet>
 
@@ -2167,119 +2455,58 @@
     <Sheet
       class="app-sheet pb-[env(safe-area-inset-bottom)]"
       opened={langSheetOpen}
+      inert={!langSheetOpen}
       onBackdropClick={() => { langSheetOpen = false; consumeOverlayGuard(); }}
     >
       <div class="app-sheet__handle"></div>
-      <div class="px-4 pt-3 pb-2 flex items-center justify-between">
-        <h3 class="app-sheet-title">
-          <span class="app-sheet-title__icon text-[var(--app-tint)]"><AppIcons name="globe" size={20} /></span>
-          {t(dict, 'app.settings.language')}
-        </h3>
-        <Button clear small class="w-auto! min-h-10!" onClick={() => { langSheetOpen = false; consumeOverlayGuard(); }}>
-          {t(dict, 'app.done')}
-        </Button>
+      <div class="app-sheet-body app-sheet-body--list">
+        {@render sheetHeader(t(dict, 'app.settings.language'), () => { langSheetOpen = false; consumeOverlayGuard(); })}
+        <List strong inset class="app-group app-choices m-0!" role="radiogroup" aria-label={t(dict, 'app.settings.language')}>
+          {#each locales as code (code)}
+            {@render choiceRow(languages[code].name, code === locale, () => pickLanguage(code))}
+          {/each}
+        </List>
       </div>
-      <List strong inset dividers class="my-0">
-        {#each locales as code (code)}
-          <ListItem
-            link
-            linkComponent="button"
-            linkProps={{ type: 'button' }}
-            title={languages[code].name}
-            onClick={() => pickLanguage(code)}
-          >
-            {#snippet after()}
-              {#if code === locale}
-                <AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />
-              {/if}
-            {/snippet}
-          </ListItem>
-        {/each}
-      </List>
-      <div class="pb-6"></div>
     </Sheet>
 
     <!-- PREFERENCE SHEET -->
     <Sheet
       class="app-sheet pb-[env(safe-area-inset-bottom)]"
       opened={prefSheetOpen}
+      inert={!prefSheetOpen}
       onBackdropClick={() => closePrefSheet()}
     >
       <div class="app-sheet__handle"></div>
-      <div class="px-4 pt-3 pb-2 flex items-center justify-between">
-        <h3 class="app-sheet-title">
-          {#if prefSheet === 'platform'}{t(dict, 'app.settings.design')}
-          {:else if prefSheet === 'theme'}{t(dict, 'app.settings.theme')}
-          {:else if prefSheet === 'haptics'}{t(dict, 'app.settings.haptics')}
-          {:else if prefSheet === 'lockTimeout'}{t(dict, 'app.settings.lockTimeout')}
-          {:else if prefSheet === 'roomMode'}{t(dict, 'app.settings.defaultRoomMode')}
+      <div class="app-sheet-body app-sheet-body--list">
+        {@render sheetHeader(prefSheetTitle(), () => closePrefSheet())}
+        <List strong inset class="app-group app-choices m-0!" role="radiogroup" aria-label={prefSheetTitle()}>
+          {#if prefSheet === 'platform'}
+            {@render choiceRow(t(dict, 'app.settings.designIos'), platform === 'ios', () => { applyAppTheme({ platform: 'ios' }); closePrefSheet(); })}
+            {@render choiceRow(t(dict, 'app.settings.designMaterial'), platform === 'material', () => { applyAppTheme({ platform: 'material' }); closePrefSheet(); })}
+          {:else if prefSheet === 'theme'}
+            {@render choiceRow(t(dict, 'app.settings.themeSystem'), appearance === 'system', () => { applyAppTheme({ appearance: 'system' }); closePrefSheet(); })}
+            {@render choiceRow(t(dict, 'app.settings.themeLight'), appearance === 'light', () => { applyAppTheme({ appearance: 'light' }); closePrefSheet(); })}
+            {@render choiceRow(t(dict, 'app.settings.themeDark'), appearance === 'dark', () => { applyAppTheme({ appearance: 'dark' }); closePrefSheet(); })}
+          {:else if prefSheet === 'haptics'}
+            {@render choiceRow(t(dict, 'app.settings.hapticsOff'), hapticsMode === 'off', () => setHapticsMode('off'))}
+            {@render choiceRow(t(dict, 'app.settings.hapticsEssential'), hapticsMode === 'essential', () => setHapticsMode('essential'), t(dict, 'app.settings.hapticsHint'))}
+            {@render choiceRow(t(dict, 'app.settings.hapticsAll'), hapticsMode === 'all', () => setHapticsMode('all'))}
+          {:else if prefSheet === 'lockTimeout'}
+            {#each LOCK_TIMEOUT_OPTIONS as ms (ms)}
+              {@render choiceRow(lockTimeoutText(ms), lockTimeoutMs === ms, () => setLockTimeout(ms))}
+            {/each}
+          {:else if prefSheet === 'roomMode'}
+            {@render choiceRow(roomModeLabel('live'), defaultRoomMode === 'live', () => setDefaultRoomMode('live'), t(dict, 'chat.modeLiveHint'))}
+            {@render choiceRow(roomModeLabel('ttl'), defaultRoomMode === 'ttl', () => setDefaultRoomMode('ttl'), t(dict, 'chat.modeTtlHint'))}
           {/if}
-        </h3>
-        <Button clear small class="w-auto! min-h-10!" onClick={() => closePrefSheet()}>
-          {t(dict, 'app.done')}
-        </Button>
+        </List>
       </div>
-      <List strong inset dividers class="my-0">
-        {#if prefSheet === 'platform'}
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.designIos')} onClick={() => { applyAppTheme({ platform: 'ios' }); closePrefSheet(); }}>
-            {#snippet after()}{#if platform === 'ios'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.designMaterial')} onClick={() => { applyAppTheme({ platform: 'material' }); closePrefSheet(); }}>
-            {#snippet after()}{#if platform === 'material'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-        {:else if prefSheet === 'theme'}
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.themeSystem')} onClick={() => { applyAppTheme({ appearance: 'system' }); closePrefSheet(); }}>
-            {#snippet after()}{#if appearance === 'system'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.themeLight')} onClick={() => { applyAppTheme({ appearance: 'light' }); closePrefSheet(); }}>
-            {#snippet after()}{#if appearance === 'light'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.themeDark')} onClick={() => { applyAppTheme({ appearance: 'dark' }); closePrefSheet(); }}>
-            {#snippet after()}{#if appearance === 'dark'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-        {:else if prefSheet === 'haptics'}
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.hapticsOff')} onClick={() => setHapticsMode('off')}>
-            {#snippet after()}{#if hapticsMode === 'off'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.hapticsEssential')} text={t(dict, 'app.settings.hapticsHint')} onClick={() => setHapticsMode('essential')}>
-            {#snippet after()}{#if hapticsMode === 'essential'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.hapticsAll')} onClick={() => setHapticsMode('all')}>
-            {#snippet after()}{#if hapticsMode === 'all'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-        {:else if prefSheet === 'lockTimeout'}
-          {#each LOCK_TIMEOUT_OPTIONS as ms (ms)}
-            <ListItem
-              link
-              linkComponent="button"
-              linkProps={{ type: 'button' }}
-              title={ms === 0
-                ? t(dict, 'app.settings.lockTimeout.immediate')
-                : ms === 60_000
-                  ? t(dict, 'app.settings.lockTimeout.1m')
-                  : ms === 300_000
-                    ? t(dict, 'app.settings.lockTimeout.5m')
-                    : t(dict, 'app.settings.lockTimeout.30s')}
-              onClick={() => setLockTimeout(ms)}
-            >
-              {#snippet after()}{#if lockTimeoutMs === ms}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-            </ListItem>
-          {/each}
-        {:else if prefSheet === 'roomMode'}
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={roomModeLabel('live')} text={t(dict, 'chat.modeLiveHint')} onClick={() => setDefaultRoomMode('live')}>
-            {#snippet after()}{#if defaultRoomMode === 'live'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={roomModeLabel('ttl')} text={t(dict, 'chat.modeTtlHint')} onClick={() => setDefaultRoomMode('ttl')}>
-            {#snippet after()}{#if defaultRoomMode === 'ttl'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
-          </ListItem>
-        {/if}
-      </List>
-      <div class="pb-6"></div>
     </Sheet>
 
     <!-- iOS INSTALL SHEET -->
     <Sheet
       opened={showIosInstallSheet}
+      inert={!showIosInstallSheet}
       onBackdropClick={() => { showIosInstallSheet = false; consumeOverlayGuard(); }}
       class="app-sheet pb-[env(safe-area-inset-bottom)]"
     >
@@ -2341,26 +2568,29 @@
       opened={toastOpen}
       role="status"
       aria-live="polite"
+      class="app-toast"
+      button={platform === 'material' ? toastDismiss : undefined}
       style="bottom: calc(env(safe-area-inset-bottom, 0px) + {activeView === 'hub' ? '6.5rem' : '4.75rem'})"
     >
-      <span class="text-[15px]">{toastMessage}</span>
-      {#snippet button()}
-        <Button clear small onClick={() => (toastOpen = false)}>{t(dict, 'app.close')}</Button>
-      {/snippet}
+      {#if platform === 'ios'}
+        <button type="button" class="app-toast__pill" tabindex={toastOpen ? 0 : -1} onclick={() => (toastOpen = false)}>{toastMessage}</button>
+      {:else}
+        <span class="app-toast__text">{toastMessage}</span>
+      {/if}
     </Toast>
 
     <!-- PANIC DIALOG -->
-    <Dialog opened={panicDialogOpen} onBackdropClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>
+    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.settings.wipeConfirm'))} opened={panicDialogOpen} onBackdropClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>
       {#snippet title()}{t(dict, 'app.settings.wipe')}{/snippet}
       {t(dict, 'app.settings.wipeBody')}
       {#snippet buttons()}
-        <DialogButton onClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
+        <DialogButton class="app-dialog-cancel" onClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
         <DialogButton onClick={handlePanic} class="app-dialog-destructive">{t(dict, 'app.settings.wipeConfirm')}</DialogButton>
       {/snippet}
     </Dialog>
 
     <!-- VAULT EXPORT DIALOG -->
-    <Dialog opened={vaultExportOpen} onBackdropClick={() => { vaultExportOpen = false; consumeOverlayGuard(); }}>
+    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.backup.exportConfirm'))} opened={vaultExportOpen} onBackdropClick={() => { vaultExportOpen = false; consumeOverlayGuard(); }}>
       {#snippet title()}{t(dict, 'app.backup.export')}{/snippet}
       <p class="m-0 mb-3 text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.backup.exportBody')}</p>
       <input
@@ -2372,8 +2602,8 @@
         aria-label={t(dict, 'app.backup.password')}
       />
       {#snippet buttons()}
-        <DialogButton onClick={() => { vaultExportOpen = false; vaultExportPw = ''; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
-        <DialogButton strong onClick={handleVaultExport} disabled={vaultExportBusy || !vaultExportPw.trim()}>{t(dict, 'app.backup.exportConfirm')}</DialogButton>
+        <DialogButton class="app-dialog-cancel" onClick={() => { vaultExportOpen = false; vaultExportPw = ''; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
+        <DialogButton strong={platform === 'ios'} class="app-dialog-primary" onClick={handleVaultExport} disabled={vaultExportBusy || !vaultExportPw.trim()}>{t(dict, 'app.backup.exportConfirm')}</DialogButton>
       {/snippet}
     </Dialog>
 
@@ -2402,16 +2632,16 @@
         <p class="m-0 mt-2 text-[13px] text-[var(--app-error)]" role="alert">{vaultImportError}</p>
       {/if}
       {#snippet buttons()}
-        <DialogButton onClick={() => { vaultImportOpen = false; vaultImportPw = ''; vaultImportError = ''; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
+        <DialogButton class="app-dialog-cancel" onClick={() => { vaultImportOpen = false; vaultImportPw = ''; vaultImportError = ''; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
       {/snippet}
     </Dialog>
 
     <!-- CLEAR BOARD DIALOG -->
-    <Dialog opened={clearBoardDialogOpen} onBackdropClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }}>
+    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'whiteboard.delete'))} opened={clearBoardDialogOpen} onBackdropClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }}>
       {#snippet title()}{t(dict, 'whiteboard.delete')}{/snippet}
       {t(dict, 'whiteboard.clearConfirm')}
       {#snippet buttons()}
-        <DialogButton onClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
+        <DialogButton class="app-dialog-cancel" onClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
         <DialogButton
           onClick={() => {
             clearBoardDialogOpen = false;
@@ -2427,30 +2657,31 @@
       {/snippet}
     </Dialog>
 
-    <!-- ROOM ROW ACTIONS -->
-    <Actions class="app-actions-sheet" opened={actionsRoom !== null} onBackdropClick={onActionsBackdrop}>
-      <ActionsGroup>
-        <ActionsLabel>{actionTarget?.label || actionTarget?.roomId || ''}</ActionsLabel>
-        <ActionsButton onClick={togglePin}>
-          <span class="app-action-label"><AppIcons name="pin" size={18} />{t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin')}</span>
-        </ActionsButton>
-        <ActionsButton onClick={openRename}>
-          <span class="app-action-label"><AppIcons name="pencil" size={18} />{t(dict, 'app.row.rename')}</span>
-        </ActionsButton>
-        <ActionsButton
-          onClick={openDelete}
-          colors={{ textIos: 'text-[var(--app-error)]', textMaterial: 'text-[var(--app-error)]' }}
-        >
-          <span class="app-action-label"><AppIcons name="trash" size={18} />{t(dict, 'app.row.remove')}</span>
-        </ActionsButton>
-      </ActionsGroup>
-      <ActionsGroup>
-        <ActionsButton bold onClick={closeRowActions}>{t(dict, 'app.cancel')}</ActionsButton>
-      </ActionsGroup>
-    </Actions>
+    <!-- ROOM ROW CONTEXT MENU -->
+    <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop}>
+      <MenuList>
+        {#each [
+          { key: 'pin', title: t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin'), icon: (actionTarget?.pinned ? 'pin-off' : 'pin') as IconName, run: togglePin, danger: false },
+          ...(actionTarget && actionTarget.kind !== 'whiteboard' ? [{ key: 'notify', title: t(dict, notifyRooms.has(actionTarget.roomId) ? 'app.row.notifyOff' : 'app.row.notifyOn'), icon: (notifyRooms.has(actionTarget.roomId) ? 'bell-off' : 'bell') as IconName, run: toggleRowNotify, danger: false }] : []),
+          { key: 'rename', title: t(dict, 'app.row.rename'), icon: 'pencil' as IconName, run: openRename, danger: false },
+          { key: 'remove', title: t(dict, 'app.row.remove'), icon: 'trash' as IconName, run: openDelete, danger: true },
+        ] as item (item.key)}
+          {#if platform === 'ios'}
+            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={item.title} onClick={item.run}>
+              {#snippet after()}<AppIcons name={item.icon} size={19} />{/snippet}
+            </MenuListItem>
+          {:else}
+            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={item.title} onClick={item.run}>
+              {#snippet media()}<AppIcons name={item.icon} size={22} />{/snippet}
+            </MenuListItem>
+          {/if}
+        {/each}
+      </MenuList>
+    </Popover>
 
     <!-- RENAME DIALOG -->
     <Dialog
+      class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.save'))}
       opened={renameDialogOpen}
       onBackdropClick={() => {
         renameDialogOpen = false;
@@ -2462,8 +2693,8 @@
       <input
         type="text"
         class="app-dialog-input"
+        bind:this={renameInput}
         maxlength="64"
-        autofocus
         enterkeyhint="done"
         aria-label={t(dict, 'app.rename.title')}
         value={renameValue}
@@ -2474,6 +2705,7 @@
       />
       {#snippet buttons()}
         <DialogButton
+          class="app-dialog-cancel"
           onClick={() => {
             renameDialogOpen = false;
             endRowInteraction();
@@ -2482,12 +2714,13 @@
         >
           {t(dict, 'app.cancel')}
         </DialogButton>
-        <DialogButton strong onClick={saveRename}>{t(dict, 'app.save')}</DialogButton>
+        <DialogButton strong={platform === 'ios'} class="app-dialog-primary" onClick={saveRename}>{t(dict, 'app.save')}</DialogButton>
       {/snippet}
     </Dialog>
 
     <!-- DELETE ROOM DIALOG -->
     <Dialog
+      class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.remove.confirm'))}
       opened={deleteDialogOpen}
       onBackdropClick={() => {
         deleteDialogOpen = false;
@@ -2499,6 +2732,7 @@
       {t(dict, 'app.remove.body')}
       {#snippet buttons()}
         <DialogButton
+          class="app-dialog-cancel"
           onClick={() => {
             deleteDialogOpen = false;
             endRowInteraction();
@@ -2512,19 +2746,19 @@
     </Dialog>
   </Page>
   {#if locked}
-    <div class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 p-8 text-center bg-[var(--app-bg)]" role="dialog" aria-modal="true" aria-label={t(dict, 'app.lock.title')}>
-      <span class="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--app-tint-container)] text-[var(--app-on-tint-container)]">
-        <AppIcons name="lock" size={28} />
-      </span>
-      <h1 class="text-xl font-semibold">{t(dict, 'app.lock.title')}</h1>
-      <p class="text-sm opacity-70 max-w-xs">{t(dict, 'app.lock.hint')}</p>
-      {#if lockError}<p class="text-sm text-[var(--app-danger,#e5484d)]" role="alert">{lockError}</p>{/if}
+    <div class="app-lock" role="dialog" aria-modal="true" aria-label={t(dict, 'app.lock.title')}>
+      <span class="app-state-glyph" aria-hidden="true"><AppIcons name="lock" size={28} /></span>
+      <h1 class="app-lock__title">{t(dict, 'app.lock.title')}</h1>
+      <p class="app-lock__hint">{t(dict, 'app.lock.hint')}</p>
+      {#if lockError}<p class="app-lock__error" role="alert">{lockError}</p>{/if}
       <Button
         large
         rounded
-        class="max-w-xs w-full"
+        class="app-lock__btn"
+        disabled={lockBusy}
         onClick={() => void tryUnlock()}
       >
+        {#if lockBusy}<span class="app-spinner" aria-hidden="true"></span>{/if}
         {lockError ? t(dict, 'app.lock.retry') : t(dict, 'app.lock.unlock')}
       </Button>
     </div>

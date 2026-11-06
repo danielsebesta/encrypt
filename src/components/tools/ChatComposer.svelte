@@ -33,6 +33,8 @@
     onvoiceerror,
     onclearreply,
     onschedule,
+    emojiOpen = false,
+    onemoji,
   }: {
     dict: Record<string, string>;
     connected: boolean;
@@ -58,6 +60,8 @@
     onvoiceerror: (message: string) => void;
     onclearreply: () => void;
     onschedule: (offsetMs: number) => void;
+    emojiOpen?: boolean;
+    onemoji?: (anchor: HTMLElement) => void;
   } = $props();
 
   let keepFocus = false;
@@ -71,19 +75,31 @@
     scheduleMenuOpen = false;
   }
 
-  const COMPOSER_MAX_PX = 120;
-  function autogrow(e: Event) {
-    const el = e.currentTarget as HTMLTextAreaElement;
+  const COMPOSER_MAX_PX = 140;
+  function fit(el: HTMLTextAreaElement | null | undefined) {
+    if (!el || !(el instanceof HTMLTextAreaElement)) return;
+    const cs = getComputedStyle(el);
+    const inset = cs.boxSizing === 'content-box'
+      ? parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+      : -(parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth));
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
+    const natural = el.scrollHeight - inset;
+    el.style.height = `${Math.min(natural, COMPOSER_MAX_PX)}px`;
+    el.style.overflowY = natural > COMPOSER_MAX_PX ? 'auto' : 'hidden';
+  }
+  function oninputText(e: Event) {
+    fit(e.currentTarget as HTMLTextAreaElement);
     ontyping();
   }
+  function onkeyComposer(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); onsend(); }
+    else if (e.key === 'Escape' && hasReply) onclearreply();
+  }
   $effect(() => {
-    if (inputText) return;
+    void inputText;
     const el = untrack(() => inputEl);
-    if (el) el.style.height = '';
+    queueMicrotask(() => fit(el as HTMLTextAreaElement));
   });
-
 
 </script>
 
@@ -152,7 +168,7 @@
       </div>
     {/if}
   {#if appMode}
-    <Sheet opened={composerMenuOpen} onBackdropClick={closeMenus} class="chat-attach-sheet app-sheet pb-[env(safe-area-inset-bottom)]">
+    <Sheet opened={composerMenuOpen} inert={!composerMenuOpen} onBackdropClick={closeMenus} class="chat-attach-sheet app-sheet pb-[env(safe-area-inset-bottom)]">
       <div class="app-sheet__handle"></div>
       <List strongIos insetIos class="mt-2! mb-3!">
         {#if !scheduleMenuOpen}
@@ -220,6 +236,25 @@
   {/if}
 {/snippet}
 
+{#snippet emojiBtn(cls: string)}
+  {#if onemoji}
+    <button
+      type="button"
+      class={cls}
+      class:chat-emoji-btn--active={emojiOpen}
+      aria-label={t(dict, 'emoji.label')}
+      title={t(dict, 'emoji.label')}
+      aria-haspopup="dialog"
+      aria-expanded={emojiOpen}
+      disabled={(!connected && !allowQueue) || uploading}
+      on:pointerdown={(e) => e.preventDefault()}
+      on:click={(e) => onemoji?.(e.currentTarget)}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['smile']}</svg>
+    </button>
+  {/if}
+{/snippet}
+
 <div class="chat-input">
   <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={onfileselect} />
   {#if appMode}
@@ -235,9 +270,9 @@
             placeholder={uploading ? t(dict, 'chat.uploading') : (onceEnabled ? t(dict, 'chat.oncePlaceholder') : t(dict, 'chat.messagePlaceholder'))}
             bind:value={inputText}
             bind:this={inputEl}
-            on:input={autogrow}
+            on:input={oninputText}
             on:focus={closeMenus}
-            on:keydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onsend(); } else if (e.key === 'Escape' && hasReply) onclearreply(); }}
+            on:keydown={onkeyComposer}
             disabled={(!connected && !allowQueue) || uploading}
             autocomplete="off"
             autocorrect="off"
@@ -251,6 +286,7 @@
             data-bwignore
             rows="1"
           ></textarea>
+          {@render emojiBtn('app-composer__emoji')}
         </div>
       {/if}
       <ChatVoiceRecorder {dict} {appMode} bind:recording={voiceRecording} disabled={(!connected && !allowQueue) || !verified || uploading} onrecorded={onvoicerecorded} onerror={onvoiceerror} />
@@ -261,8 +297,7 @@
   {:else}
     {@render attachMenu()}
     {#if !voiceRecording}
-    <input
-      type="text"
+    <textarea
       class="chat-input-field"
       id="chat-compose-input"
       name="encrypt-chat-compose"
@@ -270,8 +305,8 @@
       placeholder={uploading ? t(dict, 'chat.uploading') : (onceEnabled ? t(dict, 'chat.oncePlaceholder') : t(dict, 'chat.messagePlaceholder'))}
       bind:value={inputText}
       bind:this={inputEl}
-      on:input={ontyping}
-      on:keydown={(e) => { if (e.key === 'Enter') onsend(); else if (e.key === 'Escape' && hasReply) onclearreply(); }}
+      on:input={oninputText}
+      on:keydown={onkeyComposer}
       on:focus={closeMenus}
       disabled={(!connected && !allowQueue) || uploading}
       autocomplete="off"
@@ -284,7 +319,9 @@
       data-lpignore="true"
       data-1p-ignore
       data-bwignore
-    />
+      rows="1"
+    ></textarea>
+    {@render emojiBtn('chat-attach-btn chat-emoji-btn')}
     {/if}
   {/if}
   {#if !appMode}
@@ -295,13 +332,15 @@
 
 <style>
   .chat-input {
-    display: flex; align-items: center; gap: 0.6rem;
+    display: flex; align-items: flex-end; gap: 0.6rem;
     padding: 0.75rem 1rem;
     border-top: 1px solid var(--line-soft);
   }
   .chat-input-field {
-    flex: 1; background: transparent; border: none; outline: none;
-    font-size: 15px; color: var(--text); padding: 0.5rem 0;
+    flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+    font: inherit; font-size: 15px; line-height: 1.4; color: var(--text);
+    padding: 0.5rem 0; margin: 0; resize: none; overflow-y: hidden;
+    box-sizing: content-box; height: 1.4em; display: block;
   }
   :global(.dark) .chat-input-field { color: var(--text); }
   .chat-input-field::placeholder { color: var(--muted); }
@@ -315,6 +354,8 @@
     color: var(--accent);
   }
   .chat-attach-btn:disabled { opacity: 0.3; }
+  .chat-emoji-btn { flex-shrink: 0; display: inline-flex; }
+  .chat-emoji-btn--active { color: var(--accent); }
   .chat-attach-dropdown {
     position: absolute;
     left: 0;

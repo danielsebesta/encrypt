@@ -18,7 +18,7 @@
     members,
     online,
     verified,
-    myKeyCode,
+    self = '',
     ontrust,
     onverify,
   }: {
@@ -27,7 +27,7 @@
     members: Member[];
     online: Set<string>;
     verified: Set<string>;
-    myKeyCode: string;
+    self?: string;
     ontrust: (pk: string) => void;
     onverify: (pk: string, ok: boolean) => void;
   } = $props();
@@ -35,8 +35,9 @@
   let openPk = $state('');
   let differs = $state<Record<string, boolean>>({});
 
-  const here = $derived(members.filter((member) => online.has(member.pk)));
-  const earlier = $derived(members.filter((member) => !online.has(member.pk)));
+  const others = $derived(members.filter((member) => member.pk !== self));
+  const here = $derived(others.filter((member) => online.has(member.pk)));
+  const earlier = $derived(others.filter((member) => !online.has(member.pk)));
 
   function toggle(pk: string) {
     openPk = openPk === pk ? '' : pk;
@@ -46,103 +47,125 @@
     differs[pk] = true;
     onverify(pk, false);
   }
+
+  function memberState(member: Member): 'warn' | 'verified' | 'plain' {
+    if (!member.trusted || differs[member.pk]) return 'warn';
+    return verified.has(member.pk) ? 'verified' : 'plain';
+  }
+
+  function status(member: Member): string {
+    const s = memberState(member);
+    if (s === 'warn') return differs[member.pk] ? t(dict, 'chat.verifyMismatchShort') : t(dict, 'chat.keyNew');
+    if (s === 'verified') return t(dict, 'chat.verified');
+    return t(dict, 'chat.notVerified');
+  }
+
+  const btn = (kind: 'primary' | 'tonal') => appMode
+    ? (kind === 'primary' ? 'app-sheet-btn' : 'app-sheet-btn app-sheet-btn--tonal')
+    : (kind === 'primary' ? 'btn btn-sm' : 'btn-secondary btn-sm');
 </script>
 
 {#snippet row(member: Member)}
-  <div class="chat-member chat-member--col" class:chat-member--warn={!member.trusted || differs[member.pk]}>
+  {@const s = memberState(member)}
+  <li class="chat-member" class:chat-member--open={openPk === member.pk}>
     <button type="button" class="chat-member__head" aria-expanded={openPk === member.pk} onclick={() => toggle(member.pk)}>
-      <span class="chat-avatar chat-avatar--sm" style="background: {gradientFor(member.alias, member.name)}" aria-hidden="true"></span>
-      <span class="chat-member__name">{member.name}</span>
-      {#if !member.trusted}
-        <span class="chat-key-warn">{t(dict, 'chat.keyNew')}</span>
-      {:else if verified.has(member.pk)}
-        <span class="chat-member__verified">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
-          {t(dict, 'chat.verified')}
-        </span>
+      <span class="chat-avatar chat-member__avatar" style="background: {gradientFor(member.alias, member.name)}" aria-hidden="true">
+        {#if online.has(member.pk)}<span class="chat-member__dot"></span>{/if}
+      </span>
+      <span class="chat-member__text">
+        <span class="chat-member__name">{member.name}</span>
+        <span class="chat-member__status chat-member__status--{s}">{status(member)}</span>
+      </span>
+      {#if s === 'verified'}
+        <svg class="chat-member__shield chat-member__shield--ok" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['shield-check']}</svg>
+      {:else if s === 'warn'}
+        <svg class="chat-member__shield chat-member__shield--warn" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['shield']}<path d="M12 8v4"/><path d="M12 16h.01"/></svg>
       {/if}
-      <svg class="chat-member__chevron" class:chat-member__chevron--open={openPk === member.pk} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['chevron-down']}</svg>
+      <svg class="chat-member__chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['chevron-down']}</svg>
     </button>
     {#if openPk === member.pk}
       <div class="chat-member__panel">
         {#if !member.trusted}
-          <p class="hint">{t(dict, 'chat.keyNewHint')}</p>
-          <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-outline btn-sm'} onclick={() => ontrust(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
+          <p class="chat-member__hint">{t(dict, 'chat.keyNewHint')}</p>
+          <button type="button" class={btn('tonal')} onclick={() => ontrust(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
         {:else}
-          <p class="hint">{t(dict, 'chat.verifyHint')}</p>
-          <p class="chat-member__emoji chat-member__safety" aria-label={member.safety}>
+          <p class="chat-member__hint">{t(dict, 'chat.verifyHint')}</p>
+          <p class="chat-member__safety" aria-label={member.safety}>
             {#each member.safety.split(' ') as group}<span>{group}</span>{/each}
           </p>
           {#if differs[member.pk]}
             <p class="status status--error" role="alert">{t(dict, 'chat.verifyMismatchWarn')}</p>
           {:else if verified.has(member.pk)}
-            <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-ghost btn-sm'} onclick={() => onverify(member.pk, false)}>{t(dict, 'chat.verifyReset')}</button>
+            <button type="button" class={btn('tonal')} onclick={() => onverify(member.pk, false)}>{t(dict, 'chat.verifyReset')}</button>
           {:else}
             <div class="chat-member__actions">
-              <button type="button" class={appMode ? 'app-sheet-btn' : 'btn btn-sm'} onclick={() => onverify(member.pk, true)}>{t(dict, 'chat.verifyMatch')}</button>
-              <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-outline btn-sm'} onclick={() => mismatch(member.pk)}>{t(dict, 'chat.verifyMismatch')}</button>
+              <button type="button" class={btn('primary')} onclick={() => onverify(member.pk, true)}>{t(dict, 'chat.verifyMatch')}</button>
+              <button type="button" class={btn('tonal')} onclick={() => mismatch(member.pk)}>{t(dict, 'chat.verifyMismatch')}</button>
             </div>
           {/if}
-          <details class="chat-member__details">
-            <summary>{t(dict, 'chat.memberDetails')}</summary>
-            <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')}</span><span class="chat-member__emoji" aria-label={member.code}>{member.code}</span></p>
-          </details>
+          <p class="chat-member__code"><span>{t(dict, 'chat.keyCode')}</span><span class="chat-member__code-value" aria-label={member.code}>{member.code}</span></p>
         {/if}
       </div>
     {/if}
-  </div>
+  </li>
 {/snippet}
 
-{#if members.length === 0}
-  <p class="hint">{t(dict, 'chat.noMembersYet')}</p>
+{#if others.length === 0}
+  <p class="chat-members__empty">{t(dict, 'chat.noMembersYet')}</p>
 {/if}
 {#if here.length > 0}
-  <p class="chat-members__heading">{t(dict, 'chat.membersOnline')}</p>
-  {#each here as member (member.pk)}{@render row(member)}{/each}
+  <p class="chat-members__heading">{t(dict, 'chat.membersOnline')} · {here.length}</p>
+  <ul class="chat-members__list">{#each here as member (member.pk)}{@render row(member)}{/each}</ul>
 {/if}
 {#if earlier.length > 0}
   <p class="chat-members__heading">{t(dict, 'chat.membersEarlier')}</p>
-  <div class="chat-members__earlier">
-    {#each earlier as member (member.pk)}{@render row(member)}{/each}
-  </div>
-{/if}
-{#if myKeyCode}
-  <details class="chat-member__details chat-member__mine">
-    <summary>{t(dict, 'chat.memberDetails')}</summary>
-    <p class="chat-member__line"><span class="hint">{t(dict, 'chat.keyCode')} · {t(dict, 'chat.you')}</span><span class="chat-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
-    <p class="hint">{t(dict, 'chat.safetyNumberHint')}</p>
-  </details>
+  <ul class="chat-members__list">{#each earlier as member (member.pk)}{@render row(member)}{/each}</ul>
 {/if}
 
 <style>
-  .chat-member { display: flex; align-items: flex-start; gap: 0.6rem; }
-  .chat-member--warn { padding: 0.5rem; border-radius: 0.6rem; background: rgba(240, 178, 50, 0.12); }
-  .chat-member__name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
-  .chat-member__line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
-  .chat-member__emoji { display: inline-flex; flex-wrap: wrap; gap: 0.2rem; font-size: 1.15rem; line-height: 1.3; letter-spacing: 0.05em; color: var(--text); }
-  .chat-member__safety { gap: 0.3rem; font-size: 1.5rem; margin: 0; }
-  .chat-key-warn {
-    display: inline-flex; align-items: center; padding: 0 0.4rem; border-radius: 999px;
-    font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-    color: rgb(122, 75, 0); background: rgb(253, 230, 138);
+  .chat-members__heading {
+    margin: 0.5rem 0 0.25rem; font-size: 0.75rem; font-weight: 600; color: var(--muted);
   }
-  :global(.dark) .chat-key-warn { color: rgb(253, 230, 138); background: rgba(240, 178, 50, 0.22); }
-  .chat-member--col { display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; }
+  .chat-members__empty { margin: 0.25rem 0; font-size: 0.875rem; color: var(--muted); }
+  .chat-members__list {
+    list-style: none; margin: 0; padding: 0;
+    border-radius: 0.875rem; background: var(--surface-2); overflow: hidden;
+  }
+  .chat-member + .chat-member { border-top: 1px solid var(--line-soft); }
   .chat-member__head {
-    display: flex; align-items: center; gap: 0.6rem; width: 100%;
-    background: none; border: 0; padding: 0.15rem 0; color: inherit; text-align: start; cursor: pointer;
+    display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.25rem;
+    background: none; border: 0; padding: 0.5rem 0.75rem; color: inherit; text-align: start; cursor: pointer;
   }
-  .chat-member__head .chat-member__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chat-member__verified {
-    display: inline-flex; align-items: center; gap: 0.2rem;
-    font-size: 0.75rem; font-weight: 600; color: #2e9e4d;
+  .chat-member__head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 0.875rem; }
+  .chat-member__avatar { width: 36px; height: 36px; flex: none; position: relative; box-shadow: none; }
+  .chat-member__dot {
+    position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%;
+    background: #34c759; box-shadow: 0 0 0 2px var(--surface-2);
   }
-  .chat-member__chevron { flex-shrink: 0; opacity: 0.55; transition: transform 0.15s ease; }
-  .chat-member__chevron--open { transform: rotate(180deg); }
-  .chat-member__panel { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem 0 0.5rem 2.6rem; align-items: flex-start; }
+  .chat-member__text { flex: 1; min-width: 0; display: grid; }
+  .chat-member__name { font-size: 0.9375rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-member__status { font-size: 0.8125rem; color: var(--muted); }
+  .chat-member__status--verified { color: var(--accent); }
+  .chat-member__status--warn { color: #b26b00; }
+  :global(.dark) .chat-member__status--warn, :global(:root[data-app-scheme="dark"]) .chat-member__status--warn { color: #f0b232; }
+  .chat-member__shield { flex: none; }
+  .chat-member__shield--ok { color: var(--accent); }
+  .chat-member__shield--warn { color: #b26b00; }
+  :global(.dark) .chat-member__shield--warn, :global(:root[data-app-scheme="dark"]) .chat-member__shield--warn { color: #f0b232; }
+  .chat-member__chevron { flex: none; color: var(--muted); transition: transform 0.18s ease; }
+  .chat-member--open .chat-member__chevron { transform: rotate(180deg); }
+  .chat-member__panel {
+    display: grid; gap: 0.75rem; padding: 0.25rem 0.75rem 0.875rem calc(0.75rem + 36px + 0.75rem); justify-items: start;
+  }
+  .chat-member__hint { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--muted); }
+  .chat-member__safety {
+    margin: 0; width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 0.75rem;
+    padding: 0.75rem; border-radius: 0.75rem; background: var(--surface);
+    font-size: 1.75rem; line-height: 1.2;
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
   .chat-member__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  .chat-member__details summary { cursor: pointer; font-size: 0.8125rem; opacity: 0.7; }
-  .chat-member__mine { margin-top: 0.75rem; }
-  .chat-members__heading { margin: 0.75rem 0 0.15rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.6; }
-  .chat-members__earlier { opacity: 0.78; }
+  .chat-member__code { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--muted); }
+  .chat-member__code-value { font-size: 1rem; letter-spacing: 0.08em; }
+  @media (prefers-reduced-motion: reduce) { .chat-member__chevron { transition: none; } }
 </style>
