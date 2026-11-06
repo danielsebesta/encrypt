@@ -4,11 +4,13 @@ const STORAGE_KEY = 'encrypt-app-lock';
 const VAULT_MARK = 'vault';
 const ID_RE = /^[A-Za-z0-9_-]{16,1024}$/;
 
-/** How long the app may stay in the background before it asks again. */
+/** Default how long the app may stay in the background before it asks again. */
 export const LOCK_AFTER_MS = 30_000;
 
-export function shouldLock(hiddenAt: number, now: number): boolean {
-  return hiddenAt > 0 && now - hiddenAt >= LOCK_AFTER_MS;
+export function shouldLock(hiddenAt: number, now: number, afterMs = LOCK_AFTER_MS): boolean {
+  if (hiddenAt <= 0) return false;
+  if (afterMs <= 0) return true;
+  return now - hiddenAt >= afterMs;
 }
 
 export function toBase64Url(bytes: Uint8Array): string {

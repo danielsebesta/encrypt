@@ -385,7 +385,7 @@ html[data-app-platform] body {
     max-width: 100%;
 }
 .app-hub-mark {
-    --hub-mark-h: 2.85rem;
+    --hub-mark-h: 1.75rem;
     height: var(--hub-mark-h);
     width: calc(var(--hub-mark-h) * 278 / 423);
     flex: 0 0 auto;
@@ -394,7 +394,7 @@ html[data-app-platform] body {
     mask: url("/encryptclick_icon.svg") center / contain no-repeat;
 }
 :root[data-app-platform="material"] .app-hub-mark {
-    --hub-mark-h: 3.1rem;
+    --hub-mark-h: 1.9rem;
 }
 :root[data-app-scheme="dark"] .app-hub-mark {
     background-color: #86b94a;
@@ -3704,6 +3704,145 @@ html[data-app-platform] ::selection {
     padding-inline-start: 38px;
 }
 
-.app-version-row .text-sm {
-    white-space: pre-line;
+.app-version-ok {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--app-label-2);
+    white-space: nowrap;
+}
+
+@keyframes app-spin {
+    to { transform: rotate(360deg); }
+}
+.app-spin-once {
+    display: inline-flex;
+    animation: app-spin 0.85s linear infinite;
+}
+
+/* Update available — floating card above the tabbar / room chrome */
+.app-update-banner {
+    position: fixed;
+    z-index: 80;
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+        "icon copy"
+        "actions actions";
+    gap: 0.65rem 0.75rem;
+    padding: 0.9rem 0.95rem;
+    border-radius: 1.1rem;
+    background: var(--app-surface);
+    color: var(--app-label);
+    box-shadow: var(--app-shadow);
+    animation: app-update-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.app-update-banner--hub {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem);
+}
+.app-update-banner__icon {
+    grid-area: icon;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-tint-container);
+    color: var(--app-on-tint-container);
+}
+.app-update-banner__copy {
+    grid-area: copy;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+}
+.app-update-banner__title {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+.app-update-banner__meta {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--app-label-2);
+}
+.app-update-banner__actions {
+    grid-area: actions;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+.app-update-banner__later,
+.app-update-banner__now {
+    min-height: 2.25rem;
+    padding: 0 0.95rem;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+.app-update-banner__later {
+    background: transparent;
+    color: var(--app-label-2);
+}
+.app-update-banner__later:active {
+    background: color-mix(in srgb, var(--app-label) 8%, transparent);
+}
+.app-update-banner__now {
+    background: var(--app-tint);
+    color: var(--app-on-tint, #fff);
+}
+.app-update-banner__now:active {
+    filter: brightness(0.95);
+}
+.app-update-banner__now:disabled {
+    opacity: 0.55;
+}
+@keyframes app-update-in {
+    from {
+        opacity: 0;
+        translate: 0 0.6rem;
+    }
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+:root[data-app-platform="ios"] .app-update-banner {
+    border-radius: 1rem;
+    background: var(--app-sheet);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
+        0 10px 28px color-mix(in srgb, #000 28%, transparent);
+}
+:root[data-app-platform="ios"] .app-update-banner__icon {
+    border-radius: 0.75rem;
+}
+:root[data-app-platform="material"] .app-update-banner {
+    border-radius: 1.25rem;
+    background: var(--app-surface, var(--app-sheet));
+}
+:root[data-app-platform="material"] .app-update-banner__later {
+    color: var(--app-tint);
+}
+:root[data-app-platform="material"] .app-update-banner__now {
+    border-radius: 1.25rem;
+}
+
+/* Forced reduce-motion (settings override) mirrors prefers-reduced-motion. */
+:root[data-app-reduce-motion="1"] *,
+:root[data-app-reduce-motion="1"] *::before,
+:root[data-app-reduce-motion="1"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
 }

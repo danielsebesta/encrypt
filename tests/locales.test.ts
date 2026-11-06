@@ -11,6 +11,8 @@ const ALLOW_SAME_AS_EN = new Set([
   'app.filter.live',
   'app.new.kindChat',
   'app.settings.app',
+  'app.settings.designIos',
+  'app.settings.designMaterial',
   'app.settings.materialShort',
   'app.settings.system',
   'app.tab.chats',

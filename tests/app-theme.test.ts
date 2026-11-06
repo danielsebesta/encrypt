@@ -7,6 +7,7 @@ import {
   detectPlatform,
   loadThemeState,
   resolveScheme,
+  saveThemeState,
 } from '../src/lib/appTheme';
 
 type Store = Map<string, string>;
@@ -76,19 +77,34 @@ test('resolveScheme honours explicit choice and falls back to dark for system', 
   assert.equal(resolveScheme('system'), 'light');
 });
 
-test('loadThemeState ignores stored overrides and clears them', () => {
+test('loadThemeState restores saved platform, appearance and seed', () => {
   const store = stubLocalStorage();
   stubMatchMedia(false);
   store.set('encrypt-app-platform', 'material');
   store.set('encrypt-app-appearance', 'dark');
   store.set('encrypt-app-seed', '#112233');
   const state = loadThemeState();
+  assert.equal(state.platform, 'material');
+  assert.equal(state.appearance, 'dark');
+  assert.equal(state.seed, '#112233');
+});
+
+test('loadThemeState defaults to detected platform and system appearance', () => {
+  stubLocalStorage();
+  stubMatchMedia(false);
+  const state = loadThemeState();
+  assert.equal(state.platform, detectPlatform());
   assert.equal(state.appearance, 'system');
   assert.equal(state.seed, DEFAULT_SEED);
-  assert.equal(state.platform, detectPlatform());
-  assert.equal(store.has('encrypt-app-platform'), false);
-  assert.equal(store.has('encrypt-app-appearance'), false);
-  assert.equal(store.has('encrypt-app-seed'), false);
+});
+
+test('saveThemeState persists choices for the next load', () => {
+  stubLocalStorage();
+  saveThemeState({ platform: 'ios', appearance: 'light', seed: DEFAULT_SEED });
+  const state = loadThemeState();
+  assert.equal(state.platform, 'ios');
+  assert.equal(state.appearance, 'light');
+  assert.equal(state.seed, DEFAULT_SEED);
 });
 
 const HEX_RE = /^#[0-9a-f]{6}$/i;

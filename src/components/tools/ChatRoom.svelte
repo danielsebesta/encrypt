@@ -819,6 +819,9 @@
       await lock?.release().catch(() => {});
       return;
     }
+    try {
+      if (localStorage.getItem('encrypt-app-keep-awake') === '0') return;
+    } catch {}
     if (callWakeLock || document.visibilityState !== 'visible') return;
     try {
       callWakeLock = (await navigator.wakeLock?.request('screen')) ?? null;

@@ -14,7 +14,9 @@ export type AppAppearance = 'system' | AppScheme;
 export const DEFAULT_SEED = '#86b94a';
 
 const LS_MD_VARS = 'encrypt-app-mdvars';
-const STALE_KEYS = ['encrypt-app-platform', 'encrypt-app-appearance', 'encrypt-app-seed'];
+const LS_PLATFORM = 'encrypt-app-platform';
+const LS_APPEARANCE = 'encrypt-app-appearance';
+const LS_SEED = 'encrypt-app-seed';
 
 type VarMap = Record<string, string>;
 
@@ -148,11 +150,34 @@ export function detectPlatform(): AppPlatform {
   return /iPhone|iPad|iPod|Macintosh/.test(ua) ? 'ios' : 'material';
 }
 
-export function loadThemeState(): AppThemeState {
+function readStored(key: string): string | null {
   try {
-    for (const key of STALE_KEYS) localStorage.removeItem(key);
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function loadThemeState(): AppThemeState {
+  const platformRaw = readStored(LS_PLATFORM);
+  const platform: AppPlatform =
+    platformRaw === 'ios' || platformRaw === 'material' ? platformRaw : detectPlatform();
+  const appearanceRaw = readStored(LS_APPEARANCE);
+  const appearance: AppAppearance =
+    appearanceRaw === 'light' || appearanceRaw === 'dark' || appearanceRaw === 'system'
+      ? appearanceRaw
+      : 'system';
+  const seedRaw = readStored(LS_SEED);
+  const seed = seedRaw && /^#[0-9a-fA-F]{6}$/.test(seedRaw) ? seedRaw : DEFAULT_SEED;
+  return { platform, appearance, seed };
+}
+
+export function saveThemeState(state: AppThemeState) {
+  try {
+    localStorage.setItem(LS_PLATFORM, state.platform);
+    localStorage.setItem(LS_APPEARANCE, state.appearance);
+    localStorage.setItem(LS_SEED, state.seed);
   } catch {}
-  return { platform: detectPlatform(), appearance: 'system', seed: DEFAULT_SEED };
 }
 
 export function resolveScheme(appearance: AppAppearance): AppScheme {

@@ -29,7 +29,18 @@
     | 'hash'
     | 'join'
     | 'list'
-    | 'home';
+    | 'home'
+    | 'refresh'
+    | 'update'
+    | 'palette'
+    | 'sun'
+    | 'moon'
+    | 'monitor'
+    | 'smartphone'
+    | 'bell'
+    | 'bell-off'
+    | 'eraser'
+    | 'database';
 
   const MAP: Record<IconName, string> = {
     chat: 'message-square',
@@ -60,6 +71,17 @@
     join: 'log-in',
     list: 'list',
     home: 'house',
+    refresh: 'refresh-cw',
+    update: 'cloud-download',
+    palette: 'palette',
+    sun: 'sun',
+    moon: 'moon',
+    monitor: 'monitor',
+    smartphone: 'smartphone',
+    bell: 'bell',
+    'bell-off': 'bell-off',
+    eraser: 'eraser',
+    database: 'database-x',
   };
 
   let {

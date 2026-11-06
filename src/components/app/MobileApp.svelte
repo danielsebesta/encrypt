@@ -73,11 +73,31 @@
   import {
     applyTheme,
     loadThemeState,
+    saveThemeState,
     DEFAULT_SEED,
     type AppPlatform,
     type AppAppearance,
     type AppScheme,
   } from '../../lib/appTheme';
+  import {
+    LOCK_TIMEOUT_OPTIONS,
+    applyReduceMotion,
+    clearAppCaches,
+    loadDefaultRoomMode,
+    loadHapticsMode,
+    loadKeepAwake,
+    loadLockTimeoutMs,
+    loadReduceMotion,
+    prefersReducedMotion,
+    saveDefaultRoomMode,
+    saveHapticsMode,
+    saveKeepAwake,
+    saveLockTimeoutMs,
+    saveReduceMotion,
+    type DefaultRoomMode,
+    type HapticsMode,
+    type LockTimeoutMs,
+  } from '../../lib/appPrefs';
   import {
     appShotsEnabled,
     shotRooms,
@@ -104,8 +124,16 @@
   let appearance = $state<AppAppearance>('system');
   let scheme = $state<AppScheme>('dark');
   let seed = $state<string>(DEFAULT_SEED);
-  let haptics = $state(true);
+  let hapticsMode = $state<HapticsMode>('all');
   let hapticsOk = $state(false);
+  let reduceMotion = $state(false);
+  let keepAwake = $state(true);
+  let defaultRoomMode = $state<DefaultRoomMode>('live');
+  let lockTimeoutMs = $state<LockTimeoutMs>(30_000);
+  let notifPermission = $state<NotificationPermission | 'unsupported'>('unsupported');
+  let clearingCache = $state(false);
+  type PrefSheet = 'platform' | 'theme' | 'haptics' | 'lockTimeout' | 'roomMode' | null;
+  let prefSheet = $state<PrefSheet>(null);
   let ready = $state(false);
 
   let isStandalone = $state(false);
@@ -124,6 +152,7 @@
   let newRoomSheetOpen = $state(false);
   let joinRoomSheetOpen = $state(false);
   let langSheetOpen = $state(false);
+  let prefSheetOpen = $derived(prefSheet !== null);
   let panicDialogOpen = $state(false);
   let vaultExportOpen = $state(false);
   let vaultExportPw = $state('');
@@ -182,6 +211,7 @@
       newRoom: newRoomSheetOpen,
       join: joinRoomSheetOpen,
       lang: langSheetOpen,
+      pref: prefSheetOpen,
       install: showIosInstallSheet,
       panic: panicDialogOpen,
       clearBoard: clearBoardDialogOpen,
@@ -201,6 +231,7 @@
     if (keep !== 'newRoom' && newRoomSheetOpen) closeNewRoomSheet(false);
     if (keep !== 'join' && joinRoomSheetOpen) closeJoinRoomSheet(false);
     if (keep !== 'lang') langSheetOpen = false;
+    if (keep !== 'pref') prefSheet = null;
     if (keep !== 'install') showIosInstallSheet = false;
     if (keep !== 'panic') panicDialogOpen = false;
     if (keep !== 'clearBoard') clearBoardDialogOpen = false;
@@ -381,8 +412,7 @@
   function switchTab(tab: TabId) {
     if (tab === activeTab) {
       // Native behavior: re-tapping the active tab scrolls its content to top.
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      scroller?.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+      scroller?.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
       return;
     }
     if (scroller) tabScroll[activeTab] = scroller.scrollTop;
@@ -399,12 +429,130 @@
     newRoomPassword = '';
     newRoomNameError = false;
     newRoomPwError = false;
-    newRoomMode = 'live';
+    newRoomMode = defaultRoomMode;
     showNewPw = false;
     newPwShownByUser = false;
     retentionIndex = RETENTION_SECONDS.indexOf(3600);
     creatingRoom = false;
     if (popGuard) consumeOverlayGuard();
+  }
+
+  function openNewRoom(kind: 'chat' | 'whiteboard') {
+    newRoomKind = kind;
+    newRoomMode = defaultRoomMode;
+    newRoomSheetOpen = true;
+  }
+
+  function closePrefSheet(popGuard = true) {
+    prefSheet = null;
+    if (popGuard) consumeOverlayGuard();
+  }
+
+  function openPrefSheet(kind: Exclude<PrefSheet, null>) {
+    prefSheet = kind;
+  }
+
+  function applyAppTheme(next: { platform?: AppPlatform; appearance?: AppAppearance }) {
+    if (next.platform) platform = next.platform;
+    if (next.appearance) appearance = next.appearance;
+    const state = { platform, appearance, seed };
+    saveThemeState(state);
+    scheme = applyTheme(state);
+    triggerHaptic('medium');
+  }
+
+  function setHapticsMode(mode: HapticsMode) {
+    hapticsMode = mode;
+    saveHapticsMode(mode);
+    if (mode !== 'off') triggerHaptic(mode === 'essential' ? 'medium' : 'light');
+    closePrefSheet();
+  }
+
+  function setLockTimeout(ms: LockTimeoutMs) {
+    lockTimeoutMs = ms;
+    saveLockTimeoutMs(ms);
+    triggerHaptic('light');
+    closePrefSheet();
+  }
+
+  function setDefaultRoomMode(mode: DefaultRoomMode) {
+    defaultRoomMode = mode;
+    saveDefaultRoomMode(mode);
+    triggerHaptic('light');
+    closePrefSheet();
+  }
+
+  function designLabel(): string {
+    return platform === 'ios' ? t(dict, 'app.settings.designIos') : t(dict, 'app.settings.designMaterial');
+  }
+
+  function themeLabel(): string {
+    if (appearance === 'light') return t(dict, 'app.settings.themeLight');
+    if (appearance === 'dark') return t(dict, 'app.settings.themeDark');
+    return t(dict, 'app.settings.themeSystem');
+  }
+
+  function hapticsLabel(): string {
+    if (hapticsMode === 'off') return t(dict, 'app.settings.hapticsOff');
+    if (hapticsMode === 'essential') return t(dict, 'app.settings.hapticsEssential');
+    return t(dict, 'app.settings.hapticsAll');
+  }
+
+  function lockTimeoutLabel(): string {
+    if (lockTimeoutMs === 0) return t(dict, 'app.settings.lockTimeout.immediate');
+    if (lockTimeoutMs === 60_000) return t(dict, 'app.settings.lockTimeout.1m');
+    if (lockTimeoutMs === 300_000) return t(dict, 'app.settings.lockTimeout.5m');
+    return t(dict, 'app.settings.lockTimeout.30s');
+  }
+
+  function roomModeLabel(mode: DefaultRoomMode = defaultRoomMode): string {
+    return mode === 'ttl' ? t(dict, 'chat.modeTtlTitle') : t(dict, 'chat.modeLiveTitle');
+  }
+
+  function notifLabel(): string {
+    if (notifPermission === 'granted') return t(dict, 'app.settings.notificationsGranted');
+    if (notifPermission === 'denied') return t(dict, 'app.settings.notificationsDenied');
+    if (notifPermission === 'default') return t(dict, 'app.settings.notificationsDefault');
+    return t(dict, 'app.settings.notificationsUnsupported');
+  }
+
+  function refreshNotifPermission() {
+    if (typeof Notification === 'undefined') {
+      notifPermission = 'unsupported';
+      return;
+    }
+    notifPermission = Notification.permission;
+  }
+
+  async function handleNotificationSetting() {
+    triggerHaptic('light');
+    if (typeof Notification === 'undefined') {
+      showToast(t(dict, 'app.settings.notificationsUnsupported'), 'warning');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      showToast(t(dict, 'chat.notifyDenied.app'), 'warning');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      showToast(t(dict, 'app.settings.notificationsGranted'), 'success');
+      return;
+    }
+    const result = await Notification.requestPermission().catch(() => 'denied' as NotificationPermission);
+    notifPermission = result;
+    showToast(
+      t(dict, result === 'granted' ? 'app.settings.notificationsGranted' : 'chat.notifyDenied.app'),
+      result === 'granted' ? 'success' : 'warning',
+    );
+  }
+
+  async function handleClearCache() {
+    if (clearingCache) return;
+    clearingCache = true;
+    triggerHaptic('medium');
+    const ok = await clearAppCaches();
+    clearingCache = false;
+    showToast(t(dict, ok ? 'app.settings.clearCacheDone' : 'app.settings.clearCacheError'), ok ? 'success' : 'warning');
   }
 
   function closeJoinRoomSheet(popGuard = true) {
@@ -419,6 +567,7 @@
     if (newRoomSheetOpen) { closeNewRoomSheet(); return; }
     if (joinRoomSheetOpen) { closeJoinRoomSheet(); return; }
     if (langSheetOpen) { langSheetOpen = false; consumeOverlayGuard(); return; }
+    if (prefSheet) { closePrefSheet(); return; }
     if (showIosInstallSheet) { showIosInstallSheet = false; consumeOverlayGuard(); return; }
     if (panicDialogOpen) { panicDialogOpen = false; consumeOverlayGuard(); return; }
     if (vaultExportOpen) { vaultExportOpen = false; vaultExportPw = ''; consumeOverlayGuard(); return; }
@@ -722,13 +871,31 @@
   let latestVersion = $state<AppVersion | null>(null);
   let updateToastOpen = $state(false);
   let dismissedUpdate = '';
+  let checkingUpdate = $state(false);
   const updateAvailable = $derived(Boolean(latestVersion && !isDevBuild && latestVersion.commit !== CURRENT_VERSION.commit));
 
-  async function checkForUpdate() {
-    const latest = await fetchLatestVersion();
-    if (!latest) return;
-    latestVersion = latest;
-    if (!isDevBuild && latest.commit !== CURRENT_VERSION.commit && dismissedUpdate !== latest.commit) updateToastOpen = true;
+  async function checkForUpdate(manual = false) {
+    if (checkingUpdate) return;
+    if (manual) checkingUpdate = true;
+    try {
+      const latest = await fetchLatestVersion();
+      if (!latest) {
+        if (manual) showToast(t(dict, 'app.settings.updateCheckFailed'), 'warning');
+        return;
+      }
+      latestVersion = latest;
+      if (isDevBuild) {
+        if (manual) showToast(t(dict, 'app.settings.upToDate'), 'success');
+        return;
+      }
+      if (latest.commit === CURRENT_VERSION.commit) {
+        if (manual) showToast(t(dict, 'app.settings.upToDate'), 'success');
+        return;
+      }
+      if (dismissedUpdate !== latest.commit || manual) updateToastOpen = true;
+    } finally {
+      checkingUpdate = false;
+    }
   }
 
   function dismissUpdateToast() {
@@ -740,6 +907,7 @@
   async function updateApp() {
     if (updating) return;
     updating = true;
+    updateToastOpen = false;
     triggerHaptic('medium');
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
@@ -968,13 +1136,15 @@
       appearance = 'dark';
       scheme = applyTheme({ platform: 'ios', appearance: 'dark', seed });
     }
-    try {
-      haptics = localStorage.getItem('encrypt-app-haptics') !== '0';
-    } catch {
-      haptics = true;
-    }
+    hapticsMode = loadHapticsMode();
     hapticsOk = hapticsAvailable();
     if (hapticsOk) installHapticGrant();
+    reduceMotion = loadReduceMotion();
+    applyReduceMotion(reduceMotion);
+    keepAwake = loadKeepAwake();
+    defaultRoomMode = loadDefaultRoomMode();
+    lockTimeoutMs = loadLockTimeoutMs();
+    refreshNotifPermission();
     ready = true;
 
     lockEnabled = storedLock() !== null;
@@ -1006,15 +1176,15 @@
         return;
       }
       loadRooms();
-      void checkForUpdate();
-      if (lockEnabled && !locked && shouldLock(hiddenAt, Date.now())) {
+      void checkForUpdate(false);
+      if (lockEnabled && !locked && shouldLock(hiddenAt, Date.now(), lockTimeoutMs)) {
         engageLock();
       }
       hiddenAt = 0;
     };
     document.addEventListener('visibilitychange', onVisibility);
-    void checkForUpdate();
-    const updateTimer = setInterval(() => void checkForUpdate(), 30 * 60_000);
+    void checkForUpdate(false);
+    const updateTimer = setInterval(() => void checkForUpdate(false), 30 * 60_000);
 
     const onOffline = () => showToast(t(dict, 'app.offline'), false);
     const onOnline = () => showToast(t(dict, 'app.backOnline'), false);
@@ -1078,8 +1248,7 @@
       window.history.replaceState({ view: 'hub', tab: 'chats' }, '', '?tab=chats');
     }
     if (!roomParam && params.get('action') === 'new') {
-      newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat';
-      newRoomSheetOpen = true;
+      openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat');
       window.history.replaceState({ view: 'hub', tab: activeTab }, '', `?tab=${activeTab}`);
     }
 
@@ -1088,6 +1257,7 @@
       newRoomSheetOpen = false;
       joinRoomSheetOpen = false;
       langSheetOpen = false;
+      prefSheet = null;
       showIosInstallSheet = false;
       panicDialogOpen = false;
       clearBoardDialogOpen = false;
@@ -1246,10 +1416,7 @@
   <button
     type="button"
     class="w-11 h-11 flex items-center justify-center text-primary rounded-full"
-    onclick={() => {
-      newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat';
-      newRoomSheetOpen = true;
-    }}
+    onclick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}
     aria-label={t(dict, activeTab === 'boards' ? 'app.new.titleBoard' : 'app.new.titleChat')}
   >
     <AppIcons name="plus" size={22} />
@@ -1352,10 +1519,7 @@
       class="fixed right-4 z-40"
       style="bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px))"
       text={t(dict, 'app.empty.new')}
-      onClick={() => {
-        newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat';
-        newRoomSheetOpen = true;
-      }}
+      onClick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}
     >
       {#snippet icon()}<AppIcons name="plus" size={20} />{/snippet}
     </Fab>
@@ -1477,7 +1641,7 @@
                 {t(dict, activeTab === 'boards' ? 'app.empty.hintBoards' : 'app.empty.hint')}
               </p>
               <div class="flex flex-wrap gap-3 justify-center">
-                <Button rounded class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => { newRoomKind = activeTab === 'boards' ? 'whiteboard' : 'chat'; newRoomSheetOpen = true; }}>
+                <Button rounded class="min-h-10! px-5 w-auto! whitespace-nowrap" onClick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}>
                   <span class="app-btn-label"><AppIcons name="plus" size={16} />{t(dict, 'app.empty.new')}</span>
                 </Button>
                 {#if activeTab === 'chats'}
@@ -1516,31 +1680,95 @@
         <div class="app-content">
           <BlockTitle>{t(dict, 'app.settings.appearance')}</BlockTitle>
           <List strong inset>
+            <ListItem
+              link
+              linkComponent="button"
+              linkProps={{ type: 'button' }}
+              title={t(dict, 'app.settings.design')}
+              subtitle={designLabel()}
+              onClick={() => openPrefSheet('platform')}
+            >
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="smartphone" size={20} /></span>
+              {/snippet}
+            </ListItem>
+            <ListItem
+              link
+              linkComponent="button"
+              linkProps={{ type: 'button' }}
+              title={t(dict, 'app.settings.theme')}
+              subtitle={themeLabel()}
+              onClick={() => openPrefSheet('theme')}
+            >
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name={appearance === 'light' ? 'sun' : appearance === 'dark' ? 'moon' : 'monitor'} size={20} /></span>
+              {/snippet}
+            </ListItem>
+            <ListItem title={t(dict, 'app.settings.reduceMotion')} subtitle={t(dict, 'app.settings.reduceMotionHint')}>
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="eraser" size={20} /></span>
+              {/snippet}
+              {#snippet after()}
+                <Toggle
+                  checked={reduceMotion}
+                  onChange={() => {
+                    reduceMotion = !reduceMotion;
+                    saveReduceMotion(reduceMotion);
+                    applyReduceMotion(reduceMotion);
+                    triggerHaptic('light');
+                  }}
+                />
+              {/snippet}
+            </ListItem>
             {#if hapticsOk}
-              <ListItem title={t(dict, 'app.settings.haptics')}>
+              <ListItem
+                link
+                linkComponent="button"
+                linkProps={{ type: 'button' }}
+                title={t(dict, 'app.settings.haptics')}
+                subtitle={hapticsLabel()}
+                onClick={() => openPrefSheet('haptics')}
+              >
                 {#snippet media()}
                   <span class="text-[var(--app-tint)]"><AppIcons name="haptic" size={20} /></span>
                 {/snippet}
-                {#snippet after()}
-                  <Toggle
-                    checked={haptics}
-                    onChange={() => {
-                      haptics = !haptics;
-                      try { localStorage.setItem('encrypt-app-haptics', haptics ? '1' : '0'); } catch {}
-                      if (haptics) triggerHaptic('medium');
-                    }}
-                  />
-                {/snippet}
               </ListItem>
             {/if}
-            <ListItem title={t(dict, 'app.settings.lock')} subtitle={t(dict, 'app.settings.lockHint')}>
+          </List>
+
+          <BlockTitle>{t(dict, 'app.settings.rooms')}</BlockTitle>
+          <List strong inset>
+            <ListItem
+              link
+              linkComponent="button"
+              linkProps={{ type: 'button' }}
+              title={t(dict, 'app.settings.defaultRoomMode')}
+              subtitle={roomModeLabel()}
+              onClick={() => openPrefSheet('roomMode')}
+            >
               {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="lock" size={20} /></span>
-              {/snippet}
-              {#snippet after()}
-                {#key lockToggleKey}<Toggle checked={lockEnabled} onChange={toggleLock} />{/key}
+                <span class="text-[var(--app-tint)]"><AppIcons name={defaultRoomMode === 'ttl' ? 'timer' : 'history'} size={20} /></span>
               {/snippet}
             </ListItem>
+            <ListItem title={t(dict, 'app.settings.keepAwake')} subtitle={t(dict, 'app.settings.keepAwakeHint')}>
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="call" size={20} /></span>
+              {/snippet}
+              {#snippet after()}
+                <Toggle
+                  checked={keepAwake}
+                  onChange={() => {
+                    keepAwake = !keepAwake;
+                    saveKeepAwake(keepAwake);
+                    triggerHaptic('light');
+                  }}
+                />
+              {/snippet}
+            </ListItem>
+          </List>
+
+          <BlockTitle>{t(dict, 'app.settings.app')}</BlockTitle>
+          <List strong inset>
             <ListItem
               link
               linkComponent="button"
@@ -1553,30 +1781,105 @@
                 <span class="text-[var(--app-tint)]"><AppIcons name="globe" size={20} /></span>
               {/snippet}
             </ListItem>
-          </List>
-
-          <BlockTitle>{t(dict, 'app.settings.app')}</BlockTitle>
-          <List strong inset>
+            {#if notifPermission !== 'unsupported'}
+              <ListItem
+                link
+                linkComponent="button"
+                linkProps={{ type: 'button' }}
+                chevron={false}
+                title={t(dict, 'app.settings.notifications')}
+                subtitle={notifLabel()}
+                onClick={() => void handleNotificationSetting()}
+              >
+                {#snippet media()}
+                  <span class="text-[var(--app-tint)]"><AppIcons name={notifPermission === 'granted' ? 'bell' : 'bell-off'} size={20} /></span>
+                {/snippet}
+                {#snippet after()}
+                  {#if notifPermission === 'default'}
+                    <Button small rounded class="min-h-10!" onClick={(e: MouseEvent) => { e.stopPropagation(); void handleNotificationSetting(); }}>{t(dict, 'app.settings.notificationsAllow')}</Button>
+                  {/if}
+                {/snippet}
+              </ListItem>
+            {/if}
             <ListItem
-              class="app-version-row"
               title={t(dict, 'app.settings.version')}
-              subtitle={shotsMode
-                ? t(dict, 'app.settings.upToDate')
-                : `${describeVersion(CURRENT_VERSION, locale)}\n${updateAvailable && latestVersion ? t(dict, 'app.settings.newVersion').replace('{version}', describeVersion(latestVersion, locale)) : latestVersion ? t(dict, 'app.settings.upToDate') : t(dict, 'app.settings.updateHint')}`}
+              subtitle={shotsMode ? t(dict, 'app.settings.upToDate') : describeVersion(CURRENT_VERSION, locale)}
             >
               {#snippet media()}
-                <span class="text-[var(--app-tint)]"><AppIcons name="install" size={20} /></span>
+                <span class="text-[var(--app-tint)]"><AppIcons name={updateAvailable ? 'update' : 'check'} size={20} /></span>
               {/snippet}
               {#snippet after()}
-                {#if !shotsMode}
-                  <Button small rounded tonal class="min-h-10!" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
+                {#if !shotsMode && updateAvailable}
+                  <Button small rounded class="min-h-10!" disabled={updating} onClick={updateApp}>{t(dict, 'app.settings.update')}</Button>
+                {:else if !shotsMode && latestVersion && !updateAvailable}
+                  <span class="app-version-ok">{t(dict, 'app.settings.upToDate')}</span>
                 {/if}
+              {/snippet}
+            </ListItem>
+            {#if !shotsMode}
+              <ListItem
+                link
+                linkComponent="button"
+                linkProps={{ type: 'button', disabled: checkingUpdate || updating }}
+                chevron={false}
+                title={checkingUpdate
+                  ? t(dict, 'app.settings.checkingUpdates')
+                  : updateAvailable
+                    ? t(dict, 'app.settings.newVersion').replace('{version}', latestVersion ? describeVersion(latestVersion, locale) : '')
+                    : t(dict, 'app.settings.checkUpdates')}
+                subtitle={updateAvailable ? t(dict, 'app.settings.updateHint') : t(dict, 'app.settings.checkUpdatesHint')}
+                onClick={() => {
+                  triggerHaptic('light');
+                  if (updateAvailable) void updateApp();
+                  else void checkForUpdate(true);
+                }}
+              >
+                {#snippet media()}
+                  <span class="text-[var(--app-tint)]" class:app-spin-once={checkingUpdate}>
+                    <AppIcons name={updateAvailable ? 'update' : 'refresh'} size={20} />
+                  </span>
+                {/snippet}
+              </ListItem>
+            {/if}
+            <ListItem
+              link
+              linkComponent="button"
+              linkProps={{ type: 'button', disabled: clearingCache }}
+              chevron={false}
+              title={t(dict, 'app.settings.clearCache')}
+              subtitle={t(dict, 'app.settings.clearCacheHint')}
+              onClick={() => void handleClearCache()}
+            >
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="database" size={20} /></span>
               {/snippet}
             </ListItem>
           </List>
 
           <BlockTitle>{t(dict, 'app.settings.security')}</BlockTitle>
           <List strong inset>
+            <ListItem title={t(dict, 'app.settings.lock')} subtitle={t(dict, 'app.settings.lockHint')}>
+              {#snippet media()}
+                <span class="text-[var(--app-tint)]"><AppIcons name="lock" size={20} /></span>
+              {/snippet}
+              {#snippet after()}
+                {#key lockToggleKey}<Toggle checked={lockEnabled} onChange={toggleLock} />{/key}
+              {/snippet}
+            </ListItem>
+            {#if lockEnabled}
+              <ListItem
+                link
+                linkComponent="button"
+                linkProps={{ type: 'button' }}
+                title={t(dict, 'app.settings.lockTimeout')}
+                subtitle={lockTimeoutLabel()}
+                onClick={() => openPrefSheet('lockTimeout')}
+              >
+                {#snippet media()}
+                  <span class="text-[var(--app-tint)]"><AppIcons name="timer" size={20} /></span>
+                {/snippet}
+              </ListItem>
+            {/if}
             <ListItem title={t(dict, 'app.settings.crypto')} subtitle={t(dict, 'app.settings.cryptoValue')}>
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="shield" size={20} /></span>
@@ -1896,6 +2199,84 @@
       <div class="pb-6"></div>
     </Sheet>
 
+    <!-- PREFERENCE SHEET -->
+    <Sheet
+      class="app-sheet pb-[env(safe-area-inset-bottom)]"
+      opened={prefSheetOpen}
+      onBackdropClick={() => closePrefSheet()}
+    >
+      <div class="app-sheet__handle"></div>
+      <div class="px-4 pt-3 pb-2 flex items-center justify-between">
+        <h3 class="app-sheet-title">
+          {#if prefSheet === 'platform'}{t(dict, 'app.settings.design')}
+          {:else if prefSheet === 'theme'}{t(dict, 'app.settings.theme')}
+          {:else if prefSheet === 'haptics'}{t(dict, 'app.settings.haptics')}
+          {:else if prefSheet === 'lockTimeout'}{t(dict, 'app.settings.lockTimeout')}
+          {:else if prefSheet === 'roomMode'}{t(dict, 'app.settings.defaultRoomMode')}
+          {/if}
+        </h3>
+        <Button clear small class="w-auto! min-h-10!" onClick={() => closePrefSheet()}>
+          {t(dict, 'app.done')}
+        </Button>
+      </div>
+      <List strong inset dividers class="my-0">
+        {#if prefSheet === 'platform'}
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.designIos')} onClick={() => { applyAppTheme({ platform: 'ios' }); closePrefSheet(); }}>
+            {#snippet after()}{#if platform === 'ios'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.designMaterial')} onClick={() => { applyAppTheme({ platform: 'material' }); closePrefSheet(); }}>
+            {#snippet after()}{#if platform === 'material'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+        {:else if prefSheet === 'theme'}
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.themeSystem')} onClick={() => { applyAppTheme({ appearance: 'system' }); closePrefSheet(); }}>
+            {#snippet after()}{#if appearance === 'system'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.themeLight')} onClick={() => { applyAppTheme({ appearance: 'light' }); closePrefSheet(); }}>
+            {#snippet after()}{#if appearance === 'light'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.themeDark')} onClick={() => { applyAppTheme({ appearance: 'dark' }); closePrefSheet(); }}>
+            {#snippet after()}{#if appearance === 'dark'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+        {:else if prefSheet === 'haptics'}
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.hapticsOff')} onClick={() => setHapticsMode('off')}>
+            {#snippet after()}{#if hapticsMode === 'off'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.hapticsEssential')} text={t(dict, 'app.settings.hapticsHint')} onClick={() => setHapticsMode('essential')}>
+            {#snippet after()}{#if hapticsMode === 'essential'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'app.settings.hapticsAll')} onClick={() => setHapticsMode('all')}>
+            {#snippet after()}{#if hapticsMode === 'all'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+        {:else if prefSheet === 'lockTimeout'}
+          {#each LOCK_TIMEOUT_OPTIONS as ms (ms)}
+            <ListItem
+              link
+              linkComponent="button"
+              linkProps={{ type: 'button' }}
+              title={ms === 0
+                ? t(dict, 'app.settings.lockTimeout.immediate')
+                : ms === 60_000
+                  ? t(dict, 'app.settings.lockTimeout.1m')
+                  : ms === 300_000
+                    ? t(dict, 'app.settings.lockTimeout.5m')
+                    : t(dict, 'app.settings.lockTimeout.30s')}
+              onClick={() => setLockTimeout(ms)}
+            >
+              {#snippet after()}{#if lockTimeoutMs === ms}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+            </ListItem>
+          {/each}
+        {:else if prefSheet === 'roomMode'}
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={roomModeLabel('live')} text={t(dict, 'chat.modeLiveHint')} onClick={() => setDefaultRoomMode('live')}>
+            {#snippet after()}{#if defaultRoomMode === 'live'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} title={roomModeLabel('ttl')} text={t(dict, 'chat.modeTtlHint')} onClick={() => setDefaultRoomMode('ttl')}>
+            {#snippet after()}{#if defaultRoomMode === 'ttl'}<AppIcons name="check" size={18} class="text-[var(--app-tint)]" strokeWidth={2.5} />{/if}{/snippet}
+          </ListItem>
+        {/if}
+      </List>
+      <div class="pb-6"></div>
+    </Sheet>
+
     <!-- iOS INSTALL SHEET -->
     <Sheet
       opened={showIosInstallSheet}
@@ -1932,19 +2313,28 @@
       </div>
     </Sheet>
 
-    <Toast
-      position="center"
-      opened={updateToastOpen && !toastOpen}
-      role="status"
-      aria-live="polite"
-      style="bottom: calc(env(safe-area-inset-bottom, 0px) + {activeView === 'hub' ? '6.5rem' : '4.75rem'})"
-    >
-      <span class="text-[15px]">{t(dict, 'app.update.available')}</span>
-      {#snippet button()}
-        <Button clear small onClick={updateApp}>{t(dict, 'app.update.now')}</Button>
-        <Button clear small onClick={dismissUpdateToast}>{t(dict, 'app.close')}</Button>
-      {/snippet}
-    </Toast>
+    {#if updateToastOpen && !toastOpen}
+      <div
+        class="app-update-banner"
+        class:app-update-banner--hub={activeView === 'hub'}
+        role="status"
+        aria-live="polite"
+      >
+        <div class="app-update-banner__icon" aria-hidden="true">
+          <AppIcons name="update" size={22} />
+        </div>
+        <div class="app-update-banner__copy">
+          <p class="app-update-banner__title">{t(dict, 'app.update.available')}</p>
+          {#if latestVersion}
+            <p class="app-update-banner__meta">{t(dict, 'app.settings.newVersion').replace('{version}', describeVersion(latestVersion, locale))}</p>
+          {/if}
+        </div>
+        <div class="app-update-banner__actions">
+          <button type="button" class="app-update-banner__later" onclick={dismissUpdateToast}>{t(dict, 'app.update.later')}</button>
+          <button type="button" class="app-update-banner__now" disabled={updating} onclick={() => void updateApp()}>{t(dict, 'app.update.now')}</button>
+        </div>
+      </div>
+    {/if}
 
     <Toast
       position="center"

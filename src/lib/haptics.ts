@@ -20,7 +20,8 @@ const PATTERNS: Record<HapticKind, Vibration[]> = {
   ],
 };
 
-const STORAGE_KEY = 'encrypt-app-haptics';
+import { loadHapticsMode } from './appPrefs';
+
 const PWM_CYCLE = 20;
 const MAX_PHASE_MS = 1000;
 /**
@@ -38,12 +39,11 @@ let rafId: number | null = null;
 let grantUntil = 0;
 let grantInstalled = false;
 
-function enabled(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) !== '0';
-  } catch {
-    return true;
-  }
+function allows(kind: HapticKind): boolean {
+  const mode = loadHapticsMode();
+  if (mode === 'off') return false;
+  if (mode === 'essential') return kind !== 'light';
+  return true;
 }
 
 function isIosTouch(): boolean {
@@ -278,7 +278,7 @@ function runIosPattern(vibrations: Vibration[]) {
 }
 
 export function haptic(kind: HapticKind = 'light') {
-  if (typeof window === 'undefined' || !enabled() || !hapticsAvailable()) return;
+  if (typeof window === 'undefined' || !allows(kind) || !hapticsAvailable()) return;
   const vibrations = PATTERNS[kind];
   try {
     if (typeof navigator.vibrate === 'function' && !isIosTouch()) {
