@@ -2059,14 +2059,6 @@
   }
   .wb-bar--start { left: 0.5rem; right: 9.5rem; }
   .wb-bar--end { right: 0.5rem; z-index: 3; }
-  /* In the app the top bar never wraps over the canvas: one row, scroll to reach the rest. */
-  :global(html[data-app-platform]) .wb-bar--start {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-  }
-  :global(html[data-app-platform]) .wb-bar--start::-webkit-scrollbar { display: none; }
 
   .wb-pill {
     display: flex;
@@ -2276,10 +2268,15 @@
     overflow-y: hidden;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
   :global(html[data-app-platform]) .wb-dock::-webkit-scrollbar,
   :global(html[data-app-platform]) .wb-geo::-webkit-scrollbar {
     display: none;
+  }
+  :global(html[data-app-platform]) .wb-dock .wb-btn,
+  :global(html[data-app-platform]) .wb-geo .wb-btn {
+    scroll-snap-align: start;
   }
 
   .wb-cursor {
