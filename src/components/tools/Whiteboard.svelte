@@ -928,6 +928,27 @@
     return document.documentElement.classList.contains('dark');
   }
 
+  // In the app the board shares the shell background (light/dark per platform, black on amoled)
+  // so the canvas reads as part of the app instead of a pasted-in card.
+  function appBoardBackground(): string | null {
+    if (!appMode || typeof document === 'undefined') return null;
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position: fixed; visibility: hidden; pointer-events: none; background: var(--app-bg);';
+    document.body.appendChild(probe);
+    const bg = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : null;
+  }
+
+  function syncBoardTheme() {
+    const bg = appBoardBackground();
+    if (bg) {
+      THEMES.light.background = bg;
+      THEMES.dark.background = bg;
+    }
+    themeId = isDarkTheme() ? 'dark' : 'light';
+  }
+
   function syncUi() {
     if (!editor) return;
     tool = editor.tool;
@@ -976,7 +997,7 @@
   }
 
   function board(node: HTMLDivElement) {
-    themeId = isDarkTheme() ? 'dark' : 'light';
+    syncBoardTheme();
     const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
     node.dataset.qdTheme = themeId;
     // Pictures are re-encoded here and embedded in the encrypted document; nothing goes to an upload service.
@@ -1415,10 +1436,11 @@
     window.addEventListener('offline', onNetChange);
     netOffline = !navigator.onLine;
     themeObserver = new MutationObserver(() => {
-      themeId = isDarkTheme() ? 'dark' : 'light';
+      syncBoardTheme();
       editor?.setTheme(themeId);
+      editor?.requestRender();
     });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-app-scheme', 'data-app-amoled'] });
     cursorCleanInterval = setInterval(() => {
       const cutoff = Date.now() - 4000;
       const before = cursors.length;
@@ -2016,6 +2038,10 @@
   .wb-board:global([data-qd-theme='dark']) {
     background: #0d140b;
   }
+  /* In the app the board is the shell surface itself: same bg as the rest of the app. */
+  :global(html[data-app-platform]) .wb-board {
+    background: var(--app-bg);
+  }
   .wb-board:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
@@ -2033,6 +2059,14 @@
   }
   .wb-bar--start { left: 0.5rem; right: 9.5rem; }
   .wb-bar--end { right: 0.5rem; z-index: 3; }
+  /* In the app the top bar never wraps over the canvas: one row, scroll to reach the rest. */
+  :global(html[data-app-platform]) .wb-bar--start {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  :global(html[data-app-platform]) .wb-bar--start::-webkit-scrollbar { display: none; }
 
   .wb-pill {
     display: flex;
@@ -2233,6 +2267,20 @@
     max-width: 100%;
   }
   .wb-geo { flex-wrap: wrap; justify-content: center; }
+  /* In the app the dock is one horizontally scrollable row; wrapping hid tools behind the fold. */
+  :global(html[data-app-platform]) .wb-dock,
+  :global(html[data-app-platform]) .wb-geo {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  :global(html[data-app-platform]) .wb-dock::-webkit-scrollbar,
+  :global(html[data-app-platform]) .wb-geo::-webkit-scrollbar {
+    display: none;
+  }
 
   .wb-cursor {
     position: absolute;
@@ -2445,6 +2493,8 @@
 
   @container (max-width: 560px) {
     .wb-zoom { display: none; }
+    /* The app keeps the zoom tools: the bar scrolls instead of hiding them. */
+    :global(html[data-app-platform]) .wb-zoom { display: flex; }
     .wb-btn { width: 34px; height: 34px; }
     .wb-chat { bottom: 7rem; }
   }
