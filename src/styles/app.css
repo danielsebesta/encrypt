@@ -1276,7 +1276,9 @@ html[data-app-platform] ::selection {
     }
     .chat-messages {
         scrollbar-width: none;
-        padding: 0.9rem 0.75rem 0.75rem;
+        /* Extra top gap so the first messages clear the header's bottom edge
+           and its fade instead of sitting right under it. */
+        padding: 1.4rem 0.75rem 0.75rem;
     }
     .chat-messages::-webkit-scrollbar {
         display: none;
