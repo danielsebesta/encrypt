@@ -1757,14 +1757,16 @@
           {#if roomCallState.joining}<span class="app-spinner" aria-hidden="true"></span>{:else}<AppIcons name="call" size={20} />{/if}
         </button>
       {/if}
-      <button
-        type="button"
-        class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-full"
-        onclick={shareRoom}
-        aria-label={t(dict, 'common.shareLink')}
-      >
-        <AppIcons name={shareIcon} size={20} />
-      </button>
+      {#if activeView === 'board'}
+        <button
+          type="button"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-full"
+          onclick={shareRoom}
+          aria-label={t(dict, 'common.shareLink')}
+        >
+          <AppIcons name={shareIcon} size={20} />
+        </button>
+      {/if}
       {#if activeView === 'room'}
         <button
           type="button"
