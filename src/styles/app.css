@@ -406,6 +406,10 @@ html[data-app-platform] .k-app {
     opacity: 1 !important;
     mask-image: none !important;
     -webkit-mask-image: none !important;
+    /* Konsta hangs these layers 26px below the bar for its fade; the room bar is
+       opaque, so that overhang only painted a band over the content underneath. */
+    bottom: 0 !important;
+    height: 100% !important;
 }
 /* Hub tab titles: Konsta sizes them per platform (iOS 34pt bold large title
    collapsing to a 17pt inline title, M3 22sp title-large); only truncate here. */
