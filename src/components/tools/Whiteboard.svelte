@@ -2528,17 +2528,15 @@
   }
 
   @container (max-width: 560px) {
+    /* Zoom controls are desktop tools; on touch screens the canvas pinches. */
     .wb-zoom { display: none; }
-    /* The app keeps the zoom tools: the bar scrolls instead of hiding them. */
-    :global(html[data-app-platform]) .wb-zoom { display: flex; }
     .wb-btn { width: 34px; height: 34px; }
     .wb-chat { bottom: 7rem; }
   }
 
-  /* Ultra-narrow viewports (Display Zoom, SE): a full zoom or selection row is wider
-     than the bar itself, so the pills cluster into a 2x2 grid instead of clipping. */
+  /* Ultra-narrow viewports (Display Zoom, SE): a full selection row is wider
+     than the bar itself, so the pill clusters into a 2x2 grid instead of clipping. */
   @container (max-width: 374px) {
-    .wb-zoom,
     .wb-selection {
       flex-wrap: wrap;
       max-width: 104px;
