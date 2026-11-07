@@ -371,16 +371,17 @@ html[data-app-platform] .k-app {
     position: absolute;
     top: 50%;
     bottom: auto;
-    /* Sit between the back glass and the action cluster — do not use left-1/2.
-       Konsta's -translate-x-1/2 on a full-width title shoved it off-screen. */
-    left: 4rem !important;
-    right: 9.75rem !important;
+    /* True screen center: anchor on 50% and pull back by half the block. The
+       side insets are symmetric (the wider action cluster on both sides), so
+       the title stays centered instead of drifting toward the back chevron. */
+    left: 50% !important;
+    right: auto !important;
     width: auto !important;
-    max-width: none !important;
+    max-width: calc(100% - 13.5rem) !important;
     box-sizing: border-box;
     padding: 0;
     margin: 0 !important;
-    transform: translateY(-50%) !important;
+    transform: translate(-50%, -50%) !important;
     translate: none !important;
     --tw-translate-x: 0 !important;
     --tw-translate-y: 0 !important;
@@ -388,7 +389,7 @@ html[data-app-platform] .k-app {
     z-index: 1;
 }
 :root[data-app-platform] .k-navbar.app-room-bar:not(:has(.app-nav-btn:nth-of-type(2))) .app-room-title {
-    right: 4.5rem !important;
+    max-width: calc(100% - 9rem) !important;
 }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title .app-nav-title,
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title > * {
