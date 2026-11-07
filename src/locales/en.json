@@ -1222,6 +1222,7 @@
   "rooms.saveNewPasskey.app": "The first time, the app creates a passkey for {host}. It is used only for this list.",
   "rooms.saveNamesOnly": "This browser cannot protect a password with a passkey, so only the name is saved. You will need the password or link again when you return.",
   "rooms.saveNamesOnly.app": "This phone cannot protect a password with a passkey, so only the name is saved. You will need the password or link again when you return.",
+  "rooms.saveNoPassword": "This room has no password to save, so only the name is saved. You will need the link again when you return.",
   "rooms.createAndSave": "Create passkey and save",
   "rooms.saveWithPasskey": "Save with passkey",
   "rooms.saveNameOnly": "Save name only",

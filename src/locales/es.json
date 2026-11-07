@@ -1212,6 +1212,7 @@
   "rooms.saveNewPasskey.app": "La primera vez, la app crea una clave de acceso para {host}. Solo se usa para esta lista.",
   "rooms.saveNamesOnly": "Este navegador no puede proteger una contraseña con una llave de acceso, así que solo se guarda el nombre. Al volver necesitarás de nuevo la contraseña o el enlace.",
   "rooms.saveNamesOnly.app": "Este móvil no puede proteger una contraseña con una clave de acceso, así que solo se guarda el nombre. Necesitarás la contraseña o el enlace al volver.",
+  "rooms.saveNoPassword": "Esta sala no tiene contraseña que guardar, así que solo se guarda el nombre. Al volver necesitarás de nuevo el enlace.",
   "rooms.createAndSave": "Crear llave de acceso y guardar",
   "rooms.saveWithPasskey": "Guardar con llave de acceso",
   "rooms.saveNameOnly": "Guardar solo el nombre",

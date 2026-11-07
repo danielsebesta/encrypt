@@ -1212,6 +1212,7 @@
   "rooms.saveNewPasskey.app": "Za pierwszym razem aplikacja tworzy klucz dostępu dla {host}. Służy tylko do tej listy.",
   "rooms.saveNamesOnly": "Ta przeglądarka nie potrafi chronić hasła kluczem dostępu, więc zapisana zostanie tylko nazwa. Po powrocie znów będziesz potrzebować hasła lub linku.",
   "rooms.saveNamesOnly.app": "Ten telefon nie potrafi chronić hasła kluczem dostępu, więc zapisano tylko nazwę. Po powrocie będziesz potrzebować hasła lub linku.",
+  "rooms.saveNoPassword": "Ten pokój nie ma hasła do zapisania, więc zapisana zostanie tylko nazwa. Po powrocie znów będziesz potrzebować linku.",
   "rooms.createAndSave": "Utwórz klucz dostępu i zapisz",
   "rooms.saveWithPasskey": "Zapisz z kluczem dostępu",
   "rooms.saveNameOnly": "Zapisz tylko nazwę",

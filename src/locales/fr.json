@@ -1212,6 +1212,7 @@
   "rooms.saveNewPasskey.app": "La première fois, l’app crée une clé d’accès pour {host}. Elle ne sert que pour cette liste.",
   "rooms.saveNamesOnly": "Ce navigateur ne peut pas protéger un mot de passe avec une clé d'accès, seul le nom est donc enregistré. À votre retour, il vous faudra de nouveau le mot de passe ou le lien.",
   "rooms.saveNamesOnly.app": "Ce téléphone ne peut pas protéger un mot de passe avec une clé d’accès, seul le nom est donc enregistré. Tu auras besoin du mot de passe ou du lien à ton retour.",
+  "rooms.saveNoPassword": "Ce salon n'a pas de mot de passe à enregistrer, seul le nom est donc enregistré. À ton retour, il te faudra de nouveau le lien.",
   "rooms.createAndSave": "Créer une clé d'accès et enregistrer",
   "rooms.saveWithPasskey": "Enregistrer avec la clé d'accès",
   "rooms.saveNameOnly": "Enregistrer le nom seulement",

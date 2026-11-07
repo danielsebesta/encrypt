@@ -226,6 +226,18 @@ async function prfMaybe(): Promise<boolean> {
   }
 }
 
+/** The platform authoritatively reports PRF support via getClientCapabilities. */
+async function prfSupported(): Promise<boolean> {
+  if (!webauthnAvailable()) return false;
+  const capabilities = (PublicKeyCredential as unknown as { getClientCapabilities?: () => Promise<Record<string, boolean>> }).getClientCapabilities;
+  if (typeof capabilities !== 'function') return false;
+  try {
+    return (await capabilities.call(PublicKeyCredential))['extension:prf'] === true;
+  } catch {
+    return false;
+  }
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
@@ -284,6 +296,15 @@ export async function vaultState(): Promise<VaultState> {
     try {
       namesOnly = (await withStore(META, 'readonly', (s) => s.get(NAMES_ONLY))) === true;
       ref = await readRef();
+    } catch {}
+  }
+  // A single no-prf attempt (e.g. a passkey created on a non-PRF authenticator)
+  // must not brick the passkey path forever: when the platform now
+  // authoritatively reports PRF support, let the next save try a passkey again.
+  if (namesOnly && (await prfSupported())) {
+    namesOnly = false;
+    try {
+      await withStore(META, 'readwrite', (s) => s.put(false, NAMES_ONLY));
     } catch {}
   }
   return vaultStateFor({ webauthn: await prfMaybe(), namesOnly, ref, unlocked: Boolean(sessionKey) });

@@ -1212,6 +1212,7 @@
   "rooms.saveNewPasskey.app": "Prvýkrát aplikácia vytvorí passkey pre {host}. Používa sa len pre tento zoznam.",
   "rooms.saveNamesOnly": "Tento prehliadač nedokáže chrániť heslo prístupovým kľúčom, preto sa uloží len názov. Pri návrate budete heslo alebo odkaz potrebovať znova.",
   "rooms.saveNamesOnly.app": "Tento telefón nevie chrániť heslo pomocou passkey, preto sa uloží len názov. Po návrate budeš heslo alebo odkaz potrebovať znova.",
+  "rooms.saveNoPassword": "Táto miestnosť nemá žiadne heslo na uloženie, preto sa uloží len názov. Po návrate budeš potrebovať znova odkaz.",
   "rooms.createAndSave": "Vytvoriť prístupový kľúč a uložiť",
   "rooms.saveWithPasskey": "Uložiť s prístupovým kľúčom",
   "rooms.saveNameOnly": "Uložiť len názov",

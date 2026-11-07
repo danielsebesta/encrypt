@@ -1212,6 +1212,7 @@
   "rooms.saveNewPasskey.app": "Beim ersten Mal erstellt die App einen Passkey für {host}. Er wird nur für diese Liste verwendet.",
   "rooms.saveNamesOnly": "Dieser Browser kann ein Passwort nicht mit einem Passkey schützen, daher wird nur der Name gespeichert. Wenn du zurückkommst, brauchst du Passwort oder Link erneut.",
   "rooms.saveNamesOnly.app": "Dieses Handy kann ein Passwort nicht mit einem Passkey schützen, daher wird nur der Name gespeichert. Du brauchst das Passwort oder den Link bei der Rückkehr erneut.",
+  "rooms.saveNoPassword": "Dieser Raum hat kein Passwort zum Speichern, daher wird nur der Name gespeichert. Du brauchst den Link bei der Rückkehr erneut.",
   "rooms.createAndSave": "Passkey erstellen und speichern",
   "rooms.saveWithPasskey": "Mit Passkey speichern",
   "rooms.saveNameOnly": "Nur Namen speichern",

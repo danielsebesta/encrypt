@@ -120,7 +120,7 @@
     <form class="stack" onsubmit={(event) => { event.preventDefault(); void save(withPasskey); }}>
       <div>
         <h2 id="save-room-title" class="section-title">{title}</h2>
-        <p id="save-room-intro" class="hint mt-1">{tApp(dict, withPasskey ? 'rooms.saveIntro' : 'rooms.saveNamesOnly', variant === 'konsta')}</p>
+        <p id="save-room-intro" class="hint mt-1">{tApp(dict, withPasskey ? 'rooms.saveIntro' : secret ? 'rooms.saveNamesOnly' : 'rooms.saveNoPassword', variant === 'konsta')}</p>
         {#if withPasskey && vault === 'new'}
           <p class="hint mt-2">{tApp(dict, 'rooms.saveNewPasskey', variant === 'konsta').replace('{host}', host)}</p>
         {/if}
