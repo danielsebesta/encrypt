@@ -2155,9 +2155,6 @@
                 {#snippet media()}{@render settingIcon('timer', 'green')}{/snippet}
               </ListItem>
             {/if}
-            <ListItem title={t(dict, 'app.settings.crypto')} subtitle={t(dict, 'app.settings.cryptoValue')}>
-              {#snippet media()}{@render settingIcon('shield', 'gray')}{/snippet}
-            </ListItem>
             <ListItem
               link
               linkComponent="button"
