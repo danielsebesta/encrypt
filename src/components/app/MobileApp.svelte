@@ -64,6 +64,7 @@
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { identiconBackground } from '../../lib/identicon';
+  import { copyText } from '../../lib/clipboard';
   import { passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import { languages, locales, type Locale } from '../../lib/languages';
@@ -207,6 +208,8 @@
   let retentionIndex = $state(RETENTION_SECONDS.indexOf(3600));
   let showNewPw = $state(false);
   let newPwShownByUser = $state(false);
+  let newPwCopied = $state(false);
+  let newPwCopiedTimer: ReturnType<typeof setTimeout> | undefined;
   const retentionSeconds = $derived(RETENTION_SECONDS[retentionIndex] ?? 3600);
   const retentionLabel = $derived(t(dict, 'chat.retentionTtl').replace('{time}', formatDuration(retentionSeconds, locale)));
   let joinRoomId = $state('');
@@ -991,6 +994,14 @@
     newPwShownByUser = false;
     newRoomPwError = false;
     triggerHaptic('light');
+  }
+
+  async function copyNewRoomPassphrase() {
+    if (!newRoomPassword) return;
+    newPwCopied = await copyText(newRoomPassword);
+    if (newPwCopied) triggerHaptic('light');
+    clearTimeout(newPwCopiedTimer);
+    newPwCopiedTimer = setTimeout(() => { newPwCopied = false; }, 1500);
   }
 
   // Existing entries keep their label, pin and any passkey-wrapped secret —
@@ -2356,6 +2367,16 @@
                   }}
                 >
                   <AppIcons name={showNewPw ? 'eye-off' : 'eye'} size={18} />
+                </button>
+                <button
+                  type="button"
+                  class="app-passphrase__btn"
+                  disabled={!newRoomPassword}
+                  aria-label={t(dict, newPwCopied ? 'common.copied' : 'common.copy')}
+                  title={t(dict, newPwCopied ? 'common.copied' : 'common.copy')}
+                  onclick={copyNewRoomPassphrase}
+                >
+                  <AppIcons name={newPwCopied ? 'check' : 'copy'} size={18} />
                 </button>
                 <button
                   type="button"

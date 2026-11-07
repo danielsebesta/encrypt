@@ -18,6 +18,7 @@
     | 'call'
     | 'more'
     | 'dices'
+    | 'copy'
     | 'eye'
     | 'eye-off'
     | 'history'
@@ -67,6 +68,7 @@
     call: 'phone',
     more: 'ellipsis-vertical',
     dices: 'dices',
+    copy: 'copy',
     eye: 'eye',
     'eye-off': 'eye-off',
     history: 'rotate-ccw-clock',

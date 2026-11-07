@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../lib/t';
   import { LUCIDE } from '../lib/lucideIcons';
+  import { copyText } from '../lib/clipboard';
 
   export let dict: Record<string, string>;
   export let id: string;
@@ -14,6 +15,8 @@
 
   // A generated passphrase is shown so it can be read out; editing it hides it unless the eye was used.
   let shownByUser = false;
+  let copied = false;
+  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
   function useGenerated() {
     value = generate();
@@ -23,6 +26,13 @@
 
   function hideWhileEditing() {
     if (!shownByUser) revealed = false;
+  }
+
+  async function copyValue() {
+    if (!value) return;
+    copied = await copyText(value);
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => { copied = false; }, 1500);
   }
 </script>
 
@@ -57,6 +67,20 @@
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye-off']}</svg>
     {:else}
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+    {/if}
+  </button>
+  <button
+    type="button"
+    class="btn-ghost btn-sm btn-icon"
+    disabled={!value}
+    on:click={copyValue}
+    aria-label={t(dict, copied ? 'common.copied' : 'common.copy')}
+    title={t(dict, copied ? 'common.copied' : 'common.copy')}
+  >
+    {#if copied}
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+    {:else}
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
     {/if}
   </button>
   <button
