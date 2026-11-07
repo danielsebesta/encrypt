@@ -949,6 +949,24 @@
     themeId = isDarkTheme() ? 'dark' : 'light';
   }
 
+  // Marks a scrollable tool row with edge fades, but only while there is more to scroll that way.
+  function scrollEdges(node: HTMLElement) {
+    const update = () => {
+      node.classList.toggle('wb-track--right', node.scrollLeft + node.clientWidth < node.scrollWidth - 2);
+      node.classList.toggle('wb-track--left', node.scrollLeft > 2);
+    };
+    node.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(node);
+    update();
+    return {
+      destroy() {
+        node.removeEventListener('scroll', update);
+        ro.disconnect();
+      },
+    };
+  }
+
   function syncUi() {
     if (!editor) return;
     tool = editor.tool;
@@ -1907,32 +1925,36 @@
       <div class="wb-dock-wrap">
         {#if tool === 'geo'}
           <div class="wb-pill wb-geo" role="group" aria-label={t(dict, 'whiteboard.geoKinds')}>
-            {#each GEO_IDS as g}
-              {@const label = t(dict, `whiteboard.geo.${g}`)}
-              <button type="button" class="wb-btn" aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[g]}</svg>
-              </button>
-            {/each}
+            <div class="wb-track" use:scrollEdges>
+              {#each GEO_IDS as g}
+                {@const label = t(dict, `whiteboard.geo.${g}`)}
+                <button type="button" class="wb-btn" aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[g]}</svg>
+                </button>
+              {/each}
+            </div>
           </div>
         {/if}
         <div class="wb-pill wb-dock" role="toolbar" aria-label={t(dict, 'whiteboard.toolbar')} aria-orientation="horizontal">
-          {#each TOOLS as item}
-            {@const label = t(dict, `whiteboard.tool.${item.id}`)}
-            <button
-              type="button"
-              class="wb-btn wb-tool"
-              aria-pressed={tool === item.id}
-              aria-label={label}
-              title={`${label} (${item.key})`}
-              aria-keyshortcuts={item.key}
-              on:click={() => pickTool(item.id)}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[item.id === 'geo' ? geoKind : item.id]}</svg>
+          <div class="wb-track" use:scrollEdges>
+            {#each TOOLS as item}
+              {@const label = t(dict, `whiteboard.tool.${item.id}`)}
+              <button
+                type="button"
+                class="wb-btn wb-tool"
+                aria-pressed={tool === item.id}
+                aria-label={label}
+                title={`${label} (${item.key})`}
+                aria-keyshortcuts={item.key}
+                on:click={() => pickTool(item.id)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[item.id === 'geo' ? geoKind : item.id]}</svg>
+              </button>
+            {/each}
+            <button type="button" class="wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.image}</svg>
             </button>
-          {/each}
-          <button type="button" class="wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.image}</svg>
-          </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2254,14 +2276,19 @@
     z-index: 2;
   }
   .wb-dock {
-    flex-wrap: wrap;
-    justify-content: center;
     max-width: 100%;
   }
-  .wb-geo { flex-wrap: wrap; justify-content: center; }
-  /* In the app the dock is one horizontally scrollable row; wrapping hid tools behind the fold. */
-  :global(html[data-app-platform]) .wb-dock,
-  :global(html[data-app-platform]) .wb-geo {
+  .wb-geo { max-width: 100%; }
+  .wb-track {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  /* In the app the tool row is one horizontally scrollable line; wrapping hid tools behind the fold. */
+  :global(html[data-app-platform]) .wb-track {
     flex-wrap: nowrap;
     justify-content: flex-start;
     overflow-x: auto;
@@ -2270,13 +2297,25 @@
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
   }
-  :global(html[data-app-platform]) .wb-dock::-webkit-scrollbar,
-  :global(html[data-app-platform]) .wb-geo::-webkit-scrollbar {
+  :global(html[data-app-platform]) .wb-track::-webkit-scrollbar {
     display: none;
   }
-  :global(html[data-app-platform]) .wb-dock .wb-btn,
-  :global(html[data-app-platform]) .wb-geo .wb-btn {
+  :global(html[data-app-platform]) .wb-track .wb-btn {
     scroll-snap-align: start;
+  }
+  /* Edge fades make the scrollable row read as continuing, only while it actually does.
+     Fully global: the state classes are toggled at runtime, so scoped compound selectors would be pruned. */
+  :global(html[data-app-platform] .wb-track.wb-track--right) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+  }
+  :global(html[data-app-platform] .wb-track.wb-track--left) {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 1.5rem), transparent);
+  }
+  :global(html[data-app-platform] .wb-track.wb-track--left.wb-track--right) {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
   }
 
   .wb-cursor {
