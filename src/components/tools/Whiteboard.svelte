@@ -1604,7 +1604,7 @@
           </button>
         </div>
         {#if selectionSize > 0}
-          <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.selectionActions')}>
+          <div class="wb-pill wb-selection" role="group" aria-label={t(dict, 'whiteboard.selectionActions')}>
             <button type="button" class="wb-btn" on:click={() => editor?.duplicateSelection()} aria-label={t(dict, 'whiteboard.duplicate')} title={`${t(dict, 'whiteboard.duplicate')} (Ctrl+D)`}>
               <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.duplicate}</svg>
             </button>
@@ -2533,6 +2533,16 @@
     :global(html[data-app-platform]) .wb-zoom { display: flex; }
     .wb-btn { width: 34px; height: 34px; }
     .wb-chat { bottom: 7rem; }
+  }
+
+  /* Ultra-narrow viewports (Display Zoom, SE): a full zoom or selection row is wider
+     than the bar itself, so the pills cluster into a 2x2 grid instead of clipping. */
+  @container (max-width: 374px) {
+    .wb-zoom,
+    .wb-selection {
+      flex-wrap: wrap;
+      max-width: 104px;
+    }
   }
 
   .wb-share-banner {
