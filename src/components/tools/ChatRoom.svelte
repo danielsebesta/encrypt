@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { List, ListItem, MenuList, MenuListItem, Popover, Sheet } from 'konsta/svelte';
+  import { Dialog, DialogButton, List, ListItem, MenuList, MenuListItem, Popover, Sheet } from 'konsta/svelte';
   import { illustration } from '../../lib/illustrations';
   import { isContent, relayedContentOk, stampPayload, validPayload } from '../../lib/chatProtocol';
   import {
@@ -3193,6 +3193,24 @@
     removeBurnedMessage(msg.id);
   }
 
+  let burnDialog: HTMLDialogElement | undefined;
+
+  function showBurnDialog(node: HTMLDialogElement) {
+    const onClose = () => { burnConfirmMsg = null; };
+    node.addEventListener('close', onClose);
+    node.showModal();
+    return {
+      destroy() {
+        node.removeEventListener('close', onClose);
+        if (node.open) node.close();
+      },
+    };
+  }
+
+  function burnDialogClass(): string {
+    return document.documentElement.dataset.appPlatform === 'ios' ? 'app-dialog--stack' : '';
+  }
+
   function clearScheduleTimer(id: string) {
     const timer = scheduleTimers.get(id);
     if (!timer) return;
@@ -5864,13 +5882,31 @@
     {/if}
 
     {#if burnConfirmMsg}
-      <div class="chat-call-banner" role="alertdialog" aria-label={t(dict, 'chat.burnForEveryone')}>
-        <p class="chat-call-banner__title">{t(dict, 'chat.burnConfirm')}</p>
-        <div class="chat-call-banner__actions">
-          <button type="button" class="chat-call-decline" on:click={() => { void confirmBurnOwnMessage(); }}>{t(dict, 'chat.burnConfirmYes')}</button>
-          <button type="button" class="btn-ghost btn-sm" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
-        </div>
-      </div>
+      {#if appMode}
+        <Dialog
+          class={burnDialogClass()}
+          opened={Boolean(burnConfirmMsg)}
+          onBackdropClick={() => { burnConfirmMsg = null; }}
+        >
+          {#snippet title()}{t(dict, 'chat.burnForEveryone')}{/snippet}
+          {t(dict, 'chat.burnConfirm')}
+          {#snippet buttons()}
+            <DialogButton class="app-dialog-cancel" onClick={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</DialogButton>
+            <DialogButton class="app-dialog-destructive" onClick={() => { void confirmBurnOwnMessage(); }}>{t(dict, 'chat.burnConfirmYes')}</DialogButton>
+          {/snippet}
+        </Dialog>
+      {:else}
+        <dialog bind:this={burnDialog} use:showBurnDialog class="chat-burn-dialog card" aria-labelledby="chat-burn-title" aria-describedby="chat-burn-body">
+          <form class="stack" on:submit|preventDefault={() => { void confirmBurnOwnMessage(); }}>
+            <h2 id="chat-burn-title" class="section-title">{t(dict, 'chat.burnForEveryone')}</h2>
+            <p id="chat-burn-body" class="hint">{t(dict, 'chat.burnConfirm')}</p>
+            <div class="actions">
+              <button type="submit" class="chat-burn-dialog__confirm">{t(dict, 'chat.burnConfirmYes')}</button>
+              <button type="button" class="btn-secondary" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
+            </div>
+          </form>
+        </dialog>
+      {/if}
     {/if}
 
     {#if membersOpen && !appMode}
@@ -6751,6 +6787,38 @@
   :global(.dark) .chat-key-warn {
     color: rgb(253, 230, 138);
     background: rgba(240, 178, 50, 0.22);
+  }
+  .chat-burn-dialog {
+    width: min(26rem, calc(100vw - 2rem));
+    margin: auto;
+    color: var(--text);
+    text-align: left;
+    visibility: visible;
+    box-shadow: var(--shadow-float);
+    animation: chat-burn-in var(--duration-dialog) var(--ease-out);
+  }
+  .chat-burn-dialog::backdrop {
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    backdrop-filter: blur(2px);
+  }
+  .chat-burn-dialog__confirm {
+    border: 1px solid transparent;
+    background: var(--danger);
+    color: #fff;
+  }
+  .chat-burn-dialog__confirm:not(:disabled):hover {
+    background: color-mix(in srgb, var(--danger) 85%, #000);
+  }
+  @keyframes chat-burn-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-burn-dialog {
+      animation: none;
+    }
   }
   .chat-call-banner {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
