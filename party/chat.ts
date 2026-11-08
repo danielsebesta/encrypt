@@ -10,8 +10,6 @@ import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 type RoomConfig = { mode: ChatMode; authMode: "password"; createdAt: number; v: 3 };
 
 type RoomState = {
-  locked: boolean;
-  lockedBy: string | null;
   config: RoomConfig | null;
 };
 
@@ -19,6 +17,7 @@ type RoomState = {
 // closes, so members can tell which of them left. It links nothing across connections and the relay learns nothing new.
 type ChatConnectionState = {
   joined: boolean;
+  locker?: boolean;
   tag?: string;
   push?: string;
 };
@@ -36,6 +35,7 @@ const MAX_PUSH_ENDPOINTS = 64;
 const PUSH_COOLDOWN_MS = 15_000;
 const MAX_ENCRYPTED_PAYLOAD_CHARS = 720_000;
 const EMPTY_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ALARM_REFRESH_MS = 60 * 60 * 1000;
 const SAFE_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const DEFAULT_CONFIG: RoomConfig = {
@@ -52,11 +52,8 @@ export default class ChatRoom {
   // envelope reaches members exactly once. Bounded FIFO; rooms are ephemeral.
   private seenIds = new Set<string>();
   private lastPushAt = 0;
-  state: RoomState = {
-    locked: false,
-    lockedBy: null,
-    config: null,
-  };
+  private lastAlarmAt = 0;
+  state: RoomState = { config: null };
 
   constructor(private host: RoomHost) {
     this.access = new RoomAccess(host);
@@ -68,7 +65,7 @@ export default class ChatRoom {
 
   onConnect(conn: RoomConnection) {
     if (this.getConnectionCount() > 32) { conn.close(4008, "ROOM_FULL"); return; }
-    if (this.state.locked) {
+    if (this.access.locked()) {
       conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED" }));
       conn.close(4001, "ROOM_LOCKED");
       return;
@@ -82,7 +79,7 @@ export default class ChatRoom {
     conn.send(JSON.stringify({
       type: "init",
       presence: this.getJoinedConnectionCount(),
-      locked: this.state.locked,
+      locked: this.access.locked(),
       config: this.state.config,
       acks: true,
       ...(pushKey ? { push: pushKey } : {}),
@@ -105,15 +102,16 @@ export default class ChatRoom {
 
     if (!parsed || typeof parsed !== "object") return;
     switch (parsed.type) {
-      case "join":
-        if (!await this.access.join(sender, parsed.token, () => this.state.locked)) { sender.close(4003, "FORBIDDEN"); return; }
+      case "join": {
+        const alreadyJoined = this.access.has(sender);
+        if (!await this.access.join(sender, parsed.token, () => this.access.locked())) { sender.close(4003, "FORBIDDEN"); return; }
         const hadConfig = Boolean(this.state.config);
         if (!this.state.config) {
           await this.setRoomConfig(parsed.config);
         }
         const configMessage = JSON.stringify({ type: "room-config", config: this.state.config });
-        if (!this.isJoined(sender)) {
-          sender.setState({ joined: true, tag: crypto.randomUUID() });
+        if (!alreadyJoined) {
+          sender.setState({ ...(sender.state as ChatConnectionState), joined: true, tag: crypto.randomUUID() });
           this.broadcastPresence();
         }
         sender.send(configMessage);
@@ -121,6 +119,7 @@ export default class ChatRoom {
           this.broadcast(configMessage, [sender.id], true);
         }
         break;
+      }
 
       case "message": {
         if (!this.isJoined(sender)) return;
@@ -171,17 +170,15 @@ export default class ChatRoom {
         break;
 
       case "lock":
-        if (!this.isJoined(sender) || this.state.locked) return;
-        this.state.locked = true;
-        this.state.lockedBy = sender.id;
+        if (!this.isJoined(sender) || this.access.locked()) return;
+        this.access.setLocker(sender, true);
         this.broadcast(JSON.stringify({ type: "locked" }));
         break;
 
       case "unlock":
         if (!this.isJoined(sender)) return;
-        if (this.state.lockedBy === sender.id) {
-          this.state.locked = false;
-          this.state.lockedBy = null;
+        if (this.access.isLocker(sender)) {
+          this.access.setLocker(sender, false);
           this.broadcast(JSON.stringify({ type: "unlocked" }));
         }
         break;
@@ -196,7 +193,7 @@ export default class ChatRoom {
       case "ping":
         sender.send(JSON.stringify({
           type: "pong",
-          t: typeof parsed.t === "number" && Number.isFinite(parsed.t) ? parsed.t : Date.now(),
+          ...(typeof parsed.t === "number" && Number.isFinite(parsed.t) ? { t: parsed.t } : {}),
         }));
         break;
     }
@@ -205,10 +202,9 @@ export default class ChatRoom {
   onClose(conn: RoomConnection) {
     const wasJoined = this.isJoined(conn);
     const tag = this.tagOf(conn);
+    const held = this.access.isLocker(conn);
     this.access.remove(conn);
-    if (this.state.lockedBy === conn.id) {
-      this.state.locked = false;
-      this.state.lockedBy = null;
+    if (held) {
       this.broadcast(JSON.stringify({ type: "unlocked" }));
     }
     if (wasJoined) this.broadcastPresence(tag, [conn.id]);
@@ -217,16 +213,20 @@ export default class ChatRoom {
 
   // The cleanup alarm stays scheduled even while people are connected, so a crash or a restart that never runs
   // onClose still deletes the room once it has been idle long enough.
-  private pushBackCleanup() {
-    void this.host.storage.setAlarm(Date.now() + EMPTY_ROOM_TTL_MS).catch(() => {});
+  // Moving a week-long deadline by minutes is pointless, so the alarm is rewritten at most once an hour.
+  private pushBackCleanup(force = false) {
+    const now = Date.now();
+    if (!force && now - this.lastAlarmAt < ALARM_REFRESH_MS) return;
+    this.lastAlarmAt = now;
+    void this.host.storage.setAlarm(now + EMPTY_ROOM_TTL_MS).catch(() => {});
   }
 
   async onAlarm() {
     if (this.getConnectionCount() > 0) {
-      this.pushBackCleanup();
+      this.pushBackCleanup(true);
       return;
     }
-    this.state = { locked: false, lockedBy: null, config: null };
+    this.state = { config: null };
     await this.host.storage.deleteAll();
   }
 
@@ -316,7 +316,7 @@ export default class ChatRoom {
   }
 
   private isJoined(conn: RoomConnection): boolean {
-    return (conn.state as ChatConnectionState | null)?.joined === true && this.access.has(conn);
+    return this.access.has(conn);
   }
 
   private tagOf(conn: RoomConnection): string | undefined {

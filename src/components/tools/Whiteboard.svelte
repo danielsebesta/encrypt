@@ -45,7 +45,7 @@
   const replay = new ReplayWindow();
 
   const DOC_FLUSH_MS = 100;
-  const CURSOR_SYNC_INTERVAL_MS = 100;
+  const CURSOR_SYNC_INTERVAL_MS = 160;
   const CURSOR_MIN_MOVE = 4;
   const HEARTBEAT_INTERVAL_MS = 45000;
   // The whiteboard relay closes sockets above 300 messages or 3 MB per 10 s; stay under that with headroom.
@@ -711,7 +711,7 @@
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
       if (pageHidden) return;
-      socketSend(JSON.stringify({ type: 'ping', t: Date.now() }));
+      socketSend('{"type":"ping"}');
     }, HEARTBEAT_INTERVAL_MS);
   }
 
@@ -2327,7 +2327,7 @@
     gap: 2px;
     pointer-events: none;
     z-index: 1;
-    transition: transform 100ms linear;
+    transition: transform 160ms linear;
     will-change: transform;
   }
   .wb-cursor__name {

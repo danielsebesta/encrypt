@@ -720,6 +720,7 @@
   let serverLatencyMs: number | null = null;
   let serverQuality: ServerQuality = 'unknown';
   let lastServerPongAt = 0;
+  let serverPingSentAt = 0;
   let serverConnectStartedAt = 0;
   let iceServers: RTCIceServer[] = [];
   let iceServersFetchedAt = 0;
@@ -1809,7 +1810,8 @@
       return;
     }
     try {
-      ws.send(JSON.stringify({ type: 'ping', t: Date.now() }));
+      serverPingSentAt = Date.now();
+      ws.send('{"type":"ping"}');
     } catch {
       serverQuality = 'poor';
     }
@@ -2702,8 +2704,9 @@
       return;
     }
     if (data.type === 'pong') {
-      if (typeof data.t === 'number') {
-        serverLatencyMs = Math.max(0, Date.now() - data.t);
+      const sentAt = typeof data.t === 'number' ? data.t : serverPingSentAt;
+      if (sentAt) {
+        serverLatencyMs = Math.max(0, Date.now() - sentAt);
         lastServerPongAt = Date.now();
       }
       updateServerQuality();

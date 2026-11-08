@@ -219,3 +219,22 @@ test('chat relay pushes sleeping devices: encrypted tag for keyed targets, empty
   assert.equal(plain.init.body, undefined);
   server.onClose(sender as any);
 });
+
+for (const Server of [Chat, Whiteboard]) test(`${Server.name}: authorization and lock survive a hibernation wake-up`, async () => {
+  const token = 'a'.repeat(64);
+  const room = fakeRoom(await accessChannel(token));
+  const before = new Server(room.host);
+  const member = room.conn('member'), other = room.conn('other');
+  before.onConnect(member as any); before.onConnect(other as any);
+  await before.onMessage(JSON.stringify({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } }), member as any);
+  await before.onMessage(JSON.stringify({ type: 'lock' }), member as any);
+  const after = new Server(room.host);
+  await (after as any).onStart?.();
+  assert.equal(after.access.has(member as any), true);
+  assert.equal(after.access.has(other as any), false);
+  assert.equal(after.access.locked(), true);
+  await after.onMessage(JSON.stringify({ type: 'unlock' }), other as any);
+  assert.equal(after.access.locked(), true);
+  await after.onMessage(JSON.stringify({ type: 'unlock' }), member as any);
+  assert.equal(after.access.locked(), false);
+});

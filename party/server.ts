@@ -13,7 +13,7 @@ export type RealtimeEnv = {
 };
 
 export abstract class RoomServer extends Server<RealtimeEnv> {
-  static options = { hibernate: false };
+  static options = { hibernate: true };
   protected abstract readonly room: Room;
 
   protected host(): RoomHost {
@@ -26,7 +26,11 @@ export abstract class RoomServer extends Server<RealtimeEnv> {
     };
   }
 
-  onStart(): Promise<void> | void { return this.room.onStart?.(); }
+  // Client keepalives are answered by the runtime without waking a hibernating room.
+  onStart(): Promise<void> | void {
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"type":"ping"}', '{"type":"pong"}'));
+    return this.room.onStart?.();
+  }
   onConnect(conn: Connection): void { this.room.onConnect(conn); }
   onMessage(conn: Connection, message: string | ArrayBuffer | ArrayBufferView): Promise<void> | void {
     if (typeof message === 'string') return this.room.onMessage(message, conn);

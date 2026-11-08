@@ -46,7 +46,7 @@ export function connectionRequest(request: Request): Request {
 }
 
 export class RoomAccess {
-  private joined = new WeakSet<RoomConnection>();
+  private left = new WeakSet<RoomConnection>();
   private windows = new WeakMap<RoomConnection, { start: number; count: number; bytes: number }>();
   private deadlines = new WeakMap<RoomConnection, ReturnType<typeof setTimeout>>();
   constructor(private room: RoomHost, private maxMessages = 150) {}
@@ -56,11 +56,15 @@ export class RoomAccess {
       this.deadlines.delete(conn);
     }, 5000));
   }
-  has(conn: RoomConnection) { return this.joined.has(conn); }
+  // Authorization lives in the connection's own state so it survives Durable Object hibernation.
+  has(conn: RoomConnection) { return !this.left.has(conn) && (conn.state as { joined?: boolean } | null)?.joined === true; }
+  isLocker(conn: RoomConnection) { return (conn.state as { locker?: boolean } | null)?.locker === true; }
+  locked() { for (const conn of this.room.getConnections()) if (!this.left.has(conn) && this.isLocker(conn)) return true; return false; }
+  setLocker(conn: RoomConnection, locker: boolean) { conn.setState({ ...(conn.state as object | null), locker }); }
   async join(conn: RoomConnection, token: unknown, locked: () => boolean) {
     if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token) || await accessChannel(token) !== this.room.name || locked() ||
       ![...this.room.getConnections()].some(c => c === conn)) return false;
-    this.joined.add(conn);
+    conn.setState({ ...(conn.state as object | null), joined: true });
     clearTimeout(this.deadlines.get(conn)); this.deadlines.delete(conn);
     return true;
   }
@@ -75,6 +79,6 @@ export class RoomAccess {
   }
   remove(conn: RoomConnection) {
     clearTimeout(this.deadlines.get(conn)); this.deadlines.delete(conn);
-    this.joined.delete(conn); this.windows.delete(conn);
+    this.left.add(conn); this.windows.delete(conn);
   }
 }

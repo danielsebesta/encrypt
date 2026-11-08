@@ -1,16 +1,10 @@
 import { RoomAccess, type RoomConnection, type RoomHost } from './access';
 
-type RoomState = {
-  locked: boolean;
-  lockedBy: string | null;
-};
-
 const KINDS = ['doc', 'doc-part', 'chat', 'cursor', 'verify', 'verify-ack'];
 
 export default class WhiteboardRoom {
   access: RoomAccess;
   private queue = Promise.resolve();
-  state: RoomState = { locked: false, lockedBy: null };
 
   constructor(private host: RoomHost) {
     // Live drawing and cursors send about 20 small messages a second per person.
@@ -19,7 +13,7 @@ export default class WhiteboardRoom {
 
   onConnect(conn: RoomConnection) {
     if ([...this.host.getConnections()].length > 32) { conn.close(4008, 'ROOM_FULL'); return; }
-    if (this.state.locked) {
+    if (this.access.locked()) {
       conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED" }));
       conn.close(4001, "ROOM_LOCKED");
       return;
@@ -43,8 +37,8 @@ export default class WhiteboardRoom {
 
     if (!parsed || typeof parsed !== 'object') return;
     if (parsed.type === 'join') {
-      if (!await this.access.join(sender, parsed.token, () => this.state.locked)) { sender.close(4003, 'FORBIDDEN'); return; }
-      sender.send(JSON.stringify({ type: 'init', connId: sender.id, presence: this.getConnectionCount(), locked: this.state.locked }));
+      if (!await this.access.join(sender, parsed.token, () => this.access.locked())) { sender.close(4003, 'FORBIDDEN'); return; }
+      sender.send(JSON.stringify({ type: 'init', connId: sender.id, presence: this.getConnectionCount(), locked: this.access.locked() }));
       this.broadcastPresence();
       return;
     }
@@ -67,15 +61,13 @@ export default class WhiteboardRoom {
         }
         break;
       case "lock":
-        if (this.state.locked) return;
-        this.state.locked = true;
-        this.state.lockedBy = sender.id;
+        if (this.access.locked()) return;
+        this.access.setLocker(sender, true);
         this.broadcast(JSON.stringify({ type: "locked" }));
         break;
       case "unlock":
-        if (this.state.lockedBy === sender.id) {
-          this.state.locked = false;
-          this.state.lockedBy = null;
+        if (this.access.isLocker(sender)) {
+          this.access.setLocker(sender, false);
           this.broadcast(JSON.stringify({ type: "unlocked" }));
         }
         break;
@@ -83,10 +75,9 @@ export default class WhiteboardRoom {
   }
 
   onClose(conn: RoomConnection) {
+    const held = this.access.isLocker(conn);
     this.access.remove(conn);
-    if (this.state.lockedBy === conn.id) {
-      this.state.locked = false;
-      this.state.lockedBy = null;
+    if (held) {
       this.broadcast(JSON.stringify({ type: "unlocked" }));
     }
     this.broadcast(JSON.stringify({ type: "peer-leave", id: conn.id }));
