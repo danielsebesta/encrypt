@@ -383,7 +383,6 @@
     border-left: 2px solid var(--line-soft);
   }
   :global(.dark) .chat-attach-dropdown {
-    border-color: var(--muted);
     background: rgba(7, 11, 6, 0.96);
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
   }

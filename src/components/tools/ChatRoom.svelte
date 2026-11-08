@@ -5904,7 +5904,7 @@
             <h2 id="chat-burn-title" class="section-title">{t(dict, 'chat.burnForEveryone')}</h2>
             <p id="chat-burn-body" class="hint">{t(dict, 'chat.burnConfirm')}</p>
             <div class="actions">
-              <button type="submit" class="chat-burn-dialog__confirm">{t(dict, 'chat.burnConfirmYes')}</button>
+              <button type="submit" class="btn chat-burn-dialog__confirm">{t(dict, 'chat.burnConfirmYes')}</button>
               <button type="button" class="btn-secondary" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
             </div>
           </form>
