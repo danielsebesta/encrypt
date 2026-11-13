@@ -3,7 +3,7 @@
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -283,7 +283,7 @@
           {:else if imageUrl}
             <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} />
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['image']}</svg>
+            <Icon name="image" size={20} />
             <span class="dropzone__title">{t(dict, 'tools.steganography.sourceImage')}</span>
             <span>{mode === 'encode' ? t(dict, 'tools.steganography.batchHint') : t(dict, 'tools.steganography.pngRecommended')}</span>
           {/if}

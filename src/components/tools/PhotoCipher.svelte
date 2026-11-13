@@ -4,7 +4,7 @@
   import { generatePassphrase } from '../../lib/passphrase';
   import { PASSWORD_ENVELOPE_OVERHEAD } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -422,7 +422,7 @@
           {:else if imageUrl}
             <img src={imageUrl} alt={t(dict, 'tools.photoCipher.previewAlt')} />
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['camera']}</svg>
+            <Icon name="camera" size={20} />
             <span class="dropzone__title">{t(dict, 'tools.photoCipher.sourceImage')}</span>
             <span>{mode === 'encode' ? t(dict, 'tools.photoCipher.batchHint') : t(dict, 'tools.photoCipher.anyFormat')}</span>
           {/if}

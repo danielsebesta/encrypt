@@ -1,6 +1,6 @@
 <script lang="ts">
   import { readLimited } from '../../lib/httpLimits';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { decrypt } from '../../lib/aesGcm';
   import { decryptData } from '../../lib/ghost/crypto';
@@ -926,12 +926,12 @@
     <p class="label">{t(dict, 'tools.ultimateDecrypt.empty.title')}</p>
     <div class="ud-entry">
       <button type="button" class="dropzone" on:click={() => chooseEntry('link')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['link']}</svg>
+        <Icon name="link" size={20} />
         <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.linkTitle')}</span>
         <span>{t(dict, 'tools.ultimateDecrypt.empty.linkHint')}</span>
       </button>
       <button type="button" class="dropzone" on:click={() => chooseEntry('scan')}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['scan']}</svg>
+        <Icon name="scan" size={20} />
         <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.scanTitle')}</span>
         <span>{t(dict, 'tools.ultimateDecrypt.empty.scanHint')}</span>
       </button>
@@ -944,7 +944,7 @@
         on:dragleave={handlePickFileDragLeave}
         on:drop={handlePickFileDrop}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['file']}</svg>
+        <Icon name="file" size={20} />
         <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.fileTitle')}</span>
         <span>{t(dict, 'tools.ultimateDecrypt.empty.fileHint')}</span>
       </button>
@@ -982,14 +982,14 @@
     <div class="grid gap-3 sm:grid-cols-2">
       {#if encryptedFile}
         <div class="dropzone dropzone--active">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true">{@html LUCIDE['circle-check-big']}</svg>
+          <Icon name="circle-check-big" size={20} class="text-accent" />
           <span class="dropzone__title max-w-full truncate">{encryptedFile.name}</span>
           <span>{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
           <button type="button" class="btn-ghost btn-sm" on:click={() => encryptedFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
         </div>
       {:else}
         <label class="dropzone" for="ud-enc">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['lock']}</svg>
+          <Icon name="lock" size={20} />
           <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.upload.encryptedFile')}</span>
           <span>{t(dict, 'tools.ultimateDecrypt.upload.encFileHint')}</span>
           <input id="ud-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
@@ -997,13 +997,13 @@
       {/if}
       {#if stegoFile}
         <div class="dropzone dropzone--active">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true">{@html LUCIDE['circle-check-big']}</svg>
+          <Icon name="circle-check-big" size={20} class="text-accent" />
           <span class="dropzone__title max-w-full truncate">{stegoFile.name}</span>
           <button type="button" class="btn-ghost btn-sm" on:click={() => stegoFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
         </div>
       {:else}
         <label class="dropzone" for="ud-stego">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['image']}</svg>
+          <Icon name="image" size={20} />
           <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.upload.stegoImage')}</span>
           <span>{t(dict, 'tools.ultimateDecrypt.upload.stegoHint')}</span>
           <input id="ud-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
@@ -1098,17 +1098,17 @@
       {:else if previewType === 'zip' && zipTree.length > 0}
         <div class="ud-preview">
           <div class="ud-preview__head">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['folder']}</svg>
+            <Icon name="folder" />
             <span>{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.ultimateDecrypt.upload.files')}</span>
           </div>
           <div class="ud-preview__body font-mono text-sm">
             {#each zipTree as node}
               <div class="flex items-center gap-1.5 py-1 pr-3" style="padding-left: {12 + node.depth * 16}px">
                 {#if node.isDir}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-warn" aria-hidden="true">{@html LUCIDE['folder']}</svg>
+                  <Icon name="folder" class="shrink-0 text-warn" />
                   <span class="font-bold text-text">{node.label}</span>
                 {:else}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-muted" aria-hidden="true">{@html LUCIDE['file']}</svg>
+                  <Icon name="file" class="shrink-0 text-muted" />
                   <span class="flex-1 truncate text-text">{node.label}</span>
                   <span class="shrink-0 text-xs text-muted tabular-nums">{node.size < 1024 ? `${node.size} B` : node.size < 1048576 ? `${(node.size / 1024).toFixed(1)} KB` : `${(node.size / 1048576).toFixed(1)} MB`}</span>
                 {/if}
@@ -1119,7 +1119,7 @@
       {:else if previewType === 'env' && openedEnvEntries.length > 0}
         <div class="ud-preview">
           <div class="ud-preview__head">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warn" aria-hidden="true">{@html LUCIDE['lock']}</svg>
+            <Icon name="lock" class="text-warn" />
             <span>{t(dict, 'tools.ultimateDecrypt.upload.envHeader')}</span>
           </div>
           <div class="ud-preview__body font-mono text-sm">
@@ -1143,9 +1143,9 @@
                     aria-pressed={entry.visible}
                   >
                     {#if entry.visible}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye-off']}</svg>
+                      <Icon name="eye-off" />
                     {:else}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+                      <Icon name="eye" />
                     {/if}
                   </button>
                 </div>

@@ -1,4 +1,5 @@
-import { LUCIDE } from './lucideIcons';
+import { mount, unmount } from 'svelte';
+import Icon from '../components/Icon.svelte';
 import { haptic } from './haptics';
 
 const SLOP_PX = 10;
@@ -15,6 +16,7 @@ export function swipeReply(node: HTMLElement, options: Options) {
   let intent: '' | 'swipe' | 'scroll' = '';
   let armed = false;
   let icon: HTMLElement | null = null;
+  let iconView: ReturnType<typeof mount> | null = null;
 
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -23,7 +25,7 @@ export function swipeReply(node: HTMLElement, options: Options) {
     icon = document.createElement('span');
     icon.className = 'chat-swipe-icon';
     icon.setAttribute('aria-hidden', 'true');
-    icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${LUCIDE['reply']}</svg>`;
+    iconView = mount(Icon, { target: icon, props: { name: 'reply', size: 20 } });
     node.appendChild(icon);
     return icon;
   }
@@ -100,6 +102,7 @@ export function swipeReply(node: HTMLElement, options: Options) {
       node.removeEventListener('pointermove', move);
       node.removeEventListener('pointerup', end);
       node.removeEventListener('pointercancel', end);
+      if (iconView) unmount(iconView);
       icon?.remove();
     },
   };

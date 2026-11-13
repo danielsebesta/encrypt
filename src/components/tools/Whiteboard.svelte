@@ -20,9 +20,10 @@
   import { encodeEncryptedBoardBackup, decodeEncryptedBoardBackup } from '../../lib/whiteboardBackupCrypto';
   import { loadLocalBoard, saveLocalBoard, clearLocalBoard } from '../../lib/whiteboardLocalStore';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import type { IconName } from '../../lib/iconManifest';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
+  import Icon from '../Icon.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -67,56 +68,21 @@
   THEMES.dark.grid.dot = { minor: 'rgba(155, 178, 141, 0.14)', major: 'rgba(155, 178, 141, 0.26)' };
   THEMES.dark.grid.line = { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' };
 
-  const ICONS: Record<string, string> = {
-    select: LUCIDE['mouse-pointer-2'],
-    hand: LUCIDE['hand'],
-    draw: LUCIDE['pencil'],
-    highlight: LUCIDE['highlighter'],
-    eraser: LUCIDE['eraser'],
-    laser: LUCIDE['laser'],
-    arrow: LUCIDE['arrow-up-right'],
-    line: LUCIDE['slash'],
-    text: LUCIDE['type'],
-    note: LUCIDE['sticky-note'],
-    image: LUCIDE['image'],
-    rectangle: LUCIDE['square'],
-    ellipse: LUCIDE['circle'],
-    triangle: LUCIDE['triangle'],
-    diamond: LUCIDE['diamond'],
-    hexagon: LUCIDE['hexagon'],
-    star: LUCIDE['star'],
-    undo: LUCIDE['undo-2'],
-    redo: LUCIDE['redo-2'],
-    trash: LUCIDE['trash'],
-    duplicate: LUCIDE['copy'],
-    front: LUCIDE['bring-to-front'],
-    back: LUCIDE['send-to-back'],
-    zoomIn: LUCIDE['zoom-in'],
-    zoomOut: LUCIDE['zoom-out'],
-    fit: LUCIDE['maximize'],
-    menu: LUCIDE['ellipsis-vertical'],
-    download: LUCIDE['download'],
-    upload: LUCIDE['upload'],
-    save: LUCIDE['save'],
-    grid: LUCIDE['grid-3x3'],
-    fullscreen: LUCIDE['maximize-2'],
-    exitFullscreen: LUCIDE['minimize-2'],
-    lock: LUCIDE['lock'],
-    unlock: LUCIDE['lock-open'],
-    close: LUCIDE['x'],
-    chat: LUCIDE['message-square'],
-    send: LUCIDE['send'],
-    copy: LUCIDE['copy'],
-    check: LUCIDE['check'],
-    'dash-draw': LUCIDE['spline'],
-    'dash-solid': LUCIDE['minus'],
-    'dash-dashed': LUCIDE['minus'].replace('/>', ' stroke-dasharray="5 3"/>'),
-    'dash-dotted': LUCIDE['minus'].replace('/>', ' stroke-dasharray="0.1 4" stroke-linecap="round"/>'),
-    'fill-none': LUCIDE['square'],
-    'fill-semi': LUCIDE['square'].replace('/>', ' fill="currentColor" fill-opacity=".3"/>'),
-    'fill-solid': LUCIDE['square'].replace('/>', ' fill="currentColor"/>'),
-    'fill-pattern': LUCIDE['square-dashed'],
+  const TOOL_ICONS: Record<Exclude<ToolId, 'geo'>, IconName> = {
+    select: 'mouse-pointer-2',
+    hand: 'hand',
+    draw: 'pencil',
+    highlight: 'highlighter',
+    eraser: 'eraser',
+    laser: 'laser',
+    arrow: 'arrow-up-right',
+    line: 'slash',
+    text: 'type',
+    note: 'sticky-note',
   };
+  const GEO_ICONS: Partial<Record<GeoId, IconName>> = { rectangle: 'square', ellipse: 'circle', star: 'star' };
+  const DASH_ICONS: Record<(typeof DASH_IDS)[number], IconName> = { draw: 'spline', solid: 'minus', dashed: 'minus', dotted: 'minus' };
+  const FILL_ICONS: Record<(typeof FILL_IDS)[number], IconName> = { none: 'square', semi: 'square', solid: 'square', pattern: 'square-dashed' };
 
   const TOOLS: { id: ToolId; key: string }[] = [
     { id: 'select', key: 'V' },
@@ -1504,7 +1470,7 @@
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{/if}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="lock-keyhole" size={20} /></span>{/if}
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
@@ -1584,37 +1550,37 @@
       <div class="wb-bar wb-bar--start">
         <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.history')}>
           <button type="button" class="wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.undo}</svg>
+            <Icon name="undo-2" size={20} />
           </button>
           <button type="button" class="wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.redo}</svg>
+            <Icon name="redo-2" size={20} />
           </button>
         </div>
         <div class="wb-pill wb-zoom" role="group" aria-label={t(dict, 'whiteboard.zoom')}>
           <button type="button" class="wb-btn" on:click={() => zoomBy(0.8)} aria-label={t(dict, 'whiteboard.zoomOut')} title={t(dict, 'whiteboard.zoomOut')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.zoomOut}</svg>
+            <Icon name="zoom-out" size={20} />
           </button>
           <button type="button" class="wb-btn wb-btn--text" on:click={zoomReset} aria-label={`${t(dict, 'whiteboard.zoomReset')} (${zoomLabel})`} title={t(dict, 'whiteboard.zoomReset')}>{zoomLabel}</button>
           <button type="button" class="wb-btn" on:click={() => zoomBy(1.25)} aria-label={t(dict, 'whiteboard.zoomIn')} title={t(dict, 'whiteboard.zoomIn')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.zoomIn}</svg>
+            <Icon name="zoom-in" size={20} />
           </button>
           <button type="button" class="wb-btn" on:click={zoomFit} aria-label={t(dict, 'whiteboard.zoomFit')} title={`${t(dict, 'whiteboard.zoomFit')} (Shift+1)`}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>
+            <Icon name="maximize" size={20} />
           </button>
         </div>
         {#if selectionSize > 0}
           <div class="wb-pill wb-selection" role="group" aria-label={t(dict, 'whiteboard.selectionActions')}>
             <button type="button" class="wb-btn" on:click={() => editor?.duplicateSelection()} aria-label={t(dict, 'whiteboard.duplicate')} title={`${t(dict, 'whiteboard.duplicate')} (Ctrl+D)`}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.duplicate}</svg>
+              <Icon name="copy" size={20} />
             </button>
             <button type="button" class="wb-btn" on:click={() => editor?.bringToFront()} aria-label={t(dict, 'whiteboard.bringToFront')} title={`${t(dict, 'whiteboard.bringToFront')} (])`}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.front}</svg>
+              <Icon name="bring-to-front" size={20} />
             </button>
             <button type="button" class="wb-btn" on:click={() => editor?.sendToBack()} aria-label={t(dict, 'whiteboard.sendToBack')} title={`${t(dict, 'whiteboard.sendToBack')} ([)`}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.back}</svg>
+              <Icon name="send-to-back" size={20} />
             </button>
             <button type="button" class="wb-btn wb-btn--danger" on:click={deleteSelected} aria-label={t(dict, 'whiteboard.delete')} title={`${t(dict, 'whiteboard.delete')} (Del)`}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>
+              <Icon name="trash" size={20} />
             </button>
           </div>
         {/if}
@@ -1631,7 +1597,7 @@
           title={t(dict, 'whiteboard.chat')}
           on:click={toggleChat}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.chat}</svg>
+          <Icon name="message-square" size={20} />
           {#if chatUnread}<span class="wb-chat-badge" aria-hidden="true">{chatUnread > 9 ? '9+' : chatUnread}</span>{/if}
         </button>
         <div class="wb-pop" data-wb-style>
@@ -1679,7 +1645,7 @@
               <div class="wb-seg">
                 {#each DASH_IDS as d}
                   <button type="button" class="wb-btn" aria-pressed={styles.dash === d} aria-label={t(dict, `whiteboard.dashes.${d}`)} title={t(dict, `whiteboard.dashes.${d}`)} on:click={() => setStyle('dash', d)}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" class:wb-svg-bold={d === 'dotted'}>{@html ICONS[`dash-${d}`]}</svg>
+                    <Icon name={DASH_ICONS[d]} size={20} class="wb-dash-{d}" />
                   </button>
                 {/each}
               </div>
@@ -1689,7 +1655,7 @@
               <div class="wb-seg">
                 {#each FILL_IDS as f}
                   <button type="button" class="wb-btn" aria-pressed={styles.fill === f} aria-label={t(dict, `whiteboard.fills.${f}`)} title={t(dict, `whiteboard.fills.${f}`)} on:click={() => setStyle('fill', f)}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[`fill-${f}`]}</svg>
+                    <Icon name={FILL_ICONS[f]} size={20} class="wb-fill-{f}" />
                   </button>
                 {/each}
               </div>
@@ -1717,80 +1683,80 @@
             title={t(dict, 'whiteboard.menu')}
             on:click={() => { menuOpen = !menuOpen; styleOpen = false; }}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.menu}</svg>
+            <Icon name="ellipsis-vertical" size={20} />
           </button>
           {#if appMode}
             <Popover opened={menuOpen} inert={!menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
               <MenuList>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportPng')} onClick={exportPng}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{/snippet}
+                  {#snippet media()}<Icon name="download" size={20} />{/snippet}
                 </MenuListItem>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportBoard')} onClick={exportBoard}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{/snippet}
+                  {#snippet media()}<Icon name="save" size={20} />{/snippet}
                 </MenuListItem>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportEncrypted')} onClick={chooseEncryptedExport}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{/snippet}
+                  {#snippet media()}<Icon name="save" size={20} />{/snippet}
                 </MenuListItem>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.importBoard')} onClick={chooseImport}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{/snippet}
+                  {#snippet media()}<Icon name="upload" size={20} />{/snippet}
                 </MenuListItem>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.importEncrypted')} onClick={chooseEncryptedImport}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{/snippet}
+                  {#snippet media()}<Icon name="upload" size={20} />{/snippet}
                 </MenuListItem>
                 <ListItem text={t(dict, 'whiteboard.backupHint')} />
                 <div on:click={() => { menuOpen = false; }} role="presentation">
                   <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="konsta" />
                 </div>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.zoomFit')} onClick={zoomFit}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{/snippet}
+                  {#snippet media()}<Icon name="maximize" size={20} />{/snippet}
                 </MenuListItem>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.grid')} aria-checked={gridOn} onClick={toggleGrid}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.grid}</svg>{/snippet}
-                  {#snippet after()}{#if gridOn}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.check}</svg>{/if}{/snippet}
+                  {#snippet media()}<Icon name="grid-3x3" size={20} />{/snippet}
+                  {#snippet after()}{#if gridOn}<Icon name="check" size={20} />{/if}{/snippet}
                 </MenuListItem>
                 {#if fullscreenSupported}
                   <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')} onClick={toggleFullscreen}>
-                    {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{/snippet}
+                    {#snippet media()}<Icon name={isFullscreen ? 'minimize-2' : 'maximize-2'} size={20} />{/snippet}
                   </MenuListItem>
                 {/if}
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.clear')} colors={{ menuListItemTextIos: 'text-ios-danger', menuListItemTextMaterial: 'text-md-light-error dark:text-md-dark-error' }} onClick={clearAll}>
-                  {#snippet media()}<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{/snippet}
+                  {#snippet media()}<Icon name="trash" size={20} />{/snippet}
                 </MenuListItem>
               </MenuList>
             </Popover>
           {:else}
           <div id="wb-menu" class="menu wb-menu-panel" class:menu--open={menuOpen}>
             <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.download}</svg>{t(dict, 'whiteboard.exportPng')}
+              <Icon name="download" />{t(dict, 'whiteboard.exportPng')}
             </button>
             <button type="button" class="menu__item" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportBoard')}
+              <Icon name="save" />{t(dict, 'whiteboard.exportBoard')}
             </button>
             <button type="button" class="menu__item" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.save}</svg>{t(dict, 'whiteboard.exportEncrypted')}
+              <Icon name="save" />{t(dict, 'whiteboard.exportEncrypted')}
             </button>
             <button type="button" class="menu__item" on:click={chooseImport} aria-describedby="wb-backup-hint">
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importBoard')}
+              <Icon name="upload" />{t(dict, 'whiteboard.importBoard')}
             </button>
             <button type="button" class="menu__item" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.upload}</svg>{t(dict, 'whiteboard.importEncrypted')}
+              <Icon name="upload" />{t(dict, 'whiteboard.importEncrypted')}
             </button>
             <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
             <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
             <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.fit}</svg>{t(dict, 'whiteboard.zoomFit')}
+              <Icon name="maximize" />{t(dict, 'whiteboard.zoomFit')}
             </button>
             <button type="button" class="menu__item" role="switch" aria-checked={gridOn} on:click={toggleGrid}>
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.grid}</svg>{t(dict, 'whiteboard.grid')}
-              {#if gridOn}<svg class="wb-menu-icon wb-menu-check" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.check}</svg>{/if}
+              <Icon name="grid-3x3" />{t(dict, 'whiteboard.grid')}
+              {#if gridOn}<Icon name="check" class="wb-menu-check" />{/if}
             </button>
             {#if fullscreenSupported}
               <button type="button" class="menu__item" on:click={toggleFullscreen}>
-                <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html isFullscreen ? ICONS.exitFullscreen : ICONS.fullscreen}</svg>{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
+                <Icon name={isFullscreen ? 'minimize-2' : 'maximize-2'} />{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
               </button>
             {/if}
             <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
-              <svg class="wb-menu-icon" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.trash}</svg>{t(dict, 'whiteboard.clear')}
+              <Icon name="trash" />{t(dict, 'whiteboard.clear')}
             </button>
           </div>
           {/if}
@@ -1802,7 +1768,7 @@
           <header class="wb-chat__head">
             <h2 class="wb-chat__title">{t(dict, 'whiteboard.chat')}</h2>
             <button type="button" class="wb-btn" on:click={toggleChat} aria-label={t(dict, 'whiteboard.chatClose')} title={t(dict, 'whiteboard.chatClose')}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.close}</svg>
+              <Icon name="x" size={20} />
             </button>
           </header>
           <ol class="wb-chat__list" bind:this={chatListEl} use:revealSpoilers aria-live="polite">
@@ -1838,7 +1804,7 @@
               data-1p-ignore
             />
             <button type="submit" class="wb-btn" disabled={!chatInput.trim() || !connected} aria-label={t(dict, 'whiteboard.chatSend')} title={t(dict, 'whiteboard.chatSend')}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.send}</svg>
+              <Icon name="send" size={20} />
             </button>
           </form>
         </section>
@@ -1849,7 +1815,7 @@
           <header class="wb-chat__head">
             <h2 class="wb-chat__title">{t(dict, 'whiteboard.people')}</h2>
             <button type="button" class="wb-btn" on:click={togglePeople} aria-label={t(dict, 'whiteboard.peopleClose')} title={t(dict, 'whiteboard.peopleClose')}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.close}</svg>
+              <Icon name="x" size={20} />
             </button>
           </header>
           <ul class="wb-chat__list">
@@ -1916,7 +1882,7 @@
         <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
           <span class="min-w-0 flex-1">{notice.text}</span>
           <button type="button" class="wb-btn wb-notice__close" on:click={() => { notice = null; }} aria-label={t(dict, 'whiteboard.noticeClose')} title={t(dict, 'whiteboard.noticeClose')}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.close}</svg>
+            <Icon name="x" size={20} />
           </button>
         </div>
       {/if}
@@ -1927,8 +1893,14 @@
             <div class="wb-track" use:scrollEdges>
               {#each GEO_IDS as g}
                 {@const label = t(dict, `whiteboard.geo.${g}`)}
-                <button type="button" class="wb-btn" aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[g]}</svg>
+                {@const geoIcon = GEO_ICONS[g]}
+                {@const fallback = dict[`whiteboard.geo.${g}`] ?? ''}
+                <button type="button" class="wb-btn" class:wb-btn--text={!geoIcon && !!fallback} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
+                  {#if geoIcon}
+                    <Icon name={geoIcon} size={20} />
+                  {:else if fallback}
+                    <span>{fallback}</span>
+                  {/if}
                 </button>
               {/each}
             </div>
@@ -1938,20 +1910,26 @@
           <div class="wb-track" use:scrollEdges>
             {#each TOOLS as item}
               {@const label = t(dict, `whiteboard.tool.${item.id}`)}
+              {@const icon = item.id === 'geo' ? GEO_ICONS[geoKind] : TOOL_ICONS[item.id]}
               <button
                 type="button"
                 class="wb-btn wb-tool"
+                class:wb-btn--text={!icon}
                 aria-pressed={tool === item.id}
                 aria-label={label}
                 title={`${label} (${item.key})`}
                 aria-keyshortcuts={item.key}
                 on:click={() => pickTool(item.id)}
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[item.id === 'geo' ? geoKind : item.id]}</svg>
+                {#if icon}
+                  <Icon name={icon} size={20} />
+                {:else if dict[`whiteboard.geo.${geoKind}`]}
+                  <span>{dict[`whiteboard.geo.${geoKind}`]}</span>
+                {/if}
               </button>
             {/each}
             <button type="button" class="wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">{@html ICONS.image}</svg>
+              <Icon name="image" size={20} />
             </button>
           </div>
         </div>
@@ -1994,7 +1972,7 @@
         title={t(dict, roomLocked ? 'whiteboard.unlockHint' : 'whiteboard.lockHint')}
         on:click={toggleLock}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html roomLocked ? ICONS.lock : ICONS.unlock}</svg>
+        <Icon name={roomLocked ? 'lock' : 'lock-open'} />
         <span class="wb-lock__text">{t(dict, roomLocked ? 'whiteboard.locked' : 'whiteboard.lock')}</span>
       </button>
     </div>
@@ -2104,16 +2082,10 @@
     color: var(--muted);
     transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
   }
-  .wb-btn svg {
-    width: 18px;
-    height: 18px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .wb-btn svg.wb-svg-bold { stroke-width: 3; }
+  .wb-btn :global(svg.wb-dash-dashed path) { stroke-dasharray: 5 3; }
+  .wb-btn :global(svg.wb-dash-dotted path) { stroke-dasharray: 0.1 4; stroke-width: 3; }
+  .wb-btn :global(svg.wb-fill-semi path) { fill: currentColor; fill-opacity: 0.3; }
+  .wb-btn :global(svg.wb-fill-solid path) { fill: currentColor; }
   .wb-btn:not(:disabled):hover {
     background: var(--surface-2);
     color: var(--text);
@@ -2231,17 +2203,7 @@
     opacity: 0.45;
     cursor: not-allowed;
   }
-  .wb-menu-icon {
-    width: 16px;
-    height: 16px;
-    flex: none;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .wb-menu-check { margin-left: auto; color: var(--accent); }
+  .menu__item :global(.wb-menu-check) { margin-left: auto; color: var(--accent); }
   .wb-menu-hint {
     max-width: 15rem;
     padding: 0 0.75rem 0.375rem;

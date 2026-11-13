@@ -32,9 +32,6 @@ importers:
       '@astrojs/svelte':
         specifier: ^9.1.1
         version: 9.1.1(@types/node@26.6.5)(astro@7.4.2(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(less@4.6.4)(tsx@4.23.15)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(less@4.6.4)(svelte@5.57.2)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1)
-      '@lucide/svelte':
-        specifier: ^1.68.0
-        version: 1.68.0(svelte@5.57.2)
       '@material/material-color-utilities':
         specifier: ^0.4.0
         version: 0.4.0
@@ -802,11 +799,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@noble/curves': ^1.6.0
-
-  '@lucide/svelte@1.68.0':
-    resolution: {integrity: sha512-5iOupZmuGCJD89emoHsTlwkwMHzuNTBUwt/IbH3YVnmphBNqKqz4CKepzsOBXpf+c17DXlTOeV8nhzV0pU+5qw==}
-    peerDependencies:
-      svelte: ^5
 
   '@material/material-color-utilities@0.4.0':
     resolution: {integrity: sha512-dlq6VExJReb8dhjj3a/yTigr3ncNwoFmL5Iy2ENtbDX03EmNeOEdZ+vsaGrj7RTuO+mB7L58II4LCsl4NpM8uw==}
@@ -3336,10 +3328,6 @@ snapshots:
   '@kevincharm/noble-bn254-drand@0.0.1(@noble/curves@1.9.7)':
     dependencies:
       '@noble/curves': 1.9.7
-
-  '@lucide/svelte@1.68.0(svelte@5.57.2)':
-    dependencies:
-      svelte: 5.57.2
 
   '@material/material-color-utilities@0.4.0': {}
 

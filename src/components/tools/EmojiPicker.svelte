@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { t } from '../../lib/t';
   import { EMOJI_ICONS } from '../../lib/emoji/icons';
+  import Icon from '../Icon.svelte';
   import {
     applySkinTone,
     detectEmojiSupport,
@@ -487,7 +488,7 @@
       </div>
     {:else}
       <div class="ep__search">
-        <svg class="ep__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html EMOJI_ICONS.search}</svg>
+        <Icon name={EMOJI_ICONS.search} class="ep__search-icon" />
         <input
           bind:this={searchEl}
           class="ep__input"
@@ -515,7 +516,7 @@
               searchEl?.focus();
             }}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html EMOJI_ICONS.clear}</svg>
+            <Icon name={EMOJI_ICONS.clear} />
           </button>
         {/if}
       </div>
@@ -546,7 +547,7 @@
           tabindex={active === id ? 0 : -1}
           onclick={() => jump(id)}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html EMOJI_ICONS[id]}</svg>
+          <Icon name={EMOJI_ICONS[id]} />
         </button>
       {/each}
     </div>
@@ -570,7 +571,7 @@
           {@render block({ id: 'search', items: results })}
         {:else}
           <div class="ep__empty" role="status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html EMOJI_ICONS.search}</svg>
+            <Icon name={EMOJI_ICONS.search} size={20} />
             <span>{t(dict, 'emoji.noResults')}</span>
           </div>
         {/if}

@@ -4,7 +4,7 @@
   import { untrack } from 'svelte';
   import { List, ListItem, Sheet } from 'konsta/svelte';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import ChatVoiceRecorder from './ChatVoiceRecorder.svelte';
   import type { VoiceRecording } from '../../lib/voiceMessage';
   import type { SchedulePreset } from '../../lib/chatSchedule';
@@ -120,19 +120,19 @@
       title={t(dict, 'chat.addMenu')}
     >
       {#if uploading}
-        <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
+        <Icon name="loader-circle" class="animate-spin" />
       {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['plus']}</svg>
+        <Icon name="plus" size={20} />
       {/if}
     </button>
     {#if composerMenuOpen && !appMode}
       <div class="chat-attach-dropdown" role="menu">
         <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); onchoosefile(); }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['file']}</svg>
+          <Icon name="file" />
           <span>{t(dict, 'chat.uploadFile')}</span>
         </button>
         <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); oncreatewhiteboard(); }} disabled={!verified}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['presentation']}</svg>
+          <Icon name="presentation" />
           <span>{t(dict, 'chat.createWhiteboard')}</span>
         </button>
         <button
@@ -143,7 +143,7 @@
           aria-checked={onceEnabled}
           on:click={() => { onceEnabled = !onceEnabled; }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['eye-off']}</svg>
+          <Icon name="eye-off" />
           <span>{t(dict, 'chat.once')}</span>
         </button>
         <button
@@ -155,7 +155,7 @@
           disabled={!inputText.trim()}
           on:click={() => { scheduleMenuOpen = !scheduleMenuOpen; }}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['clock']}</svg>
+          <Icon name="clock" />
           <span>{t(dict, 'chat.schedule')}</span>
         </button>
         {#if scheduleMenuOpen}
@@ -176,31 +176,31 @@
         {#if !scheduleMenuOpen}
           <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.uploadFile')} onClick={() => { closeMenus(); onchoosefile(); }}>
             {#snippet media()}
-              <span class="attach-badge attach-badge--file"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['file']}</svg></span>
+              <span class="attach-badge attach-badge--file"><Icon name="file" size={20} /></span>
             {/snippet}
           </ListItem>
           <ListItem link linkComponent="button" linkProps={{ type: 'button', disabled: !verified }} chevron={false} title={t(dict, 'chat.createWhiteboard')} onClick={() => { closeMenus(); oncreatewhiteboard(); }}>
             {#snippet media()}
-              <span class="attach-badge attach-badge--board"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['pen-tool']}</svg></span>
+              <span class="attach-badge attach-badge--board"><Icon name="pen-tool" size={20} /></span>
             {/snippet}
           </ListItem>
           <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.once')} aria-checked={onceEnabled} onClick={() => { onceEnabled = !onceEnabled; }}>
             {#snippet media()}
-              <span class="attach-badge attach-badge--once"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['eye-off']}</svg></span>
+              <span class="attach-badge attach-badge--once"><Icon name="eye-off" size={20} /></span>
             {/snippet}
             {#snippet after()}{#if onceEnabled}
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+              <Icon name="check" size={20} />
             {/if}{/snippet}
           </ListItem>
           <ListItem link linkComponent="button" linkProps={{ type: 'button', disabled: !inputText.trim() }} title={t(dict, 'chat.schedule')} onClick={() => { scheduleMenuOpen = true; }}>
             {#snippet media()}
-              <span class="attach-badge attach-badge--schedule"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['clock']}</svg></span>
+              <span class="attach-badge attach-badge--schedule"><Icon name="clock" size={20} /></span>
             {/snippet}
           </ListItem>
         {:else}
           <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.schedule')} onClick={() => { scheduleMenuOpen = false; }}>
             {#snippet media()}
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['chevron-left']}</svg>
+              <Icon name="chevron-left" size={20} />
             {/snippet}
           </ListItem>
           {#each schedulePresets as preset}
@@ -234,7 +234,7 @@
     }}
     disabled={(!connected && !allowQueue) || (!inputText.trim() && !uploading)}
   >
-    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['send']}</svg>
+    <Icon name="send" size={20} />
   </button>
   {/if}
 {/snippet}
@@ -254,7 +254,7 @@
       on:pointerdown={(e) => e.preventDefault()}
       on:click={(e) => onemoji?.(e.currentTarget)}
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['smile']}</svg>
+      <Icon name="smile" size={20} />
     </button>
   {/if}
 {/snippet}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t, tApp } from '../../lib/t';
   import { aliasGradient, gradientFor, type Alias } from '../../lib/alias';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
 
   export type ChatCallPeer = {
     id: string;
@@ -289,14 +289,14 @@
             </button>
             {#if pipSupported && onpip}
               <button type="button" class="call-mini__btn" title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['picture-in-picture-2']}</svg>
+                <Icon name="picture-in-picture-2" size={20} />
               </button>
             {/if}
             <button type="button" class="call-mini__btn" class:call-mini__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE[micMuted ? 'mic-off' : 'mic']}</svg>
+              <Icon name={micMuted ? 'mic-off' : 'mic'} size={20} />
             </button>
             <button type="button" class="call-mini__btn call-mini__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+              <Icon name="phone-off" size={20} />
             </button>
           </div>
         {/if}
@@ -308,12 +308,12 @@
               <span>{callHasScreenSharing ? t(dict, 'chat.callScreenActive') : callHasVideo ? t(dict, 'chat.callVideoActive') : t(dict, 'chat.callAudioActive')}</span>
               <span aria-hidden="true">·</span>
               <span class="call__count" role="img" aria-label={`${callPeers.length + 1} ${t(dict, 'chat.callParticipants')}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['users']}</svg>
+                <Icon name="users" />
                 <span aria-hidden="true">{callPeers.length + 1}</span>
               </span>
               <span aria-hidden="true">·</span>
               <span class="call__count" title={tApp(dict, 'chat.callE2eeTitle', appMode)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['lock']}</svg>
+                <Icon name="lock" />
                 <span>{t(dict, 'chat.callE2ee')}</span>
               </span>
               {#if serverLatencyMs !== null && !appMode}<span class="call__latency"><span aria-hidden="true">·</span><span>{serverLatencyMs} ms</span></span>{/if}
@@ -321,11 +321,11 @@
             <div class="call__top-actions">
               {#if pipSupported && onpip}
                 <button type="button" class="call__top-btn" title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['picture-in-picture-2']}</svg>
+                  <Icon name="picture-in-picture-2" size={20} />
                 </button>
               {/if}
               <button type="button" class="call__top-btn" title={t(dict, 'chat.callMinimize')} aria-label={t(dict, 'chat.callMinimize')} on:click={() => { minimized = true; callSettingsOpen = false; }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['chevron-down']}</svg>
+                <Icon name="chevron-down" size={20} />
               </button>
             </div>
             </div>
@@ -348,7 +348,7 @@
                     on:dblclick={() => onopenfullscreen({ source: 'local' })}
                   ></video>
                   <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'local' })}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['maximize']}</svg>
+                    <Icon name="maximize" />
                   </button>
                 {:else}
                   <div class="call__avatar" style="background: {aliasGradient(alias, localName)}" title={localName} aria-label={localName}></div>
@@ -356,12 +356,12 @@
                 <div class="call__name">
                   <span>{t(dict, 'chat.callYou')}</span>
                   {#if micMuted}
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callMuted')}>{@html LUCIDE['mic-off']}</svg>
+                    <Icon name="mic-off" label={t(dict, 'chat.callMuted')} />
                   {:else}
                     <span class="call__level" style={`--level: ${Math.max(0.04, localAudioLevel)}`}></span>
                   {/if}
                   {#if screenSharing}
-                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen">{@html LUCIDE['monitor']}</svg>
+                    <Icon name="monitor" class="call__name-screen" label={t(dict, 'chat.callScreenSharing')} />
                   {/if}
                 </div>
               </div>
@@ -383,7 +383,7 @@
                       on:dblclick={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}
                     ></video>
                     <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['maximize']}</svg>
+                      <Icon name="maximize" />
                     </button>
                   {:else}
                     {#if peer.stream}
@@ -401,12 +401,12 @@
                   <div class="call__name">
                     <span>{peer.name}</span>
                     {#if peer.muted}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callMuted')}>{@html LUCIDE['mic-off']}</svg>
+                      <Icon name="mic-off" label={t(dict, 'chat.callMuted')} />
                     {:else}
                       <span class="call__level" style={`--level: ${Math.max(0.04, peer.audioLevel)}`}></span>
                     {/if}
                     {#if peer.screenSharing}
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label={t(dict, 'chat.callScreenSharing')} class="call__name-screen">{@html LUCIDE['monitor']}</svg>
+                      <Icon name="monitor" class="call__name-screen" label={t(dict, 'chat.callScreenSharing')} />
                     {/if}
                     {#if peer.state !== 'connected'}<span class="call__name-state" class:call__name-state--failed={peer.state === 'failed'} role="img" aria-label={peer.state === 'failed' ? t(dict, 'chat.callConnectionFailed') : t(dict, 'chat.callPeerConnecting')} title={peer.state === 'failed' ? t(dict, 'chat.callConnectionFailed') : t(dict, 'chat.callPeerConnecting')}></span>{/if}
                   </div>
@@ -418,32 +418,32 @@
           <div class="call__bar" inert={minimized || undefined}>
             <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
               {#if micMuted}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic-off']}</svg>
+                <Icon name="mic-off" size={20} />
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic']}</svg>
+                <Icon name="mic" size={20} />
               {/if}
             </button>
             <button type="button" class="call__btn" class:call__btn--off={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={ontogglecamera}>
               {#if cameraOff}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['video-off']}</svg>
+                <Icon name="video-off" size={20} />
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['video']}</svg>
+                <Icon name="video" size={20} />
               {/if}
             </button>
 {#if screenShareSupported || screenSharing}
                         <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={ontogglescreen}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['monitor-up']}</svg>
+              <Icon name="monitor-up" size={20} />
             </button>
             {/if}
             <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['settings']}</svg>
+              <Icon name="settings" size={20} />
             </button>
             <button type="button" class="call__btn call__btn--chat" class:call__btn--on={wide && callChatOpen} title={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={wide ? callChatOpen : undefined} on:click={showChat}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['message-square']}</svg>
+              <Icon name="message-square" size={20} />
               {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
             </button>
             <button type="button" class="call__btn call__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+              <Icon name="phone-off" size={20} />
             </button>
           </div>
 
@@ -452,7 +452,7 @@
               <div class="call__settings-head">
                 <span>{t(dict, 'chat.callAudioAndDevices')}</span>
                 <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={onrefreshdevices}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['refresh-cw']}</svg>
+                  <Icon name="refresh-cw" />
                 </button>
               </div>
               <div class="call__fields">
@@ -509,9 +509,9 @@
                       </div>
                       <button type="button" class="btn-ghost btn-sm btn-icon" class:text-danger={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-label={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-pressed={peer.audioMuted} on:click={() => onsetpeeraudiomuted(peer.id, !peer.audioMuted)}>
                         {#if peer.audioMuted}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['volume-x']}</svg>
+                          <Icon name="volume-x" />
                         {:else}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['volume-1']}</svg>
+                          <Icon name="volume-1" />
                         {/if}
                       </button>
                       <input type="range" min="0" max="1" step="0.05" value={peer.volume} disabled={callAudioMuted || peer.audioMuted} on:input={(e) => onsetpeervolume(peer.id, (e.currentTarget as HTMLInputElement).value)} aria-label={`${t(dict, 'chat.callVolume')} ${peer.name}`} />
@@ -526,7 +526,7 @@
         {#if callError}
           {#if callActive}
             <div class="call__toast" role="alert">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['info']}</svg>
+              <Icon name="info" />
               <span>{callError}</span>
             </div>
           {:else}
@@ -551,8 +551,8 @@
         <span>{fullscreenMedia.name}</span>
         {#if fullscreenMedia.isScreen}<span>{t(dict, 'chat.callScreenSharing')}</span>{/if}
       </div>
-      <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} on:click={() => onclosefullscreen()}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['minimize']}</svg>
+      <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} aria-label={t(dict, 'chat.callExitFullscreen')} on:click={() => onclosefullscreen()}>
+        <Icon name="minimize" size={20} />
       </button>
     </div>
     <video

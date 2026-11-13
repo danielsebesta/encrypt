@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
   import { t } from '../lib/t';
-  import { LUCIDE } from '../lib/lucideIcons';
+  import Icon from './Icon.svelte';
   import { classifyQrText, openReceiveLink, readQr } from '../lib/qrScan';
 
   export let dict: Record<string, string>;
@@ -166,11 +166,11 @@
   {:else}
     <div class="actions">
       <button bind:this={openButton} type="button" class="btn-secondary" on:click={openCamera} disabled={status !== 'idle'}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['scan']}</svg>
+        <Icon name="scan" size={20} />
         {t(dict, key('open'))}
       </button>
       <button type="button" class="btn-ghost" on:click={() => fileInput.click()} disabled={status !== 'idle'}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['image']}</svg>
+        <Icon name="image" size={20} />
         {t(dict, key('image'))}
       </button>
     </div>

@@ -1,13 +1,14 @@
 <script lang="ts">
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
+  import type { IconName } from '../../lib/iconManifest';
 
   let { dict }: { dict: Record<string, string> } = $props();
 
-  const ITEMS = [
-    { title: 'rooms.passkeyExplain.tab1', body: 'rooms.passkeyExplain.body1', icon: LUCIDE['fingerprint-pattern'] },
-    { title: 'rooms.passkeyExplain.tab2', body: 'rooms.passkeyExplain.body2', icon: LUCIDE['lock'] },
-    { title: 'rooms.passkeyExplain.tab3', body: 'rooms.passkeyExplain.body3', icon: LUCIDE['shield'] },
+  const ITEMS: { title: string; body: string; icon: IconName }[] = [
+    { title: 'rooms.passkeyExplain.tab1', body: 'rooms.passkeyExplain.body1', icon: 'fingerprint-pattern' },
+    { title: 'rooms.passkeyExplain.tab2', body: 'rooms.passkeyExplain.body2', icon: 'lock' },
+    { title: 'rooms.passkeyExplain.tab3', body: 'rooms.passkeyExplain.body3', icon: 'shield' },
   ];
 </script>
 
@@ -17,7 +18,7 @@
     {#each ITEMS as item}
       <li class="passkey-explain__item">
         <span class="passkey-explain__icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html item.icon}</svg>
+          <Icon name={item.icon} size={20} />
         </span>
         <div>
           <p class="passkey-explain__title">{t(dict, item.title)}</p>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LUCIDE } from '../lib/lucideIcons';
+  import Icon from './Icon.svelte';
 
   export let id: string;
   export let label: string;
@@ -10,9 +10,9 @@
   {#each rules as rule}
     <li class="pw-rules__item" class:pw-rules__item--ok={rule.ok}>
       {#if rule.ok}
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+        <Icon name="check" />
       {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">{@html LUCIDE['circle']}</svg>
+        <Icon name="circle" />
       {/if}
       <span>{rule.label}</span>
     </li>

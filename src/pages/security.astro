@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { LUCIDE } from '../lib/lucideIcons';
+import Icon from '../components/Icon.astro';
+import type { IconName } from '../lib/iconManifest';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -37,11 +38,11 @@ const sections: Section[] = [
   { id: 'disclosure', title: 'security.disclosure.title', lead: 'security.disclosure.text' },
 ];
 
-const glance = [
-  { n: 1, icon: LUCIDE['user-x'] },
-  { n: 2, icon: LUCIDE['lock'] },
-  { n: 3, icon: LUCIDE['key'] },
-  { n: 4, icon: LUCIDE['database-x'] },
+const glance: { n: number; icon: IconName }[] = [
+  { n: 1, icon: 'user-x' },
+  { n: 2, icon: 'lock' },
+  { n: 3, icon: 'key' },
+  { n: 4, icon: 'database-x' },
 ];
 
 const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u);
@@ -61,7 +62,7 @@ const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u
       {glance.map((g) => (
         <li class="sec-glance__item">
           <span class="sec-glance__icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={g.icon} /></svg>
+            <Icon name={g.icon} size={20} />
           </span>
           {t(dict, `security.glance.${g.n}`)}
         </li>

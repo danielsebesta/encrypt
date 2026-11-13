@@ -1,7 +1,7 @@
 <script lang="ts">
   import { MenuListItem } from 'konsta/svelte';
   import { t, tApp } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import PasskeyExplain from './PasskeyExplain.svelte';
   import {
     LABEL_MAX, forgetRoom, saveRoom, touchRoom, validMode, validRoomId, validSecret, vaultState, getRoom,
@@ -103,16 +103,16 @@
   {#if variant === 'konsta'}
     <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={title} onClick={openDialog}>
       {#snippet media()}
-        <svg class:app-saved-icon={Boolean(entry)} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bookmark']}</svg>
+        <Icon name="bookmark" size={20} class={entry ? 'app-saved-icon' : ''} />
       {/snippet}
     </MenuListItem>
   {:else if variant === 'menu'}
     <button type="button" class="menu__item" role="menuitem" aria-haspopup="dialog" onclick={openDialog}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bookmark']}</svg>{title}
+      <Icon name="bookmark" />{title}
     </button>
   {:else}
     <button type="button" class="btn-ghost btn-sm btn-icon" class:text-accent={Boolean(entry)} title={title} aria-label={title} aria-haspopup="dialog" onclick={openDialog}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill={entry ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bookmark']}</svg>
+      <Icon name="bookmark" />
     </button>
   {/if}
 

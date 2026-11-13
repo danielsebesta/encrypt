@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import { VOICE_BARS, formatClock, placeholderPeaks, voicePeaks } from '../../lib/voiceMessage';
 
   const RATES = [1, 1.5, 2];
@@ -28,7 +28,6 @@
   let measured = $state<number[] | null>(null);
   const total = $derived(length && Number.isFinite(length) ? length : seconds);
   const peaks = $derived(measured ?? placeholderPeaks(seed || String(seconds)));
-  const iconSize = $derived(appMode ? 16 : 14);
   const progress = $derived(total ? Math.min(1, position / total) : 0);
 
   onDestroy(() => {
@@ -115,11 +114,11 @@
 
 {#snippet playIcon()}
   {#if loading}
-    <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['loader-circle']}</svg>
+    <Icon name="loader-circle" class="animate-spin" />
   {:else if playing}
-    <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pause']}</svg>
+    <Icon name="pause" />
   {:else}
-    <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['play']}</svg>
+    <Icon name="play" />
   {/if}
 {/snippet}
 

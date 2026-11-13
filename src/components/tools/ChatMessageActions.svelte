@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import { REACTION_EMOJI, type ReactionEmoji } from '../../lib/chatReactions';
 
   let { dict, open, align = 'start', mine = [], canBurn = false, ontoggle, onreply, onreact, onmore, onburn }: {
@@ -103,7 +103,7 @@
     title={t(dict, 'chat.messageActions')}
     onclick={() => ontoggle(!open)}
   >
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['ellipsis']}</svg>
+    <Icon name="ellipsis" />
   </button>
   {#if open}
     <div class="msg-actions__menu" class:msg-actions__menu--up={upward} class:msg-actions__menu--end={align === 'end'} role="menu" tabindex="-1" aria-label={t(dict, 'chat.messageActions')} bind:this={menuEl} {onkeydown}>
@@ -128,16 +128,16 @@
             aria-label={t(dict, 'chat.reactMore')}
             title={t(dict, 'chat.reactMore')}
             onclick={() => { const anchor = triggerEl; ontoggle(false); if (anchor) onmore(anchor); }}
-          ><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['smile-plus']}</svg></button>
+          ><Icon name="smile-plus" size={20} /></button>
         {/if}
       </div>
       <button type="button" role="menuitem" class="menu__item msg-actions__reply" onclick={() => { ontoggle(false); onreply(); }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['reply']}</svg>
+        <Icon name="reply" />
         <span>{t(dict, 'chat.reply')}</span>
       </button>
       {#if canBurn && onburn}
         <button type="button" role="menuitem" class="menu__item msg-actions__burn" onclick={() => { ontoggle(false); onburn(); }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['trash']}</svg>
+          <Icon name="trash" />
           <span>{t(dict, 'chat.burnForEveryone')}</span>
         </button>
       {/if}

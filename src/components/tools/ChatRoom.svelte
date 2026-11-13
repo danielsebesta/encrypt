@@ -45,7 +45,7 @@
     type TransferSnapshot,
   } from '../../lib/transferProgress';
   import { t, tApp } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
@@ -5580,11 +5580,11 @@
     {:else}
       <div class="chat-me__actions">
         <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} on:click={startNameEdit}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
+          <Icon name="pencil" />
           {t(dict, 'chat.changeName')}
         </button>
         <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} on:click={quickReroll}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['dices']}</svg>
+          <Icon name="dices" />
           {t(dict, 'chat.rerollAvatar')}
         </button>
       </div>
@@ -5598,7 +5598,7 @@
   {#if unsupportedBrowser}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{/if}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="search" size={20} /></span>{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.unsupportedBrowser')}</p>
       </div>
     </div>
@@ -5606,7 +5606,7 @@
   {:else if configChanged}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{/if}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="search" size={20} /></span>{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.configChanged')}</p>
         <p class="hint">{t(dict, 'chat.configChangedDetail')}</p>
         {#if appMode}
@@ -5620,7 +5620,7 @@
   {:else if roomMissing}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{/if}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="search" size={20} /></span>{/if}
         <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
         {#if appMode}
@@ -5648,7 +5648,7 @@
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
-          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{/if}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="lock-keyhole" size={20} /></span>{/if}
           <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
@@ -5700,7 +5700,7 @@
             <button type="button" class="chat-me-pill" title={t(dict, 'chat.editProfile')} aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
               <span class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" aria-hidden="true"></span>
               <span class="chat-me-pill__name">{identity.name}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pencil']}</svg>
+              <Icon name="pencil" />
             </button>
             {#if profileOpen}
               <div id="chat-profile-pop" class="chat-profile__pop">
@@ -5720,13 +5720,13 @@
         </div>
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={() => { closeHeaderMenu(); startCall(); }} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
-            <svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['loader-circle']}</svg>
+            <Icon name="loader-circle" class="animate-spin" />
           {:else}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['phone']}</svg>
+            <Icon name="phone" />
           {/if}
         </button>
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['key']}</svg>
+          <Icon name="key" />
         </button>
         <div class="chat-header-menu relative" data-chat-menu>
           <button
@@ -5740,31 +5740,31 @@
             aria-controls="chat-room-menu"
             on:click={() => { headerMenuOpen = !headerMenuOpen; membersOpen = false; burnConfirmMsg = null; profileOpen = false; }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['ellipsis-vertical']}</svg>
+            <Icon name="ellipsis-vertical" />
           </button>
           <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu">
             <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
-              <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['link']}</svg>
+              <Icon name="link" class="chat-header-menu__icon" />
               {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
             </button>
             <div role="none" on:click={closeHeaderMenu}>
               <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="menu" />
             </div>
           <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={blurWhenAway} on:click={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
-              <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+              <Icon name="eye" class="chat-header-menu__icon" />
               {t(dict, 'chat.blurWhenAway')}
-              {#if blurWhenAway}<svg class="chat-header-menu__check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>{/if}
+              {#if blurWhenAway}<Icon name="check" class="chat-header-menu__check" />{/if}
             </button>
             {#if notifySupported}
               <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={notifyOn} on:click={() => { void toggleNotifications(); closeHeaderMenu(); }}>
-                <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bell']}</svg>
+                <Icon name="bell" class="chat-header-menu__icon" />
                 {t(dict, 'chat.notifications')}
-                {#if notifyOn}<svg class="chat-header-menu__check" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>{/if}
+                {#if notifyOn}<Icon name="check" class="chat-header-menu__check" />{/if}
               </button>
             {/if}
             {#if shouldKeepParticipantHistory()}
               <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); exportHistory(); }} disabled={!verified}>
-                <svg class="chat-header-menu__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['download']}</svg>
+                <Icon name="download" class="chat-header-menu__icon" />
                 {exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')}
               </button>
             {/if}
@@ -5780,13 +5780,13 @@
           {#if onShareApp}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'common.shareLink')} onClick={() => { closeHeaderMenu(); onShareApp(); }}>
               {#snippet media()}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['share-2']}</svg>
+                <Icon name="share-2" size={20} />
               {/snippet}
             </MenuListItem>
           {/if}
           <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')} onClick={() => { closeHeaderMenu(); copyShareLink(); }}>
             {#snippet media()}
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['link']}</svg>
+              <Icon name="link" size={20} />
             {/snippet}
           </MenuListItem>
           <div on:click={closeHeaderMenu} role="presentation">
@@ -5794,26 +5794,26 @@
           </div>
           <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.blurWhenAway')} aria-checked={blurWhenAway} onClick={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
             {#snippet media()}
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+              <Icon name="eye" size={20} />
             {/snippet}
             {#snippet after()}{#if blurWhenAway}
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+              <Icon name="check" size={20} />
             {/if}{/snippet}
           </MenuListItem>
           {#if notifySupported}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.notifications')} aria-checked={notifyOn} onClick={() => { void toggleNotifications(); closeHeaderMenu(); }}>
               {#snippet media()}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['bell']}</svg>
+                <Icon name="bell" size={20} />
               {/snippet}
               {#snippet after()}{#if notifyOn}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['check']}</svg>
+                <Icon name="check" size={20} />
               {/if}{/snippet}
             </MenuListItem>
           {/if}
           {#if shouldKeepParticipantHistory()}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: !verified }} title={exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')} onClick={() => { closeHeaderMenu(); exportHistory(); }}>
               {#snippet media()}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['download']}</svg>
+                <Icon name="download" size={20} />
               {/snippet}
             </MenuListItem>
           {/if}
@@ -5842,18 +5842,18 @@
               class="chat-react-btn chat-react-btn--more"
               aria-label={t(dict, 'chat.reactMore')}
               on:click={() => { const target = sheetMsg; actionMenuFor = null; if (target) openEmoji({ kind: 'react', msg: target }); }}
-            ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['smile-plus']}</svg></button>
+            ><Icon name="smile-plus" size={20} /></button>
           </div>
           <List strongIos insetIos class="mt-1! mb-3!">
             <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.reply')} onClick={() => { if (sheetMsg) startReply(sheetMsg); }}>
               {#snippet media()}
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['reply']}</svg>
+                <Icon name="reply" size={20} />
               {/snippet}
             </ListItem>
             {#if sheetMsg.text}
               <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.copyMessage')} onClick={() => { if (sheetMsg) void copyMessageText(sheetMsg); }}>
                 {#snippet media()}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
+                  <Icon name="copy" size={20} />
                 {/snippet}
               </ListItem>
             {/if}
@@ -5861,7 +5861,7 @@
               <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} onClick={() => { if (sheetMsg) burnOwnMessage(sheetMsg); }}>
                 {#snippet title()}<span class="app-danger-text">{t(dict, 'chat.burnForEveryone')}</span>{/snippet}
                 {#snippet media()}
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="app-danger-text">{@html LUCIDE['trash']}</svg>
+                  <Icon name="trash" size={20} class="app-danger-text" />
                 {/snippet}
               </ListItem>
             {/if}
@@ -5976,13 +5976,13 @@
             <div class="app-incoming__actions">
               <div class="app-incoming__choice">
                 <button type="button" class="app-incoming__btn app-incoming__btn--decline" on:click={dismissCallNotice} aria-label={t(dict, 'chat.callDecline')}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+                  <Icon name="phone-off" size={20} />
                 </button>
                 <span>{t(dict, 'chat.callDecline')}</span>
               </div>
               <div class="app-incoming__choice">
                 <button type="button" class="app-incoming__btn app-incoming__btn--accept" on:click={joinActiveCall} aria-label={t(dict, 'chat.callAccept')}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone']}</svg>
+                  <Icon name="phone" size={20} />
                 </button>
                 <span>{t(dict, 'chat.callAccept')}</span>
               </div>
@@ -6074,7 +6074,7 @@
         <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
-          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['message-circle']}</svg></span>{/if}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="message-circle" size={20} /></span>{/if}
           <p class="empty__title">{t(dict, serverPresence > 1 ? 'chat.emptyRoomNoticeOthers' : 'chat.emptyRoomNotice')}</p>
           <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
           <p class="hint">{t(dict, roomConfig.mode === 'live' ? 'chat.emptyRoomNotice3' : 'chat.emptyRoomNotice3Ttl')}</p>
@@ -6141,7 +6141,7 @@
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['file']}</svg>
+                  <Icon name="file" />
                   <div class="flex-1 min-w-0">
                     <span class="chat-file__name">{msg.file.name}</span>
                     <span class="chat-file__size">
@@ -6156,7 +6156,7 @@
                   </div>
                   {#if !gone && !msg.pending}
                     <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['download']}</svg>
+                      <Icon name="download" />
                     </button>
                   {/if}
                 </div>
@@ -6164,14 +6164,14 @@
               {#if msg.whiteboard}
                 <div class="chat-whiteboard-card">
                   <div class="chat-whiteboard-card__icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['presentation']}</svg>
+                    <Icon name="presentation" />
                   </div>
                   <div class="chat-whiteboard-card__body">
                     <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
                     <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
                     <div class="chat-whiteboard-card__actions">
                       <button type="button" class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['external-link']}</svg>
+                        <Icon name="external-link" />
                         {t(dict, 'chat.whiteboardOpenNewTab')}
                       </button>
                     </div>
@@ -6210,12 +6210,12 @@
               <div class="chat-kmsg-meta">
                 {#if (msg.pending || msg.unacked) && msg.slow}
                   <span class="chat-kmsg-pending" role="status">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['clock']}</svg>
+                    <Icon name="clock" />
                     {t(dict, 'chat.queued')}
                   </span>
                 {:else if msg.failed}
                   <button type="button" class="chat-kmsg-pending chat-kmsg-pending--failed" on:click={() => retryQueued(msg)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['rotate-ccw-clock']}</svg>
+                    <Icon name="rotate-ccw-clock" />
                     {t(dict, 'chat.tryAgain')}
                   </button>
                 {/if}
@@ -6261,12 +6261,12 @@
                 {/if}
                 {#if (msg.pending || msg.unacked) && msg.slow}
                   <span class="chat-send-state" role="status">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['clock']}</svg>
+                    <Icon name="clock" />
                     {t(dict, 'chat.queued')}
                   </span>
                 {:else if msg.failed}
                   <button type="button" class="chat-send-state chat-send-state--failed" on:click={() => retryQueued(msg)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['rotate-ccw-clock']}</svg>
+                    <Icon name="rotate-ccw-clock" />
                     {t(dict, 'chat.tryAgain')}
                   </button>
                 {/if}
@@ -6305,7 +6305,7 @@
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['file']}</svg>
+                  <Icon name="file" />
                   <div class="flex-1 min-w-0">
                     <span class="chat-file__name">{msg.file.name}</span>
                     <span class="chat-file__size">
@@ -6320,7 +6320,7 @@
                   </div>
                   {#if !gone && !msg.pending}
                     <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['download']}</svg>
+                      <Icon name="download" />
                     </button>
                   {/if}
                 </div>
@@ -6328,14 +6328,14 @@
               {#if msg.whiteboard}
                 <div class="chat-whiteboard-card">
                   <div class="chat-whiteboard-card__icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['presentation']}</svg>
+                    <Icon name="presentation" />
                   </div>
                   <div class="chat-whiteboard-card__body">
                     <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
                     <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
                     <div class="chat-whiteboard-card__actions">
                       <button type="button" class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['external-link']}</svg>
+                        <Icon name="external-link" />
                         {t(dict, 'chat.whiteboardOpenNewTab')}
                       </button>
                     </div>
@@ -6392,7 +6392,7 @@
               <span class="chat-jump-latest__count">{belowCount > 99 ? '99+' : belowCount}</span>
               <span>{t(dict, 'chat.newBelow')}</span>
             {/if}
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['arrow-down']}</svg>
+            <Icon name="arrow-down" />
           </button>
         {/if}
         </div>
@@ -6438,7 +6438,7 @@
           <div class="chat-file-error" role="alert">
             <span>{fileError}</span>
             <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { fileError = ''; }} aria-label={t(dict, 'chat.callDismiss')}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
+              <Icon name="x" />
             </button>
           </div>
         {/if}
@@ -6530,7 +6530,7 @@
       on:click={closeLightbox}
       aria-label={t(dict, 'app.lightbox.close')}
     >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
+      <Icon name="x" size={20} />
     </button>
     <button
       type="button"
@@ -6538,7 +6538,7 @@
       on:click={saveLightboxImage}
       aria-label={t(dict, 'chat.downloadFile')}
     >
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['download']}</svg>
+      <Icon name="download" size={20} />
     </button>
   </div>
 {/if}
@@ -6583,12 +6583,12 @@
   .chat-header-menu__panel :global(.menu__item) {
     min-height: 2.75rem;
   }
-  .chat-header-menu__icon {
+  :global(.chat-header-menu__icon) {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
   }
-  .chat-header-menu__check {
+  :global(.chat-header-menu__check) {
     width: 0.95rem;
     height: 0.95rem;
     margin-left: auto;

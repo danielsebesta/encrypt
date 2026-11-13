@@ -23,7 +23,6 @@
     "@astrojs/cloudflare": "^14.4.2",
     "@astrojs/node": "^11.1.9",
     "@astrojs/svelte": "^9.1.1",
-    "@lucide/svelte": "^1.68.0",
     "@material/material-color-utilities": "^0.4.0",
     "@noble/post-quantum": "0.7.1",
     "@quickdrawjs/core": "0.3.0",

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
   import { encrypt, decrypt } from '../../lib/aesGcm';
@@ -894,11 +894,11 @@
               on:dragleave={handleDragLeave}
             >
               {#if appMode}
-                <span class="dropzone__icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['plus']}</svg></span>
+                <span class="dropzone__icon"><Icon name="plus" size={20} /></span>
                 <span class="dropzone__title">{t(dict, 'app.files.choose')}</span>
                 <span class="dropzone__hint">{t(dict, 'app.files.chooseHint')}</span>
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['upload']}</svg>
+                <Icon name="upload" size={20} />
                 <span class="dropzone__title">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
               {/if}
               <input id="ue-file" type="file" multiple class="sr-only" bind:this={fileInputEl} on:change={handleFileChange} />
@@ -1051,9 +1051,9 @@
               title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
             >
               {#if resultPasswordVisible}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye-off']}</svg>
+                <Icon name="eye-off" />
               {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['eye']}</svg>
+                <Icon name="eye" />
               {/if}
             </button>
           </div>

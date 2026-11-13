@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../../lib/t';
   import { gradientFor, type Alias } from '../../lib/alias';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
 
   type Member = {
     pk: string;
@@ -77,11 +77,11 @@
         <span class="chat-member__status chat-member__status--{s}">{status(member)}</span>
       </span>
       {#if s === 'verified'}
-        <svg class="chat-member__shield chat-member__shield--ok" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['shield-check']}</svg>
+        <Icon name="shield-check" size={20} class="chat-member__shield chat-member__shield--ok" />
       {:else if s === 'warn'}
-        <svg class="chat-member__shield chat-member__shield--warn" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['shield']}<path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        <Icon name="shield" size={20} class="chat-member__shield chat-member__shield--warn" />
       {/if}
-      <svg class="chat-member__chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['chevron-down']}</svg>
+      <Icon name="chevron-down" class="chat-member__chevron" />
     </button>
     {#if openPk === member.pk}
       <div class="chat-member__panel">

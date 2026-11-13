@@ -66,3 +66,24 @@ test('ICON_CREDIT attributes the Solar Icon Set', () => {
   assert.equal(ICON_CREDIT.licenseUrl, 'https://creativecommons.org/licenses/by/4.0/');
   assert.equal(ICON_CREDIT.sourceUrl, 'https://github.com/480-Design/Solar-Icon-Set');
 });
+
+test('no Lucide dependency, import or inline icon markup remains in src', async () => {
+  const { readdirSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const root = new URL('../src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.(svelte|astro|ts)$/.test(name)) files.push(full);
+    }
+  };
+  walk(root);
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    assert.doesNotMatch(text, /lucideIcons|@lucide|LUCIDE\[/, file);
+  }
+  const pkg = readFileSync(new URL('../package.json', import.meta.url), 'utf8');
+  assert.doesNotMatch(pkg, /lucide/i);
+});

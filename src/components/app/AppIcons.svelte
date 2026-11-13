@@ -47,9 +47,10 @@
 </script>
 
 <script lang="ts">
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import { SOLAR } from '../../lib/icons';
+  import type { IconName as SolarName } from '../../lib/iconManifest';
 
-  const MAP: Record<IconName, string> = {
+  const MAP: Record<IconName, SolarName> = {
     chat: 'message-square',
     settings: 'settings',
     plus: 'plus',
@@ -100,13 +101,11 @@
     name,
     class: className = '',
     size = 20,
-    strokeWidth = 2,
   }: {
     name: IconName;
     class?: string;
     size?: number;
-    strokeWidth?: number;
   } = $props();
 </script>
 
-<svg class={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE[MAP[name]]}</svg>
+<svg class={className} width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">{@html SOLAR[MAP[name]]}</svg>

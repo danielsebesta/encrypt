@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
 
   export let dict: Record<string, string>;
   export let title = '';
@@ -109,7 +109,7 @@
     {#if onDismiss}
       <div class="invite-card__actions">
         <button type="button" class={appMode ? 'app-icon-btn' : 'btn-ghost btn-sm btn-icon'} on:click={() => onDismiss?.()} aria-label={t(dict, 'chat.inviteCard.dismiss')}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['x']}</svg>
+          <Icon name="x" />
         </button>
       </div>
     {/if}
@@ -124,9 +124,9 @@
     <code class="invite-card__value">{url}</code>
     <button type="button" class="invite-card__copy" on:click={() => copy(url, 'link')} aria-label={t(dict, 'chat.inviteCard.copyLink')} title={copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}>
       {#if copiedLink}
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true">{@html LUCIDE['check']}</svg>
+        <Icon name="check" class="text-accent" />
       {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
+        <Icon name="copy" />
       {/if}
     </button>
   </div>
@@ -143,13 +143,13 @@
         aria-pressed={showPassword}
         title={t(dict, showPassword ? 'common.hidePassword' : 'common.showPassword')}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html showPassword ? LUCIDE['eye-off'] : LUCIDE['eye']}</svg>
+        <Icon name={showPassword ? 'eye-off' : 'eye'} />
       </button>
       <button type="button" class="invite-card__copy" on:click={() => copy(password, 'pass')} aria-label={t(dict, 'chat.inviteCard.copyPasswordSeparate')} title={copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}>
         {#if copiedPass}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent" aria-hidden="true">{@html LUCIDE['check']}</svg>
+          <Icon name="check" class="text-accent" />
         {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['copy']}</svg>
+          <Icon name="copy" />
         {/if}
       </button>
     </div>
@@ -158,7 +158,7 @@
   <div class="invite-card__share">
     {#if canShare}
       <button type="button" class={appMode ? 'app-sheet-btn w-full' : 'btn btn-sm w-full'} on:click={share} disabled={!url}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['share-2']}</svg>
+        <Icon name="share-2" />
         <span>{t(dict, 'chat.inviteCard.share')}</span>
       </button>
     {/if}

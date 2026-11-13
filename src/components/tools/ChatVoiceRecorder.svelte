@@ -3,7 +3,7 @@
   import { hapticTap } from '../../lib/hapticTap';
   import { onDestroy, onMount, tick } from 'svelte';
   import { t } from '../../lib/t';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
   import { MAX_VOICE_SECONDS, VoiceRecorder, formatClock, type VoiceRecording } from '../../lib/voiceMessage';
 
   const WAVE_BARS = 44;
@@ -92,7 +92,7 @@
 {#if supported}
   {#if recording && appMode}
     <button type="button" class="voice-rec-app__cancel" use:hapticTap={'warning'} onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['trash']}</svg>
+      <Icon name="trash" size={20} />
     </button>
     <div class="voice-rec-app" role="status" aria-label={t(dict, 'chat.voiceRecording')}>
       <span class="voice-rec-app__dot" aria-hidden="true"></span>
@@ -104,7 +104,7 @@
       </span>
     </div>
     <button type="button" class="voice-rec-app__send" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.send')} title={t(dict, 'chat.send')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['arrow-up']}</svg>
+      <Icon name="arrow-up" size={20} />
     </button>
   {:else if recording}
     <div class="voice-rec" role="status">
@@ -113,17 +113,17 @@
       <span class="voice-rec__time">{formatClock(elapsed)} / {formatClock(MAX_VOICE_SECONDS)}</span>
     </div>
     <button type="button" class="btn-ghost btn-sm btn-icon" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['trash']}</svg>
+      <Icon name="trash" />
     </button>
     <button type="button" class="voice-rec__stop" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.voiceStop')} title={t(dict, 'chat.voiceStop')}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['square']}</svg>
+      <Icon name="square" />
     </button>
   {:else}
     <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-sm btn-icon'} use:hapticTap={'medium'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
       {#if appMode}
-        <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic']}</svg>
+        <Icon name="mic" size={20} />
       {:else}
-        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['mic']}</svg>
+        <Icon name="mic" size={20} />
       {/if}
     </button>
   {/if}

@@ -6,7 +6,7 @@
     LABEL_MAX, compareRooms, forgetEverything, forgetRoom, listRooms, openRoom, relativeTime, renameRoom, setRoomPinned, unlockVault, vaultState,
     type RoomEntry, type VaultState,
   } from '../../lib/roomVault';
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import Icon from '../Icon.svelte';
 
   let { dict, locale = 'en' }: { dict: Record<string, string>; locale?: string } = $props();
 
@@ -165,7 +165,7 @@
       {:else if locked}
         <div class="status items-center justify-between gap-3">
           <p class="flex items-center gap-2 font-bold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 text-accent-strong">{@html LUCIDE['lock']}</svg>
+            <Icon name="lock" size={20} class="shrink-0 text-accent-strong" />
             {t(dict, 'rooms.locked')}
           </p>
           <button type="button" class="btn btn-sm shrink-0" onclick={unlock} disabled={busy}>{t(dict, 'rooms.unlock')}</button>
@@ -208,7 +208,7 @@
                   <p id="my-room-{i}-label" class="font-bold text-text break-words">
                     {#if room.pinned}
                       <span class="mr-1.5 inline-flex align-middle text-accent-strong" title={t(dict, 'rooms.pinned')} aria-label={t(dict, 'rooms.pinned')}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['pin']}</svg>
+                        <Icon name="pin" />
                       </span>
                     {/if}
                     {room.label}
@@ -220,7 +220,7 @@
                     <span>{visited(room)}</span>
                   </p>
                   <p class="mt-1 flex items-center gap-1.5 text-sm" class:text-accent-strong={Boolean(room.secret)} class:text-muted={!room.secret}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html room.secret ? LUCIDE['check'] : LUCIDE['x']}</svg>
+                    <Icon name={room.secret ? 'check' : 'x'} />
                     {secretLabel(room)}
                   </p>
                 </div>

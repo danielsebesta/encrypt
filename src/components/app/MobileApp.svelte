@@ -30,7 +30,7 @@
     Range,
   } from 'konsta/svelte';
 
-  import { LUCIDE } from '../../lib/lucideIcons';
+  import SolarIcon from '../Icon.svelte';
   import AppIcons, { type IconName } from './AppIcons.svelte';
   import ChatRoom from '../tools/ChatRoom.svelte';
   import Whiteboard from '../tools/Whiteboard.svelte';
@@ -1617,14 +1617,14 @@
     {#snippet after()}
       <span class="app-row-meta">
         {#if room.pinned}
-          <span class="app-row-meta__icon"><AppIcons name="pin" size={13} strokeWidth={2.25} /></span>
+          <span class="app-row-meta__icon"><AppIcons name="pin" size={13} /></span>
           <span class="sr-only">{t(dict, 'app.filter.pinned')}</span>
         {/if}
         {#if room.kind !== 'whiteboard' && room.mode && room.mode !== 'live'}
-          <span class="app-row-meta__icon"><AppIcons name="timer" size={13} strokeWidth={2.25} /></span>
+          <span class="app-row-meta__icon"><AppIcons name="timer" size={13} /></span>
         {/if}
         {#if notifyRooms.has(room.roomId)}
-          <span class="app-row-meta__icon"><AppIcons name="bell" size={13} strokeWidth={2.25} /></span>
+          <span class="app-row-meta__icon"><AppIcons name="bell" size={13} /></span>
           <span class="sr-only">{t(dict, 'app.row.notifyOnDone')}</span>
         {/if}
         <span class="app-row-meta__time">{rowStamp(room.lastSeen)}</span>
@@ -1644,7 +1644,7 @@
     <div class="app-sheet-bar">
       {#if confirm}
         <button type="button" class="app-sheet-bar__btn" onclick={onClose} aria-label={t(dict, 'app.cancel')}>
-          <AppIcons name="close" size={19} strokeWidth={2.4} />
+          <AppIcons name="close" size={19} />
         </button>
       {:else}
         <span class="app-sheet-bar__btn app-sheet-bar__btn--spacer" aria-hidden="true"></span>
@@ -1652,11 +1652,11 @@
       <h3 class="app-sheet-bar__title">{title}</h3>
       {#if confirm}
         <button type="button" class="app-sheet-bar__btn app-sheet-bar__btn--confirm" onclick={confirm.run} disabled={confirm.disabled} aria-label={confirm.label}>
-          <AppIcons name="check" size={20} strokeWidth={2.75} />
+          <AppIcons name="check" size={20} />
         </button>
       {:else}
         <button type="button" class="app-sheet-bar__btn" onclick={onClose} aria-label={t(dict, 'app.close')}>
-          <AppIcons name="close" size={19} strokeWidth={2.4} />
+          <AppIcons name="close" size={19} />
         </button>
       {/if}
     </div>
@@ -1673,7 +1673,7 @@
   {:else}
     <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected }} {title} {text} onClick={pick}>
       {#snippet after()}
-        {#if selected}<AppIcons name="check" size={20} class="text-[var(--app-tint)]" strokeWidth={2.75} />{/if}
+        {#if selected}<AppIcons name="check" size={20} class="text-[var(--app-tint)]" />{/if}
       {/snippet}
     </ListItem>
   {/if}
@@ -1681,9 +1681,9 @@
 
 {#snippet settingIcon(name: IconName, tone: 'blue' | 'indigo' | 'teal' | 'pink' | 'green' | 'orange' | 'red' | 'gray')}
   {#if platform === 'ios'}
-    <span class="app-icon-tile app-icon-tile--{tone}" aria-hidden="true"><AppIcons {name} size={17} strokeWidth={2.25} /></span>
+    <span class="app-icon-tile app-icon-tile--{tone}" aria-hidden="true"><AppIcons {name} size={17} /></span>
   {:else}
-    <span class="app-icon-plain" class:app-icon-plain--danger={tone === 'red' && name === 'trash'} aria-hidden="true"><AppIcons {name} size={24} strokeWidth={1.75} /></span>
+    <span class="app-icon-plain" class:app-icon-plain--danger={tone === 'red' && name === 'trash'} aria-hidden="true"><AppIcons {name} size={24} /></span>
   {/if}
 {/snippet}
 
@@ -1881,7 +1881,7 @@
                 {#each [['all', 'app.filter.all'], ['ttl', 'app.filter.ttl'], ['pinned', 'app.filter.pinned']] as [value, key] (value)}
                   <SegmentedButton active={chatFilter === value} aria-pressed={chatFilter === value} onClick={() => { chatFilter = value as typeof chatFilter; triggerHaptic('light'); }}>
                     <span class="app-seg">
-                      {#if platform === 'material' && chatFilter === value}<AppIcons name="check" size={16} strokeWidth={2.5} />{/if}
+                      {#if platform === 'material' && chatFilter === value}<AppIcons name="check" size={16} />{/if}
                       {t(dict, key)}
                     </span>
                   </SegmentedButton>
@@ -2222,7 +2222,7 @@
             </span>
           </button>
           <button type="button" class="app-call-return__end" aria-label={t(dict, 'chat.callHangUp')} title={t(dict, 'chat.callHangUp')} onclick={() => roomHangup?.()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{@html LUCIDE['phone-off']}</svg>
+            <SolarIcon name="phone-off" size={20} />
           </button>
         </div>
       {/if}
