@@ -892,10 +892,10 @@
         <div class="field field--fill">
           <span class="label" id="ue-file-label">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
           {#if files.length > 0}
-            <div class="dropzone dropzone--active" aria-labelledby="ue-file-label">
-              <span class="dropzone__title max-w-full truncate">{files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}`}</span>
-              <span>{#if files.length > 1}{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')} · {/if}{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
-              <button type="button" class="btn-ghost btn-sm" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
+            <div class="file-chip file-chip--enter flex w-full items-center gap-2 rounded-lg border border-control-line bg-surface px-3 py-2 text-sm text-muted" aria-labelledby="ue-file-label">
+              <span class="file-chip__name min-w-0 flex-1 truncate font-mono text-text">{files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}`}</span>
+              <span class="file-chip__size shrink-0 tabular-nums">{#if files.length > 1}{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')} · {/if}{totalFileSize < 1024 * 1024 ? `${(totalFileSize / 1024).toFixed(1)} KB` : `${(totalFileSize / (1024 * 1024)).toFixed(1)} MB`}</span>
+              <button type="button" class="btn-ghost btn-sm shrink-0" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
             </div>
             {#if isHuge}
               <div class="status status--warn mt-2">
@@ -1043,10 +1043,10 @@
           <div class="field">
             <div class="output-head">
               <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
-              <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+              <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
             </div>
             <input id="ue-result-link" class="input input--mono" type="text" readonly tabindex="-1" value={shareUrl} />
-            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
+            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
             <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
             {#if deadMan && resultUnlock}
               <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.options.deadManResult').replace('{time}', new Date(resultUnlock).toLocaleString(locale))}</p>
@@ -1060,7 +1060,7 @@
         <div class="field">
           <div class="output-head">
             <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-            <CopyButton text={resultPass} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+            <CopyButton text={resultPass} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
           </div>
           <div class="passphrase">
             <input id="ue-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPass} />
@@ -1100,6 +1100,7 @@
           text={resultBlurb}
           label={t(dict, 'tools.ultimateEncrypt.result.copyAll')}
           copiedLabel={t(dict, 'common.copied')}
+          errorLabel={t(dict, 'common.uploadChallenge.retry')}
           variant="primary"
           className="w-full"
         />
@@ -1136,7 +1137,7 @@
           <div class="more__body">
             <div class="flex items-center gap-2">
               <input class="input input--mono text-sm" type="text" readonly value={resultUrl} aria-label={t(dict, 'tools.ultimateEncrypt.encryptedLink')} />
-              <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+              <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
             </div>
           </div>
         </details>

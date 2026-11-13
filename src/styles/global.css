@@ -728,6 +728,25 @@ html.dark {
 
     /* ── Dropzone ── */
 
+    .btn-feedback__layer {
+        transition: opacity var(--duration-fast) var(--ease-out);
+    }
+
+    .btn-feedback--error {
+        @apply text-danger;
+    }
+
+    .file-chip--enter {
+        animation: chip-enter var(--duration-base) var(--ease-out) both;
+    }
+
+    @keyframes chip-enter {
+        from {
+            opacity: 0;
+            transform: translateY(2px);
+        }
+    }
+
     .dropzone {
         @apply relative flex min-h-36 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-control-line bg-surface p-4 text-center text-sm text-muted;
         transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);

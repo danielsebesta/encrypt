@@ -319,6 +319,7 @@
   }
 
   function resetOpenResult() {
+    stopReveal();
     openedText = '';
     openedFileName = '';
     openedFileMime = '';
@@ -334,6 +335,49 @@
       openedFileUrl = '';
     }
   }
+
+  const SCRAMBLE_GLYPHS = '!<>-_\\/[]{}=+*^?#';
+  let revealText = '';
+  let revealOn = false;
+  let revealRaf = 0;
+
+  function scrambleTail(text: string, from: number, cap: number): string {
+    let out = text.slice(0, from);
+    for (let i = from; i < cap; i++) {
+      out += text[i] === '\n' ? '\n' : SCRAMBLE_GLYPHS[(Math.random() * SCRAMBLE_GLYPHS.length) | 0];
+    }
+    return out;
+  }
+
+  function stopReveal() {
+    if (revealRaf) cancelAnimationFrame(revealRaf);
+    revealRaf = 0;
+    revealOn = false;
+    revealText = '';
+  }
+
+  function startReveal(text: string) {
+    stopReveal();
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches || text.length > 2000) return;
+    const cap = Math.min(text.length, 400);
+    revealOn = true;
+    revealText = scrambleTail(text, 0, cap);
+    const started = performance.now();
+    const frame = (now: number) => {
+      const resolved = Math.floor(Math.min((now - started) / 320, 1) * cap);
+      if (resolved >= cap) {
+        stopReveal();
+        return;
+      }
+      revealText = scrambleTail(text, resolved, cap);
+      revealRaf = requestAnimationFrame(frame);
+    };
+    revealRaf = requestAnimationFrame(frame);
+  }
+
+  $: revealSource = openedFileName ? '' : openedText;
+  $: if (revealSource) startReveal(revealSource);
+  else stopReveal();
 
   function prepareTextualPreview(bytes: Uint8Array, name: string): boolean {
     const ext = extensionFromName(name);
@@ -444,7 +488,10 @@
     transferSnap = transferMeter.report(loaded, total);
   }
 
-  onDestroy(() => transferMeter.dispose());
+  onDestroy(() => {
+    transferMeter.dispose();
+    stopReveal();
+  });
 
   function pushDebug(message: string) {
     const line = `[${new Date().toLocaleTimeString('en-GB', { hour12: false })}] ${message}`;
@@ -1087,7 +1134,7 @@
         <span class="label">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</span>
         <CopyButton text={openedText} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
       </div>
-      <div class="output output--ok">{openedText}</div>
+      <div class="output output--ok ud-reveal">{openedText}{#if revealOn}<span class="ud-reveal-veil" aria-hidden="true">{revealText}</span>{/if}</div>
       {#if previewTruncated}
         <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
       {/if}
@@ -1211,3 +1258,19 @@
     </div>
   {/if}
 </div>
+<style>
+  .ud-reveal {
+    position: relative;
+  }
+
+  .ud-reveal-veil {
+    position: absolute;
+    inset: 0;
+    background: inherit;
+    padding: inherit;
+    font: inherit;
+    white-space: inherit;
+    word-break: inherit;
+    pointer-events: none;
+  }
+</style>
