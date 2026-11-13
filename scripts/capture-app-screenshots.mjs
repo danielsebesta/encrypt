@@ -35,23 +35,7 @@ const androidPhone = {
 };
 
 /** Curated CC0 / Public Domain Commons files — Mr. Robot–flavored store shots. */
-const COMMONS = [
-  {
-    file: 'city.jpg',
-    title: 'File:Night New York.jpg',
-    note: 'CC0 — NYC night skyline',
-  },
-  {
-    file: 'code.jpg',
-    title: 'File:Front of server racks at NERSC.jpg',
-    note: 'CC0 — server racks',
-  },
-  {
-    file: 'exchange.jpg',
-    title: 'File:Sign of the New York Stock Exchange, Broad Street.jpg',
-    note: 'CC0 — Broad Street / E Corp energy',
-  },
-];
+const COMMONS = [];
 
 const iosCaptures = [
   { name: 'screenshot-hub-chats', path: '/app?shots=1&platform=ios&tab=chats', wait: 'Weekend trip' },

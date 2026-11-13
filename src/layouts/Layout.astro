@@ -4,6 +4,8 @@ import '../styles/global.css'
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
 import { languageChoiceHref } from '../lib/locale';
 import { getNavCategories, chatIcon, sendIcon, decryptIcon, whiteboardIcon } from '../lib/tools';
+import Icon from '../components/Icon.astro';
+import { REPO_SLUG, REPO_URL } from '../lib/repo';
 import { getGithubStars } from '../lib/githubStars';
 import { PRODUCT_NAME, siteName, siteOrigin } from '../lib/siteBrand';
 
@@ -35,8 +37,8 @@ const localePrefix = locale === 'en' ? '' : `/${locale}`;
 const homeHref = locale === 'en' ? '/' : `/${locale}/`;
 const navCategories = getNavCategories(t, dict, localePrefix);
 const enableIntegrityCheck = import.meta.env.PROD;
-const integrityRepository = 'danielsebesta/encrypt';
-const repoUrl = `https://github.com/${integrityRepository}`;
+const integrityRepository = REPO_SLUG;
+const repoUrl = REPO_URL;
 const githubStars = await getGithubStars(integrityRepository);
 /** Display-cased site URL for social/search snippets; canonical stays lowercase. */
 const brandUrl = (() => {
@@ -151,11 +153,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			>
 				<div class="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3">
 					<div class="integrity-alert__icon" aria-hidden="true">
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-							<path d="M12 9v4"/>
-							<path d="M12 17h.01"/>
-						</svg>
+						<Icon name="triangle-exclamation-point" size={20} />
 					</div>
 					<div class="min-w-0 flex-1">
 						<p class="integrity-alert__title" data-integrity-title></p>
@@ -163,10 +161,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<div class="integrity-alert__links" data-integrity-links></div>
 					</div>
 					<button class="btn-ghost btn-sm btn-icon" type="button" aria-label={t(dict, 'integrity.dismissLabel')} data-integrity-dismiss>
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-							<path d="M18 6 6 18"/>
-							<path d="m6 6 12 12"/>
-						</svg>
+						<Icon name="x" />
 					</button>
 				</div>
 			</div>
@@ -180,21 +175,21 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				<div id="nav-links" class="nav__links">
 					{primaryLinks.map((link) => (
 						<a href={link.href} class="nav__link" aria-current={isCurrent(link.href) ? 'page' : undefined}>
-							<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav__icon"><Fragment set:html={link.icon} /></svg>
+							<Icon name={link.icon} class="nav__icon" />
 							{link.label}
 						</a>
 					))}
 					{navCategories.map((cat, i) => (
 						<div class="nav__group">
 							<button type="button" class="nav__link" aria-expanded="false" aria-controls={`nav-menu-${i}`} data-menu-toggle>
-								<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav__icon"><Fragment set:html={cat.icon} /></svg>
+								<Icon name={cat.icon} class="nav__icon" />
 								{cat.name}
-								<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav__chevron"><path d="m6 9 6 6 6-6"/></svg>
+								<Icon name="chevron-down" class="nav__chevron" />
 							</button>
 							<div id={`nav-menu-${i}`} class="menu">
 								{cat.tools.map((tool) => (
 									<a href={tool.href} class="menu__item" aria-current={isCurrent(tool.href) ? 'page' : undefined}>
-										<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav__icon"><Fragment set:html={tool.icon} /></svg>
+										<Icon name={tool.icon} class="nav__icon" />
 										{tool.label}
 									</a>
 								))}
@@ -204,17 +199,18 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</div>
 
 				<div class="nav__actions">
-					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')}>
-						<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost nav__github" aria-label={t(dict, 'nav.github')}>
+						<span>GitHub</span>
+						<Icon name="arrow-up-right" />
 					</a>
 					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')}>
-						<svg class="dark:hidden" xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-						<svg class="hidden dark:block" xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+						<Icon name="moon" size={20} class="dark:hidden" />
+						<Icon name="sun" size={20} class="hidden dark:block" />
 					</button>
 					<div class="nav__group">
 						<button type="button" class="nav__link nav__lang" aria-label={t(dict, 'nav.language')} aria-expanded="false" aria-controls="nav-menu-lang" data-menu-toggle>
-							<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
-							<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="nav__chevron"><path d="m6 9 6 6 6-6"/></svg>
+							<Icon name="languages" size={20} />
+							<Icon name="chevron-down" class="nav__chevron" />
 						</button>
 						<div id="nav-menu-lang" class="menu menu--end">
 							{languageOptions.map((lang) => (
@@ -226,8 +222,8 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						</div>
 					</div>
 					<button id="nav-toggle" type="button" class="btn-ghost btn-icon nav__burger" aria-label={t(dict, 'nav.menu')} aria-expanded="false" aria-controls="nav-links">
-						<svg class="nav__burger-open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>
-						<svg class="nav__burger-close" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+						<Icon name="menu" size={20} class="nav__burger-open" />
+						<Icon name="x" size={20} class="nav__burger-close" />
 					</button>
 				</div>
 			</nav>
@@ -290,10 +286,10 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
 					<a href="mailto:hello@encrypt.click">{t(dict, 'home.footer.contact')}</a>
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
-						<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="text-muted"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
 						GitHub
-						{githubStars !== null && <span>★ {githubStars.toLocaleString('en')}</span>}
+						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
 					</a>
+					<a href={`${localePrefix}/licenses`}>{t(dict, 'home.footer.credits')}</a>
 					<span>
 						{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer" class="text-text">Daniel Šebesta</a>
 					</span>

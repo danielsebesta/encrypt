@@ -1,5 +1,4 @@
 ---
-import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
 import { LUCIDE } from '../lib/lucideIcons';
 import { getTranslations, t, type Locale } from '../lib/i18n';
@@ -53,12 +52,9 @@ const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u
   description={t(dict, 'security.meta.description')}
 >
   <article class="page article">
-    <header class="page-head page-head--art">
-      <div>
-        <h1 class="page-title">{t(dict, 'security.h1')}</h1>
-        <p class="page-lead">{t(dict, 'security.subtitle')}</p>
-      </div>
-      <Fragment set:html={illustration('shield', 'page-head__art')} />
+    <header class="page-head">
+      <h1 class="page-title">{t(dict, 'security.h1')}</h1>
+      <p class="page-lead">{t(dict, 'security.subtitle')}</p>
     </header>
 
     <ul class="sec-glance">

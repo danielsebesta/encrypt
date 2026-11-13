@@ -1,6 +1,5 @@
 <script lang="ts">
   import { ListItem, MenuList, MenuListItem, Popover } from 'konsta/svelte';
-  import { illustration } from '../../lib/illustrations';
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
@@ -1505,7 +1504,7 @@
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
-          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{:else}{@html illustration('lock', 'state-art')}{/if}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{/if}
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>

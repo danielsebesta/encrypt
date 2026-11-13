@@ -1,12 +1,9 @@
 ---
-import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
-import HeroCipher from '../components/home/HeroCipher.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
-import { chatIcon } from '../lib/tools';
-import { LUCIDE } from '../lib/lucideIcons';
-import { APPLE_MARK, ANDROID_MARK } from '../lib/platformIcons';
+import { REPO_URL } from '../lib/repo';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -14,87 +11,76 @@ const dict = getTranslations(locale);
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
 const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
-const icons = {
-  shield: LUCIDE['shield-check'],
-  eyeOff: LUCIDE['eye-off'],
-  timer: LUCIDE['timer'],
-  pen: LUCIDE['pen-line'],
-  code: LUCIDE['code'],
-};
-
+const facts = [1, 2, 3];
 const steps = [1, 2, 3];
-const features = [
-  { n: 1, icon: icons.shield },
-  { n: 2, icon: icons.eyeOff },
-  { n: 3, icon: icons.timer },
-  { n: 4, icon: chatIcon },
-  { n: 5, icon: icons.pen },
-  { n: 6, icon: icons.code },
-];
+const deviceItems = [1, 2, 3];
+const serverItems = [1, 2, 3];
 ---
 
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')}>
   <div class="page home">
-    <section class="home-hero">
-      <div class="home-hero__intro">
-        <div class="stack home-hero__copy">
-          <h1 class="page-title">{t(dict, 'home.hero.title')}</h1>
-          <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
-          <div class="actions">
-            <a href="#try" class="btn btn-lg">{t(dict, 'landing.hero.cta')}</a>
-          </div>
-        </div>
-        <div class="home-hero__art" aria-hidden="true">
-          <Fragment set:html={illustration('hero', 'home-hero__ill')} />
-        </div>
-      </div>
-      {/* Negative bottom rootMargin: on mobile the demo peeks into view but must be scrolled
-          further before hydrating — keeps Lighthouse TBT near zero while real users still get it. */}
-      <HeroCipher client:visible={{ rootMargin: '0px 0px -40% 0px' }} locale={locale} dict={pickDict(dict, ['landing.demo'])} />
-    </section>
-
-    <section id="try" class="panel stack" aria-labelledby="home-try-title">
-      <div>
-        <h2 id="home-try-title" class="section-title">{t(dict, 'landing.try.title')}</h2>
-        <p class="hint mt-1">{t(dict, 'landing.try.subtitle')}</p>
-      </div>
-      <HomeTry client:visible locale={locale} dict={tryDict} />
-    </section>
-
-    <HomeTools locale={locale} dict={dict} />
-
-    <section class="home-app" aria-labelledby="home-app-title">
-      <div class="home-app__copy">
-        <p class="home-app__eyebrow">{t(dict, 'home.footer.install')}</p>
-        <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
-        <p class="home-app__text">{t(dict, 'pwa.promo.text')}</p>
-        <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
-          <li class="platform-pill">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_MARK} /></svg>
-            {t(dict, 'pwa.platforms.ios')}
-          </li>
-          <li class="platform-pill">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={ANDROID_MARK} /></svg>
-            {t(dict, 'pwa.platforms.android')}
-          </li>
+    <section class="home-hero" aria-labelledby="home-hero-title">
+      <div class="home-hero__copy">
+        <h1 id="home-hero-title" class="page-title">{t(dict, 'home.hero.title')}</h1>
+        <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
+        <ul class="home-facts">
+          {facts.map((n) => (
+            <li>
+              <span class="home-facts__value">{t(dict, `home.facts.${n}.value`)}</span>
+              <span>{t(dict, `home.facts.${n}.label`)}</span>
+            </li>
+          ))}
         </ul>
-        <div class="actions mt-5">
-          <a href={`${localePrefix}/install`} class="btn">{t(dict, 'pwa.promo.how')}</a>
-          <a href={`${localePrefix}/u`} class="btn-secondary">{t(dict, 'nav.decrypt')}</a>
+      </div>
+      <div class="home-hero__form" id="try">
+        <HomeTry client:visible locale={locale} dict={tryDict} />
+      </div>
+    </section>
+
+    <section aria-labelledby="home-trust-title">
+      <div class="home-section__head">
+        <h2 id="home-trust-title" class="section-title">{t(dict, 'home.trust.title')}</h2>
+        <p class="hint">{t(dict, 'home.trust.lead')}</p>
+      </div>
+      <div class="home-trust__grid">
+        <div class="home-trust__col">
+          <h3 class="home-trust__title">{t(dict, 'home.trust.device.title')}</h3>
+          <ul class="home-trust__list">
+            {deviceItems.map((n) => (
+              <li>
+                <Icon name="lock-keyhole" />
+                <span>{t(dict, `home.trust.device.${n}`)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="home-trust__col">
+          <h3 class="home-trust__title">{t(dict, 'home.trust.server.title')}</h3>
+          <ul class="home-trust__list">
+            {serverItems.map((n) => (
+              <li>
+                <Icon name="database-x" />
+                <span>{t(dict, `home.trust.server.${n}`)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-      <div class="home-app__gallery" aria-hidden="true">
-        <img class="app-shot app-shot--primary" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="lazy" decoding="async" />
-        <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
+      <div class="home-trust__foot">
+        <p>{t(dict, 'home.trust.expiry')}</p>
+        <a href={`${localePrefix}/security`}>{t(dict, 'landing.about.security')}</a>
+        <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{t(dict, 'landing.about.github')}<Icon name="arrow-up-right" /></a>
       </div>
     </section>
 
     <section aria-labelledby="home-how-title">
-      <h2 id="home-how-title" class="section-title">{t(dict, 'landing.how.title')}</h2>
+      <div class="home-section__head">
+        <h2 id="home-how-title" class="section-title">{t(dict, 'landing.how.title')}</h2>
+      </div>
       <ol class="home-steps">
         {steps.map((n) => (
           <li class="home-step">
-            <span class="home-step__num" aria-hidden="true">{n}</span>
+            <span class="home-step__num" aria-hidden="true">{String(n).padStart(2, '0')}</span>
             <h3 class="home-card__title">{t(dict, `landing.how.${n}.title`)}</h3>
             <p class="hint">{t(dict, `landing.how.${n}.text`)}</p>
           </li>
@@ -102,30 +88,20 @@ const features = [
       </ol>
     </section>
 
-    <section aria-labelledby="home-features-title">
-      <h2 id="home-features-title" class="section-title">{t(dict, 'landing.features.title')}</h2>
-      <ul class="home-features">
-        {features.map((f) => (
-          <li class="home-feature">
-            <span class="home-feature__icon" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><Fragment set:html={f.icon} /></svg>
-            </span>
-            <h3 class="home-card__title">{t(dict, `landing.features.${f.n}.title`)}</h3>
-            <p class="hint">{t(dict, `landing.features.${f.n}.text`)}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <HomeTools locale={locale} dict={dict} />
 
-    <section class="panel" aria-labelledby="home-about-title">
-      <h2 id="home-about-title" class="section-title">{t(dict, 'landing.about.title')}</h2>
-      <p class="mt-2 text-base leading-relaxed text-muted">{t(dict, 'landing.about.text')}</p>
-      <p class="mt-2 text-base leading-relaxed text-muted">{t(dict, 'landing.about.text2')}</p>
-      <div class="actions mt-4">
-        <a href={`${localePrefix}/security`} class="btn-secondary">{t(dict, 'landing.about.security')}</a>
-        <a href="https://github.com/danielsebesta/encrypt" target="_blank" rel="noopener noreferrer" class="btn-secondary">{t(dict, 'landing.about.github')}</a>
+    <section class="home-app" aria-labelledby="home-app-title">
+      <div class="home-app__copy">
+        <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
+        <p class="home-app__text">{t(dict, 'pwa.promo.text')}</p>
+        <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
+          <li class="platform-pill">{t(dict, 'pwa.platforms.ios')}</li>
+          <li class="platform-pill">{t(dict, 'pwa.platforms.android')}</li>
+        </ul>
+      </div>
+      <div class="actions">
+        <a href={`${localePrefix}/install`} class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
       </div>
     </section>
-
   </div>
 </Layout>

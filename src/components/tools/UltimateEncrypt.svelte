@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { illustration } from '../../lib/illustrations';
   import { LUCIDE } from '../../lib/lucideIcons';
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
@@ -33,7 +32,6 @@
 
   export let locale = 'en';
   export let dict: Record<string, string>;
-  export let resultArt = true;
   export let appMode = false;
 
   type Step = 'input' | 'password' | 'confirm' | 'fallback' | 'processing' | 'result';
@@ -1017,8 +1015,6 @@
 
   {:else if step === 'result'}
     <div class="ue-result" role="status">
-      {#if resultArt}{@html illustration('send', 'state-art')}{/if}
-
       <div class="card stack">
         {#if resultUrl || shortUrl}
           <div class="field">

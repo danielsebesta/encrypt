@@ -8,6 +8,7 @@ const LOCALES = ['cs', 'sk', 'de', 'es', 'fr', 'pl'] as const;
 
 /** Keys that may legitimately match English (brands, loanwords, cognates, technical labels). */
 const ALLOW_SAME_AS_EN = new Set([
+  'home.facts.3.value',
   'emoji.label',
   'app.new.kindChat',
   'app.settings.app',

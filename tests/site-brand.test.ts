@@ -20,7 +20,7 @@ test('SITE_NAME unset keeps Encrypt.click branding', () => {
   assert.equal(siteName(), PRODUCT_NAME);
   assert.equal(isWhitelabeled(), false);
   assert.equal(brandText('Welcome to Encrypt.click'), 'Welcome to Encrypt.click');
-  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Encrypt.click | Your privacy toolkit');
+  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Encrypt.click | Encrypt files and messages in your browser');
 });
 
 test('default contacts on the official brand', () => {
@@ -56,7 +56,7 @@ test('SITE_NAME rewrites UI copy but not protocol labels in HTML', () => {
   assert.match(html, /encrypt\.click\/chat\/v3/);
   assert.match(html, /encrypt\.click:alias:/);
   assert.match(html, /https:\/\/vault\.example\.com\/u/);
-  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Acme Vault | Your privacy toolkit');
+  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Acme Vault | Encrypt files and messages in your browser');
 });
 
 test('applySiteBrand rewrites HTML responses only when whitelabeled', async () => {

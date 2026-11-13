@@ -3,6 +3,3 @@ Photos used only for /app?shots=1 store screenshots.
 rack.jpg / stairs.jpg / broadway.jpg
   User-supplied stills (Mr. Robot–vibe marketing fixtures).
   Not fetched from Wikimedia.
-
-Optional Wikimedia leftovers (unused by current fixtures):
-city.jpg / code.jpg / exchange.jpg — see git history for Commons titles.

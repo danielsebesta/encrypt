@@ -1,5 +1,4 @@
 ---
-import { illustration } from '../lib/illustrations';
 import Layout from '../layouts/Layout.astro';
 import { PRODUCT_NAME } from '../lib/siteBrand';
 import { APPLE_MARK, ANDROID_MARK } from '../lib/platformIcons';
@@ -117,13 +116,8 @@ export const prerender = true;
     </section>
 
     <section class="install-guide install-guide--wide" aria-labelledby="install-desktop">
-      <div class="install-guide__with-art">
-        <div>
-          <h2 id="install-desktop" class="section-title">{t(dict, 'install.desktop.title')}</h2>
-          <p class="install-guide__text">{t(dict, 'install.desktop.text')}</p>
-        </div>
-        <Fragment set:html={illustration('chill', 'install-guide__ill')} />
-      </div>
+      <h2 id="install-desktop" class="section-title">{t(dict, 'install.desktop.title')}</h2>
+      <p class="install-guide__text">{t(dict, 'install.desktop.text')}</p>
     </section>
 
     <div class="actions">

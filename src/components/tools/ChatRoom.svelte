@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Dialog, DialogButton, List, ListItem, MenuList, MenuListItem, Popover, Sheet } from 'konsta/svelte';
-  import { illustration } from '../../lib/illustrations';
   import { isContent, relayedContentOk, stampPayload, validPayload } from '../../lib/chatProtocol';
   import {
     MEMBER_LEAVE_GRACE_MS,
@@ -5599,7 +5598,7 @@
   {#if unsupportedBrowser}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{:else}{@html illustration('magnify', 'state-art')}{/if}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.unsupportedBrowser')}</p>
       </div>
     </div>
@@ -5607,7 +5606,7 @@
   {:else if configChanged}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{:else}{@html illustration('magnify', 'state-art')}{/if}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.configChanged')}</p>
         <p class="hint">{t(dict, 'chat.configChangedDetail')}</p>
         {#if appMode}
@@ -5621,7 +5620,7 @@
   {:else if roomMissing}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
-        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{:else}{@html illustration('magnify', 'state-art')}{/if}
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['search']}</svg></span>{/if}
         <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
         {#if appMode}
@@ -5649,7 +5648,7 @@
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
-          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{:else}{@html illustration('lock', 'state-art')}{/if}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['lock-keyhole']}</svg></span>{/if}
           <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
@@ -6075,7 +6074,7 @@
         <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
-          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['message-circle']}</svg></span>{:else}{@html illustration('chill', 'state-art mb-2')}{/if}
+          {#if appMode}<span class="app-state-glyph" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{@html LUCIDE['message-circle']}</svg></span>{/if}
           <p class="empty__title">{t(dict, serverPresence > 1 ? 'chat.emptyRoomNoticeOthers' : 'chat.emptyRoomNotice')}</p>
           <p class="text-text">{t(dict, 'chat.emptyRoomNotice2')}</p>
           <p class="hint">{t(dict, roomConfig.mode === 'live' ? 'chat.emptyRoomNotice3' : 'chat.emptyRoomNotice3Ttl')}</p>

@@ -1,4 +1,4 @@
-import { LUCIDE } from './lucideIcons';
+import type { IconName } from './iconManifest';
 
 export type ToolCategory = 'experiments';
 
@@ -7,17 +7,17 @@ export type ToolDefinition = {
   i18nPrefix: string;
   navLabelKey: string;
   category: ToolCategory;
-  icon: string;
+  icon: IconName;
 };
 
 const icons = {
-  flask: LUCIDE['flask-conical'],
-  chat: LUCIDE['message-circle'],
-  clock: LUCIDE['clock'],
-  image: LUCIDE['image'],
-  camera: LUCIDE['camera'],
-  audioWaveform: LUCIDE['audio-waveform'],
-} as const;
+  flask: 'flask-conical',
+  chat: 'message-circle',
+  clock: 'clock',
+  image: 'image',
+  camera: 'camera',
+  audioWaveform: 'audio-waveform',
+} as const satisfies Record<string, IconName>;
 
 export const tools: ToolDefinition[] = [
   { slug: 'chat-cipher',  i18nPrefix: 'tools.chatCipher',    navLabelKey: 'nav.tool.chatCipher',    category: 'experiments', icon: icons.chat },
@@ -31,14 +31,14 @@ export const categoryI18nKeys: Record<ToolCategory, string> = {
   experiments: 'nav.experiments',
 };
 
-export const categoryIcons: Record<ToolCategory, string> = {
+export const categoryIcons: Record<ToolCategory, IconName> = {
   experiments: icons.flask,
 };
 
 export const chatIcon = icons.chat;
-export const sendIcon = LUCIDE['upload'];
-export const decryptIcon = LUCIDE['lock-open'];
-export const whiteboardIcon = LUCIDE['presentation'];
+export const sendIcon: IconName = 'upload';
+export const decryptIcon: IconName = 'lock-keyhole-open';
+export const whiteboardIcon: IconName = 'square-pen';
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {
   const categories: ToolCategory[] = ['experiments'];

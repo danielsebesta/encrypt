@@ -1682,10 +1682,6 @@ html[data-app-platform] ::selection {
     .empty__title {
         color: var(--app-label);
     }
-    .state-art,
-    .ill {
-        opacity: 0.85;
-    }
 }
 
 /* ============================================================
@@ -2244,10 +2240,6 @@ html[data-app-platform] ::selection {
 
     .empty__title {
         color: var(--app-label);
-    }
-    .state-art,
-    .ill {
-        opacity: 0.85;
     }
 }
 
@@ -4451,8 +4443,7 @@ html[data-app-platform] ::selection {
     background: var(--app-tint-container) !important;
 }
 
-/* Room gates and empty states inside /app: one platform glyph in a tinted
-   circle instead of the website's illustrations. */
+/* Room gates and empty states inside /app. */
 .app-state-glyph {
     width: 64px;
     height: 64px;
