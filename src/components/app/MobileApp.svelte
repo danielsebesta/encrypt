@@ -1694,7 +1694,7 @@
 {#snippet hubPlus()}
   <button
     type="button"
-    class="w-11 h-11 flex items-center justify-center text-primary rounded-full"
+    class="w-11 h-11 flex items-center justify-center text-primary rounded-lg"
     onclick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}
     aria-label={t(dict, activeTab === 'boards' ? 'app.new.titleBoard' : 'app.new.titleChat')}
   >
@@ -1760,7 +1760,7 @@
       {#if activeView === 'room'}
         <button
           type="button"
-          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-full"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-lg"
           onclick={() => roomCall?.()}
           aria-label={roomCallState.active ? t(dict, 'chat.callInProgress') : t(dict, 'chat.callStart')}
           disabled={!roomCallState.ready && !roomCallState.active}
@@ -1772,7 +1772,7 @@
       {#if activeView === 'board'}
         <button
           type="button"
-          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-full"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-lg"
           onclick={shareRoom}
           aria-label={t(dict, 'common.shareLink')}
         >
@@ -1783,7 +1783,7 @@
         <button
           type="button"
           id="chat-room-menu-trigger"
-          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-full"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-lg"
           onclick={() => roomMenu?.()}
           aria-label={t(dict, 'chat.roomMenu')}
           aria-haspopup="menu"
@@ -1901,7 +1901,7 @@
           {:else if searchQuery.trim() || chatFilter !== 'all'}
             {@const filtered = !searchQuery.trim()}
             <div class="px-8 py-16 text-center flex flex-col items-center">
-              <div class="w-16 h-16 rounded-full mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
+              <div class="w-16 h-16 rounded-lg mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
                 <AppIcons name={filtered ? (chatFilter === 'pinned' ? 'pin' : 'timer') : 'search'} size={28} />
               </div>
               <p class="text-[17px] font-semibold text-[var(--app-label)]">
@@ -1918,7 +1918,7 @@
             </div>
           {:else}
             <div class="px-8 py-16 text-center flex flex-col items-center">
-              <div class="w-16 h-16 rounded-full mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
+              <div class="w-16 h-16 rounded-lg mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
                 <AppIcons name={activeTab === 'boards' ? 'whiteboard' : 'chat'} size={30} />
               </div>
               <p class="text-[17px] font-semibold text-[var(--app-label)]">
@@ -1952,7 +1952,7 @@
                 colors={{ primaryTextIos: 'text-[var(--app-tint)]', primaryTextMaterial: 'text-[var(--app-tint)]' }}
               >
                 {#snippet media()}
-                  <span class="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--app-tint-container)] text-[var(--app-on-tint-container)]">
+                  <span class="w-10 h-10 rounded-lg flex items-center justify-center bg-[var(--app-tint-container)] text-[var(--app-on-tint-container)]">
                     <AppIcons name="key" size={17} />
                   </span>
                 {/snippet}
@@ -2572,7 +2572,7 @@
     >
       <div class="app-sheet__handle"></div>
       <div class="px-5 pb-6 pt-3 space-y-4">
-        <div class="w-14 h-14 mx-auto rounded-[22%] bg-[var(--app-tint-container)] flex items-center justify-center text-[var(--app-on-tint-container)]">
+        <div class="w-14 h-14 mx-auto rounded-lg bg-[var(--app-tint-container)] flex items-center justify-center text-[var(--app-on-tint-container)]">
           <AppIcons name="install" size={26} />
         </div>
         <h3 class="text-[17px] font-semibold text-[var(--app-label)] text-center">{t(dict, 'app.install.title')}</h3>

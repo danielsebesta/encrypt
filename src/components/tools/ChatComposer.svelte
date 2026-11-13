@@ -349,8 +349,8 @@
   :global(.dark) .chat-input-field { color: var(--text); }
   .chat-input-field::placeholder { color: var(--muted); }
   .chat-attach-btn {
-    padding: 0.4rem; border-radius: 0.5rem;
-    color: var(--muted); transition: color 0.15s;
+    padding: 0.4rem; border-radius: 8px;
+    color: var(--muted); transition: color var(--duration-fast) var(--ease-out);
   }
   .chat-attach-menu { position: relative; flex-shrink: 0; }
   .chat-attach-btn:hover:not(:disabled),
@@ -371,11 +371,10 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 0.3rem;
-    border-radius: 0.65rem;
+    border-radius: 8px;
     border: 1px solid var(--line-soft);
-    background: rgba(255, 255, 255, 0.96);
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
-    backdrop-filter: blur(14px);
+    background: var(--bg);
+    box-shadow: var(--shadow-float);
   }
   .chat-attach-submenu {
     margin: 0.15rem 0 0.2rem;
@@ -383,8 +382,8 @@
     border-left: 2px solid var(--line-soft);
   }
   :global(.dark) .chat-attach-dropdown {
-    background: rgba(7, 11, 6, 0.96);
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+    background: var(--bg);
+    box-shadow: var(--shadow-float);
   }
   .chat-attach-option {
     width: 100%;
@@ -393,7 +392,7 @@
     align-items: center;
     gap: 0.55rem;
     padding: 0 0.55rem;
-    border-radius: 0.5rem;
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 800;
     color: var(--muted);
@@ -401,11 +400,11 @@
   }
   .chat-attach-option:hover:not(:disabled) {
     color: var(--accent);
-    background: oklch(0.7019 0.1577 160.44 / 0.08);
+    background: var(--accent-weak);
   }
   .chat-attach-option--on {
     color: var(--accent);
-    background: oklch(0.7019 0.1577 160.44 / 0.1);
+    background: var(--accent-weak);
   }
   .chat-attach-option:disabled {
     opacity: 0.42;
@@ -417,16 +416,19 @@
   /* Desktop site only — /app paints a filled primary circle in app.css */
   .chat-send-btn {
     padding: 0.4rem;
-    border-radius: 0.5rem;
-    transition: background 0.15s, color 0.15s, opacity 0.15s;
+    border-radius: 8px;
+    transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
   }
   :global(:root:not([data-app-platform])) .chat-send-btn {
     color: var(--accent);
   }
   :global(:root:not([data-app-platform])) .chat-send-btn:hover:not(:disabled) {
-    background: oklch(0.7019 0.1577 160.44 / 0.1);
+    background: var(--accent-weak);
   }
   :global(:root:not([data-app-platform])) .chat-send-btn:disabled {
     opacity: 0.3;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-attach-btn, .chat-send-btn { transition: none; }
   }
 </style>

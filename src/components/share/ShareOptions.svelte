@@ -62,12 +62,12 @@
 
   <div class="field">
     <label class="label" for="ue-unlock">{t(dict, 'tools.ultimateEncrypt.options.unlockAfter')}</label>
-    <input id="ue-unlock" type="datetime-local" class="input" bind:value={unlockAt} {min} max={upload ? max : undefined} aria-describedby="ue-unlock-hint" aria-invalid={tooFar ? 'true' : undefined} />
+    <input id="ue-unlock" type="datetime-local" class="input" bind:value={unlockAt} {min} max={upload ? max : undefined} aria-describedby={tooFar ? 'ue-unlock-hint ue-unlock-error' : 'ue-unlock-hint'} aria-invalid={tooFar ? 'true' : undefined} />
     <p id="ue-unlock-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.unlockHint')}</p>
     {#if raised && effectiveRetention}
       <p class="status" role="status">{t(dict, 'tools.ultimateEncrypt.options.retentionRaised').replace('{retention}', t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention}`))}</p>
     {:else if tooFar}
-      <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.options.unlockTooFar')}</p>
+      <p id="ue-unlock-error" class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.options.unlockTooFar')}</p>
     {/if}
   </div>
 

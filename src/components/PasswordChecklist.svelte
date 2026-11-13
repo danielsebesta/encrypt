@@ -1,9 +1,11 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { t } from '../lib/t';
 
   export let id: string;
   export let label: string;
   export let rules: { ok: boolean; label: string }[];
+  export let dict: Record<string, string> | undefined = undefined;
 </script>
 
 <ul {id} class="pw-rules" aria-label={label}>
@@ -15,6 +17,9 @@
         <Icon name="circle" />
       {/if}
       <span>{rule.label}</span>
+      {#if dict}
+        <span class="sr-only">{rule.ok ? t(dict, 'common.rule.met') : t(dict, 'common.rule.unmet')}</span>
+      {/if}
     </li>
   {/each}
 </ul>

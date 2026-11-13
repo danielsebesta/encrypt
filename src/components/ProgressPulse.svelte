@@ -6,14 +6,33 @@
   export let ratio: number | null = null;
   /** Secondary line: bytes, speed, ETA, online/offline. */
   export let transferLine = '';
+
+  let phaseKey = '';
+  let livePct = -1;
+
+  $: nextPhase = `${title}\0${detail}`;
+  $: if (nextPhase !== phaseKey) {
+    phaseKey = nextPhase;
+    livePct = -1;
+  }
+
+  $: pctBucket = ratio == null ? -1 : Math.floor((ratio * 100) / 25) * 25;
+  $: if (pctBucket >= 25 && pctBucket > livePct) {
+    livePct = pctBucket;
+  }
 </script>
 
-<div class="status status--busy" role="status" aria-live="polite" aria-busy="true">
+<div class="status status--busy">
   <div class="status__body">
-    <p class="status__title">{title}</p>
-    {#if detail && !compact}
-      <p class="status__detail">{detail}</p>
-    {/if}
+    <div role="status" aria-live="polite">
+      <p class="status__title">{title}</p>
+      {#if detail && !compact}
+        <p class="status__detail">{detail}</p>
+      {/if}
+      {#if livePct >= 25}
+        <span class="sr-only">{livePct}%</span>
+      {/if}
+    </div>
     {#if ratio != null || transferLine}
       <div class="status__transfer">
         {#if ratio != null}

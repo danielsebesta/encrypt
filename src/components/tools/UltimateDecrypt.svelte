@@ -1,7 +1,7 @@
 <script lang="ts">
   import { readLimited } from '../../lib/httpLimits';
   import Icon from '../Icon.svelte';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { decrypt } from '../../lib/aesGcm';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
@@ -426,6 +426,8 @@
   let burnedNotice = '';
   let passkeyLoading = false;
   let pickFileDragging = false;
+  let pickLinkEntry: HTMLButtonElement | undefined;
+  let viewBackButton: HTMLButtonElement | undefined;
 
   $: hasPayloadSource = hasHash || !!encryptedFile || !!stegoFile;
 
@@ -600,16 +602,26 @@
     linkError = t(dict, 'tools.ultimateDecrypt.empty.linkInvalid');
   }
 
-  function chooseEntry(mode: EntryMode) {
+  function focusEntryView(mode: EntryMode) {
+    if (mode === 'link') document.getElementById('ud-link')?.focus();
+    else if (mode === 'pick') pickLinkEntry?.focus();
+    else viewBackButton?.focus();
+  }
+
+  async function chooseEntry(mode: EntryMode) {
     entryMode = mode;
     linkError = '';
     if (mode !== 'link') linkDraft = '';
+    await tick();
+    focusEntryView(mode);
   }
 
-  function backToPick() {
+  async function backToPick() {
     entryMode = 'pick';
     linkError = '';
     linkDraft = '';
+    await tick();
+    focusEntryView('pick');
   }
 
   async function fillPasswordFromPasskey() {
@@ -925,7 +937,7 @@
   {:else if entryMode === 'pick'}
     <p class="label">{t(dict, 'tools.ultimateDecrypt.empty.title')}</p>
     <div class="ud-entry">
-      <button type="button" class="dropzone" on:click={() => chooseEntry('link')}>
+      <button type="button" class="dropzone" bind:this={pickLinkEntry} on:click={() => chooseEntry('link')}>
         <Icon name="link" size={20} />
         <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.linkTitle')}</span>
         <span>{t(dict, 'tools.ultimateDecrypt.empty.linkHint')}</span>
@@ -962,6 +974,7 @@
         autocomplete="off"
         spellcheck="false"
         aria-invalid={linkError ? 'true' : undefined}
+        aria-describedby={linkError ? 'ud-link-error' : undefined}
         on:keydown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -970,15 +983,15 @@
         }}
       />
       {#if linkError}
-        <p class="status status--error" role="alert">{linkError}</p>
+        <p id="ud-link-error" class="status status--error" role="alert">{linkError}</p>
       {/if}
       <button type="button" class="btn w-full" on:click={applyLinkDraft}>{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
     </div>
   {:else if entryMode === 'scan'}
-    <button type="button" class="btn-ghost btn-sm self-start" on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <button type="button" class="btn-ghost btn-sm self-start" bind:this={viewBackButton} on:click={backToPick}>{t(dict, 'common.back')}</button>
     <QrScanner {dict} />
   {:else}
-    <button type="button" class="btn-ghost btn-sm self-start" on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}>{t(dict, 'common.back')}</button>
+    <button type="button" class="btn-ghost btn-sm self-start" bind:this={viewBackButton} on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}>{t(dict, 'common.back')}</button>
     <div class="grid gap-3 sm:grid-cols-2">
       {#if encryptedFile}
         <div class="dropzone dropzone--active">
@@ -1030,6 +1043,7 @@
         data-bwignore="true"
         placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
         aria-invalid={error ? 'true' : undefined}
+        aria-describedby={error ? 'ud-pass-error' : undefined}
         on:keydown={(e) => {
           if (e.key === 'Enter' && !loading && hasPayloadSource) {
             e.preventDefault();
@@ -1064,7 +1078,7 @@
     />
   {/if}
   {#if error}
-    <p class="status status--error" role="alert">{error}</p>
+    <p id="ud-pass-error" class="status status--error" role="alert">{error}</p>
   {/if}
 
   {#if openedText}

@@ -272,7 +272,7 @@
         <label class="label" for="tc-password">{t(dict, 'tools.timeCapsule.passwordLabel')}</label>
         <PassphraseField {dict} id="tc-password" bind:value={password} placeholder={t(dict, 'tools.timeCapsule.passwordPlaceholder')} describedby={password ? 'tc-password-rules tc-password-hint' : 'tc-password-hint'} generate={generatePassphrase} />
         {#if password}
-          <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+          <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
         {/if}
         <p id="tc-password-hint" class="hint">{t(dict, 'tools.timeCapsule.passwordHint')}</p>
       </div>

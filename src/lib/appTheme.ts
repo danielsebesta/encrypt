@@ -11,7 +11,10 @@ export type AppPlatform = 'ios' | 'material';
 export type AppScheme = 'light' | 'dark';
 export type AppAppearance = 'system' | AppScheme;
 
-export const DEFAULT_SEED = '#86b94a';
+// Neutral slate seed: low chroma (HCT ~13) at a cool blue-grey hue, so the generated
+// Material roles read as technical chrome instead of a brand colour. SchemeTonalSpot
+// fixes the primary/secondary/tertiary chroma, so the seed's hue is what sets the tint.
+export const DEFAULT_SEED = '#5b6472';
 
 const LS_MD_VARS = 'encrypt-app-mdvars';
 const LS_PLATFORM = 'encrypt-app-platform';

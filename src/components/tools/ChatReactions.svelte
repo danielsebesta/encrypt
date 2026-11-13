@@ -43,7 +43,7 @@
     gap: 0.25rem;
     min-height: 1.6rem;
     padding: 0 0.45rem;
-    border-radius: 999px;
+    border-radius: 6px;
     border: 1px solid var(--line-soft);
     background: var(--bg);
     font-size: 0.8rem;
@@ -65,5 +65,8 @@
   }
   .msg-reactions__chip--mine .msg-reactions__count {
     color: var(--accent-strong);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .msg-reactions__chip { transition: none; }
   }
 </style>

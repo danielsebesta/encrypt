@@ -202,7 +202,7 @@
     width: 2.25rem;
     height: 2.25rem;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--accent);
     color: var(--on-accent);
   }

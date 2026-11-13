@@ -343,6 +343,21 @@
   $: wizardStep = step === 'input' ? 1 : step === 'password' || step === 'confirm' || step === 'fallback' || step === 'processing' ? 2 : 3;
   $: wizardLabel = t(dict, 'common.wizardStep').replace('{current}', String(wizardStep)).replace('{total}', '3');
 
+  async function focusEncryptError() {
+    await tick();
+    const unlockFocused =
+      error === t(dict, 'tools.ultimateEncrypt.options.unlockPast') ||
+      error === t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') ||
+      error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
+    document.getElementById(unlockFocused ? 'ue-unlock' : 'ue-pass')?.focus();
+  }
+
+  async function goToResult() {
+    step = 'result';
+    await tick();
+    document.getElementById('ue-result-link')?.focus();
+  }
+
   async function goToPassword() {
     error = '';
     if (files.length === 0 && !textInput.trim()) {
@@ -372,25 +387,30 @@
     if (files.length === 0 && !trimmed) {
       error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
       pushDebug('Validation failed: empty input');
+      await focusEncryptError();
       return;
     }
     if (!password) {
       error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
       pushDebug('Validation failed: missing password');
+      await focusEncryptError();
       return;
     }
     if (!passwordChecks.length || !passwordChecks.variety || !passwordChecks.strength) {
       error = t(dict, 'common.passwordWeak');
       pushDebug('Validation failed: weak password');
+      await focusEncryptError();
       return;
     }
     const locking = deliveryMode !== 'local' && unlockAt !== '';
     if (locking && (unlockMs === null || unlockMs <= Date.now() + 5000)) {
       error = t(dict, 'tools.ultimateEncrypt.options.unlockPast');
+      await focusEncryptError();
       return;
     }
     if (locking && deliveryMode === 'ghost' && !retentionForUnlock(retention, unlockMs)) {
       error = t(dict, 'tools.ultimateEncrypt.options.unlockTooFar');
+      await focusEncryptError();
       return;
     }
 
@@ -409,7 +429,7 @@
         step = 'confirm';
       } else if (deliveryMode === 'link') {
         await encryptInline();
-        step = 'result';
+        await goToResult();
       } else {
         await encryptGhostPrepare();
         await uploadGhost(firstPartyHosts());
@@ -418,6 +438,7 @@
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       pushDebug(`Encrypt failed: ${error}`);
       step = 'password';
+      await focusEncryptError();
     }
   }
 
@@ -429,7 +450,7 @@
     try {
       await encryptGhostUpload(hosts);
       showManualTransferHelp = false;
-      step = 'result';
+      await goToResult();
       return;
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
@@ -781,7 +802,7 @@
     a.remove();
   }
 
-  function reset() {
+  async function reset() {
     step = 'input';
     resultPasswordVisible = false;
     textInput = '';
@@ -819,6 +840,8 @@
     localFileName = '';
     qrSvg = '';
     debugLog = [];
+    await tick();
+    document.getElementById('ue-text')?.focus();
   }
 
   onMount(() => {
@@ -932,7 +955,7 @@
       <div class="field">
         <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
         <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-rules ue-pass-hint" invalid={!!error} generate={() => { error = ''; return generatePassphrase(); }} bind:revealed={passwordRevealed} />
-        <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+        <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
         <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
       </div>
 
@@ -1022,7 +1045,7 @@
               <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
               <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
             </div>
-            <input id="ue-result-link" class="input input--mono" type="text" readonly value={shareUrl} />
+            <input id="ue-result-link" class="input input--mono" type="text" readonly tabindex="-1" value={shareUrl} />
             <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
             <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
             {#if deadMan && resultUnlock}

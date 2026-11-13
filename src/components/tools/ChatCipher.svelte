@@ -243,7 +243,7 @@
       <label for="chat-cipher-password" class="label">{t(dict, 'tools.chatCipher.password')}</label>
       {#if mode === 'encrypt'}
         <PassphraseField {dict} id="chat-cipher-password" bind:value={password} placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')} describedby="chat-cipher-password-rules" generate={generatePassphrase} />
-        <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+        <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
       {:else}
         <input
           id="chat-cipher-password"

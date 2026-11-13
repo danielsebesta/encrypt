@@ -38,7 +38,7 @@
     gap: 0.35rem;
     margin: 0.2rem 0 0.3rem;
     border-left: 3px solid var(--accent-line);
-    border-radius: 0.35rem;
+    border-radius: 6px;
     background: var(--surface-2);
     min-width: 0;
   }
@@ -56,7 +56,7 @@
     line-height: 1.3;
   }
   button.msg-quote__body {
-    border-radius: 0 0.35rem 0.35rem 0;
+    border-radius: 0 6px 6px 0;
   }
   button.msg-quote__body:hover .msg-quote__text {
     color: var(--text);

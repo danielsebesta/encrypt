@@ -141,9 +141,9 @@
   .voice-rec__dot {
     width: 0.6rem;
     height: 0.6rem;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--danger);
-    animation: voice-pulse 1.2s ease-in-out infinite;
+    animation: voice-pulse calc(var(--duration-slow) * 4) var(--ease-move) infinite;
   }
   .voice-rec__label {
     font-weight: 700;
@@ -163,7 +163,7 @@
     width: 2.25rem;
     height: 2.25rem;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--danger);
     color: var(--on-accent);
   }

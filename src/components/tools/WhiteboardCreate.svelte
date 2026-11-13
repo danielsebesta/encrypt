@@ -150,7 +150,7 @@
       <div class="field">
         <label class="label" for="wb-pass">{t(dict, 'whiteboard.password')}</label>
         <PassphraseField {dict} id="wb-pass" bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby="wb-pass-rules wb-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
-        <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules} />
+        <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules}  {dict}/>
         {#if passwordError}
           <p class="status status--error status--box" role="alert">{passwordError}</p>
         {/if}

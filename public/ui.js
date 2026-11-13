@@ -3,10 +3,12 @@
 
   var themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
+    themeBtn.setAttribute('aria-pressed', document.documentElement.classList.contains('dark') ? 'true' : 'false');
     themeBtn.addEventListener('click', function () {
       var root = document.documentElement;
       root.classList.add('theme-instant');
       var isDark = root.classList.toggle('dark');
+      themeBtn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
       root.style.colorScheme = isDark ? 'only dark' : 'only light';
       try {
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -26,6 +28,10 @@
     return document.getElementById(btn.getAttribute('aria-controls'));
   }
 
+  function menuItems(menu) {
+    return menu ? Array.prototype.slice.call(menu.querySelectorAll('a, button')) : [];
+  }
+
   function setMenu(btn, open) {
     var menu = menuFor(btn);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -40,10 +46,12 @@
 
   toggles.forEach(function (btn) {
     var group = btn.parentElement;
+    var menu = menuFor(btn);
     var leaveTimer = null;
     btn.addEventListener('click', function (event) {
       var open = btn.getAttribute('aria-expanded') === 'true';
       var pointer = event.detail > 0 && hoverMenus.matches;
+      clearTimeout(leaveTimer);
       closeMenus(btn);
       setMenu(btn, pointer ? true : !open);
     });
@@ -57,6 +65,38 @@
       if (!hoverMenus.matches) return;
       leaveTimer = setTimeout(function () { setMenu(btn, false); }, 150);
     });
+    group.addEventListener('focusout', function (event) {
+      if (event.relatedTarget && group.contains(event.relatedTarget)) return;
+      clearTimeout(leaveTimer);
+      setMenu(btn, false);
+    });
+    btn.addEventListener('keydown', function (event) {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      var items = menuItems(menu);
+      if (btn.getAttribute('aria-expanded') !== 'true') {
+        clearTimeout(leaveTimer);
+        closeMenus(btn);
+        setMenu(btn, true);
+      }
+      var item = event.key === 'ArrowDown' ? items[0] : items[items.length - 1];
+      if (item) item.focus();
+    });
+    if (menu) {
+      menu.addEventListener('keydown', function (event) {
+        var items = menuItems(menu);
+        var index = items.indexOf(document.activeElement);
+        if (index === -1) return;
+        var next = -1;
+        if (event.key === 'ArrowDown') next = Math.min(index + 1, items.length - 1);
+        else if (event.key === 'ArrowUp') next = Math.max(index - 1, 0);
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = items.length - 1;
+        if (next === -1) return;
+        event.preventDefault();
+        items[next].focus();
+      });
+    }
   });
 
   var nav = document.getElementById('site-nav');

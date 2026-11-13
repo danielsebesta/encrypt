@@ -450,7 +450,7 @@
         <div class="field">
           <label class="label" for="photo-password">{t(dict, 'tools.photoCipher.securityPassword')}</label>
           <PassphraseField {dict} id="photo-password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.encPasswordPlaceholder')} describedby="photo-password-rules" generate={generatePassphrase} />
-          <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+          <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
         </div>
         <button type="button" on:click={encode} class="btn w-full" disabled={processing}>
           {#if processing && imageFiles.length > 1}

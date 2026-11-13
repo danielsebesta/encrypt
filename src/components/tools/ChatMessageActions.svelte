@@ -156,7 +156,7 @@
     width: 2rem;
     height: 2rem;
     margin: -0.25rem 0;
-    border-radius: 0.4rem;
+    border-radius: 6px;
     color: var(--muted);
     opacity: 0;
     transition: opacity var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
@@ -188,7 +188,7 @@
     max-height: min(70dvh, 24rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: 0.65rem;
+    border-radius: 8px;
     background: var(--bg);
     border: 1px solid var(--line-soft);
     box-shadow: var(--shadow-float);
@@ -212,7 +212,7 @@
     width: 2.75rem;
     height: 2.75rem;
     overflow: hidden;
-    border-radius: 0.5rem;
+    border-radius: 8px;
     font-size: 1.15rem;
     line-height: 1;
     transition: background-color var(--duration-fast) var(--ease-out);
@@ -231,6 +231,9 @@
     min-height: 2.75rem;
   }
   .msg-actions__burn {
-    color: var(--danger, #b42318);
+    color: var(--danger);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .msg-actions__trigger, .msg-actions__react { transition: none; }
   }
 </style>

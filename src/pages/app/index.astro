@@ -14,7 +14,7 @@ const dict = getTranslations(locale);
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#08110a" />
+    <meta name="theme-color" content="#111418" />
     <title>Encrypt.click</title>
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -87,7 +87,7 @@ const dict = getTranslations(locale);
           var bg;
           if (platform === 'material') {
             bg = cached && cached[scheme === 'dark' ? 'dark' : 'light'] && cached[scheme === 'dark' ? 'dark' : 'light']['--app-bg'];
-            bg = amoled ? '#000000' : bg || (scheme === 'dark' ? '#12140e' : '#f9faef');
+            bg = amoled ? '#000000' : bg || (scheme === 'dark' ? '#111418' : '#f8f9ff');
           } else {
             bg = scheme === 'dark' ? (amoled ? '#000000' : '#1c1c1e') : '#f2f2f7';
           }

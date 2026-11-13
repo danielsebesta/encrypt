@@ -60,13 +60,27 @@
   const LOCAL_PERSIST_MS = 800;
   const NOTICE_MS = 6000;
 
-  // Quickdraw ships a warm paper look; use the site's surface colors and a green-tinted grid instead.
-  THEMES.light.background = '#fafbfa';
-  THEMES.light.grid.dot = { minor: 'rgba(17, 26, 16, 0.18)', major: 'rgba(17, 26, 16, 0.32)' };
-  THEMES.light.grid.line = { minor: 'rgba(17, 26, 16, 0.07)', major: 'rgba(17, 26, 16, 0.14)' };
-  THEMES.dark.background = '#0d140b';
-  THEMES.dark.grid.dot = { minor: 'rgba(155, 178, 141, 0.14)', major: 'rgba(155, 178, 141, 0.26)' };
-  THEMES.dark.grid.line = { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' };
+  // Canvas drawing palette: paper, ink and grid are semantic drawing colours, not UI chrome.
+  // Quickdraw ships a warm paper look; these replace it with the site's neutral surfaces.
+  const BOARD_PALETTE = {
+    light: {
+      paper: '#fafbfa',
+      gridDot: { minor: 'rgba(17, 26, 16, 0.18)', major: 'rgba(17, 26, 16, 0.32)' },
+      gridLine: { minor: 'rgba(17, 26, 16, 0.07)', major: 'rgba(17, 26, 16, 0.14)' },
+    },
+    dark: {
+      paper: '#0d140b',
+      gridDot: { minor: 'rgba(155, 178, 141, 0.14)', major: 'rgba(155, 178, 141, 0.26)' },
+      gridLine: { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' },
+    },
+  } as const;
+
+  THEMES.light.background = BOARD_PALETTE.light.paper;
+  THEMES.light.grid.dot = { ...BOARD_PALETTE.light.gridDot };
+  THEMES.light.grid.line = { ...BOARD_PALETTE.light.gridLine };
+  THEMES.dark.background = BOARD_PALETTE.dark.paper;
+  THEMES.dark.grid.dot = { ...BOARD_PALETTE.dark.gridDot };
+  THEMES.dark.grid.line = { ...BOARD_PALETTE.dark.gridLine };
 
   const TOOL_ICONS: Record<Exclude<ToolId, 'geo'>, IconName> = {
     select: 'mouse-pointer-2',
@@ -1465,7 +1479,12 @@
   });
 </script>
 
-<div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
+<div
+  class="wb-container"
+  class:wb-container--fullscreen={isFullscreen}
+  style="--wb-paper-light: {BOARD_PALETTE.light.paper}; --wb-paper-dark: {BOARD_PALETTE.dark.paper}"
+  bind:this={rootEl}
+>
   {#if needsPassword}
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
@@ -1985,10 +2004,12 @@
     flex-direction: column;
     height: min(82dvh, 880px);
     min-height: 420px;
-    border-radius: 0.75rem;
+    border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
+    /* Text on a data-driven peer colour; the cursor glyph is white too. */
+    --wb-on-peer: #ffffff;
   }
   .wb-container--fullscreen {
     height: 100dvh;
@@ -2004,7 +2025,7 @@
     border-radius: 50%;
     border: 2.5px solid color-mix(in srgb, var(--accent) 25%, transparent);
     border-top-color: var(--accent);
-    animation: wb-spin 0.7s linear infinite;
+    animation: wb-spin calc(var(--duration-slow) * 2) linear infinite;
     will-change: transform;
     backface-visibility: hidden;
   }
@@ -2031,11 +2052,11 @@
   .wb-board {
     position: absolute;
     inset: 0;
-    background: #fafbfa;
+    background: var(--wb-paper-light);
   }
   :global(html.dark) .wb-board,
   .wb-board:global([data-qd-theme='dark']) {
-    background: #0d140b;
+    background: var(--wb-paper-dark);
   }
   /* In the app the board is the shell surface itself: same bg as the rest of the app. */
   :global(html[data-app-platform]) .wb-board {
@@ -2064,7 +2085,7 @@
     align-items: center;
     gap: 2px;
     padding: 3px;
-    border-radius: 0.625rem;
+    border-radius: 8px;
     background: var(--bg);
     border: 1px solid var(--line-soft);
     box-shadow: var(--shadow-float);
@@ -2116,8 +2137,9 @@
   .wb-swatch {
     width: 20px;
     height: 20px;
-    border-radius: 9999px;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1px solid var(--line);
   }
 
   .wb-pop { position: relative; pointer-events: auto; }
@@ -2181,11 +2203,11 @@
     content: '';
     width: 20px;
     height: 20px;
-    border-radius: 9999px;
+    border-radius: 50%;
     background: var(--wb-swatch);
   }
   .wb-color:hover { background: var(--surface-2); }
-  .wb-color[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+  .wb-color[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
   .wb-seg {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -2195,7 +2217,7 @@
   .wb-dot {
     width: var(--wb-dot);
     height: var(--wb-dot);
-    border-radius: 9999px;
+    border-radius: 50%;
     background: currentColor;
   }
 
@@ -2264,20 +2286,6 @@
   :global(html[data-app-platform]) .wb-track .wb-btn {
     scroll-snap-align: start;
   }
-  /* Edge fades make the scrollable row read as continuing, only while it actually does.
-     Fully global: the state classes are toggled at runtime, so scoped compound selectors would be pruned. */
-  :global(html[data-app-platform] .wb-track.wb-track--right) {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
-  }
-  :global(html[data-app-platform] .wb-track.wb-track--left) {
-    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 1.5rem), transparent);
-    mask-image: linear-gradient(to left, #000 calc(100% - 1.5rem), transparent);
-  }
-  :global(html[data-app-platform] .wb-track.wb-track--left.wb-track--right) {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
-    mask-image: linear-gradient(to right, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
-  }
 
   .wb-cursor {
     position: absolute;
@@ -2288,15 +2296,15 @@
     gap: 2px;
     pointer-events: none;
     z-index: 1;
-    transition: transform 160ms linear;
+    transition: transform var(--duration-base) linear;
     will-change: transform;
   }
   .wb-cursor__name {
     margin-top: 14px;
     padding: 1px 6px;
-    border-radius: 9999px;
+    border-radius: 6px;
     background: var(--wb-peer);
-    color: #fff;
+    color: var(--wb-on-peer);
     font-size: 0.75rem;
     font-weight: 700;
     white-space: nowrap;
@@ -2317,9 +2325,9 @@
     min-width: 18px;
     height: 18px;
     padding: 0 4px;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--danger);
-    color: #fff;
+    color: var(--bg);
     font-size: 0.6875rem;
     font-weight: 800;
     line-height: 18px;
@@ -2333,7 +2341,7 @@
     width: min(20rem, calc(100% - 1rem));
     display: flex;
     flex-direction: column;
-    border-radius: 0.75rem;
+    border-radius: 8px;
     border: 1px solid var(--line-soft);
     background: var(--bg);
     box-shadow: var(--shadow-float);
@@ -2368,7 +2376,7 @@
     display: grid;
     gap: 0.125rem;
     padding: 0.375rem 0.625rem;
-    border-radius: 0.75rem;
+    border-radius: 8px;
     background: var(--surface-2);
     font-size: 0.875rem;
     line-height: 1.45;
@@ -2401,7 +2409,7 @@
     align-items: center;
     margin-left: 0.25rem;
     padding: 0 0.375rem;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--warn-weak);
     color: var(--warn);
     font-size: 0.6875rem;
@@ -2419,7 +2427,7 @@
     width: 14px;
     height: 14px;
     margin-left: 4px;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--warn);
     color: var(--bg);
     font-size: 0.625rem;
@@ -2442,7 +2450,7 @@
   }
   .wb-member--warn {
     padding: 0.5rem;
-    border-radius: 0.625rem;
+    border-radius: 8px;
     background: var(--warn-weak);
   }
   .wb-member > div { display: grid; gap: 0.25rem; }
@@ -2522,7 +2530,6 @@
   }
   .wb-backup-dialog::backdrop {
     background: color-mix(in srgb, var(--bg) 70%, transparent);
-    backdrop-filter: blur(2px);
   }
   @keyframes wb-backup-in {
     from {
@@ -2552,11 +2559,11 @@
     height: 8px;
     flex: none;
     box-sizing: border-box;
-    border-radius: 9999px;
+    border-radius: 50%;
     border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
     border-top-color: var(--accent);
     background: transparent;
-    animation: wb-spin 0.7s linear infinite;
+    animation: wb-spin calc(var(--duration-slow) * 2) linear infinite;
     will-change: transform;
     backface-visibility: hidden;
   }
@@ -2577,16 +2584,17 @@
   .wb-avatar {
     width: 24px;
     height: 24px;
-    border-radius: 9999px;
+    box-sizing: border-box;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     overflow: hidden;
     background-color: var(--surface-2);
-    box-shadow: 0 0 0 2px var(--surface);
+    border: 2px solid var(--surface);
   }
-  .wb-avatar--warn { box-shadow: 0 0 0 2px var(--warn); }
+  .wb-avatar--warn { border-color: var(--warn); }
   .wb-people-trigger {
     display: inline-flex;
     align-items: center;

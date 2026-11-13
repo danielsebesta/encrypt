@@ -33,28 +33,26 @@
 :root[data-app-shots="1"] .k-navbar [class*="opacity-0"] {
     opacity: 1 !important;
 }
-/* Floating liquid-glass tabbar: keep the bar transparent so backdrop-filter
-   can sample page content. A solid fill here frosts itself and reads opaque. */
+/* Store captures: solid tab bar so the frame has no translucent hole. */
 :root[data-app-shots="1"] .app-main-tabbar {
-    background: transparent !important;
+    background: var(--app-surface) !important;
     background-image: none !important;
+    border-top: 1px solid var(--app-outline);
 }
-/* Hub lists clear less of the tabbar in shots so liquid glass can frost real rows. */
+/* Hub lists keep a short clearance under the solid tab bar. */
 :root[data-app-shots="1"] .app-scroll {
     padding-bottom: 2.75rem !important;
 }
 :root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane,
 :root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-glass {
-    background: rgba(60, 60, 67, 0.22) !important;
+    background: var(--app-surface) !important;
     background-image: none !important;
-    backdrop-filter: blur(20px) saturate(2.2) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(2.2) !important;
-    box-shadow:
-        inset 0 0 0 0.5px rgba(255, 255, 255, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.34),
-        0 8px 28px rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid var(--app-outline);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
 }
-/* Konsta's bottom fade sits behind the pill and kills the glass read. */
+/* Konsta's bottom fade is a band under the bar; hide it in captures. */
 :root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > .absolute.bottom-0 {
     display: none !important;
 }
@@ -118,7 +116,7 @@
     --app-warn: #ff9500;
     --app-warn-weak: rgba(255, 149, 0, 0.14);
     --app-on-warn-weak: #8a4d00;
-    --app-bar: rgba(248, 248, 250, 0.76);
+    --app-bar: #f8f8fa;
     --app-sheet: #f2f2f7;
     --app-bubble: #e9e9eb;
     --app-on-bubble: #000000;
@@ -126,17 +124,9 @@
     --app-on-bubble-mine: #ffffff;
     --app-scrim: rgba(0, 0, 0, 0.4);
     --app-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
-    --app-glass: rgba(255, 255, 255, 0.75);
+    --app-glass: #ffffff;
     --app-glass-rim: rgba(0, 0, 0, 0.12);
-    --app-glass-shadow:
-        inset -1px -1px 0px -0.5px rgba(255, 255, 255, 1),
-        inset 1px 1px 0px -0.5px rgba(255, 255, 255, 1),
-        inset 3px 3px 10px -3px #ddd,
-        inset -3px -3px 10px -3px #ddd,
-        inset 0 0 5px 1px #fff,
-        inset 0 0 0 0.5px rgba(0, 0, 0, 0.25),
-        inset 0 0 24px 0 rgba(0, 0, 0, 0.1),
-        var(--app-shadow);
+    --app-glass-shadow: none;
 
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", monospace;
@@ -182,7 +172,7 @@
     --app-warn: #ff9f0a;
     --app-warn-weak: rgba(255, 159, 10, 0.17);
     --app-on-warn-weak: #ffb340;
-    --app-bar: rgba(28, 28, 30, 0.74);
+    --app-bar: #1c1c1e;
     --app-sheet: #2c2c2e;
     --app-bubble: #3a3a3c;
     --app-on-bubble: #f2f2f7;
@@ -190,18 +180,9 @@
     --app-on-bubble-mine: #ffffff;
     --app-scrim: rgba(0, 0, 0, 0.55);
     --app-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
-    --app-glass: rgba(50, 50, 50, 0.5);
+    --app-glass: #2c2c2e;
     --app-glass-rim: rgba(255, 255, 255, 0.15);
-    --app-glass-shadow:
-        inset -2px -2px 0.5px -2.5px rgba(255, 255, 255, 0.4),
-        inset 3px 3px 0.5px -3.5px rgba(255, 255, 255, 0.4),
-        inset 2px 2px 0.5px -2px #262626,
-        inset -2px -2px 0.5px -2px #262626,
-        inset 0 0 5px 1px #141414,
-        inset 0 0 0 1px rgba(255, 255, 255, 0.15),
-        inset 0 0 10px 0 rgba(255, 255, 255, 0.075),
-        inset 0 0 24px 0 rgba(255, 255, 255, 0.05),
-        var(--app-shadow);
+    --app-glass-shadow: none;
 
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", monospace;
@@ -222,7 +203,7 @@
     --app-surface: #1c1c1e;
     --app-surface-2: #2c2c2e;
     --app-surface-3: #3a3a3c;
-    --app-bar: rgba(10, 10, 12, 0.72);
+    --app-bar: #0a0a0c;
     --app-sheet: #1c1c1e;
     --app-bubble: #26262a;
     --color-ios-dark-surface: #000000;
@@ -230,8 +211,8 @@
     --color-ios-dark-surface-variant: #3a3a3c;
 }
 
-/* -- Material You fallback tokens (default seed #86b94a, replaced
-   at runtime by computed scheme) -------------------------------- */
+/* -- Material fallback tokens (neutral surfaces, accent on --app-tint;
+   runtime scheme still overwrites these) ----------------------- */
 
 :root[data-app-platform="material"] {
     --font-sans: Roboto, "Google Sans Text", "Google Sans", system-ui, sans-serif;
@@ -240,24 +221,24 @@
 
 :root[data-app-platform="material"][data-app-scheme="light"] {
     color-scheme: light;
-    --app-bg: #f9faef;
-    --app-surface: #f3f4e9;
-    --app-surface-2: #eeefe3;
-    --app-surface-3: #e8e9de;
-    --app-fill: #e2e3d8;
-    --app-fill-2: #e8e9de;
-    --app-separator: #c5c8ba;
-    --app-outline: #75796c;
-    --app-label: #1a1c16;
-    --app-label-2: #44483d;
-    --app-label-3: #44483d;
+    --app-bg: #f5f5f5;
+    --app-surface: #ffffff;
+    --app-surface-2: #f0f0f0;
+    --app-surface-3: #e6e6e6;
+    --app-fill: #e0e0e0;
+    --app-fill-2: #e6e6e6;
+    --app-separator: #c6c6c6;
+    --app-outline: #767676;
+    --app-label: #1a1a1a;
+    --app-label-2: #454545;
+    --app-label-3: #454545;
     --app-tint: #4b662c;
     --app-on-tint: #ffffff;
-    --app-tint-strong: #b1d18a;
-    --app-tint-container: #cdeda4;
-    --app-on-tint-container: #344e16;
-    --app-tint-weak: #dbe7c8;
-    --app-on-tint-weak: #404a33;
+    --app-tint-strong: color-mix(in srgb, var(--app-tint) 82%, black);
+    --app-tint-container: color-mix(in srgb, var(--app-tint) 18%, var(--app-surface));
+    --app-on-tint-container: var(--app-tint);
+    --app-tint-weak: var(--app-fill);
+    --app-on-tint-weak: var(--app-label);
     --app-error: #ba1a1a;
     --app-on-error: #ffffff;
     --app-error-weak: #ffdad6;
@@ -265,36 +246,36 @@
     --app-warn: #8a5a00;
     --app-warn-weak: #f7e3ab;
     --app-on-warn-weak: #554000;
-    --app-bar: #eeefe3;
-    --app-sheet: #f3f4e9;
-    --app-bubble: #e8e9de;
-    --app-on-bubble: #1a1c16;
-    --app-bubble-mine: #cdeda4;
-    --app-on-bubble-mine: #344e16;
+    --app-bar: #f0f0f0;
+    --app-sheet: #ffffff;
+    --app-bubble: #e6e6e6;
+    --app-on-bubble: #1a1a1a;
+    --app-bubble-mine: var(--app-tint);
+    --app-on-bubble-mine: var(--app-on-tint);
     --app-scrim: rgba(0, 0, 0, 0.4);
     --app-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
 :root[data-app-platform="material"][data-app-scheme="dark"] {
     color-scheme: dark;
-    --app-bg: #12140e;
-    --app-surface: #1a1c16;
-    --app-surface-2: #1e201a;
-    --app-surface-3: #282b24;
-    --app-fill: #33362e;
-    --app-fill-2: #282b24;
-    --app-separator: #44483d;
-    --app-outline: #8e9285;
-    --app-label: #e2e3d8;
-    --app-label-2: #c5c8ba;
-    --app-label-3: #c5c8ba;
+    --app-bg: #121212;
+    --app-surface: #1c1c1c;
+    --app-surface-2: #242424;
+    --app-surface-3: #2e2e2e;
+    --app-fill: #383838;
+    --app-fill-2: #2e2e2e;
+    --app-separator: #4a4a4a;
+    --app-outline: #8a8a8a;
+    --app-label: #e8e8e8;
+    --app-label-2: #c6c6c6;
+    --app-label-3: #c6c6c6;
     --app-tint: #b1d18a;
-    --app-on-tint: #1f3701;
-    --app-tint-strong: #4b662c;
-    --app-tint-container: #344e16;
-    --app-on-tint-container: #cdeda4;
-    --app-tint-weak: #404a33;
-    --app-on-tint-weak: #dbe7c8;
+    --app-on-tint: #1a1a1a;
+    --app-tint-strong: color-mix(in srgb, var(--app-tint) 72%, black);
+    --app-tint-container: color-mix(in srgb, var(--app-tint) 22%, var(--app-surface));
+    --app-on-tint-container: var(--app-tint);
+    --app-tint-weak: var(--app-fill);
+    --app-on-tint-weak: var(--app-label);
     --app-error: #ffb4ab;
     --app-on-error: #690005;
     --app-error-weak: #93000a;
@@ -302,56 +283,56 @@
     --app-warn: #f2bf45;
     --app-warn-weak: #443400;
     --app-on-warn-weak: #f7e3ab;
-    --app-bar: #1e201a;
-    --app-sheet: #1a1c16;
-    --app-bubble: #282b24;
-    --app-on-bubble: #e2e3d8;
-    --app-bubble-mine: #344e16;
-    --app-on-bubble-mine: #cdeda4;
+    --app-bar: #242424;
+    --app-sheet: #1c1c1c;
+    --app-bubble: #2e2e2e;
+    --app-on-bubble: #e8e8e8;
+    --app-bubble-mine: var(--app-tint);
+    --app-on-bubble-mine: var(--app-on-tint);
     --app-scrim: rgba(0, 0, 0, 0.4);
     --app-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 :root[data-app-platform="material"] {
-    --k-color-md-light-primary: #4b662c;
-    --k-color-md-light-on-primary: #ffffff;
-    --k-color-md-light-primary-container: #cdeda4;
-    --k-color-md-light-on-primary-container: #344e16;
-    --k-color-md-light-secondary: #586249;
+    --k-color-md-light-primary: var(--app-tint);
+    --k-color-md-light-on-primary: var(--app-on-tint);
+    --k-color-md-light-primary-container: var(--app-tint-container);
+    --k-color-md-light-on-primary-container: var(--app-on-tint-container);
+    --k-color-md-light-secondary: #5e5e5e;
     --k-color-md-light-on-secondary: #ffffff;
-    --k-color-md-light-secondary-container: #dbe7c8;
-    --k-color-md-light-on-secondary-container: #404a33;
-    --k-color-md-light-surface: #f9faef;
-    --k-color-md-light-on-surface: #1a1c16;
-    --k-color-md-light-surface-variant: #e1e4d5;
-    --k-color-md-light-on-surface-variant: #44483d;
-    --k-color-md-light-outline: #75796c;
-    --k-color-md-light-outline-variant: #c5c8ba;
-    --k-color-md-light-surface-1: #f3f4e9;
-    --k-color-md-light-surface-2: #eeefe3;
-    --k-color-md-light-surface-3: #e8e9de;
-    --k-color-md-light-surface-4: #e8e9de;
-    --k-color-md-light-surface-5: #e2e3d8;
+    --k-color-md-light-secondary-container: #e4e4e4;
+    --k-color-md-light-on-secondary-container: #1a1a1a;
+    --k-color-md-light-surface: #f5f5f5;
+    --k-color-md-light-on-surface: #1a1a1a;
+    --k-color-md-light-surface-variant: #e6e6e6;
+    --k-color-md-light-on-surface-variant: #454545;
+    --k-color-md-light-outline: #767676;
+    --k-color-md-light-outline-variant: #c6c6c6;
+    --k-color-md-light-surface-1: #ffffff;
+    --k-color-md-light-surface-2: #f0f0f0;
+    --k-color-md-light-surface-3: #e6e6e6;
+    --k-color-md-light-surface-4: #e6e6e6;
+    --k-color-md-light-surface-5: #e0e0e0;
 
-    --k-color-md-dark-primary: #b1d18a;
-    --k-color-md-dark-on-primary: #1f3701;
-    --k-color-md-dark-primary-container: #344e16;
-    --k-color-md-dark-on-primary-container: #cdeda4;
-    --k-color-md-dark-secondary: #bfcbad;
-    --k-color-md-dark-on-secondary: #2a331e;
-    --k-color-md-dark-secondary-container: #404a33;
-    --k-color-md-dark-on-secondary-container: #dbe7c8;
-    --k-color-md-dark-surface: #12140e;
-    --k-color-md-dark-on-surface: #e2e3d8;
-    --k-color-md-dark-surface-variant: #44483d;
-    --k-color-md-dark-on-surface-variant: #c5c8ba;
-    --k-color-md-dark-outline: #8e9285;
-    --k-color-md-dark-outline-variant: #44483d;
-    --k-color-md-dark-surface-1: #1a1c16;
-    --k-color-md-dark-surface-2: #1e201a;
-    --k-color-md-dark-surface-3: #282b24;
-    --k-color-md-dark-surface-4: #282b24;
-    --k-color-md-dark-surface-5: #33362e;
+    --k-color-md-dark-primary: var(--app-tint);
+    --k-color-md-dark-on-primary: var(--app-on-tint);
+    --k-color-md-dark-primary-container: var(--app-tint-container);
+    --k-color-md-dark-on-primary-container: var(--app-on-tint-container);
+    --k-color-md-dark-secondary: #c8c8c8;
+    --k-color-md-dark-on-secondary: #2a2a2a;
+    --k-color-md-dark-secondary-container: #3a3a3a;
+    --k-color-md-dark-on-secondary-container: #e8e8e8;
+    --k-color-md-dark-surface: #121212;
+    --k-color-md-dark-on-surface: #e8e8e8;
+    --k-color-md-dark-surface-variant: #3a3a3a;
+    --k-color-md-dark-on-surface-variant: #c6c6c6;
+    --k-color-md-dark-outline: #8a8a8a;
+    --k-color-md-dark-outline-variant: #4a4a4a;
+    --k-color-md-dark-surface-1: #1c1c1c;
+    --k-color-md-dark-surface-2: #242424;
+    --k-color-md-dark-surface-3: #2e2e2e;
+    --k-color-md-dark-surface-4: #2e2e2e;
+    --k-color-md-dark-surface-5: #383838;
 
     --k-color-primary: var(--app-tint);
     --k-color-brand-primary: var(--app-tint);
@@ -481,7 +462,7 @@ html[data-app-platform] body *:not(input):not(textarea):not([contenteditable="tr
 }
 /* Long-press highlight on the full-width row content (not a shrink-wrapped button). */
 .k-list-item.app-row-press > :is(a, button, label) {
-    animation: app-row-hold 0.45s cubic-bezier(0.2, 0, 0, 1) 0.1s forwards;
+    animation: app-row-hold 320ms var(--ease-move) 100ms forwards;
 }
 @keyframes app-row-hold {
     to {
@@ -577,7 +558,7 @@ html[data-app-platform] ::selection {
     position: relative;
     width: 44px;
     height: 5px;
-    border-radius: 999px;
+    border-radius: 6px;
     margin: 10px auto 6px;
     background: var(--app-label-3);
     touch-action: none;
@@ -612,12 +593,12 @@ html[data-app-platform] ::selection {
     overscroll-behavior: contain;
 }
 :root[data-app-platform="ios"] .app-sheet {
-    border-radius: 22px 22px 0 0;
-    transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent), var(--app-shadow);
+    border-radius: 8px 8px 0 0;
+    transition-timing-function: var(--ease-move);
+    box-shadow: var(--shadow-float);
 }
 :root[data-app-platform="material"] .app-sheet {
-    border-radius: 28px 28px 0 0;
+    border-radius: 8px 8px 0 0;
 }
 /* M3 drag handle is slimmer than iOS's */
 :root[data-app-platform="material"] .app-sheet__handle {
@@ -681,7 +662,7 @@ html[data-app-platform] ::selection {
 
 /* iOS 26: tab presses contract with a spring settle (Material uses ink ripple instead) */
 :root[data-app-platform="ios"] .k-toolbar .k-link {
-    transition: transform 0.18s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: transform 180ms var(--ease-move);
 }
 :root[data-app-platform="ios"] .k-toolbar .k-link:active {
     transform: scale(0.94);
@@ -699,22 +680,22 @@ html[data-app-platform] ::selection {
     flex-shrink: 0;
     display: grid;
     place-items: center;
-    border-radius: 10px;
+    border-radius: 6px;
 }
 :root[data-app-platform] .attach-badge svg { display: block; }
-:root[data-app-platform="ios"] .attach-badge { color: #fff; }
-:root[data-app-platform="ios"] .attach-badge--file { background: #0a84ff; }
-:root[data-app-platform="ios"] .attach-badge--board { background: #af52de; }
-:root[data-app-platform="ios"] .attach-badge--once { background: #ff9f0a; }
-:root[data-app-platform="ios"] .attach-badge--schedule { background: #30b0c7; }
-:root[data-app-platform="material"] .attach-badge { border-radius: 14px; }
+:root[data-app-platform="ios"] .attach-badge { color: var(--app-on-tint); }
+:root[data-app-platform="ios"] .attach-badge--file { background: var(--app-tint); }
+:root[data-app-platform="ios"] .attach-badge--board { background: var(--app-tint-strong); }
+:root[data-app-platform="ios"] .attach-badge--once { background: var(--app-warn); }
+:root[data-app-platform="ios"] .attach-badge--schedule { background: var(--app-fill); color: var(--app-label); }
+:root[data-app-platform="material"] .attach-badge { border-radius: 6px; }
 :root[data-app-platform="material"] .attach-badge--file { background: var(--app-tint-container); color: var(--app-on-tint-container); }
-:root[data-app-platform="material"] .attach-badge--board { background: color-mix(in srgb, #af52de 20%, transparent); color: #9b3fd1; }
-:root[data-app-platform="material"] .attach-badge--once { background: color-mix(in srgb, #ff9f0a 22%, transparent); color: #e08600; }
-:root[data-app-platform="material"] .attach-badge--schedule { background: color-mix(in srgb, #30b0c7 22%, transparent); color: #1f8ea3; }
-:root[data-app-platform="material"][data-app-scheme="dark"] .attach-badge--board { color: #cf8af5; }
-:root[data-app-platform="material"][data-app-scheme="dark"] .attach-badge--once { color: #ffb340; }
-:root[data-app-platform="material"][data-app-scheme="dark"] .attach-badge--schedule { color: #4dc4d8; }
+:root[data-app-platform="material"] .attach-badge--board { background: var(--app-fill); color: var(--app-label); }
+:root[data-app-platform="material"] .attach-badge--once { background: var(--app-warn-weak); color: var(--app-on-warn-weak); }
+:root[data-app-platform="material"] .attach-badge--schedule { background: var(--app-fill); color: var(--app-label); }
+:root[data-app-platform="material"][data-app-scheme="dark"] .attach-badge--board { color: var(--app-label); }
+:root[data-app-platform="material"][data-app-scheme="dark"] .attach-badge--once { color: var(--app-on-warn-weak); }
+:root[data-app-platform="material"][data-app-scheme="dark"] .attach-badge--schedule { color: var(--app-label); }
 
 :root[data-app-platform="material"] .app-form .k-list-input > div.ml-4 {
     margin-inline: 0;
@@ -751,7 +732,7 @@ html[data-app-platform] ::selection {
     color: color-mix(in srgb, var(--app-label) 30%, transparent);
 }
 :root[data-app-scheme="dark"] .app-passphrase__input::placeholder {
-    color: color-mix(in srgb, #fff 30%, transparent);
+    color: color-mix(in srgb, var(--app-label) 30%, transparent);
 }
 .app-passphrase__btn {
     flex: 0 0 auto;
@@ -764,7 +745,7 @@ html[data-app-platform] ::selection {
     margin-inline-end: -0.25rem;
     padding: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
     color: var(--app-label-2);
 }
@@ -821,7 +802,7 @@ html[data-app-platform] ::selection {
     overflow: hidden;
 }
 .chat-kmsg > .flex-col > .break-words {
-    transition: opacity 0.25s ease;
+    transition: opacity 320ms var(--ease-out);
 }
 .chat-kmsg--pending > .flex-col > .break-words {
     opacity: 0.7;
@@ -859,11 +840,11 @@ html[data-app-platform] ::selection {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.92);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--app-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
-    animation: app-fade-in 0.15s ease;
+    animation: app-fade-in 180ms var(--ease-out);
 }
 .chat-lightbox__stage {
     position: absolute;
@@ -896,9 +877,9 @@ html[data-app-platform] ::selection {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.14);
+    border-radius: 50%;
+    color: var(--app-label);
+    background: var(--app-fill);
 }
 @keyframes app-fade-in {
     from { opacity: 0; }
@@ -916,7 +897,7 @@ html[data-app-platform] ::selection {
     border-radius: 50%;
     border: 2px solid color-mix(in srgb, var(--app-tint) 22%, transparent);
     border-top-color: var(--app-tint);
-    animation: app-spin 0.7s linear infinite;
+    animation: app-spin 320ms var(--ease-move) infinite;
     will-change: transform;
     backface-visibility: hidden;
 }
@@ -940,7 +921,7 @@ html[data-app-platform] ::selection {
 }
 
 .app-conn-status .app-spinner {
-    animation: app-spin 0.7s linear infinite, app-delayed-in 0.2s ease-out 0.6s both;
+    animation: app-spin 320ms var(--ease-move) infinite, app-delayed-in 180ms var(--ease-move) 320ms both;
 }
 @keyframes app-delayed-in {
     from { opacity: 0; }
@@ -949,9 +930,9 @@ html[data-app-platform] ::selection {
 
 .app-skel {
     display: block;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--app-fill);
-    animation: app-skel-pulse 1.4s ease-in-out infinite;
+    animation: app-skel-pulse 320ms var(--ease-out) infinite;
 }
 @keyframes app-skel-pulse {
     0%, 100% { opacity: 0.55; }
@@ -964,13 +945,13 @@ html[data-app-platform] ::selection {
     gap: 0.75rem;
     padding: calc(env(safe-area-inset-top, 0px) + 3.25rem) 1rem 1rem;
     background: var(--app-bg);
-    animation: app-delayed-in 0.2s ease-out 0.15s both;
+    animation: app-delayed-in 180ms var(--ease-out) 180ms both;
 }
-.app-skel--title { width: 9rem; height: 1.75rem; border-radius: 0.5rem; }
-.app-skel--search { height: 2.25rem; border-radius: 0.75rem; margin-bottom: 0.5rem; }
-:root[data-app-platform="material"] .app-skel--search { height: 3.5rem; border-radius: 999px; }
+.app-skel--title { width: 9rem; height: 1.75rem; border-radius: 8px; }
+.app-skel--search { height: 2.25rem; border-radius: 6px; margin-bottom: 0.5rem; }
+:root[data-app-platform="material"] .app-skel--search { height: 3.5rem; border-radius: 6px; }
 .app-skel-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.375rem 0; }
-.app-skel--avatar { width: 2.75rem; height: 2.75rem; flex: none; }
+.app-skel--avatar { width: 2.75rem; height: 2.75rem; flex: none; border-radius: 50%; }
 .app-skel-row__lines { flex: 1; display: grid; gap: 0.5rem; }
 .app-skel--line { height: 0.75rem; }
 .app-skel--sm { height: 0.625rem; opacity: 0.7; }
@@ -981,9 +962,9 @@ html[data-app-platform] ::selection {
     justify-content: flex-end;
     gap: 0.5rem;
     padding: 1rem 0.75rem 1.5rem;
-    animation: app-delayed-in 0.2s ease-out 0.15s both;
+    animation: app-delayed-in 180ms var(--ease-out) 180ms both;
 }
-.app-skel-chat .app-skel { height: 2.25rem; border-radius: 1.125rem; }
+.app-skel-chat .app-skel { height: 2.25rem; border-radius: 8px; }
 .app-skel-chat .app-skel--mine { align-self: flex-end; background: color-mix(in srgb, var(--app-tint) 22%, transparent); }
 .app-skel-chat__caption {
     margin: 0.75rem 0 0;
@@ -1006,7 +987,7 @@ html[data-app-platform] ::selection {
     min-width: 1.375rem;
     padding: 0.125rem;
     border: 0;
-    border-radius: 999px;
+    border-radius: 6px;
     background: transparent;
     color: var(--app-label-2);
     line-height: 1;
@@ -1042,7 +1023,7 @@ html[data-app-platform] ::selection {
     border: 2.5px solid color-mix(in srgb, var(--app-tint) 22%, transparent);
     border-top-color: var(--app-tint);
     background: transparent;
-    animation: app-spin 0.7s linear infinite !important;
+    animation: app-spin 320ms var(--ease-move) infinite !important;
     stroke: none !important;
 }
 :root[data-app-platform] .chat-center .animate-spin :is(path, circle, line),
@@ -1074,8 +1055,8 @@ html[data-app-platform] ::selection {
     font-size: 15px;
     color: var(--app-label);
     background: var(--app-fill);
-    border: none;
-    border-radius: 10px;
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
     outline: none;
 }
 .app-dialog-input:focus-visible {
@@ -1083,7 +1064,7 @@ html[data-app-platform] ::selection {
     outline-offset: 1px;
 }
 :root[data-app-platform="material"] .app-dialog-input {
-    border-radius: 6px 6px 0 0;
+    border-radius: 8px 8px 0 0;
     border-bottom: 1.5px solid var(--app-tint);
     font-size: 16px;
     padding: 10px 12px;
@@ -1100,7 +1081,7 @@ html[data-app-platform] ::selection {
     .btn-secondary,
     .btn-ghost,
     .btn-outline {
-        border-radius: 999px;
+        border-radius: 6px;
         border: none;
         font-weight: 600;
         min-height: 44px;
@@ -1155,11 +1136,11 @@ html[data-app-platform] ::selection {
         }
     }
     .btn-sm {
-        border-radius: 999px;
+        border-radius: 6px;
         min-height: 34px;
     }
     .btn-icon {
-        border-radius: 999px;
+        border-radius: 50%;
         min-width: 44px;
         min-height: 44px;
     }
@@ -1168,7 +1149,7 @@ html[data-app-platform] ::selection {
     .input {
         background: var(--app-fill);
         border: none;
-        border-radius: 10px;
+        border-radius: 6px;
         min-height: 38px;
         color: var(--app-label);
         font-size: 16px;
@@ -1192,7 +1173,7 @@ html[data-app-platform] ::selection {
         box-shadow: 0 0 0 1.5px var(--app-error);
     }
     textarea.input {
-        border-radius: 12px;
+        border-radius: 6px;
     }
     select.input {
         background-color: var(--app-fill);
@@ -1217,7 +1198,7 @@ html[data-app-platform] ::selection {
     .card {
         background: var(--app-surface);
         border: none;
-        border-radius: 14px;
+        border-radius: 8px;
         box-shadow: none;
     }
 
@@ -1225,7 +1206,7 @@ html[data-app-platform] ::selection {
     .dropzone {
         background: var(--app-fill);
         border: 1.5px dashed var(--app-outline);
-        border-radius: 14px;
+        border-radius: 8px;
         color: var(--app-label-2);
     }
     .dropzone--dragging {
@@ -1240,7 +1221,7 @@ html[data-app-platform] ::selection {
     /* Status banners */
     .status {
         border: none;
-        border-radius: 12px;
+        border-radius: 8px;
         background: var(--app-fill);
         color: var(--app-label-2);
     }
@@ -1257,28 +1238,28 @@ html[data-app-platform] ::selection {
         color: var(--app-label-2);
     }
 
-    /* Popup menus — iOS 26 Liquid Glass: low tint, vertical gradient, inset ring + specular */
+    /* Popup menus — solid surface, hairline, float shadow */
     .menu,
     .msg-actions__menu,
     .chat-profile__pop,
     .save-room,
     .chat-members {
-        background: var(--app-glass);
-        border: none;
-        border-radius: 18px;
-        box-shadow: var(--app-glass-shadow);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: var(--app-surface);
+        border: 1px solid var(--app-outline);
+        border-radius: 8px;
+        box-shadow: var(--shadow-float);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
     }
     .chat-profile__pop {
-        border-radius: 20px;
+        border-radius: 8px;
     }
     .chat-members {
         border-radius: 0;
-        box-shadow: inset 0 -0.5px 0 var(--app-glass-rim);
+        box-shadow: none;
     }
     .menu__item {
-        border-radius: 12px;
+        border-radius: 8px;
         color: var(--app-label);
         font-weight: 500;
     }
@@ -1293,16 +1274,14 @@ html[data-app-platform] ::selection {
         }
     }
     .chat-jump-latest {
-        background: var(--app-glass);
+        background: var(--app-surface);
         border: none;
-        box-shadow: var(--app-glass-shadow);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
     }
 
-    /* Chat chrome — glass on ::before so descendant menus can still blur the page
-       (backdrop-filter on the element would make it a Backdrop Root and empty
-       the backdrop of absolutely-positioned dropdowns below it) */
+    /* Chat chrome — solid bar. Menus paint above it. */
     .chat-header {
         background: transparent;
         border-bottom: none;
@@ -1316,15 +1295,15 @@ html[data-app-platform] ::selection {
         inset: 0;
         z-index: -1;
         background: var(--app-bg);
-        box-shadow: inset 0 -0.5px 0 var(--app-separator);
+        box-shadow: none;
     }
     .chat-share-banner,
     .chat-call-banner {
-        background: var(--app-glass);
-        border-bottom: none;
-        box-shadow: inset 0 -0.5px 0 var(--app-glass-rim);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: var(--app-surface);
+        border-bottom: 1px solid var(--app-outline);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
     }
     .chat-messages {
         scrollbar-width: none;
@@ -1369,11 +1348,11 @@ html[data-app-platform] ::selection {
         }
     }
     .chat-kmsg > .flex-col > .break-words {
-        border-radius: 18px 18px 18px 5px;
+        border-radius: 8px 8px 8px 6px;
         position: relative;
     }
     .chat-kmsg--mine > .flex-col > .break-words {
-        border-radius: 18px 18px 5px 18px;
+        border-radius: 8px 8px 6px 8px;
     }
     /* actions float beside the bubble, hover/long-press reveals */
     .chat-kmsg-actions {
@@ -1383,7 +1362,7 @@ html[data-app-platform] ::selection {
         left: calc(100% + 6px);
         z-index: 3;
         opacity: 0;
-        transition: opacity 0.15s;
+        transition: opacity 180ms var(--ease-out);
     }
     .chat-kmsg--mine .chat-kmsg-actions {
         left: auto;
@@ -1455,7 +1434,7 @@ html[data-app-platform] ::selection {
     }
     .chat-mode-badge {
         border: none;
-        border-radius: 999px;
+        border-radius: 6px;
         background: var(--app-tint-container);
         color: var(--app-on-tint-container);
         font-size: 11px;
@@ -1469,13 +1448,13 @@ html[data-app-platform] ::selection {
     .chat-call-accept {
         background: var(--app-tint);
         color: var(--app-on-tint);
-        border-radius: 999px;
+        border-radius: 6px;
         font-weight: 600;
     }
     .chat-call-decline {
         background: var(--app-fill);
         color: var(--app-label);
-        border-radius: 999px;
+        border-radius: 6px;
     }
     .chat-key-warn {
         background: var(--app-warn-weak);
@@ -1483,11 +1462,11 @@ html[data-app-platform] ::selection {
     }
     .chat-member--warn {
         background: var(--app-warn-weak);
-        border-radius: 10px;
+        border-radius: 8px;
     }
     .chat-jump-latest {
         color: var(--app-tint);
-        border-radius: 999px;
+        border-radius: 6px;
     }
     .chat-jump-latest__count {
         background: var(--app-error);
@@ -1496,11 +1475,11 @@ html[data-app-platform] ::selection {
     .chat-file {
         background: var(--app-fill);
         border: none;
-        border-radius: 10px;
+        border-radius: 8px;
         color: var(--app-tint);
     }
     .chat-kmsg--mine .chat-file {
-        background: rgba(0, 0, 0, 0.12);
+        background: color-mix(in srgb, var(--app-on-bubble-mine) 12%, transparent);
         color: var(--app-on-bubble-mine);
     }
     @media (hover: hover) {
@@ -1511,16 +1490,16 @@ html[data-app-platform] ::selection {
     .chat-whiteboard-card {
         border: none;
         background: var(--app-fill);
-        border-radius: 12px;
+        border-radius: 8px;
     }
     .chat-whiteboard-card__icon {
         background: var(--app-tint-container);
         color: var(--app-on-tint-container);
-        border-radius: 9px;
+        border-radius: 8px;
     }
     .chat-whiteboard-card__btn {
         border: none;
-        border-radius: 999px;
+        border-radius: 6px;
         background: var(--app-fill-2);
         color: var(--app-label);
     }
@@ -1530,7 +1509,7 @@ html[data-app-platform] ::selection {
     }
     .chat-preview-text {
         border-color: var(--app-separator);
-        border-radius: 10px;
+        border-radius: 8px;
     }
     .chat-preview-expand {
         background: var(--app-fill);
@@ -1539,7 +1518,7 @@ html[data-app-platform] ::selection {
     }
     .chat-once-reveal {
         border: 1px dashed var(--app-outline);
-        border-radius: 10px;
+        border-radius: 8px;
         background: var(--app-fill);
     }
     .chat-once-reveal__label {
@@ -1553,7 +1532,7 @@ html[data-app-platform] ::selection {
     .chat-schedule-item {
         background: var(--app-fill);
         border: none;
-        border-radius: 10px;
+        border-radius: 8px;
     }
     .chat-schedule-item__when {
         color: var(--app-tint);
@@ -1568,7 +1547,7 @@ html[data-app-platform] ::selection {
         color: var(--app-error);
     }
     .chat-upload-progress .status {
-        border-radius: 10px;
+        border-radius: 8px;
     }
     .chat-thread--drop {
         outline-color: var(--app-tint);
@@ -1577,7 +1556,7 @@ html[data-app-platform] ::selection {
         background: transparent;
         border: 1.5px solid color-mix(in srgb, var(--app-tint) 28%, transparent);
         border-top-color: var(--app-tint);
-        animation: app-spin 0.7s linear infinite;
+        animation: app-spin 320ms var(--ease-move) infinite;
         will-change: transform;
         backface-visibility: hidden;
     }
@@ -1593,11 +1572,11 @@ html[data-app-platform] ::selection {
         border-top-color: var(--app-tint);
     }
 
-    /* Whiteboard chrome — glass on ::before, same Backdrop-Root reason as .chat-header */
+    /* Whiteboard chrome — solid bar, same stacking reason as .chat-header */
     .wb-pill {
         background: transparent;
         border: none;
-        border-radius: 999px;
+        border-radius: 6px;
         position: relative;
         isolation: isolate;
     }
@@ -1607,10 +1586,10 @@ html[data-app-platform] ::selection {
         inset: 0;
         z-index: -1;
         border-radius: inherit;
-        background: var(--app-glass);
-        box-shadow: var(--app-glass-shadow);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: var(--app-surface);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
     }
     .wb-bar:has(.menu--open) {
         z-index: 40;
@@ -1620,7 +1599,7 @@ html[data-app-platform] ::selection {
     }
     .wb-btn {
         color: var(--app-label);
-        border-radius: 999px;
+        border-radius: 50%;
         min-width: 44px !important;
         min-height: 44px !important;
     }
@@ -1635,17 +1614,17 @@ html[data-app-platform] ::selection {
     }
     .wb-share-banner {
         background: var(--app-surface);
-        border-bottom: 0.5px solid var(--app-separator);
+        border-bottom: 1px solid var(--app-separator);
     }
     .wb-chat {
         background: var(--app-surface) !important;
-        border: 0.5px solid var(--app-separator) !important;
-        border-radius: 14px !important;
+        border: 1px solid var(--app-separator) !important;
+        border-radius: 8px !important;
     }
 
     /* Checkboxes — iOS circular check */
     input[type="checkbox"] {
-        border-radius: 999px;
+        border-radius: 6px;
         border-color: var(--app-label-3);
         background: transparent;
     }
@@ -1660,8 +1639,10 @@ html[data-app-platform] ::selection {
     }
     input[type="radio"]:checked {
         border-color: var(--app-tint);
-        background: transparent;
-        background-image: radial-gradient(circle, var(--app-tint) 0 5px, transparent 6px);
+        background-color: var(--app-tint);
+        background-image: none;
+        background-clip: content-box;
+        padding: 4px;
         box-shadow: none;
     }
 
@@ -1671,8 +1652,8 @@ html[data-app-platform] ::selection {
     }
     input[type="range"]::-webkit-slider-thumb {
         border: none;
-        background: #fff;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        background: var(--app-surface);
+        box-shadow: none;
         width: 24px;
         height: 24px;
         margin-top: -9px;
@@ -1694,7 +1675,7 @@ html[data-app-platform] ::selection {
     .btn-secondary,
     .btn-ghost,
     .btn-outline {
-        border-radius: 999px;
+        border-radius: 6px;
         border: none;
         font-weight: 500;
         min-height: 40px;
@@ -1708,16 +1689,13 @@ html[data-app-platform] ::selection {
     }
     @media (hover: hover) {
         .btn:not(:disabled):hover {
-            background: var(--app-tint);
-            background-image: linear-gradient(
-                color-mix(in srgb, var(--app-on-tint) 8%, transparent) 0 0
-            );
+            background-color: color-mix(in srgb, var(--app-on-tint) 8%, var(--app-tint));
+            background-image: none;
         }
     }
     .btn:not(:disabled):active {
-        background-image: linear-gradient(
-            color-mix(in srgb, var(--app-on-tint) 12%, transparent) 0 0
-        );
+        background-color: color-mix(in srgb, var(--app-on-tint) 12%, var(--app-tint));
+        background-image: none;
     }
     .btn:disabled {
         background: color-mix(in srgb, var(--app-label) 12%, transparent);
@@ -1729,10 +1707,8 @@ html[data-app-platform] ::selection {
     }
     @media (hover: hover) {
         .btn-secondary:not(:disabled):hover {
-            background: var(--app-tint-weak);
-            background-image: linear-gradient(
-                color-mix(in srgb, var(--app-on-tint-weak) 8%, transparent) 0 0
-            );
+            background-color: color-mix(in srgb, var(--app-on-tint-weak) 8%, var(--app-tint-weak));
+            background-image: none;
         }
     }
     .btn-outline {
@@ -1758,10 +1734,10 @@ html[data-app-platform] ::selection {
     }
     .btn-sm {
         min-height: 32px;
-        border-radius: 999px;
+        border-radius: 6px;
     }
     .btn-icon {
-        border-radius: 999px;
+        border-radius: 50%;
         min-width: 44px;
         min-height: 44px;
     }
@@ -1771,7 +1747,7 @@ html[data-app-platform] ::selection {
         background: var(--app-fill);
         border: none;
         border-bottom: 1px solid var(--app-outline);
-        border-radius: 12px 12px 0 0;
+        border-radius: 6px 6px 0 0;
         color: var(--app-label);
         font-size: 16px;
         min-height: 48px;
@@ -1799,7 +1775,7 @@ html[data-app-platform] ::selection {
         box-shadow: none;
     }
     textarea.input {
-        border-radius: 12px 12px 0 0;
+        border-radius: 6px 6px 0 0;
     }
     select.input {
         background-color: var(--app-fill);
@@ -1824,14 +1800,14 @@ html[data-app-platform] ::selection {
     .card {
         background: var(--app-surface);
         border: none;
-        border-radius: 16px;
+        border-radius: 8px;
         box-shadow: none;
     }
 
     .dropzone {
         background: var(--app-fill);
         border: 1.5px dashed var(--app-outline);
-        border-radius: 16px;
+        border-radius: 8px;
         color: var(--app-label-2);
     }
     .dropzone--dragging {
@@ -1842,7 +1818,7 @@ html[data-app-platform] ::selection {
 
     .status {
         border: none;
-        border-radius: 16px;
+        border-radius: 8px;
         background: var(--app-surface-2);
         color: var(--app-label-2);
     }
@@ -1864,9 +1840,9 @@ html[data-app-platform] ::selection {
     .msg-actions__menu,
     .save-room {
         background: var(--app-surface-2);
-        border: none;
-        border-radius: 16px;
-        box-shadow: var(--app-shadow);
+        border: 1px solid var(--app-outline);
+        border-radius: 8px;
+        box-shadow: var(--shadow-float);
     }
     .menu__item {
         border-radius: 8px;
@@ -1932,11 +1908,11 @@ html[data-app-platform] ::selection {
         }
     }
     .chat-kmsg > .flex-col > .break-words {
-        border-radius: 20px 20px 20px 6px;
+        border-radius: 8px 8px 8px 6px;
         position: relative;
     }
     .chat-kmsg--mine > .flex-col > .break-words {
-        border-radius: 20px 20px 6px 20px;
+        border-radius: 8px 8px 6px 8px;
     }
     /* actions float beside the bubble, hover/long-press reveals */
     .chat-kmsg-actions {
@@ -1946,7 +1922,7 @@ html[data-app-platform] ::selection {
         left: calc(100% + 6px);
         z-index: 3;
         opacity: 0;
-        transition: opacity 0.15s;
+        transition: opacity 180ms var(--ease-out);
     }
     .chat-kmsg--mine .chat-kmsg-actions {
         left: auto;
@@ -2018,7 +1994,7 @@ html[data-app-platform] ::selection {
     }
     .chat-mode-badge {
         border: none;
-        border-radius: 999px;
+        border-radius: 6px;
         background: var(--app-tint-weak);
         color: var(--app-on-tint-weak);
         font-size: 11px;
@@ -2033,17 +2009,17 @@ html[data-app-platform] ::selection {
     .chat-call-banner,
     .chat-members {
         background: var(--app-surface);
-        border-bottom: none;
+        border-bottom: 1px solid var(--app-outline);
     }
     .chat-call-accept {
         background: var(--app-tint);
         color: var(--app-on-tint);
-        border-radius: 999px;
+        border-radius: 6px;
     }
     .chat-call-decline {
         background: var(--app-fill);
         color: var(--app-label);
-        border-radius: 999px;
+        border-radius: 6px;
     }
     .chat-key-warn {
         background: var(--app-warn-weak);
@@ -2051,14 +2027,14 @@ html[data-app-platform] ::selection {
     }
     .chat-member--warn {
         background: var(--app-warn-weak);
-        border-radius: 12px;
+        border-radius: 8px;
     }
     .chat-jump-latest {
         border: none;
         background: var(--app-surface-3);
         color: var(--app-tint);
-        box-shadow: var(--app-shadow);
-        border-radius: 999px;
+        box-shadow: none;
+        border-radius: 6px;
     }
     .chat-jump-latest__count {
         background: var(--app-error);
@@ -2067,7 +2043,7 @@ html[data-app-platform] ::selection {
     .chat-file {
         background: var(--app-surface-2);
         border: none;
-        border-radius: 12px;
+        border-radius: 8px;
         color: var(--app-tint);
     }
     .chat-kmsg--mine .chat-file {
@@ -2082,16 +2058,16 @@ html[data-app-platform] ::selection {
     .chat-whiteboard-card {
         border: none;
         background: var(--app-surface-2);
-        border-radius: 16px;
+        border-radius: 8px;
     }
     .chat-whiteboard-card__icon {
         background: var(--app-tint-container);
         color: var(--app-on-tint-container);
-        border-radius: 10px;
+        border-radius: 8px;
     }
     .chat-whiteboard-card__btn {
         border: none;
-        border-radius: 999px;
+        border-radius: 6px;
         background: var(--app-fill);
         color: var(--app-label);
     }
@@ -2101,7 +2077,7 @@ html[data-app-platform] ::selection {
     }
     .chat-preview-text {
         border-color: var(--app-separator);
-        border-radius: 12px;
+        border-radius: 8px;
     }
     .chat-preview-expand {
         background: var(--app-fill-2);
@@ -2110,7 +2086,7 @@ html[data-app-platform] ::selection {
     }
     .chat-once-reveal {
         border: 1px dashed var(--app-outline);
-        border-radius: 12px;
+        border-radius: 8px;
         background: var(--app-fill);
     }
     .chat-once-reveal__label {
@@ -2124,16 +2100,16 @@ html[data-app-platform] ::selection {
     .chat-schedule-item {
         background: var(--app-surface-2);
         border: none;
-        border-radius: 12px;
+        border-radius: 8px;
     }
     .chat-schedule-item__when {
         color: var(--app-tint);
     }
     .chat-profile__pop {
         background: var(--app-surface-3);
-        border: none;
-        border-radius: 16px;
-        box-shadow: var(--app-shadow);
+        border: 1px solid var(--app-outline);
+        border-radius: 8px;
+        box-shadow: var(--shadow-float);
     }
     .chat-wrong-password,
     .chat-file-error {
@@ -2147,7 +2123,7 @@ html[data-app-platform] ::selection {
         background: transparent;
         border: 1.5px solid color-mix(in srgb, var(--app-tint) 28%, transparent);
         border-top-color: var(--app-tint);
-        animation: app-spin 0.7s linear infinite;
+        animation: app-spin 320ms var(--ease-move) infinite;
         will-change: transform;
         backface-visibility: hidden;
     }
@@ -2167,8 +2143,8 @@ html[data-app-platform] ::selection {
     .wb-pill {
         background: var(--app-surface-3);
         border: none;
-        border-radius: 999px;
-        box-shadow: var(--app-shadow);
+        border-radius: 6px;
+        box-shadow: none;
     }
     .wb-bar:has(.menu--open) {
         z-index: 40;
@@ -2178,7 +2154,7 @@ html[data-app-platform] ::selection {
     }
     .wb-btn {
         color: var(--app-label);
-        border-radius: 999px;
+        border-radius: 50%;
         min-width: 44px !important;
         min-height: 44px !important;
     }
@@ -2193,17 +2169,17 @@ html[data-app-platform] ::selection {
     }
     .wb-share-banner {
         background: var(--app-surface);
-        border-bottom: none;
+        border-bottom: 1px solid var(--app-outline);
     }
     .wb-chat {
         background: var(--app-surface) !important;
         border: none !important;
-        border-radius: 16px !important;
+        border-radius: 8px !important;
     }
 
     /* MD3 checkbox: rounded square, primary fill */
     input[type="checkbox"] {
-        border-radius: 3px;
+        border-radius: 6px;
         border-width: 2px;
         border-color: var(--app-label-2);
         background: transparent;
@@ -2220,8 +2196,10 @@ html[data-app-platform] ::selection {
     }
     input[type="radio"]:checked {
         border-color: var(--app-tint);
-        background: transparent;
-        background-image: radial-gradient(circle, var(--app-tint) 0 5px, transparent 6px);
+        background-color: var(--app-tint);
+        background-image: none;
+        background-clip: content-box;
+        padding: 4px;
         box-shadow: none;
     }
 
@@ -2247,20 +2225,15 @@ html[data-app-platform] ::selection {
    Konsta tuning — finishing touches per platform
    ============================================================ */
 
-/* iOS 26: Konsta renders the Liquid Glass chrome natively — the navbar gets a
- progressive blur + surface-to-transparent gradient and its left/right areas are
-   Glass capsules; the tab bar is a floating Glass capsule via ToolbarPane.
-   The only thing tuned here is the back link's press feedback. */
+/* Navbar capsules and the tab bar are solid surfaces. The back link keeps
+   its press feedback. */
 :root[data-app-platform="ios"] {
-    --app-glass-shadow-sm:
-        inset 0 0 0 0.5px var(--app-glass-rim),
-        inset 0 1px 0 color-mix(in srgb, #fff 38%, transparent),
-        0 2px 8px rgba(0, 0, 0, 0.14);
+    --app-glass-shadow-sm: none;
 }
 :root[data-app-platform="ios"] .k-navbar .k-glass {
-    border-radius: 999px;
+    border-radius: 6px;
     overflow: hidden;
-    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: transform 180ms var(--ease-move);
 }
 :root[data-app-platform="ios"] .k-navbar .k-glass:active {
     transform: scale(0.94);
@@ -2283,8 +2256,8 @@ html[data-app-platform] ::selection {
     min-width: 44px;
 }
 :root[data-app-platform="ios"] .k-navbar-back-link {
-    border-radius: 999px;
-    transition: background 0.2s ease;
+    border-radius: 6px;
+    transition: background 180ms var(--ease-out);
 }
 :root[data-app-platform] .k-navbar-back-link:focus-visible {
     outline: 2px solid var(--app-tint);
@@ -2306,11 +2279,11 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .k-dialog,
 :root[data-app-platform="ios"] .k-popover .k-glass,
 :root[data-app-platform="ios"] .k-actions .k-actions-group {
-    background: var(--app-glass);
-    border: none;
-    box-shadow: var(--app-glass-shadow);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: var(--app-surface);
+    border: 1px solid var(--app-outline);
+    box-shadow: var(--shadow-float);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 :root[data-app-platform="material"] .k-sheet {
@@ -2354,7 +2327,7 @@ html[data-app-platform] ::selection {
     min-width: 0;
     min-height: 38px;
     background: var(--app-fill);
-    border-radius: 20px;
+    border-radius: 6px;
     padding: 0 14px;
     display: flex;
     align-items: center;
@@ -2364,7 +2337,7 @@ html[data-app-platform] ::selection {
     min-width: 0;
     min-height: 48px;
     background: var(--app-fill);
-    border-radius: 24px;
+    border-radius: 6px;
     padding: 0 16px;
     display: flex;
     align-items: center;
@@ -2466,13 +2439,13 @@ html[data-app-platform] ::selection {
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--app-tint);
     color: var(--app-on-tint);
-    transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), background 0.2s ease;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move);
 }
 :root[data-app-platform="material"] .voice-msg--app .voice-msg__play {
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move);
 }
 :root[data-app-platform] .chat-kmsg--mine .voice-msg--app .voice-msg__play {
     background: var(--app-on-bubble-mine);
@@ -2504,10 +2477,10 @@ html[data-app-platform] ::selection {
     flex: 1 1 0;
     min-width: 2px;
     max-width: 4px;
-    border-radius: 999px;
+    border-radius: 6px;
     background: currentColor;
     opacity: 0.3;
-    transition: opacity 0.15s ease, background-color 0.15s ease;
+    transition: opacity 180ms var(--ease-out), background-color 180ms var(--ease-out);
 }
 :root[data-app-platform] .voice-msg--app .voice-msg__wave > span.voice-msg__tick--on {
     opacity: 1;
@@ -2529,13 +2502,13 @@ html[data-app-platform] ::selection {
     height: 24px;
     padding: 0 8px;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     font-size: 12px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     background: color-mix(in srgb, currentColor 14%, transparent);
     color: inherit;
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move);
 }
 :root[data-app-platform] .voice-msg--app .voice-msg__rate:active {
     transform: scale(0.92);
@@ -2572,7 +2545,7 @@ html[data-app-platform] ::selection {
     align-items: center;
     gap: 10px;
     padding: 0 16px;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--app-fill);
     color: var(--app-label);
 }
@@ -2583,9 +2556,9 @@ html[data-app-platform] ::selection {
     width: 9px;
     height: 9px;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--app-error);
-    animation: voice-rec-pulse 1.2s ease-in-out infinite;
+    animation: voice-rec-pulse 320ms var(--ease-out) infinite;
 }
 :root[data-app-platform] .voice-rec-app__time {
     font-size: 15px;
@@ -2606,9 +2579,9 @@ html[data-app-platform] ::selection {
 :root[data-app-platform] .voice-rec-app__wave > span {
     flex: 0 0 3px;
     min-height: 3px;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--app-tint);
-    transition: height 0.07s linear;
+    transition: height 100ms var(--ease-move);
 }
 :root[data-app-platform] .voice-rec-app__cancel,
 :root[data-app-platform] .voice-rec-app__send {
@@ -2616,8 +2589,8 @@ html[data-app-platform] ::selection {
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    border-radius: 999px;
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease;
+    border-radius: 50%;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move);
 }
 :root[data-app-platform] .voice-rec-app__cancel:active,
 :root[data-app-platform] .voice-rec-app__send:active {
@@ -2633,10 +2606,10 @@ html[data-app-platform] ::selection {
     color: var(--app-on-tint);
 }
 :root[data-app-platform="ios"] .voice-rec-app__cancel {
-    background: var(--app-glass);
-    box-shadow: var(--app-glass-shadow-sm);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    backdrop-filter: blur(16px) saturate(180%);
+    background: var(--app-fill);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     color: var(--app-error);
 }
 :root[data-app-platform="material"] .voice-rec-app__cancel {
@@ -2648,7 +2621,7 @@ html[data-app-platform] ::selection {
         background: var(--app-tint-strong);
     }
     :root[data-app-platform="ios"] .voice-rec-app__cancel:hover {
-        background: color-mix(in srgb, var(--app-glass) 80%, var(--app-label) 16%);
+        background: color-mix(in srgb, var(--app-surface) 80%, var(--app-label) 16%);
     }
 }
 /* Idle mic button — native circle, platform chrome, 44px hit area via ::after */
@@ -2662,9 +2635,9 @@ html[data-app-platform] ::selection {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 50%;
     color: var(--app-label-2);
-    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), background 0.15s, color 0.15s;
+    transition: transform 180ms var(--ease-move), background 180ms, color 180ms;
 }
 :root[data-app-platform="material"] .voice-rec-app__mic {
     width: 40px;
@@ -2729,16 +2702,16 @@ html[data-app-platform] ::selection {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border-radius: 999px;
-    background: var(--app-glass);
-    box-shadow: var(--app-glass-shadow-sm);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    backdrop-filter: blur(16px) saturate(180%);
+    border-radius: 50%;
+    background: var(--app-fill);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     color: var(--app-label);
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease, color 0.2s ease;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move), color 180ms var(--ease-move);
 }
 :root[data-app-platform="ios"] .chat-input .chat-attach-btn svg {
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1);
+    transition: transform 320ms var(--ease-move);
 }
 :root[data-app-platform="ios"] .chat-input .chat-attach-btn[aria-expanded="true"] svg {
     transform: rotate(45deg);
@@ -2753,7 +2726,7 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .chat-input .chat-attach-btn--active {
     background: var(--app-tint);
     color: var(--app-on-tint);
-    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 14px color-mix(in srgb, var(--app-tint) 40%, transparent);
+    box-shadow: none;
 }
 :root[data-app-platform="ios"] .chat-input .chat-attach-btn:disabled {
     opacity: 0.45;
@@ -2761,7 +2734,7 @@ html[data-app-platform] ::selection {
 }
 @media (hover: hover) {
     :root[data-app-platform="ios"] .chat-input .chat-attach-btn:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--app-glass) 80%, var(--app-label) 16%);
+        background: color-mix(in srgb, var(--app-surface) 80%, var(--app-label) 16%);
         color: var(--app-label);
     }
     :root[data-app-platform="ios"] .chat-input .chat-attach-btn--active:hover:not(:disabled) {
@@ -2778,12 +2751,12 @@ html[data-app-platform] ::selection {
 
 :root[data-app-platform="ios"][data-app-scheme] .chat-attach-dropdown,
 :root[data-app-platform="ios"][data-app-scheme] .chat-attach-submenu {
-    background: var(--app-glass);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    backdrop-filter: blur(16px) saturate(180%);
+    background: var(--app-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border: none;
-    border-radius: 22px;
-    box-shadow: var(--app-glass-shadow);
+    border-radius: 8px;
+    box-shadow: none;
     padding: 6px;
     width: 232px;
 }
@@ -2791,18 +2764,12 @@ html[data-app-platform] ::selection {
     margin: 2px 0 4px;
     padding: 2px 0 2px 10px;
     border-left: none;
-    border-radius: 16px;
+    border-radius: 8px;
     width: auto;
     background: var(--app-fill);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     box-shadow: none;
-}
-@supports (backdrop-filter: url('#app-lg')) {
-    :root[data-app-platform="ios"][data-app-scheme] .chat-attach-dropdown {
-        backdrop-filter: blur(8px) url('#app-lg');
-        -webkit-backdrop-filter: blur(8px) url('#app-lg');
-    }
 }
 :root[data-app-platform="ios"] .chat-attach-option {
     display: flex;
@@ -2810,12 +2777,12 @@ html[data-app-platform] ::selection {
     gap: 10px;
     width: 100%;
     padding: 9px 12px;
-    border-radius: 12px;
+    border-radius: 6px;
     font-size: 15px;
     font-weight: 500;
     color: var(--app-label);
     text-align: left;
-    transition: background 0.12s;
+    transition: background 100ms var(--ease-out);
 }
 :root[data-app-platform="ios"] .chat-attach-option:active { background: var(--app-fill); }
 :root[data-app-platform="ios"] .chat-attach-option:disabled { opacity: 0.4; }
@@ -2832,17 +2799,17 @@ html[data-app-platform] ::selection {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--app-fill);
     color: var(--app-label-3);
     opacity: 1;
     box-shadow: none;
-    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1), background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move), color 180ms var(--ease-move), box-shadow 180ms var(--ease-move);
 }
 :root[data-app-platform="ios"] .chat-input .chat-send-btn.chat-send-btn--ready:not(:disabled) {
     background: var(--app-tint);
     color: var(--app-on-tint);
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--app-tint) 40%, transparent);
+    box-shadow: none;
 }
 :root[data-app-platform="ios"] .chat-input .chat-send-btn:active:not(:disabled) { transform: scale(0.9); }
 :root[data-app-platform="ios"] .chat-input .chat-send-btn:focus-visible {
@@ -2868,7 +2835,7 @@ html[data-app-platform] ::selection {
 }
 
 :root[data-app-platform="ios"] .msg-quote {
-    border-radius: 12px;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--app-on-bubble) 9%, transparent);
     border-left: 2.5px solid var(--app-tint);
     overflow: hidden;
@@ -2885,12 +2852,12 @@ html[data-app-platform] ::selection {
 }
 
 :root[data-app-platform="ios"] .msg-reactions__chip {
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 2px 8px;
     font-size: 13px;
-    border-color: transparent;
+    border-color: var(--app-outline);
     background: var(--app-surface);
-    box-shadow: 0 0 0 0.5px var(--app-separator), 0 1px 3px rgba(0,0,0,0.08);
+    box-shadow: none;
     color: var(--app-label);
 }
 :root[data-app-platform="ios"] .msg-reactions__chip--mine {
@@ -2908,12 +2875,12 @@ html[data-app-platform] ::selection {
     width: 24px;
     height: 24px;
     padding: 0;
-    border-radius: 999px;
+    border-radius: 6px;
     color: var(--app-label-2);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.12s, color 0.12s;
+    transition: background 100ms var(--ease-out), color 100ms var(--ease-out);
 }
 @media (hover: hover) {
     :root[data-app-platform="ios"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
@@ -2922,7 +2889,7 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .chat-typing { color: var(--app-label-2); font-size: 13px; }
 
 :root[data-app-platform="ios"] .chat-once-reveal {
-    border-radius: 14px;
+    border-radius: 8px;
     background: var(--app-fill);
 }
 :root[data-app-platform="ios"] .chat-kmsg--mine .chat-once-reveal {
@@ -2935,7 +2902,7 @@ html[data-app-platform] ::selection {
 
 :root[data-app-platform="ios"] .chat-preview-text {
     background: color-mix(in srgb, var(--app-on-bubble) 7%, transparent);
-    border-radius: 10px;
+    border-radius: 8px;
 }
 :root[data-app-platform="ios"] .chat-kmsg--mine .chat-preview-text {
     background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
@@ -2966,12 +2933,12 @@ html[data-app-platform] ::selection {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 50%;
     color: var(--app-label-2);
-    transition: background 0.15s, color 0.15s;
+    transition: background 180ms var(--ease-out), color 180ms var(--ease-out);
 }
 :root[data-app-platform="material"] .chat-input .chat-attach-btn svg {
-    transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+    transition: transform 320ms var(--ease-move);
 }
 :root[data-app-platform="material"] .chat-input .chat-attach-btn[aria-expanded="true"] svg {
     transform: rotate(45deg);
@@ -3008,8 +2975,8 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="material"][data-app-scheme] .chat-attach-submenu {
     background: var(--app-surface-3);
     border: none;
-    border-radius: 16px;
-    box-shadow: var(--app-shadow);
+    border-radius: 8px;
+    box-shadow: none;
     padding: 6px;
 }
 :root[data-app-platform="material"] .chat-attach-option {
@@ -3018,12 +2985,12 @@ html[data-app-platform] ::selection {
     gap: 12px;
     width: 100%;
     padding: 12px 16px;
-    border-radius: 999px;
+    border-radius: 6px;
     font-size: 14px;
     font-weight: 500;
     color: var(--app-label);
     text-align: left;
-    transition: background 0.12s;
+    transition: background 100ms var(--ease-out);
 }
 @media (hover: hover) {
     :root[data-app-platform="material"] .chat-attach-option:hover { background: var(--app-fill); }
@@ -3047,17 +3014,17 @@ html[data-app-platform] ::selection {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--app-surface-3);
     color: var(--app-label-3);
     opacity: 1;
     box-shadow: none;
-    transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 100ms var(--ease-move), background 180ms var(--ease-move), color 180ms var(--ease-move), box-shadow 180ms var(--ease-move);
 }
 :root[data-app-platform="material"] .chat-input .chat-send-btn.chat-send-btn--ready:not(:disabled) {
     background: var(--app-tint);
     color: var(--app-on-tint);
-    box-shadow: 0 2px 6px color-mix(in srgb, var(--app-tint) 35%, transparent);
+    box-shadow: none;
 }
 :root[data-app-platform="material"] .chat-input .chat-send-btn:active:not(:disabled) { transform: scale(0.92); }
 :root[data-app-platform="material"] .chat-input .chat-send-btn:focus-visible {
@@ -3078,7 +3045,7 @@ html[data-app-platform] ::selection {
 }
 
 :root[data-app-platform="material"] .msg-quote {
-    border-radius: 12px;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--app-on-bubble) 9%, transparent);
     border-left: 3px solid var(--app-tint);
     overflow: hidden;
@@ -3095,7 +3062,7 @@ html[data-app-platform] ::selection {
 }
 
 :root[data-app-platform="material"] .msg-reactions__chip {
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 4px 10px;
     font-size: 13px;
     border-color: transparent;
@@ -3115,12 +3082,12 @@ html[data-app-platform] ::selection {
     width: 28px;
     height: 28px;
     padding: 0;
-    border-radius: 999px;
+    border-radius: 6px;
     color: var(--app-label-2);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.12s, color 0.12s;
+    transition: background 100ms var(--ease-out), color 100ms var(--ease-out);
 }
 @media (hover: hover) {
     :root[data-app-platform="material"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
@@ -3129,7 +3096,7 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="material"] .chat-typing { color: var(--app-label-2); font-size: 13px; }
 
 :root[data-app-platform="material"] .chat-once-reveal {
-    border-radius: 14px;
+    border-radius: 8px;
     background: var(--app-surface-3);
 }
 :root[data-app-platform="material"] .chat-kmsg--mine .chat-once-reveal {
@@ -3142,7 +3109,7 @@ html[data-app-platform] ::selection {
 
 :root[data-app-platform="material"] .chat-preview-text {
     background: color-mix(in srgb, var(--app-on-bubble) 7%, transparent);
-    border-radius: 12px;
+    border-radius: 8px;
 }
 :root[data-app-platform="material"] .chat-kmsg--mine .chat-preview-text {
     background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
@@ -3258,7 +3225,7 @@ html[data-app-platform] ::selection {
 .app-invite-sheet .invite-card__qr svg {
     width: min(11rem, 44vw);
     height: auto;
-    border-radius: 0.75rem;
+    border-radius: 8px;
 }
 .app-room-info__title {
     margin: 0;
@@ -3290,10 +3257,10 @@ html[data-app-platform] ::selection {
     gap: 0.4rem;
     min-height: 2.75rem;
     padding: 0.5rem 1rem;
-    border-radius: 999px;
+    border-radius: 6px;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #fff;
+    color: var(--app-on-tint);
     background: var(--app-tint);
     -webkit-tap-highlight-color: transparent;
 }
@@ -3361,12 +3328,11 @@ html[data-app-platform] ::selection {
 }
 
 
-/* Popovers: Konsta pops iOS ones from scale(0) with an overshooting curve and
-   slides the glass in from above. Use a short fade with a slight scale. */
+/* Popovers: short fade with a slight scale. */
 :root[data-app-platform] .k-popover {
     transition-property: opacity, scale, visibility;
     transition-duration: 180ms;
-    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    transition-timing-function: var(--ease-move);
     transform-origin: 50% 0;
 }
 :root[data-app-platform] .k-popover.pointer-events-none {
@@ -3464,16 +3430,16 @@ html[data-app-platform] ::selection {
     width: 44px;
     height: 44px;
     flex: 0 0 auto;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
-    transition: background-color 0.15s ease;
+    transition: background-color 180ms var(--ease-out);
 }
 :root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:active:not(:disabled) {
-    background: rgba(120, 120, 128, 0.24);
+    background: color-mix(in srgb, var(--app-label) 16%, transparent);
 }
 @media (hover: hover) {
     :root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:hover:not(:disabled):not(:active) {
-        background: rgba(120, 120, 128, 0.12);
+        background: color-mix(in srgb, var(--app-label) 8%, transparent);
     }
 }
 :root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:disabled {
@@ -3491,28 +3457,28 @@ html[data-app-platform] ::selection {
 }
 /* Konsta's menu/list glare is a 50% (light) / 30% (dark) white spotlight under the pointer. */
 :root[data-app-platform="ios"] {
-    --color-ios-hover-highlight: rgba(255, 255, 255, 0.16);
+    --color-ios-hover-highlight: color-mix(in srgb, var(--app-label) 12%, transparent);
 }
 :root[data-app-platform="ios"][data-app-scheme="dark"] {
-    --color-ios-hover-highlight: rgba(255, 255, 255, 0.08);
+    --color-ios-hover-highlight: color-mix(in srgb, var(--app-label) 8%, transparent);
 }
 
 /* Calls: the call UI ships with the website palette (green-black, yellow text). Inside the app it
    follows the platform: iOS FaceTime-style round controls, Material 3 tonal controls. The stage
    stays dark in both color schemes, as video calls do. */
 :root[data-app-platform] .call {
-    background: #000;
-    color: #fff;
+    background: var(--app-bg);
+    color: var(--app-label);
 }
 :root[data-app-platform] .call--error {
     background: transparent;
     color: inherit;
 }
 :root[data-app-platform] .call__status {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--app-label-2);
 }
 :root[data-app-platform] .call__tile {
-    background: #1c1c1e;
+    background: var(--app-surface);
 }
 :root[data-app-platform] .call__tile--speaking {
     box-shadow: 0 0 0 2px var(--app-tint);
@@ -3521,7 +3487,7 @@ html[data-app-platform] ::selection {
     outline: 2px solid var(--app-tint);
 }
 :root[data-app-platform] .call__badge {
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: 0 0 0 2px var(--app-bg);
 }
 
 :root[data-app-platform="ios"] .call__bar {
@@ -3532,57 +3498,54 @@ html[data-app-platform] ::selection {
     gap: 0.25rem;
     margin: 0.5rem auto calc(0.75rem + env(safe-area-inset-bottom, 0px));
     padding: 0.375rem;
-    border-radius: 999px;
-    background: rgba(60, 60, 67, 0.55);
-    backdrop-filter: blur(28px) saturate(1.6);
-    -webkit-backdrop-filter: blur(28px) saturate(1.6);
-    box-shadow:
-        inset 0 0 0 0.5px rgba(255, 255, 255, 0.22),
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        0 8px 28px rgba(0, 0, 0, 0.35);
+    border-radius: 6px;
+    background: var(--app-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
 }
 :root[data-app-platform="ios"] .call__btn {
     width: 48px;
     height: 48px;
     flex: 0 0 auto;
     background: transparent;
-    color: #fff;
+    color: var(--app-label);
 }
 @media (hover: hover) {
     :root[data-app-platform="ios"] .call__btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.12);
+        background: color-mix(in srgb, var(--app-label) 14%, transparent);
     }
 }
 :root[data-app-platform="ios"] .call__btn:active:not(:disabled) {
-    background: rgba(255, 255, 255, 0.22);
+    background: color-mix(in srgb, var(--app-label) 14%, transparent);
     transform: scale(0.94);
 }
 :root[data-app-platform="ios"] .call__btn--off,
 :root[data-app-platform="ios"] .call__btn--on {
-    background: #fff;
-    color: #000;
+    background: var(--app-label);
+    color: var(--app-bg);
 }
 @media (hover: hover) {
     :root[data-app-platform="ios"] .call__btn--off:hover:not(:disabled),
     :root[data-app-platform="ios"] .call__btn--on:hover:not(:disabled) {
-        background: #fff;
-        color: #000;
+        background: var(--app-label);
+        color: var(--app-bg);
     }
 }
 :root[data-app-platform="ios"] .call__btn--leave {
     width: 68px;
-    background: #ff3b30;
-    color: #fff;
+    background: var(--app-error);
+    color: var(--app-on-error);
 }
 @media (hover: hover) {
     :root[data-app-platform="ios"] .call__btn--leave:hover:not(:disabled) {
         width: 68px;
-        background: #ff3b30;
-        color: #fff;
+        background: var(--app-error);
+        color: var(--app-on-error);
     }
 }
 :root[data-app-platform="ios"] .call__btn--leave:active:not(:disabled) {
-    background: #d9302a;
+    background: var(--app-error);
 }
 @media (max-width: 360px) {
     :root[data-app-platform="ios"] .call__btn {
@@ -3598,16 +3561,13 @@ html[data-app-platform] ::selection {
     left: 50%;
     right: auto;
     transform: translateX(-50%);
-    border: none;
-    border-radius: 26px;
-    background: rgba(44, 44, 46, 0.72);
-    backdrop-filter: blur(32px) saturate(1.6);
-    -webkit-backdrop-filter: blur(32px) saturate(1.6);
-    box-shadow:
-        inset 0 0 0 0.5px rgba(255, 255, 255, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.24),
-        0 12px 36px rgba(0, 0, 0, 0.45);
-    color: #fff;
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
+    background: var(--app-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--shadow-float);
+    color: var(--app-label);
 }
 
 :root[data-app-platform="material"] .call__bar {
@@ -3617,12 +3577,12 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="material"] .call__btn {
     width: 48px;
     height: 48px;
-    background: rgba(255, 255, 255, 0.12);
-    color: #e3e3e3;
+    background: color-mix(in srgb, var(--app-label) 14%, transparent);
+    color: var(--app-label);
 }
 @media (hover: hover) {
     :root[data-app-platform="material"] .call__btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
+        background: color-mix(in srgb, var(--app-label) 14%, transparent);
     }
 }
 :root[data-app-platform="material"] .call__btn--on {
@@ -3658,30 +3618,30 @@ html[data-app-platform] ::selection {
     }
 }
 :root[data-app-platform="material"] .call__settings {
-    border: none;
-    border-radius: 28px;
-    background: #1f2320;
-    color: #e3e3e3;
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
+    background: var(--app-surface);
+    color: var(--app-label);
 }
 
 :root[data-app-platform] .call__settings .label,
 :root[data-app-platform] .call__settings .check {
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--app-label-2);
 }
 :root[data-app-platform] .call__settings .input {
-    background-color: rgba(120, 120, 128, 0.32);
-    border: none;
-    border-radius: 10px;
-    color: #fff;
+    background-color: var(--app-fill);
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
+    color: var(--app-label);
     min-height: 2.25rem;
 }
 :root[data-app-platform] .call__settings .btn-ghost {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--app-label-2);
 }
 @media (hover: hover) {
     :root[data-app-platform] .call__settings .btn-ghost:hover {
-        background: rgba(255, 255, 255, 0.12);
-        color: #fff;
+        background: var(--app-surface);
+        color: var(--app-label);
     }
 }
 :root[data-app-platform] .call__settings .btn-ghost.text-danger {
@@ -3689,7 +3649,7 @@ html[data-app-platform] ::selection {
 }
 
 /* Konsta lists default to my-8 (32px above and below); inside a popover that doubles the menu's
-   height with empty glass. */
+   height with empty padding. */
 :root[data-app-platform] .k-popover .k-list {
     margin-block: 0;
 }
@@ -3707,7 +3667,7 @@ html[data-app-platform] ::selection {
     overflow-x: clip;
 }
 .chat-swipe--settle {
-    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 320ms var(--ease-move);
 }
 .chat-swipe-icon {
     position: absolute;
@@ -3724,7 +3684,7 @@ html[data-app-platform] ::selection {
     color: var(--app-label-2);
     opacity: 0;
     pointer-events: none;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 180ms var(--ease-out), color 180ms var(--ease-out);
 }
 .chat-swipe-icon--armed {
     background: var(--app-tint);
@@ -3736,20 +3696,20 @@ html[data-app-platform] ::selection {
     gap: 0.25rem;
     margin: 0.75rem 1rem 0.5rem;
     padding: 0.375rem;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--app-fill);
 }
 .chat-react-btn {
     flex: 1 1 0;
     min-width: 0;
     height: 44px;
-    border-radius: 999px;
+    border-radius: 6px;
     font-size: 24px;
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.15s ease, transform 0.12s ease;
+    transition: background-color 180ms var(--ease-move), transform 100ms var(--ease-move);
 }
 .chat-react-btn:active {
     transform: scale(0.88);
@@ -3784,7 +3744,7 @@ html[data-app-platform] ::selection {
     width: calc(100% - 16px);
     margin-inline: 8px;
     min-height: 48px;
-    border-radius: 12px;
+    border-radius: 8px;
     background: transparent;
     padding-inline-start: 12px;
 }
@@ -3836,7 +3796,7 @@ html[data-app-platform] ::selection {
 .app-incoming__avatar {
     width: 88px;
     height: 88px;
-    border-radius: 999px;
+    border-radius: 6px;
     margin-bottom: 0.5rem;
 }
 .app-incoming__label {
@@ -3868,19 +3828,19 @@ html[data-app-platform] ::selection {
     width: 72px;
     height: 72px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--app-on-tint);
     cursor: pointer;
-    transition: transform 0.12s ease;
+    transition: transform 100ms var(--ease-move);
 }
 .app-incoming__btn:active { transform: scale(0.92); }
-.app-incoming__btn--accept { background: #34c759; }
-.app-incoming__btn--decline { background: #ff3b30; }
-:root[data-app-platform="material"] .app-incoming__btn--accept { background: #2e9e4d; }
-:root[data-app-platform="material"] .app-incoming__btn--decline { background: #d93025; }
+.app-incoming__btn--accept { background: var(--app-tint); }
+.app-incoming__btn--decline { background: var(--app-error); }
+:root[data-app-platform="material"] .app-incoming__btn--accept { background: var(--app-tint); }
+:root[data-app-platform="material"] .app-incoming__btn--decline { background: var(--app-error); }
 :root[data-app-platform="material"] .app-incoming__btn { width: 64px; height: 64px; }
 
 /* Photos in chat: a rounded picture that fills the bubble, with the file row tucked underneath. */
@@ -3889,7 +3849,7 @@ html[data-app-platform] ::selection {
     margin-top: 2px;
     border: 0;
     background: none;
-    border-radius: 16px;
+    border-radius: 8px;
     overflow: hidden;
     line-height: 0;
 }
@@ -3900,12 +3860,12 @@ html[data-app-platform] ::selection {
     height: auto;
     max-height: 340px;
     margin: 0;
-    border-radius: 16px;
+    border-radius: 8px;
     object-fit: cover;
 }
 .app-room-wrapper .chat-preview-skeleton {
     margin: 2px 0 0;
-    border-radius: 16px;
+    border-radius: 8px;
 }
 .app-room-wrapper .chat-file {
     padding: 6px 8px;
@@ -3932,7 +3892,7 @@ html[data-app-platform] ::selection {
 }
 .app-spin-once {
     display: inline-flex;
-    animation: app-spin 0.85s linear infinite;
+    animation: app-spin 320ms var(--ease-move) infinite;
 }
 
 /* Update available — floating card above the tabbar / room chrome */
@@ -3949,11 +3909,11 @@ html[data-app-platform] ::selection {
         "actions actions";
     gap: 0.65rem 0.75rem;
     padding: 0.9rem 0.95rem;
-    border-radius: 1.1rem;
+    border-radius: 8px;
     background: var(--app-surface);
     color: var(--app-label);
-    box-shadow: var(--app-shadow);
-    animation: app-update-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    box-shadow: var(--shadow-float);
+    animation: app-update-in 320ms var(--ease-move) both;
 }
 .app-update-banner--hub {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem);
@@ -3962,7 +3922,7 @@ html[data-app-platform] ::selection {
     grid-area: icon;
     width: 2.5rem;
     height: 2.5rem;
-    border-radius: 0.85rem;
+    border-radius: 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4000,7 +3960,7 @@ html[data-app-platform] ::selection {
     min-height: 2.25rem;
     padding: 0 0.95rem;
     border: 0;
-    border-radius: 999px;
+    border-radius: 6px;
     font: inherit;
     font-size: 0.875rem;
     font-weight: 600;
@@ -4014,7 +3974,7 @@ html[data-app-platform] ::selection {
 }
 .app-update-banner__now {
     background: var(--app-tint);
-    color: var(--app-on-tint, #fff);
+    color: var(--app-on-tint);
 }
 .app-update-banner__now:active {
     filter: brightness(0.95);
@@ -4033,24 +3993,22 @@ html[data-app-platform] ::selection {
     }
 }
 :root[data-app-platform="ios"] .app-update-banner {
-    border-radius: 1rem;
+    border-radius: 8px;
     background: var(--app-sheet);
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
-        0 10px 28px color-mix(in srgb, #000 28%, transparent);
+    box-shadow: var(--shadow-float);
 }
 :root[data-app-platform="ios"] .app-update-banner__icon {
-    border-radius: 0.75rem;
+    border-radius: 8px;
 }
 :root[data-app-platform="material"] .app-update-banner {
-    border-radius: 1.25rem;
+    border-radius: 8px;
     background: var(--app-surface, var(--app-sheet));
 }
 :root[data-app-platform="material"] .app-update-banner__later {
     color: var(--app-tint);
 }
 :root[data-app-platform="material"] .app-update-banner__now {
-    border-radius: 1.25rem;
+    border-radius: 8px;
 }
 
 /* Forced reduce-motion (settings override) mirrors prefers-reduced-motion. */
@@ -4063,8 +4021,7 @@ html[data-app-platform] ::selection {
     scroll-behavior: auto !important;
 }
 
-/* In-content search field: glass belongs to chrome only, so the iOS field is a
-   flat capsule on the tertiary fill like Messages / Settings. */
+/* In-content search field: flat fill, same as Messages / Settings. */
 :root[data-app-platform="ios"] .app-content .k-searchbar .k-glass {
     background: var(--app-fill) !important;
     box-shadow: none !important;
@@ -4084,32 +4041,32 @@ html[data-app-platform] ::selection {
    Settings. Material: bare 24dp outline icon in on-surface-variant (M3 list
    leading icon); colour is reserved for the destructive row. */
 .app-icon-tile {
-    --tile: #8e8e93;
+    --tile: var(--app-outline);
     width: 29px;
     height: 29px;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border-radius: 7px;
+    border-radius: 6px;
     background: var(--tile);
-    color: #fff;
+    color: var(--app-on-tint);
 }
-.app-icon-tile--blue { --tile: #007aff; }
-.app-icon-tile--indigo { --tile: #5856d6; }
-.app-icon-tile--teal { --tile: #30b0c7; }
-.app-icon-tile--pink { --tile: #ff2d55; }
-.app-icon-tile--green { --tile: #34c759; }
-.app-icon-tile--orange { --tile: #ff9500; }
-.app-icon-tile--red { --tile: #ff3b30; }
-.app-icon-tile--gray { --tile: #8e8e93; }
-:root[data-app-scheme="dark"] .app-icon-tile--blue { --tile: #0a84ff; }
-:root[data-app-scheme="dark"] .app-icon-tile--indigo { --tile: #5e5ce6; }
-:root[data-app-scheme="dark"] .app-icon-tile--teal { --tile: #40c8e0; }
-:root[data-app-scheme="dark"] .app-icon-tile--pink { --tile: #ff375f; }
-:root[data-app-scheme="dark"] .app-icon-tile--green { --tile: #30d158; }
-:root[data-app-scheme="dark"] .app-icon-tile--orange { --tile: #ff9f0a; }
-:root[data-app-scheme="dark"] .app-icon-tile--red { --tile: #ff453a; }
-:root[data-app-scheme="dark"] .app-icon-tile--gray { --tile: #636366; }
+.app-icon-tile--blue { --tile: var(--app-tint); }
+.app-icon-tile--indigo { --tile: var(--app-tint); }
+.app-icon-tile--teal { --tile: var(--app-tint); }
+.app-icon-tile--green { --tile: var(--app-tint); }
+.app-icon-tile--orange { --tile: var(--app-warn); }
+.app-icon-tile--red,
+.app-icon-tile--pink { --tile: var(--app-error); color: var(--app-on-error); }
+.app-icon-tile--gray { --tile: var(--app-outline); color: var(--app-label); }
+:root[data-app-scheme="dark"] .app-icon-tile--blue { --tile: var(--app-tint); }
+:root[data-app-scheme="dark"] .app-icon-tile--indigo { --tile: var(--app-tint); }
+:root[data-app-scheme="dark"] .app-icon-tile--teal { --tile: var(--app-tint); }
+:root[data-app-scheme="dark"] .app-icon-tile--green { --tile: var(--app-tint); }
+:root[data-app-scheme="dark"] .app-icon-tile--orange { --tile: var(--app-warn); }
+:root[data-app-scheme="dark"] .app-icon-tile--red,
+:root[data-app-scheme="dark"] .app-icon-tile--pink { --tile: var(--app-error); color: var(--app-on-error); }
+:root[data-app-scheme="dark"] .app-icon-tile--gray { --tile: var(--app-outline); color: var(--app-label); }
 .app-icon-plain {
     display: grid;
     place-items: center;
@@ -4183,16 +4140,16 @@ html[data-app-platform] ::selection {
 }
 :root[data-app-platform="material"] .k-list.app-group > ul > li {
     background: var(--app-surface-2);
-    border-radius: 4px;
+    border-radius: 8px;
     overflow: hidden;
 }
 :root[data-app-platform="material"] .k-list.app-group > ul > li:first-child {
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
 }
 :root[data-app-platform="material"] .k-list.app-group > ul > li:last-child {
-    border-bottom-left-radius: 20px;
-    border-bottom-right-radius: 20px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
 }
 :root[data-app-platform="material"] .k-list.app-group .k-list-item > :is(a, button, label, div) {
     margin-inline: 0;
@@ -4229,8 +4186,7 @@ html[data-app-platform] ::selection {
     padding-inline: 1rem;
 }
 
-/* iOS 26 sheet toolbar: round glass Close on the leading edge, prominent
-   tinted checkmark for the confirming action, centered headline title.
+/* Sheet toolbar: leading close, tinted confirm, centered title.
    Sticky inside the sheet scroller so it stays put over long forms. */
 .app-sheet-bar {
     position: sticky;
@@ -4263,13 +4219,13 @@ html[data-app-platform] ::selection {
     place-items: center;
     padding: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     color: var(--app-label);
-    background: var(--app-glass);
-    box-shadow: var(--app-glass-shadow-sm);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    backdrop-filter: blur(16px) saturate(180%);
-    transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease, background-color 0.2s ease;
+    background: var(--app-fill);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: transform 180ms var(--ease-move), opacity 180ms var(--ease-move), background-color 180ms var(--ease-move);
 }
 .app-sheet-bar__btn:active:not(:disabled) {
     transform: scale(0.92);
@@ -4279,10 +4235,10 @@ html[data-app-platform] ::selection {
 }
 .app-sheet-bar__btn--confirm {
     background: var(--app-tint);
-    color: #fff;
+    color: var(--app-on-tint);
 }
 :root[data-app-scheme="dark"] .app-sheet-bar__btn--confirm {
-    color: #03280f;
+    color: var(--app-on-tint);
 }
 .app-sheet-bar__btn--confirm:disabled {
     background: var(--app-fill);
@@ -4305,7 +4261,7 @@ html[data-app-platform] ::selection {
     visibility: hidden;
 }
 :root[data-app-platform="ios"] .app-sheet {
-    border-radius: 34px 34px 0 0;
+    border-radius: 8px 8px 0 0;
 }
 
 /* M3 bottom sheet: optional headline (title-large 22sp) under the handle. */
@@ -4324,10 +4280,10 @@ html[data-app-platform] ::selection {
     width: 20px;
     height: 20px;
     margin: 2px;
-    border-radius: 999px;
+    border-radius: 50%;
     border: 2px solid var(--app-label-2);
     box-sizing: border-box;
-    transition: border-color 0.2s ease;
+    transition: border-color 180ms var(--ease-out);
 }
 .app-radio::after {
     content: '';
@@ -4336,7 +4292,7 @@ html[data-app-platform] ::selection {
     border-radius: inherit;
     background: var(--app-tint);
     transform: scale(0);
-    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+    transition: transform 180ms var(--ease-move);
 }
 .app-radio--on {
     border-color: var(--app-tint);
@@ -4345,13 +4301,13 @@ html[data-app-platform] ::selection {
     transform: scale(1);
 }
 
-/* Row context menu (long-press / right-click on a saved room). iOS: light dim
-   behind a glass menu with trailing glyphs. M3 menus float without a scrim. */
+/* Row context menu (long-press / right-click on a saved room). iOS dims the
+   row behind the menu. Material menus float without a scrim. */
 :root[data-app-platform="ios"] div:has(+ .k-popover.app-row-menu) {
-    background: rgba(0, 0, 0, 0.18);
+    background: var(--app-scrim);
 }
 :root[data-app-platform="ios"][data-app-scheme="dark"] div:has(+ .k-popover.app-row-menu) {
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--app-scrim);
 }
 :root[data-app-platform="material"] div:has(+ .k-popover.app-row-menu) {
     background: transparent;
@@ -4391,7 +4347,7 @@ html[data-app-platform] ::selection {
 }
 :root[data-app-platform="ios"] .app-upload-wrapper :is(.input, .dropzone) {
     background: var(--app-surface);
-    border-radius: 26px;
+    border-radius: 8px;
 }
 :root[data-app-platform="ios"] .app-upload-wrapper textarea.input {
     padding: 0.75rem 1rem;
@@ -4399,12 +4355,12 @@ html[data-app-platform] ::selection {
 }
 :root[data-app-platform="material"] .app-upload-wrapper .dropzone {
     background: var(--app-surface-2);
-    border-radius: 20px;
+    border-radius: 8px;
 }
 .app-upload-wrapper .dropzone {
     border: 0 !important;
     gap: 0.25rem;
-    transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: background-color 180ms var(--ease-move), transform 180ms var(--ease-move);
 }
 .app-upload-wrapper .dropzone:active {
     transform: scale(0.985);
@@ -4418,12 +4374,12 @@ html[data-app-platform] ::selection {
     margin-bottom: 0.5rem;
     display: grid;
     place-items: center;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--app-tint-container);
     color: var(--app-on-tint-container);
 }
 :root[data-app-platform="material"] .app-upload-wrapper .dropzone__icon {
-    border-radius: 16px;
+    border-radius: 8px;
 }
 .app-upload-wrapper .dropzone__title {
     font-size: 17px;
@@ -4450,12 +4406,12 @@ html[data-app-platform] ::selection {
     margin: 0 auto 0.75rem;
     display: grid;
     place-items: center;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--app-tint-container);
     color: var(--app-on-tint-container);
 }
 :root[data-app-platform="material"] .app-state-glyph {
-    border-radius: 22px;
+    border-radius: 8px;
 }
 :root[data-app-platform] :is(.chat-center, .wb-center) .text-base.font-bold {
     font-size: 20px;
@@ -4470,7 +4426,7 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] :is(.chat-center, .wb-center) .input {
     background: var(--app-surface);
     min-height: 50px;
-    border-radius: 14px;
+    border-radius: 6px;
     padding-inline: 1rem;
     font-size: 17px;
 }
@@ -4490,30 +4446,30 @@ html[data-app-platform] ::selection {
 }
 :root[data-app-platform="material"] .k-navbar.app-hub-bar > div:first-child {
     background-color: var(--app-bar);
-    transition: background-color 0.25s cubic-bezier(0.2, 0, 0, 1);
+    transition: background-color 320ms var(--ease-out);
 }
 :root[data-app-platform="material"] .app-scroll--scrolled .k-navbar.app-hub-bar {
     --app-bar: var(--app-surface-2);
 }
 
-/* Transient notices. iOS has no snackbar: a compact glass capsule that taps
-   away. Material: M3 snackbar on inverse-surface with a close icon. */
+/* Transient notices. iOS: a compact solid capsule that taps away.
+   Material: snackbar on inverse-surface with a close icon. */
 :root[data-app-platform="material"][data-app-scheme="light"] {
-    --app-inverse-surface: #2f312a;
-    --app-inverse-on-surface: #f1f2e6;
-    --app-inverse-primary: #b1d18a;
+    --app-inverse-surface: var(--app-label);
+    --app-inverse-on-surface: var(--app-bg);
+    --app-inverse-primary: var(--app-tint);
 }
 :root[data-app-platform="material"][data-app-scheme="dark"] {
-    --app-inverse-surface: #e2e3d8;
-    --app-inverse-on-surface: #2f312a;
-    --app-inverse-primary: #4b662c;
+    --app-inverse-surface: var(--app-label);
+    --app-inverse-on-surface: var(--app-bg);
+    --app-inverse-primary: var(--app-tint);
 }
 :root[data-app-platform="ios"] .app-toast > div {
-    border-radius: 999px;
-    background: var(--app-glass);
-    box-shadow: var(--app-glass-shadow);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 6px;
+    background: var(--app-surface);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     color: var(--app-label);
 }
 :root[data-app-platform="ios"] .app-toast > div > div {
@@ -4533,10 +4489,10 @@ html[data-app-platform] ::selection {
     text-align: center;
 }
 :root[data-app-platform="material"] .app-toast > div {
-    border-radius: 4px;
+    border-radius: 8px;
     background: var(--app-inverse-surface);
     color: var(--app-inverse-on-surface);
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.14);
+    box-shadow: var(--shadow-float);
     width: 100%;
     max-width: 36rem;
 }
@@ -4556,7 +4512,7 @@ html[data-app-platform] ::selection {
     display: grid;
     place-items: center;
     border: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
     color: var(--app-inverse-on-surface);
 }
@@ -4685,7 +4641,7 @@ html[data-app-platform] ::selection {
 .app-invite-sheet .invite-card__value {
     font-size: 13px;
     padding: 0.5rem 0.625rem;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 .app-invite-sheet .invite-card__share {
     margin-top: 1rem;
@@ -4701,21 +4657,21 @@ html[data-app-platform] ::selection {
    scheme roles: hang-up is the strongest control (filled red, white glyph), muted toggles a dark red container. */
 :root[data-app-platform="material"] .call__btn--leave,
 :root[data-app-platform="material"] .call__btn--leave:hover:not(:disabled) {
-    background: #dc362e;
-    color: #fff;
+    background: var(--app-error);
+    color: var(--app-on-error);
 }
 :root[data-app-platform="material"] .call__btn--leave:active:not(:disabled) {
-    background: #b3261e;
+    background: var(--app-error);
 }
 :root[data-app-platform="material"] .call__btn--off,
 :root[data-app-platform="material"] .call__btn--off:hover:not(:disabled) {
-    background: #8c1d18;
-    color: #f9dedc;
+    background: var(--app-error-weak);
+    color: var(--app-error);
 }
 :root[data-app-platform="material"] .call__btn--on,
 :root[data-app-platform="material"] .call__btn--on:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--app-tint) 34%, #000);
-    color: color-mix(in srgb, var(--app-tint) 35%, #fff);
+    background: color-mix(in srgb, var(--app-tint) 34%, var(--app-bg));
+    color: color-mix(in srgb, var(--app-tint) 35%, var(--app-label));
 }
 
 .app-composer__emoji {
@@ -4753,17 +4709,17 @@ html[data-app-platform] ::selection {
 }
 :root[data-app-platform="ios"] .call-mini {
     background: var(--app-bar, var(--app-surface));
-    border: 0.5px solid var(--app-separator);
-    border-radius: 26px;
+    border: 1px solid var(--app-separator);
+    border-radius: 8px;
     padding: 5px 6px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 :root[data-app-platform="material"] .call-mini {
     background: var(--app-surface-3, var(--app-surface));
-    border: 0;
-    border-radius: 28px;
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
     padding: 6px 8px 6px 6px;
 }
 :root[data-app-platform] .call-mini__avatar {
@@ -4785,15 +4741,15 @@ html[data-app-platform] ::selection {
     color: var(--app-label);
 }
 :root[data-app-platform] .call-mini__btn--off {
-    color: #ff3b30;
+    color: var(--app-error);
 }
 :root[data-app-platform] .call-mini__btn--leave {
-    background: #ff3b30;
-    color: #fff;
+    background: var(--app-error);
+    color: var(--app-on-error);
 }
 :root[data-app-platform="material"] .call-mini__btn--leave {
-    background: var(--app-error, #ba1a1a);
-    color: var(--app-on-error, #fff);
+    background: var(--app-error);
+    color: var(--app-on-error);
 }
 :root[data-app-platform] .call-mini__main:focus-visible,
 :root[data-app-platform] .call-mini__btn:focus-visible {
@@ -4802,7 +4758,7 @@ html[data-app-platform] ::selection {
 :root[data-app-platform] .call__top-btn {
     width: 40px;
     height: 40px;
-    background: rgba(255, 255, 255, 0.14);
+    background: color-mix(in srgb, var(--app-label) 14%, transparent);
 }
 :root[data-app-platform] .call__toast {
     bottom: calc(6.5rem + env(safe-area-inset-bottom));
@@ -4824,19 +4780,19 @@ html[data-app-platform] ::selection {
     align-items: center;
     gap: 6px;
     padding: 5px 5px 5px 6px;
-    border-radius: 26px;
+    border-radius: 8px;
     background: var(--app-bar, var(--app-surface));
-    border: 0.5px solid var(--app-separator);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
-    animation: app-call-return-in 0.24s ease-out;
+    border: 1px solid var(--app-separator);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    animation: app-call-return-in 320ms var(--ease-move);
 }
 :root[data-app-platform="material"] .app-call-return {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
     background: var(--app-surface-3, var(--app-surface));
-    border: 0;
-    border-radius: 28px;
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
 }
@@ -4857,7 +4813,7 @@ html[data-app-platform] ::selection {
     gap: 10px;
     padding: 0 8px;
     border: 0;
-    border-radius: 20px;
+    border-radius: 8px;
     background: none;
     color: var(--app-label);
     text-align: start;
@@ -4869,8 +4825,8 @@ html[data-app-platform] ::selection {
     height: 10px;
     flex: none;
     border-radius: 50%;
-    background: #34c759;
-    box-shadow: 0 0 0 4px rgba(52, 199, 89, 0.2);
+    background: var(--app-tint);
+    box-shadow: none;
 }
 .app-call-return__text {
     min-width: 0;
@@ -4896,13 +4852,13 @@ html[data-app-platform] ::selection {
     justify-content: center;
     border: 0;
     border-radius: 50%;
-    background: #ff3b30;
-    color: #fff;
+    background: var(--app-error);
+    color: var(--app-on-error);
     cursor: pointer;
 }
 :root[data-app-platform="material"] .app-call-return__end {
-    background: var(--app-error, #ba1a1a);
-    color: var(--app-on-error, #fff);
+    background: var(--app-error);
+    color: var(--app-on-error);
 }
 .app-call-return__main:focus-visible,
 .app-call-return__end:focus-visible {
@@ -4952,7 +4908,7 @@ html[data-app-platform] ::selection {
 }
 :root[data-app-platform="ios"] .k-searchbar > button[style*="margin-right: -"] {
     visibility: hidden;
-    transition: all 0.3s, visibility 0s 0.3s;
+    transition: all 320ms var(--ease-out), visibility 0s 320ms;
 }
 @media (hover: hover) and (pointer: fine) {
     :root[data-app-platform] .k-searchbar > :first-child:has(input:focus-visible),
@@ -5030,4 +4986,27 @@ html[data-app-platform] ::selection {
     min-height: var(--app-hit);
     border-block: calc((var(--app-hit) - 40px) / 2) solid transparent;
     background-clip: padding-box;
+}
+/* Solid chrome. Konsta frost layers stay inside the bar and do not blur. */
+:root[data-app-platform] :is(.k-glass, .k-navbar, .k-toolbar, .k-toolbar-pane, .k-dialog, .k-sheet, .k-popover, .k-actions, .app-main-tabbar, .k-tabbar) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+:root[data-app-platform="ios"] .k-navbar > div:nth-child(1),
+:root[data-app-platform="ios"] .k-navbar > div:nth-child(2) {
+    background-color: var(--app-bar);
+    background-image: none;
+    opacity: 1;
+    mask-image: none;
+    -webkit-mask-image: none;
+    bottom: 0;
+    height: 100%;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+:root[data-app-platform] :is(.app-main-tabbar, .k-tabbar) :is(.k-toolbar-pane, .k-glass) {
+    background: var(--app-surface);
+    background-image: none;
+    border: 1px solid var(--app-outline);
+    box-shadow: none;
 }

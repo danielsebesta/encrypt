@@ -203,7 +203,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<span>GitHub</span>
 						<Icon name="arrow-up-right" />
 					</a>
-					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')}>
+					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')} aria-pressed="false">
 						<Icon name="moon" size={20} class="dark:hidden" />
 						<Icon name="sun" size={20} class="hidden dark:block" />
 					</button>

@@ -307,7 +307,7 @@
         <div class="field">
           <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
           <PassphraseField {dict} id="stego-password" bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby="stego-password-rules" generate={generatePassphrase} />
-          <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} />
+          <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
         </div>
         <button type="button" on:click={encode} class="btn w-full" disabled={processing}>{t(dict, 'tools.steganography.injectPixels')}</button>
         {#if encodedImageUrl && !multiEncode}

@@ -620,7 +620,7 @@
     --ep-press: var(--app-fill-2);
     --ep-accent: var(--app-tint);
     --ep-emoji: 2rem;
-    --ep-radius: 0.625rem;
+    --ep-radius: 8px;
     font-family: var(--font-sans);
   }
 
@@ -634,7 +634,7 @@
     --ep-press: color-mix(in srgb, var(--app-label) 12%, transparent);
     --ep-accent: var(--app-tint);
     --ep-emoji: 1.875rem;
-    --ep-radius: 999px;
+    --ep-radius: 6px;
     font-family: var(--font-sans);
   }
 
@@ -710,7 +710,7 @@
   .ep--ios .ep__input {
     height: 2.25rem;
     padding: 0 2rem 0 2.0625rem;
-    border-radius: 0.625rem;
+    border-radius: 8px;
     font-size: 1.0625rem;
     letter-spacing: -0.01em;
   }
@@ -725,7 +725,7 @@
   .ep--material .ep__input {
     height: 3rem;
     padding: 0 3rem 0 3.25rem;
-    border-radius: 999px;
+    border-radius: 8px;
   }
 
   .ep--material .ep__search-icon {
@@ -743,7 +743,7 @@
     width: 2rem;
     height: 2rem;
     border: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
     color: var(--ep-muted);
     cursor: pointer;
@@ -770,7 +770,7 @@
     width: 1.0625rem;
     height: 1.0625rem;
     padding: 0.1875rem;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--app-label-3);
     color: var(--ep-bg);
     stroke-width: 3.4;
@@ -802,20 +802,20 @@
 
   .ep--web .ep__tone-toggle {
     border: 1px solid var(--line);
-    border-radius: 0.5rem;
+    border-radius: 8px;
   }
 
   .ep--ios .ep__tone-toggle {
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--ep-field);
   }
 
   .ep--material .ep__tone-toggle {
     width: 3rem;
     height: 3rem;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--ep-field);
   }
 
@@ -835,9 +835,9 @@
   .ep__dot {
     width: 1.25rem;
     height: 1.25rem;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--swatch);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent);
   }
 
   .ep__tones {
@@ -861,7 +861,7 @@
     height: 2.25rem;
     padding: 0;
     border: 0;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
     cursor: pointer;
   }
@@ -876,13 +876,13 @@
     content: "";
     width: 1.5rem;
     height: 1.5rem;
-    border-radius: 999px;
+    border-radius: 50%;
     background: var(--swatch);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent);
   }
 
   .ep__swatch[aria-checked="true"]::before {
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14), 0 0 0 2px var(--ep-bg), 0 0 0 4px var(--ep-accent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent), 0 0 0 2px var(--ep-bg), 0 0 0 4px var(--ep-accent);
   }
 
   .ep__swatch:focus-visible {
@@ -908,7 +908,7 @@
     background: transparent;
     color: var(--ep-muted);
     cursor: pointer;
-    transition: color var(--duration-fast, 150ms) var(--ease-out, ease);
+    transition: color var(--duration-fast) var(--ease-out);
   }
 
   .ep__tab svg {
@@ -974,9 +974,9 @@
     content: "";
     position: absolute;
     inset: 0.25rem 0;
-    border-radius: 999px;
+    border-radius: 6px;
     background: transparent;
-    transition: background-color var(--duration-fast, 150ms) var(--ease-out, ease);
+    transition: background-color var(--duration-fast) var(--ease-out);
   }
 
   .ep--material .ep__tab[aria-current="true"] {
@@ -1017,7 +1017,7 @@
     width: 2rem;
     height: 2rem;
     translate: -50% -50%;
-    border-radius: 999px;
+    border-radius: 6px;
     background: transparent;
   }
 
@@ -1162,7 +1162,7 @@
     width: 6rem;
     height: 0.625rem;
     margin: 0.875rem 0.375rem 0.5rem;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--ep-hover);
   }
 
@@ -1171,12 +1171,15 @@
     width: 60%;
     height: 60%;
     margin: auto;
-    border-radius: 999px;
+    border-radius: 6px;
     background: var(--ep-hover);
   }
 
   .ep--material .ep__skeleton-head,
   .ep--material .ep__skeleton-cell {
     background: var(--ep-field);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ep__tab, .ep--material .ep__tab::before { transition: none; }
   }
 </style>

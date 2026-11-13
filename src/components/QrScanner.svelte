@@ -180,7 +180,7 @@
       <p class="status status--ok" role="status">{t(dict, key('opening'))}</p>
     {/if}
   {/if}
-  <input bind:this={fileInput} type="file" accept="image/*" hidden on:change={scanImage} />
+  <input bind:this={fileInput} type="file" accept="image/*" class="sr-only" aria-label={t(dict, key('image'))} on:change={scanImage} />
   {#if error}
     <p class="status status--error" role="alert">{t(dict, key(error))}</p>
   {/if}

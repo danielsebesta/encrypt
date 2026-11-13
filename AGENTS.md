@@ -27,6 +27,8 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - **Astro 7** page shell
 - **Svelte 5** interactive tools
 - **Tailwind CSS v4** with the tokens and component classes in `src/styles/global.css`
+- **Visual system**: neutral palette with one green accent used sparingly, Google Sans Flex for text and Google Sans Code for technical values (hashes, sizes, keys), radius 6/8 px, borders instead of shadows, motion 100/180/320 ms; no illustrations, glow, gradients, grain or glass
+- **Icons**: Solar Linear only, rendered through `src/components/Icon.astro` / `Icon.svelte` (16 or 20 px). Names live in `src/lib/iconManifest.ts`; `pnpm run build:solar-icons` regenerates `src/lib/icons.ts`. Credit sits in the footer and `/licenses`. No other icon set, no inline icon SVG, no emoji in UI chrome
 - **Deploys anywhere from the same code**: Cloudflare Workers (entry `src/worker.ts`, Durable Objects via PartyServer, R2) or Node / Docker (entry `src/adapters/node/server.ts`, WebSockets with `ws`, `node:sqlite`, files on disk); see `docs/self-hosting.md`
 - **Astro i18n** with `en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`; language chosen server-side in `src/lib/locale.ts`
 
@@ -60,7 +62,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 
 Companion app shell wrapping rooms, the share form and settings. Stack: Konsta UI v5 + Svelte 5 inside `src/components/app/MobileApp.svelte`, styles in `src/styles/app.css`, theme in `src/lib/appTheme.ts`, room vault in `src/lib/roomVault.ts`, entry `src/pages/app/index.astro`.
 
-- Dual skin: `data-app-platform="ios|material"` + `data-app-scheme` on `:root`; iOS uses static Apple tokens, Material generates Material You roles from a seed at runtime. Glass only on chrome (navbar/tabbar/dialogs/popovers) — sheets and list surfaces stay solid (iOS 26 rule: no glass-on-glass).
+- Dual skin: `data-app-platform="ios|material"` + `data-app-scheme` on `:root`; iOS uses static Apple tokens, Material generates Material You roles from a seed at runtime. No glass anywhere: navbar, tabbar, dialogs, popovers and sheets are solid token surfaces with a 1px border.
 - Konsta interactive rows need `linkComponent="button"` + `linkProps={{ type: 'button' }}` (default renders `<a>` without href — unfocusable, no Enter); same for `TabbarLink`/`NavbarBackLink` via `component="button"`. `link` items show a chevron on both themes by default — pass `chevron={false}` on action rows; keep it only for real navigation/submenu rows.
 - In app mode, tools render Konsta chrome via `appMode` branches (Konsta styles exist only under `/app`'s `app.css`, never render them elsewhere): ChatRoom "…" menu → `Popover` + `MenuList`/`MenuListItem` (`bind:this` + `target`, `angle` arrow), composer attach menu → `Sheet` + `List`/`ListItem` bottom sheet placed inside `.chat-attach-menu` so the outside-click closer keeps working, `SaveRoomButton variant="konsta"` → `MenuListItem`. Toggle items use `aria-checked` + check icon in `after`.
 - Overlays (sheets/dialogs/actions) push a history guard entry so system Back/Escape/backdrop close the top overlay before leaving the view; `openOverlays` mutex + `closeTopOverlay()` own priority, `consumeOverlayGuard()` on every close path.
@@ -75,6 +77,8 @@ Companion app shell wrapping rooms, the share form and settings. Stack: Konsta U
 ## Working rules
 
 - Use only the tokens and component classes in `src/styles/global.css`; do not add parallel abstractions. Copy an existing tool page for the layout.
+- Icons come from `<Icon name="..." />` only; add one by mapping its semantic name to a Solar Linear icon in `src/lib/iconManifest.ts` and running the build script. `tests/icons.test.ts` enforces this.
+- No decorative imagery: no illustrations, mascots, 3D or stock photos. Motion is feedback only and must respect `prefers-reduced-motion`.
 - Never hardcode user-facing English in components or pages.
 - Put normal UI strings in `src/locales/*.json`.
 - Tool explainers live as numbered `tools.<name>.about.<n>` paragraphs with optional `tools.<name>.about.<n>.title` headings, shown via `ToolAbout`. Keep them accurate to the code.

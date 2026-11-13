@@ -194,7 +194,7 @@
       <div class="field">
         <label class="label" for="chat-pass">{t(dict, 'chat.password')}</label>
         <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby="chat-pass-rules chat-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genRoomPassphrase(); }} />
-        <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} />
+        <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules}  {dict}/>
         {#if passwordError}
           <p class="status status--error status--box" role="alert">{passwordError}</p>
         {/if}

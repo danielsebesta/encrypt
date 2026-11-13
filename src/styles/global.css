@@ -457,19 +457,19 @@ html.dark {
 
     input[type="range"]::-webkit-slider-runnable-track {
         height: 6px;
-        border-radius: 999px;
+        border-radius: 3px;
         background: var(--line);
     }
 
     input[type="range"]::-moz-range-track {
         height: 6px;
-        border-radius: 999px;
+        border-radius: 3px;
         background: var(--line);
     }
 
     input[type="range"]::-moz-range-progress {
         height: 6px;
-        border-radius: 999px;
+        border-radius: 3px;
         background: var(--accent);
     }
 
@@ -670,7 +670,7 @@ html.dark {
     }
 
     .status__bar {
-        @apply block h-2 w-full appearance-none overflow-hidden rounded-full border-0;
+        @apply block h-2 w-full appearance-none overflow-hidden rounded-sm border-0;
         background: var(--line-soft);
         accent-color: var(--accent);
     }
@@ -680,13 +680,13 @@ html.dark {
     }
 
     .status__bar::-webkit-progress-value {
-        border-radius: 999px;
+        border-radius: 0;
         background: var(--accent);
         transition: width var(--duration-fast) var(--ease-out);
     }
 
     .status__bar::-moz-progress-bar {
-        border-radius: 999px;
+        border-radius: 0;
         background: var(--accent);
     }
 
@@ -733,9 +733,14 @@ html.dark {
         transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
     }
 
-    .dropzone:hover,
-    .dropzone:focus-within {
+    .dropzone:hover {
         @apply border-text text-text;
+    }
+
+    .dropzone:has(input:focus-visible) {
+        @apply border-solid border-accent text-text;
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
     }
 
     .dropzone--dragging {
