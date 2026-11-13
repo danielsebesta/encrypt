@@ -22,33 +22,50 @@ const publicDir = join(root, 'public');
 const shotsDir = join(publicDir, 'shots');
 const DEFAULT_PORT = Number(process.env.SHOTS_PORT || 4331);
 const BASE = (process.argv[2] || `http://127.0.0.1:${DEFAULT_PORT}`).replace(/\/$/, '');
-const phone = devices['iPhone 14 Pro'];
+const iosPhone = {
+  ...devices['iPhone 17 Pro'],
+  // Standalone PWA viewport (stock Playwright height excludes browser chrome).
+  viewport: { width: 402, height: 874 },
+  deviceScaleFactor: 3,
+};
+const androidPhone = {
+  ...devices['Pixel 8 Pro'],
+  viewport: { width: 448, height: 998 },
+  deviceScaleFactor: 3,
+};
 
-/** Curated CC0 / Public Domain Commons files that look like real phone shares. */
+/** Curated CC0 / Public Domain Commons files — Mr. Robot–flavored store shots. */
 const COMMONS = [
   {
-    file: 'dinner.jpg',
-    title: 'File:Pizza 14.jpg',
-    note: 'CC0 — pizza someone would send in the group chat',
+    file: 'city.jpg',
+    title: 'File:Night New York.jpg',
+    note: 'CC0 — NYC night skyline',
   },
   {
-    file: 'dog.jpg',
-    title: 'File:Fawn and white Welsh Corgi puppy standing on rear legs and sticking out the tongue.jpg',
-    note: 'CC0 — classic pet photo',
+    file: 'code.jpg',
+    title: 'File:Front of server racks at NERSC.jpg',
+    note: 'CC0 — server racks',
   },
   {
-    file: 'street.jpg',
-    title: 'File:Coffee in Montreal (Unsplash).jpg',
-    note: 'CC0 — cafe / trip snap',
+    file: 'exchange.jpg',
+    title: 'File:Sign of the New York Stock Exchange, Broad Street.jpg',
+    note: 'CC0 — Broad Street / E Corp energy',
   },
 ];
 
-const captures = [
-  { name: 'screenshot-hub-chats', path: '/app?shots=1&tab=chats', wait: 'Weekend crew' },
-  { name: 'screenshot-chat', path: '/app?shots=1&room=weekend-crew&kind=chat', wait: 'We still on for dinner' },
-  { name: 'screenshot-hub-boards', path: '/app?shots=1&tab=boards', wait: 'Trip board' },
-  { name: 'screenshot-hub-files', path: '/app?shots=1&tab=files', wait: 'Drop, paste, or click' },
-  { name: 'screenshot-hub-settings', path: '/app?shots=1&tab=settings', wait: 'Haptic' },
+const iosCaptures = [
+  { name: 'screenshot-hub-chats', path: '/app?shots=1&platform=ios&tab=chats', wait: 'Weekend trip' },
+  { name: 'screenshot-chat', path: '/app?shots=1&platform=ios&room=weekend&kind=chat', wait: 'Dumpling Town is next door.' },
+  { name: 'screenshot-hub-boards', path: '/app?shots=1&platform=ios&tab=boards', wait: 'Sprint board' },
+  { name: 'screenshot-hub-files', path: '/app?shots=1&platform=ios&tab=files', wait: 'Choose files' },
+  { name: 'screenshot-hub-settings', path: '/app?shots=1&platform=ios&tab=settings', wait: 'Haptic' },
+];
+
+const androidCaptures = [
+  { name: 'screenshot-android-hub-chats', path: '/app?shots=1&platform=material&tab=chats', wait: 'Weekend trip' },
+  { name: 'screenshot-android-chat', path: '/app?shots=1&platform=material&room=studio&kind=chat', wait: 'Site visit notes from today.' },
+  { name: 'screenshot-android-hub-files', path: '/app?shots=1&platform=material&tab=files', wait: 'Choose files' },
+  { name: 'screenshot-android-hub-settings', path: '/app?shots=1&platform=material&tab=settings', wait: 'Haptic' },
 ];
 
 mkdirSync(shotsDir, { recursive: true });
@@ -186,66 +203,84 @@ async function ensureServer() {
   return child;
 }
 
-async function captureAll() {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    ...phone,
-    colorScheme: 'dark',
-    deviceScaleFactor: 3,
-  });
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'standalone', { get: () => true });
-    // Soft keyboards / IME chrome must not appear in store shots.
-    window.addEventListener('focusin', (e) => {
-      const t = e.target;
-      if (t && typeof t.blur === 'function' && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
-        t.blur();
-      }
-    }, true);
-  });
-  const page = await context.newPage();
-  await page.emulateMedia({ colorScheme: 'dark' });
-  const shotCss = `
+function chromeCss(barBg) {
+  return `
       input, textarea, [contenteditable="true"] { caret-color: transparent !important; }
       .pwa-promo, [class*="Toast"], .toast { visibility: hidden !important; }
       .chat-preview-img { max-height: 140px !important; width: 100% !important; object-fit: cover !important; }
-      /* Store shots must never include the Astro / Vite overlays. */
       astro-dev-toolbar,
       astro-dev-toolbar-window,
       astro-dev-toolbar-app-canvas,
       #_astro-dev-toolbar,
       vite-error-overlay { display: none !important; visibility: hidden !important; pointer-events: none !important; }
-      /* Konsta iOS navbar uses a masked translucent gradient — kill it for PNGs. */
+      :root { --k-safe-area-top: 0px !important; --k-safe-area-bottom: 0px !important; }
+      html, body, :root[data-app-platform] .k-app, :root[data-app-platform] .k-page {
+        background: ${barBg} !important;
+        background-image: none !important;
+      }
+      :root[data-app-platform] .k-navbar {
+        padding-top: 0 !important;
+      }
       :root[data-app-platform] .k-navbar > div:nth-child(1),
-      :root[data-app-platform] .k-navbar > div:nth-child(2),
+      :root[data-app-platform] .k-navbar > div:nth-child(2) {
+        display: none !important;
+      }
+      :root[data-app-platform] .k-navbar [class*="opacity-0"] {
+        opacity: 1 !important;
+      }
       :root[data-app-platform] .app-bar {
-        background: #000 !important;
+        background: ${barBg} !important;
         background-image: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        opacity: 1 !important;
         mask-image: none !important;
         -webkit-mask-image: none !important;
       }
-      /* Floating tabbar also lets list rows (e.g. Secret Santa) show through. */
-      :root[data-app-platform] .k-toolbar,
-      :root[data-app-platform] .k-tabbar,
-      :root[data-app-platform] .k-toolbar-pane,
-      :root[data-app-platform] .k-tabbar .k-glass {
-        background: #0c0c0c !important;
+      :root[data-app-platform] .app-main-tabbar {
+        background: ${barBg} !important;
         background-image: none !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
       }
       :root[data-app-platform] .app-scroll {
         padding-bottom: calc(11.5rem + env(safe-area-inset-bottom, 0px)) !important;
       }
     `;
+}
 
-  const sizes = {};
-  for (const shot of captures) {
+async function captureSuite(browser, device, platform, shots, barBg, sizes) {
+  const context = await browser.newContext({
+    ...device,
+    colorScheme: 'dark',
+  });
+  await context.addInitScript((skin) => {
+    try {
+      localStorage.setItem('encrypt-app-platform', skin);
+      localStorage.setItem('encrypt-app-appearance', 'dark');
+    } catch {
+      /* ignore */
+    }
+    Object.defineProperty(navigator, 'standalone', { get: () => true });
+    window.addEventListener(
+      'focusin',
+      (e) => {
+        const t = e.target;
+        if (
+          t &&
+          typeof t.blur === 'function' &&
+          (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+        ) {
+          t.blur();
+        }
+      },
+      true,
+    );
+  }, platform);
+  const page = await context.newPage();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const shotCss = chromeCss(barBg);
+
+  for (const shot of shots) {
     const url = `${BASE}${shot.path}`;
-    console.log('capturing', url);
+    console.log(`[${platform}]`, url);
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
     await page.addStyleTag({ content: shotCss });
     await page.evaluate(() => {
@@ -253,12 +288,16 @@ async function captureAll() {
         document.querySelectorAll(sel).forEach((el) => el.remove());
       }
     });
+    await page.waitForFunction(
+      (skin) => document.documentElement.dataset.appPlatform === skin,
+      platform,
+      { timeout: 15_000 },
+    );
     await page.getByText(shot.wait).first().waitFor({ timeout: 30_000 });
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.waitForTimeout(350);
-    if (shot.name === 'screenshot-chat') {
+    if (shot.name === 'screenshot-chat' || shot.name === 'screenshot-android-chat') {
       await page.locator('img.chat-preview-img').first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
-      // Pin the bottom of the thread (photo + voice + second photo + PDF) in frame.
       await page.evaluate(() => {
         const el = document.querySelector('.chat-messages');
         if (el) el.scrollTop = el.scrollHeight;
@@ -272,10 +311,20 @@ async function captureAll() {
     console.log('  wrote', file, buf.length);
   }
 
+  await context.close();
+}
+
+async function captureAll() {
+  const browser = await chromium.launch({ headless: true });
+  const sizes = {};
+  await captureSuite(browser, iosPhone, 'ios', iosCaptures, '#1c1c1e', sizes);
+  await captureSuite(browser, androidPhone, 'material', androidCaptures, '#12140e', sizes);
+
   const { default: sharp } = await import('sharp');
   const chatPath = join(publicDir, 'screenshot-chat.png');
   const hubPath = join(publicDir, 'screenshot-hub-chats.png');
   await sharp(chatPath).png({ compressionLevel: 9 }).toFile(join(publicDir, 'screenshot-narrow.png'));
+  await sharp(hubPath).png({ compressionLevel: 9 }).toFile(join(publicDir, 'screenshot-narrow-hub.png'));
 
   // Wide: hub + chat side-by-side on the brand background (real store card, not a letterbox).
   const W = 1920;

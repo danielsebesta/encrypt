@@ -25,6 +25,7 @@
   var notice = document.getElementById('pwa-notice');
   var installButtons = document.querySelectorAll('[data-pwa-install]');
   var deferred = null;
+  var promoDismissKey = 'encrypt-pwa-promo-dismissed';
 
   function show(el) { if (el) el.classList.remove('hidden'); }
   function hide(el) { if (el) el.classList.add('hidden'); }
@@ -33,9 +34,23 @@
     for (var i = 0; i < installButtons.length; i++) show(installButtons[i]);
   }
 
-  if (promo && mobile && !installed) {
+  function promoDismissed() {
+    try { return localStorage.getItem(promoDismissKey) === '1'; } catch (e) { return false; }
+  }
+
+  function dismissPromo() {
+    hide(promo);
+    try { localStorage.setItem(promoDismissKey, '1'); } catch (e) {}
+  }
+
+  if (promo && mobile && !installed && !promoDismissed()) {
     show(promo);
     show(promo.querySelector(ios ? '[data-pwa-hint-ios]' : '[data-pwa-hint-menu]'));
+  }
+
+  if (promo) {
+    var promoClose = promo.querySelector('[data-pwa-promo-dismiss]');
+    if (promoClose) promoClose.addEventListener('click', dismissPromo);
   }
 
   if (notice && !installed) {
@@ -49,6 +64,7 @@
       var text = notice.querySelector('[data-pwa-notice-text]');
       if (text) text.textContent = notice.getAttribute('data-' + key) || '';
       show(notice);
+      if (reason === 'install') showInstallButtons();
     }
   }
 
@@ -62,6 +78,7 @@
     deferred = event;
     if (installed || !mobile) return;
     hide(promo && promo.querySelector('[data-pwa-hint-menu]'));
+    if (promo && !promoDismissed()) show(promo);
     showInstallButtons();
   });
 
@@ -69,6 +86,7 @@
     deferred = null;
     hide(promo);
     hide(notice);
+    try { localStorage.removeItem(promoDismissKey); } catch (e) {}
   });
 
   for (var i = 0; i < installButtons.length; i++) {

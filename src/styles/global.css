@@ -1159,21 +1159,210 @@ html.dark {
         @apply mt-auto border-t border-line-soft;
     }
 
+    /* Clean product screenshots — no device chrome. */
+    .app-shot {
+        @apply block overflow-hidden rounded-[1.25rem] border border-line-soft bg-surface-2 object-cover object-top shadow-none;
+        aspect-ratio: 9 / 19.5;
+    }
+
+    .app-shot--xs {
+        @apply hidden w-[3.15rem] sm:block;
+        border-radius: 0.7rem;
+    }
+
+    .app-shot--sm {
+        width: 4.35rem;
+        border-radius: 0.85rem;
+    }
+
+    .app-shot--md {
+        @apply mx-auto w-full max-w-[10rem];
+    }
+
+    .app-shot--primary {
+        width: 9.5rem;
+        z-index: 1;
+    }
+
+    .app-shot--secondary {
+        width: 8.25rem;
+        margin-block-start: 1.5rem;
+    }
+
+    @media (min-width: 640px) {
+        .app-shot--primary {
+            width: 11.25rem;
+        }
+
+        .app-shot--secondary {
+            width: 9.75rem;
+            margin-block-start: 2.25rem;
+        }
+    }
+
+    .platform-pills {
+        @apply mt-4 flex flex-wrap gap-2;
+    }
+
+    .platform-pills--compact {
+        @apply mt-2;
+    }
+
+    .platform-pill {
+        @apply inline-flex items-center gap-2 rounded-full border border-line-soft bg-bg px-3.5 py-1.5 text-xs font-medium text-text;
+    }
+
+    .platform-pill svg {
+        @apply size-3.5 shrink-0 opacity-90;
+    }
+
     .pwa-promo {
-        @apply border-b border-line-soft bg-surface;
+        @apply border-b border-line-soft;
+        background:
+            radial-gradient(120% 140% at 12% 20%, color-mix(in oklab, var(--accent-weak) 80%, transparent), transparent 55%),
+            linear-gradient(180deg, var(--surface), color-mix(in oklab, var(--surface-2) 55%, var(--surface)));
     }
 
     .pwa-promo__inner {
-        @apply mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4;
+        @apply mx-auto flex max-w-6xl flex-col items-stretch gap-5 px-4 py-6 sm:flex-row sm:items-center sm:gap-8;
+    }
+
+    .pwa-promo__shots {
+        @apply flex shrink-0 items-end gap-2;
+    }
+
+    .pwa-promo__copy {
+        @apply flex flex-col gap-2;
+    }
+
+    .pwa-promo__eyebrow {
+        @apply text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-accent;
+    }
+
+    .pwa-promo__title {
+        @apply text-lg font-semibold tracking-tight text-text;
+    }
+
+    .pwa-promo__text,
+    .pwa-promo__hint {
+        @apply text-sm leading-relaxed text-muted;
+    }
+
+    .pwa-promo__actions {
+        @apply mt-2 flex flex-wrap items-center gap-2;
     }
 
     .pwa-notice {
-        @apply mx-auto flex w-full max-w-6xl items-center gap-3 border-b border-line-soft bg-surface px-4 py-3 text-sm text-text;
+        @apply mx-auto flex w-full max-w-6xl items-center gap-3 border-b border-line-soft px-4 py-3.5 text-sm text-text;
+        background:
+            linear-gradient(90deg, color-mix(in oklab, var(--accent-weak) 70%, transparent), transparent 42%),
+            var(--surface);
+    }
+
+    .pwa-notice__body {
+        @apply flex flex-col gap-1;
+    }
+
+    .pwa-notice__cta {
+        @apply w-fit text-sm font-medium text-accent underline underline-offset-2;
     }
 
     .pwa-notice.hidden,
     .pwa-promo.hidden {
         display: none;
+    }
+
+    .install-page {
+        @apply gap-10 md:gap-12;
+    }
+
+    .install-hero {
+        @apply grid items-center gap-8 rounded-[1.75rem] border border-line-soft bg-surface px-5 py-8 md:grid-cols-[minmax(0,1fr)_auto] md:gap-10 md:px-8 md:py-10;
+    }
+
+    .home-app__gallery,
+    .install-hero__gallery {
+        @apply relative mx-auto flex items-start justify-center gap-3 pt-1 sm:gap-5;
+        padding-inline: 0.25rem;
+    }
+
+    .install-guide--shot {
+        @apply grid gap-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start;
+    }
+
+    .install-guide__shot {
+        @apply flex justify-center;
+    }
+
+    .install-guide__badge {
+        @apply mb-3 w-fit;
+    }
+
+    .install-platforms__intro {
+        @apply mb-5;
+    }
+
+    .install-hero__eyebrow,
+    .home-app__eyebrow {
+        @apply mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-accent;
+    }
+
+    .install-hero__lead,
+    .home-app__text,
+    .install-guide__text {
+        @apply mt-3 text-base leading-relaxed text-muted;
+    }
+
+    .install-benefits__grid {
+        @apply mt-5 grid gap-3 md:grid-cols-3;
+    }
+
+    .install-benefit {
+        @apply flex gap-3 rounded-2xl border border-line-soft bg-surface p-4 text-sm leading-relaxed text-muted;
+    }
+
+    .install-benefit__num {
+        @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-weak text-sm font-semibold text-accent;
+    }
+
+    .install-steps {
+        @apply mt-4 list-decimal space-y-2.5 pl-5 text-base leading-relaxed text-muted;
+    }
+
+    .install-guides {
+        @apply grid gap-4 md:grid-cols-2;
+    }
+
+    .install-guide {
+        @apply rounded-2xl border border-line-soft bg-surface p-5 md:p-6;
+    }
+
+    .install-guide--wide {
+        @apply md:col-span-2;
+    }
+
+    .install-guide__with-art {
+        @apply grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_minmax(140px,220px)];
+    }
+
+    .install-guide__ill {
+        @apply mx-auto max-h-40 w-auto opacity-90;
+    }
+
+    .install-shots__grid {
+        @apply mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4;
+    }
+
+    .install-shots__item {
+        @apply flex flex-col items-center gap-3 text-center;
+    }
+
+    .home-app {
+        @apply grid items-center gap-8 overflow-hidden rounded-[1.75rem] border border-line-soft bg-surface px-5 py-8 md:grid-cols-[minmax(0,1.05fr)_auto] md:gap-12 md:px-10 md:py-12;
+    }
+
+    .home-app__copy {
+        @apply max-w-xl;
     }
 
     .site-footer__inner {

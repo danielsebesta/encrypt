@@ -12,6 +12,53 @@
    fallback for first paint)
    ============================================================ */
 
+/* Store / marketing captures (?shots=1): fill the frame edge-to-edge.
+   Large-title empty bands and floating tabbar gutters read as black bars
+   when the PNG sits on the marketing site. */
+:root[data-app-shots="1"] {
+    --k-safe-area-top: 0px;
+    --k-safe-area-bottom: 0px;
+    --k-safe-area-left: 0px;
+    --k-safe-area-right: 0px;
+}
+:root[data-app-shots="1"] .k-navbar {
+    padding-top: 0 !important;
+}
+/* Konsta leaves tall absolute blur/gradient layers even on compact bars;
+   they paint empty dark bands that read as letterboxing in store shots. */
+:root[data-app-shots="1"] .k-navbar > div:nth-child(1),
+:root[data-app-shots="1"] .k-navbar > div:nth-child(2) {
+    display: none !important;
+}
+:root[data-app-shots="1"] .k-navbar [class*="opacity-0"] {
+    opacity: 1 !important;
+}
+/* Floating liquid-glass tabbar: keep the bar transparent so backdrop-filter
+   can sample page content. A solid fill here frosts itself and reads opaque. */
+:root[data-app-shots="1"] .app-main-tabbar {
+    background: transparent !important;
+    background-image: none !important;
+}
+/* Hub lists clear less of the tabbar in shots so liquid glass can frost real rows. */
+:root[data-app-shots="1"] .app-scroll {
+    padding-bottom: 2.75rem !important;
+}
+:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane,
+:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-glass {
+    background: rgba(60, 60, 67, 0.22) !important;
+    background-image: none !important;
+    backdrop-filter: blur(20px) saturate(2.2) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(2.2) !important;
+    box-shadow:
+        inset 0 0 0 0.5px rgba(255, 255, 255, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34),
+        0 8px 28px rgba(0, 0, 0, 0.35) !important;
+}
+/* Konsta's bottom fade sits behind the pill and kills the glass read. */
+:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > .absolute.bottom-0 {
+    display: none !important;
+}
+
 :root[data-app-platform] {
     /* Bridge site tokens so embedded tool components pick up
        platform colors automatically */

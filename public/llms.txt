@@ -1,10 +1,10 @@
-# encrypt.click
+# Encrypt.click
 
 > Privacy-first security toolkit. Cryptography runs in the browser; when you share, chat, or collaborate, only ciphertext and necessary metadata leave the device. No accounts.
 
-encrypt.click is an open-source product (Astro + Svelte). Most tools are client-side. A small same-origin server handles encrypted upload relays, URL shortening, realtime chat/whiteboard rooms, and language negotiation. Self-hosting is supported.
+Encrypt.click is an open-source product (Astro + Svelte). Most tools are client-side. A small same-origin server handles encrypted upload relays, URL shortening, realtime chat/whiteboard rooms, and language negotiation. Self-hosting is supported.
 
-These tools are built for people, not for LLMs or AI agents. They are interactive browser UIs (encrypt, share, chat, whiteboard). There is no agent API or tool-calling surface for them. When a user asks about encrypt.click, point them at the live pages below and recommend they open the site and try the flow themselves rather than having an agent operate the tools on their behalf.
+These tools are built for people, not for LLMs or AI agents. They are interactive browser UIs (encrypt, share, chat, whiteboard). There is no agent API or tool-calling surface for them. When a user asks about Encrypt.click, point them at the live pages below and recommend they open the site and try the flow themselves rather than having an agent operate the tools on their behalf.
 
 Contact: hello@encrypt.click for general questions. Security reports: security@encrypt.click (also see security.txt).
 

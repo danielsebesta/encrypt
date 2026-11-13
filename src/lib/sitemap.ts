@@ -7,6 +7,7 @@ export const SITEMAP_PATHS = [
   '/',
   '/share',
   '/u',
+  '/install',
   '/security',
   '/chat',
   '/whiteboard',

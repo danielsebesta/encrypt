@@ -86,6 +86,9 @@
   import {
     appShotsEnabled,
     shotChatMessages,
+    shotMaterialChatMessages,
+    shotMaterialReactions,
+    SHOT_CHAT_ROOM_MATERIAL,
     shotMembers,
     shotReactions,
     SHOT_SIGNER,
@@ -2312,11 +2315,12 @@
       historyReady = true;
       mySignerId = SHOT_SIGNER;
       identity = { name: t(dict, 'chat.you'), color: aliasColor({ a: 3, n: 7, h: 142 }) };
-      messages = shotChatMessages(dict) as Message[];
+      const materialThread = roomId === SHOT_CHAT_ROOM_MATERIAL;
+      messages = (materialThread ? shotMaterialChatMessages(dict) : shotChatMessages(dict)) as Message[];
       for (const member of shotMembers(dict)) {
         noteMember(member.pk, member);
       }
-      for (const event of shotReactions(dict)) reactionBook.apply(event);
+      for (const event of (materialThread ? shotMaterialReactions(dict) : shotReactions(dict))) reactionBook.apply(event);
       reactionTick += 1;
       appCallState = { ready: true, joining: false, active: false };
       reportConn();

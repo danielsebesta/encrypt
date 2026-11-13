@@ -206,8 +206,8 @@ export function roomPasswordOk(password: string, roomName: string): boolean {
   return checks.length && checks.variety && checks.strength && checks.distinct;
 }
 
-// The checklist above is advice; the only hard floor is that a password exists and is not trivially empty.
-export const MIN_PASSWORD_LENGTH = 5;
+// Hard floor matches the length rule in checkRoomPassword / security copy.
+export const MIN_PASSWORD_LENGTH = MIN_ROOM_PASSWORD_LENGTH;
 
 export function passwordLongEnough(password: string): boolean {
   return password.trim().length >= MIN_PASSWORD_LENGTH;

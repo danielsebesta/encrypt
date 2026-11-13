@@ -1,7 +1,9 @@
 import { envString } from '../platform/env';
 
-/** Upstream product name — navbar, footer brand, crypto protocol labels. */
-export const PRODUCT_NAME = 'encrypt.click';
+/** Display product name in the navbar, footer and titles. */
+export const PRODUCT_NAME = 'Encrypt.click';
+/** Canonical hostname / protocol label prefix (always lowercase). */
+export const PRODUCT_HOST = 'encrypt.click';
 export const PRODUCT_ORIGIN = 'https://encrypt.click';
 
 const MAX_NAME = 64;
@@ -10,11 +12,19 @@ const NAME_RE = /^[^\x00-\x1f<>"'\\`&]{1,64}$/;
 
 function cleanName(raw: string): string {
   const value = raw.trim().replace(/\s+/g, ' ');
-  if (!value || value === PRODUCT_NAME || !NAME_RE.test(value) || value.length > MAX_NAME) return PRODUCT_NAME;
+  if (
+    !value ||
+    value === PRODUCT_NAME ||
+    value.toLowerCase() === PRODUCT_HOST ||
+    !NAME_RE.test(value) ||
+    value.length > MAX_NAME
+  ) {
+    return PRODUCT_NAME;
+  }
   return value;
 }
 
-/** Display brand for UI copy. Unset → encrypt.click (no white-label). */
+/** Display brand for UI copy. Unset → Encrypt.click (no white-label). */
 export function siteName(): string {
   return cleanName(envString('SITE_NAME'));
 }
@@ -92,6 +102,7 @@ export function brandText(input: string): string {
   out = out.replaceAll('mail@encrypt.click', contact);
   out = out.replaceAll('hello@encrypt.click', hello);
   out = out.replaceAll('encrypt.click/u', `${host}/u`);
+  out = out.replaceAll("Encrypt.click's", `${name}'s`);
   out = out.replaceAll("encrypt.click's", `${name}'s`);
   out = out.replaceAll('Encrypt.click', name);
   out = out.replaceAll('encrypt.click', name);
@@ -110,8 +121,9 @@ export function brandHtml(input: string): string {
   const host = siteHost();
   const shortHost = shortenerHost() ?? host;
   let out = input;
-  // Keep the product name in the nav/footer brand mark.
+  // Keep the product name in the nav/footer brand mark (both display and host casing).
   out = out.replaceAll(`>${PRODUCT_NAME}<`, `>${PRODUCT_MARK}<`);
+  out = out.replaceAll(`>${PRODUCT_HOST}<`, `>${PRODUCT_MARK}<`);
   // Rewrites that must run before protocol-label protection (those use encrypt.click/).
   out = out.replaceAll(PRODUCT_ORIGIN, siteOrigin());
   out = out.replaceAll('encrypt.click/u', `${host}/u`);
@@ -120,7 +132,7 @@ export function brandHtml(input: string): string {
   out = out.replaceAll(/encrypt\.click([/:])/g, `${PROTO_MARK}$1`);
   out = brandText(out);
   out = out.replaceAll(PRODUCT_MARK, PRODUCT_NAME);
-  out = out.replaceAll(PROTO_MARK, PRODUCT_NAME);
+  out = out.replaceAll(PROTO_MARK, PRODUCT_HOST);
   return out;
 }
 

@@ -15,7 +15,7 @@ const dict = getTranslations(locale);
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#08110a" />
-    <title>Encrypt</title>
+    <title>Encrypt.click</title>
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
@@ -44,7 +44,9 @@ const dict = getTranslations(locale);
               ? (q.get('kind') === 'whiteboard' ? '/whiteboard/' : '/chat/') + encodeURIComponent(room)
               : tab === 'chats' ? '/chat'
               : tab === 'boards' ? '/whiteboard'
-              : '/';
+              : tab === 'files' ? '/share'
+              : mobile ? '/'
+              : '/install';
             try { sessionStorage.setItem('encrypt-app-redirect', mobile ? 'install' : 'desktop'); } catch (e) {}
             window.__encryptAppRedirect = true;
             document.documentElement.style.visibility = 'hidden';

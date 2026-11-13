@@ -1,6 +1,6 @@
 {
-  "name": "Encrypt",
-  "short_name": "Encrypt",
+  "name": "Encrypt.click",
+  "short_name": "Encrypt.click",
   "description": "Privacy-first security toolkit & E2EE messenger. Encrypt, hash, chat, and hide - 100% client-side.",
   "start_url": "/app",
   "scope": "/",
@@ -139,21 +139,21 @@
     },
     {
       "src": "/screenshot-narrow.png",
-      "sizes": "1179x1980",
+      "sizes": "1179x2556",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Encrypted group chat with photos and voice"
     },
     {
       "src": "/screenshot-hub-chats.png",
-      "sizes": "1179x1980",
+      "sizes": "1179x2556",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Saved encrypted chat rooms"
     },
     {
       "src": "/screenshot-hub-boards.png",
-      "sizes": "1179x1980",
+      "sizes": "1179x2556",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Encrypted whiteboard rooms"

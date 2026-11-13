@@ -6,6 +6,7 @@ import HeroCipher from '../components/home/HeroCipher.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
 import { chatIcon } from '../lib/tools';
 import { LUCIDE } from '../lib/lucideIcons';
+import { APPLE_MARK, ANDROID_MARK } from '../lib/platformIcons';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -61,6 +62,32 @@ const features = [
     </section>
 
     <HomeTools locale={locale} dict={dict} />
+
+    <section class="home-app" aria-labelledby="home-app-title">
+      <div class="home-app__copy">
+        <p class="home-app__eyebrow">{t(dict, 'home.footer.install')}</p>
+        <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
+        <p class="home-app__text">{t(dict, 'pwa.promo.text')}</p>
+        <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
+          <li class="platform-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_MARK} /></svg>
+            {t(dict, 'pwa.platforms.ios')}
+          </li>
+          <li class="platform-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={ANDROID_MARK} /></svg>
+            {t(dict, 'pwa.platforms.android')}
+          </li>
+        </ul>
+        <div class="actions mt-5">
+          <a href={`${localePrefix}/install`} class="btn">{t(dict, 'pwa.promo.how')}</a>
+          <a href={`${localePrefix}/u`} class="btn-secondary">{t(dict, 'nav.decrypt')}</a>
+        </div>
+      </div>
+      <div class="home-app__gallery" aria-hidden="true">
+        <img class="app-shot app-shot--primary" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="lazy" decoding="async" />
+        <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
+      </div>
+    </section>
 
     <section aria-labelledby="home-how-title">
       <h2 id="home-how-title" class="section-title">{t(dict, 'landing.how.title')}</h2>

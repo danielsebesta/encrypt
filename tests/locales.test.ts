@@ -39,6 +39,8 @@ const ALLOW_SAME_AS_EN = new Set([
   'nav.chat',
   'nav.menu',
   'nav.whiteboard',
+  'pwa.platforms.ios',
+  'pwa.platforms.android',
   'chat.inviteCard.link',
   'rooms.kind.chat',
   'rooms.kind.whiteboard',

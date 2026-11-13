@@ -37,6 +37,7 @@ export const categoryIcons: Record<ToolCategory, string> = {
 
 export const chatIcon = icons.chat;
 export const sendIcon = LUCIDE['upload'];
+export const decryptIcon = LUCIDE['lock-open'];
 export const whiteboardIcon = LUCIDE['presentation'];
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {

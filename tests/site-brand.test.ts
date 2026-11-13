@@ -15,12 +15,12 @@ import { getTranslations } from '../src/lib/i18n';
 
 afterEach(() => setRuntimeEnv({}));
 
-test('SITE_NAME unset keeps encrypt.click branding', () => {
+test('SITE_NAME unset keeps Encrypt.click branding', () => {
   setRuntimeEnv({});
   assert.equal(siteName(), PRODUCT_NAME);
   assert.equal(isWhitelabeled(), false);
-  assert.equal(brandText('Welcome to encrypt.click'), 'Welcome to encrypt.click');
-  assert.equal(getTranslations('en')['meta.defaultTitle'], 'encrypt.click - Your privacy toolkit');
+  assert.equal(brandText('Welcome to Encrypt.click'), 'Welcome to Encrypt.click');
+  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Encrypt.click | Your privacy toolkit');
 });
 
 test('default contacts on the official brand', () => {
@@ -47,30 +47,30 @@ test('SITE_NAME rewrites UI copy but not protocol labels in HTML', () => {
 
   const html = brandHtml(
     `<span>${PRODUCT_NAME}</span>` +
-      `<title>Security - encrypt.click</title>` +
+      `<title>Security | Encrypt.click</title>` +
       `<script>const k="encrypt.click/chat/v3"; const s="encrypt.click:alias:";</script>` +
       `<a href="https://encrypt.click/u">go</a>`,
   );
   assert.match(html, new RegExp(`<span>${PRODUCT_NAME}</span>`));
-  assert.match(html, /<title>Security - Acme Vault<\/title>/);
+  assert.match(html, /<title>Security \| Acme Vault<\/title>/);
   assert.match(html, /encrypt\.click\/chat\/v3/);
   assert.match(html, /encrypt\.click:alias:/);
   assert.match(html, /https:\/\/vault\.example\.com\/u/);
-  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Acme Vault - Your privacy toolkit');
+  assert.equal(getTranslations('en')['meta.defaultTitle'], 'Acme Vault | Your privacy toolkit');
 });
 
 test('applySiteBrand rewrites HTML responses only when whitelabeled', async () => {
   setRuntimeEnv({ SITE_NAME: 'Ops Privacy', PUBLIC_URL: 'https://privacy.ops.test' });
-  const plain = await applySiteBrand(new Response('<span>encrypt.click</span> Hi encrypt.click', {
+  const plain = await applySiteBrand(new Response('<span>Encrypt.click</span> Hi Encrypt.click', {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   }));
-  assert.equal(await plain.text(), '<span>encrypt.click</span> Hi Ops Privacy');
+  assert.equal(await plain.text(), '<span>Encrypt.click</span> Hi Ops Privacy');
 
   setRuntimeEnv({});
-  const untouched = await applySiteBrand(new Response('Hi encrypt.click', {
+  const untouched = await applySiteBrand(new Response('Hi Encrypt.click', {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   }));
-  assert.equal(await untouched.text(), 'Hi encrypt.click');
+  assert.equal(await untouched.text(), 'Hi Encrypt.click');
 });
 
 test('rejects unsafe SITE_NAME values', () => {

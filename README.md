@@ -12,7 +12,7 @@ Share encrypted files, chat, draw and hide messages in images, audio or time. No
 
 <br>
 
-[**🌐 Open encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [🛡️ Security](https://encrypt.click/security) &nbsp;·&nbsp; [🚀 Run it locally](#-run-it-locally) &nbsp;·&nbsp; [🤝 Contribute](CONTRIBUTING.md)
+[**🌐 Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [🛡️ Security](https://encrypt.click/security) &nbsp;·&nbsp; [🚀 Run it locally](#-run-it-locally) &nbsp;·&nbsp; [🤝 Contribute](CONTRIBUTING.md)
 
 <br>
 
@@ -40,8 +40,8 @@ Share encrypted files, chat, draw and hide messages in images, audio or time. No
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-share-dark.webp">
   <img src="docs/readme/art-share-light.webp" alt="" height="120">
 </picture>
-<br><b>Share</b><br>
-Encrypt a file or message in your browser, then send the link and the password separately. Up to 90 MB, kept for 24 hours.
+<br><b>Share &amp; Decrypt</b><br>
+Encrypt a file or message in your browser, then send the link and the password separately. Up to 128&nbsp;MB. Recipients open <code>/u</code> (Decrypt) with the link, QR, PNG wrapper or <code>.enc</code> file.
 </td>
 <td width="25%" align="center" valign="top">
 <picture>
@@ -49,7 +49,7 @@ Encrypt a file or message in your browser, then send the link and the password s
   <img src="docs/readme/art-chat-light.webp" alt="" height="120">
 </picture>
 <br><b>Chat</b><br>
-End-to-end encrypted rooms with calls, screen sharing and file drops. The server keeps no message history.
+End-to-end encrypted rooms with calls, screen sharing and file drops. Live history stays on devices; disappearing modes keep nothing. The relay stores no message history.
 </td>
 <td width="25%" align="center" valign="top">
 <picture>
@@ -99,6 +99,22 @@ Chat cipher, time-lock capsules, steganography, photo and spectral ciphers. All 
 
 *The heart and the two waves were drawn with a pen: line width follows pressure from a hairline to a bold stroke.*
 
+### Phone app (PWA)
+
+The `/app` shell is intentionally not in the website menu. Install it from the Home Screen for a native feel: passkey lock, saved rooms, panic wipe and system share into encrypted files. Guide: [Encrypt.click/install](https://encrypt.click/install).
+
+<p align="center">
+  <img src="public/screenshot-hub-chats.png" alt="Saved encrypted chat rooms in the app" height="360">
+  &nbsp;
+  <img src="public/screenshot-narrow.png" alt="Encrypted group chat with photos and voice" height="360">
+  &nbsp;
+  <img src="public/screenshot-hub-boards.png" alt="Encrypted whiteboard rooms in the app" height="360">
+</p>
+
+**Install on iPhone / iPad:** open the site in Safari → Share → Add to Home Screen → open Encrypt.click from that icon (a bookmark will not unlock the app shell).
+
+**Install on Android:** open in Chrome → browser menu → Install app / Add to Home Screen → open from the app icon.
+
 ## 🛡️ Privacy model
 
 ```mermaid
@@ -132,11 +148,13 @@ The full write-up is at [encrypt.click/security](https://encrypt.click/security)
 
 ## 🧰 Experiment tools
 
-- **Chat cipher**: hide a message inside casual Czech chat text
+- **Chat cipher**: hide a message inside casual multilingual chat cover text
 - **Time capsule**: time-lock encryption with [drand](https://drand.love/)
 - **Steganography**: an encrypted message hidden in a PNG
 - **Photo cipher**: a hidden message that survives chat-app compression
 - **Spectral cipher**: an image hidden in a WAV spectrogram
+
+Decrypt a share at [Encrypt.click/u](https://encrypt.click/u) (also linked as **Decrypt** in the nav). `/decrypt` redirects there.
 
 ## 🌍 Languages
 
@@ -292,6 +310,6 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
   <img src="docs/readme/art-chat-light.webp" alt="" height="90">
 </picture>
 
-**Your privacy is just a click away.**
+**Encrypt.click — your privacy is just a click away.**
 
 </div>

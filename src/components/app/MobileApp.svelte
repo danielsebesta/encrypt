@@ -1335,7 +1335,16 @@
     scheme = applyTheme(state);
     if (appShotsEnabled()) {
       const q = new URLSearchParams(window.location.search);
-      platform = q.get('platform') === 'material' ? 'material' : 'ios';
+      // Prefer ?platform=; otherwise keep the skin already chosen by /app bootstrap
+      // (UA / localStorage → data-app-platform). Never flip Konsta to iOS on top of
+      // Material tokens — that mixed chrome is what broke Android store shots.
+      const qp = q.get('platform');
+      const boot = document.documentElement.dataset.appPlatform;
+      platform = qp === 'material' || qp === 'ios'
+        ? qp
+        : boot === 'material' || boot === 'ios'
+          ? boot
+          : state.platform;
       appearance = q.get('scheme') === 'light' ? 'light' : 'dark';
       scheme = applyTheme({ platform, appearance, seed, amoled });
     }
@@ -1422,8 +1431,11 @@
     let tabParam = params.get('tab');
     shotsMode = appShotsEnabled(window.location.search);
     if (shotsMode) {
+      document.documentElement.dataset.appShots = '1';
       rooms = shotRooms().sort(compareRooms);
       if (!roomParam && !tabParam) tabParam = 'chats';
+    } else {
+      delete document.documentElement.dataset.appShots;
     }
     if (!shotsMode && !roomParam && !tabParam && !params.get('action')) {
       const last = readLastView();
@@ -1839,12 +1851,12 @@
       {@const showPlus = platform === 'ios' && (activeTab === 'chats' || activeTab === 'boards')}
       <div class="flex-1 overflow-y-auto min-h-0 app-scroll" class:app-scroll--scrolled={hubScrolled} bind:this={scroller} onscroll={() => { hubScrolled = (scroller?.scrollTop ?? 0) > 2; }}>
         {#if showPlus}
-          <Navbar large transparent class="app-hub-bar z-40">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
             {#snippet right()}{@render hubPlus()}{/snippet}
           </Navbar>
         {:else if platform === 'ios'}
-          <Navbar large transparent class="app-hub-bar z-40">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {:else}

@@ -1,0 +1,134 @@
+---
+import { illustration } from '../lib/illustrations';
+import Layout from '../layouts/Layout.astro';
+import { PRODUCT_NAME } from '../lib/siteBrand';
+import { APPLE_MARK, ANDROID_MARK } from '../lib/platformIcons';
+import { getTranslations, t, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+const localePrefix = locale === 'en' ? '' : `/${locale}`;
+
+const shots = [
+  { src: '/screenshot-hub-chats.png?v=9', label: 'install.shot.chats' },
+  { src: '/screenshot-chat.png?v=9', label: 'install.shot.chat' },
+  { src: '/screenshot-hub-boards.png?v=9', label: 'install.shot.boards' },
+  { src: '/screenshot-hub-files.png?v=9', label: 'install.shot.files' },
+] as const;
+
+export const prerender = true;
+---
+
+<Layout
+  title={t(dict, 'install.meta.title')}
+  description={t(dict, 'install.meta.description')}
+>
+  <div class="page install-page">
+    <header class="install-hero">
+      <div class="install-hero__copy">
+        <p class="install-hero__eyebrow">{PRODUCT_NAME}</p>
+        <h1 class="page-title">{t(dict, 'install.h1')}</h1>
+        <p class="page-lead">{t(dict, 'install.subtitle')}</p>
+        <p class="install-hero__lead">{t(dict, 'install.lead')}</p>
+        <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
+          <li class="platform-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_MARK} /></svg>
+            {t(dict, 'pwa.platforms.ios')}
+          </li>
+          <li class="platform-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={ANDROID_MARK} /></svg>
+            {t(dict, 'pwa.platforms.android')}
+          </li>
+        </ul>
+      </div>
+      <div class="home-app__gallery install-hero__gallery" aria-hidden="true">
+        <img class="app-shot app-shot--primary" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="eager" decoding="async" />
+        <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="eager" decoding="async" />
+      </div>
+    </header>
+
+    <section class="install-benefits" aria-labelledby="install-benefits">
+      <h2 id="install-benefits" class="section-title">{t(dict, 'install.benefits.title')}</h2>
+      <ol class="install-benefits__grid">
+        <li class="install-benefit">
+          <span class="install-benefit__num" aria-hidden="true">1</span>
+          <p>{t(dict, 'install.benefits.1')}</p>
+        </li>
+        <li class="install-benefit">
+          <span class="install-benefit__num" aria-hidden="true">2</span>
+          <p>{t(dict, 'install.benefits.2')}</p>
+        </li>
+        <li class="install-benefit">
+          <span class="install-benefit__num" aria-hidden="true">3</span>
+          <p>{t(dict, 'install.benefits.3')}</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="install-platforms" aria-labelledby="install-platforms-title">
+      <div class="install-platforms__intro">
+        <h2 id="install-platforms-title" class="section-title">{t(dict, 'install.platforms.title')}</h2>
+        <p class="hint mt-1">{t(dict, 'install.platforms.text')}</p>
+      </div>
+
+      <div class="install-guides">
+        <section class="install-guide install-guide--shot" aria-labelledby="install-ios">
+          <div class="install-guide__shot">
+            <img class="app-shot app-shot--md" src="/screenshot-hub-settings.png?v=9" alt={t(dict, 'install.ios.shotAlt')} width="360" height="780" loading="lazy" decoding="async" />
+          </div>
+          <div class="install-guide__body">
+            <p class="platform-pill install-guide__badge">{t(dict, 'pwa.platforms.ios')}</p>
+            <h3 id="install-ios" class="section-title">{t(dict, 'install.ios.title')}</h3>
+            <ol class="install-steps">
+              <li>{t(dict, 'install.ios.1')}</li>
+              <li>{t(dict, 'install.ios.2')}</li>
+              <li>{t(dict, 'install.ios.3')}</li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="install-guide install-guide--shot" aria-labelledby="install-android">
+          <div class="install-guide__shot">
+            <img class="app-shot app-shot--md" src="/screenshot-android-hub-settings.png?v=9" alt={t(dict, 'install.android.shotAlt')} width="360" height="780" loading="lazy" decoding="async" />
+          </div>
+          <div class="install-guide__body">
+            <p class="platform-pill install-guide__badge">{t(dict, 'pwa.platforms.android')}</p>
+            <h3 id="install-android" class="section-title">{t(dict, 'install.android.title')}</h3>
+            <ol class="install-steps">
+              <li>{t(dict, 'install.android.1')}</li>
+              <li>{t(dict, 'install.android.2')}</li>
+              <li>{t(dict, 'install.android.3')}</li>
+            </ol>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="install-shots" aria-labelledby="install-shots-title">
+      <h2 id="install-shots-title" class="section-title">{t(dict, 'install.shots.title')}</h2>
+      <ul class="install-shots__grid">
+        {shots.map((shot) => (
+          <li class="install-shots__item">
+            <img class="app-shot app-shot--md" src={shot.src} alt={t(dict, shot.label)} width="360" height="780" loading="lazy" decoding="async" />
+            <p class="hint">{t(dict, shot.label)}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="install-guide install-guide--wide" aria-labelledby="install-desktop">
+      <div class="install-guide__with-art">
+        <div>
+          <h2 id="install-desktop" class="section-title">{t(dict, 'install.desktop.title')}</h2>
+          <p class="install-guide__text">{t(dict, 'install.desktop.text')}</p>
+        </div>
+        <Fragment set:html={illustration('chill', 'install-guide__ill')} />
+      </div>
+    </section>
+
+    <div class="actions">
+      <a href={`${localePrefix}/share`} class="btn">{t(dict, 'install.cta.share')}</a>
+      <a href={`${localePrefix}/u`} class="btn-secondary">{t(dict, 'install.cta.decrypt')}</a>
+    </div>
+  </div>
+</Layout>

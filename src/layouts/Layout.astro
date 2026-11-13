@@ -3,7 +3,7 @@ import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
 import { languageChoiceHref } from '../lib/locale';
-import { getNavCategories, chatIcon, sendIcon, whiteboardIcon } from '../lib/tools';
+import { getNavCategories, chatIcon, sendIcon, decryptIcon, whiteboardIcon } from '../lib/tools';
 import { getGithubStars } from '../lib/githubStars';
 import { PRODUCT_NAME, siteName, siteOrigin } from '../lib/siteBrand';
 
@@ -23,7 +23,7 @@ const brand = siteName();
 const {
   title = t(dict, 'meta.defaultTitle'),
   description = t(dict, 'meta.defaultDescription'),
-  ogImage = new URL('/og.png?v=3', site).href,
+  ogImage = new URL('/og.png?v=8', site).href,
   canonical,
   mainClass = '',
 } = Astro.props;
@@ -38,6 +38,25 @@ const enableIntegrityCheck = import.meta.env.PROD;
 const integrityRepository = 'danielsebesta/encrypt';
 const repoUrl = `https://github.com/${integrityRepository}`;
 const githubStars = await getGithubStars(integrityRepository);
+/** Display-cased site URL for social/search snippets; canonical stays lowercase. */
+const brandUrl = (() => {
+	try {
+		const u = new URL(canonicalUrl);
+		if (u.hostname.toLowerCase() !== 'encrypt.click') return u.href;
+		// URL.hostname always lowercases; build the string so snippets can show Encrypt.click.
+		return `https://Encrypt.click${u.pathname}${u.search}${u.hash}`;
+	} catch {
+		return canonicalUrl;
+	}
+})();
+const siteJsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'WebSite',
+	name: brand,
+	...(brand === PRODUCT_NAME ? { alternateName: ['encrypt.click', 'Encrypt'] } : {}),
+	url: site.replace(/\/$/, '') + '/',
+	description,
+};
 
 const languageOptions = locales.map(l => ({
   code: l,
@@ -49,6 +68,7 @@ const languageOptions = locales.map(l => ({
 
 const primaryLinks = [
   { href: `${localePrefix}/share`, label: t(dict, 'nav.send'), icon: sendIcon },
+  { href: `${localePrefix}/u`, label: t(dict, 'nav.decrypt'), icon: decryptIcon },
   { href: `${localePrefix}/chat`, label: t(dict, 'nav.chat'), icon: chatIcon },
   { href: `${localePrefix}/whiteboard`, label: t(dict, 'nav.whiteboard'), icon: whiteboardIcon },
 ];
@@ -66,11 +86,12 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="format-detection" content="telephone=no" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
+		<meta name="application-name" content={brand} />
 		<link rel="canonical" href={canonicalUrl} />
 		{languageOptions.map((lang) => <link rel="alternate" hreflang={lang.code} href={new URL(lang.href, site).href} />)}
 		<link rel="alternate" hreflang="x-default" href={new URL(getLocalePath(path, 'en'), site).href} />
 		<meta property="og:type" content="website" />
-		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:url" content={brandUrl} />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		<meta property="og:image" content={ogImage} />
@@ -93,6 +114,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="apple-mobile-web-app-title" content={brand} />
 		<link rel="manifest" href="/site.webmanifest" />
 		<link rel="describedby" href="/llms.txt" />
+		<script type="application/ld+json" set:html={JSON.stringify(siteJsonLd)} />
 		<link rel="preload" href="/fonts/strichpunkt-400.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href="/fonts/redaction-700.woff2" as="font" type="font/woff2" crossorigin />
 		{enableIntegrityCheck && <script is:inline src="/integrity-check.js" defer></script>}
@@ -220,7 +242,11 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			data-install-ios={t(dict, 'pwa.notice.installIos')}
 			data-install-android={t(dict, 'pwa.notice.installAndroid')}
 		>
-			<p class="min-w-0 flex-1" data-pwa-notice-text></p>
+			<img class="app-shot app-shot--xs pwa-notice__shot" src="/screenshot-hub-chats.png?v=9" alt="" width="52" height="113" decoding="async" />
+			<div class="pwa-notice__body min-w-0 flex-1">
+				<p data-pwa-notice-text></p>
+				<a class="pwa-notice__cta" href={`${localePrefix}/install`}>{t(dict, 'pwa.notice.cta')}</a>
+			</div>
 			<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
 			<button type="button" class="btn-ghost btn-sm" data-pwa-notice-dismiss>{t(dict, 'pwa.notice.dismiss')}</button>
 		</div>
@@ -232,13 +258,26 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<footer class="site-footer">
 			<div id="pwa-promo" class="pwa-promo hidden">
 				<div class="pwa-promo__inner">
-					<div class="min-w-0 flex-1">
-						<p class="text-sm font-semibold text-text">{t(dict, 'pwa.promo.title')}</p>
-						<p class="text-sm text-muted">{t(dict, 'pwa.promo.text')}</p>
-						<p class="hidden text-sm text-muted" data-pwa-hint-ios>{t(dict, 'pwa.promo.ios')}</p>
-						<p class="hidden text-sm text-muted" data-pwa-hint-menu>{t(dict, 'pwa.promo.menu')}</p>
+					<div class="pwa-promo__shots" aria-hidden="true">
+						<img class="app-shot app-shot--sm" src="/screenshot-hub-chats.png?v=9" alt="" width="72" height="156" decoding="async" />
+						<img class="app-shot app-shot--sm" src="/screenshot-android-hub-settings.png?v=9" alt="" width="72" height="156" decoding="async" />
 					</div>
-					<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+					<div class="pwa-promo__copy min-w-0 flex-1">
+						<p class="pwa-promo__eyebrow">{PRODUCT_NAME}</p>
+						<p class="pwa-promo__title">{t(dict, 'pwa.promo.title')}</p>
+						<p class="pwa-promo__text">{t(dict, 'pwa.promo.text')}</p>
+						<ul class="platform-pills platform-pills--compact" aria-label={t(dict, 'pwa.platforms.label')}>
+							<li class="platform-pill">{t(dict, 'pwa.platforms.ios')}</li>
+							<li class="platform-pill">{t(dict, 'pwa.platforms.android')}</li>
+						</ul>
+						<p class="hidden pwa-promo__hint" data-pwa-hint-ios>{t(dict, 'pwa.promo.ios')}</p>
+						<p class="hidden pwa-promo__hint" data-pwa-hint-menu>{t(dict, 'pwa.promo.menu')}</p>
+						<div class="pwa-promo__actions">
+							<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+							<a class="btn-secondary btn-sm" href={`${localePrefix}/install`}>{t(dict, 'pwa.promo.how')}</a>
+							<button type="button" class="btn-ghost btn-sm" data-pwa-promo-dismiss>{t(dict, 'pwa.promo.dismiss')}</button>
+						</div>
+					</div>
 				</div>
 			</div>
 			<div class="site-footer__inner">
@@ -247,6 +286,8 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<span class="text-sm">{PRODUCT_NAME}</span>
 				</a>
 				<div class="site-footer__links">
+					<a href={`${localePrefix}/u`}>{t(dict, 'home.footer.decrypt')}</a>
+					<a href={`${localePrefix}/install`}>{t(dict, 'home.footer.install')}</a>
 					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
 					<a href="mailto:hello@encrypt.click">{t(dict, 'home.footer.contact')}</a>
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
@@ -261,6 +302,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			</div>
 		</footer>
 		<script is:inline src="/ui.js?v=security-v2" defer></script>
-		<script is:inline src="/pwa.js?v=pwa-v2" defer></script>
+		<script is:inline src="/pwa.js?v=pwa-v3" defer></script>
 	</body>
 </html>
