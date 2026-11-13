@@ -302,7 +302,7 @@ async function captureAll() {
   const browser = await chromium.launch({ headless: true });
   const sizes = {};
   await captureSuite(browser, iosPhone, 'ios', iosCaptures, '#1c1c1e', sizes);
-  await captureSuite(browser, androidPhone, 'material', androidCaptures, '#12140e', sizes);
+  await captureSuite(browser, androidPhone, 'material', androidCaptures, '#111113', sizes);
 
   const { default: sharp } = await import('sharp');
   const chatPath = join(publicDir, 'screenshot-chat.png');
@@ -322,7 +322,7 @@ async function captureAll() {
   const totalW = (lm.width || 0) + (rm.width || 0) + gap;
   const originX = Math.max(0, Math.round((W - totalW) / 2));
   const originY = Math.round((H - panelH) / 2);
-  await sharp({ create: { width: W, height: H, channels: 3, background: '#08110a' } })
+  await sharp({ create: { width: W, height: H, channels: 3, background: '#0b0b0c' } })
     .composite([
       { input: left, left: originX, top: originY },
       { input: right, left: originX + (lm.width || 0) + gap, top: originY },

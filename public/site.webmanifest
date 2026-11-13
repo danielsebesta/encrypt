@@ -139,21 +139,21 @@
     },
     {
       "src": "/screenshot-narrow.png",
-      "sizes": "1179x2556",
+      "sizes": "1206x2622",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Encrypted group chat with photos and voice"
     },
     {
       "src": "/screenshot-hub-chats.png",
-      "sizes": "1179x2556",
+      "sizes": "1206x2622",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Saved encrypted chat rooms"
     },
     {
       "src": "/screenshot-hub-boards.png",
-      "sizes": "1179x2556",
+      "sizes": "1206x2622",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Encrypted whiteboard rooms"
