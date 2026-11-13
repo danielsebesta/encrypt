@@ -1965,7 +1965,7 @@
         </div>
       {:else if activeTab === 'files'}
         <div class="app-upload-wrapper app-content">
-          <UltimateEncrypt {locale} {dict} resultArt={false} appMode />
+          <UltimateEncrypt {locale} {dict} appMode />
         </div>
       {:else if activeTab === 'settings'}
         {@const ios = platform === 'ios'}

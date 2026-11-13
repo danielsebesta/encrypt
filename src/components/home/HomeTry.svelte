@@ -86,7 +86,7 @@
     <div id={`home-panel-${tab.id}`} role="tabpanel" aria-labelledby={`home-tab-${tab.id}`} class="stack" hidden={active !== tab.id}>
       <p class="hint">{t(dict, tab.text)}</p>
       {#if tab.id === 'send'}
-        <UltimateEncrypt {locale} {dict} resultArt={false} />
+        <UltimateEncrypt {locale} {dict} />
       {:else if visited[tab.id]}
         {#await loaders[tab.id]() then mod}
           <svelte:component this={mod.default} {locale} {dict} />
