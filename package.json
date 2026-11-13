@@ -15,6 +15,7 @@
     "start:node": "node dist/node/server.mjs",
     "astro": "astro",
     "build:icons": "node scripts/build-icons.mjs",
+    "build:solar-icons": "node scripts/build-solar-icons.mjs",
     "capture:screenshots": "node scripts/capture-app-screenshots.mjs"
   },
   "dependencies": {
@@ -67,6 +68,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261026.1",
+    "@iconify-json/solar": "^1.2.15",
     "@types/node": "^26.6.5",
     "@types/qrcode": "^1.5.6",
     "@types/ws": "8.18.2",

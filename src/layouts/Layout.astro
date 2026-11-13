@@ -115,8 +115,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<link rel="manifest" href="/site.webmanifest" />
 		<link rel="describedby" href="/llms.txt" />
 		<script type="application/ld+json" set:html={JSON.stringify(siteJsonLd)} />
-		<link rel="preload" href="/fonts/strichpunkt-400.woff2" as="font" type="font/woff2" crossorigin />
-		<link rel="preload" href="/fonts/redaction-700.woff2" as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href="/fonts/google-sans-flex-latin.woff2" as="font" type="font/woff2" crossorigin />
 		{enableIntegrityCheck && <script is:inline src="/integrity-check.js" defer></script>}
 		{/* Theme before first paint — inlined so it is not a render-blocking network request. */}
 		<script is:inline>

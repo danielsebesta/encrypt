@@ -1,0 +1,82 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getTranslations, t, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+
+const linkClass = 'text-accent-strong underline decoration-current/30 underline-offset-4 hover:decoration-current';
+
+const links: Record<string, { href: string; key: string; external?: boolean }> = {
+  license: {
+    href: 'https://creativecommons.org/licenses/by/4.0/',
+    key: 'licenses.link.license',
+    external: true,
+  },
+  source: {
+    href: 'https://github.com/480-Design/Solar-Icon-Set',
+    key: 'licenses.link.source',
+    external: true,
+  },
+  fontsFlex: {
+    href: 'https://github.com/googlefonts/googlesans-flex',
+    key: 'licenses.link.fontsFlex',
+    external: true,
+  },
+  fontsCode: {
+    href: 'https://github.com/googlefonts/googlesans-code',
+    key: 'licenses.link.fontsCode',
+    external: true,
+  },
+  oflFlex: {
+    href: '/fonts/OFL-google-sans-flex.txt',
+    key: 'licenses.link.oflFlex',
+  },
+  oflCode: {
+    href: '/fonts/OFL-google-sans-code.txt',
+    key: 'licenses.link.oflCode',
+  },
+  repo: {
+    href: 'https://github.com/danielsebesta/encrypt',
+    key: 'licenses.link.repo',
+    external: true,
+  },
+};
+
+const sections = [
+  { id: 'icons', title: 'licenses.icons.title', body: 'licenses.icons.body' },
+  { id: 'fonts', title: 'licenses.fonts.title', body: 'licenses.fonts.body' },
+  { id: 'dependencies', title: 'licenses.deps.title', body: 'licenses.deps.body' },
+] as const;
+---
+
+<Layout
+  title={t(dict, 'licenses.meta.title')}
+  description={t(dict, 'licenses.meta.description')}
+>
+  <article class="page article">
+    <header class="page-head">
+      <h1 class="page-title">{t(dict, 'licenses.h1')}</h1>
+      <p class="page-lead">{t(dict, 'licenses.lead')}</p>
+    </header>
+
+    {sections.map((section) => (
+      <section id={section.id} class="sec-block">
+        <h2>{t(dict, section.title)}</h2>
+        <p>
+          {t(dict, section.body).split(/(\{[a-zA-Z]+\})/).filter((part) => part.length > 0).map((part) => {
+            const name = part.match(/^\{([a-zA-Z]+)\}$/)?.[1];
+            const link = name ? links[name] : undefined;
+            if (!link) return part;
+            const label = t(dict, link.key);
+            return link.external ? (
+              <a href={link.href} class={linkClass} target="_blank" rel="noopener noreferrer">{label}</a>
+            ) : (
+              <a href={link.href} class={linkClass}>{label}</a>
+            );
+          })}
+        </p>
+      </section>
+    ))}
+  </article>
+</Layout>

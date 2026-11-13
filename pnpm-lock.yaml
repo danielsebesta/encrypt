@@ -93,6 +93,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20261026.1
         version: 5.20261026.1
+      '@iconify-json/solar':
+        specifier: ^1.2.15
+        version: 1.2.15
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
@@ -606,6 +609,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@iconify-json/solar@1.2.15':
+    resolution: {integrity: sha512-cChSPHQAqrqb59VaY082SjfT6QmUuRV7MjmHaaeJnaPY5feF/Qmr21W817bHAxXSMWfG9tuq43mxyIDhnodF1g==}
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -1625,6 +1634,7 @@ packages:
   image-size@0.5.5:
     resolution: {integrity: sha512-6TDAlDPZxUFCv+fuOkIoXT/V/f3Qbq8e37p+YOiYrUv3v9cc3/6x78VdfPgFVaB9dZYeLUfKgHRebpkm/oP2VQ==}
     engines: {node: '>=0.10.0'}
+    deprecated: Please migrate to image-size@2.x
     hasBin: true
 
   inherits@2.0.4:
@@ -3186,6 +3196,12 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
+
+  '@iconify-json/solar@1.2.15':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/types@2.0.0': {}
 
   '@img/colour@1.1.0': {}
 

@@ -1,0 +1,35 @@
+---
+import { SOLAR } from '../lib/icons';
+import type { IconName } from '../lib/iconManifest';
+
+interface Props {
+  name: IconName;
+  size?: 16 | 20;
+  class?: string;
+  label?: string;
+}
+
+const { name, size = 16, class: className = '', label } = Astro.props;
+const body = SOLAR[name];
+const a11y = label
+  ? ({ role: 'img', 'aria-label': label } as const)
+  : ({ 'aria-hidden': 'true' } as const);
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  width={size}
+  height={size}
+  fill="none"
+  focusable="false"
+  class={`icon icon-${size} ${className}`}
+  {...a11y}
+  set:html={body}
+></svg>
+
+<style>
+  .icon {
+    flex: none;
+  }
+</style>
