@@ -1322,11 +1322,12 @@ html.dark {
     }
 
     .home-facts li {
-        @apply grid grid-cols-[6.5rem_minmax(0,1fr)] items-baseline gap-4 border-b border-line py-3 text-sm text-muted;
+        @apply grid grid-cols-[8.75rem_minmax(0,1fr)] items-baseline gap-4 border-b border-line py-3 text-sm text-muted;
     }
 
     .home-facts__value {
         @apply font-mono text-base font-medium text-text;
+        white-space: nowrap;
     }
 
     .home-hero__form {
