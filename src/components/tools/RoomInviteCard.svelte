@@ -48,7 +48,7 @@
             errorCorrectionLevel,
             margin: 1,
             width: 220,
-            color: { dark: '#105f3f', light: '#ffffff' },
+            color: { dark: '#0a0a0a', light: '#ffffff' },
           });
           if (qrFor === text) qrSvg = svg;
           return;

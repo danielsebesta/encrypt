@@ -324,7 +324,7 @@
         margin: 1,
         width: 320,
         color: {
-          dark: '#105f3f',
+          dark: '#0a0a0a',
           light: '#ffffff',
         },
       });

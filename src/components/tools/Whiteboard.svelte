@@ -64,14 +64,14 @@
   // Quickdraw ships a warm paper look; these replace it with the site's neutral surfaces.
   const BOARD_PALETTE = {
     light: {
-      paper: '#fafbfa',
-      gridDot: { minor: 'rgba(17, 26, 16, 0.18)', major: 'rgba(17, 26, 16, 0.32)' },
-      gridLine: { minor: 'rgba(17, 26, 16, 0.07)', major: 'rgba(17, 26, 16, 0.14)' },
+      paper: '#fafafa',
+      gridDot: { minor: 'rgba(10, 10, 10, 0.18)', major: 'rgba(10, 10, 10, 0.32)' },
+      gridLine: { minor: 'rgba(10, 10, 10, 0.07)', major: 'rgba(10, 10, 10, 0.14)' },
     },
     dark: {
-      paper: '#0d140b',
-      gridDot: { minor: 'rgba(155, 178, 141, 0.14)', major: 'rgba(155, 178, 141, 0.26)' },
-      gridLine: { minor: 'rgba(155, 178, 141, 0.05)', major: 'rgba(155, 178, 141, 0.1)' },
+      paper: '#111113',
+      gridDot: { minor: 'rgba(237, 237, 237, 0.14)', major: 'rgba(237, 237, 237, 0.26)' },
+      gridLine: { minor: 'rgba(237, 237, 237, 0.05)', major: 'rgba(237, 237, 237, 0.1)' },
     },
   } as const;
 

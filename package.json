@@ -16,7 +16,8 @@
     "astro": "astro",
     "build:icons": "node scripts/build-icons.mjs",
     "build:solar-icons": "node scripts/build-solar-icons.mjs",
-    "capture:screenshots": "node scripts/capture-app-screenshots.mjs"
+    "capture:screenshots": "node scripts/capture-app-screenshots.mjs",
+    "check:a11y": "node scripts/axe-check.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.12",
@@ -71,6 +72,7 @@
     "@types/node": "^26.6.5",
     "@types/qrcode": "^1.5.6",
     "@types/ws": "8.18.2",
+    "axe-core": "^4.14.0",
     "esbuild": "0.28.2",
     "playwright": "^1.64.1",
     "sharp": "0.35.5",

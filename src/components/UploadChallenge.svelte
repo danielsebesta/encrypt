@@ -74,14 +74,13 @@
   }
   .upload-challenge::backdrop {
     background: color-mix(in srgb, var(--bg) 70%, transparent);
-    backdrop-filter: blur(2px);
   }
   .upload-challenge__progress {
     width: 100%;
     height: 0.5rem;
     appearance: none;
     border: 0;
-    border-radius: 999px;
+    border-radius: 4px;
     overflow: hidden;
     background: var(--line);
     accent-color: var(--accent);
@@ -90,12 +89,12 @@
     background: var(--line-soft);
   }
   .upload-challenge__progress::-webkit-progress-value {
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+    border-radius: 4px;
+    background: var(--accent);
   }
   .upload-challenge__progress::-moz-progress-bar {
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+    border-radius: 4px;
+    background: var(--accent);
   }
   @keyframes upload-challenge-in {
     from {

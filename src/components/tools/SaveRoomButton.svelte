@@ -169,7 +169,6 @@
   }
   .save-room::backdrop {
     background: color-mix(in srgb, var(--bg) 70%, transparent);
-    backdrop-filter: blur(2px);
   }
   @keyframes save-room-in {
     from {

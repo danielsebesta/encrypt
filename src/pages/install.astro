@@ -108,7 +108,7 @@ export const prerender = true;
       <ul class="install-shots__grid">
         {shots.map((shot) => (
           <li class="install-shots__item">
-            <img class="app-shot app-shot--md" src={shot.src} alt={t(dict, shot.label)} width="360" height="780" loading="lazy" decoding="async" />
+            <img class="app-shot app-shot--md" src={shot.src} alt="" width="360" height="780" loading="lazy" decoding="async" />
             <p class="hint">{t(dict, shot.label)}</p>
           </li>
         ))}

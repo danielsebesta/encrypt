@@ -22,7 +22,7 @@
     const { default: QRCode } = await import('qrcode');
     for (const errorCorrectionLevel of ['H', 'L'] as const) {
       try {
-        const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel, margin: 1, width: 320, color: { dark: '#105f3f', light: '#ffffff' } });
+        const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel, margin: 1, width: 320, color: { dark: '#0a0a0a', light: '#ffffff' } });
         if (qrFor === text) qrSvg = svg;
         return;
       } catch {
