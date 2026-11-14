@@ -59,6 +59,7 @@ export const ICONS = {
   folder: 'folder',
   'folder-key': 'folder-lock',
   funnel: 'filter',
+  github: 'brand-github',
   globe: 'world',
   'grid-3x3': 'layout-grid',
   hand: 'hand-stop',

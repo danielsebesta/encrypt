@@ -212,9 +212,8 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</div>
 
 				<div class="nav__actions">
-					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost nav__github" aria-label={t(dict, 'nav.github')}>
-						<span>GitHub</span>
-						<Icon name="arrow-up-right" />
+					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')} title="GitHub">
+						<Icon name="github" size={20} />
 					</a>
 					<CommandPalette client:idle locale={locale} dict={paletteDict} />
 					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')} aria-pressed="false">
@@ -300,7 +299,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
 					<a href="mailto:hello@encrypt.click">{t(dict, 'home.footer.contact')}</a>
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
-						GitHub
+						<Icon name="github" />GitHub
 						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
 					</a>
 					<a href={`${localePrefix}/licenses`}>{t(dict, 'home.footer.credits')}</a>
