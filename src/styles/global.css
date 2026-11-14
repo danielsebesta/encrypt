@@ -1307,15 +1307,15 @@ html.dark {
     }
 
     .install-benefits__grid {
-        @apply mt-5 grid gap-3 md:grid-cols-3;
+        @apply m-0 mt-5 grid list-none gap-8 p-0 md:grid-cols-3 md:gap-6;
     }
 
     .install-benefit {
-        @apply flex gap-3 rounded-lg border border-line bg-surface p-4 text-sm leading-relaxed text-muted;
+        @apply grid content-start gap-2 border-t border-line pt-4 text-sm leading-relaxed text-muted;
     }
 
     .install-benefit__num {
-        @apply w-6 shrink-0 font-mono text-sm font-medium text-muted;
+        @apply font-mono text-sm font-medium text-muted;
     }
 
     .install-steps {
