@@ -359,7 +359,7 @@
     lightboxOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     lightbox = { url, name };
     window.addEventListener('keydown', onLightboxKey);
-    void settled().then(() => lightboxEl?.focus());
+    requestAnimationFrame(() => requestAnimationFrame(() => lightboxEl?.focus()));
   }
   function saveLightboxImage() {
     if (!lightbox) return;
@@ -374,13 +374,14 @@
     const opener = lightboxOpener;
     lightboxOpener = null;
     lightbox = null;
+    if (typeof window === 'undefined') return;
     window.removeEventListener('keydown', onLightboxKey);
-    void settled().then(() => {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const active = document.activeElement;
       if (active && active !== document.body) return;
       if (opener && opener !== document.body && opener.isConnected) opener.focus();
       else document.querySelector<HTMLElement>('.chat-preview-img-btn')?.focus();
-    });
+    }));
   }
   function onLightboxKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
@@ -937,27 +938,29 @@
     return (open: boolean) => {
       if (typeof document === 'undefined' || open === was) return;
       was = open;
-      if (open) {
-        opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        void settled().then(() => {
-          let tries = 0;
-          const tryFocus = () => {
-            const root = getRoot();
-            const target = (focusSelector && root?.querySelector<HTMLElement>(focusSelector)) || overlayFocusables(root)[0];
-            if (target) { target.focus(); return; }
-            if (was && tries++ < 30) requestAnimationFrame(tryFocus);
-          };
-          tryFocus();
-        });
-      } else {
-        const back = opener;
-        opener = null;
-        void settled().then(() => {
+      const expected = open;
+      const back = open ? (document.activeElement instanceof HTMLElement ? document.activeElement : null) : opener;
+      opener = open ? back : null;
+      let tries = 0;
+      const step = () => {
+        if (was !== expected) return;
+        const root = getRoot();
+        if (expected) {
+          const target = (focusSelector && root?.querySelector<HTMLElement>(focusSelector)) || overlayFocusables(root)[0];
+          if (target) {
+            target.focus();
+            if (document.activeElement === target) return;
+          }
+        } else {
+          if (!back?.isConnected) return;
           const active = document.activeElement;
-          const root = getRoot();
-          if (back?.isConnected && (!active || active === document.body || (root && root.contains(active)))) back.focus();
-        });
-      }
+          if (active && active !== document.body && !(root && root.contains(active))) return;
+          back.focus();
+          if (document.activeElement === back) return;
+        }
+        if (tries++ < 60) requestAnimationFrame(step);
+      };
+      step();
     };
   }
   const focusHeaderOverlay = overlayFocus(() => (appMode ? document.getElementById('chat-room-menu') : roomMenuEl));
@@ -5020,12 +5023,13 @@
     callFullscreenMedia = null;
     callFullscreenNativeActive = false;
     if (shouldExitNative) void exitNativeFullscreen();
-    void settled().then(() => {
+    if (typeof window === 'undefined') return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const active = document.activeElement;
       if (active && active !== document.body) return;
       if (opener && opener !== document.body && opener.isConnected) opener.focus();
       else document.querySelector<HTMLElement>('.call__expand')?.focus();
-    });
+    }));
   }
 
   function handleCallFullscreenKeydown(event: KeyboardEvent) {
