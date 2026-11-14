@@ -1352,16 +1352,22 @@ html.dark {
         z-index: -1;
         overflow: hidden;
         opacity: 0;
-        -webkit-mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%);
+        -webkit-mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%), linear-gradient(to bottom, #000 0%, #000 33%, transparent 66%, transparent 100%);
         -webkit-mask-composite: source-in;
-        mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%);
+        mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%), linear-gradient(to bottom, #000 0%, #000 33%, transparent 66%, transparent 100%);
         mask-composite: intersect;
+        -webkit-mask-size: auto, auto, 100% 300%;
+        mask-size: auto, auto, 100% 300%;
+        -webkit-mask-position: 0 0, 0 0, 0 0;
+        mask-position: 0 0, 0 0, 0 0;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
         pointer-events: none;
     }
 
     html.flow-ready .flow-bg {
         opacity: 1;
-        animation: flow-in 1.9s var(--ease-out, ease-out) both;
+        animation: flow-in 2.4s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
     html.flow-ready .flow-bg__base {
@@ -1431,8 +1437,8 @@ html.dark {
 
     @keyframes flow-in {
         from {
-            opacity: 0;
-            transform: scale(1.05);
+            -webkit-mask-position: 0 0, 0 0, 0 100%;
+            mask-position: 0 0, 0 0, 0 100%;
         }
     }
 
