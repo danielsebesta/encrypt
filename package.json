@@ -17,7 +17,8 @@
     "build:icons": "node scripts/build-icons.mjs",
     "build:brand-icons": "node scripts/build-brand-icons.mjs",
     "capture:screenshots": "node scripts/capture-app-screenshots.mjs",
-    "check:a11y": "node scripts/axe-check.mjs"
+    "check:a11y": "node scripts/axe-check.mjs",
+    "check:kbd-tabs": "node scripts/kbd-tabs.mjs"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.12",
