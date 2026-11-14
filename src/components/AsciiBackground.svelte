@@ -18,6 +18,7 @@
     let gone = false;
     let pulsesRef: { params: Record<string, number> } | null = null;
     const TEXT = 'h1, h2, h3, h4, p, li, label, a, button, summary, dt, dd, th, td, .hint';
+    const PANEL = '.card, .panel, .home-hero__form';
     let rects: DOMRect[] = [];
     let dirty = true;
     const range = document.createRange();
@@ -26,7 +27,7 @@
       if (!dirty) return rects;
       dirty = false;
       rects = [...document.querySelectorAll(TEXT)].flatMap((el) => {
-        if (canvas.contains(el)) return [];
+        if (canvas.contains(el) || el.closest(PANEL)) return [];
         range.selectNodeContents(el);
         return [...range.getClientRects()].filter((r) => r.width > 2 && r.height > 2 && r.bottom > 0 && r.top < innerHeight);
       });
@@ -35,7 +36,9 @@
     addEventListener('scroll', mark, { passive: true, capture: true });
     addEventListener('resize', mark, { passive: true });
     document.fonts?.addEventListener('loadingdone', mark);
-    const content = new MutationObserver(mark);
+    const content = new MutationObserver((records) => {
+      if (records.some((r) => !(r.target instanceof Element ? r.target : r.target.parentElement)?.closest(PANEL))) mark();
+    });
     content.observe(document.body, { childList: true, subtree: true, characterData: true });
     const isDark = () => document.documentElement.classList.contains('dark');
 
