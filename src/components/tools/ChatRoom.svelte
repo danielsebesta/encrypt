@@ -399,7 +399,7 @@
   requestRoomInfo = () => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; };
   closeOverlay = () => {
     if (lightbox) { closeLightbox(); return true; }
-    if (emojiTarget) { closeEmoji(false); return true; }
+    if (emojiTarget) { closeEmoji(); return true; }
     if (actionMenuFor) { actionMenuFor = null; return true; }
     if (composerMenuOpen) { composerMenuOpen = false; return true; }
     if (headerMenuOpen) { headerMenuOpen = false; return true; }
@@ -754,6 +754,7 @@
   let callFullscreenTarget: CallFullscreenTarget | null = null;
   let callFullscreenMedia: CallFullscreenMedia | null = null;
   let callFullscreenOverlayEl: HTMLDivElement | undefined;
+  let callFullscreenOpener: HTMLElement | null = null;
   let callFullscreenNativeActive = false;
   let callMediaSessionHandlersActive = false;
   let composerMenuOpen = false;
@@ -807,6 +808,7 @@
   let emojiSkin: 'web' | 'ios' | 'material' = 'web';
   let emojiPos = { left: 0, top: 0, width: 352, height: 380 };
   let emojiPopEl: HTMLDivElement | undefined;
+  let emojiAnchor: HTMLElement | null = null;
 
   function openEmoji(target: EmojiTarget, anchor?: HTMLElement | null) {
     if (emojiTarget?.kind === 'insert' && target.kind === 'insert') { closeEmoji(); return; }
@@ -823,13 +825,24 @@
       emojiPos = { left, top: Math.max(8, top), width, height };
     }
     composerMenuOpen = false;
+    emojiAnchor = anchor ?? null;
     emojiTarget = target;
   }
 
   function closeEmoji(refocus = true) {
-    const wasInsert = emojiTarget?.kind === 'insert';
+    const was = emojiTarget;
+    const anchor = emojiAnchor;
     emojiTarget = null;
-    if (refocus && wasInsert && !appMode) inputEl?.focus();
+    emojiAnchor = null;
+    if (!refocus || !was) return;
+    if (was.kind === 'react') {
+      if (anchor?.isConnected) anchor.focus();
+      else document.querySelector<HTMLElement>(`#chat-msg-${was.msg.id} .chat-kmsg-actions__btn`)?.focus();
+    } else if (appMode) {
+      document.querySelector<HTMLElement>('.app-composer__emoji')?.focus();
+    } else {
+      inputEl?.focus();
+    }
   }
 
   function insertAtCursor(text: string) {
@@ -4974,6 +4987,7 @@
   }
 
   function openCallFullscreen(target: CallFullscreenTarget) {
+    callFullscreenOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     callFullscreenTarget = target;
     requestAnimationFrame(() => {
       callFullscreenOverlayEl?.focus();
@@ -4983,15 +4997,24 @@
 
   function closeCallFullscreen(exitNative = true) {
     const shouldExitNative = exitNative && callFullscreenNativeActive && Boolean(getNativeFullscreenElement());
+    const opener = callFullscreenOpener;
+    callFullscreenOpener = null;
     callFullscreenTarget = null;
     callFullscreenMedia = null;
     callFullscreenNativeActive = false;
     if (shouldExitNative) void exitNativeFullscreen();
+    void settled().then(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (opener && opener !== document.body && opener.isConnected) opener.focus();
+      else document.querySelector<HTMLElement>('.call__expand')?.focus();
+    });
   }
 
   function handleCallFullscreenKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && composerMenuOpen) {
       composerMenuOpen = false;
+      document.querySelector<HTMLElement>('.chat-attach-menu .chat-attach-btn')?.focus();
       return;
     }
     if (event.key === 'Escape' && callFullscreenTarget) closeCallFullscreen();
@@ -6582,7 +6605,7 @@
   <Sheet opened={emojiTarget !== null} inert={emojiTarget === null} onBackdropClick={() => closeEmoji(false)} class="app-sheet app-emoji-sheet pb-[env(safe-area-inset-bottom)]" bind:el={emojiSheetEl} role="dialog" aria-modal="true" aria-label={t(dict, 'emoji.label')} onkeydown={(e) => trapOverlayTab(e, emojiSheetEl)}>
     <div class="app-sheet__handle"></div>
     {#if emojiTarget}
-      <EmojiPicker {locale} {dict} skin={emojiSkin} mode={emojiTarget.kind === 'react' ? 'reaction' : 'insert'} onpick={pickEmoji} onclose={() => closeEmoji(false)} />
+      <EmojiPicker {locale} {dict} skin={emojiSkin} mode={emojiTarget.kind === 'react' ? 'reaction' : 'insert'} onpick={pickEmoji} onclose={() => closeEmoji()} />
     {/if}
   </Sheet>
 {:else if emojiTarget}
