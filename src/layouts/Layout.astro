@@ -16,9 +16,11 @@ type Props = {
   ogImage?: string;
   canonical?: string;
   mainClass?: string;
+  background?: boolean;
 };
 
 const backgroundMode = 'ascii' as 'ascii' | 'flow';
+const isHome = /^\/(?:(?:cs|de|es|fr|sk|pl)\/?)?$/.test(Astro.url.pathname);
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const site = siteOrigin();
@@ -30,6 +32,7 @@ const {
   ogImage = new URL('/og.png?v=9', site).href,
   canonical,
   mainClass = '',
+  background = true,
 } = Astro.props;
 
 const path = Astro.url.pathname;
@@ -107,7 +110,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#08110a" media="(prefers-color-scheme: dark)" />
-		{backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src.webp" fetchpriority="low" />}
+		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src.webp" fetchpriority="low" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
@@ -144,7 +147,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</script>
 	</head>
 	<body>
-		{backgroundMode === 'flow' ? (
+		{!background ? null : backgroundMode === 'flow' ? (
 			<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
 		) : (
 			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:load /></div>
@@ -260,7 +263,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</main>
 
 		<footer class="site-footer">
-			<div id="pwa-promo" class="pwa-promo hidden">
+			{!isHome && <div id="pwa-promo" class="pwa-promo hidden">
 				<div class="pwa-promo__inner">
 					<div class="pwa-promo__shots" aria-hidden="true">
 						<img class="app-shot app-shot--sm" src="/screenshot-hub-chats.png?v=9" alt="" width="72" height="156" decoding="async" />
@@ -283,7 +286,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						</div>
 					</div>
 				</div>
-			</div>
+			</div>}
 			<div class="site-footer__inner">
 				<a href={homeHref} class="nav__brand">
 					<img src="/encryptclick_icon.svg" alt="" width="14" height="22" class="h-[22px] w-auto" decoding="async" />
