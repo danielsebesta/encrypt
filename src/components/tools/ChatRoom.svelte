@@ -5033,6 +5033,9 @@
       document.querySelector<HTMLElement>('.chat-attach-menu .chat-attach-btn')?.focus();
       return;
     }
+    if (event.key === 'Escape' && appMode && emojiTarget) { closeEmoji(); return; }
+    if (event.key === 'Escape' && appMode && actionMenuFor) { actionMenuFor = null; return; }
+    if (event.key === 'Escape' && appMode && membersOpen) { membersOpen = false; nameEditing = false; return; }
     if (event.key === 'Escape' && callFullscreenTarget) closeCallFullscreen();
   }
 
