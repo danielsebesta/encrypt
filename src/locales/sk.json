@@ -258,6 +258,8 @@
   "tools.ultimateEncrypt.shortenFailed": "Odkaz sa nepodarilo skrátiť. Celý odkaz funguje rovnako.",
   "tools.ultimateEncrypt.result.storageNote": "Dostupné 24 hodín. Potom môže súbor kedykoľvek zmiznúť.",
   "tools.ultimateEncrypt.result.copyAll": "Kopírovať všetko",
+  "tools.ultimateEncrypt.result.readyTitle": "Pripravené na zdieľanie",
+  "tools.ultimateEncrypt.result.moreTitle": "Ďalšie možnosti zdieľania",
   "tools.ultimateEncrypt.result.tellTitle": "Čo povedať príjemcovi",
   "tools.ultimateEncrypt.result.tell.1": "Pošli mu tento odkaz.",
   "tools.ultimateEncrypt.result.tell.2": "Heslo pošli iným kanálom, keď to ide.",

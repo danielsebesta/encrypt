@@ -258,6 +258,8 @@
   "tools.ultimateEncrypt.shortenFailed": "Could not shorten the link. The full link works just the same.",
   "tools.ultimateEncrypt.result.storageNote": "Available for 24 hours. After that the file may disappear at any time.",
   "tools.ultimateEncrypt.result.copyAll": "Copy all",
+  "tools.ultimateEncrypt.result.readyTitle": "Ready to share",
+  "tools.ultimateEncrypt.result.moreTitle": "More ways to share",
   "tools.ultimateEncrypt.result.tellTitle": "What to tell the recipient",
   "tools.ultimateEncrypt.result.tell.1": "Send them this link.",
   "tools.ultimateEncrypt.result.tell.2": "Send the password on a different channel when you can.",

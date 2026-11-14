@@ -258,6 +258,8 @@
   "tools.ultimateEncrypt.shortenFailed": "Impossible de raccourcir le lien. Le lien complet fonctionne de la même façon.",
   "tools.ultimateEncrypt.result.storageNote": "Disponible pendant 24 heures. Ensuite, le fichier peut disparaître à tout moment.",
   "tools.ultimateEncrypt.result.copyAll": "Tout copier",
+  "tools.ultimateEncrypt.result.readyTitle": "Prêt à partager",
+  "tools.ultimateEncrypt.result.moreTitle": "Autres façons de partager",
   "tools.ultimateEncrypt.result.tellTitle": "Quoi dire au destinataire",
   "tools.ultimateEncrypt.result.tell.1": "Envoie-lui ce lien.",
   "tools.ultimateEncrypt.result.tell.2": "Envoie le mot de passe par un autre canal quand tu peux.",

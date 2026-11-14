@@ -258,6 +258,8 @@
   "tools.ultimateEncrypt.shortenFailed": "Nie udało się skrócić linku. Pełny link działa tak samo.",
   "tools.ultimateEncrypt.result.storageNote": "Dostępny przez 24 godziny. Po tym czasie plik może zniknąć w dowolnym momencie.",
   "tools.ultimateEncrypt.result.copyAll": "Kopiuj wszystko",
+  "tools.ultimateEncrypt.result.readyTitle": "Gotowe do udostępnienia",
+  "tools.ultimateEncrypt.result.moreTitle": "Więcej sposobów udostępniania",
   "tools.ultimateEncrypt.result.tellTitle": "Co powiedzieć odbiorcy",
   "tools.ultimateEncrypt.result.tell.1": "Wyślij mu ten link.",
   "tools.ultimateEncrypt.result.tell.2": "Hasło wyślij innym kanałem, gdy możesz.",

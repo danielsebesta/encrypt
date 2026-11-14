@@ -1806,6 +1806,14 @@ html.dark {
         @apply grid gap-5;
     }
 
+    .ue-result__ready {
+        @apply flex items-center gap-2 text-base font-semibold text-accent;
+    }
+
+    .ue-result-more {
+        @apply rounded-lg border border-line bg-surface px-3 py-1;
+    }
+
     .ue-result-tell {
         @apply grid gap-2 rounded-lg border border-line-soft bg-surface-2 px-3.5 py-3 text-sm leading-snug text-muted;
     }

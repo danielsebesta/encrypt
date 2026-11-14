@@ -1049,6 +1049,7 @@
 
   {:else if step === 'result'}
     <div class="ue-result" role="status">
+      <p class="ue-result__ready"><Icon name="check" size={20} />{t(dict, 'tools.ultimateEncrypt.result.readyTitle')}</p>
       <div class="card stack">
         {#if resultUrl || shortUrl}
           <div class="field">
@@ -1057,7 +1058,7 @@
               <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
             </div>
             <input id="ue-result-link" class="input input--mono" type="text" readonly tabindex="-1" value={shareUrl} />
-            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} hint={t(dict, 'tools.ultimateEncrypt.shareLinkHint')} className="btn-secondary w-full" />
+            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} className="btn-secondary w-full" />
             <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
             {#if deadMan && resultUnlock}
               <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.options.deadManResult').replace('{time}', new Date(resultUnlock).toLocaleString(locale))}</p>
@@ -1094,19 +1095,6 @@
           <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
         </div>
 
-        {#if qrSvg && shareUrl}
-          <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
-        {/if}
-
-        <div class="ue-result-tell">
-          <p class="ue-result-tell__title">{t(dict, 'tools.ultimateEncrypt.result.tellTitle')}</p>
-          <ul>
-            <li>{t(dict, 'tools.ultimateEncrypt.result.tell.1')}</li>
-            <li>{t(dict, 'tools.ultimateEncrypt.result.tell.2')}</li>
-            <li>{t(dict, 'tools.ultimateEncrypt.result.tell.3')}</li>
-          </ul>
-        </div>
-
         <CopyButton
           text={resultBlurb}
           label={t(dict, 'tools.ultimateEncrypt.result.copyAll')}
@@ -1117,31 +1105,59 @@
         />
       </div>
 
-      {#if dropUrl}
-        <div class="field">
-          <a href={dropUrl} download={dropName} class="btn-secondary w-full">{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
-          <p class="hint">{t(dict, 'tools.ultimateEncrypt.offlineDropHint')}</p>
-        </div>
-      {/if}
-      {#if resultPassword && resultFragment}
-        <button type="button" class="btn-ghost w-full" disabled={passkeySaving} on:click={savePasswordWithPasskey}>
-          {passkeySaving ? t(dict, 'tools.ultimateEncrypt.passkeySaving') : t(dict, 'tools.ultimateEncrypt.passkeySave')}
-        </button>
-        {#if passkeySaveNotice}
-          <p class="status" role="status">{passkeySaveNotice}</p>
-        {/if}
-      {/if}
-      {#if shortenableUrl && !shortUrl}
-        <div class="field">
-          <button type="button" class="btn-secondary w-full" disabled={shortening} on:click={shortenLink}>
-            {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
-          </button>
-          <p class="hint">{t(dict, 'tools.ultimateEncrypt.shortenHint')}</p>
-          {#if shortenFailed}
-            <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
+      <details class="more ue-result-more">
+        <summary>{t(dict, 'tools.ultimateEncrypt.result.moreTitle')}</summary>
+        <div class="more__body">
+          {#if qrSvg && shareUrl}
+            <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+          {/if}
+
+          <div class="ue-result-tell">
+            <p class="ue-result-tell__title">{t(dict, 'tools.ultimateEncrypt.result.tellTitle')}</p>
+            <ul>
+              <li>{t(dict, 'tools.ultimateEncrypt.result.tell.1')}</li>
+              <li>{t(dict, 'tools.ultimateEncrypt.result.tell.2')}</li>
+              <li>{t(dict, 'tools.ultimateEncrypt.result.tell.3')}</li>
+            </ul>
+          </div>
+          {#if dropUrl}
+            <div class="field">
+              <a href={dropUrl} download={dropName} class="btn-secondary w-full">{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
+              <p class="hint">{t(dict, 'tools.ultimateEncrypt.offlineDropHint')}</p>
+            </div>
+          {/if}
+          {#if resultPassword && resultFragment}
+            <button type="button" class="btn-ghost w-full" disabled={passkeySaving} on:click={savePasswordWithPasskey}>
+              {passkeySaving ? t(dict, 'tools.ultimateEncrypt.passkeySaving') : t(dict, 'tools.ultimateEncrypt.passkeySave')}
+            </button>
+            {#if passkeySaveNotice}
+              <p class="status" role="status">{passkeySaveNotice}</p>
+            {/if}
+          {/if}
+          {#if shortenableUrl && !shortUrl}
+            <div class="field">
+              <button type="button" class="btn-secondary w-full" disabled={shortening} on:click={shortenLink}>
+                {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
+              </button>
+              <p class="hint">{t(dict, 'tools.ultimateEncrypt.shortenHint')}</p>
+              {#if shortenFailed}
+                <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
+              {/if}
+            </div>
+          {/if}
+          {#if stegoImageUrl}
+            <div class="field">
+              <span class="label">{t(dict, 'tools.ultimateEncrypt.steganographyImage')}</span>
+              <p class="hint">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
+              <div class="flex items-center gap-3">
+                <img src={stegoImageUrl} alt="" class="h-16 w-16 rounded-lg border border-line-soft object-cover" />
+                <button type="button" class="btn-secondary btn-sm" on:click={downloadStego}>{t(dict, 'tools.ultimateEncrypt.downloadImage')}</button>
+              </div>
+            </div>
           {/if}
         </div>
-      {/if}
+      </details>
+
       {#if shortUrl}
         <details class="more">
           <summary>{t(dict, 'tools.ultimateEncrypt.fullLink')}</summary>
@@ -1152,17 +1168,6 @@
             </div>
           </div>
         </details>
-      {/if}
-
-      {#if stegoImageUrl}
-        <div class="field">
-          <span class="label">{t(dict, 'tools.ultimateEncrypt.steganographyImage')}</span>
-          <p class="hint">{t(dict, 'tools.ultimateEncrypt.steganographyHelp')}</p>
-          <div class="flex items-center gap-3">
-            <img src={stegoImageUrl} alt="" class="h-16 w-16 rounded-lg border border-line-soft object-cover" />
-            <button type="button" class="btn-secondary btn-sm" on:click={downloadStego}>{t(dict, 'tools.ultimateEncrypt.downloadImage')}</button>
-          </div>
-        </div>
       {/if}
 
       <button type="button" class="btn-secondary w-full" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>

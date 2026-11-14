@@ -258,6 +258,8 @@
   "tools.ultimateEncrypt.shortenFailed": "Der Link konnte nicht gekürzt werden. Der vollständige Link funktioniert genauso.",
   "tools.ultimateEncrypt.result.storageNote": "24 Stunden verfügbar. Danach kann die Datei jederzeit verschwinden.",
   "tools.ultimateEncrypt.result.copyAll": "Alles kopieren",
+  "tools.ultimateEncrypt.result.readyTitle": "Bereit zum Teilen",
+  "tools.ultimateEncrypt.result.moreTitle": "Weitere Möglichkeiten zum Teilen",
   "tools.ultimateEncrypt.result.tellTitle": "Was du der Empfängerin oder dem Empfänger sagst",
   "tools.ultimateEncrypt.result.tell.1": "Schick ihnen diesen Link.",
   "tools.ultimateEncrypt.result.tell.2": "Schick das Passwort wenn möglich über einen anderen Kanal.",
