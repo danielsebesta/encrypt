@@ -352,6 +352,10 @@
   let orbDone = false;
 
       error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
+    if (shortenableUrl && !shortUrl) {
+      await requestShortUrl(shortenableUrl);
+      shortenFailed = !shortUrl;
+    }
     if (step === 'processing' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       orbDone = true;
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -760,7 +764,7 @@
     stegoImageUrl = URL.createObjectURL(stegoImageBlob);
   }
 
-  // Only on request: a short link keeps the encrypted payload on the shortening service, the full link keeps it nowhere.
+  // Runs automatically before the result is shown; this retry only appears when that attempt failed.
   async function shortenLink(): Promise<void> {
     const url = shortenableUrl;
     if (!url || shortening) return;
@@ -1134,12 +1138,11 @@
               <p class="status" role="status">{passkeySaveNotice}</p>
             {/if}
           {/if}
-          {#if shortenableUrl && !shortUrl}
+          {#if shortenFailed && shortenableUrl && !shortUrl}
             <div class="field">
               <button type="button" class="btn-secondary w-full" disabled={shortening} on:click={shortenLink}>
                 {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
               </button>
-              <p class="hint">{t(dict, 'tools.ultimateEncrypt.shortenHint')}</p>
               {#if shortenFailed}
                 <p class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
               {/if}
