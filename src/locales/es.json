@@ -1444,6 +1444,7 @@
   "app.settings.wipeHint": "Borra todas las salas y claves de este dispositivo",
   "app.settings.wipeBody": "Borra todas las salas guardadas, sus secretos protegidos por llave de acceso y todas las claves almacenadas en este dispositivo. No se puede deshacer.",
   "app.settings.wipeConfirm": "Borrar todo",
+  "app.settings.wipeSlide": "Desliza para borrar todo",
   "app.settings.wipeDone": "Todo se ha borrado de este dispositivo",
   "app.settings.wipeError": "No se pudieron borrar algunos datos",
   "app.voice.speed": "Velocidad de reproducción",

@@ -70,6 +70,7 @@
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
   import { installSheetSwipe } from '../../lib/sheetSwipe';
+  import { asciiKit } from '../../lib/asciiKit';
   import { haptic, hapticsAvailable, hapticsNeedGestureEnd, installHapticGrant } from '../../lib/haptics';
   import { hapticTap } from '../../lib/hapticTap';
   import { clearLock, enableLock, lockSupported, confirmPresence, prepareLockScreen, shouldLock, storedLock, unlock } from '../../lib/appLock';
@@ -160,6 +161,8 @@
   let langSheetOpen = $state(false);
   let prefSheetOpen = $derived(prefSheet !== null);
   let panicDialogOpen = $state(false);
+  let wipeSlider: { reset(): void; destroy(): void } | null = null;
+  $effect(() => { if (!panicDialogOpen) wipeSlider?.reset(); });
   let vaultExportOpen = $state(false);
   let vaultExportPw = $state('');
   let vaultExportBusy = $state(false);
@@ -2643,9 +2646,16 @@
     <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.settings.wipeConfirm'))} opened={panicDialogOpen} onBackdropClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>
       {#snippet title()}{t(dict, 'app.settings.wipe')}{/snippet}
       {t(dict, 'app.settings.wipeBody')}
+      <div
+        class="app-slide"
+        use:asciiKit={(kit, node) => (wipeSlider = kit.slideToConfirm(node, { onConfirm: () => void handlePanic(), color: 'var(--app-error)' }))}
+      >
+        <span class="app-slide__label" data-label>{t(dict, 'app.settings.wipeSlide')}</span>
+        <span class="app-slide__thumb" role="slider" tabindex="0" aria-label={t(dict, 'app.settings.wipeSlide')} aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span>
+      </div>
       {#snippet buttons()}
         <DialogButton class="app-dialog-cancel" onClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
-        <DialogButton onClick={handlePanic} class="app-dialog-destructive">{t(dict, 'app.settings.wipeConfirm')}</DialogButton>
+        <DialogButton onClick={handlePanic} class="app-dialog-destructive app-slide-fallback">{t(dict, 'app.settings.wipeConfirm')}</DialogButton>
       {/snippet}
     </Dialog>
 

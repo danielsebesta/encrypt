@@ -1444,6 +1444,7 @@
   "app.settings.wipeHint": "Wymazuje wszystkie pokoje i klucze na tym urządzeniu",
   "app.settings.wipeBody": "Wymazuje wszystkie zapisane pokoje, ich sekrety chronione kluczem dostępu oraz wszystkie klucze przechowywane na tym urządzeniu. Nie da się tego cofnąć.",
   "app.settings.wipeConfirm": "Wymaż wszystko",
+  "app.settings.wipeSlide": "Przesuń, aby wymazać wszystko",
   "app.settings.wipeDone": "Wszystko na tym urządzeniu zostało wymazane",
   "app.settings.wipeError": "Nie udało się usunąć części danych",
   "app.voice.speed": "Prędkość odtwarzania",

@@ -1444,6 +1444,7 @@
   "app.settings.wipeHint": "Smaže všechny místnosti a klíče v tomto zařízení",
   "app.settings.wipeBody": "Smaže všechny uložené místnosti, jejich tajemství chráněná přístupovým klíčem a všechny klíče uložené v tomto zařízení. Akce je nevratná.",
   "app.settings.wipeConfirm": "Vymazat vše",
+  "app.settings.wipeSlide": "Posuň pro vymazání všeho",
   "app.settings.wipeDone": "Vše na tomto zařízení bylo smazáno",
   "app.settings.wipeError": "Některá data se nepodařilo smazat",
   "app.voice.speed": "Rychlost přehrávání",
