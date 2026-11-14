@@ -1,5 +1,6 @@
 ---
 import AsciiDecode from '../components/AsciiDecode.svelte';
+import BackgroundSwitch from '../components/BackgroundSwitch.svelte';
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
@@ -10,6 +11,7 @@ import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const localePrefix = '';
+const bgDict = pickDict(dict, ['home.background']);
 const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
 const facts = [1, 2, 3];
@@ -32,6 +34,7 @@ const serverItems = [1, 2, 3];
             </li>
           ))}
         </ul>
+        <BackgroundSwitch client:idle dict={bgDict} />
       </div>
       <div class="home-hero__form" id="try">
         <HomeTry client:visible locale={locale} dict={tryDict} />

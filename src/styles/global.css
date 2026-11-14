@@ -2210,6 +2210,28 @@ html.dark {
     margin-bottom: 1rem;
 }
 
+.flow-bg--ascii {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
+    pointer-events: none;
+}
+
+html.flow-ready .flow-bg--ascii {
+    animation: ascii-in 1.2s ease-out 0.1s both;
+}
+
+@keyframes ascii-in {
+    from { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.flow-ready .flow-bg--ascii { animation: none; }
+}
+
 .ascii-bg {
     position: absolute;
     inset: 0;
