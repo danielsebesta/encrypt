@@ -1031,6 +1031,8 @@
   {:else if step === 'processing'}
     <div class="stack ue-beam" use:asciiKit={(kit, node) => (beamHandle = kit.beam(node, { palette: BEAM_PALETTE, mode: 'progress', grain: 'dots', hover: false }))}>
       <ProgressPulse
+        orb={false}
+        bar={false}
         title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
         detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
         ratio={transferBar}

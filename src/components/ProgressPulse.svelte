@@ -9,13 +9,17 @@
   /** Secondary line: bytes, speed, ETA, online/offline. */
   export let transferLine = '';
   export let state: 'loading' | 'success' | 'error' = 'loading';
+  /** Set false when another element (a border beam) shows the progress: no orb, no spinner. */
+  export let orb = true;
+  /** Set false to keep the progress value for screen readers only. */
+  export let bar = true;
 
   let orbEl: HTMLSpanElement | undefined;
   let orbOn = false;
   let handle: { supported: boolean; loading(): void; success(): void; error(): void; destroy(): void } | null = null;
 
   onMount(() => {
-    if (compact || !orbEl || matchMedia('(prefers-reduced-data: reduce)').matches) return;
+    if (compact || !orb || !orbEl || matchMedia('(prefers-reduced-data: reduce)').matches) return;
     let gone = false;
     import('asciify-engine/kit').then(({ statusOrb }) => {
       if (gone || !orbEl) return;
@@ -54,8 +58,8 @@
   }
 </script>
 
-<div class="status status--busy" class:status--orb={orbOn}>
-  {#if !compact}<span bind:this={orbEl} class="status__orb" aria-hidden="true"></span>{/if}
+<div class="status status--busy" class:status--orb={orbOn || !orb}>
+  {#if !compact && orb}<span bind:this={orbEl} class="status__orb" aria-hidden="true"></span>{/if}
   <div class="status__body">
     <div role="status" aria-live="polite">
       <p class="status__title">{title}</p>
@@ -69,7 +73,7 @@
     {#if ratio != null || transferLine}
       <div class="status__transfer">
         {#if ratio != null}
-          <progress class="status__bar" max="1" value={ratio} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}></progress>
+          <progress class="status__bar" class:sr-only={!bar} max="1" value={ratio} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}></progress>
         {/if}
         {#if transferLine}
           <p class="status__transfer-line">{transferLine}</p>
