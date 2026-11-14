@@ -353,9 +353,13 @@
   let ws: PartySocket | null = null;
   let netOffline = false;
   let lightbox: { url: string; name: string } | null = null;
+  let lightboxEl: HTMLDivElement | undefined;
+  let lightboxOpener: HTMLElement | null = null;
   function openLightbox(url: string, name = '') {
+    lightboxOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     lightbox = { url, name };
     window.addEventListener('keydown', onLightboxKey);
+    void settled().then(() => lightboxEl?.focus());
   }
   function saveLightboxImage() {
     if (!lightbox) return;
@@ -367,8 +371,16 @@
     a.remove();
   }
   function closeLightbox() {
+    const opener = lightboxOpener;
+    lightboxOpener = null;
     lightbox = null;
     window.removeEventListener('keydown', onLightboxKey);
+    void settled().then(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (opener && opener !== document.body && opener.isConnected) opener.focus();
+      else document.querySelector<HTMLElement>('.chat-preview-img-btn')?.focus();
+    });
   }
   function onLightboxKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
@@ -5685,7 +5697,7 @@
 
 <svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); closeHeaderMenuOnOutside(e); closeMenusOnOutside(e); onEmojiOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); closeHeaderMenuOnEscape(e); }} />
 
-<div class="chat-container">
+<div class="chat-container" inert={Boolean(lightbox)}>
   {#if unsupportedBrowser}
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
@@ -6626,6 +6638,9 @@
     role="dialog"
     aria-modal="true"
     aria-label={t(dict, 'app.lightbox.image')}
+    tabindex="-1"
+    bind:this={lightboxEl}
+    on:keydown={(e) => trapOverlayTab(e, lightboxEl)}
   >
     <div class="chat-lightbox__stage" use:zoomPan={{ onDismiss: closeLightbox }}>
       <img src={lightbox.url} alt={lightbox.name} class="chat-lightbox__img" draggable="false" />
