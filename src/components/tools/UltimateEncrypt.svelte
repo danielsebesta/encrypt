@@ -1097,7 +1097,7 @@
               type="button"
               class="btn-ghost btn-sm btn-icon"
               on:click={() => { resultPasswordVisible = !resultPasswordVisible; }}
-              aria-label={t(dict, 'common.showPassword')}
+              aria-label={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
               aria-pressed={resultPasswordVisible}
               aria-controls="ue-result-pass"
               title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
@@ -1126,11 +1126,11 @@
         <summary>{t(dict, 'tools.ultimateEncrypt.result.moreTitle')}</summary>
         <div class="more__body">
           {#if qrSvg && shareUrl}
-            <button type="button" class="btn-secondary w-full" aria-expanded={qrOpen} on:click={() => (qrOpen = !qrOpen)}>
+            <button type="button" class="btn-secondary w-full" aria-expanded={qrOpen} aria-controls="ue-qr" on:click={() => (qrOpen = !qrOpen)}>
               {qrOpen ? t(dict, 'tools.ultimateEncrypt.hideQr') : t(dict, 'tools.ultimateEncrypt.showQr')}
             </button>
             {#if qrOpen}
-              <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+              <div class="ue-qr" id="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
             {/if}
           {/if}
 
