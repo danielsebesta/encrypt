@@ -358,11 +358,10 @@
   let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
   const beamExpected = typeof window !== 'undefined' && kitAllowed() && glAvailable();
   const mountBeam = (kit: any, node: HTMLElement) => {
-    const made = kit.beam(node, { palette: BEAM_PALETTE, mode: 'progress', grain: 'dots', hover: false });
+    const made = kit.beam(node, { palette: 'mono', ink: 'var(--accent)', mode: 'progress', grain: 'dots', hover: false });
     beamHandle = made;
     return { destroy() { beamHandle = null; made.destroy(); } };
   };
-  const BEAM_PALETTE = ['#3f8a4c', '#6fb35a', '#a7d27a', '#6fb35a'];
   $: if (beamHandle) {
     if (error) beamHandle.error();
     else if (orbDone) beamHandle.success();
