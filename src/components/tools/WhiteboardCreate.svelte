@@ -142,7 +142,7 @@
         <p id="wb-room-hint" class="hint">{t(dict, 'whiteboard.customRoomIdHint')}</p>
       </div>
       <div class="wizard-actions">
-        <button class="btn" type="submit">{t(dict, 'common.continue')}</button>
+        <button class="btn w-full" type="submit">{t(dict, 'common.continue')}</button>
       </div>
     </form>
   {:else}
