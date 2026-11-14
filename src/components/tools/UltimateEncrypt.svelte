@@ -15,6 +15,7 @@
   import CopyButton from '../CopyButton.svelte';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
+  import { asciiKit } from '../../lib/asciiKit';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -351,6 +352,13 @@
       error === t(dict, 'tools.ultimateEncrypt.options.unlockPast') ||
       error === t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') ||
   let orbDone = false;
+  let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
+  const BEAM_PALETTE = ['#3f8a4c', '#6fb35a', '#a7d27a', '#6fb35a'];
+  $: if (beamHandle) {
+    if (error) beamHandle.error();
+    else if (orbDone) beamHandle.success();
+    else beamHandle.progress(Math.max(0.06, transferBar ?? 0));
+  }
 
       error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
     if (shortenableUrl && !shortUrl) {
@@ -359,7 +367,7 @@
     }
     if (step === 'processing' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       orbDone = true;
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 1300));
       orbDone = false;
     }
     if (unlockFocused) optionsOpen = true;
@@ -1042,13 +1050,13 @@
     </div>
 
   {:else if step === 'processing'}
-        state={error ? 'error' : orbDone ? 'success' : 'loading'}
-    <div class="stack">
+    <div class="stack ue-beam" use:asciiKit={(kit, node) => (beamHandle = kit.beam(node, { palette: BEAM_PALETTE, mode: 'progress', grain: 'dots', hover: false }))}>
       <ProgressPulse
         title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
         detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
         ratio={transferBar}
         transferLine={transferLine}
+        state={error ? 'error' : orbDone ? 'success' : 'loading'}
       />
       {#if error}
         <p class="status status--error" role="alert">{error}</p>

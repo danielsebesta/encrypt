@@ -1806,6 +1806,10 @@ html.dark {
         @apply grid gap-5;
     }
 
+    .ue-beam {
+        @apply rounded-lg border border-line p-4 md:p-6;
+    }
+
     .ue-result__ready {
         @apply flex items-center gap-2 text-base font-semibold text-accent;
     }
