@@ -990,7 +990,8 @@ html.dark {
     }
 
     .nav {
-        @apply mx-auto flex h-14 max-w-6xl items-center gap-2 px-4;
+        @apply relative mx-auto mt-3 flex h-14 items-center gap-2 rounded-lg border border-line bg-surface px-3;
+        width: min(100% - 2rem, 72rem);
     }
 
     .nav__brand {
@@ -1137,8 +1138,8 @@ html.dark {
 
     @media (max-width: 767px) {
         .nav--open .nav__links {
-            @apply absolute inset-x-0 top-full flex flex-col gap-0.5 overflow-y-auto border-y border-line bg-bg p-3;
-            max-height: calc(100dvh - 3.5rem);
+            @apply absolute inset-x-0 top-full mt-2 flex flex-col gap-0.5 overflow-y-auto rounded-lg border border-line bg-bg p-3;
+            max-height: calc(100dvh - 6rem);
         }
 
         .nav__links .nav__link {
