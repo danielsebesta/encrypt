@@ -8,6 +8,7 @@ const LOCALES = ['cs', 'sk', 'de', 'es', 'fr', 'pl'] as const;
 
 /** Keys that may legitimately match English (brands, loanwords, cognates, technical labels). */
 const ALLOW_SAME_AS_EN = new Set([
+  'install.android.title',
   'install.guide.device.androidSamsung',
   'install.guide.device.androidFirefox',
   'home.facts.3.value',
