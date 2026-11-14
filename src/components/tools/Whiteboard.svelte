@@ -231,7 +231,9 @@
     if (styleOpen) { styleOpen = false; return true; }
     return false;
   };
+  $: if (menuOpen && !appMode) void tick().then(() => wbMenuItems()[0]?.focus());
   let wbMenuEl: HTMLButtonElement | undefined = undefined;
+  let wbMenuPanelEl: HTMLElement | undefined = undefined;
   let isFullscreen = false;
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
@@ -828,6 +830,31 @@
     } else {
       cursors = [...cursors, next];
     }
+  }
+
+  function wbMenuItems(): HTMLElement[] {
+    return [...(wbMenuPanelEl?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled]), [role="menuitemcheckbox"]:not([disabled])') ?? [])];
+  }
+
+  function onWbMenuKeydown(e: KeyboardEvent) {
+    const items = wbMenuItems();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      menuOpen = false;
+      wbMenuEl?.focus();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+      items[at < 0 ? (dir === 1 ? 0 : items.length - 1) : (at + dir + items.length) % items.length]?.focus();
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
+    }
+  }
+
+  function onWbMenuFocusout(e: FocusEvent) {
+    if (menuOpen && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) menuOpen = false;
   }
 
   function onTrustChange() {
@@ -1698,12 +1725,13 @@
           </div>
         </div>
 
-        <div class="wb-pop" data-wb-menu>
+        <div class="wb-pop" data-wb-menu on:focusout={onWbMenuFocusout}>
           <button
             bind:this={wbMenuEl}
             id="wb-menu-trigger"
             type="button"
             class="wb-pill wb-btn wb-btn--solo"
+            aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls="wb-menu"
             aria-label={t(dict, 'whiteboard.menu')}
@@ -1713,7 +1741,7 @@
             <Icon name="ellipsis-vertical" size={20} />
           </button>
           {#if appMode}
-            <Popover opened={menuOpen} inert={!menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
+            <Popover id="wb-menu" opened={menuOpen} inert={!menuOpen} target={wbMenuEl} angle onBackdropClick={() => { menuOpen = false; }}>
               <MenuList>
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.exportPng')} onClick={exportPng}>
                   {#snippet media()}<Icon name="download" size={20} />{/snippet}
@@ -1752,37 +1780,46 @@
               </MenuList>
             </Popover>
           {:else}
-          <div id="wb-menu" class="menu wb-menu-panel" class:menu--open={menuOpen}>
-            <button type="button" class="menu__item" on:click={exportPng} disabled={shapeCount === 0}>
+          <div
+            id="wb-menu"
+            class="menu wb-menu-panel"
+            class:menu--open={menuOpen}
+            role="menu"
+            tabindex="-1"
+            aria-label={t(dict, 'whiteboard.menu')}
+            bind:this={wbMenuPanelEl}
+            on:keydown={onWbMenuKeydown}
+          >
+            <button type="button" class="menu__item" role="menuitem" on:click={exportPng} disabled={shapeCount === 0}>
               <Icon name="download" />{t(dict, 'whiteboard.exportPng')}
             </button>
-            <button type="button" class="menu__item" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+            <button type="button" class="menu__item" role="menuitem" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
               <Icon name="save" />{t(dict, 'whiteboard.exportBoard')}
             </button>
-            <button type="button" class="menu__item" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+            <button type="button" class="menu__item" role="menuitem" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
               <Icon name="save" />{t(dict, 'whiteboard.exportEncrypted')}
             </button>
-            <button type="button" class="menu__item" on:click={chooseImport} aria-describedby="wb-backup-hint">
+            <button type="button" class="menu__item" role="menuitem" on:click={chooseImport} aria-describedby="wb-backup-hint">
               <Icon name="upload" />{t(dict, 'whiteboard.importBoard')}
             </button>
-            <button type="button" class="menu__item" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
+            <button type="button" class="menu__item" role="menuitem" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
               <Icon name="upload" />{t(dict, 'whiteboard.importEncrypted')}
             </button>
-            <p id="wb-backup-hint" class="hint wb-menu-hint">{t(dict, 'whiteboard.backupHint')}</p>
+            <p id="wb-backup-hint" class="hint wb-menu-hint" role="presentation">{t(dict, 'whiteboard.backupHint')}</p>
             <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
-            <button type="button" class="menu__item" on:click={zoomFit} disabled={shapeCount === 0}>
+            <button type="button" class="menu__item" role="menuitem" on:click={zoomFit} disabled={shapeCount === 0}>
               <Icon name="maximize" />{t(dict, 'whiteboard.zoomFit')}
             </button>
-            <button type="button" class="menu__item" role="switch" aria-checked={gridOn} on:click={toggleGrid}>
+            <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={gridOn} on:click={toggleGrid}>
               <Icon name="grid-3x3" />{t(dict, 'whiteboard.grid')}
               {#if gridOn}<Icon name="check" class="wb-menu-check" />{/if}
             </button>
             {#if fullscreenSupported}
-              <button type="button" class="menu__item" on:click={toggleFullscreen}>
+              <button type="button" class="menu__item" role="menuitem" on:click={toggleFullscreen}>
                 <Icon name={isFullscreen ? 'minimize-2' : 'maximize-2'} />{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
               </button>
             {/if}
-            <button type="button" class="menu__item wb-menu-danger" on:click={clearAll} disabled={shapeCount === 0}>
+            <button type="button" class="menu__item wb-menu-danger" role="menuitem" on:click={clearAll} disabled={shapeCount === 0}>
               <Icon name="trash" />{t(dict, 'whiteboard.clear')}
             </button>
           </div>
