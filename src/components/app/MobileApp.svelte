@@ -312,6 +312,56 @@
     toastOpen = false;
   });
 
+  const openOverlayKey = $derived(
+    newRoomSheetOpen ? 'newRoom'
+      : joinRoomSheetOpen ? 'join'
+      : langSheetOpen ? 'lang'
+      : prefSheetOpen ? 'pref'
+      : showIosInstallSheet ? 'install'
+      : panicDialogOpen ? 'panic'
+      : vaultExportOpen ? 'vaultExport'
+      : vaultImportOpen ? 'vaultImport'
+      : clearBoardDialogOpen ? 'clearBoard'
+      : renameDialogOpen ? 'rename'
+      : deleteDialogOpen ? 'del'
+      : actionsRoom ? 'actions'
+      : null,
+  );
+
+  // Konsta overlays are bare positioned divs: focus the first control inside,
+  // inert the app behind the open one and hand focus back to its opener.
+  $effect(() => {
+    const key = openOverlayKey;
+    if (!key) return;
+    const opener =
+      document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    const overlay = document.querySelector<HTMLElement>(`[data-app-overlay="${key}"]`);
+    if (!overlay) return;
+    const inerted: [HTMLElement, boolean][] = [];
+    for (let edge: HTMLElement | null = overlay, host = edge.parentElement; host && host !== document.body; edge = host, host = host.parentElement) {
+      for (const sib of host.children) {
+        if (!(sib instanceof HTMLElement) || sib === edge) continue;
+        if (edge === overlay && sib === edge.previousElementSibling) continue;
+        inerted.push([sib, sib.inert]);
+        sib.inert = true;
+      }
+    }
+    const target =
+      overlay.querySelector<HTMLElement>('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])') ??
+      overlay.querySelector<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ??
+      overlay;
+    target.focus({ preventScroll: true });
+    return () => {
+      for (const [el, was] of inerted) el.inert = was;
+      const active = document.activeElement;
+      if (active && active !== document.body && !overlay.contains(active)) return;
+      const restore = overlay.getAttribute('data-restore');
+      const back = opener?.isConnected ? opener : restore ? document.querySelector<HTMLElement>(restore) : null;
+      back?.focus({ preventScroll: true });
+      if (document.activeElement !== back && restore) document.querySelector<HTMLElement>(restore)?.focus({ preventScroll: true });
+    };
+  });
+
   function showToast(message: string, feel: 'warning' | 'success' | false = 'warning') {
     toastMessage = message;
     toastOpen = true;
@@ -1642,7 +1692,7 @@
   </button>
 {/snippet}
 
-{#snippet sheetHeader(title: string, onClose: () => void, confirm?: { label: string; disabled: boolean; run: () => void })}
+{#snippet sheetHeader(title: string, onClose: () => void, confirm?: { label: string; disabled: boolean; run: () => void }, id?: string)}
   {#if platform === 'ios'}
     <div class="app-sheet-bar">
       {#if confirm}
@@ -1652,7 +1702,7 @@
       {:else}
         <span class="app-sheet-bar__btn app-sheet-bar__btn--spacer" aria-hidden="true"></span>
       {/if}
-      <h3 class="app-sheet-bar__title">{title}</h3>
+      <h3 id={id} class="app-sheet-bar__title">{title}</h3>
       {#if confirm}
         <button type="button" class="app-sheet-bar__btn app-sheet-bar__btn--confirm" onclick={confirm.run} disabled={confirm.disabled} aria-label={confirm.label}>
           <AppIcons name="check" size={20} />
@@ -1664,7 +1714,7 @@
       {/if}
     </div>
   {:else}
-    <h3 class="app-sheet-headline">{title}</h3>
+    <h3 id={id} class="app-sheet-headline">{title}</h3>
   {/if}
 {/snippet}
 
@@ -2311,6 +2361,11 @@
       inert={!newRoomSheetOpen}
       onBackdropClick={() => closeNewRoomSheet()}
       class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      data-app-overlay="newRoom"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-new-title"
+      tabindex="-1"
     >
       <div class="app-sheet__handle"></div>
       <div class="app-sheet-body">
@@ -2318,6 +2373,7 @@
           t(dict, newRoomKind === 'whiteboard' ? 'app.new.titleBoard' : 'app.new.titleChat'),
           () => closeNewRoomSheet(),
           { label: t(dict, 'app.new.open'), disabled: !canCreateRoom, run: handleCreateRoom },
+          'app-new-title',
         )}
         <List strong inset class="m-0! app-form">
           <ListInput
@@ -2460,6 +2516,11 @@
       inert={!joinRoomSheetOpen}
       onBackdropClick={() => closeJoinRoomSheet()}
       class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      data-app-overlay="join"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-join-title"
+      tabindex="-1"
     >
       <div class="app-sheet__handle"></div>
       <div class="app-sheet-body">
@@ -2467,7 +2528,7 @@
           label: t(dict, 'app.join.connect'),
           disabled: !joinRoomId.trim(),
           run: handleJoinRoom,
-        })}
+        }, 'app-join-title')}
         <List strong inset class="m-0! app-form">
           <ListInput
             type="text"
@@ -2513,10 +2574,15 @@
       opened={langSheetOpen}
       inert={!langSheetOpen}
       onBackdropClick={() => { langSheetOpen = false; consumeOverlayGuard(); }}
+      data-app-overlay="lang"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-lang-title"
+      tabindex="-1"
     >
       <div class="app-sheet__handle"></div>
       <div class="app-sheet-body app-sheet-body--list">
-        {@render sheetHeader(t(dict, 'app.settings.language'), () => { langSheetOpen = false; consumeOverlayGuard(); })}
+        {@render sheetHeader(t(dict, 'app.settings.language'), () => { langSheetOpen = false; consumeOverlayGuard(); }, undefined, 'app-lang-title')}
         <List strong inset class="app-group app-choices m-0!" role="radiogroup" aria-label={t(dict, 'app.settings.language')}>
           {#each locales as code (code)}
             {@render choiceRow(languages[code].name, code === locale, () => pickLanguage(code))}
@@ -2531,10 +2597,15 @@
       opened={prefSheetOpen}
       inert={!prefSheetOpen}
       onBackdropClick={() => closePrefSheet()}
+      data-app-overlay="pref"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-pref-title"
+      tabindex="-1"
     >
       <div class="app-sheet__handle"></div>
       <div class="app-sheet-body app-sheet-body--list">
-        {@render sheetHeader(prefSheetTitle(), () => closePrefSheet())}
+        {@render sheetHeader(prefSheetTitle(), () => closePrefSheet(), undefined, 'app-pref-title')}
         <List strong inset class="app-group app-choices m-0!" role="radiogroup" aria-label={prefSheetTitle()}>
           {#if prefSheet === 'platform'}
             {@render choiceRow(t(dict, 'app.settings.designIos'), platform === 'ios', () => { applyAppTheme({ platform: 'ios' }); closePrefSheet(); })}
@@ -2572,13 +2643,18 @@
       inert={!showIosInstallSheet}
       onBackdropClick={() => { showIosInstallSheet = false; consumeOverlayGuard(); }}
       class="app-sheet pb-[env(safe-area-inset-bottom)]"
+      data-app-overlay="install"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-install-title"
+      tabindex="-1"
     >
       <div class="app-sheet__handle"></div>
       <div class="px-5 pb-6 pt-3 space-y-4">
         <div class="w-14 h-14 mx-auto rounded-lg bg-[var(--app-tint-container)] flex items-center justify-center text-[var(--app-on-tint-container)]">
           <AppIcons name="install" size={26} />
         </div>
-        <h3 class="text-[17px] font-semibold text-[var(--app-label)] text-center">{t(dict, 'app.install.title')}</h3>
+        <h3 id="app-install-title" class="text-[17px] font-semibold text-[var(--app-label)] text-center">{t(dict, 'app.install.title')}</h3>
         <p class="text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.install.hint')}</p>
         <List strong inset class="m-0! app-form">
           <ListItem title={t(dict, 'app.install.step1')}>
@@ -2643,8 +2719,8 @@
     </Toast>
 
     <!-- PANIC DIALOG -->
-    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.settings.wipeConfirm'))} opened={panicDialogOpen} onBackdropClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }}>
-      {#snippet title()}{t(dict, 'app.settings.wipe')}{/snippet}
+    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.settings.wipeConfirm'))} opened={panicDialogOpen} inert={!panicDialogOpen} onBackdropClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }} data-app-overlay="panic" role="alertdialog" aria-modal="true" aria-labelledby="app-panic-title" tabindex="-1">
+      {#snippet title()}<span id="app-panic-title">{t(dict, 'app.settings.wipe')}</span>{/snippet}
       {t(dict, 'app.settings.wipeBody')}
       <div
         class="app-slide"
@@ -2660,8 +2736,8 @@
     </Dialog>
 
     <!-- VAULT EXPORT DIALOG -->
-    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.backup.exportConfirm'))} opened={vaultExportOpen} onBackdropClick={() => { vaultExportOpen = false; consumeOverlayGuard(); }}>
-      {#snippet title()}{t(dict, 'app.backup.export')}{/snippet}
+    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.backup.exportConfirm'))} opened={vaultExportOpen} inert={!vaultExportOpen} onBackdropClick={() => { vaultExportOpen = false; consumeOverlayGuard(); }} data-app-overlay="vaultExport" role="dialog" aria-modal="true" aria-labelledby="app-vault-export-title" tabindex="-1">
+      {#snippet title()}<span id="app-vault-export-title">{t(dict, 'app.backup.export')}</span>{/snippet}
       <p class="m-0 mb-3 text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.backup.exportBody')}</p>
       <input
         class="app-dialog-input"
@@ -2678,8 +2754,8 @@
     </Dialog>
 
     <!-- VAULT IMPORT DIALOG -->
-    <Dialog opened={vaultImportOpen} onBackdropClick={() => { vaultImportOpen = false; consumeOverlayGuard(); }}>
-      {#snippet title()}{t(dict, 'app.backup.import')}{/snippet}
+    <Dialog opened={vaultImportOpen} inert={!vaultImportOpen} onBackdropClick={() => { vaultImportOpen = false; consumeOverlayGuard(); }} data-app-overlay="vaultImport" role="dialog" aria-modal="true" aria-labelledby="app-vault-import-title" tabindex="-1">
+      {#snippet title()}<span id="app-vault-import-title">{t(dict, 'app.backup.import')}</span>{/snippet}
       <p class="m-0 mb-3 text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.backup.importBody')}</p>
       <input
         class="app-dialog-input"
@@ -2707,8 +2783,8 @@
     </Dialog>
 
     <!-- CLEAR BOARD DIALOG -->
-    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'whiteboard.delete'))} opened={clearBoardDialogOpen} onBackdropClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }}>
-      {#snippet title()}{t(dict, 'whiteboard.delete')}{/snippet}
+    <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'whiteboard.delete'))} opened={clearBoardDialogOpen} inert={!clearBoardDialogOpen} onBackdropClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }} data-app-overlay="clearBoard" data-restore="#wb-menu-trigger" role="alertdialog" aria-modal="true" aria-labelledby="app-clear-board-title" tabindex="-1">
+      {#snippet title()}<span id="app-clear-board-title">{t(dict, 'whiteboard.delete')}</span>{/snippet}
       {t(dict, 'whiteboard.clearConfirm')}
       {#snippet buttons()}
         <DialogButton class="app-dialog-cancel" onClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
@@ -2728,7 +2804,7 @@
     </Dialog>
 
     <!-- ROOM ROW CONTEXT MENU -->
-    <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop}>
+    <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop} data-app-overlay="actions" tabindex="-1">
       <MenuList>
         {#each [
           { key: 'pin', title: t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin'), icon: (actionTarget?.pinned ? 'pin-off' : 'pin') as IconName, run: togglePin, danger: false },
@@ -2753,13 +2829,19 @@
     <Dialog
       class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.save'))}
       opened={renameDialogOpen}
+      inert={!renameDialogOpen}
       onBackdropClick={() => {
         renameDialogOpen = false;
         endRowInteraction();
         consumeOverlayGuard();
       }}
+      data-app-overlay="rename"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-rename-title"
+      tabindex="-1"
     >
-      {#snippet title()}{t(dict, 'app.rename.title')}{/snippet}
+      {#snippet title()}<span id="app-rename-title">{t(dict, 'app.rename.title')}</span>{/snippet}
       <input
         type="text"
         class="app-dialog-input"
@@ -2792,13 +2874,19 @@
     <Dialog
       class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.remove.confirm'))}
       opened={deleteDialogOpen}
+      inert={!deleteDialogOpen}
       onBackdropClick={() => {
         deleteDialogOpen = false;
         endRowInteraction();
         consumeOverlayGuard();
       }}
+      data-app-overlay="del"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="app-delete-title"
+      tabindex="-1"
     >
-      {#snippet title()}{t(dict, 'app.remove.title')}{/snippet}
+      {#snippet title()}<span id="app-delete-title">{t(dict, 'app.remove.title')}</span>{/snippet}
       {t(dict, 'app.remove.body')}
       {#snippet buttons()}
         <DialogButton
