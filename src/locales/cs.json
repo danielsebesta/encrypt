@@ -322,7 +322,7 @@
   "tools.ultimateDecrypt.empty.linkInvalid": "To nevypadá jako odkaz ke sdílení z tohoto webu.",
   "tools.ultimateDecrypt.passwordLabel": "Heslo",
   "tools.ultimateDecrypt.passwordPlaceholder": "Zadej heslo použité při šifrování...",
-  "tools.ultimateDecrypt.progressDefaultTitle": "Otevírám zašifrovaný payload",
+  "tools.ultimateDecrypt.progressDefaultTitle": "Dešifruji",
   "tools.ultimateDecrypt.progressDefaultDetail": "Dešifrování běží v prohlížeči.",
   "tools.ultimateDecrypt.progressReadingTitle": "Načítám obrázek",
   "tools.ultimateDecrypt.progressReadingDetail": "Načítám PNG obálku a hledám skrytá data.",
