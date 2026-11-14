@@ -1,7 +1,7 @@
 <script lang="ts">
   import { haptic } from '../../lib/haptics';
   import { hapticTap } from '../../lib/hapticTap';
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { List, ListItem, Sheet } from 'konsta/svelte';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
@@ -96,6 +96,69 @@
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); onsend(); }
     else if (e.key === 'Escape' && hasReply) onclearreply();
   }
+
+  let attachBtnEl: HTMLButtonElement | undefined = $state();
+  let attachMenuRoot: HTMLDivElement | undefined = $state();
+  let attachMenuEl: HTMLDivElement | undefined = $state();
+  let scheduleItemEl: HTMLButtonElement | undefined = $state();
+  let scheduleMenuEl: HTMLDivElement | undefined = $state();
+  let attachMenuWasOpen = false;
+
+  function attachItems(): HTMLElement[] {
+    const root = scheduleMenuOpen && scheduleMenuEl ? scheduleMenuEl : attachMenuEl;
+    return [...(root?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])') ?? [])];
+  }
+
+  function onAttachMenuKeys(e: KeyboardEvent) {
+    const items = attachItems();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (scheduleMenuOpen) {
+        scheduleMenuOpen = false;
+        scheduleItemEl?.focus();
+        return;
+      }
+      closeMenus();
+      attachBtnEl?.focus();
+    } else if (e.key === 'ArrowRight' && !scheduleMenuOpen && document.activeElement === scheduleItemEl) {
+      e.preventDefault();
+      scheduleMenuOpen = true;
+      void tick().then(() => attachItems()[0]?.focus());
+    } else if (e.key === 'ArrowLeft' && scheduleMenuOpen) {
+      e.preventDefault();
+      scheduleMenuOpen = false;
+      scheduleItemEl?.focus();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!items.length) return;
+      e.preventDefault();
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+      items[at < 0 ? (dir === 1 ? 0 : items.length - 1) : (at + dir + items.length) % items.length]?.focus();
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
+    }
+  }
+
+  function onAttachMenuFocusout(e: FocusEvent) {
+    if (composerMenuOpen && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) closeMenus();
+  }
+
+  $effect(() => {
+    const wasOpen = attachMenuWasOpen;
+    attachMenuWasOpen = composerMenuOpen;
+    if (!composerMenuOpen) {
+      if (wasOpen && appMode) attachBtnEl?.focus();
+      return;
+    }
+    void tick().then(() => {
+      const first = appMode
+        ? attachMenuRoot?.querySelector<HTMLElement>('.chat-attach-sheet button:not([disabled])') ?? null
+        : attachItems()[0] ?? null;
+      first?.focus();
+    });
+  });
   $effect(() => {
     void inputText;
     const el = untrack(() => inputEl);
@@ -106,11 +169,12 @@
 
 {#snippet attachMenu()}
   {#if !voiceRecording}
-  <div class="chat-attach-menu">
+  <div class="chat-attach-menu" bind:this={attachMenuRoot} on:focusout={onAttachMenuFocusout}>
     <button
       type="button"
       class="chat-attach-btn"
       class:chat-attach-btn--active={composerMenuOpen || onceEnabled}
+      bind:this={attachBtnEl}
       use:hapticTap
       on:click={() => { composerMenuOpen = !composerMenuOpen; scheduleMenuOpen = false; }}
       disabled={(!connected && !allowQueue) || uploading}
@@ -126,7 +190,7 @@
       {/if}
     </button>
     {#if composerMenuOpen && !appMode}
-      <div class="chat-attach-dropdown" role="menu">
+      <div class="chat-attach-dropdown" role="menu" tabindex="-1" aria-label={t(dict, 'chat.addMenu')} bind:this={attachMenuEl} on:keydown={onAttachMenuKeys}>
         <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); onchoosefile(); }}>
           <Icon name="file" />
           <span>{t(dict, 'chat.uploadFile')}</span>
@@ -152,6 +216,8 @@
           role="menuitem"
           aria-haspopup="menu"
           aria-expanded={scheduleMenuOpen}
+          aria-owns="chat-schedule-menu"
+          bind:this={scheduleItemEl}
           disabled={!inputText.trim()}
           on:click={() => { scheduleMenuOpen = !scheduleMenuOpen; }}
         >
@@ -159,7 +225,7 @@
           <span>{t(dict, 'chat.schedule')}</span>
         </button>
         {#if scheduleMenuOpen}
-          <div class="chat-attach-submenu" role="menu">
+          <div class="chat-attach-submenu" role="menu" id="chat-schedule-menu" aria-label={t(dict, 'chat.schedule')} bind:this={scheduleMenuEl} on:keydown={onAttachMenuKeys}>
             {#each schedulePresets as preset}
               <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); onschedule(preset.offsetMs); }}>
                 <span>{presetLabel(preset.id)}</span>
@@ -170,7 +236,7 @@
       </div>
     {/if}
   {#if appMode}
-    <Sheet opened={composerMenuOpen} inert={!composerMenuOpen} onBackdropClick={closeMenus} class="chat-attach-sheet app-sheet pb-[env(safe-area-inset-bottom)]">
+    <Sheet opened={composerMenuOpen} inert={!composerMenuOpen} role="dialog" aria-modal="true" aria-label={t(dict, 'chat.addMenu')} onBackdropClick={closeMenus} class="chat-attach-sheet app-sheet pb-[env(safe-area-inset-bottom)]">
       <div class="app-sheet__handle"></div>
       <List strongIos insetIos class="mt-2! mb-3!">
         {#if !scheduleMenuOpen}
