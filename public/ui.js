@@ -1,7 +1,7 @@
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  if (document.querySelector('.home-hero') && !window.matchMedia('(prefers-reduced-data: reduce)').matches) {
+  if (!window.matchMedia('(prefers-reduced-data: reduce)').matches) {
     var flowShown = false;
     var showFlow = function () {
       if (flowShown) return;
