@@ -39,6 +39,7 @@
     if (!glAvailable()) return null;
     const made = kit.tabs(node, { panels: 'none', manage: false });
     handle = made;
+    try { made.select(tabs.findIndex((x) => x.id === active), false); } catch {}
     let tries = 0;
     const probe = () => {
       if (!handle) return;
