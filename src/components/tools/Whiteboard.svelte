@@ -1979,7 +1979,7 @@
           </span>
           {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
         </button>
-        <span class="wb-counter">{shapeCount} {t(dict, 'whiteboard.shapes')}</span>
+        <span class="wb-counter">{t(dict, 'whiteboard.shapes')}: {shapeCount}</span>
         {#if syncProgress}
           <span class="wb-counter" role="status">{t(dict, 'whiteboard.syncing').replace('{received}', String(syncProgress.received)).replace('{total}', String(syncProgress.total))}</span>
         {/if}

@@ -1,7 +1,8 @@
 ---
 import '../styles/global.css'
 
-import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
+import { getTranslations, t, languages, locales, getLocalePath, pickDict, type Locale } from '../lib/i18n';
+import CommandPalette from '../components/CommandPalette.svelte';
 import { languageChoiceHref } from '../lib/locale';
 import { getNavCategories, chatIcon, sendIcon, decryptIcon, whiteboardIcon } from '../lib/tools';
 import Icon from '../components/Icon.astro';
@@ -36,6 +37,7 @@ const canonicalUrl = canonical || new URL(localizedPath, site).href;
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
 const homeHref = locale === 'en' ? '/' : `/${locale}/`;
 const navCategories = getNavCategories(t, dict, localePrefix);
+const paletteDict = pickDict(dict, ['nav', 'palette'], ['security.h1', 'install.h1', 'licenses.h1']);
 const enableIntegrityCheck = import.meta.env.PROD;
 const integrityRepository = REPO_SLUG;
 const repoUrl = REPO_URL;
@@ -203,6 +205,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<span>GitHub</span>
 						<Icon name="arrow-up-right" />
 					</a>
+					<CommandPalette client:idle locale={locale} dict={paletteDict} />
 					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')} aria-pressed="false">
 						<Icon name="moon" size={20} class="dark:hidden" />
 						<Icon name="sun" size={20} class="hidden dark:block" />

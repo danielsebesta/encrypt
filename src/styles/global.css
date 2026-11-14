@@ -1891,4 +1891,106 @@ html.dark {
     :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md li::marker {
         color: inherit;
     }
+
+    .palette__trigger {
+        display: none;
+    }
+
+    .palette__kbd {
+        @apply rounded-md border border-line px-1.5 font-mono text-xs leading-5 text-muted whitespace-nowrap;
+    }
+
+    dialog.palette:modal {
+        @apply rounded-lg border border-line bg-bg p-0 text-text;
+        top: 15vh;
+        right: 0;
+        bottom: auto;
+        left: 0;
+        width: min(32rem, calc(100vw - 2rem));
+        height: fit-content;
+        max-height: min(32rem, 70vh);
+        margin: 0 auto;
+        overflow: hidden;
+        box-shadow: var(--shadow-float);
+    }
+
+    dialog.palette::backdrop {
+        background: rgb(10 10 10 / 0.4);
+    }
+
+    dialog.palette[open] {
+        animation: palette-in var(--duration-base) var(--ease-out) both;
+    }
+
+    @keyframes palette-in {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        dialog.palette[open] {
+            animation: none;
+        }
+    }
+
+    .palette__search {
+        @apply flex min-h-11 items-center gap-2.5 border-b border-line px-3 text-muted;
+    }
+
+    .palette__input {
+        @apply min-w-0 flex-1 border-0 bg-transparent py-3 text-base text-text;
+    }
+
+    .palette__input::placeholder {
+        color: var(--muted);
+    }
+
+    .palette__input:focus-visible {
+        outline: none;
+    }
+
+    .palette__search:focus-within {
+        border-bottom-color: var(--accent);
+    }
+
+    .palette__list {
+        @apply overflow-y-auto p-1.5;
+        max-height: min(24rem, calc(70vh - 4rem));
+    }
+
+    .palette__hit {
+        @apply flex min-h-11 w-full items-center gap-2.5 rounded-md border-y-0 border-r-0 border-l-2 border-transparent bg-transparent px-3 text-left text-sm font-medium text-text no-underline;
+    }
+
+    .palette__hit--active {
+        @apply bg-surface-2;
+        border-left-color: var(--accent);
+    }
+
+    .palette__label {
+        @apply min-w-0 truncate;
+    }
+
+    .palette__empty {
+        @apply px-3 py-6 text-center text-sm text-muted;
+    }
+
+    @media (pointer: coarse) {
+        .palette__hit {
+            min-height: 44px;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .palette__trigger {
+            display: inline-flex;
+        }
+    }
 }
