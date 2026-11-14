@@ -42,15 +42,15 @@
           float k = smoothstep(0.2, 0., abs(uv.x - a)) + smoothstep(0.16, 0., abs(uv.x - b)) + smoothstep(0.22, 0., abs(uv.y - h));
           tone *= 1. - clamp(k, 0., 1.) * params.depth;
           float hue = clamp((fbm(uv * vec2(aspect, 1.) * 1.3 + vec2(time * 0.006, 0.)) - 0.5) * 3.2 + 0.5 + (uv.x - 0.5) * 0.6, 0., 1.);
-          vec3 teal = vec3(0.18, 0.64, 0.58);
-          vec3 moss = vec3(0.44, 0.70, 0.35);
-          vec3 gold = vec3(0.80, 0.72, 0.30);
-          vec3 sand = vec3(0.86, 0.60, 0.36);
-          vec3 c = mix(teal, moss, smoothstep(0., 0.35, hue));
-          c = mix(c, gold, smoothstep(0.35, 0.7, hue));
-          c = mix(c, sand, smoothstep(0.7, 1., hue));
+          vec3 deep = vec3(0.20, 0.55, 0.40);
+          vec3 moss = vec3(0.47, 0.72, 0.36);
+          vec3 lime = vec3(0.62, 0.78, 0.38);
+          vec3 pale = vec3(0.72, 0.84, 0.52);
+          vec3 c = mix(deep, moss, smoothstep(0., 0.35, hue));
+          c = mix(c, lime, smoothstep(0.35, 0.7, hue));
+          c = mix(c, pale, smoothstep(0.7, 1., hue));
           ink = c * mix(0.62, 1., params.dark);
-          inkAmount = 0.92;
+          inkAmount = 0.75;
         `,
       });
       pulsesRef = pulses as unknown as { params: Record<string, number> };
