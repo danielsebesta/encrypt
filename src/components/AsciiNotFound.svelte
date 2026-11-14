@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { kitAllowed } from '../lib/asciiKit';
 
   export let code: string;
 
   let host: HTMLDivElement;
 
   onMount(() => {
-    if (matchMedia('(prefers-reduced-data: reduce)').matches) return;
+    if (!kitAllowed()) return;
     let handle: { destroy(): void } | null = null;
     let gone = false;
     import('asciify-engine/kit').then(({ fieldBackground }) => {
