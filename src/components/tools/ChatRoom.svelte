@@ -919,6 +919,7 @@
   let actionSheetEl: HTMLDivElement | undefined;
   let membersSheetEl: HTMLDivElement | undefined;
   let emojiSheetEl: HTMLDivElement | undefined;
+  let incomingSheetEl: HTMLDivElement | undefined;
   const OVERLAY_FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
   function overlayFocusables(root: HTMLElement | undefined | null): HTMLElement[] {
     return root ? [...root.querySelectorAll<HTMLElement>(OVERLAY_FOCUSABLE)].filter((el) => el.offsetParent !== null) : [];
@@ -962,10 +963,12 @@
   const focusActionOverlay = overlayFocus(() => actionSheetEl);
   const focusMembersOverlay = overlayFocus(() => membersSheetEl);
   const focusEmojiOverlay = overlayFocus(() => emojiSheetEl);
+  const focusIncomingCall = overlayFocus(() => incomingSheetEl, '.app-incoming__btn--accept');
   $: focusHeaderOverlay(headerMenuOpen);
   $: focusActionOverlay(actionMenuFor !== null);
   $: focusMembersOverlay(membersOpen);
   $: focusEmojiOverlay(emojiTarget !== null);
+  $: focusIncomingCall(appMode && Boolean(activeCallNotice && !callActive));
   let highlightedId = '';
   let reactionTick = 0;
   const reactionBook = new ReactionBook();
@@ -6093,7 +6096,7 @@
     {/if}
 
     {#if appMode}
-      <Sheet class="app-incoming-call" opened={Boolean(activeCallNotice && !callActive)} inert={!activeCallNotice || callActive} onBackdropClick={dismissCallNotice}>
+      <Sheet class="app-incoming-call" opened={Boolean(activeCallNotice && !callActive)} inert={!activeCallNotice || callActive} onBackdropClick={dismissCallNotice} bind:el={incomingSheetEl}>
         {#if activeCallNotice}
           <div class="app-incoming" role="alertdialog" aria-label={t(dict, 'chat.callIncoming')}>
             <div class="chat-avatar app-incoming__avatar" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" aria-hidden="true"></div>
