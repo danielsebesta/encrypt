@@ -77,7 +77,9 @@
   function setMenu(btn, open) {
     var menu = menuFor(btn);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (menu) menu.classList.toggle('menu--open', open);
+    if (!menu) return;
+    menu.classList.toggle('menu--open', open);
+    if (!open && menu.contains(document.activeElement)) btn.focus();
   }
 
   function closeMenus(except) {
@@ -90,15 +92,17 @@
     var group = btn.parentElement;
     var menu = menuFor(btn);
     var leaveTimer = null;
+    var enterAt = 0;
     btn.addEventListener('click', function (event) {
       var open = btn.getAttribute('aria-expanded') === 'true';
-      var pointer = event.detail > 0 && hoverMenus.matches;
+      var pointer = event.detail > 0 && hoverMenus.matches && Date.now() - enterAt < 600;
       clearTimeout(leaveTimer);
       closeMenus(btn);
       setMenu(btn, pointer ? true : !open);
     });
     group.addEventListener('mouseenter', function () {
       if (!hoverMenus.matches) return;
+      enterAt = Date.now();
       clearTimeout(leaveTimer);
       closeMenus(btn);
       setMenu(btn, true);
@@ -106,6 +110,9 @@
     group.addEventListener('mouseleave', function () {
       if (!hoverMenus.matches) return;
       leaveTimer = setTimeout(function () { setMenu(btn, false); }, 150);
+    });
+    group.addEventListener('focusin', function () {
+      clearTimeout(leaveTimer);
     });
     group.addEventListener('focusout', function (event) {
       if (event.relatedTarget && group.contains(event.relatedTarget)) return;
@@ -153,6 +160,7 @@
       var first = navLinks.querySelector('a, button');
       if (first) first.focus();
     }
+    if (!open) closeMenus();
   }
 
   if (navToggle) {
@@ -162,8 +170,13 @@
   }
 
   document.addEventListener('click', function (event) {
+    if (!(event.target instanceof Element)) return;
     if (!event.target.closest('.nav__group')) closeMenus();
     if (nav && nav.classList.contains('nav--open') && !event.target.closest('#site-nav')) setNav(false);
+  });
+
+  document.addEventListener('focusin', function (event) {
+    if (nav && nav.classList.contains('nav--open') && !nav.contains(event.target)) setNav(false);
   });
 
   document.addEventListener('keydown', function (event) {
@@ -176,7 +189,7 @@
     }
     if (nav && nav.classList.contains('nav--open')) {
       setNav(false);
-      navToggle.focus();
+      if (navToggle) navToggle.focus();
     }
   });
 
