@@ -1622,7 +1622,43 @@ html.dark {
     }
 
     .home-app {
-        @apply grid items-center gap-6 border-t border-line pt-10 md:grid-cols-[minmax(0,1fr)_auto] md:gap-12;
+        @apply grid items-center gap-8 overflow-hidden rounded-lg border border-line bg-surface px-5 py-8 md:grid-cols-[minmax(0,1fr)_auto] md:gap-12 md:px-8 md:py-10;
+    }
+
+    .home-app > .home-app__gallery {
+        @apply -mb-14 md:-mb-16;
+    }
+
+    .install-now {
+        @apply mt-4 grid gap-4 rounded-lg border border-accent-line bg-accent-weak px-5 py-6 md:px-8;
+    }
+
+    .install-now__head {
+        @apply flex items-start gap-3;
+    }
+
+    .install-now__icon {
+        @apply mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-accent-line bg-surface text-accent;
+    }
+
+    .install-now__ready {
+        @apply text-base text-text;
+    }
+
+    .install-now__body {
+        @apply flex flex-wrap items-start gap-6;
+    }
+
+    .install-now__body .install-steps {
+        @apply mt-0 min-w-[16rem] flex-1;
+    }
+
+    .install-now__qr {
+        @apply h-[10.5rem] w-[10.5rem] shrink-0 overflow-hidden rounded-md border border-line bg-white p-1;
+    }
+
+    .install-now__qr svg {
+        @apply h-full w-full;
     }
 
     .home-app__copy {

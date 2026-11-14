@@ -76,6 +76,14 @@
   window.addEventListener('beforeinstallprompt', function (event) {
     event.preventDefault();
     deferred = event;
+    window.__pwaInstall = function () {
+      if (!deferred) return Promise.resolve('unavailable');
+      var prompt = deferred;
+      deferred = null;
+      prompt.prompt();
+      return prompt.userChoice.then(function (choice) { return choice && choice.outcome; }, function () { return 'dismissed'; });
+    };
+    window.dispatchEvent(new CustomEvent('pwa-installable'));
     if (installed || !mobile) return;
     hide(promo && promo.querySelector('[data-pwa-hint-menu]'));
     if (promo && !promoDismissed()) show(promo);

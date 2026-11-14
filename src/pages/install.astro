@@ -1,12 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import InstallGuide from '../components/InstallGuide.svelte';
 import { PRODUCT_NAME } from '../lib/siteBrand';
 import { APPLE_MARK, ANDROID_MARK } from '../lib/platformIcons';
-import { getTranslations, t, type Locale } from '../lib/i18n';
+import { getTranslations, pickDict, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const localePrefix = locale === 'en' ? '' : `/${locale}`;
+const guideDict = pickDict(dict, ['install.guide', 'common.copy', 'common.copied', 'common.uploadChallenge.retry']);
 
 const shots = [
   { src: '/screenshot-hub-chats.png?v=9', label: 'install.shot.chats' },
@@ -45,6 +47,8 @@ export const prerender = true;
         <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="eager" decoding="async" />
       </div>
     </header>
+
+    <InstallGuide client:load dict={guideDict} appHref={`${localePrefix}/app`} />
 
     <section class="install-benefits" aria-labelledby="install-benefits">
       <h2 id="install-benefits" class="section-title">{t(dict, 'install.benefits.title')}</h2>

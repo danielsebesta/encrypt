@@ -99,9 +99,14 @@ const serverItems = [1, 2, 3];
           <li class="platform-pill">{t(dict, 'pwa.platforms.ios')}</li>
           <li class="platform-pill">{t(dict, 'pwa.platforms.android')}</li>
         </ul>
+        <div class="actions mt-2">
+          <button type="button" class="btn hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+          <a href={`${localePrefix}/install`} class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
+        </div>
       </div>
-      <div class="actions">
-        <a href={`${localePrefix}/install`} class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
+      <div class="home-app__gallery install-hero__gallery" aria-hidden="true">
+        <img class="app-shot app-shot--primary" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="lazy" decoding="async" />
+        <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
       </div>
     </section>
   </div>
