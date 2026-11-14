@@ -1067,7 +1067,7 @@
               <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
               <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
             </div>
-            <input id="ue-result-link" class="input input--mono" type="text" readonly tabindex="-1" value={shareUrl} />
+            <input id="ue-result-link" class="input input--mono" type="text" readonly value={shareUrl} />
             <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} className="btn-secondary w-full" />
             <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
             {#if deadMan && resultUnlock}
