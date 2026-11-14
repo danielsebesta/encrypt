@@ -8,8 +8,6 @@
   };
   const HOVER = { hover: 'lantern', tap: 'none', lantern: { radius: 0.12, strength: 0.35, trail: 0.6, follow: 6 } };
 
-  export let flip = false;
-
   const SEEN = 'encrypt.click:ascii-bg-seen';
 
   let canvas: HTMLCanvasElement;
@@ -45,7 +43,7 @@
         `,
       });
       field = mountGlyphField(canvas, {
-        source: flip ? '/flow-ascii-src-bottom.webp' : '/flow-ascii-src.webp',
+        source: '/flow-ascii-src.webp',
         charset: ' .:-=+YCIFSA#@',
         cellSize: 12,
         cellAspect: 0.62,
@@ -60,7 +58,7 @@
         ...HOVER,
       }) as unknown as Field;
       (field as unknown as { ready?: Promise<void> }).ready?.then(() => {
-        if (gone || flip) return;
+        if (gone) return;
         const root = document.documentElement;
         try {
           if (sessionStorage.getItem(SEEN)) root.classList.add('ascii-instant');

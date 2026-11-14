@@ -150,7 +150,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
 		) : (
 			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:load /></div>
-			<div class="flow-bg flow-bg--ascii flow-bg--bottom" aria-hidden="true"><AsciiBackground client:load flip /></div>
 		)}
 		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
 		<header class="site-header">
