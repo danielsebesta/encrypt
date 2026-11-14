@@ -1050,7 +1050,7 @@
           <div class="field">
             <div class="output-head">
               <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
-              <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
+              <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
             </div>
             <input id="ue-result-link" class="input input--mono" type="text" readonly tabindex="-1" value={shareUrl} />
             <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} className="btn-secondary w-full" />
@@ -1067,7 +1067,7 @@
         <div class="field">
           <div class="output-head">
             <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-            <CopyButton text={resultPass} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
+            <CopyButton text={resultPass} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
           </div>
           <div class="passphrase">
             <input id="ue-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPass} />
@@ -1094,7 +1094,6 @@
           text={resultBlurb}
           label={t(dict, 'tools.ultimateEncrypt.result.copyAll')}
           copiedLabel={t(dict, 'common.copied')}
-          errorLabel={t(dict, 'common.uploadChallenge.retry')}
           variant="primary"
           className="w-full"
         />
@@ -1155,7 +1154,7 @@
           <div class="more__body">
             <div class="flex items-center gap-2">
               <input class="input input--mono text-sm" type="text" readonly value={resultUrl} aria-label={t(dict, 'tools.ultimateEncrypt.encryptedLink')} />
-              <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
+              <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
             </div>
           </div>
         </details>

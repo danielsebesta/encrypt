@@ -5,7 +5,6 @@
   export let text = '';
   export let label = '';
   export let copiedLabel = '';
-  export let errorLabel = '';
   export let className = '';
   export let variant: 'ghost' | 'primary' = 'ghost';
 
