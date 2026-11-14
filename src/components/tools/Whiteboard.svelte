@@ -1183,6 +1183,7 @@
     backupError = '';
     backupBusy = false;
     pendingEncryptedImport = '';
+    wbMenuEl?.focus();
   }
 
   function chooseEncryptedExport() {
@@ -1309,17 +1310,18 @@
   }
 
   function onWindowKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && chatOpen && (e.target as Element | null)?.closest?.('#wb-chat')) {
+    if (e.key !== 'Escape' || backupDialog?.open) return;
+    if (chatOpen) {
       chatOpen = false;
       document.getElementById('wb-chat-trigger')?.focus();
       return;
     }
-    if (e.key === 'Escape' && peopleOpen && (e.target as Element | null)?.closest?.('#wb-people')) {
+    if (peopleOpen) {
       peopleOpen = false;
       document.getElementById('wb-people-trigger')?.focus();
       return;
     }
-    if (e.key !== 'Escape' || (!styleOpen && !menuOpen)) return;
+    if (!styleOpen && !menuOpen) return;
     const trigger = styleOpen ? 'wb-style-trigger' : 'wb-menu-trigger';
     styleOpen = false;
     menuOpen = false;
