@@ -33,10 +33,11 @@
     active = tab;
     visited[tab] = true;
     try { handle?.select(index); } catch {}
+    document.getElementById(`home-tab-${tab}`)?.focus();
   }
 
   const mountTabs = (kit: KitModule, node: HTMLElement) => {
-    if (!glAvailable()) return null;
+    if (!glAvailable() || matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
     const made = kit.tabs(node, { panels: 'none', manage: false });
     handle = made;
     try { made.select(tabs.findIndex((x) => x.id === active), false); } catch {}
@@ -51,7 +52,10 @@
   };
 
   function onKey(event: KeyboardEvent) {
-    const index = tabs.findIndex((x) => x.id === active);
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    const focused = event.target instanceof HTMLElement ? event.target.closest('[role="tab"]') : null;
+    const index = focused ? tabs.findIndex((x) => focused.id === `home-tab-${x.id}`) : tabs.findIndex((x) => x.id === active);
+    if (index < 0) return;
     let next = index;
     if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
     else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
@@ -60,7 +64,6 @@
     else return;
     event.preventDefault();
     choose(next);
-    document.getElementById(`home-tab-${tabs[next].id}`)?.focus();
   }
 </script>
 
@@ -85,7 +88,7 @@
   </div>
 
   {#each tabs as tab}
-    <div id={`home-panel-${tab.id}`} role="tabpanel" aria-labelledby={`home-tab-${tab.id}`} class="stack" hidden={active !== tab.id}>
+    <div id={`home-panel-${tab.id}`} role="tabpanel" tabindex="0" aria-labelledby={`home-tab-${tab.id}`} class="stack" hidden={active !== tab.id}>
       <p class="hint">{t(dict, tab.text)}</p>
       {#if tab.id === 'send'}
         <UltimateEncrypt {locale} {dict} />
