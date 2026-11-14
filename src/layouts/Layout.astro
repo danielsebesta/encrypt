@@ -298,7 +298,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<Icon name="github" />GitHub
 						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
 					</a>
-					<a href={`${localePrefix}/licenses`}>{t(dict, 'home.footer.credits')}</a>
 					<span>
 						{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer" class="text-text">Daniel Šebesta</a>
 					</span>
