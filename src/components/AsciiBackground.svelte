@@ -17,6 +17,26 @@
     let field: Field | null = null;
     let gone = false;
     let pulsesRef: { params: Record<string, number> } | null = null;
+    const TEXT = 'h1, h2, h3, h4, p, li, label, a, button, summary, dt, dd, th, td, .hint';
+    let rects: DOMRect[] = [];
+    let dirty = true;
+    const range = document.createRange();
+    const mark = () => { dirty = true; };
+    const read = () => {
+      if (!dirty) return rects;
+      dirty = false;
+      rects = [...document.querySelectorAll(TEXT)].flatMap((el) => {
+        if (canvas.contains(el)) return [];
+        range.selectNodeContents(el);
+        return [...range.getClientRects()].filter((r) => r.width > 2 && r.height > 2 && r.bottom > 0 && r.top < innerHeight);
+      });
+      return rects;
+    };
+    addEventListener('scroll', mark, { passive: true, capture: true });
+    addEventListener('resize', mark, { passive: true });
+    document.fonts?.addEventListener('loadingdone', mark);
+    const content = new MutationObserver(mark);
+    content.observe(document.body, { childList: true, subtree: true, characterData: true });
     const isDark = () => document.documentElement.classList.contains('dark');
 
     import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported, defineFieldEffect }) => {
@@ -57,6 +77,7 @@
         drift: 0.06,
         effects: [pulses],
         label: '',
+        clear: { rects: read, padding: 4, softness: 22, strength: 0.9 },
         hover: 'none',
         tap: 'none',
       }) as unknown as Field;
@@ -79,6 +100,10 @@
     return () => {
       gone = true;
       theme.disconnect();
+      content.disconnect();
+      removeEventListener('scroll', mark, { capture: true });
+      removeEventListener('resize', mark);
+      document.fonts?.removeEventListener('loadingdone', mark);
       field?.destroy();
     };
   });
