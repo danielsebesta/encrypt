@@ -217,7 +217,7 @@
   }
   .retention-value {
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--text);
   }
   .retention-scale {
