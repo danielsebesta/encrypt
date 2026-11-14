@@ -1,4 +1,5 @@
 ---
+import AsciiDecode from '../components/AsciiDecode.svelte';
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
@@ -26,7 +27,7 @@ const serverItems = [1, 2, 3];
         <ul class="home-facts">
           {facts.map((n) => (
             <li>
-              <span class="home-facts__value">{t(dict, `home.facts.${n}.value`)}</span>
+              <span class="home-facts__value"><AsciiDecode client:visible text={t(dict, `home.facts.${n}.value`)} scramble /></span>
               <span>{t(dict, `home.facts.${n}.label`)}</span>
             </li>
           ))}
