@@ -5,14 +5,14 @@
   var flowFetch = function (url) {
     return flowCache[url] || (flowCache[url] = fetch(url).then(function (r) { return r.text(); }));
   };
-  if (!window.matchMedia('(prefers-reduced-data: reduce)').matches && window.fetch) {
+  if (!window.matchMedia('(prefers-reduced-data: reduce)').matches && window.fetch && document.querySelector('.flow-bg__base')) {
     var flowTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     flowFetch('/flow-bg-' + flowTheme + '.svg').catch(function () {});
     flowFetch('/flow-sweep-' + flowTheme + '.svg').catch(function () {});
   }
   var mountFlow = function () {
     var root = document.querySelector('.flow-bg');
-    if (!root || !window.fetch) return Promise.resolve();
+    if (!root || !root.querySelector('.flow-bg__base') || !window.fetch) return Promise.resolve();
     var theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     return Promise.all([flowFetch('/flow-bg-' + theme + '.svg'), flowFetch('/flow-sweep-' + theme + '.svg')]).then(function (parts) {
       var put = function (el, markup) {

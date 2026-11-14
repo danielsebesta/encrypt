@@ -1,4 +1,5 @@
 ---
+import AsciiBackground from '../components/AsciiBackground.svelte';
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, pickDict, type Locale } from '../lib/i18n';
@@ -18,6 +19,7 @@ type Props = {
   mainClass?: string;
 };
 
+const backgroundMode = 'ascii' as 'ascii' | 'flow';
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const site = siteOrigin();
@@ -32,10 +34,10 @@ const {
 } = Astro.props;
 
 const path = Astro.url.pathname;
-const localizedPath = locale === 'en' || path === `/${locale}` || path.startsWith(`/${locale}/`) ? path : `/${locale}${path}`;
-const canonicalUrl = canonical || new URL(localizedPath, site).href;
-const localePrefix = locale === 'en' ? '' : `/${locale}`;
-const homeHref = locale === 'en' ? '/' : `/${locale}/`;
+const cleanPath = getLocalePath(path, 'en');
+const canonicalUrl = canonical || new URL(cleanPath, site).href;
+const localePrefix = '';
+const homeHref = '/';
 const navCategories = getNavCategories(t, dict, localePrefix);
 const paletteDict = pickDict(dict, ['nav', 'palette'], ['security.h1', 'install.h1', 'licenses.h1']);
 const enableIntegrityCheck = import.meta.env.PROD;
@@ -65,8 +67,8 @@ const siteJsonLd = {
 const languageOptions = locales.map(l => ({
   code: l,
   name: languages[l].name,
-  href: getLocalePath(path, l),
-  choose: languageChoiceHref(l, getLocalePath(path, l)),
+  href: cleanPath,
+  choose: languageChoiceHref(l, cleanPath),
   active: l === locale
 }));
 
@@ -92,8 +94,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="description" content={description} />
 		<meta name="application-name" content={brand} />
 		<link rel="canonical" href={canonicalUrl} />
-		{languageOptions.map((lang) => <link rel="alternate" hreflang={lang.code} href={new URL(lang.href, site).href} />)}
-		<link rel="alternate" hreflang="x-default" href={new URL(getLocalePath(path, 'en'), site).href} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={brandUrl} />
 		<meta property="og:title" content={title} />
@@ -109,10 +109,10 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#08110a" media="(prefers-color-scheme: dark)" />
-		<link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />
-		<link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />
-		<link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />
-		<link rel="preload" as="fetch" href="/flow-sweep-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />
+		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
+		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
+		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
+		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
@@ -145,7 +145,11 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</script>
 	</head>
 	<body>
-		<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
+		{backgroundMode === 'flow' ? (
+			<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
+		) : (
+			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:idle /></div>
+		)}
 		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
 		<header class="site-header">
 			<div
@@ -304,7 +308,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</div>
 			</div>
 		</footer>
-		<script is:inline src="/ui.js?v=flow-v6" defer></script>
+		<script is:inline src="/ui.js?v=flow-v7" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v4" defer></script>
 	</body>
 </html>
