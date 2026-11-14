@@ -27,7 +27,6 @@
   import { DEFAULT_RETENTION, retentionForUnlock, type Retention } from '../../lib/retention';
   import { formatShareFragment } from '../../lib/shareLink';
   import { encodeShareDrop, shareDropFilename } from '../../lib/shareDrop';
-  import { saveSharePassword } from '../../lib/sharePasswordVault';
   import { lockTimeSecret, roundTime, type TimeLock } from '../../lib/timelock';
 
   export let locale = 'en';
@@ -84,8 +83,6 @@
   let resultUnlock: number | undefined;
   let dropUrl = '';
   let dropName = '';
-  let passkeySaveNotice = '';
-  let passkeySaving = false;
   let resultFragment = '';
   $: unlockMs = unlockAt && Number.isFinite(new Date(unlockAt).getTime()) ? new Date(unlockAt).getTime() : null;
   $: effectiveRetention = retentionForUnlock(retention, unlockMs);
@@ -746,23 +743,6 @@
     }
   }
 
-  async function savePasswordWithPasskey() {
-    if (!resultFragment || !resultPassword || passkeySaving) return;
-    passkeySaving = true;
-    passkeySaveNotice = '';
-    const result = await saveSharePassword(
-      resultFragment,
-      resultPassword,
-      t(dict, 'tools.ultimateEncrypt.passkeySaveLabel'),
-      t(dict, 'rooms.passkeyName').replace('{host}', typeof location !== 'undefined' ? location.hostname : 'encrypt.click'),
-    );
-    passkeySaving = false;
-    if (result === 'saved') passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeySaved');
-    else if (result === 'cancelled') passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeyCancelled');
-    else if (result === 'names' || result === 'no-prf') passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeyUnavailable');
-    else passkeySaveNotice = t(dict, 'tools.ultimateEncrypt.passkeyFailed');
-  }
-
   async function wrapInStego(url: string) {
     setProgress(t(dict, 'tools.ultimateEncrypt.progressCoverImageTitle'), t(dict, 'tools.ultimateEncrypt.progressCoverImageDetail'));
     const urlBytes = new TextEncoder().encode(url);
@@ -845,7 +825,6 @@
     pendingLock = null;
     resultUnlock = undefined;
     resultFragment = '';
-    passkeySaveNotice = '';
     if (dropUrl) URL.revokeObjectURL(dropUrl);
     dropUrl = '';
     dropName = '';
@@ -1146,14 +1125,6 @@
               <a href={dropUrl} download={dropName} class="btn-secondary w-full">{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
               <p class="hint">{t(dict, 'tools.ultimateEncrypt.offlineDropHint')}</p>
             </div>
-          {/if}
-          {#if resultPassword && resultFragment}
-            <button type="button" class="btn-ghost w-full" disabled={passkeySaving} on:click={savePasswordWithPasskey}>
-              {passkeySaving ? t(dict, 'tools.ultimateEncrypt.passkeySaving') : t(dict, 'tools.ultimateEncrypt.passkeySave')}
-            </button>
-            {#if passkeySaveNotice}
-              <p class="status" role="status">{passkeySaveNotice}</p>
-            {/if}
           {/if}
           {#if shortenFailed && shortenableUrl && !shortUrl}
             <div class="field">
