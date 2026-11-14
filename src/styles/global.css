@@ -817,18 +817,17 @@ html.dark {
     }
 
     .dropzone:hover {
-        @apply border-text text-text;
+        @apply border-muted text-text;
     }
 
     .dropzone:has(input:focus-visible) {
-        @apply border-solid border-accent text-text;
+        @apply border-solid border-muted text-text;
         outline: 2px solid var(--accent);
         outline-offset: 2px;
     }
 
     .dropzone--dragging {
-        @apply border-solid border-accent bg-surface-2 text-text;
-        outline: 1px solid var(--accent);
+        @apply border-solid border-muted bg-surface-2 text-text;
     }
 
     .dropzone--active {

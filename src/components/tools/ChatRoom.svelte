@@ -7068,7 +7068,7 @@
   @media (prefers-reduced-motion: reduce) {
     .chat-messages { transition: none; }
   }
-  .chat-thread--drop { outline: 2px dashed var(--accent); outline-offset: -6px; border-radius: 8px; }
+  .chat-thread--drop { outline: 1px dashed var(--control-line); outline-offset: -6px; border-radius: 8px; }
   .chat-avatar {
     width: 34px; height: 34px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
@@ -7164,8 +7164,8 @@
     margin-top: 0.15rem;
     padding: 0.65rem 0.75rem;
     border-radius: 8px;
-    border: 1px dashed var(--accent-line);
-    background: var(--accent-weak);
+    border: 1px dashed var(--control-line);
+    background: var(--surface-2);
     text-align: left;
     overflow: hidden;
   }
