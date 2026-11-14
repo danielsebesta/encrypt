@@ -5904,7 +5904,7 @@
     {/if}
 
     {#if appMode}
-      <Popover class="w-72!" opened={headerMenuOpen} inert={!headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu} bind:el={headerMenuEl} role="dialog" aria-modal="true" aria-label={t(dict, 'chat.roomMenu')} onkeydown={(e) => trapOverlayTab(e, headerMenuEl)}>
+      <Popover class="w-72!" opened={headerMenuOpen} inert={!headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu} bind:el={headerMenuEl} id="chat-room-menu" role="dialog" aria-modal="true" aria-label={t(dict, 'chat.roomMenu')} onkeydown={(e) => trapOverlayTab(e, headerMenuEl)}>
         <MenuList>
           {#if onShareApp}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'common.shareLink')} onClick={() => { closeHeaderMenu(); onShareApp(); }}>
