@@ -29,3 +29,14 @@ export function asciiKit<T extends { destroy(): void }>(node: HTMLElement, make:
     },
   };
 }
+
+let glChecked: boolean | null = null;
+export function glAvailable(): boolean {
+  if (glChecked !== null) return glChecked;
+  try {
+    glChecked = !!document.createElement('canvas').getContext('webgl2');
+  } catch {
+    glChecked = false;
+  }
+  return glChecked;
+}

@@ -601,15 +601,30 @@ html.dark {
         @apply border-accent text-text;
     }
 
-    .tabs--slide .tab[aria-selected="true"] {
-        @apply border-transparent;
+    .tabs--slide {
+        @apply gap-1 rounded-lg border border-line bg-surface p-1;
+        isolation: isolate;
     }
 
-    .tabs__indicator {
-        @apply pointer-events-none absolute bottom-0 left-0 h-0.5 bg-accent;
-        transform: translateX(var(--tab-x, 0));
-        width: var(--tab-w, 0);
-        transition: transform var(--duration-base) var(--ease-move), width var(--duration-base) var(--ease-move);
+    .tabs--slide .tab {
+        @apply mb-0 rounded-md border-b-0 pb-1.5;
+    }
+
+    .tabs--slide .tab[aria-selected="true"] {
+        @apply bg-surface-2 text-text;
+    }
+
+    .tabs--kit .tab[aria-selected="true"] {
+        @apply bg-transparent;
+    }
+
+    .tabs__thumb {
+        @apply pointer-events-none absolute rounded-md bg-surface-2;
+        z-index: -2;
+        left: var(--tabs-x, 0);
+        top: var(--tabs-y, 0);
+        width: var(--tabs-w, 0);
+        height: var(--tabs-h, 0);
     }
 
     /* ── Status ── */
