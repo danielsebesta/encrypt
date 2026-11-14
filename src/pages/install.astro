@@ -10,13 +10,6 @@ const dict = getTranslations(locale);
 const localePrefix = '';
 const guideDict = pickDict(dict, ['install.guide', 'common.copy', 'common.copied', 'common.uploadChallenge.retry']);
 
-const shots = [
-  { src: '/screenshot-hub-chats.png?v=9', label: 'install.shot.chats' },
-  { src: '/screenshot-chat.png?v=9', label: 'install.shot.chat' },
-  { src: '/screenshot-hub-boards.png?v=9', label: 'install.shot.boards' },
-  { src: '/screenshot-hub-files.png?v=9', label: 'install.shot.files' },
-] as const;
-
 export const prerender = true;
 ---
 
@@ -30,7 +23,6 @@ export const prerender = true;
         <p class="install-hero__eyebrow">{PRODUCT_NAME}</p>
         <h1 class="page-title">{t(dict, 'install.h1')}</h1>
         <p class="page-lead">{t(dict, 'install.subtitle')}</p>
-        <p class="install-hero__lead">{t(dict, 'install.lead')}</p>
         <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
           <li class="platform-pill">
             <Icon name="apple" size={16} />
@@ -105,18 +97,6 @@ export const prerender = true;
           </div>
         </section>
       </div>
-    </section>
-
-    <section class="install-shots" aria-labelledby="install-shots-title">
-      <h2 id="install-shots-title" class="section-title">{t(dict, 'install.shots.title')}</h2>
-      <ul class="install-shots__grid">
-        {shots.map((shot) => (
-          <li class="install-shots__item">
-            <img class="app-shot app-shot--md" src={shot.src} alt="" width="360" height="780" loading="lazy" decoding="async" />
-            <p class="hint">{t(dict, shot.label)}</p>
-          </li>
-        ))}
-      </ul>
     </section>
 
     <section class="install-guide install-guide--wide" aria-labelledby="install-desktop">
