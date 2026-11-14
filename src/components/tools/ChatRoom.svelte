@@ -888,6 +888,58 @@
     if (composerMenuOpen && !target?.closest?.('.chat-attach-menu')) composerMenuOpen = false;
     if (actionMenuFor && !target?.closest?.('.msg-actions, .chat-msg-sheet')) actionMenuFor = null;
   }
+  let headerMenuEl: HTMLDivElement | undefined;
+  let roomMenuEl: HTMLDivElement | undefined;
+  let actionSheetEl: HTMLDivElement | undefined;
+  let membersSheetEl: HTMLDivElement | undefined;
+  let emojiSheetEl: HTMLDivElement | undefined;
+  const OVERLAY_FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
+  function overlayFocusables(root: HTMLElement | undefined | null): HTMLElement[] {
+    return root ? [...root.querySelectorAll<HTMLElement>(OVERLAY_FOCUSABLE)].filter((el) => el.offsetParent !== null) : [];
+  }
+  function trapOverlayTab(event: KeyboardEvent, root: HTMLElement | undefined | null) {
+    if (event.key !== 'Tab' || !root) return;
+    const items = overlayFocusables(root);
+    const active = document.activeElement as HTMLElement | null;
+    if (event.shiftKey && (!active || !root.contains(active) || active === items[0])) {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    } else if (!event.shiftKey && (!active || !root.contains(active) || active === items[items.length - 1])) {
+      event.preventDefault();
+      items[0]?.focus();
+    }
+  }
+  function overlayFocus(getRoot: () => HTMLElement | undefined | null, focusSelector?: string) {
+    let opener: HTMLElement | null = null;
+    let was = false;
+    return (open: boolean) => {
+      if (typeof document === 'undefined' || open === was) return;
+      was = open;
+      if (open) {
+        opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        void settled().then(() => {
+          const root = getRoot();
+          ((focusSelector && root?.querySelector<HTMLElement>(focusSelector)) || overlayFocusables(root)[0])?.focus();
+        });
+      } else {
+        const back = opener;
+        opener = null;
+        void settled().then(() => {
+          const active = document.activeElement;
+          const root = getRoot();
+          if (back?.isConnected && (!active || active === document.body || (root && root.contains(active)))) back.focus();
+        });
+      }
+    };
+  }
+  const focusHeaderOverlay = overlayFocus(() => (appMode ? headerMenuEl : roomMenuEl));
+  const focusActionOverlay = overlayFocus(() => actionSheetEl);
+  const focusMembersOverlay = overlayFocus(() => membersSheetEl);
+  const focusEmojiOverlay = overlayFocus(() => emojiSheetEl);
+  $: focusHeaderOverlay(headerMenuOpen);
+  $: focusActionOverlay(actionMenuFor !== null);
+  $: focusMembersOverlay(membersOpen);
+  $: focusEmojiOverlay(emojiTarget !== null);
   let highlightedId = '';
   let reactionTick = 0;
   const reactionBook = new ReactionBook();
@@ -5791,7 +5843,7 @@
     {/if}
 
     {#if appMode}
-      <Popover class="w-72!" opened={headerMenuOpen} inert={!headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu}>
+      <Popover class="w-72!" opened={headerMenuOpen} inert={!headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu} bind:el={headerMenuEl} role="dialog" aria-modal="true" aria-label={t(dict, 'chat.roomMenu')} onkeydown={(e) => trapOverlayTab(e, headerMenuEl)}>
         <MenuList>
           {#if onShareApp}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'common.shareLink')} onClick={() => { closeHeaderMenu(); onShareApp(); }}>
@@ -5838,7 +5890,7 @@
     {/if}
 
     {#if appMode}
-      <Sheet opened={actionMenuFor !== null} inert={actionMenuFor === null} onBackdropClick={() => { actionMenuFor = null; }} class="app-sheet chat-msg-sheet pb-[env(safe-area-inset-bottom)]">
+      <Sheet opened={actionMenuFor !== null} inert={actionMenuFor === null} onBackdropClick={() => { actionMenuFor = null; }} class="app-sheet chat-msg-sheet pb-[env(safe-area-inset-bottom)]" bind:el={actionSheetEl} role="dialog" aria-modal="true" aria-label={t(dict, 'chat.messageActions')} onkeydown={(e) => trapOverlayTab(e, actionSheetEl)}>
         <div class="app-sheet__handle"></div>
         {#if sheetMsg}
           {@const picked = myReactions(sheetMsg.id, reactionTick)}
@@ -5939,7 +5991,7 @@
     {/if}
 
     {#if appMode}
-      <Sheet opened={membersOpen} inert={!membersOpen} onBackdropClick={() => { membersOpen = false; nameEditing = false; }} class="app-sheet pb-safe">
+      <Sheet opened={membersOpen} inert={!membersOpen} onBackdropClick={() => { membersOpen = false; nameEditing = false; }} class="app-sheet pb-safe" bind:el={membersSheetEl} role="dialog" aria-modal="true" aria-label={t(dict, 'chat.members')} onkeydown={(e) => trapOverlayTab(e, membersSheetEl)}>
         <div class="app-sheet__handle"></div>
         <div class="app-room-info">
           <p class="app-room-info__title">{roomLabel || roomId}</p>
@@ -6527,7 +6579,7 @@
 </div>
 
 {#if appMode}
-  <Sheet opened={emojiTarget !== null} inert={emojiTarget === null} onBackdropClick={() => closeEmoji(false)} class="app-sheet app-emoji-sheet pb-[env(safe-area-inset-bottom)]">
+  <Sheet opened={emojiTarget !== null} inert={emojiTarget === null} onBackdropClick={() => closeEmoji(false)} class="app-sheet app-emoji-sheet pb-[env(safe-area-inset-bottom)]" bind:el={emojiSheetEl} role="dialog" aria-modal="true" aria-label={t(dict, 'emoji.label')} onkeydown={(e) => trapOverlayTab(e, emojiSheetEl)}>
     <div class="app-sheet__handle"></div>
     {#if emojiTarget}
       <EmojiPicker {locale} {dict} skin={emojiSkin} mode={emojiTarget.kind === 'react' ? 'reaction' : 'insert'} onpick={pickEmoji} onclose={() => closeEmoji(false)} />
