@@ -1285,7 +1285,7 @@
   "rooms.passkeyExplain.body3": "Qui vole seulement la liste ne peut pas lire les mots de passe. Il lui faudrait aussi le déverrouillage de votre appareil. La clé d’enveloppe ne vit que dans la mémoire de cette page et disparaît quand vous partez. C’est plus sûr qu’un mot de passe en clair dans le navigateur.",
   "rooms.passkeyExplain.tip": "Préférez le déverrouillage de cet appareil (Windows Hello, Touch ID, visage ou PIN). Certaines apps de mots de passe créent une clé qui ne peut pas protéger les secrets du salon ici — alors seul le nom est enregistré.",
   "tools.ultimateEncrypt.largeNotice.title": "Ce fichier reste chez toi",
-  "tools.ultimateEncrypt.largeNotice.desc": "Les fichiers de plus de 128 Mo sont chiffrés dans un fichier .enc téléchargeable plutôt que dans un lien. Envoie-le toi-même au destinataire — il l'ouvre sur la page de déchiffrement avec le mot de passe.",
+  "tools.ultimateEncrypt.largeNotice.desc": "Les fichiers de plus de 128 Mo sont chiffrés dans un fichier .enc téléchargeable plutôt que dans un lien. Envoyez-le vous-même au destinataire — il l'ouvre sur la page de déchiffrement avec le mot de passe.",
   "tools.ultimateEncrypt.confirm.sendInstances": "instances Send",
   "tools.ultimateEncrypt.confirm.swissTransfer": "SwissTransfer",
   "tools.ultimateEncrypt.confirm.decryptPath": "Déchiffrer",
