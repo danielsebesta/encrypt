@@ -22,7 +22,7 @@
 
   $: baseClass = variant === 'primary' ? 'btn' : 'btn-ghost btn-sm';
   $: doneText = copiedLabel || label;
-  $: failText = errorLabel || label;
+  $: failText = label;
   $: reserveCh = Math.max(label.length, doneText.length, failText.length, 1);
 </script>
 
