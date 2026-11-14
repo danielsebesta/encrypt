@@ -5895,7 +5895,7 @@
           <div on:click={closeHeaderMenu} role="presentation">
             <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="konsta" />
           </div>
-          <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.blurWhenAway')} aria-checked={blurWhenAway} onClick={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
+          <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'switch', 'aria-checked': blurWhenAway }} title={t(dict, 'chat.blurWhenAway')} onClick={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
             {#snippet media()}
               <Icon name="eye" size={20} />
             {/snippet}
@@ -5904,7 +5904,7 @@
             {/if}{/snippet}
           </MenuListItem>
           {#if notifySupported}
-            <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.notifications')} aria-checked={notifyOn} onClick={() => { void toggleNotifications(); closeHeaderMenu(); }}>
+            <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'switch', 'aria-checked': notifyOn }} title={t(dict, 'chat.notifications')} onClick={() => { void toggleNotifications(); closeHeaderMenu(); }}>
               {#snippet media()}
                 <Icon name="bell" size={20} />
               {/snippet}
