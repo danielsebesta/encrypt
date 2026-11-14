@@ -348,6 +348,12 @@
     const unlockFocused =
       error === t(dict, 'tools.ultimateEncrypt.options.unlockPast') ||
       error === t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') ||
+      error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
+    if (unlockFocused) optionsOpen = true;
+    await tick();
+    document.getElementById(unlockFocused ? 'ue-unlock' : 'ue-pass')?.focus();
+  }
+
   let orbDone = false;
   let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
   const beamExpected = typeof window !== 'undefined' && kitAllowed() && glAvailable();
@@ -363,7 +369,7 @@
     else beamHandle.progress(Math.max(0.06, transferBar ?? 0));
   }
 
-      error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
+  async function goToResult() {
     if (shortenableUrl && !shortUrl) {
       await requestShortUrl(shortenableUrl);
       shortenFailed = !shortUrl;
@@ -373,12 +379,6 @@
       await new Promise((resolve) => setTimeout(resolve, 1300));
       orbDone = false;
     }
-    if (unlockFocused) optionsOpen = true;
-    await tick();
-    document.getElementById(unlockFocused ? 'ue-unlock' : 'ue-pass')?.focus();
-  }
-
-  async function goToResult() {
     step = 'result';
     await tick();
     const link = document.getElementById('ue-result-link') as HTMLInputElement | null;
