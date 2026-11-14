@@ -209,7 +209,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</div>
 
 				<div class="nav__actions">
-					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')} title="GitHub">
+					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')} title={t(dict, 'nav.github')}>
 						<Icon name="github" size={20} />
 					</a>
 					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')} aria-pressed="false">
@@ -251,7 +251,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				<p data-pwa-notice-text></p>
 				<a class="pwa-notice__cta" href={`${localePrefix}/install`}>{t(dict, 'pwa.notice.cta')}</a>
 			</div>
-			<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+			<button type="button" class="btn btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
 			<button type="button" class="btn-ghost btn-sm" data-pwa-notice-dismiss>{t(dict, 'pwa.notice.dismiss')}</button>
 		</div>
 
@@ -277,7 +277,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<p class="hidden pwa-promo__hint" data-pwa-hint-ios>{t(dict, 'pwa.promo.ios')}</p>
 						<p class="hidden pwa-promo__hint" data-pwa-hint-menu>{t(dict, 'pwa.promo.menu')}</p>
 						<div class="pwa-promo__actions">
-							<button type="button" class="btn-primary btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+							<button type="button" class="btn btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
 							<a class="btn-secondary btn-sm" href={`${localePrefix}/install`}>{t(dict, 'pwa.promo.how')}</a>
 							<button type="button" class="btn-ghost btn-sm" data-pwa-promo-dismiss>{t(dict, 'pwa.promo.dismiss')}</button>
 						</div>
