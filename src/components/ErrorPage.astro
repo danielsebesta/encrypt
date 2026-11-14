@@ -1,4 +1,5 @@
 ---
+import AsciiNotFound from './AsciiNotFound.svelte';
 import Layout from '../layouts/Layout.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
 
@@ -14,7 +15,7 @@ const homeHref = locale === 'en' ? '/' : `/${locale}/`;
 
 <Layout title={t(dict, `${code}.meta.title`)} description={t(dict, `${code}.meta.description`)}>
   <div class="page text-center">
-    <p class="font-mono text-sm text-muted">{code}</p>
+    {code === '404' ? <AsciiNotFound client:load code={code} /> : <p class="font-mono text-sm text-muted">{code}</p>}
     <h1 class="page-title mt-1">{t(dict, `${code}.h1`)}</h1>
     <p class="page-lead mx-auto">{t(dict, `${code}.text`)}</p>
     <div class="actions mt-8 justify-center">

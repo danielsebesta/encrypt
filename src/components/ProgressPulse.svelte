@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+
   export let title = '';
   export let detail = '';
   export let compact = false;
@@ -6,6 +8,27 @@
   export let ratio: number | null = null;
   /** Secondary line: bytes, speed, ETA, online/offline. */
   export let transferLine = '';
+
+  let orbEl: HTMLSpanElement | undefined;
+  let orbOn = false;
+
+  onMount(() => {
+    if (compact || !orbEl || matchMedia('(prefers-reduced-data: reduce)').matches) return;
+    let handle: { supported: boolean; loading(): void; destroy(): void } | null = null;
+    let gone = false;
+    import('asciify-engine/kit').then(({ statusOrb }) => {
+      if (gone || !orbEl) return;
+      const orb = statusOrb(orbEl, { ring: false, colourByState: false, ink: 'var(--accent)', lazy: false });
+      if (!orb.supported) { orb.destroy(); return; }
+      handle = orb;
+      orb.loading();
+      orbOn = true;
+    });
+    return () => {
+      gone = true;
+      handle?.destroy();
+    };
+  });
 
   let phaseKey = '';
   let livePct = -1;
@@ -22,7 +45,8 @@
   }
 </script>
 
-<div class="status status--busy">
+<div class="status status--busy" class:status--orb={orbOn}>
+  {#if !compact}<span bind:this={orbEl} class="status__orb" aria-hidden="true"></span>{/if}
   <div class="status__body">
     <div role="status" aria-live="polite">
       <p class="status__title">{title}</p>

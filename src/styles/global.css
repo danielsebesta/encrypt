@@ -653,6 +653,20 @@ html.dark {
         animation: spin 0.8s linear infinite;
     }
 
+    .status--orb::before {
+        display: none;
+    }
+
+    .status__orb {
+        flex: none;
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+
+    .status--busy:not(.status--orb) .status__orb {
+        display: none;
+    }
+
     .status__title {
         @apply font-semibold;
     }
@@ -2151,4 +2165,11 @@ html.dark {
             display: inline-flex;
         }
     }
+}
+
+.ascii-404 {
+    position: relative;
+    isolation: isolate;
+    height: clamp(9rem, 28vw, 15rem);
+    margin-bottom: 1rem;
 }
