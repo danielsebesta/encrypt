@@ -4,7 +4,7 @@
 
   const RAMPS = {
     dark: ['#1f4a2a', '#3f8a4c', '#6fb35a', '#86b85f'],
-    light: ['#bcd9b4', '#7fb36f', '#4a8a3c', '#2e5921'],
+    light: ['#dcebd5', '#c3dcb8', '#a8cb9a', '#8fbb80'],
   };
 
   const SEEN = 'encrypt.click:ascii-bg-seen';
@@ -62,7 +62,7 @@
           vec3 c = mix(deep, moss, smoothstep(0., 0.35, hue));
           c = mix(c, lime, smoothstep(0.35, 0.7, hue));
           c = mix(c, pale, smoothstep(0.7, 1., hue));
-          ink = c * mix(0.62, 1., params.dark);
+          ink = c * mix(0.95, 1., params.dark);
           inkAmount = 0.75;
         `,
       });
