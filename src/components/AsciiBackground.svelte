@@ -64,7 +64,7 @@
           c = mix(c, pale, smoothstep(0.7, 1., hue));
           vec3 lightInk = mix(vec3(0.56, 0.73, 0.50), vec3(0.86, 0.92, 0.84), hue);
           ink = mix(lightInk, c, params.dark);
-          inkAmount = mix(0.55, 0.75, params.dark);
+          inkAmount = mix(0.42, 0.6, params.dark);
         `,
       });
       pulsesRef = pulses as unknown as { params: Record<string, number> };
@@ -81,7 +81,7 @@
         drift: 0.06,
         effects: [pulses],
         label: '',
-        clear: { rects: read, padding: 4, softness: 22, strength: 0.9 },
+        clear: { rects: read, padding: 14, softness: 30, strength: 1 },
         hover: 'none',
         tap: 'none',
       }) as unknown as Field;
