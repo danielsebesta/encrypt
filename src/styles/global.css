@@ -1716,16 +1716,16 @@ html.dark {
     }
 
     .sec-glance__item {
-        @apply flex items-center gap-3 rounded-lg border border-line-soft bg-surface p-3 text-sm font-semibold text-text;
+        @apply flex items-center gap-3 rounded-lg border border-line bg-surface p-3 text-sm font-semibold text-text;
         margin-top: 0 !important;
     }
 
     .sec-glance__icon {
-        @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-weak text-accent-strong;
+        @apply flex shrink-0 items-center justify-center text-muted;
     }
 
     .sec-toc {
-        @apply mt-6 rounded-lg border border-line-soft bg-surface p-4;
+        @apply mt-6 rounded-lg border border-line bg-surface p-4;
     }
 
     .sec-toc__title {
@@ -1749,11 +1749,11 @@ html.dark {
 
     .sec-toc a::before {
         content: counter(sec) ".";
-        @apply mr-2 inline-block w-5 font-mono text-xs text-accent-strong;
+        @apply mr-2 inline-block w-5 font-mono text-xs text-muted;
     }
 
     .article .sec-block {
-        @apply mt-0 scroll-mt-20 border-t border-line-soft pt-6;
+        @apply mt-0 scroll-mt-20 border-t border-line pt-6;
         margin-top: 2rem;
     }
 
