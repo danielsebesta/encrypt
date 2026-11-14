@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../../lib/t';
+  import { asciiKit, glAvailable } from '../../lib/asciiKit';
   import type { ReactionEmoji, ReactionSummary } from '../../lib/chatReactions';
 
   let { dict, items, ontoggle }: {
@@ -7,6 +8,24 @@
     items: ReactionSummary[];
     ontoggle: (emoji: ReactionEmoji) => void;
   } = $props();
+
+  const HEART = '❤️';
+  const bursts = new WeakMap<HTMLElement, { burst(): void; undo(): void }>();
+
+  function heartBurst(node: HTMLElement, emoji: string) {
+    return asciiKit(node, (kit, el) => {
+      if (emoji !== HEART || !glAvailable()) return null;
+      const made = kit.likeBurst(el, { kind: 'heart', icon: el.querySelector<HTMLElement>('[data-emoji]') ?? undefined, manage: false, outset: 28 });
+      bursts.set(el, made);
+      return { destroy() { bursts.delete(el); made.destroy(); } };
+    });
+  }
+
+  function press(item: ReactionSummary, node: HTMLElement) {
+    const burst = bursts.get(node);
+    try { if (item.mine) burst?.undo(); else burst?.burst(); } catch {}
+    ontoggle(item.emoji);
+  }
 
   const label = (item: ReactionSummary) => t(dict, 'chat.reactionBy').replace('{emoji}', item.emoji).replace('{names}', item.names.join(', '));
 </script>
@@ -21,9 +40,10 @@
         aria-pressed={item.mine}
         aria-label={label(item)}
         title={label(item)}
-        onclick={() => ontoggle(item.emoji)}
+        use:heartBurst={item.emoji}
+        onclick={(event) => press(item, event.currentTarget)}
       >
-        <span aria-hidden="true">{item.emoji}</span>
+        <span aria-hidden="true" data-emoji>{item.emoji}</span>
         <span class="msg-reactions__count" aria-hidden="true">{item.count}</span>
       </button>
     {/each}
