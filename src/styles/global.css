@@ -2215,6 +2215,30 @@ html.dark {
     margin-bottom: 1rem;
 }
 
+.flow-bg--ascii {
+    inset: auto 0 0 0;
+    -webkit-mask-image: radial-gradient(ellipse 90% 100% at 50% 100%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%), linear-gradient(to top, #000 0%, #000 33%, transparent 66%, transparent 100%);
+    mask-image: radial-gradient(ellipse 90% 100% at 50% 100%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%), linear-gradient(to top, #000 0%, #000 33%, transparent 66%, transparent 100%);
+    -webkit-mask-position: 0 0, 0 0, 0 100%;
+    mask-position: 0 0, 0 0, 0 100%;
+}
+
+html.flow-ready .flow-bg--ascii {
+    animation: flow-in-up 3.6s cubic-bezier(0.4, 0, 0.3, 1) 0.1s both;
+}
+
+@keyframes flow-in-up {
+    from {
+        opacity: 0;
+        -webkit-mask-position: 0 0, 0 0, 0 0;
+        mask-position: 0 0, 0 0, 0 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.flow-ready .flow-bg--ascii { animation: none; }
+}
+
 .ascii-bg {
     position: absolute;
     inset: 0;
