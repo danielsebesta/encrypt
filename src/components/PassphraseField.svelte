@@ -2,7 +2,7 @@
   import { t } from '../lib/t';
   import Icon from './Icon.svelte';
   import { copyText } from '../lib/clipboard';
-  import { asciiKit, kitAllowed } from '../lib/asciiKit';
+  import { onDestroy } from 'svelte';
 
   export let dict: Record<string, string>;
   export let id: string;
@@ -19,26 +19,60 @@
   let copied = false;
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
+  const SCRAMBLE = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const SCRAMBLE_MS = 700;
   let decoding = false;
-  let decodeTimer: ReturnType<typeof setTimeout> | undefined;
+  let scrambled = '';
+  let decodeTimer: ReturnType<typeof setInterval> | undefined;
+  let seen = value;
+
+  function stopDecode() {
+    clearInterval(decodeTimer);
+    decoding = false;
+  }
+
+  function motionAllowed() {
+    return !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.appReduceMotion !== '1';
+  }
+
+  function decodeAll(target: string) {
+    stopDecode();
+    if (!motionAllowed()) return;
+    const started = performance.now();
+    const frame = () => {
+      if (performance.now() - started >= SCRAMBLE_MS) { stopDecode(); return; }
+      scrambled = Array.from(target, (ch) => (/[\p{L}\p{N}]/u.test(ch) ? SCRAMBLE[Math.floor(Math.random() * SCRAMBLE.length)] : ch)).join('');
+    };
+    decoding = true;
+    frame();
+    decodeTimer = setInterval(frame, 55);
+  }
+
+  // Any password that appears without being typed (generate button, a parent filling it in) is revealed in full, all characters at once.
+  $: if (typeof window !== 'undefined' && value !== seen) {
+    const appeared = value && !typed;
+    seen = value;
+    typed = false;
+    if (appeared) {
+      revealed = true;
+      shownByUser = false;
+      decodeAll(value);
+    } else if (!value) stopDecode();
+  }
+
+  let typed = false;
 
   function useGenerated() {
     value = generate();
-    revealed = true;
-    shownByUser = false;
-    clearTimeout(decodeTimer);
-    decoding = false;
-    if (kitAllowed() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      decoding = true;
-      decodeTimer = setTimeout(() => { decoding = false; }, 1000);
-    }
   }
 
   function hideWhileEditing() {
-    clearTimeout(decodeTimer);
-    decoding = false;
+    typed = true;
+    stopDecode();
     if (!shownByUser) revealed = false;
   }
+
+  onDestroy(stopDecode);
 
   async function copyValue() {
     if (!value) return;
@@ -69,7 +103,7 @@
     aria-invalid={invalid ? 'true' : undefined}
   />
   {#if decoding}
-    <span class="passphrase__decode" aria-hidden="true" use:asciiKit={(kit, node) => kit.decode(node, { duration: 800, scramble: true, settle: 'text', replayOnHover: false })}>{value}</span>
+    <span class="passphrase__decode" aria-hidden="true">{scrambled}</span>
   {/if}
   </div>
   <button
