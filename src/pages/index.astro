@@ -96,8 +96,8 @@ const serverItems = [1, 2, 3];
         <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
         <p class="home-app__text">{t(dict, 'pwa.promo.text')}</p>
         <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
-          <li class="platform-pill">{t(dict, 'pwa.platforms.ios')}</li>
-          <li class="platform-pill">{t(dict, 'pwa.platforms.android')}</li>
+          <li class="platform-pill"><Icon name="apple" size={16} />{t(dict, 'pwa.platforms.ios')}</li>
+          <li class="platform-pill"><Icon name="android" size={16} />{t(dict, 'pwa.platforms.android')}</li>
         </ul>
         <div class="actions mt-2">
           <button type="button" class="btn hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>

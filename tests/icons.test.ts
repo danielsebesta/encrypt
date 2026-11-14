@@ -42,6 +42,7 @@ const FORCED_OUTLINE = [
 ] as const;
 
 const NATURAL_OUTLINE = [
+  'android',
   'arrow-up-right',
   'at-sign',
   'audio-lines',

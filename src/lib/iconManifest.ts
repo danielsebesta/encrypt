@@ -60,6 +60,8 @@ export const ICONS = {
   'folder-key': 'folder-lock',
   funnel: 'filter',
   github: 'brand-github',
+  apple: 'brand-apple',
+  android: 'brand-android',
   globe: 'world',
   'grid-3x3': 'layout-grid',
   hand: 'hand-stop',

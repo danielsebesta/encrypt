@@ -1,8 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import Icon from '../components/Icon.astro';
 import InstallGuide from '../components/InstallGuide.svelte';
 import { PRODUCT_NAME } from '../lib/siteBrand';
-import { APPLE_MARK, ANDROID_MARK } from '../lib/platformIcons';
 import { getTranslations, pickDict, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -33,11 +33,11 @@ export const prerender = true;
         <p class="install-hero__lead">{t(dict, 'install.lead')}</p>
         <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
           <li class="platform-pill">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={APPLE_MARK} /></svg>
+            <Icon name="apple" size={16} />
             {t(dict, 'pwa.platforms.ios')}
           </li>
           <li class="platform-pill">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={ANDROID_MARK} /></svg>
+            <Icon name="android" size={16} />
             {t(dict, 'pwa.platforms.android')}
           </li>
         </ul>
@@ -81,7 +81,7 @@ export const prerender = true;
           </div>
           <div class="install-guide__body">
             <p class="platform-pill install-guide__badge">{t(dict, 'pwa.platforms.ios')}</p>
-            <h3 id="install-ios" class="section-title">{t(dict, 'install.ios.title')}</h3>
+            <h3 id="install-ios" class="home-card__title">{t(dict, 'install.ios.title')}</h3>
             <ol class="install-steps">
               <li>{t(dict, 'install.ios.1')}</li>
               <li>{t(dict, 'install.ios.2')}</li>
@@ -96,7 +96,7 @@ export const prerender = true;
           </div>
           <div class="install-guide__body">
             <p class="platform-pill install-guide__badge">{t(dict, 'pwa.platforms.android')}</p>
-            <h3 id="install-android" class="section-title">{t(dict, 'install.android.title')}</h3>
+            <h3 id="install-android" class="home-card__title">{t(dict, 'install.android.title')}</h3>
             <ol class="install-steps">
               <li>{t(dict, 'install.android.1')}</li>
               <li>{t(dict, 'install.android.2')}</li>
