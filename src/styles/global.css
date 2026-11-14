@@ -47,10 +47,10 @@
 :root {
     color-scheme: only light;
     --bg: #ffffff;
-    --surface: #fafafa;
-    --surface-2: #f4f4f5;
-    --line: #e4e4e7;
-    --line-soft: #efeff1;
+    --surface: #f9fbf8;
+    --surface-2: #f2f5f1;
+    --line: #e3e7e2;
+    --line-soft: #eef1ed;
     --control-line: #8a8a90;
     --text: #0a0a0a;
     --muted: #585860;
@@ -75,10 +75,10 @@
 html.dark {
     color-scheme: only dark;
     --bg: #0b0b0c;
-    --surface: #111113;
-    --surface-2: #18181b;
-    --line: #27272a;
-    --line-soft: #1c1c1f;
+    --surface: #111412;
+    --surface-2: #171b18;
+    --line: #262a27;
+    --line-soft: #1b1f1c;
     --control-line: #74747b;
     --text: #ededed;
     --muted: #a1a1a8;
