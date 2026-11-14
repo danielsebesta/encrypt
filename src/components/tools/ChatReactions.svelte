@@ -17,11 +17,12 @@
       if (emoji !== HEART || !glAvailable()) return null;
       const made = kit.likeBurst(el, { kind: 'heart', icon: '[data-emoji]', manage: false, outset: 28, ink: el.closest('.chat-bubble--mine') ? 'var(--on-accent)' : 'var(--accent)', limit: el.closest<HTMLElement>('.chat-bubble'), look: { cellSize: 6 } });
       bursts.set(el, made);
-      return { destroy() { bursts.delete(el); made.destroy(); } };
+      return { destroy() { bursts.delete(el); clearTimeout(pending.get(el)); pending.delete(el); made.destroy(); } };
     });
   }
 
   const busy = new WeakSet<HTMLElement>();
+  const pending = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 
   function press(item: ReactionSummary, node: HTMLElement) {
     const burst = bursts.get(node);
@@ -33,8 +34,12 @@
     busy.add(node);
     setTimeout(() => busy.delete(node), 650);
     try { if (item.mine) burst.undo(); else burst.burst(); } catch {}
-    if (item.mine) setTimeout(() => ontoggle(item.emoji), 320);
-    else ontoggle(item.emoji);
+    if (item.mine) {
+      pending.set(node, setTimeout(() => {
+        pending.delete(node);
+        if (items.some((entry) => entry.emoji === item.emoji && entry.mine)) ontoggle(item.emoji);
+      }, 320));
+    } else ontoggle(item.emoji);
   }
 
   const label = (item: ReactionSummary) => t(dict, 'chat.reactionBy').replace('{emoji}', item.emoji).replace('{names}', item.names.join(', '));
