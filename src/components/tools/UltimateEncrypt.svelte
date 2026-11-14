@@ -15,7 +15,7 @@
   import CopyButton from '../CopyButton.svelte';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
-  import { asciiKit, glAvailable, kitAllowed } from '../../lib/asciiKit';
+  import { asciiKit, glAvailable, kitAllowed, loadKit } from '../../lib/asciiKit';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -357,10 +357,17 @@
   let orbDone = false;
   let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
   const beamExpected = typeof window !== 'undefined' && kitAllowed() && glAvailable();
+  let beamFailed = false;
+  if (beamExpected) loadKit().catch(() => { beamFailed = true; });
   const mountBeam = (kit: any, node: HTMLElement) => {
-    const made = kit.beam(node, { palette: 'mono', ink: 'var(--accent)', mode: 'progress', grain: 'dots', hover: false });
-    beamHandle = made;
-    return { destroy() { beamHandle = null; made.destroy(); } };
+    try {
+      const made = kit.beam(node, { palette: 'mono', ink: 'var(--accent)', mode: 'progress', grain: 'dots', hover: false });
+      beamHandle = made;
+      return { destroy() { beamHandle = null; made.destroy(); } };
+    } catch {
+      beamFailed = true;
+      return null;
+    }
   };
   $: if (beamHandle) {
     if (error) beamHandle.error();
@@ -1044,8 +1051,8 @@
   {:else if step === 'processing'}
     <div class="stack ue-beam" use:asciiKit={mountBeam}>
       <ProgressPulse
-        orb={!beamExpected}
-        bar={!beamExpected}
+        orb={!beamExpected || beamFailed}
+        bar={!beamExpected || beamFailed}
         title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
         detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
         ratio={transferBar}
