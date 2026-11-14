@@ -6431,7 +6431,7 @@
                   <span class="chat-avatar chat-avatar--xs" style="background: {gradientFor(typer.alias, typer.sender)}"></span>
                 {/each}
               </span>
-              <span class="chat-typing__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              {#if !typingRoll}<span class="chat-typing__dots" aria-hidden="true"><i></i><i></i><i></i></span>{/if}
               {#if typingRoll}
                 {#key typingLine(typers)}
                   <span class="chat-typing__text" use:typingRolls={typingLine(typers)}><span data-typing-label>{typingLine(typers)}</span><span data-typing-answer hidden></span></span>
