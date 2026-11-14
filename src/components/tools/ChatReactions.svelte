@@ -15,7 +15,7 @@
   function heartBurst(node: HTMLElement, emoji: string) {
     return asciiKit(node, (kit, el) => {
       if (emoji !== HEART || !glAvailable()) return null;
-      const made = kit.likeBurst(el, { kind: 'heart', icon: '[data-emoji]', manage: false, outset: 28, ink: 'var(--accent)', limit: el.closest<HTMLElement>('.chat-bubble'), look: { cellSize: 6 } });
+      const made = kit.likeBurst(el, { kind: 'heart', icon: '[data-emoji]', manage: false, outset: 28, ink: el.closest('.chat-bubble--mine') ? 'var(--on-accent)' : 'var(--accent)', limit: el.closest<HTMLElement>('.chat-bubble'), look: { cellSize: 6 } });
       bursts.set(el, made);
       return { destroy() { bursts.delete(el); made.destroy(); } };
     });
