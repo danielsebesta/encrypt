@@ -1341,46 +1341,43 @@ html.dark {
         @apply grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16 lg:pt-4;
     }
 
-    body::before {
+    body {
+        position: relative;
+    }
+
+    body::before,
+    body::after {
         content: '';
-        position: fixed;
-        inset: 0;
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: max(100vh, 46rem);
         z-index: -1;
-        background: center / cover no-repeat;
+        background: center top / cover no-repeat;
         opacity: 0;
-        transition: opacity var(--duration-slow, 320ms) var(--ease-out, ease-out);
+        -webkit-mask-image: radial-gradient(ellipse 85% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.55) 40%, transparent 78%);
+        mask-image: radial-gradient(ellipse 85% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.55) 40%, transparent 78%);
+        transition: opacity 1.2s var(--ease-out, ease-out);
         pointer-events: none;
     }
 
     html.flow-ready body::before {
         background-image: url('/flow-lines-light.svg');
-        opacity: 0.6;
+        opacity: 0.8;
     }
 
     html.dark.flow-ready body::before {
         background-image: url('/flow-lines-dark.svg');
-        opacity: 0.45;
-    }
-
-    body::after {
-        content: '';
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        background: center / cover no-repeat;
-        opacity: 0;
-        transition: opacity 1.2s var(--ease-out, ease-out);
-        pointer-events: none;
+        opacity: 0.65;
     }
 
     html.flow-ready body::after {
         background-image: url('/flow-pulses-light.svg');
-        opacity: 0.55;
+        opacity: 0.6;
     }
 
     html.dark.flow-ready body::after {
         background-image: url('/flow-pulses-dark.svg');
-        opacity: 0.5;
+        opacity: 0.55;
     }
 
     @media (prefers-reduced-motion: reduce) {
