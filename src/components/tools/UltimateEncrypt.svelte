@@ -15,7 +15,7 @@
   import CopyButton from '../CopyButton.svelte';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
-  import { asciiKit } from '../../lib/asciiKit';
+  import { asciiKit, glAvailable, kitAllowed } from '../../lib/asciiKit';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -350,6 +350,12 @@
       error === t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') ||
   let orbDone = false;
   let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
+  const beamExpected = typeof window !== 'undefined' && kitAllowed() && glAvailable();
+  const mountBeam = (kit: any, node: HTMLElement) => {
+    const made = kit.beam(node, { palette: BEAM_PALETTE, mode: 'progress', grain: 'dots', hover: false });
+    beamHandle = made;
+    return { destroy() { beamHandle = null; made.destroy(); } };
+  };
   const BEAM_PALETTE = ['#3f8a4c', '#6fb35a', '#a7d27a', '#6fb35a'];
   $: if (beamHandle) {
     if (error) beamHandle.error();
@@ -453,9 +459,14 @@
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       pushDebug(`Encrypt failed: ${error}`);
+      await holdError();
       step = 'input';
       await focusEncryptError();
     }
+  }
+
+  async function holdError() {
+    if (step === 'processing' && !matchMedia('(prefers-reduced-motion: reduce)').matches) await new Promise((resolve) => setTimeout(resolve, 1400));
   }
 
   const firstPartyHosts = () => pendingHosts.filter(h => h.id === 'eclk');
@@ -471,6 +482,7 @@
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       pushDebug(`Upload failed: ${error}`);
+      await holdError();
     }
 
     const failedHost = hosts.some(h => h.id === 'nologsend') ? sendInstance?.host : undefined;
@@ -1031,10 +1043,10 @@
     </div>
 
   {:else if step === 'processing'}
-    <div class="stack ue-beam" use:asciiKit={(kit, node) => (beamHandle = kit.beam(node, { palette: BEAM_PALETTE, mode: 'progress', grain: 'dots', hover: false }))}>
+    <div class="stack ue-beam" use:asciiKit={mountBeam}>
       <ProgressPulse
-        orb={false}
-        bar={false}
+        orb={!beamExpected}
+        bar={!beamExpected}
         title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
         detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
         ratio={transferBar}
@@ -1047,8 +1059,8 @@
     </div>
 
   {:else if step === 'result'}
-    <div class="ue-result" role="status">
-      <p class="ue-result__ready"><Icon name="check" size={20} />{t(dict, 'tools.ultimateEncrypt.result.readyTitle')}</p>
+    <div class="ue-result">
+      <p class="ue-result__ready" role="status"><Icon name="check" size={20} />{t(dict, 'tools.ultimateEncrypt.result.readyTitle')}</p>
       <div class="card stack">
         {#if resultUrl || shortUrl}
           <div class="field">
