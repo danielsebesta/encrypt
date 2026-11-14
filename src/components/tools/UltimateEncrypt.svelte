@@ -356,9 +356,9 @@
 
   let orbDone = false;
   let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
-  const beamExpected = typeof window !== 'undefined' && kitAllowed() && glAvailable();
+  $: beamExpected = step === 'processing' && typeof window !== 'undefined' && kitAllowed() && glAvailable();
   let beamFailed = false;
-  if (beamExpected) loadKit().catch(() => { beamFailed = true; });
+  if (typeof window !== 'undefined' && kitAllowed() && glAvailable()) loadKit().catch(() => { beamFailed = true; });
   const mountBeam = (kit: any, node: HTMLElement) => {
     try {
       const made = kit.beam(node, { palette: 'mono', ink: 'var(--accent)', mode: 'progress', grain: 'dots', hover: false });

@@ -801,7 +801,7 @@
     }
     try {
       await navigator.clipboard.writeText(url);
-      showToast(`${t(dict, 'common.shareLink')} — ${t(dict, 'common.copied')}`, 'success');
+      showToast(`${t(dict, 'common.shareLink')} – ${t(dict, 'common.copied')}`, 'success');
     } catch {
       showToast(t(dict, 'app.error'));
     }
@@ -1734,7 +1734,7 @@
           type="button"
           class="app-conn-status app-conn-status--offline"
           onclick={() => roomReconnect?.()}
-          aria-label={`${t(dict, 'app.offline')} — ${t(dict, 'app.room.reconnect')}`}
+          aria-label={`${t(dict, 'app.offline')} – ${t(dict, 'app.room.reconnect')}`}
         >
           {t(dict, 'app.offline')}
         </button>
@@ -1746,7 +1746,7 @@
             if (roomConn === 'connecting') roomReconnect?.();
           }}
           aria-label={roomConn === 'connecting'
-            ? `${t(dict, 'chat.connecting')} — ${t(dict, 'app.room.reconnect')}`
+            ? `${t(dict, 'chat.connecting')} – ${t(dict, 'app.room.reconnect')}`
             : t(dict, 'common.working')}
           disabled={roomConn === 'loading'}
         >
