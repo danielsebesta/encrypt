@@ -2215,7 +2215,7 @@ html.dark {
     margin-bottom: 1rem;
 }
 
-.flow-bg--ascii {
+.flow-bg--bottom {
     inset: auto 0 0 0;
     -webkit-mask-image: radial-gradient(ellipse 90% 100% at 50% 100%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%), linear-gradient(to top, #000 0%, #000 33%, transparent 66%, transparent 100%);
     mask-image: radial-gradient(ellipse 90% 100% at 50% 100%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%), linear-gradient(to top, #000 0%, #000 33%, transparent 66%, transparent 100%);
@@ -2230,15 +2230,11 @@ html.flow-ready:not(.ascii-ready) .flow-bg--ascii {
 
 html.ascii-ready .flow-bg--ascii {
     opacity: 1;
-    animation: flow-in-up 1.3s cubic-bezier(0.3, 0, 0.2, 1) both;
+    animation: flow-in 1.3s cubic-bezier(0.3, 0, 0.2, 1) both;
 }
 
-html.ascii-ready.ascii-instant .flow-bg--ascii {
-    animation: ascii-fade 0.25s ease-out both;
-}
-
-@keyframes ascii-fade {
-    from { opacity: 0; }
+html.ascii-ready .flow-bg--bottom {
+    animation-name: flow-in-up;
 }
 
 @keyframes flow-in-up {
@@ -2247,6 +2243,14 @@ html.ascii-ready.ascii-instant .flow-bg--ascii {
         -webkit-mask-position: 0 0, 0 0, 0 0;
         mask-position: 0 0, 0 0, 0 0;
     }
+}
+
+html.ascii-ready.ascii-instant .flow-bg--ascii {
+    animation: ascii-fade 0.25s ease-out both;
+}
+
+@keyframes ascii-fade {
+    from { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

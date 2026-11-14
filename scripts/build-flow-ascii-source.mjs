@@ -1,10 +1,10 @@
 // Turns a flow-line SVG into the grayscale source the ASCII background samples: stroke brightness from the original
-// colour, thicker strokes, black ground, flipped so the dense end sits at the bottom.
+// colour, thicker strokes, black ground, dense end at the top; --flip gives the copy that grows up from the footer.
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 
-const [input, output] = process.argv.slice(2);
-if (!input || !output) throw new Error('usage: node scripts/build-flow-ascii-source.mjs <in.svg> <out.webp>');
+const [input, output, mode] = process.argv.slice(2);
+if (!input || !output) throw new Error('usage: node scripts/build-flow-ascii-source.mjs <in.svg> <out.webp> [--flip]');
 
 let svg = readFileSync(input, 'utf8');
 const lum = (hex) => {
@@ -24,8 +24,8 @@ svg = svg
   .replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${(Number(w) * 1.2 + 1.6).toFixed(1)}"`)
   .replace(/ opacity="[\d.]+"/g, '');
 
-await sharp(Buffer.from(svg), { density: 72 })
-  .resize(1600, 900)
-  .flip()
+let image = sharp(Buffer.from(svg), { density: 72 }).resize(1600, 900);
+if (mode === '--flip') image = image.flip();
+await image
   .webp({ quality: 80 })
   .toFile(output);
