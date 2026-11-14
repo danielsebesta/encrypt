@@ -8,6 +8,8 @@
   };
   const HOVER = { hover: 'lantern', tap: 'none', lantern: { radius: 0.12, strength: 0.35, trail: 0.6, follow: 6 } };
 
+  const SEEN = 'encrypt.click:ascii-bg-seen';
+
   let canvas: HTMLCanvasElement;
 
   onMount(() => {
@@ -55,6 +57,15 @@
         label: '',
         ...HOVER,
       }) as unknown as Field;
+      (field as unknown as { ready?: Promise<void> }).ready?.then(() => {
+        if (gone) return;
+        const root = document.documentElement;
+        try {
+          if (sessionStorage.getItem(SEEN)) root.classList.add('ascii-instant');
+          sessionStorage.setItem(SEEN, '1');
+        } catch {}
+        requestAnimationFrame(() => root.classList.add('ascii-ready'));
+      }).catch(() => {});
     }).catch(() => {});
 
     const theme = new MutationObserver(() => field?.update({ ramp: RAMPS[isDark() ? 'dark' : 'light'] }));

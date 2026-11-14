@@ -2223,8 +2223,22 @@ html.dark {
     mask-position: 0 0, 0 0, 0 100%;
 }
 
-html.flow-ready .flow-bg--ascii {
-    animation: flow-in-up 3.6s cubic-bezier(0.4, 0, 0.3, 1) 0.1s both;
+html.flow-ready:not(.ascii-ready) .flow-bg--ascii {
+    opacity: 0;
+    animation: none;
+}
+
+html.ascii-ready .flow-bg--ascii {
+    opacity: 1;
+    animation: flow-in-up 1.3s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+html.ascii-ready.ascii-instant .flow-bg--ascii {
+    animation: ascii-fade 0.25s ease-out both;
+}
+
+@keyframes ascii-fade {
+    from { opacity: 0; }
 }
 
 @keyframes flow-in-up {
@@ -2236,7 +2250,7 @@ html.flow-ready .flow-bg--ascii {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    html.flow-ready .flow-bg--ascii { animation: none; }
+    html.ascii-ready .flow-bg--ascii { animation: none; }
 }
 
 .ascii-bg {

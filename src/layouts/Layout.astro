@@ -109,6 +109,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#08110a" media="(prefers-color-scheme: dark)" />
+		{backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src.webp" fetchpriority="low" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
@@ -148,7 +149,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		{backgroundMode === 'flow' ? (
 			<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
 		) : (
-			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:idle /></div>
+			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:load /></div>
 		)}
 		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
 		<header class="site-header">
