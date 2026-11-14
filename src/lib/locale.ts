@@ -69,10 +69,11 @@ export function sameOriginTarget(to: string | null, origin: string): string {
 }
 
 /**
- * Server-side language handling for one request:
+ * Server-side language handling. The language is never part of a URL:
  * - `/_lang/<code>?to=<path>` stores the choice in a cookie and continues to the same-origin path;
- * - an unprefixed page is redirected to the cookie language, or to the browser language on the first visit;
- * - a prefixed page is served as linked, so shared links keep their language.
+ * - a page requested under a language prefix (`/cs/chat`) is permanently redirected to the same path without it;
+ * - a page without a prefix is answered in the cookie language, or the browser language on the first visit, by
+ *   rendering the prefixed page for that request (see `localizedRequest`). The address bar and shared links stay clean.
  */
 export function localeResponse(request: Request): Response | null {
   const url = new URL(request.url);
@@ -87,12 +88,27 @@ export function localeResponse(request: Request): Response | null {
     });
   }
 
-  if (!isPageRequest(request, path) || localeInPath(path)) return null;
+  const prefixed = localeInPath(path);
+  if (!prefixed || !isPageRequest(request, path)) return null;
+  const rest = path.slice(prefixed.length + 1) || '/';
+  return new Response(null, {
+    status: 301,
+    headers: { Location: new URL(rest + url.search, url.origin).href, 'Cache-Control': 'public, max-age=3600' },
+  });
+}
+
+/** True when the answer to this unprefixed page request depends on the visitor's language settings. */
+export function varyByLanguage(request: Request): boolean {
+  const path = new URL(request.url).pathname;
+  return !localeInPath(path) && isPageRequest(request, path);
+}
+
+/** The request to render for an unprefixed page: the prefixed page of the visitor's language, or null for English. */
+export function localizedRequest(request: Request): Request | null {
+  const url = new URL(request.url);
+  if (!varyByLanguage(request)) return null;
   const chosen = localeFromCookie(request.headers.get('Cookie')) ?? pickLocale(request.headers.get('Accept-Language'));
   if (chosen === defaultLocale) return null;
-  const target = `/${chosen}${path === '/' ? '/' : path}${url.search}`;
-  return new Response(null, {
-    status: 302,
-    headers: { Location: new URL(target, url.origin).href, Vary: 'Accept-Language, Cookie', 'Cache-Control': 'private, no-store' },
-  });
+  url.pathname = `/${chosen}${url.pathname === '/' ? '/' : url.pathname}`;
+  return new Request(url, request);
 }

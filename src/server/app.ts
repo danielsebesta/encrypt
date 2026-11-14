@@ -1,4 +1,4 @@
-import { localeResponse } from '../lib/locale';
+import { localeInPath, localeResponse, localizedRequest, varyByLanguage } from '../lib/locale';
 import { MAX_TRANSFER_BYTES, clientPrefix, routingPath } from '../lib/httpLimits';
 import { applySiteBrand } from '../lib/siteBrand';
 import { PASS_HEADER, RELAY_DAILY_BYTES_PER_CLIENT, browserFetch, verifyPass, type Charge } from '../lib/uploadPass';
@@ -124,7 +124,25 @@ export function createApp(platform: Platform) {
         const handled = await handleUploadRoute(request, path, platform);
         if (handled) return handled;
       }
-      const response = localeResponse(request) ?? await render(request);
+      const redirected = localeResponse(request);
+      if (redirected) return redirected;
+      const localized = localizedRequest(request);
+      const response = await render(localized ?? request);
+      if (varyByLanguage(request)) {
+        const headers = new Headers(response.headers);
+        const location = headers.get('Location');
+        if (localized && location) {
+          const prefix = `/${localeInPath(new URL(localized.url).pathname)}`;
+          const target = new URL(location, request.url);
+          if (target.origin === new URL(request.url).origin && (target.pathname === prefix || target.pathname.startsWith(`${prefix}/`))) {
+            target.pathname = target.pathname.slice(prefix.length) || '/';
+            headers.set('Location', target.href);
+          }
+        }
+        headers.set('Vary', 'Accept-Language, Cookie');
+        headers.set('Cache-Control', 'private, no-store');
+        return ensureHtmlCharset(await applySiteBrand(new Response(response.body, { status: response.status, statusText: response.statusText, headers })));
+      }
       return ensureHtmlCharset(await applySiteBrand(response));
     },
 

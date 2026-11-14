@@ -10,7 +10,7 @@
   type ThemeEntry = { id: 'theme'; label: string; icon: IconName; kind: 'theme' };
   type Entry = CommandItem | ThemeEntry;
 
-  const prefix = $derived(locale === 'en' ? '' : `/${locale}`);
+  const prefix = '';
   let dark = $state(false);
   let shortcut = $state('Ctrl K');
   let open = $state(false);

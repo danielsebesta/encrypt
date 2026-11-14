@@ -515,7 +515,7 @@
     if (typeof window === 'undefined') return;
     const hash = window.location.hash || '';
     if (isCapsuleFragment(hash.slice(1))) {
-      window.location.replace(`${locale === 'en' ? '' : `/${locale}`}/tools/time-capsule${hash}`);
+      window.location.replace(`/experiments/time-capsule${hash}`);
       return;
     }
     pushDebug(`Page opened: path=${window.location.pathname}, hashLength=${hash.length}, search=${window.location.search || '(empty)'}`);

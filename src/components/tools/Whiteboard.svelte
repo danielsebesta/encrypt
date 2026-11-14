@@ -1506,7 +1506,7 @@
           {#if appMode}
             <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
           {:else}
-            <a class="btn-secondary w-full" href={`${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+            <a class="btn-secondary w-full" href={`/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
           {/if}
         {/if}
         <div class="field">

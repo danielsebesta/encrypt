@@ -9,7 +9,7 @@ type Props = {
 };
 
 const { dict } = Astro.props;
-const localePrefix = Astro.props.locale === 'en' ? '' : `/${Astro.props.locale}`;
+const localePrefix = '';
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s+(?=\p{Lu})/u)[0];
 const items = tools.map((tool) => ({
   label: t(dict, tool.navLabelKey),

@@ -1,4 +1,4 @@
 ---
 const locale = Astro.currentLocale ?? 'en';
-return Astro.redirect(locale === 'en' ? '/' : `/${locale}/`, 301);
+return Astro.redirect('/', 301);
 ---

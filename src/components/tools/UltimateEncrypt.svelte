@@ -994,7 +994,7 @@
             <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.sendInstances')}</a>
             <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.swissTransfer')}</a>
           </p>
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href={locale === 'en' ? '/u' : `/${locale}/u`} class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.decryptPath')}</a></p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.decryptPath')}</a></p>
         </div>
       {/if}
       <div class="actions">

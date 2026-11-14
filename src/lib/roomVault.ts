@@ -169,7 +169,7 @@ export function vaultStateFor(input: { webauthn: boolean; namesOnly: boolean; re
 }
 
 export function localePrefix(locale: string): string {
-  return locale && locale !== 'en' ? `/${locale}` : '';
+  return '';
 }
 
 /**

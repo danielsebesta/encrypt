@@ -1857,7 +1857,7 @@
   }
 
   function getLocalePrefix(): string {
-    return locale && locale !== 'en' ? `/${locale}` : '';
+    return '';
   }
 
   // Password rooms are format version 3; anything else the server reports does not count.

@@ -113,7 +113,7 @@
     const typed = password.trim();
     sessionStorage.setItem('whiteboard-password', typed);
     sessionStorage.setItem('whiteboard-share-password', typed);
-    window.location.href = `${window.location.origin}${locale && locale !== 'en' ? `/${locale}` : ''}/whiteboard/${roomId}`;
+    window.location.href = `${window.location.origin}/whiteboard/${roomId}`;
   }
 </script>
 

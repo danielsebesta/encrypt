@@ -1,4 +1,3 @@
-import { locales, type Locale } from './languages';
 import { siteOrigin } from './siteBrand';
 import { tools } from './tools';
 
@@ -16,12 +15,6 @@ export const SITEMAP_PATHS = [
   ...tools.map((tool) => `/experiments/${tool.slug}`),
 ] as const;
 
-function localePath(locale: Locale, path: string): string {
-  if (locale === 'en') return path === '/' ? '/' : path;
-  if (path === '/') return `/${locale}/`;
-  return `/${locale}${path}`;
-}
-
 function absolute(origin: string, path: string): string {
   return new URL(path, `${origin}/`).href;
 }
@@ -35,39 +28,14 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-/** Sitemap URL set with hreflang alternates for every public page × locale. */
+/** Sitemap of the public pages. Language is a visitor setting, not part of the URL, so there is one entry per page. */
 export function buildSitemapXml(origin = siteOrigin()): string {
   const base = origin.replace(/\/$/, '');
-  const urls: string[] = [];
-
-  for (const path of SITEMAP_PATHS) {
-    const loc = absolute(base, localePath('en', path));
-    const alternates = locales
-      .map((locale) => {
-        const href = absolute(base, localePath(locale, path));
-        return `    <xhtml:link rel="alternate" hreflang="${locale}" href="${escapeXml(href)}"/>`;
-      })
-      .concat([`    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(loc)}"/>`])
-      .join('\n');
-
-    // One <url> entry per locale so each localized URL is a primary loc.
-    for (const locale of locales) {
-      const pageLoc = absolute(base, localePath(locale, path));
-      urls.push(
-        [
-          '  <url>',
-          `    <loc>${escapeXml(pageLoc)}</loc>`,
-          alternates,
-          '  </url>',
-        ].join('\n'),
-      );
-    }
-  }
+  const urls = SITEMAP_PATHS.map((path) => `  <url>\n    <loc>${escapeXml(absolute(base, path))}</loc>\n  </url>`);
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"',
-    '        xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ...urls,
     '</urlset>',
     '',

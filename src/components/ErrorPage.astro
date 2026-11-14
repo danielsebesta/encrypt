@@ -10,7 +10,7 @@ interface Props {
 const { code } = Astro.props;
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const homeHref = locale === 'en' ? '/' : `/${locale}/`;
+const homeHref = '/';
 ---
 
 <Layout title={t(dict, `${code}.meta.title`)} description={t(dict, `${code}.meta.description`)}>

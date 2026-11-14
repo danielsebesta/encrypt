@@ -16,12 +16,13 @@ logpush = false
 enabled = false
 redact_query_string = true
 
-# HTML pages pass through the worker so locale redirects can run. Fingerprinted assets under /_astro and /fonts
+# HTML pages pass through the worker so the language of the visitor's settings can be applied. Fingerprinted assets under /_astro and /fonts
 # stay on the asset path.
 [assets]
 run_worker_first = [
   "/", "/share", "/share/", "/u", "/u/", "/chat", "/chat/", "/whiteboard", "/whiteboard/",
-  "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*",
+  "/security", "/security/", "/privacy", "/privacy/", "/preview", "/preview/", "/tools/*", "/experiments/*",
+  "/install", "/install/", "/licenses", "/licenses/", "/app", "/app/", "/decrypt", "/decrypt/",
   "/_lang/*",
   "/cs", "/cs/*", "/de", "/de/*", "/es", "/es/*", "/fr", "/fr/*", "/sk", "/sk/*", "/pl", "/pl/*",
 ]

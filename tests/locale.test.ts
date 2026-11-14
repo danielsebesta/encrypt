@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickLocale, localeFromCookie, localeInPath, localeResponse, languageChoiceHref } from '../src/lib/locale';
+import { pickLocale, localeFromCookie, localeInPath, localeResponse, localizedRequest, languageChoiceHref } from '../src/lib/locale';
 
 const page = (path: string, headers: Record<string, string> = {}, method = 'GET') =>
   new Request(`https://encrypt.click${path}`, { method, headers: { Accept: 'text/html,*/*;q=0.8', ...headers } });
@@ -25,33 +25,38 @@ test('cookie and path readers only accept supported codes', () => {
   assert.equal(localeInPath('/'), null);
 });
 
-test('unprefixed pages redirect to the browser language on first visit', () => {
-  const res = localeResponse(page('/', { 'Accept-Language': 'cs-CZ,cs;q=0.9' }));
-  assert.equal(res?.status, 302);
-  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/cs/');
-  assert.equal(res?.headers.get('Vary'), 'Accept-Language, Cookie');
-  const tool = localeResponse(page('/tools/aes-words?x=1', { 'Accept-Language': 'de' }));
-  assert.equal(tool?.headers.get('Location'), 'https://encrypt.click/de/tools/aes-words?x=1');
+test('unprefixed pages are rendered in the browser language without changing the address', () => {
+  assert.equal(localeResponse(page('/', { 'Accept-Language': 'cs-CZ,cs;q=0.9' })), null);
+  assert.equal(localizedRequest(page('/', { 'Accept-Language': 'cs-CZ,cs;q=0.9' }))?.url, 'https://encrypt.click/cs/');
+  assert.equal(localizedRequest(page('/experiments/time-capsule?x=1', { 'Accept-Language': 'de' }))?.url, 'https://encrypt.click/de/experiments/time-capsule?x=1');
 });
 
-test('English browsers and English cookies are served without redirect', () => {
-  assert.equal(localeResponse(page('/', { 'Accept-Language': 'en-GB' })), null);
-  assert.equal(localeResponse(page('/share', { 'Accept-Language': 'cs', Cookie: 'ec-lang=en' })), null);
-  assert.equal(localeResponse(page('/')), null);
+test('English browsers and English cookies are served the unprefixed page as it is', () => {
+  assert.equal(localizedRequest(page('/', { 'Accept-Language': 'en-GB' })), null);
+  assert.equal(localizedRequest(page('/share', { 'Accept-Language': 'cs', Cookie: 'ec-lang=en' })), null);
+  assert.equal(localizedRequest(page('/')), null);
 });
 
 test('a stored choice wins over the browser language', () => {
-  const res = localeResponse(page('/u', { 'Accept-Language': 'cs', Cookie: 'ec-lang=fr' }));
-  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/fr/u');
+  assert.equal(localizedRequest(page('/u', { 'Accept-Language': 'cs', Cookie: 'ec-lang=fr' }))?.url, 'https://encrypt.click/fr/u');
 });
 
-test('localized links, assets, APIs and non-GET requests are left alone', () => {
-  assert.equal(localeResponse(page('/cs/share', { 'Accept-Language': 'de', Cookie: 'ec-lang=pl' })), null);
-  assert.equal(localeResponse(page('/_astro/x.css', { 'Accept-Language': 'cs' })), null);
-  assert.equal(localeResponse(page('/og.png', { 'Accept-Language': 'cs' })), null);
-  assert.equal(localeResponse(page('/api/turn', { 'Accept-Language': 'cs' })), null);
-  assert.equal(localeResponse(page('/share', { 'Accept-Language': 'cs' }, 'POST')), null);
-  assert.equal(localeResponse(new Request('https://encrypt.click/', { headers: { Accept: 'application/json', 'Accept-Language': 'cs' } })), null);
+test('pages under a language prefix redirect permanently to the same path without it', () => {
+  const res = localeResponse(page('/cs/chat/room-1?x=1', { 'Accept-Language': 'de' }));
+  assert.equal(res?.status, 301);
+  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/chat/room-1?x=1');
+  assert.equal(localeResponse(page('/pl'))?.headers.get('Location'), 'https://encrypt.click/');
+  assert.equal(localeResponse(page('/de/'))?.headers.get('Location'), 'https://encrypt.click/');
+});
+
+test('assets, APIs and non-GET requests are left alone', () => {
+  for (const path of ['/_astro/x.css', '/og.png', '/api/turn', '/cs/_astro/x.css']) {
+    assert.equal(localeResponse(page(path, { 'Accept-Language': 'cs' })), null);
+    assert.equal(localizedRequest(page(path, { 'Accept-Language': 'cs' })), null);
+  }
+  assert.equal(localizedRequest(page('/share', { 'Accept-Language': 'cs' }, 'POST')), null);
+  assert.equal(localeResponse(page('/cs/share', { 'Accept-Language': 'cs' }, 'POST')), null);
+  assert.equal(localizedRequest(new Request('https://encrypt.click/', { headers: { Accept: 'application/json', 'Accept-Language': 'cs' } })), null);
 });
 
 test('the choice endpoint sets the cookie and continues to a same-origin path only', () => {

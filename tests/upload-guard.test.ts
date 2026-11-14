@@ -272,7 +272,7 @@ test('cross-site requests and over-budget clients are turned away before any rou
   let last = 0;
   for (let i = 0; i < 31; i++) last = (await app.fetch(new Request('https://example.test/upload/status', { headers: browser }), render)).status;
   assert.equal(last, 429);
-  assert.equal(await (await app.fetch(new Request('https://example.test/cs/'), render)).text(), 'page');
+  assert.equal(await (await app.fetch(new Request('https://example.test/'), render)).text(), 'page');
 });
 
 test('websocket upgrades are guarded like every other realtime request', async () => {

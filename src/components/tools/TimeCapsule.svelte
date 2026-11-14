@@ -201,7 +201,7 @@
       const token = compressed.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
       ciphertext = token;
-      capsuleLink = `${location.origin}${locale === 'en' ? '' : `/${locale}`}/tools/time-capsule#c=${token}`;
+      capsuleLink = `${location.origin}/experiments/time-capsule#c=${token}`;
       debugUtc = new Date(timeMs).toISOString();
       debugUnix = String(unix);
       debugRound = round > 0 ? round : null;
