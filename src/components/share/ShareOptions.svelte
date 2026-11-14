@@ -50,14 +50,16 @@
         <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
       </label>
     </div>
-    <p id="ue-burn-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.burnHint')}</p>
+    <p id="ue-burn-hint" class="hint -mt-2">{t(dict, 'tools.ultimateEncrypt.options.burnHint')}</p>
   {:else}
-    <label class="check">
-      <input type="checkbox" bind:checked={burn} aria-describedby="ue-view-once-hint" />
-      <span>{t(dict, 'tools.ultimateEncrypt.options.viewOnce')}</span>
-    </label>
-    <p id="ue-view-once-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.viewOnceHint')}</p>
-    <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.inlineHint')}</p>
+    <div class="grid gap-1">
+      <label class="check">
+        <input type="checkbox" bind:checked={burn} aria-describedby="ue-view-once-hint" />
+        <span>{t(dict, 'tools.ultimateEncrypt.options.viewOnce')}</span>
+      </label>
+      <p id="ue-view-once-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.viewOnceHint')}</p>
+      <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.inlineHint')}</p>
+    </div>
   {/if}
 
   <div class="field">
@@ -71,9 +73,11 @@
     {/if}
   </div>
 
-  <label class="check">
-    <input type="checkbox" bind:checked={deadMan} aria-describedby="ue-dead-man-hint" disabled={!unlockAt} />
-    <span>{t(dict, 'tools.ultimateEncrypt.options.deadMan')}</span>
-  </label>
-  <p id="ue-dead-man-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
+  <div class="grid gap-1">
+    <label class="check" class:opacity-60={!unlockAt}>
+      <input type="checkbox" bind:checked={deadMan} aria-describedby="ue-dead-man-hint" disabled={!unlockAt} />
+      <span>{t(dict, 'tools.ultimateEncrypt.options.deadMan')}</span>
+    </label>
+    <p id="ue-dead-man-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
+  </div>
 {/if}

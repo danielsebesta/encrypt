@@ -271,6 +271,8 @@
   "tools.ultimateEncrypt.steganographyHelp": "Dieses Bild enthält den verschlüsselten Link in seinen Pixeln.",
   "tools.ultimateEncrypt.downloadImage": "Bild herunterladen",
   "tools.ultimateEncrypt.qrAlt": "QR-Code für den verschlüsselten Link",
+  "tools.ultimateEncrypt.showQr": "QR-Code anzeigen",
+  "tools.ultimateEncrypt.hideQr": "QR-Code ausblenden",
   "tools.ultimateEncrypt.encryptAnother": "Etwas anderes teilen",
   "tools.ultimateEncrypt.progressDefaultTitle": "Dein Paket wird vorbereitet",
   "tools.ultimateEncrypt.progressDefaultDetail": "Verschlüsselung läuft im Browser.",

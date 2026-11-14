@@ -831,7 +831,7 @@ html.dark {
     /* ── Disclosure ── */
 
     .more > summary {
-        @apply inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-muted select-none;
+        @apply inline-flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-lg pr-2 text-sm font-semibold text-muted select-none;
     }
 
     .more > summary::-webkit-details-marker {

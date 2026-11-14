@@ -271,6 +271,8 @@
   "tools.ultimateEncrypt.steganographyHelp": "This image contains the encrypted link inside its pixels.",
   "tools.ultimateEncrypt.downloadImage": "Download image",
   "tools.ultimateEncrypt.qrAlt": "QR code for the encrypted link",
+  "tools.ultimateEncrypt.showQr": "Show QR code",
+  "tools.ultimateEncrypt.hideQr": "Hide QR code",
   "tools.ultimateEncrypt.encryptAnother": "Share something else",
   "tools.ultimateEncrypt.progressDefaultTitle": "Encrypting",
   "tools.ultimateEncrypt.progressDefaultDetail": "Encryption runs in your browser.",

@@ -71,6 +71,7 @@
   let shortenableUrl = '';
   let shortening = false;
   let shortenFailed = false;
+  let qrOpen = false;
 
   let retention: Retention = DEFAULT_RETENTION;
   let burn = false;
@@ -813,6 +814,7 @@
   async function reset() {
     step = 'input';
     resultPasswordVisible = false;
+    qrOpen = false;
     textInput = '';
     files = [];
     useGeneratedPassphrase();
@@ -954,7 +956,9 @@
 
         <details class="more" bind:open={optionsOpen}>
           <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
-          <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
+          <div class="more__body">
+            <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
+          </div>
         </details>
 
         <dl class="review" aria-label={t(dict, 'tools.ultimateEncrypt.review.title')}>
@@ -1113,7 +1117,12 @@
         <summary>{t(dict, 'tools.ultimateEncrypt.result.moreTitle')}</summary>
         <div class="more__body">
           {#if qrSvg && shareUrl}
-            <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+            <button type="button" class="btn-secondary w-full" aria-expanded={qrOpen} on:click={() => (qrOpen = !qrOpen)}>
+              {qrOpen ? t(dict, 'tools.ultimateEncrypt.hideQr') : t(dict, 'tools.ultimateEncrypt.showQr')}
+            </button>
+            {#if qrOpen}
+              <div class="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+            {/if}
           {/if}
 
           <div class="ue-result-tell">

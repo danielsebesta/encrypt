@@ -271,6 +271,8 @@
   "tools.ultimateEncrypt.steganographyHelp": "Tento obrázek obsahuje zašifrovaný odkaz ukrytý v pixelech.",
   "tools.ultimateEncrypt.downloadImage": "Stáhnout obrázek",
   "tools.ultimateEncrypt.qrAlt": "QR kód pro zašifrovaný odkaz",
+  "tools.ultimateEncrypt.showQr": "Zobrazit QR kód",
+  "tools.ultimateEncrypt.hideQr": "Skrýt QR kód",
   "tools.ultimateEncrypt.encryptAnother": "Sdílet něco dalšího",
   "tools.ultimateEncrypt.progressDefaultTitle": "Připravuji tvůj balíček",
   "tools.ultimateEncrypt.progressDefaultDetail": "Šifrování běží v prohlížeči.",

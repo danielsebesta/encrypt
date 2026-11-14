@@ -271,6 +271,8 @@
   "tools.ultimateEncrypt.steganographyHelp": "Cette image contient le lien chiffré dans ses pixels.",
   "tools.ultimateEncrypt.downloadImage": "Télécharger l'image",
   "tools.ultimateEncrypt.qrAlt": "QR code pour le lien chiffré",
+  "tools.ultimateEncrypt.showQr": "Afficher le code QR",
+  "tools.ultimateEncrypt.hideQr": "Masquer le code QR",
   "tools.ultimateEncrypt.encryptAnother": "Partager autre chose",
   "tools.ultimateEncrypt.progressDefaultTitle": "Chiffrement",
   "tools.ultimateEncrypt.progressDefaultDetail": "Le chiffrement tourne dans le navigateur.",
