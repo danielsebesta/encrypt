@@ -4,7 +4,9 @@ export type KitModule = typeof Kit;
 export type KitMaker<T extends { destroy(): void }> = (kit: KitModule, node: HTMLElement) => T | null | undefined;
 
 export function kitAllowed(): boolean {
-  return typeof window !== 'undefined' && !matchMedia('(prefers-reduced-data: reduce)').matches;
+  if (typeof window === 'undefined') return false;
+  if (document.documentElement.dataset.appReduceMotion === '1') return false;
+  return !matchMedia('(prefers-reduced-data: reduce)').matches;
 }
 
 let kitPromise: Promise<KitModule> | null = null;
