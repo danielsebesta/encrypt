@@ -72,7 +72,7 @@
   import { readSealedOutbox, writeSealedOutbox, type OutboxEntry } from '../../lib/chatOutbox';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
-  import { kitAllowed, loadKit } from '../../lib/asciiKit';
+  import { asciiKit, glAvailable, kitAllowed, loadKit } from '../../lib/asciiKit';
   import ChatQuote from './ChatQuote.svelte';
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
   import ChatComposer from './ChatComposer.svelte';
@@ -472,6 +472,16 @@
   const TYPING_HOLD_MS = 6000;
   const TYPING_PING_MS = 2500;
   let typers: Typer[] = [];
+  const typingRoll = typeof window !== 'undefined' && kitAllowed() && glAvailable();
+  const typingLine = (list: Typer[]) => list.length === 1 ? `${list[0].sender} ${t(dict, 'chat.isTyping')}` : list.length === 2 ? `${list[0].sender} ${t(dict, 'chat.typingAnd')} ${list[1].sender} ${t(dict, 'chat.areTyping')}` : t(dict, 'chat.severalTyping');
+  function typingRolls(node: HTMLElement, line: string) {
+    return asciiKit(node, (kit, el) => {
+      const label = el.querySelector<HTMLElement>('[data-typing-label]');
+      const answer = el.querySelector<HTMLElement>('[data-typing-answer]');
+      if (!label || !answer) return null;
+      return kit.thinking(answer, { label, labels: { thinking: line, done: () => line } });
+    });
+  }
   let typingSweep: ReturnType<typeof setTimeout> | undefined;
   function sweepTypers() {
     clearTimeout(typingSweep);
@@ -6422,6 +6432,11 @@
                 {/each}
               </span>
               <span class="chat-typing__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              {#if typingRoll}
+                {#key typingLine(typers)}
+                  <span class="chat-typing__text" use:typingRolls={typingLine(typers)}><span data-typing-label>{typingLine(typers)}</span><span data-typing-answer hidden></span></span>
+                {/key}
+              {:else}
               <span class="chat-typing__text">
                 {#if typers.length === 1}
                   <strong style="color: {safeColor(typers[0].color)}">{typers[0].sender}</strong> {t(dict, 'chat.isTyping')}
@@ -6431,6 +6446,7 @@
                   {t(dict, 'chat.severalTyping')}
                 {/if}
               </span>
+              {/if}
             </div>
           {/if}
         </div>
