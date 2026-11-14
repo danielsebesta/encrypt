@@ -15,16 +15,26 @@
   function heartBurst(node: HTMLElement, emoji: string) {
     return asciiKit(node, (kit, el) => {
       if (emoji !== HEART || !glAvailable()) return null;
-      const made = kit.likeBurst(el, { kind: 'heart', icon: el.querySelector<HTMLElement>('[data-emoji]') ?? undefined, manage: false, outset: 28 });
+      const made = kit.likeBurst(el, { kind: 'heart', icon: '[data-emoji]', manage: false, outset: 28, ink: 'var(--accent)', limit: el.closest<HTMLElement>('.chat-bubble'), look: { cellSize: 6 } });
       bursts.set(el, made);
       return { destroy() { bursts.delete(el); made.destroy(); } };
     });
   }
 
+  const busy = new WeakSet<HTMLElement>();
+
   function press(item: ReactionSummary, node: HTMLElement) {
     const burst = bursts.get(node);
-    try { if (item.mine) burst?.undo(); else burst?.burst(); } catch {}
-    ontoggle(item.emoji);
+    if (!burst) {
+      ontoggle(item.emoji);
+      return;
+    }
+    if (busy.has(node)) return;
+    busy.add(node);
+    setTimeout(() => busy.delete(node), 650);
+    try { if (item.mine) burst.undo(); else burst.burst(); } catch {}
+    if (item.mine) setTimeout(() => ontoggle(item.emoji), 320);
+    else ontoggle(item.emoji);
   }
 
   const label = (item: ReactionSummary) => t(dict, 'chat.reactionBy').replace('{emoji}', item.emoji).replace('{names}', item.names.join(', '));
