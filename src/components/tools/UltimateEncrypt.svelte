@@ -17,7 +17,6 @@
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
-  import WizardProgress from '../WizardProgress.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import { checkRoomPassword } from '../../lib/chatRoomSettings';
   import { tick } from 'svelte';
@@ -34,7 +33,7 @@
   export let dict: Record<string, string>;
   export let appMode = false;
 
-  type Step = 'input' | 'password' | 'confirm' | 'fallback' | 'processing' | 'result';
+  type Step = 'input' | 'confirm' | 'fallback' | 'processing' | 'result';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
 
   let step: Step = 'input';
@@ -340,15 +339,19 @@
     { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
     { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
   ];
-  $: wizardStep = step === 'input' ? 1 : step === 'password' || step === 'confirm' || step === 'fallback' || step === 'processing' ? 2 : 3;
-  $: wizardLabel = t(dict, 'common.wizardStep').replace('{current}', String(wizardStep)).replace('{total}', '3');
+  $: hasContent = files.length > 0 || textInput.trim().length > 0;
+  $: reviewWhat = files.length === 1 ? files[0].name : files.length > 1 ? `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}` : t(dict, 'tools.ultimateEncrypt.review.message').replace('{count}', String(textInput.trim().length));
+  $: reviewWhere = t(dict, deliveryMode === 'ghost' ? 'tools.ultimateEncrypt.review.whereGhost' : deliveryMode === 'link' ? 'tools.ultimateEncrypt.review.whereLink' : 'tools.ultimateEncrypt.review.whereLocal');
+
+  let optionsOpen = false;
 
   async function focusEncryptError() {
-    await tick();
     const unlockFocused =
       error === t(dict, 'tools.ultimateEncrypt.options.unlockPast') ||
       error === t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') ||
       error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
+    if (unlockFocused) optionsOpen = true;
+    await tick();
     document.getElementById(unlockFocused ? 'ue-unlock' : 'ue-pass')?.focus();
   }
 
@@ -358,18 +361,12 @@
     document.getElementById('ue-result-link')?.focus();
   }
 
-  async function goToPassword() {
+  async function handleEncrypt() {
     error = '';
-    if (files.length === 0 && !textInput.trim()) {
+    if (!hasContent) {
       error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
       return;
     }
-    step = 'password';
-    await tick();
-    document.getElementById('ue-pass')?.focus();
-  }
-
-  async function handleEncrypt() {
     error = '';
     resultUrl = '';
     shortUrl = '';
@@ -437,7 +434,7 @@
     } catch (e: any) {
       error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
       pushDebug(`Encrypt failed: ${error}`);
-      step = 'password';
+      step = 'input';
       await focusEncryptError();
     }
   }
@@ -868,10 +865,8 @@
   });
 </script>
 <div class="stack text-left">
-  <WizardProgress step={wizardStep} total={3} label={wizardLabel} />
   {#if step === 'input'}
-    <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <div class="stack" on:paste={handlePaste}>
+    <form class="stack" method="dialog" on:submit|preventDefault={handleEncrypt} on:paste={handlePaste}>
       <p class="hint">{t(dict, 'tools.ultimateEncrypt.transferClaim')}</p>
 
       <div class="grid gap-4 md:grid-cols-2">
@@ -930,45 +925,53 @@
         </div>
       </div>
 
+      {#if hasContent}
+        {#if isHuge}
+          <div class="status status--warn">
+            <div>
+              <p class="status__title">{t(dict, 'tools.ultimateEncrypt.largeNotice.title')}</p>
+              <p>{t(dict, 'tools.ultimateEncrypt.largeNotice.desc')}</p>
+            </div>
+          </div>
+        {/if}
+        <div class="field">
+          <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
+          <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-rules ue-pass-hint" invalid={!!error} generate={() => { error = ''; return generatePassphrase(); }} bind:revealed={passwordRevealed} />
+          <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+          <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
+        </div>
+
+        <details class="more" bind:open={optionsOpen}>
+          <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
+          <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
+        </details>
+
+        <dl class="review" aria-label={t(dict, 'tools.ultimateEncrypt.review.title')}>
+          <div class="review__row">
+            <dt>{t(dict, 'tools.ultimateEncrypt.review.sending')}</dt>
+            <dd class="review__value">{reviewWhat}</dd>
+          </div>
+          <div class="review__row">
+            <dt>{t(dict, 'tools.ultimateEncrypt.review.where')}</dt>
+            <dd>{reviewWhere}</dd>
+          </div>
+          {#if deliveryMode === 'ghost'}
+            <div class="review__row">
+              <dt>{t(dict, 'tools.ultimateEncrypt.review.expires')}</dt>
+              <dd class="review__value">{t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention ?? retention}`)}</dd>
+            </div>
+          {/if}
+        </dl>
+      {/if}
+
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
       {/if}
 
-      <button class="btn w-full" type="button" on:click={goToPassword} disabled={(!textInput.trim() && files.length === 0)}>
-        {t(dict, 'common.continue')}
-      </button>
-      {#if !textInput.trim() && files.length === 0}
+      <button class="btn w-full" type="submit" disabled={!hasContent}>{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>
+      {#if !hasContent}
         <p class="hint text-center">{t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile')}</p>
       {/if}
-    </div>
-
-  {:else if step === 'password'}
-    <form class="stack" method="dialog" on:submit|preventDefault={handleEncrypt}>
-      {#if isHuge}
-        <div class="status status--warn">
-          <div>
-            <p class="status__title">{t(dict, 'tools.ultimateEncrypt.largeNotice.title')}</p>
-            <p>{t(dict, 'tools.ultimateEncrypt.largeNotice.desc')}</p>
-          </div>
-        </div>
-      {/if}
-      <div class="field">
-        <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
-        <PassphraseField {dict} id="ue-pass" bind:value={password} placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')} describedby="ue-pass-rules ue-pass-hint" invalid={!!error} generate={() => { error = ''; return generatePassphrase(); }} bind:revealed={passwordRevealed} />
-        <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
-        <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
-      </div>
-
-      <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
-
-      {#if error}
-        <p class="status status--error" role="alert">{error}</p>
-      {/if}
-
-      <div class="wizard-actions">
-        <button class="btn-secondary" type="button" on:click={() => { error = ''; step = 'input'; }}>{t(dict, 'common.back')}</button>
-        <button class="btn" type="submit">{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>
-      </div>
     </form>
 
   {:else if step === 'confirm'}
@@ -998,7 +1001,7 @@
         {#if showManualTransferHelp && pendingHosts.length > 0}
           <button class="btn-secondary" type="button" on:click={confirmUpload}>{t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}</button>
         {/if}
-        <button type="button" class="btn-ghost" on:click={() => step = 'password'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
+        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
       </div>
     </div>
 
@@ -1019,7 +1022,7 @@
         {#if localFileUrl}
           <a href={localFileUrl} download={localFileName} class="btn-secondary max-w-full truncate">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</a>
         {/if}
-        <button type="button" class="btn-ghost" on:click={() => step = 'password'}>{t(dict, 'tools.ultimateEncrypt.fallback.cancelBtn')}</button>
+        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.ultimateEncrypt.fallback.cancelBtn')}</button>
       </div>
     </div>
 

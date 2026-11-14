@@ -747,6 +747,26 @@ html.dark {
         }
     }
 
+    .review {
+        @apply m-0 grid rounded-lg border border-line bg-surface text-sm;
+    }
+
+    .review__row {
+        @apply grid gap-1 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-4;
+    }
+
+    .review__row dt {
+        @apply text-muted;
+    }
+
+    .review__row dd {
+        @apply m-0 min-w-0 text-text;
+    }
+
+    .review__value {
+        @apply break-all font-mono;
+    }
+
     .dropzone {
         @apply relative flex min-h-36 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-control-line bg-surface p-4 text-center text-sm text-muted;
         transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);

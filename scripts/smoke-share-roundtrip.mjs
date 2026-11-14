@@ -1,0 +1,47 @@
+import { chromium } from 'playwright';
+
+const base = process.argv[2] || 'http://localhost:4321';
+const secret = `roundtrip ${Date.now()}`;
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+const page = await ctx.newPage();
+page.on('pageerror', (e) => console.log('pageerror', e.message.split('\n')[0]));
+await page.goto(`${base}/share`, { waitUntil: 'networkidle' });
+const submit = page.getByRole('button', { name: /encrypt and share/i });
+console.log('submit disabled before input:', await submit.isDisabled());
+await page.locator('#ue-text').fill(secret);
+await page.waitForSelector('#ue-pass');
+console.log('review rows:', await page.locator('.review__row').count());
+await page.screenshot({ path: 'C:/Users/dast/AppData/Local/Temp/shots/share-single.png', fullPage: true });
+const password = 'Kv7-plum-harbor-Tundra-92-lantern!';
+await page.locator('#ue-pass').fill(password);
+await submit.click();
+await page.waitForSelector('#ue-result-link', { timeout: 20000 }).catch(async () => {
+  await page.screenshot({ path: 'C:/Users/dast/AppData/Local/Temp/shots/share-fail.png', fullPage: true });
+  console.log('alerts:', await page.locator('[role=alert]').allInnerTexts());
+  process.exit(1);
+});
+const link = await page.locator('#ue-result-link').inputValue();
+console.log('focused after result:', await page.evaluate(() => document.activeElement?.id));
+await page.screenshot({ path: 'C:/Users/dast/AppData/Local/Temp/shots/share-result.png', fullPage: true });
+
+const other = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+await other.goto(link, { waitUntil: 'networkidle' });
+await other.locator('#ud-pass').fill(password);
+await other.getByRole('button', { name: /decrypt/i }).last().click();
+await other.waitForSelector('.output--ok', { timeout: 30000 });
+await other.waitForTimeout(600);
+const text = (await other.locator('.output--ok').first().innerText()).trim();
+console.log('decrypted matches:', text === secret);
+const filePage = await (await browser.newContext({ viewport: { width: 390, height: 900 }, reducedMotion: 'reduce' })).newPage();
+await filePage.goto(`${base}/share`, { waitUntil: 'networkidle' });
+await filePage.locator('#ue-file').setInputFiles({ name: 'sample.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(2 * 1024 * 1024, 7) });
+await filePage.waitForSelector('#ue-pass');
+const rows = await filePage.locator('.review__row').allInnerTexts();
+console.log('file review rows:', JSON.stringify(rows));
+await filePage.locator('#ue-pass').fill(password);
+await filePage.getByRole('button', { name: /encrypt and share/i }).click();
+const fileLink = await filePage.waitForSelector('#ue-result-link', { timeout: 60000 }).then(() => filePage.locator('#ue-result-link').inputValue()).catch(() => '');
+console.log('file link created:', fileLink.length > 0);
+await browser.close();
+process.exit(text === secret && fileLink ? 0 : 1);
