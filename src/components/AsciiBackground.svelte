@@ -17,6 +17,7 @@
     type Field = { update(options: Record<string, unknown>): void; pointer(x: number | null, y?: number): void; destroy(): void };
     let field: Field | null = null;
     let gone = false;
+    let pulsesRef: { params: Record<string, number> } | null = null;
     const isDark = () => document.documentElement.classList.contains('dark');
 
     const move = (event: PointerEvent) => {
@@ -33,15 +34,26 @@
       const pulses = defineFieldEffect({
         name: 'flow-pulses',
         animate: true,
-        params: { depth: 0.75 },
+        params: { depth: 0.75, dark: isDark() ? 1 : 0 },
         shade: `
           float a = fract(time * 0.045) * 1.6 - 0.3;
           float b = fract(time * 0.032 + 0.5) * 1.6 - 0.3;
           float h = fract(time * 0.028 + 0.2) * 1.5 - 0.25;
           float k = smoothstep(0.2, 0., abs(uv.x - a)) + smoothstep(0.16, 0., abs(uv.x - b)) + smoothstep(0.22, 0., abs(uv.y - h));
           tone *= 1. - clamp(k, 0., 1.) * params.depth;
+          float hue = clamp((fbm(uv * vec2(aspect, 1.) * 1.3 + vec2(time * 0.006, 0.)) - 0.5) * 3.2 + 0.5 + (uv.x - 0.5) * 0.6, 0., 1.);
+          vec3 teal = vec3(0.18, 0.64, 0.58);
+          vec3 moss = vec3(0.44, 0.70, 0.35);
+          vec3 gold = vec3(0.80, 0.72, 0.30);
+          vec3 sand = vec3(0.86, 0.60, 0.36);
+          vec3 c = mix(teal, moss, smoothstep(0., 0.35, hue));
+          c = mix(c, gold, smoothstep(0.35, 0.7, hue));
+          c = mix(c, sand, smoothstep(0.7, 1., hue));
+          ink = c * mix(0.62, 1., params.dark);
+          inkAmount = 0.92;
         `,
       });
+      pulsesRef = pulses as unknown as { params: Record<string, number> };
       field = mountGlyphField(canvas, {
         source: '/flow-ascii-src.webp',
         charset: ' .:-=+YCIFSA#@',
@@ -68,7 +80,10 @@
       }).catch(() => {});
     }).catch(() => {});
 
-    const theme = new MutationObserver(() => field?.update({ ramp: RAMPS[isDark() ? 'dark' : 'light'] }));
+    const theme = new MutationObserver(() => {
+      field?.update({ ramp: RAMPS[isDark() ? 'dark' : 'light'] });
+      if (pulsesRef) pulsesRef.params.dark = isDark() ? 1 : 0;
+    });
     theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     addEventListener('pointermove', move, { passive: true });
     document.addEventListener('pointerleave', leave);
