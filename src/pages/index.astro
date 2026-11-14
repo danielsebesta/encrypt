@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
+import HeroTagline from '../components/home/HeroTagline.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
 import { REPO_URL } from '../lib/repo';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
@@ -11,6 +12,7 @@ const dict = getTranslations(locale);
 const localePrefix = '';
 const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
+const taglines = [1, 2, 3, 4].map((n) => t(dict, `home.tagline.${n}`));
 const facts = [1, 2, 3];
 const steps = [1, 2, 3];
 const deviceItems = [1, 2, 3];
@@ -22,6 +24,7 @@ const serverItems = [1, 2, 3];
     <section class="home-hero" aria-labelledby="home-hero-title">
       <div class="home-hero__copy">
         <h1 id="home-hero-title" class="page-title">{t(dict, 'home.hero.title')}</h1>
+        <HeroTagline client:visible lines={taglines} />
         <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
         <ul class="home-facts">
           {facts.map((n) => (

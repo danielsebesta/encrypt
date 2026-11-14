@@ -1501,6 +1501,12 @@ html.dark {
         }
     }
 
+    .home-hero__tagline {
+        @apply mt-3 text-lg font-medium text-text;
+        min-height: 3.2em;
+        line-height: 1.6;
+    }
+
     .home-hero__copy {
         @apply grid content-start gap-5 lg:pt-6;
     }
