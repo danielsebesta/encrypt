@@ -349,7 +349,14 @@
     const unlockFocused =
       error === t(dict, 'tools.ultimateEncrypt.options.unlockPast') ||
       error === t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') ||
+  let orbDone = false;
+
       error === t(dict, 'tools.ultimateEncrypt.options.lockFailed');
+    if (step === 'processing' && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      orbDone = true;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      orbDone = false;
+    }
     if (unlockFocused) optionsOpen = true;
     await tick();
     document.getElementById(unlockFocused ? 'ue-unlock' : 'ue-pass')?.focus();
@@ -1027,6 +1034,7 @@
     </div>
 
   {:else if step === 'processing'}
+        state={error ? 'error' : orbDone ? 'success' : 'loading'}
     <div class="stack">
       <ProgressPulse
         title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}

@@ -59,6 +59,11 @@
     --accent-weak: #edf3ea;
     --accent-line: #b7cdb0;
     --on-accent: #ffffff;
+    --ascii-ink: var(--accent);
+    --ascii-ink-strong: var(--text);
+    --ascii-success: var(--accent);
+    --ascii-warning: var(--warn);
+    --ascii-error: var(--danger);
     --warn: #9a4a06;
     --warn-weak: #fff7e6;
     --danger: #b42318;
@@ -659,8 +664,8 @@ html.dark {
 
     .status__orb {
         flex: none;
-        width: 1.75rem;
-        height: 1.75rem;
+        width: 2.75rem;
+        height: 2.75rem;
     }
 
     .status--busy:not(.status--orb) .status__orb {

@@ -8,27 +8,36 @@
   export let ratio: number | null = null;
   /** Secondary line: bytes, speed, ETA, online/offline. */
   export let transferLine = '';
+  export let state: 'loading' | 'success' | 'error' = 'loading';
 
   let orbEl: HTMLSpanElement | undefined;
   let orbOn = false;
+  let handle: { supported: boolean; loading(): void; success(): void; error(): void; destroy(): void } | null = null;
 
   onMount(() => {
     if (compact || !orbEl || matchMedia('(prefers-reduced-data: reduce)').matches) return;
-    let handle: { supported: boolean; loading(): void; destroy(): void } | null = null;
     let gone = false;
     import('asciify-engine/kit').then(({ statusOrb }) => {
       if (gone || !orbEl) return;
-      const orb = statusOrb(orbEl, { ring: false, colourByState: false, ink: 'var(--accent)', lazy: false });
+      const orb = statusOrb(orbEl, { ring: true, colourByState: true, ink: 'var(--accent)', colors: { success: 'var(--accent)', error: 'var(--danger)', warning: 'var(--warn)' }, lazy: false });
       if (!orb.supported) { orb.destroy(); return; }
       handle = orb;
-      orb.loading();
       orbOn = true;
+      applyState(state);
     });
     return () => {
       gone = true;
       handle?.destroy();
     };
   });
+
+  function applyState(next: typeof state) {
+    if (!handle) return;
+    if (next === 'success') handle.success();
+    else if (next === 'error') handle.error();
+    else handle.loading();
+  }
+  $: applyState(state);
 
   let phaseKey = '';
   let livePct = -1;

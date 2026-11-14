@@ -2,6 +2,7 @@
   import { t } from '../lib/t';
   import Icon from './Icon.svelte';
   import { copyText } from '../lib/clipboard';
+  import { asciiKit, kitAllowed } from '../lib/asciiKit';
 
   export let dict: Record<string, string>;
   export let id: string;
@@ -18,10 +19,19 @@
   let copied = false;
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
+  let decoding = false;
+  let decodeTimer: ReturnType<typeof setTimeout> | undefined;
+
   function useGenerated() {
     value = generate();
     revealed = true;
     shownByUser = false;
+    clearTimeout(decodeTimer);
+    decoding = false;
+    if (kitAllowed() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      decoding = true;
+      decodeTimer = setTimeout(() => { decoding = false; }, 1000);
+    }
   }
 
   function hideWhileEditing() {
@@ -37,9 +47,11 @@
 </script>
 
 <div class="passphrase">
+  <div class="passphrase__field">
   <input
     {id}
     class="input"
+    class:passphrase__input--decoding={decoding}
     type={revealed ? 'text' : 'password'}
     bind:value
     on:input
@@ -54,6 +66,10 @@
     aria-describedby={describedby}
     aria-invalid={invalid ? 'true' : undefined}
   />
+  {#if decoding}
+    <span class="passphrase__decode" aria-hidden="true" use:asciiKit={(kit, node) => kit.decode(node, { duration: 800, scramble: true, settle: 'text', replayOnHover: false })}>{value}</span>
+  {/if}
+  </div>
   <button
     type="button"
     class="btn-ghost btn-sm btn-icon"
@@ -93,3 +109,10 @@
     <Icon name="dices" />
   </button>
 </div>
+
+<style>
+  .passphrase__field { position: relative; flex: 1; min-width: 0; display: flex; }
+  .passphrase__field :global(.input) { flex: 1; }
+  .passphrase__input--decoding { color: transparent !important; -webkit-text-fill-color: transparent; }
+  .passphrase__decode { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 0.75rem; font-family: var(--font-mono, monospace); font-size: 1rem; color: var(--accent); white-space: nowrap; overflow: hidden; pointer-events: none; }
+</style>
