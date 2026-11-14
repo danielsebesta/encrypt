@@ -6371,7 +6371,7 @@
                         stroke-linecap="round"
                         transform="rotate(-90 12 12)" />
                     </svg>
-                    <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
+                    <span class="chat-timer__num" aria-hidden="true">{Math.ceil(msg.remaining)}</span>
                   </div>
                 {/if}
               </div>
@@ -6516,7 +6516,7 @@
                     stroke-linecap="round"
                     transform="rotate(-90 12 12)" />
                 </svg>
-                <span class="chat-timer__num">{Math.ceil(msg.remaining)}</span>
+                <span class="chat-timer__num" aria-hidden="true">{Math.ceil(msg.remaining)}</span>
               </div>
             {/if}
           </div>
