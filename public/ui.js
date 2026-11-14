@@ -127,6 +127,7 @@
         clearTimeout(leaveTimer);
         closeMenus(btn);
         setMenu(btn, true);
+        if (menu) void menu.offsetHeight;
       }
       var item = event.key === 'ArrowDown' ? items[0] : items[items.length - 1];
       if (item) item.focus();
@@ -157,6 +158,7 @@
     nav.classList.toggle('nav--open', open);
     navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open && navLinks) {
+      void navLinks.offsetHeight;
       var first = navLinks.querySelector('a, button');
       if (first) first.focus();
     }

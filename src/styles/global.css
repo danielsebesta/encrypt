@@ -1047,14 +1047,14 @@ html.dark {
     }
 
     .menu {
-        @apply absolute left-0 top-full mt-2 grid min-w-56 gap-0.5 rounded-lg border border-line bg-bg p-1.5;
+        @apply absolute left-0 top-full mt-2 min-w-56 gap-0.5 rounded-lg border border-line bg-bg p-1.5;
+        display: none;
         box-shadow: var(--shadow-float);
         z-index: var(--z-menu);
-        visibility: hidden;
     }
 
     .menu--open {
-        visibility: visible;
+        display: grid;
     }
 
     .menu--end {
@@ -1158,7 +1158,6 @@ html.dark {
             padding: 0 0 0.25rem 0.5rem;
             background: transparent;
             box-shadow: none;
-            visibility: visible;
         }
 
         .nav__links .menu--open {
