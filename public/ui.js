@@ -1,6 +1,20 @@
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
+  if (document.querySelector('.home-hero') && !window.matchMedia('(prefers-reduced-data: reduce)').matches) {
+    var flowShown = false;
+    var showFlow = function () {
+      if (flowShown) return;
+      flowShown = true;
+      document.documentElement.classList.add('flow-ready');
+    };
+    ['pointermove', 'keydown', 'scroll', 'touchstart'].forEach(function (name) {
+      window.addEventListener(name, showFlow, { once: true, passive: true });
+    });
+    var later = function () { setTimeout(showFlow, 8000); };
+    if (document.readyState === 'complete') later(); else window.addEventListener('load', later, { once: true });
+  }
+
   var themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
     themeBtn.setAttribute('aria-pressed', document.documentElement.classList.contains('dark') ? 'true' : 'false');

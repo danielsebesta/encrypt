@@ -1341,6 +1341,41 @@ html.dark {
         @apply grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16 lg:pt-4;
     }
 
+    .home-hero {
+        position: relative;
+        isolation: isolate;
+    }
+
+    .home-hero::before {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        inset: -4rem auto -3rem 50%;
+        width: 100vw;
+        transform: translateX(-50%);
+        background: center / cover no-repeat;
+        mask-image: linear-gradient(to bottom, #000 55%, transparent);
+        opacity: 0;
+        transition: opacity var(--duration-slow, 320ms) var(--ease-out, ease-out);
+        pointer-events: none;
+    }
+
+    html.flow-ready .home-hero::before {
+        background-image: url('/flow-lines-light.svg');
+        opacity: 0.55;
+    }
+
+    html.dark.flow-ready .home-hero::before {
+        background-image: url('/flow-lines-dark.svg');
+        opacity: 0.4;
+    }
+
+    @media (forced-colors: active), print {
+        .home-hero::before {
+            display: none;
+        }
+    }
+
     .home-hero__copy {
         @apply grid content-start gap-5 lg:pt-6;
     }
