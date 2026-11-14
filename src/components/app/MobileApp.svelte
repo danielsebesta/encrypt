@@ -830,6 +830,22 @@
     closeRowActions();
   }
 
+  function onRowMenuKeys(e: KeyboardEvent) {
+    const items = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])')];
+    if (!items.length) return;
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      items[(at + 1) % items.length]?.focus();
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      items[(at - 1 + items.length) % items.length]?.focus();
+    } else if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
+    }
+  }
+
   let pressingId = $state('');
 
   function rowPressStart(room: RoomEntry) {
@@ -2844,7 +2860,7 @@
 
     <!-- ROOM ROW CONTEXT MENU -->
     <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop} data-app-overlay="actions" tabindex="-1">
-      <MenuList>
+      <MenuList role="menu" aria-label={actionTarget?.label || actionTarget?.roomId} onkeydown={onRowMenuKeys}>
         {#each [
           { key: 'pin', title: t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin'), icon: (actionTarget?.pinned ? 'pin-off' : 'pin') as IconName, run: togglePin, danger: false },
           ...(actionTarget && actionTarget.kind !== 'whiteboard' ? [{ key: 'notify', title: t(dict, notifyRooms.has(actionTarget.roomId) ? 'app.row.notifyOff' : 'app.row.notifyOn'), icon: (notifyRooms.has(actionTarget.roomId) ? 'bell-off' : 'bell') as IconName, run: toggleRowNotify, danger: false }] : []),
@@ -2852,11 +2868,11 @@
           { key: 'remove', title: t(dict, 'app.row.remove'), icon: 'trash' as IconName, run: openDelete, danger: true },
         ] as item (item.key)}
           {#if platform === 'ios'}
-            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={item.title} onClick={item.run}>
+            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} role="none" link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitem' }} title={item.title} onClick={item.run}>
               {#snippet after()}<AppIcons name={item.icon} size={19} />{/snippet}
             </MenuListItem>
           {:else}
-            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={item.title} onClick={item.run}>
+            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} role="none" link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitem' }} title={item.title} onClick={item.run}>
               {#snippet media()}<AppIcons name={item.icon} size={22} />{/snippet}
             </MenuListItem>
           {/if}
