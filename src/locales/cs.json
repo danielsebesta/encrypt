@@ -272,7 +272,7 @@
   "tools.ultimateEncrypt.showQr": "Zobrazit QR kód",
   "tools.ultimateEncrypt.hideQr": "Skrýt QR kód",
   "tools.ultimateEncrypt.encryptAnother": "Sdílet něco dalšího",
-  "tools.ultimateEncrypt.progressDefaultTitle": "Připravuji tvůj balíček",
+  "tools.ultimateEncrypt.progressDefaultTitle": "Šifruji",
   "tools.ultimateEncrypt.progressDefaultDetail": "Šifrování běží v prohlížeči.",
   "tools.ultimateEncrypt.progressPreparingTitle": "Připravuji zprávu",
   "tools.ultimateEncrypt.progressPreparingDetail": "Sbírám text nebo soubor a připravuji ho k zašifrování.",
