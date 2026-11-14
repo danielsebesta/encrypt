@@ -187,6 +187,7 @@
   let roomHangup = $state<(() => void) | undefined>(undefined);
   let callRoom = $state<{ id: string; label: string } | null>(null);
   let roomMenu = $state<(() => void) | undefined>(undefined);
+  let roomMenuOpen = $state(false);
   let roomInfo = $state<(() => void) | undefined>(undefined);
   let roomCallState = $state<{ ready: boolean; joining: boolean; active: boolean }>({ ready: false, joining: false, active: false });
   let roomReconnect = $state<(() => void) | null>(null);
@@ -359,6 +360,30 @@
       back?.focus({ preventScroll: true });
       if (document.activeElement !== back && restore) document.querySelector<HTMLElement>(restore)?.focus({ preventScroll: true });
     };
+  });
+
+  // ChatRoom owns the room-menu popover; mirror its open state (inert attr)
+  // so the app navbar trigger can expose aria-expanded and take focus back.
+  $effect(() => {
+    void mountedRoomId;
+    const pop = document.querySelector<HTMLElement>('.app-room-wrapper .k-popover');
+    if (!pop) { roomMenuOpen = false; return; }
+    if (!pop.id) pop.id = 'chat-room-menu';
+    let wasOpen = !pop.hasAttribute('inert');
+    roomMenuOpen = wasOpen;
+    const mo = new MutationObserver(() => {
+      const open = !pop.hasAttribute('inert');
+      roomMenuOpen = open;
+      if (wasOpen && !open) {
+        const active = document.activeElement;
+        if (!active || active === document.body || pop.contains(active)) {
+          document.getElementById('chat-room-menu-trigger')?.focus({ preventScroll: true });
+        }
+      }
+      wasOpen = open;
+    });
+    mo.observe(pop, { attributes: true, attributeFilter: ['inert'] });
+    return () => mo.disconnect();
   });
 
   function showToast(message: string, feel: 'warning' | 'success' | false = 'warning') {
@@ -1871,6 +1896,8 @@
           onclick={() => roomMenu?.()}
           aria-label={t(dict, 'chat.roomMenu')}
           aria-haspopup="menu"
+          aria-expanded={roomMenuOpen}
+          aria-controls="chat-room-menu"
         >
           <AppIcons name={moreIcon} size={20} />
         </button>
