@@ -375,7 +375,9 @@
   async function goToResult() {
     step = 'result';
     await tick();
-    document.getElementById('ue-result-link')?.focus();
+    const link = document.getElementById('ue-result-link') as HTMLInputElement | null;
+    link?.focus();
+    if (link) link.scrollLeft = 0;
   }
 
   async function handleEncrypt() {

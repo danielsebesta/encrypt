@@ -614,6 +614,16 @@ html.dark {
         @apply bg-surface-2 text-text;
     }
 
+    @media (max-width: 24rem) {
+        .tabs--slide .tab {
+            @apply gap-1 px-1.5;
+        }
+
+        .tabs--slide .tab svg {
+            display: none;
+        }
+    }
+
     .tabs--kit .tab[aria-selected="true"] {
         @apply bg-transparent;
     }
