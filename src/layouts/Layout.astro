@@ -2,8 +2,7 @@
 import AsciiBackground from '../components/AsciiBackground.svelte';
 import '../styles/global.css'
 
-import { getTranslations, t, languages, locales, getLocalePath, pickDict, type Locale } from '../lib/i18n';
-import CommandPalette from '../components/CommandPalette.svelte';
+import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
 import { languageChoiceHref } from '../lib/locale';
 import { getNavCategories, chatIcon, sendIcon, decryptIcon, whiteboardIcon } from '../lib/tools';
 import Icon from '../components/Icon.astro';
@@ -39,7 +38,6 @@ const canonicalUrl = canonical || new URL(cleanPath, site).href;
 const localePrefix = '';
 const homeHref = '/';
 const navCategories = getNavCategories(t, dict, localePrefix);
-const paletteDict = pickDict(dict, ['nav', 'palette'], ['security.h1', 'install.h1', 'licenses.h1']);
 const enableIntegrityCheck = import.meta.env.PROD;
 const integrityRepository = REPO_SLUG;
 const repoUrl = REPO_URL;
@@ -214,7 +212,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')} title="GitHub">
 						<Icon name="github" size={20} />
 					</a>
-					<CommandPalette client:idle locale={locale} dict={paletteDict} />
 					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')} aria-pressed="false">
 						<Icon name="moon" size={20} class="dark:hidden" />
 						<Icon name="sun" size={20} class="hidden dark:block" />
