@@ -175,7 +175,7 @@ export type IconName = keyof typeof ICONS;
 
 // Semantic names with no adequate Solar Linear equivalent. These are NOT in
 // ICONS; resolve them by hand before migrating the call sites that use them.
-// Shape glyphs Solar does not have. The whiteboard shape menu shows these as text labels, never a drawn icon.
+// Shape glyphs Solar does not have. The whiteboard shape menu draws these through ShapeGlyph.svelte, an owner-approved exception.
 export const GAPS: ReadonlyArray<{ key: string; reason: string }> = [
   { key: 'diamond', reason: 'no diamond shape glyph in Solar Linear' },
   { key: 'hexagon', reason: 'no hexagon shape glyph in Solar Linear' },

@@ -28,7 +28,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - **Svelte 5** interactive tools
 - **Tailwind CSS v4** with the tokens and component classes in `src/styles/global.css`
 - **Visual system**: neutral palette with one green accent used sparingly, Google Sans Flex for text and Google Sans Code for technical values (hashes, sizes, keys), radius 6/8 px, borders instead of shadows, motion 100/180/320 ms; no illustrations, glow, gradients, grain or glass
-- **Icons**: Solar Linear only, rendered through `src/components/Icon.astro` / `Icon.svelte` (16 or 20 px). Names live in `src/lib/iconManifest.ts`; `pnpm run build:solar-icons` regenerates `src/lib/icons.ts`. Credit sits in the footer and `/licenses`. No other icon set, no inline icon SVG, no emoji in UI chrome
+- **Icons**: Solar Linear only, rendered through `src/components/Icon.astro` / `Icon.svelte` (16 or 20 px). Names live in `src/lib/iconManifest.ts`; `pnpm run build:solar-icons` regenerates `src/lib/icons.ts`. Credit sits in the footer and `/licenses`. No other icon set, no inline icon SVG, no emoji in UI chrome. One owner-approved exception: `src/components/ShapeGlyph.svelte` draws the whiteboard diamond, hexagon and triangle (Solar has none) at 20 px, 1.5 stroke, round joins
 - **Deploys anywhere from the same code**: Cloudflare Workers (entry `src/worker.ts`, Durable Objects via PartyServer, R2) or Node / Docker (entry `src/adapters/node/server.ts`, WebSockets with `ws`, `node:sqlite`, files on disk); see `docs/self-hosting.md`
 - **Astro i18n** with `en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`; language chosen server-side in `src/lib/locale.ts`
 

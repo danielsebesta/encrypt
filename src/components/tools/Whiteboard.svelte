@@ -23,6 +23,7 @@
   import type { IconName } from '../../lib/iconManifest';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
+  import ShapeGlyph from '../ShapeGlyph.svelte';
   import Icon from '../Icon.svelte';
 
   export let locale = 'en';
@@ -1914,9 +1915,11 @@
                 {@const label = t(dict, `whiteboard.geo.${g}`)}
                 {@const geoIcon = GEO_ICONS[g]}
                 {@const fallback = dict[`whiteboard.geo.${g}`] ?? ''}
-                <button type="button" class="wb-btn" class:wb-btn--text={!geoIcon && !!fallback} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
+                <button type="button" class="wb-btn" class:wb-btn--text={!geoIcon && !!fallback && g !== 'diamond' && g !== 'hexagon' && g !== 'triangle'} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
                   {#if geoIcon}
                     <Icon name={geoIcon} size={20} />
+                  {:else if g === 'diamond' || g === 'hexagon' || g === 'triangle'}
+                    <ShapeGlyph shape={g} />
                   {:else if fallback}
                     <span>{fallback}</span>
                   {/if}
