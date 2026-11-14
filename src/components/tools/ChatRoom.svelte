@@ -530,6 +530,7 @@
   let unsupportedBrowser = false;
   let profileOpen = false;
   let profileEl: HTMLElement | null = null;
+  let membersBtnEl: HTMLButtonElement | undefined;
   let nickInput = '';
   let previewAlias: Alias = alias;
 
@@ -5418,6 +5419,13 @@
     profileEl?.querySelector<HTMLElement>('button')?.focus();
   }
 
+  function closeMembersOnEscape(event: KeyboardEvent) {
+    if (event.key !== 'Escape' || !membersOpen || appMode) return;
+    membersOpen = false;
+    nameEditing = false;
+    membersBtnEl?.focus();
+  }
+
   function closeHeaderMenuOnEscape(event: KeyboardEvent) {
     if (event.key !== 'Escape' || !headerMenuOpen) return;
     headerMenuOpen = false;
@@ -5710,7 +5718,7 @@
   </section>
 {/snippet}
 
-<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); closeHeaderMenuOnOutside(e); closeMenusOnOutside(e); onEmojiOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); closeHeaderMenuOnEscape(e); }} />
+<svelte:window on:paste={handlePaste} on:pointerdown|capture={(e) => { closeCallSettingsOnOutside(e); closeProfileOnOutside(e); closeHeaderMenuOnOutside(e); closeMenusOnOutside(e); onEmojiOutside(e); }} on:keydown={(e) => { closeCallSettingsOnEscape(e); closeProfileOnEscape(e); closeHeaderMenuOnEscape(e); closeMembersOnEscape(e); }} />
 
 <div class="chat-container" inert={Boolean(lightbox)}>
   {#if unsupportedBrowser}
@@ -5843,7 +5851,7 @@
             <Icon name="phone" />
           {/if}
         </button>
-        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} on:click={() => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; }}>
+        <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.members')} aria-label={t(dict, 'chat.members')} aria-expanded={membersOpen} aria-controls="chat-members" bind:this={membersBtnEl} on:click={() => { membersOpen = !membersOpen; burnConfirmMsg = null; headerMenuOpen = false; }}>
           <Icon name="key" />
         </button>
         <div class="chat-header-menu relative" data-chat-menu>
@@ -6034,7 +6042,7 @@
     {/if}
 
     {#if membersOpen && !appMode}
-      <div class="chat-members">
+      <div class="chat-members" id="chat-members">
         {@render identityCard()}
         <ChatMembers {dict} members={memberList} online={onlinePks} verified={verifiedPks} self={mySignerId} ontrust={trustKey} onverify={setVerified} />
       </div>
