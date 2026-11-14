@@ -5424,6 +5424,21 @@
     document.getElementById('chat-room-menu-trigger')?.focus();
   }
 
+  function onRoomMenuKeydown(event: KeyboardEvent) {
+    const items = [...(roomMenuEl?.querySelectorAll<HTMLElement>('.menu__item') ?? [])].filter((el) => !(el as HTMLButtonElement).disabled);
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      items[(at + 1) % items.length]?.focus();
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(at - 1 + items.length) % items.length]?.focus();
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
+    }
+  }
+
   async function applyProfile() {
     const next = nickInput.trim();
     if (next && !NICKNAME_RE.test(next)) {
@@ -5845,7 +5860,7 @@
           >
             <Icon name="ellipsis-vertical" />
           </button>
-          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu">
+          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" bind:this={roomMenuEl} on:keydown={onRoomMenuKeydown}>
             <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
               <Icon name="link" class="chat-header-menu__icon" />
               {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
