@@ -1876,15 +1876,15 @@ html.dark {
     }
 
     .integrity-alert {
-        @apply border-b backdrop-blur-xl;
+        @apply border-b bg-surface;
     }
 
     .integrity-alert--warning {
-        @apply border-amber-200/80 bg-amber-50/95 text-amber-950 dark:border-amber-500/25 dark:bg-amber-950/90 dark:text-amber-100;
+        @apply border-warn text-warn;
     }
 
     .integrity-alert--danger {
-        @apply border-red-200/80 bg-red-50/95 text-red-950 dark:border-red-500/25 dark:bg-red-950/90 dark:text-red-100;
+        @apply border-danger text-danger;
     }
 
     .integrity-alert__icon {
