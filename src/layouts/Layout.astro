@@ -109,6 +109,10 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#08110a" media="(prefers-color-scheme: dark)" />
+		<link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />
+		<link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />
+		<link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />
+		<link rel="preload" as="fetch" href="/flow-sweep-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content="index, follow" />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
@@ -300,7 +304,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</div>
 			</div>
 		</footer>
-		<script is:inline src="/ui.js?v=flow-v5" defer></script>
+		<script is:inline src="/ui.js?v=flow-v6" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v3" defer></script>
 	</body>
 </html>

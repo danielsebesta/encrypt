@@ -5,6 +5,11 @@
   var flowFetch = function (url) {
     return flowCache[url] || (flowCache[url] = fetch(url).then(function (r) { return r.text(); }));
   };
+  if (!window.matchMedia('(prefers-reduced-data: reduce)').matches && window.fetch) {
+    var flowTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    flowFetch('/flow-bg-' + flowTheme + '.svg').catch(function () {});
+    flowFetch('/flow-sweep-' + flowTheme + '.svg').catch(function () {});
+  }
   var mountFlow = function () {
     var root = document.querySelector('.flow-bg');
     if (!root || !window.fetch) return Promise.resolve();
@@ -24,12 +29,16 @@
     var showFlow = function () {
       if (flowShown) return;
       flowShown = true;
-      mountFlow().then(function () { document.documentElement.classList.add('flow-ready'); });
+      mountFlow().then(function () {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { document.documentElement.classList.add('flow-ready'); });
+        });
+      });
     };
     ['pointermove', 'keydown', 'scroll', 'touchstart'].forEach(function (name) {
       window.addEventListener(name, showFlow, { once: true, passive: true });
     });
-    var later = function () { (window.requestIdleCallback || function (fn) { setTimeout(fn, 200); })(showFlow, { timeout: 1200 }); };
+    var later = function () { (window.requestIdleCallback || function (fn) { setTimeout(fn, 100); })(showFlow, { timeout: 600 }); };
     if (document.readyState === 'complete') later(); else window.addEventListener('load', later, { once: true });
   }
 
