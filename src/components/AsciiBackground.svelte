@@ -62,8 +62,9 @@
           vec3 c = mix(deep, moss, smoothstep(0., 0.35, hue));
           c = mix(c, lime, smoothstep(0.35, 0.7, hue));
           c = mix(c, pale, smoothstep(0.7, 1., hue));
-          ink = c * mix(0.95, 1., params.dark);
-          inkAmount = 0.75;
+          vec3 lightInk = mix(vec3(0.56, 0.73, 0.50), vec3(0.86, 0.92, 0.84), hue);
+          ink = mix(lightInk, c, params.dark);
+          inkAmount = mix(0.55, 0.75, params.dark);
         `,
       });
       pulsesRef = pulses as unknown as { params: Record<string, number> };
