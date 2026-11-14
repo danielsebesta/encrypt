@@ -1301,7 +1301,6 @@ html.dark {
         @apply mb-5;
     }
 
-    .install-hero__lead,
     .install-guide__text {
         @apply mt-3 text-base leading-relaxed text-muted;
     }
@@ -1332,14 +1331,6 @@ html.dark {
 
     .install-guide--wide {
         @apply md:col-span-2;
-    }
-
-    .install-shots__grid {
-        @apply mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4;
-    }
-
-    .install-shots__item {
-        @apply flex flex-col items-center gap-3 text-center;
     }
 
     .site-footer__inner {
