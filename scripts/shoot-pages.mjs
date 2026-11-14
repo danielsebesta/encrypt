@@ -11,7 +11,7 @@ const opt = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const base = opt('base', 'http://localhost:4321');
-const pages = opt('pages', '/,/share,/u,/chat,/whiteboard,/tools/chat-cipher,/security').split(',');
+const pages = opt('pages', '/,/share,/u,/chat,/whiteboard,/experiments/chat-cipher,/security').split(',');
 const widths = opt('widths', '320,390,1280').split(',').map(Number);
 const themes = opt('themes', 'light,dark').split(',');
 const full = args.includes('--full');

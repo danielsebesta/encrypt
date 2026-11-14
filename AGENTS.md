@@ -35,7 +35,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 ### Main systems
 
 - `src/components/tools/*.svelte` - interactive tool UIs (`ToolAbout.astro` = expandable "How it works" text below a tool)
-- `src/pages/tools/*.astro` - tool pages, all on the same shell
+- `src/pages/experiments/*.astro` - tool pages, all on the same shell
 - `src/lib/tools.ts` - tool registry for navbar, home page and category wiring
 - `src/locales/{en,cs,de,es,fr,sk,pl}.json` - flat UI dictionaries
 - `src/lib/alias.ts` - language-neutral participant aliases and colors for rooms
@@ -55,7 +55,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - `/security` privacy and security summary (`/privacy` redirects here)
 - `/chat` encrypted ephemeral chat
 - `/whiteboard` collaborative whiteboard
-- `/tools/*` tool pages
+- `/experiments/*` tool pages
 - `/app` native-feel PWA (see below)
 
 ### The `/app` PWA
@@ -91,7 +91,7 @@ Companion app shell wrapping rooms, the share form and settings. Stack: Konsta U
 ## Adding a new tool
 
 1. Create the Svelte tool component in `src/components/tools/`
-2. Copy an existing page in `src/pages/tools/` and change the component import and the `tools.myTool` prefix
+2. Copy an existing page in `src/pages/experiments/` and change the component import and the `tools.myTool` prefix
 3. Register it in `src/lib/tools.ts`
 4. Add locale keys to all 7 locale files: `nav.tool.myTool`, `tools.myTool.h1` (same text as the navigation label), `.subtitle`, `.meta.title`, `.meta.description`, `.about.1.title`, `.about.1` and further numbered sections
 

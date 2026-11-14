@@ -1,5 +1,5 @@
 ---
 const locale = Astro.currentLocale ?? 'en';
 const prefix = locale === 'en' ? '' : `/${locale}`;
-return Astro.redirect(`${prefix}/tools/chat-cipher`, 301);
+return Astro.redirect(`${prefix}/experiments/chat-cipher`, 301);
 ---

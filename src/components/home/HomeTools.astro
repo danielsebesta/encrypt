@@ -14,7 +14,7 @@ const firstSentence = (text: string) => text.split(/(?<=[.!?])\s+(?=\p{Lu})/u)[0
 const items = tools.map((tool) => ({
   label: t(dict, tool.navLabelKey),
   text: firstSentence(t(dict, `${tool.i18nPrefix}.subtitle`)),
-  href: `${localePrefix}/tools/${tool.slug}`,
+  href: `${localePrefix}/experiments/${tool.slug}`,
   icon: tool.icon,
 }));
 ---

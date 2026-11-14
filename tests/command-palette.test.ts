@@ -27,7 +27,7 @@ test('command items have labels, locale-prefixed hrefs, manifest icons, and uniq
 
   assert.equal(items.find((item) => item.id === 'whiteboard')?.href, '/cs/whiteboard');
   assert.equal(items.find((item) => item.id === 'decrypt')?.href, '/cs/u');
-  assert.equal(items.find((item) => item.id === 'chat-cipher')?.href, '/cs/tools/chat-cipher');
+  assert.equal(items.find((item) => item.id === 'chat-cipher')?.href, '/cs/experiments/chat-cipher');
   assert.deepEqual(
     items.filter((item) => item.id === 'security' || item.id === 'install' || item.id === 'licenses').map((item) => item.href),
     ['/cs/security', '/cs/install', '/cs/licenses'],

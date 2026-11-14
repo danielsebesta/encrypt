@@ -50,7 +50,7 @@ export function getNavCategories(t: (dict: Record<string, string>, key: string) 
       .filter(tool => tool.category === cat)
       .map(tool => ({
         label: t(dict, tool.navLabelKey),
-        href: `${localePrefix}/tools/${tool.slug}`,
+        href: `${localePrefix}/experiments/${tool.slug}`,
         icon: tool.icon,
       })),
   }));

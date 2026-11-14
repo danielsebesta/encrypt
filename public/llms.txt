@@ -20,11 +20,11 @@ Contact: hello@encrypt.click for general questions. Security reports: security@e
 
 ## Tools
 
-- [Chat cipher](https://encrypt.click/tools/chat-cipher): Hide a message in casual chat text
-- [Time capsule](https://encrypt.click/tools/time-capsule): Time-lock encryption with drand
-- [Steganography](https://encrypt.click/tools/steganography): Encrypted message in a PNG
-- [Photo cipher](https://encrypt.click/tools/photo-cipher): Hidden message that survives chat compression
-- [Spectral cipher](https://encrypt.click/tools/spectral-cipher): Image hidden in a WAV spectrogram
+- [Chat cipher](https://encrypt.click/experiments/chat-cipher): Hide a message in casual chat text
+- [Time capsule](https://encrypt.click/experiments/time-capsule): Time-lock encryption with drand
+- [Steganography](https://encrypt.click/experiments/steganography): Encrypted message in a PNG
+- [Photo cipher](https://encrypt.click/experiments/photo-cipher): Hidden message that survives chat compression
+- [Spectral cipher](https://encrypt.click/experiments/spectral-cipher): Image hidden in a WAV spectrogram
 
 ## Developers
 

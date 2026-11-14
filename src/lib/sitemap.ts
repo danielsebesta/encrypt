@@ -13,7 +13,7 @@ export const SITEMAP_PATHS = [
   '/chat',
   '/whiteboard',
   '/app',
-  ...tools.map((tool) => `/tools/${tool.slug}`),
+  ...tools.map((tool) => `/experiments/${tool.slug}`),
 ] as const;
 
 function localePath(locale: Locale, path: string): string {

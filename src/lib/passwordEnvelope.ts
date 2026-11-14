@@ -116,7 +116,7 @@ export async function sealPassword(data: Uint8Array | Uint8Array[], password: st
   for (const part of parts) { padded.set(part, offset); offset += part.length; }
 
   const tagLength = options.compact ? (64 as const) : undefined;
-  const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: gcmIv as BufferSource, additionalData: header, tagLength }, key, padded as BufferSource));
+  const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: gcmIv as BufferSource, additionalData: header, ...(tagLength ? { tagLength } : {}) }, key, padded as BufferSource));
   const result = new Uint8Array(headerLength + cipher.length);
   result.set(header);
   result.set(cipher, headerLength);

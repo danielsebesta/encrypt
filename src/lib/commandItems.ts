@@ -43,7 +43,7 @@ export function buildCommandItems(localePrefix: string, dict: Record<string, str
     items.push({
       id: tool.slug,
       label: t(dict, tool.navLabelKey),
-      href: `${localePrefix}/tools/${tool.slug}`,
+      href: `${localePrefix}/experiments/${tool.slug}`,
       icon: tool.icon,
     });
   }
