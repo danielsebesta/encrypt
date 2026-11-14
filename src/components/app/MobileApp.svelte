@@ -30,7 +30,7 @@
     Range,
   } from 'konsta/svelte';
 
-  import SolarIcon from '../Icon.svelte';
+  import UiIcon from '../Icon.svelte';
   import AppIcons, { type IconName } from './AppIcons.svelte';
   import ChatRoom from '../tools/ChatRoom.svelte';
   import Whiteboard from '../tools/Whiteboard.svelte';
@@ -2222,7 +2222,7 @@
             </span>
           </button>
           <button type="button" class="app-call-return__end" aria-label={t(dict, 'chat.callHangUp')} title={t(dict, 'chat.callHangUp')} onclick={() => roomHangup?.()}>
-            <SolarIcon name="phone-off" size={20} />
+            <UiIcon name="phone-off" size={20} />
           </button>
         </div>
       {/if}

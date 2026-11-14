@@ -1,6 +1,6 @@
 import type { IconName } from '../iconManifest';
 
-// Category / chrome icon names for the emoji picker (ICONS keys → Solar via Icon).
+// Category / chrome icon names for the emoji picker (ICONS keys → Tabler via Icon).
 export const EMOJI_ICONS: Record<string, IconName> = {
   recent: 'clock',
   smileys: 'smile',

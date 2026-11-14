@@ -90,9 +90,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20261026.1
         version: 5.20261026.1
-      '@iconify-json/solar':
-        specifier: ^1.2.15
-        version: 1.2.15
+      '@iconify-json/tabler':
+        specifier: ^1.2.45
+        version: 1.2.45
       '@types/node':
         specifier: ^26.6.5
         version: 26.6.5
@@ -610,8 +610,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@iconify-json/solar@1.2.15':
-    resolution: {integrity: sha512-cChSPHQAqrqb59VaY082SjfT6QmUuRV7MjmHaaeJnaPY5feF/Qmr21W817bHAxXSMWfG9tuq43mxyIDhnodF1g==}
+  '@iconify-json/tabler@1.2.45':
+    resolution: {integrity: sha512-4JEFGeOGq0rP+neKaG1VaSNb/ptCUeS9fDsQpPAs1Mlt5mCh3gZs/EhqVyxm5fXIcMQcz7Y9Q46udrEyIZhD9g==}
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -3196,7 +3196,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@iconify-json/solar@1.2.15':
+  '@iconify-json/tabler@1.2.45':
     dependencies:
       '@iconify/types': 2.0.0
 

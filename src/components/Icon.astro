@@ -1,5 +1,5 @@
 ---
-import { SOLAR } from '../lib/icons';
+import { TABLER } from '../lib/icons';
 import type { IconName } from '../lib/iconManifest';
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 }
 
 const { name, size = 16, class: className = '', label } = Astro.props;
-const body = SOLAR[name];
+const body = TABLER[name];
 const a11y = label
   ? ({ role: 'img', 'aria-label': label } as const)
   : ({ 'aria-hidden': 'true' } as const);
@@ -21,7 +21,6 @@ const a11y = label
   viewBox="0 0 24 24"
   width={size}
   height={size}
-  fill="none"
   focusable="false"
   class={`icon icon-${size} ${className}`}
   {...a11y}

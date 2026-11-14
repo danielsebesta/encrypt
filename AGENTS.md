@@ -28,7 +28,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - **Svelte 5** interactive tools
 - **Tailwind CSS v4** with the tokens and component classes in `src/styles/global.css`
 - **Visual system**: neutral palette with one green accent used sparingly, Google Sans Flex for text and Google Sans Code for technical values (hashes, sizes, keys), radius 6/8 px, borders instead of shadows, motion 100/180/320 ms; no illustrations, glow, gradients, grain or glass
-- **Icons**: Solar Linear only, rendered through `src/components/Icon.astro` / `Icon.svelte` (16 or 20 px). Names live in `src/lib/iconManifest.ts`; `pnpm run build:solar-icons` regenerates `src/lib/icons.ts`. Credit sits in the footer and `/licenses`. No other icon set, no inline icon SVG, no emoji in UI chrome. One owner-approved exception: `src/components/ShapeGlyph.svelte` draws the whiteboard diamond, hexagon and triangle (Solar has none) at 20 px, 1.5 stroke, round joins
+- **Icons**: Tabler Icons, filled variant, rendered through `src/components/Icon.astro` / `Icon.svelte` (16 or 20 px). Names live in `src/lib/iconManifest.ts`; `pnpm run build:icons` regenerates `src/lib/icons.ts`. Prefer `<name>-filled`. Outline only for the fallbacks listed in `OUTLINE` and printed by the build. Credit sits in the footer and `/licenses`. No other icon set, no inline icon SVG, no emoji in UI chrome
 - **Deploys anywhere from the same code**: Cloudflare Workers (entry `src/worker.ts`, Durable Objects via PartyServer, R2) or Node / Docker (entry `src/adapters/node/server.ts`, WebSockets with `ws`, `node:sqlite`, files on disk); see `docs/self-hosting.md`
 - **Astro i18n** with `en`, `cs`, `de`, `es`, `fr`, `sk`, `pl`; language chosen server-side in `src/lib/locale.ts`
 
@@ -77,7 +77,7 @@ Companion app shell wrapping rooms, the share form and settings. Stack: Konsta U
 ## Working rules
 
 - Use only the tokens and component classes in `src/styles/global.css`; do not add parallel abstractions. Copy an existing tool page for the layout.
-- Icons come from `<Icon name="..." />` only; add one by mapping its semantic name to a Solar Linear icon in `src/lib/iconManifest.ts` and running the build script. `tests/icons.test.ts` enforces this.
+- Icons come from `<Icon name="..." />` only; add one by mapping its semantic name to a Tabler icon in `src/lib/iconManifest.ts` and running `pnpm run build:icons`. Prefer the filled variant. `tests/icons.test.ts` enforces this.
 - No decorative imagery: no illustrations, mascots, 3D or stock photos. Motion is feedback only and must respect `prefers-reduced-motion`.
 - Never hardcode user-facing English in components or pages.
 - Put normal UI strings in `src/locales/*.json`.

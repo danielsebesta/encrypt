@@ -2,15 +2,15 @@
 
 Attributions for icons and fonts shipped with this site. Other open-source dependencies are listed with their licenses in `package.json`.
 
-## Solar Icon Set
+## Tabler Icons
 
-Solar Icon Set by 480 Design, licensed under Creative Commons Attribution 4.0 International (CC BY 4.0):
+Tabler Icons by Paweł Kuna, licensed under the MIT License:
 
-https://creativecommons.org/licenses/by/4.0/
+https://github.com/tabler/tabler-icons/blob/main/LICENSE
 
-Source: https://github.com/480-Design/Solar-Icon-Set
+Source: https://github.com/tabler/tabler-icons
 
-Delivered through the npm package `@iconify-json/solar` (version 1.2.15). This site uses only the Linear style. The SVG paths are inlined unmodified; the site only sets size and currentColor.
+Delivered through the npm package `@iconify-json/tabler` (version 1.2.45). This site uses the filled variant wherever Tabler has one, and the outline variant only where no filled icon fits. The SVG paths are inlined unmodified; the site only sets size and currentColor.
 
 ## Google Sans Flex
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SOLAR } from '../lib/icons';
+  import { TABLER } from '../lib/icons';
   import type { IconName } from '../lib/iconManifest';
 
   interface Props {
@@ -18,13 +18,12 @@
     viewBox="0 0 24 24"
     width={size}
     height={size}
-    fill="none"
     role="img"
     aria-label={label}
     focusable="false"
     class="icon icon-{size} {className}"
   >
-    {@html SOLAR[name]}
+    {@html TABLER[name]}
   </svg>
 {:else}
   <svg
@@ -32,12 +31,11 @@
     viewBox="0 0 24 24"
     width={size}
     height={size}
-    fill="none"
     aria-hidden="true"
     focusable="false"
     class="icon icon-{size} {className}"
   >
-    {@html SOLAR[name]}
+    {@html TABLER[name]}
   </svg>
 {/if}
 

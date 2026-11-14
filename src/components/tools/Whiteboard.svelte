@@ -23,7 +23,6 @@
   import type { IconName } from '../../lib/iconManifest';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
-  import ShapeGlyph from '../ShapeGlyph.svelte';
   import Icon from '../Icon.svelte';
 
   export let locale = 'en';
@@ -95,7 +94,15 @@
     text: 'type',
     note: 'sticky-note',
   };
-  const GEO_ICONS: Partial<Record<GeoId, IconName>> = { rectangle: 'square', ellipse: 'circle', star: 'star' };
+  const GEO_ICONS: Partial<Record<GeoId, IconName>> = {
+    rectangle: 'square',
+    ellipse: 'circle',
+    star: 'star',
+    diamond: 'diamond',
+    hexagon: 'hexagon',
+    triangle: 'triangle',
+    cloud: 'cloud',
+  };
   const DASH_ICONS: Record<(typeof DASH_IDS)[number], IconName> = { draw: 'spline', solid: 'minus', dashed: 'minus', dotted: 'minus' };
   const FILL_ICONS: Record<(typeof FILL_IDS)[number], IconName> = { none: 'square', semi: 'square', solid: 'square', pattern: 'square-dashed' };
 
@@ -1915,11 +1922,9 @@
                 {@const label = t(dict, `whiteboard.geo.${g}`)}
                 {@const geoIcon = GEO_ICONS[g]}
                 {@const fallback = dict[`whiteboard.geo.${g}`] ?? ''}
-                <button type="button" class="wb-btn" class:wb-btn--text={!geoIcon && !!fallback && g !== 'diamond' && g !== 'hexagon' && g !== 'triangle'} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
+                <button type="button" class="wb-btn" class:wb-btn--text={!geoIcon && !!fallback} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
                   {#if geoIcon}
                     <Icon name={geoIcon} size={20} />
-                  {:else if g === 'diamond' || g === 'hexagon' || g === 'triangle'}
-                    <ShapeGlyph shape={g} />
                   {:else if fallback}
                     <span>{fallback}</span>
                   {/if}
@@ -2108,8 +2113,9 @@
   }
   .wb-btn :global(svg.wb-dash-dashed path) { stroke-dasharray: 5 3; }
   .wb-btn :global(svg.wb-dash-dotted path) { stroke-dasharray: 0.1 4; stroke-width: 3; }
-  .wb-btn :global(svg.wb-fill-semi path) { fill: currentColor; fill-opacity: 0.3; }
-  .wb-btn :global(svg.wb-fill-solid path) { fill: currentColor; }
+  .wb-btn :global(svg.wb-fill-none path) { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+  .wb-btn :global(svg.wb-fill-semi path) { fill: currentColor; fill-opacity: 0.35; }
+  .wb-btn :global(svg.wb-fill-solid path) { fill: currentColor; fill-opacity: 1; }
   .wb-btn:not(:disabled):hover {
     background: var(--surface-2);
     color: var(--text);

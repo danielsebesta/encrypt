@@ -47,10 +47,10 @@
 </script>
 
 <script lang="ts">
-  import { SOLAR } from '../../lib/icons';
-  import type { IconName as SolarName } from '../../lib/iconManifest';
+  import { TABLER } from '../../lib/icons';
+  import type { IconName as ManifestName } from '../../lib/iconManifest';
 
-  const MAP: Record<IconName, SolarName> = {
+  const MAP: Record<IconName, ManifestName> = {
     chat: 'message-square',
     settings: 'settings',
     plus: 'plus',
@@ -108,4 +108,4 @@
   } = $props();
 </script>
 
-<svg class={className} width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">{@html SOLAR[MAP[name]]}</svg>
+<svg class={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">{@html TABLER[MAP[name]]}</svg>

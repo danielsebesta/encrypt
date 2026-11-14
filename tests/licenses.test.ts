@@ -33,8 +33,8 @@ test('en locale has the licenses keys and the footer credit', () => {
     [...LICENSES_KEYS].sort(),
   );
   for (const key of LICENSES_KEYS) assert.ok(en[key].trim().length > 0, key);
-  assert.ok(en['home.footer.credits'].includes('480 Design'));
-  assert.ok(en['home.footer.credits'].includes('CC BY 4.0'));
+  assert.ok(en['home.footer.credits'].includes('Paweł Kuna'));
+  assert.ok(en['home.footer.credits'].includes('MIT'));
 });
 
 test('licenses page source has no illustration call and no svg', () => {
@@ -43,10 +43,10 @@ test('licenses page source has no illustration call and no svg', () => {
   assert.doesNotMatch(source, /<svg/);
 });
 
-test('footer credit names 480 Design and CC BY 4.0 in every locale', () => {
+test('footer credit names Paweł Kuna and MIT in every locale', () => {
   for (const locale of LOCALES) {
     const credits = dict(locale)['home.footer.credits'];
-    assert.match(credits, /480 Design/, locale);
-    assert.match(credits, /CC BY 4\.0/, locale);
+    assert.match(credits, /Paweł Kuna/, locale);
+    assert.match(credits, /MIT/, locale);
   }
 });
