@@ -1,5 +1,5 @@
-import { decryptWithSurplus, encrypt as aesEncrypt } from '../aesGcm';
-import { restoreFixedHeader, stripFixedHeader } from '../passwordEnvelope';
+import { openPasswordWithSurplus, restoreFixedHeader, sealPassword, stripFixedHeader } from '../passwordEnvelope';
+import { packContent, unpackContent } from './compress';
 import { dropRetiredModels, loadCoverCodec, rankCoverLangs, reloadCoverCodec, type CoverLang } from './coverTable';
 import type { ChatCipherProgress } from './progress';
 
@@ -30,9 +30,10 @@ export async function encryptToChat(
 ): Promise<string> {
   const codec = await loadCoverCodec(lang);
   onProgress?.('seal');
-  const sealed = await aesEncrypt(text, password);
+  const content = await packContent(text, lang);
+  const sealed = await sealPassword(content, password, { compact: true });
   onProgress?.('cover');
-  return codec.encode(stripFixedHeader(sealed), undefined, (done, total) => onProgress?.('cover', { done, total }));
+  return codec.encode(stripFixedHeader(sealed, true), undefined, (done, total) => onProgress?.('cover', { done, total }));
 }
 
 export async function decryptFromChat(
@@ -46,7 +47,7 @@ export async function decryptFromChat(
     onProgress?.('cover');
     const body = await codec.decode(cover, (done, total) => onProgress?.('cover', { done, total }));
     onProgress?.('open');
-    return await decryptWithSurplus(restoreFixedHeader(body), password);
+    return await unpackContent(await openPasswordWithSurplus(restoreFixedHeader(body, true), password));
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     if (/Wrong password|OperationError|authentication|integrity/i.test(message) || (e instanceof Error && e.name === 'OperationError')) {

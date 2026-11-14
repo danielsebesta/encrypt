@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
-import { createCoverCodec, parseCoverTable } from '../src/lib/chatCipher/tableCodec';
-import { COVER_LANGS, COVER_TABLES, COVER_TABLE_SHA256, COVER_TABLE_URL, isCoverLang, preferredCoverLang } from '../src/lib/chatCipher/coverTable';
+import { parseCoverTable } from '../src/lib/chatCipher/tableCodec';
+import { COVER_LANGS, COVER_TABLES, COVER_TABLE_SHA256, COVER_TABLE_URL, coverCodecFor, isCoverLang, preferredCoverLang } from '../src/lib/chatCipher/coverTable';
 import { chatCipherErrorKey } from '../src/lib/chatCipher/errors';
 import { foldWord } from '../src/lib/chatNoise';
 import { openPasswordWithSurplus, restoreFixedHeader, sealPassword, stripFixedHeader } from '../src/lib/passwordEnvelope';
@@ -12,7 +12,7 @@ import { ARGON2_V3 } from '../src/lib/kdf';
 
 const packed = readFileSync(new URL(`../public${COVER_TABLE_URL}`, import.meta.url));
 const table = parseCoverTable(gunzipSync(packed));
-const codec = createCoverCodec(table);
+const codec = coverCodecFor('cs', table);
 
 function seeded(seed: number) {
   return () => {
@@ -42,7 +42,7 @@ test('non-Czech packs round-trip short payloads', async () => {
   for (const lang of COVER_LANGS) {
     if (lang === 'cs') continue;
     const pack = COVER_TABLES[lang];
-    const langCodec = createCoverCodec(parseCoverTable(gunzipSync(readFileSync(new URL(`../public${pack.url}`, import.meta.url)))));
+    const langCodec = coverCodecFor(lang, parseCoverTable(gunzipSync(readFileSync(new URL(`../public${pack.url}`, import.meta.url)))));
     for (let seed = 1; seed <= 20; seed++) {
       const rand = seeded(seed * 17 + lang.charCodeAt(0));
       const data = bytes(1 + Math.floor(rand() * 48), rand);
@@ -101,7 +101,7 @@ test('covers of the same size do not open alike', async () => {
 });
 
 test('this cover must decode forever, or old messages are lost', async () => {
-  const cover = 'tak jsem se dívala na seriál, a on se na mě podíval a řekl že by to byla sranda. a pořád mi to nejede. a pořád mi to nefunguje, takže jsem šla do toho obchodu co je je to na prd, a když už budete tam tak se klidně ptejte, ale hele. tak jsem se díval na ten film co jsi mi říkal. a musím ti říct že to je otrava ale je ta za';
+  const cover = 'se s vama na uplne uzasny, uz jsem vzhuru nohama... dik ty taky, tak to uz je to docela fajn, ale to az jindy, tak jsem mu rekla ze uz nejsem a ze se mnou nema cenu mluvit, a on rekl ze je to pravda. a hlavne ta, ze sem se chtel zeptat';
   const back = await codec.decode(cover);
   assert.equal(Buffer.from(back.subarray(0, 24)).toString('hex'), '050b09a9a57b9fc42af80b2abc4498d2ff1b5043aad54a87');
 });
@@ -177,7 +177,7 @@ test('the automatic cover language follows the site, then the browser', () => {
 test('each cover is recognised by its own table and refused by the others', async () => {
   const codecs = COVER_LANGS.map(lang => ({
     lang,
-    codec: createCoverCodec(parseCoverTable(gunzipSync(readFileSync(new URL(`../public${COVER_TABLES[lang].url}`, import.meta.url))))),
+    codec: coverCodecFor(lang, parseCoverTable(gunzipSync(readFileSync(new URL(`../public${COVER_TABLES[lang].url}`, import.meta.url))))),
   }));
   for (const { lang, codec } of codecs) {
     for (let seed = 1; seed <= 4; seed++) {

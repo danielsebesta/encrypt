@@ -1367,7 +1367,7 @@ html.dark {
 
     html.flow-ready .flow-bg {
         opacity: 1;
-        animation: flow-in 2.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation: flow-in 3.6s cubic-bezier(0.4, 0, 0.3, 1) 0.1s both;
     }
 
     html.flow-ready .flow-bg__base {
@@ -1437,6 +1437,7 @@ html.dark {
 
     @keyframes flow-in {
         from {
+            opacity: 0;
             -webkit-mask-position: 0 0, 0 0, 0 100%;
             mask-position: 0 0, 0 0, 0 100%;
         }

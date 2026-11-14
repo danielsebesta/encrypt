@@ -15,7 +15,8 @@ const GUARD_WINDOW = 40;
 const GUARD_SHIFT = 4;
 const SAFETY_WORDS = 8;
 const MAX_BYTES = 64 * 1024;
-const MAX_EXTRA_WORDS = 40;
+/** Once the payload is written, the cover ends on the next line end, but never runs more than this many filler words. */
+const MAX_EXTRA_WORDS = 4;
 const YIELD_EVERY = 4096;
 
 const TOP = 2 ** 32;
@@ -162,8 +163,14 @@ function randomStyle(rand: Rand): Style {
 
 const yieldToPage = () => new Promise<void>(resolve => setTimeout(resolve));
 
-export function createCoverCodec(table: CoverTable, questions: QuestionWords = CZECH_QUESTIONS): CoverCodec {
-  const { words, keep, levels, unigramWords, unigramShares } = table;
+/**
+ * `keepShares` overrides the table's own blend decay: how much of every matched context row's mass is trusted before
+ * the remainder falls through to shorter contexts. Both sides must pass the same value or covers stop matching, so
+ * it belongs to the language pack, not the payload.
+ */
+export function createCoverCodec(table: CoverTable, questions: QuestionWords = CZECH_QUESTIONS, keepShares?: number): CoverCodec {
+  const { words, levels, unigramWords, unigramShares } = table;
+  const keep = keepShares ?? table.keep;
   const questionStarts = new Set(questions.starts);
   const questionEnds = new Set(questions.ends);
   const folded = words.map(foldWord);

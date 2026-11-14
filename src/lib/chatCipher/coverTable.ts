@@ -1,9 +1,17 @@
-import { createCoverCodec, parseCoverTable, type CoverCodec, type QuestionWords } from './tableCodec';
+import { createCoverCodec, parseCoverTable, type CoverCodec, type CoverTable, type QuestionWords } from './tableCodec';
 
 /** Cover language packs. Changing a table breaks every existing cover in that language: bump the path version. */
 export type CoverLang = 'cs' | 'de' | 'en' | 'es' | 'fr' | 'pl' | 'sk';
 
 export const COVER_LANGS: readonly CoverLang[] = ['cs', 'en', 'de', 'es', 'fr', 'sk', 'pl'];
+
+/**
+ * Blend decay applied at table-read time instead of a table rebuild: every shipped table stores the untuned 65536,
+ * so this is the one knob that also retunes the Czech table, whose corpus no longer exists to rebuild from. Lower
+ * values trust each context less, flatten the word distribution and shorten covers; past roughly 40000 the shorter
+ * text stops reading like the language. Overriding it breaks every cover made with another value.
+ */
+const COVER_DENSITY: Record<CoverLang, number> = { cs: 46000, de: 46000, en: 46000, es: 46000, fr: 46000, pl: 46000, sk: 46000 };
 
 export const COVER_TABLES: Record<CoverLang, { url: string; sha256: string }> = {
   cs: {
@@ -98,6 +106,11 @@ export async function rankCoverLangs(cover: string, first: CoverLang): Promise<C
   return ranked.map(item => item.lang);
 }
 
+/** Builds the codec exactly the way the app loads it, so any pinned cover or test decodes as production does. */
+export function coverCodecFor(lang: CoverLang, table: CoverTable): CoverCodec {
+  return createCoverCodec(table, QUESTIONS[lang], COVER_DENSITY[lang]);
+}
+
 async function fetchCodec(lang: CoverLang, cache: RequestCache): Promise<CoverCodec> {
   const pack = COVER_TABLES[lang];
   const res = await fetch(pack.url, { mode: 'same-origin', credentials: 'omit', cache });
@@ -107,7 +120,7 @@ async function fetchCodec(lang: CoverLang, cache: RequestCache): Promise<CoverCo
   const hash = [...digest].map(b => b.toString(16).padStart(2, '0')).join('');
   if (hash !== pack.sha256) throw new Error('Word table checksum mismatch');
   const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return createCoverCodec(parseCoverTable(new Uint8Array(await new Response(stream).arrayBuffer())), QUESTIONS[lang]);
+  return coverCodecFor(lang, parseCoverTable(new Uint8Array(await new Response(stream).arrayBuffer())));
 }
 
 function load(lang: CoverLang, cache: RequestCache): Promise<CoverCodec> {
