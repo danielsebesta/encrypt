@@ -1345,14 +1345,12 @@ html.dark {
         position: relative;
     }
 
-    body::before,
-    body::after {
-        content: '';
+    .flow-bg {
         position: absolute;
         inset: 0 0 auto 0;
         height: max(100vh, 46rem);
         z-index: -1;
-        background: center top / cover no-repeat;
+        overflow: hidden;
         opacity: 0;
         -webkit-mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 0%, rgb(0 0 0 / 0.7) 42%, transparent 82%), linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 22%, rgb(0 0 0 / 0.45) 50%, rgb(0 0 0 / 0.75) 78%, #000 100%);
         -webkit-mask-composite: source-in;
@@ -1362,35 +1360,101 @@ html.dark {
         pointer-events: none;
     }
 
-    html.flow-ready body::before {
-        background-image: url('/flow-lines-light.svg');
-        opacity: 0.85;
+    html.flow-ready .flow-bg {
+        opacity: 0.6;
     }
 
-    html.dark.flow-ready body::before {
-        background-image: url('/flow-lines-dark.svg');
-        opacity: 0.7;
+    html.dark.flow-ready .flow-bg {
+        opacity: 0.5;
     }
 
-    html.flow-ready body::after {
-        background-image: url('/flow-pulses-light.svg');
-        opacity: 0.4;
+    .flow-bg__base,
+    .flow-bg__img {
+        position: absolute;
+        inset: 0;
+        background: center top / cover no-repeat;
     }
 
-    html.dark.flow-ready body::after {
-        background-image: url('/flow-pulses-dark.svg');
-        opacity: 0.38;
+    html.flow-ready .flow-bg__base {
+        background-image: url('/flow-bg-light.svg');
+    }
+
+    html.flow-ready .flow-bg__img {
+        background-image: url('/flow-sweep-light.svg');
+    }
+
+    html.dark.flow-ready .flow-bg__base {
+        background-image: url('/flow-bg-dark.svg');
+    }
+
+    html.dark.flow-ready .flow-bg__img {
+        background-image: url('/flow-sweep-dark.svg');
+    }
+
+    .flow-bg__sw {
+        position: absolute;
+        inset: 0;
+        will-change: transform;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+    }
+
+    .flow-bg__sw .flow-bg__img {
+        will-change: transform;
+    }
+
+    .flow-bg__sw--x {
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 50%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 50%, transparent);
+        -webkit-mask-size: 34% 100%;
+        mask-size: 34% 100%;
+        animation: flow-sweep-x 34s linear infinite;
+    }
+
+    .flow-bg__sw--x .flow-bg__img {
+        animation: flow-hold-x 34s linear infinite;
+    }
+
+    .flow-bg__sw--y {
+        -webkit-mask-image: linear-gradient(180deg, transparent, #000 50%, transparent);
+        mask-image: linear-gradient(180deg, transparent, #000 50%, transparent);
+        -webkit-mask-size: 100% 40%;
+        mask-size: 100% 40%;
+        animation: flow-sweep-y 47s linear infinite -20s;
+    }
+
+    .flow-bg__sw--y .flow-bg__img {
+        animation: flow-hold-y 47s linear infinite -20s;
+    }
+
+    @keyframes flow-sweep-x {
+        from { transform: translateX(-34%); }
+        to { transform: translateX(100%); }
+    }
+
+    @keyframes flow-hold-x {
+        from { transform: translateX(34%); }
+        to { transform: translateX(-100%); }
+    }
+
+    @keyframes flow-sweep-y {
+        from { transform: translateY(-40%); }
+        to { transform: translateY(100%); }
+    }
+
+    @keyframes flow-hold-y {
+        from { transform: translateY(40%); }
+        to { transform: translateY(-100%); }
     }
 
     @media (prefers-reduced-motion: reduce) {
-        body::after {
+        .flow-bg__sw {
             display: none;
         }
     }
 
     @media (forced-colors: active), print {
-        body::before,
-        body::after {
+        .flow-bg {
             display: none;
         }
     }
