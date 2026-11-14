@@ -115,7 +115,7 @@
 
       {#if device === 'iosOther'}
         <div class="actions">
-          <CopyButton variant="primary" text={pageUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+          <CopyButton variant="primary" text={pageUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
         </div>
       {/if}
     {/if}

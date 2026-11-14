@@ -5,6 +5,7 @@
   export let text = '';
   export let label = '';
   export let copiedLabel = '';
+  export let errorLabel = '';
   export let className = '';
   export let variant: 'ghost' | 'primary' = 'ghost';
 
@@ -21,8 +22,8 @@
 
   $: baseClass = variant === 'primary' ? 'btn' : 'btn-ghost btn-sm';
   $: doneText = copiedLabel || label;
-  $: failText = label;
-  $: reserveCh = Math.max(label.length, doneText.length, failText.length, 1);
+  $: failText = errorLabel || label;
+  $: reserveCh = Math.max(label.length, doneText.length, 1);
 </script>
 
 <button
@@ -41,6 +42,7 @@
   <span class="btn-feedback__label inline-grid justify-items-start" style="min-inline-size: {reserveCh}ch" role="status">
     <span class="btn-feedback__layer btn-feedback__layer--idle col-start-1 row-start-1" class:opacity-0={status !== 'idle'} aria-hidden={status !== 'idle'}>{label}</span>
     <span class="btn-feedback__layer btn-feedback__layer--done col-start-1 row-start-1" class:opacity-0={status !== 'copied'} aria-hidden={status !== 'copied'}>{doneText}</span>
-    <span class="btn-feedback__layer btn-feedback__layer--error col-start-1 row-start-1" class:opacity-0={status !== 'error'} aria-hidden={status !== 'error'}>{failText}</span>
+    <span class="btn-feedback__layer btn-feedback__layer--error col-start-1 row-start-1" class:opacity-0={status !== 'error'} aria-hidden="true">{label}</span>
+    {#if status === 'error'}<span class="sr-only">{failText}</span>{/if}
   </span>
 </button>
