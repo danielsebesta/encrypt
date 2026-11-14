@@ -72,6 +72,7 @@
   import { readSealedOutbox, writeSealedOutbox, type OutboxEntry } from '../../lib/chatOutbox';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
+  import { kitAllowed, loadKit } from '../../lib/asciiKit';
   import ChatQuote from './ChatQuote.svelte';
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
   import ChatComposer from './ChatComposer.svelte';
@@ -3155,7 +3156,13 @@
     if (burnConfirmMsg?.id === id) burnConfirmMsg = null;
     if (!messages.some((msg) => msg.id === id)) return;
     reactionBook.forget(id);
-    messages = messages.filter((msg) => msg.id !== id);
+    const drop = () => { messages = messages.filter((msg) => msg.id !== id); };
+    const row = document.getElementById(`chat-msg-${id}`);
+    if (!row || !kitAllowed() || matchMedia('(prefers-reduced-motion: reduce)').matches) { drop(); return; }
+    loadKit()
+      .then((kit) => Promise.race([kit.disintegrate(row), new Promise((resolve) => setTimeout(resolve, 1600))]))
+      .catch(() => {})
+      .then(drop);
   }
 
   async function sendMessageBurn(target: string) {
