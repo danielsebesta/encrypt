@@ -26,7 +26,6 @@
     Popover,
     MenuList,
     MenuListItem,
-    Radio,
     Range,
   } from 'konsta/svelte';
 
@@ -590,6 +589,22 @@
     newRoomKind = kind;
     newRoomMode = defaultRoomMode;
     newRoomSheetOpen = true;
+  }
+
+  function pickNewRoomMode(mode: 'live' | 'ttl') {
+    newRoomMode = mode;
+    const group = (document.activeElement as HTMLElement | null)?.closest?.('[role="radiogroup"]');
+    void tick().then(() => group?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus());
+  }
+
+  function onNewRoomModeKeys(e: KeyboardEvent) {
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      pickNewRoomMode(e.key === 'Home' ? 'live' : 'ttl');
+    } else if (e.key.startsWith('Arrow')) {
+      e.preventDefault();
+      pickNewRoomMode(newRoomMode === 'live' ? 'ttl' : 'live');
+    }
   }
 
   function closePrefSheet(popGuard = true) {
@@ -1718,13 +1733,13 @@
   {/if}
 {/snippet}
 
-{#snippet choiceRow(title: string, selected: boolean, pick: () => void, text?: string)}
+{#snippet choiceRow(title: string, selected: boolean, pick: () => void, text?: string, tabstop?: number)}
   {#if platform === 'material'}
-    <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected }} {title} {text} onClick={pick}>
+    <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected, ...(tabstop === undefined ? {} : { tabindex: tabstop }) }} {title} {text} onClick={pick}>
       {#snippet media()}<span class="app-radio" class:app-radio--on={selected} aria-hidden="true"></span>{/snippet}
     </ListItem>
   {:else}
-    <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected }} {title} {text} onClick={pick}>
+    <ListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'radio', 'aria-checked': selected, ...(tabstop === undefined ? {} : { tabindex: tabstop }) }} {title} {text} onClick={pick}>
       {#snippet after()}
         {#if selected}<AppIcons name="check" size={20} class="text-[var(--app-tint)]" />{/if}
       {/snippet}
@@ -2462,21 +2477,45 @@
           </ListInput>
         </List>
         {#if newRoomKind === 'chat'}
-          <List strong inset class="m-0! app-form">
-            <ListItem label title={t(dict, 'chat.modeLiveTitle')} text={t(dict, 'chat.modeLiveHint')} onClick={() => { newRoomMode = 'live'; }}>
+          <List strong inset class="m-0! app-choices" role="radiogroup" aria-label={t(dict, 'chat.retention')} onkeydown={onNewRoomModeKeys}>
+            <ListItem
+              link
+              chevron={false}
+              linkComponent="button"
+              linkProps={{ type: 'button', role: 'radio', 'aria-checked': newRoomMode === 'live', tabindex: newRoomMode === 'live' ? 0 : -1 }}
+              title={t(dict, 'chat.modeLiveTitle')}
+              text={t(dict, 'chat.modeLiveHint')}
+              onClick={() => pickNewRoomMode('live')}
+            >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="history" size={20} /></span>
               {/snippet}
               {#snippet after()}
-                <Radio component="span" name="new-room-mode" checked={newRoomMode === 'live'} readonly />
+                {#if platform === 'material'}
+                  <span class="app-radio" class:app-radio--on={newRoomMode === 'live'} aria-hidden="true"></span>
+                {:else if newRoomMode === 'live'}
+                  <AppIcons name="check" size={20} class="text-[var(--app-tint)]" />
+                {/if}
               {/snippet}
             </ListItem>
-            <ListItem label title={t(dict, 'chat.modeTtlTitle')} text={t(dict, 'chat.modeTtlHint')} onClick={() => { newRoomMode = 'ttl'; }}>
+            <ListItem
+              link
+              chevron={false}
+              linkComponent="button"
+              linkProps={{ type: 'button', role: 'radio', 'aria-checked': newRoomMode === 'ttl', tabindex: newRoomMode === 'ttl' ? 0 : -1 }}
+              title={t(dict, 'chat.modeTtlTitle')}
+              text={t(dict, 'chat.modeTtlHint')}
+              onClick={() => pickNewRoomMode('ttl')}
+            >
               {#snippet media()}
                 <span class="text-[var(--app-tint)]"><AppIcons name="timer" size={20} /></span>
               {/snippet}
               {#snippet after()}
-                <Radio component="span" name="new-room-mode" checked={newRoomMode === 'ttl'} readonly />
+                {#if platform === 'material'}
+                  <span class="app-radio" class:app-radio--on={newRoomMode === 'ttl'} aria-hidden="true"></span>
+                {:else if newRoomMode === 'ttl'}
+                  <AppIcons name="check" size={20} class="text-[var(--app-tint)]" />
+                {/if}
               {/snippet}
             </ListItem>
             {#if newRoomMode === 'ttl'}
