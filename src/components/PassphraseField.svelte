@@ -35,6 +35,8 @@
   }
 
   function hideWhileEditing() {
+    clearTimeout(decodeTimer);
+    decoding = false;
     if (!shownByUser) revealed = false;
   }
 
