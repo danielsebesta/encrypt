@@ -38,7 +38,7 @@ export const categoryIcons: Record<ToolCategory, IconName> = {
 export const chatIcon = icons.chat;
 export const sendIcon: IconName = 'upload';
 export const decryptIcon: IconName = 'lock-keyhole-open';
-export const whiteboardIcon: IconName = 'square-pen';
+export const whiteboardIcon: IconName = 'presentation';
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {
   const categories: ToolCategory[] = ['experiments'];
