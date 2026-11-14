@@ -18,10 +18,10 @@ export function appShotsEnabled(search = typeof window !== 'undefined' ? window.
 const now = Date.now();
 const hour = 60 * 60 * 1000;
 
-export const SHOT_CHAT_ROOM = 'weekend';
+export const SHOT_CHAT_ROOM = 'fsociety';
 /** Separate Material store-shot room so Android marketing frames show a different thread. */
-export const SHOT_CHAT_ROOM_MATERIAL = 'studio';
-export const SHOT_BOARD_ROOM = 'sprint';
+export const SHOT_CHAT_ROOM_MATERIAL = 'allsafe';
+export const SHOT_BOARD_ROOM = 'network-map';
 
 /** Local shot photos (user-supplied stills under public/shots/). */
 export const SHOT_PHOTOS = {
@@ -53,28 +53,28 @@ function room(
 
 export function shotRooms(): RoomEntry[] {
   return [
-    room('chat', SHOT_CHAT_ROOM, 'Weekend trip', 'live', { pinned: true, ago: 2 * 60_000 }),
-    room('chat', SHOT_CHAT_ROOM_MATERIAL, 'Design studio', 'live', { pinned: true, ago: 90_000 }),
-    room('chat', 'family', 'Family', 'live', { ago: 3 * hour }),
-    room('chat', 'book-club', 'Book club', '1d', { ago: 26 * hour }),
-    room('chat', 'office', 'Office', 'live', { ago: 6 * hour }),
-    room('chat', 'travel', 'Travel notes', 'live', { ago: 2 * 24 * hour }),
+    room('chat', SHOT_CHAT_ROOM, 'fsociety', 'live', { pinned: true, ago: 2 * 60_000 }),
+    room('chat', SHOT_CHAT_ROOM_MATERIAL, 'Allsafe audit', 'live', { pinned: true, ago: 90_000 }),
+    room('chat', 'darlene', 'Darlene', 'live', { ago: 3 * hour }),
+    room('chat', 'ron', "Ron's Coffee", '1d', { ago: 26 * hour }),
+    room('chat', 'ecorp', 'E Corp review', 'live', { ago: 6 * hour }),
+    room('chat', 'coney', 'Coney Island', 'live', { ago: 2 * 24 * hour }),
     room('chat', 'quiet', 'Quiet room', '1h', { ago: 4 * hour }),
-    room('chat', 'neighbors', 'Neighbors', 'live', { ago: 8 * hour }),
-    room('chat', 'hiking', 'Hiking plans', '2d', { ago: 3 * 24 * hour }),
-    room('chat', 'project-sync', 'Project sync', 'live', { ago: 14 * hour }),
-    room('whiteboard', SHOT_BOARD_ROOM, 'Sprint board', 'live', { pinned: true, ago: 15 * 60_000 }),
-    room('whiteboard', 'floor-plan', 'Floor plan', 'live', { pinned: true, ago: 5 * hour }),
-    room('whiteboard', 'mood-board', 'Mood board', 'live', { ago: 9 * hour }),
-    room('whiteboard', 'roadmap', 'Roadmap', 'live', { ago: 30 * hour }),
-    room('whiteboard', 'wireframes', 'Wireframes', 'live', { ago: 12 * hour }),
+    room('chat', 'krista', 'Krista', 'live', { ago: 8 * hour }),
+    room('chat', 'arcade', 'Arcade', '2d', { ago: 3 * 24 * hour }),
+    room('chat', 'tyrell', 'Tyrell', 'live', { ago: 14 * hour }),
+    room('whiteboard', SHOT_BOARD_ROOM, 'Network map', 'live', { pinned: true, ago: 15 * 60_000 }),
+    room('whiteboard', 'floor-plan', 'Data center floor', 'live', { pinned: true, ago: 5 * hour }),
+    room('whiteboard', 'threat-model', 'Threat model', 'live', { ago: 9 * hour }),
+    room('whiteboard', 'timeline', 'Timeline', 'live', { ago: 30 * hour }),
+    room('whiteboard', 'rack-layout', 'Rack layout', 'live', { ago: 12 * hour }),
   ];
 }
 
 type ShotPerson = { alias: Alias; nick?: string; pk: string };
 
-const ALEX: ShotPerson = { alias: { a: 3, n: 7, h: 142 }, nick: 'Alex', pk: 'shot-you' };
-const MAYA: ShotPerson = { alias: { a: 11, n: 2, h: 28 }, nick: 'Maya', pk: 'shot-maya' };
+const ELLIOT: ShotPerson = { alias: { a: 3, n: 7, h: 142 }, nick: 'Elliot', pk: 'shot-you' };
+const DARLENE: ShotPerson = { alias: { a: 11, n: 2, h: 28 }, nick: 'Darlene', pk: 'shot-maya' };
 
 export type ShotMessage = {
   id: string;
@@ -119,12 +119,12 @@ function msg(
   return {
     id,
     text,
-    sender: who === ALEX ? (dict['chat.you'] || 'You') : name,
+    sender: who === ELLIOT ? (dict['chat.you'] || 'You') : name,
     initials: initialsOf(name),
     color: aliasColor(who.alias),
     alias: who.alias,
     nick: who.nick,
-    mine: who === ALEX,
+    mine: who === ELLIOT,
     time: now - agoMs,
     ttl: 0,
     remaining: 0,
@@ -154,31 +154,27 @@ function photo(
   });
 }
 
-/** iOS thread: weekend trip — Dumpling Town stop and the stairwell. */
+/** iOS thread: fsociety, up the stairwell to the rack. */
 export function shotChatMessages(dict: Record<string, string>): ShotMessage[] {
   return [
-    msg(dict, MAYA, 'm1', 'We are here — Dumpling Town is next door.', 38 * 60_000),
-    photo(dict, MAYA, 'm2', SHOT_PHOTOS.broadway, 'broadway.jpg', 1_842_112, 36 * 60_000, 1200, 896),
-    msg(dict, ALEX, 'm3', 'Perfect. Save a table for 7?', 32 * 60_000, { replyTo: 'm1' }),
-    photo(dict, MAYA, 'm4', SHOT_PHOTOS.stairs, 'stairs.jpg', 2_104_320, 26 * 60_000, 1116, 2048),
-    msg(dict, MAYA, 'm5', 'The stairwell in this building is unreal.', 22 * 60_000),
-    msg(dict, ALEX, 'm6', 'Keep that one. Great light.', 18 * 60_000),
-    photo(dict, ALEX, 'm7', SHOT_PHOTOS.rack, 'rack.jpg', 1_612_800, 12 * 60_000, 2000, 1116),
-    msg(dict, MAYA, 'm8', 'And the data center tour from earlier.', 8 * 60_000),
+    msg(dict, DARLENE, 'm1', 'Going up now. No cameras since the last audit.', 30 * 60_000),
+    photo(dict, DARLENE, 'm2', SHOT_PHOTOS.stairs, 'stairs.jpg', 2_104_320, 26 * 60_000, 1116, 2048),
+    msg(dict, ELLIOT, 'm3', 'Good. The rack is on the sub-level.', 18 * 60_000, { replyTo: 'm1' }),
+    photo(dict, ELLIOT, 'm4', SHOT_PHOTOS.rack, 'rack.jpg', 1_612_800, 12 * 60_000, 2000, 1116),
+    msg(dict, DARLENE, 'm5', 'That is the machine. Leave it running until I am out.', 8 * 60_000),
   ];
 }
 
-/** Android thread: design studio — site photos after a visit. */
+/** Android thread: Allsafe audit, site photos after a visit. */
 export function shotMaterialChatMessages(dict: Record<string, string>): ShotMessage[] {
   return [
-    msg(dict, ALEX, 'a1', 'Site visit notes from today.', 36 * 60_000),
-    photo(dict, ALEX, 'a2', SHOT_PHOTOS.rack, 'rack.jpg', 1_612_800, 34 * 60_000, 2000, 1116),
-    msg(dict, MAYA, 'a3', 'Nice shot of the rack floor.', 28 * 60_000, { replyTo: 'a1' }),
-    photo(dict, MAYA, 'a4', SHOT_PHOTOS.stairs, 'stairs.jpg', 2_104_320, 22 * 60_000, 1116, 2048),
-    msg(dict, MAYA, 'a5', 'Stairwell color is strong — use it in the deck?', 18 * 60_000),
-    msg(dict, ALEX, 'a6', 'Yes. Pair it with the street exit.', 14 * 60_000),
-    photo(dict, MAYA, 'a7', SHOT_PHOTOS.broadway, 'broadway.jpg', 1_842_112, 10 * 60_000, 1200, 896),
-    msg(dict, ALEX, 'a8', 'Done. Adding these to the shared folder.', 6 * 60_000),
+    msg(dict, ELLIOT, 'a1', 'Allsafe audit notes from today.', 36 * 60_000),
+    msg(dict, DARLENE, 'a2', 'The server room is clean. Nothing changed since last quarter.', 28 * 60_000, { replyTo: 'a1' }),
+    photo(dict, DARLENE, 'a3', SHOT_PHOTOS.stairs, 'stairs.jpg', 2_104_320, 22 * 60_000, 1116, 2048),
+    msg(dict, DARLENE, 'a4', 'The stairwell colour is strong. Keep it for the report?', 18 * 60_000),
+    msg(dict, ELLIOT, 'a5', 'Yes. Pair it with the street entrance.', 14 * 60_000),
+    photo(dict, DARLENE, 'a6', SHOT_PHOTOS.broadway, 'broadway.jpg', 1_842_112, 10 * 60_000, 1200, 896),
+    msg(dict, ELLIOT, 'a7', 'Done. Adding these to the shared folder.', 6 * 60_000),
   ];
 }
 
@@ -195,28 +191,27 @@ export type ShotReaction = {
 export function shotReactions(dict: Record<string, string>): ShotReaction[] {
   const you = dict['chat.you'] || 'You';
   return [
-    { id: 'r1', target: 'm2', emoji: '👍', remove: false, reactor: ALEX.pk, name: you, at: now - 34 * 60_000 },
-    { id: 'r2', target: 'm4', emoji: '❤️', remove: false, reactor: ALEX.pk, name: you, at: now - 24 * 60_000 },
-    { id: 'r3', target: 'm7', emoji: '😮', remove: false, reactor: MAYA.pk, name: 'Maya', at: now - 10 * 60_000 },
+    { id: 'r1', target: 'm2', emoji: '❤️', remove: false, reactor: ELLIOT.pk, name: you, at: now - 22 * 60_000 },
+    { id: 'r2', target: 'm4', emoji: '😮', remove: false, reactor: DARLENE.pk, name: 'Darlene', at: now - 10 * 60_000 },
   ];
 }
 
 export function shotMaterialReactions(dict: Record<string, string>): ShotReaction[] {
   const you = dict['chat.you'] || 'You';
   return [
-    { id: 'ar1', target: 'a2', emoji: '👍', remove: false, reactor: MAYA.pk, name: 'Maya', at: now - 32 * 60_000 },
-    { id: 'ar2', target: 'a4', emoji: '🔥', remove: false, reactor: ALEX.pk, name: you, at: now - 20 * 60_000 },
-    { id: 'ar3', target: 'a7', emoji: '❤️', remove: false, reactor: ALEX.pk, name: you, at: now - 8 * 60_000 },
+    { id: 'ar1', target: 'a2', emoji: '👍', remove: false, reactor: ELLIOT.pk, name: you, at: now - 26 * 60_000 },
+    { id: 'ar2', target: 'a3', emoji: '🔥', remove: false, reactor: ELLIOT.pk, name: you, at: now - 20 * 60_000 },
+    { id: 'ar3', target: 'a6', emoji: '❤️', remove: false, reactor: ELLIOT.pk, name: you, at: now - 8 * 60_000 },
   ];
 }
 
 export function shotMembers(dict: Record<string, string>) {
-  return [ALEX, MAYA].map((who) => {
+  return [ELLIOT, DARLENE].map((who) => {
     const name = personLabel(dict, who);
     return {
       pk: who.pk,
       key: who.pk,
-      name: who === ALEX ? (dict['chat.you'] || 'You') : name,
+      name: who === ELLIOT ? (dict['chat.you'] || 'You') : name,
       initials: initialsOf(name),
       color: aliasColor(who.alias),
       alias: who.alias,
@@ -227,4 +222,4 @@ export function shotMembers(dict: Record<string, string>) {
   });
 }
 
-export const SHOT_SIGNER = ALEX.pk;
+export const SHOT_SIGNER = ELLIOT.pk;

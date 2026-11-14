@@ -35,16 +35,16 @@ const IPHONE_17_PRO = {
 const PIXEL_8_PRO = { width: 448, height: 998, deviceScaleFactor: 3 };
 
 const iosCaptures = [
-  { name: 'screenshot-hub-chats', path: '/app?shots=1&platform=ios&tab=chats', wait: 'Weekend trip' },
-  { name: 'screenshot-chat', path: '/app?shots=1&platform=ios&room=weekend&kind=chat', wait: 'Dumpling Town is next door.' },
-  { name: 'screenshot-hub-boards', path: '/app?shots=1&platform=ios&tab=boards', wait: 'Sprint board' },
+  { name: 'screenshot-hub-chats', path: '/app?shots=1&platform=ios&tab=chats', wait: 'Allsafe audit' },
+  { name: 'screenshot-chat', path: '/app?shots=1&platform=ios&room=fsociety&kind=chat', wait: 'Going up now.' },
+  { name: 'screenshot-hub-boards', path: '/app?shots=1&platform=ios&tab=boards', wait: 'Network map' },
   { name: 'screenshot-hub-files', path: '/app?shots=1&platform=ios&tab=files', wait: 'Choose files' },
   { name: 'screenshot-hub-settings', path: '/app?shots=1&platform=ios&tab=settings', wait: 'Haptic' },
 ];
 
 const androidCaptures = [
-  { name: 'screenshot-android-hub-chats', path: '/app?shots=1&platform=material&tab=chats', wait: 'Weekend trip' },
-  { name: 'screenshot-android-chat', path: '/app?shots=1&platform=material&room=studio&kind=chat', wait: 'Site visit notes from today.' },
+  { name: 'screenshot-android-hub-chats', path: '/app?shots=1&platform=material&tab=chats', wait: 'Allsafe audit' },
+  { name: 'screenshot-android-chat', path: '/app?shots=1&platform=material&room=allsafe&kind=chat', wait: 'Allsafe audit notes from today.' },
   { name: 'screenshot-android-hub-files', path: '/app?shots=1&platform=material&tab=files', wait: 'Choose files' },
   { name: 'screenshot-android-hub-settings', path: '/app?shots=1&platform=material&tab=settings', wait: 'Haptic' },
 ];
