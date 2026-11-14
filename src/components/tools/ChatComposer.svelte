@@ -184,7 +184,7 @@
               <span class="attach-badge attach-badge--board"><Icon name="pen-tool" size={20} /></span>
             {/snippet}
           </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button' }} chevron={false} title={t(dict, 'chat.once')} aria-checked={onceEnabled} onClick={() => { onceEnabled = !onceEnabled; }}>
+          <ListItem link linkComponent="button" linkProps={{ type: 'button', role: 'switch', 'aria-checked': onceEnabled }} chevron={false} title={t(dict, 'chat.once')} onClick={() => { onceEnabled = !onceEnabled; }}>
             {#snippet media()}
               <span class="attach-badge attach-badge--once"><Icon name="eye-off" size={20} /></span>
             {/snippet}

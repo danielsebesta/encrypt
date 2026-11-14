@@ -1737,7 +1737,7 @@
                 <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', disabled: shapeCount === 0 }} title={t(dict, 'whiteboard.zoomFit')} onClick={zoomFit}>
                   {#snippet media()}<Icon name="maximize" size={20} />{/snippet}
                 </MenuListItem>
-                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'whiteboard.grid')} aria-checked={gridOn} onClick={toggleGrid}>
+                <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitemcheckbox', 'aria-checked': gridOn }} title={t(dict, 'whiteboard.grid')} onClick={toggleGrid}>
                   {#snippet media()}<Icon name="grid-3x3" size={20} />{/snippet}
                   {#snippet after()}{#if gridOn}<Icon name="check" size={20} />{/if}{/snippet}
                 </MenuListItem>
