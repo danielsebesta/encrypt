@@ -6221,6 +6221,21 @@
                 <p class="chat-once-note">{t(dict, 'chat.onceBurned')}</p>
               {/if}
               {/if}
+              {#if verified}
+                <div class="chat-kmsg-actions">
+                  <button
+                    type="button"
+                    class="chat-kmsg-actions__btn"
+                    aria-haspopup="dialog"
+                    aria-expanded={actionMenuFor === msg.id}
+                    aria-label={t(dict, 'chat.messageActions')}
+                    title={t(dict, 'chat.messageActions')}
+                    on:click={() => { actionMenuFor = msg.id; }}
+                  >
+                    <Icon name="ellipsis" />
+                  </button>
+                </div>
+              {/if}
             {/snippet}
             {#snippet footer()}
               <div class="chat-kmsg-meta">
@@ -7295,5 +7310,24 @@
     color: var(--on-accent);
     background: var(--accent-strong);
     border-color: var(--accent-strong);
+  }
+  .chat-kmsg-actions__btn {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 6px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  }
+  .chat-kmsg-actions__btn:hover,
+  .chat-kmsg-actions__btn:focus-visible {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-kmsg-actions__btn { transition: none; }
   }
 </style>
