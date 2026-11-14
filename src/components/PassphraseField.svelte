@@ -2,7 +2,7 @@
   import { t } from '../lib/t';
   import Icon from './Icon.svelte';
   import { copyText } from '../lib/clipboard';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
 
   export let dict: Record<string, string>;
   export let id: string;
@@ -20,7 +20,7 @@
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
   const SCRAMBLE = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const SCRAMBLE_MS = 700;
+  const SCRAMBLE_MS = 260;
   let decoding = false;
   let scrambled = '';
   let decodeTimer: ReturnType<typeof setInterval> | undefined;
@@ -45,7 +45,7 @@
     };
     decoding = true;
     frame();
-    decodeTimer = setInterval(frame, 55);
+    decodeTimer = setInterval(frame, 32);
   }
 
   // Any password that appears without being typed (generate button, a parent filling it in) is revealed in full, all characters at once.
@@ -71,6 +71,10 @@
     stopDecode();
     if (!shownByUser) revealed = false;
   }
+
+  onMount(() => {
+    if (value) decodeAll(value);
+  });
 
   onDestroy(stopDecode);
 
