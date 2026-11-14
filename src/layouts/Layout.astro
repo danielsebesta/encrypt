@@ -21,6 +21,7 @@ type Props = {
 
 const backgroundMode = 'ascii' as 'ascii' | 'flow';
 const isHome = /^\/(?:(?:cs|de|es|fr|sk|pl)\/?)?$/.test(Astro.url.pathname);
+const isInstall = /^\/(?:(?:cs|de|es|fr|sk|pl)\/)?install\/?$/.test(Astro.url.pathname);
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const site = siteOrigin();
@@ -263,20 +264,15 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</main>
 
 		<footer class="site-footer">
-			{!isHome && <div id="pwa-promo" class="pwa-promo hidden">
+			{!isHome && !isInstall && <div id="pwa-promo" class="pwa-promo hidden">
 				<div class="pwa-promo__inner">
 					<div class="pwa-promo__shots" aria-hidden="true">
 						<img class="app-shot app-shot--sm" src="/screenshot-hub-chats.png?v=9" alt="" width="72" height="156" decoding="async" />
 						<img class="app-shot app-shot--sm" src="/screenshot-android-hub-settings.png?v=9" alt="" width="72" height="156" decoding="async" />
 					</div>
 					<div class="pwa-promo__copy min-w-0 flex-1">
-						<p class="pwa-promo__eyebrow">{PRODUCT_NAME}</p>
 						<p class="pwa-promo__title">{t(dict, 'pwa.promo.title')}</p>
 						<p class="pwa-promo__text">{t(dict, 'pwa.promo.text')}</p>
-						<ul class="platform-pills platform-pills--compact" aria-label={t(dict, 'pwa.platforms.label')}>
-							<li class="platform-pill">{t(dict, 'pwa.platforms.ios')}</li>
-							<li class="platform-pill">{t(dict, 'pwa.platforms.android')}</li>
-						</ul>
 						<p class="hidden pwa-promo__hint" data-pwa-hint-ios>{t(dict, 'pwa.promo.ios')}</p>
 						<p class="hidden pwa-promo__hint" data-pwa-hint-menu>{t(dict, 'pwa.promo.menu')}</p>
 						<div class="pwa-promo__actions">

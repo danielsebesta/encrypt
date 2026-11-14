@@ -1218,10 +1218,6 @@ html.dark {
         @apply mt-4 flex list-none flex-wrap gap-x-5 gap-y-1 p-0;
     }
 
-    .platform-pills--compact {
-        @apply mt-2;
-    }
-
     .platform-pill {
         @apply inline-flex items-center gap-2 text-sm text-muted;
     }
@@ -1244,10 +1240,6 @@ html.dark {
 
     .pwa-promo__copy {
         @apply flex flex-col gap-2;
-    }
-
-    .pwa-promo__eyebrow {
-        @apply text-sm font-medium text-muted;
     }
 
     .pwa-promo__title {
@@ -1307,10 +1299,6 @@ html.dark {
 
     .install-platforms__intro {
         @apply mb-5;
-    }
-
-    .install-hero__eyebrow {
-        @apply mb-2 text-sm font-medium text-muted;
     }
 
     .install-hero__lead,

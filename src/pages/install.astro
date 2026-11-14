@@ -2,7 +2,6 @@
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import InstallGuide from '../components/InstallGuide.svelte';
-import { PRODUCT_NAME } from '../lib/siteBrand';
 import { getTranslations, pickDict, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -20,7 +19,6 @@ export const prerender = true;
   <div class="page install-page">
     <header class="install-hero">
       <div class="install-hero__copy">
-        <p class="install-hero__eyebrow">{PRODUCT_NAME}</p>
         <h1 class="page-title">{t(dict, 'install.h1')}</h1>
         <p class="page-lead">{t(dict, 'install.subtitle')}</p>
         <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
