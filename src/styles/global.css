@@ -46,51 +46,55 @@
 
 :root {
     color-scheme: only light;
-    --bg: #ffffff;
-    --surface: #f9fbf8;
-    --surface-2: #f2f5f1;
-    --line: #e3e7e2;
-    --line-soft: #eef1ed;
-    --control-line: #8a8a90;
-    --text: #0a0a0a;
-    --muted: #585860;
-    --accent: #2e5921;
-    --accent-strong: #1f3f16;
-    --accent-weak: #edf3ea;
-    --accent-line: #b7cdb0;
+    /* palette:start */
+    --bg: #f9faef;
+    --surface: #f3f5ea;
+    --surface-2: #edefe4;
+    --line: #dfe1d6;
+    --line-soft: #eaece1;
+    --control-line: #74796d;
+    --text: #1a1d16;
+    --muted: #44483e;
+    --accent: #48672e;
+    --accent-strong: #26430e;
+    --accent-weak: #e0edce;
+    --accent-line: #a3af94;
     --on-accent: #ffffff;
+    --warn: #834d00;
+    --warn-weak: #ffeee0;
+    --danger: #ba1a1a;
+    --danger-weak: #ffedea;
+    /* palette:end */
     --ascii-ink: var(--accent);
     --ascii-ink-strong: var(--text);
     --ascii-success: var(--accent);
     --ascii-warning: var(--warn);
     --ascii-error: var(--danger);
-    --warn: #9a4a06;
-    --warn-weak: #fff7e6;
-    --danger: #b42318;
-    --danger-weak: #fef3f2;
     --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.18), 0 0 0 1px var(--line);
 
 }
 
 html.dark {
     color-scheme: only dark;
-    --bg: #0b0b0c;
-    --surface: #111412;
-    --surface-2: #171b18;
-    --line: #262a27;
-    --line-soft: #1b1f1c;
-    --control-line: #74747b;
-    --text: #ededed;
-    --muted: #a1a1a8;
-    --accent: #86b85f;
-    --accent-strong: #a5d080;
-    --accent-weak: #14190f;
-    --accent-line: #2f4222;
-    --on-accent: #0b0b0c;
-    --warn: #f5b94a;
-    --warn-weak: #1d1708;
-    --danger: #f4837d;
-    --danger-weak: #241110;
+    /* palette:start */
+    --bg: #11140e;
+    --surface: #1a1d16;
+    --surface-2: #1e211a;
+    --line: #33362e;
+    --line-soft: #282b24;
+    --control-line: #8e9286;
+    --text: #e2e3d9;
+    --muted: #c4c8ba;
+    --accent: #aed18d;
+    --accent-strong: #c9eea7;
+    --accent-weak: #29341f;
+    --accent-line: #3f4a34;
+    --on-accent: #1c3704;
+    --warn: #ffb86e;
+    --warn-weak: #321a00;
+    --danger: #ffb4ab;
+    --danger-weak: #540003;
+    /* palette:end */
     --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--line);
 
 }
