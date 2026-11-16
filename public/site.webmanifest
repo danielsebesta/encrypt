@@ -12,8 +12,8 @@
     "minimal-ui"
   ],
   "orientation": "portrait-primary",
-  "theme_color": "#08110a",
-  "background_color": "#08110a",
+  "theme_color": "#11140e",
+  "background_color": "#11140e",
   "categories": [
     "utilities",
     "security",

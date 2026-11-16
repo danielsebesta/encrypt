@@ -1,11 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { kitAllowed } from '../lib/asciiKit';
+  import { PALETTE } from '../lib/palette';
 
-  const RAMPS = {
-    dark: ['#1f4a2a', '#3f8a4c', '#6fb35a', '#86b85f'],
-    light: ['#dcebd5', '#c3dcb8', '#a8cb9a', '#8fbb80'],
-  };
+  const RAMPS = { dark: [...PALETTE.dark.ramp], light: [...PALETTE.light.ramp] };
 
   const SEEN = 'encrypt.click:ascii-bg-seen';
 
@@ -16,30 +14,10 @@
     type Field = { update(options: Record<string, unknown>): void; destroy(): void };
     let field: Field | null = null;
     let gone = false;
-    let pulsesRef: { params: Record<string, number> } | null = null;
     const isDark = () => document.documentElement.classList.contains('dark');
 
-    import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported, defineFieldEffect }) => {
+    import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported }) => {
       if (gone || !isGlyphFieldSupported()) return;
-      const pulses = defineFieldEffect({
-        name: 'flow-pulses',
-        animate: false,
-        params: { depth: 0.35, dark: isDark() ? 1 : 0 },
-        shade: `
-          float hue = clamp((fbm(uv * vec2(aspect, 1.) * 1.3 + vec2(time * 0.006, 0.)) - 0.5) * 3.2 + 0.5 + (uv.x - 0.5) * 0.6, 0., 1.);
-          vec3 deep = vec3(0.20, 0.55, 0.40);
-          vec3 moss = vec3(0.47, 0.72, 0.36);
-          vec3 lime = vec3(0.62, 0.78, 0.38);
-          vec3 pale = vec3(0.72, 0.84, 0.52);
-          vec3 c = mix(deep, moss, smoothstep(0., 0.35, hue));
-          c = mix(c, lime, smoothstep(0.35, 0.7, hue));
-          c = mix(c, pale, smoothstep(0.7, 1., hue));
-          vec3 lightInk = mix(vec3(0.56, 0.73, 0.50), vec3(0.86, 0.92, 0.84), hue);
-          ink = mix(lightInk, c, params.dark);
-          inkAmount = mix(0.24, 0.34, params.dark);
-        `,
-      });
-      pulsesRef = pulses as unknown as { params: Record<string, number> };
       field = mountGlyphField(canvas, {
         source: '/flow-ascii-src.webp',
         charset: ' .:-=+YCIFSA#@',
@@ -51,7 +29,6 @@
         background: 'transparent',
         shade: 0.2,
         drift: 0,
-        effects: [pulses],
         label: '',
         hover: 'none',
         tap: 'none',
@@ -69,7 +46,6 @@
 
     const theme = new MutationObserver(() => {
       field?.update({ ramp: RAMPS[isDark() ? 'dark' : 'light'] });
-      if (pulsesRef) pulsesRef.params.dark = isDark() ? 1 : 0;
     });
     theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => {

@@ -573,12 +573,6 @@
 <style>
   .call,
   .chat-call-fullscreen {
-    --call-bg: #0a0a0b;
-    --call-surface: #161618;
-    --call-surface-2: #2a2a2d;
-    --call-line: #2a2a2d;
-    --call-text: #f4f4f5;
-    --call-muted: #a1a1aa;
     --call-overlay: color-mix(in srgb, var(--call-bg) 68%, transparent);
     --call-overlay-strong: color-mix(in srgb, var(--call-bg) 74%, transparent);
     --call-fill-weak: color-mix(in srgb, var(--call-text) 8%, transparent);

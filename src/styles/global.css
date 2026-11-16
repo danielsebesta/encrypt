@@ -64,6 +64,13 @@
     --warn-weak: #ffeee0;
     --danger: #ba1a1a;
     --danger-weak: #ffedea;
+    --call-bg: #0c0f09;
+    --call-surface: #1a1d16;
+    --call-surface-2: #282b24;
+    --call-line: #44483e;
+    --call-text: #e2e3d9;
+    --call-muted: #c4c8ba;
+    --ascii-ramp: #d2f7af #c4e8a1 #b3d792 #a3c683;
     /* palette:end */
     --ascii-ink: var(--accent);
     --ascii-ink-strong: var(--text);
@@ -94,6 +101,13 @@ html.dark {
     --warn-weak: #321a00;
     --danger: #ffb4ab;
     --danger-weak: #540003;
+    --call-bg: #0c0f09;
+    --call-surface: #1a1d16;
+    --call-surface-2: #282b24;
+    --call-line: #44483e;
+    --call-text: #e2e3d9;
+    --call-muted: #c4c8ba;
+    --ascii-ramp: #203c07 #36531d #527137 #6f9052;
     /* palette:end */
     --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--line);
 

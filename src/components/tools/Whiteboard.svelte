@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ListItem, MenuList, MenuListItem, Popover } from 'konsta/svelte';
+  import { PALETTE } from "../../lib/palette";
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
@@ -60,20 +61,7 @@
   const LOCAL_PERSIST_MS = 800;
   const NOTICE_MS = 6000;
 
-  // Canvas drawing palette: paper, ink and grid are semantic drawing colours, not UI chrome.
-  // Quickdraw ships a warm paper look; these replace it with the site's neutral surfaces.
-  const BOARD_PALETTE = {
-    light: {
-      paper: '#fafafa',
-      gridDot: { minor: 'rgba(10, 10, 10, 0.18)', major: 'rgba(10, 10, 10, 0.32)' },
-      gridLine: { minor: 'rgba(10, 10, 10, 0.07)', major: 'rgba(10, 10, 10, 0.14)' },
-    },
-    dark: {
-      paper: '#111113',
-      gridDot: { minor: 'rgba(237, 237, 237, 0.14)', major: 'rgba(237, 237, 237, 0.26)' },
-      gridLine: { minor: 'rgba(237, 237, 237, 0.05)', major: 'rgba(237, 237, 237, 0.1)' },
-    },
-  } as const;
+  const BOARD_PALETTE = { light: PALETTE.light.board, dark: PALETTE.dark.board };
 
   THEMES.light.background = BOARD_PALETTE.light.paper;
   THEMES.light.grid.dot = { ...BOARD_PALETTE.light.gridDot };
