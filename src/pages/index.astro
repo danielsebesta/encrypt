@@ -23,8 +23,7 @@ const serverItems = [1, 2, 3];
   <div class="page home">
     <section class="home-hero" aria-labelledby="home-hero-title">
       <div class="home-hero__copy">
-        <h1 id="home-hero-title" class="page-title">{t(dict, 'home.hero.title')}</h1>
-        <HeroTagline client:visible lines={taglines} />
+        <HeroTagline client:visible id="home-hero-title" lines={taglines} />
         <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
         <ul class="home-facts">
           {facts.map((n) => (

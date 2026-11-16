@@ -2,9 +2,10 @@
   import { asciiKit } from '../../lib/asciiKit';
 
   export let lines: string[];
+  export let id: string;
 </script>
 
-<p class="home-hero__tagline">
+<h1 {id} class="page-title home-hero__title">
   <span class="sr-only">{lines[0]}</span>
   <span
     aria-hidden="true"
@@ -13,4 +14,4 @@
       return kit.decode(node, { text: undefined, cycle: lines, hold: 4800, duration: 900, scramble: true, settle: 'text', replayOnHover: false });
     }}
   >{lines[0]}</span>
-</p>
+</h1>
