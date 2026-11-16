@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
-  import { PASSWORD_ENVELOPE_OVERHEAD } from '../../lib/passwordEnvelope';
+  import { sealPassword, openPassword, stripFixedHeader, restoreFixedHeader } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
   import CopyButton from '../CopyButton.svelte';
@@ -16,8 +15,12 @@
   const DELTA = 24;
   const REP = 7;
   const MAGIC = 'PCP2';
+  const COMPACT_MAGIC = 'PCP3';
   const PUBLIC_SEED = 0x50435032;
   const HEADER_SIZE = 8;
+  // A new seal also carries the ECP4 compact envelope with its fixed header stripped: 8 salt + 8 tag bytes survive
+  // on top of the message, where the full password envelope spent 92, so the same photo carries several times more.
+  const CIPHER_OVERHEAD = 16;
   const MAX_FILE = 10 * 1024 * 1024;
   const MIN_DIM = 800;
   const MAX_DIM = 2048;
@@ -108,7 +111,7 @@
   }
 
   function maxChars(w: number, h: number): number {
-    return Math.max(0, cipherCapacity(Math.floor(w / BLOCK) * Math.floor(h / BLOCK)) - PASSWORD_ENVELOPE_OVERHEAD);
+    return Math.max(0, cipherCapacity(Math.floor(w / BLOCK) * Math.floor(h / BLOCK)) - CIPHER_OVERHEAD);
   }
 
   function normalizeToCanvas(img: HTMLImageElement, forEncode: boolean): HTMLCanvasElement {
@@ -257,16 +260,19 @@
     const by = norm.height / BLOCK;
     const total = bx * by;
 
-    const cipher = await encrypt(message, password, cipherCapacity(total));
-    const magic = new TextEncoder().encode(MAGIC);
-    const len = cipher.length;
+    // The compact envelope, with its fixed header stripped the way the chat cipher does it: blocks are the budget,
+    // and the 92-byte full envelope used to swallow what a photo could say.
+    const cipher = await sealPassword(new TextEncoder().encode(message), password, { compact: true });
+    const encoded = stripFixedHeader(cipher, true);
+    const magic = new TextEncoder().encode(COMPACT_MAGIC);
+    const len = encoded.length;
     const payload = new Uint8Array(HEADER_SIZE + len);
     payload.set(magic, 0);
     payload[4] = (len >> 24) & 0xff;
     payload[5] = (len >> 16) & 0xff;
     payload[6] = (len >> 8) & 0xff;
     payload[7] = len & 0xff;
-    payload.set(cipher, HEADER_SIZE);
+    payload.set(encoded, HEADER_SIZE);
 
     const bits = bytesToBits(payload);
     const expanded: number[] = [];
@@ -322,7 +328,8 @@
       } catch (e) {
         failed++;
         if (total === 1) {
-          status = (e as Error)?.message === 'tooLong'
+          const msg = (e as Error)?.message;
+          status = msg === 'tooLong' || msg === 'Input too large'
             ? t(dict, 'tools.photoCipher.messageTooLong')
             : t(dict, 'tools.photoCipher.encryptionFailed');
           processing = false;
@@ -385,7 +392,8 @@
         }
         data.push(ones > REP / 2 ? 1 : 0);
       }
-      if (new TextDecoder().decode(bitsToBytes(data.slice(0, 32))) !== MAGIC) {
+      const prefix = new TextDecoder().decode(bitsToBytes(data.slice(0, 32)));
+      if (prefix !== MAGIC && prefix !== COMPACT_MAGIC) {
         status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
       }
 
@@ -397,7 +405,11 @@
 
       const cipherBytes = bitsToBytes(data.slice(64, 64 + payloadLen * 8));
       status = t(dict, 'tools.photoCipher.decrypting');
-      decodedMessage = await decryptMsg(cipherBytes, password);
+      if (prefix === COMPACT_MAGIC) {
+        decodedMessage = new TextDecoder().decode(await openPassword(restoreFixedHeader(cipherBytes, true), password));
+      } else {
+        decodedMessage = new TextDecoder().decode(await openPassword(cipherBytes, password));
+      }
       status = t(dict, 'tools.photoCipher.decryptSuccess');
     } catch {
       status = t(dict, 'tools.photoCipher.decryptFailed');
