@@ -10,6 +10,10 @@
   const IN_FRAMES = 5;
   const LETTER = /[\p{L}\p{N}]/u;
 
+  const NARROW = Array.from('.:;!|1');
+  const MEDIUM = Array.from('+=*#?/<>~^');
+  const WIDE = Array.from('0238%&@$');
+
   let host: HTMLElement;
   let current = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -35,20 +39,26 @@
   }
 
   function lock(cells: HTMLElement[]) {
+    const em = parseFloat(getComputedStyle(host).fontSize);
     const widths = cells.map((c) => c.getBoundingClientRect().width);
     cells.forEach((c, i) => {
       c.dataset.ch = c.textContent ?? '';
+      c.dataset.w = widths[i] < em * 0.32 ? 'n' : widths[i] < em * 0.55 ? 'm' : 'w';
       c.style.display = 'inline-block';
       c.style.width = `${widths[i]}px`;
       c.style.textAlign = 'center';
-      c.style.overflow = 'hidden';
-      c.style.verticalAlign = 'top';
+      c.style.fontFamily = 'var(--font-mono)';
+      c.style.fontWeight = '500';
+      c.style.fontSize = '0.82em';
+      c.style.color = 'var(--accent)';
     });
   }
 
-  function scramble(cells: HTMLElement[], pool: string[]) {
+  function scramble(cells: HTMLElement[]) {
     for (const c of cells) {
-      if (LETTER.test(c.dataset.ch ?? '')) c.textContent = pool[Math.floor(Math.random() * pool.length)];
+      if (!LETTER.test(c.dataset.ch ?? '')) continue;
+      const pool = c.dataset.w === 'n' ? NARROW : c.dataset.w === 'm' ? MEDIUM : WIDE;
+      c.textContent = pool[Math.floor(Math.random() * pool.length)];
     }
   }
 
@@ -60,13 +70,12 @@
       if (!alive) return;
       if (document.hidden) continue;
       const next = (current + 1) % lines.length;
-      const pool = Array.from(new Set(Array.from(lines[current] + lines[next]).filter((ch) => LETTER.test(ch))));
       let cells = build(lines[current]);
       lock(cells);
-      for (let f = 0; f < OUT_FRAMES && alive; f++) { scramble(cells, pool); await wait(FRAME_MS); }
+      for (let f = 0; f < OUT_FRAMES && alive; f++) { scramble(cells); await wait(FRAME_MS); }
       cells = build(lines[next]);
       lock(cells);
-      for (let f = 0; f < IN_FRAMES && alive; f++) { scramble(cells, pool); await wait(FRAME_MS); }
+      for (let f = 0; f < IN_FRAMES && alive; f++) { scramble(cells); await wait(FRAME_MS); }
       if (!alive) return;
       host.textContent = lines[next];
       current = next;
