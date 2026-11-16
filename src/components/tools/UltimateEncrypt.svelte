@@ -2,7 +2,7 @@
   import Icon from '../Icon.svelte';
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
-  import { encrypt, decrypt } from '../../lib/aesGcm';
+  import { sealPassword } from '../../lib/passwordEnvelope';
   import { encryptData } from '../../lib/ghost/crypto';
   import { sendWithUploadPass, uploadFirstParty } from '../../lib/firstPartyUpload';
   import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
@@ -292,12 +292,6 @@
     let binary = '';
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  }
-
-  function bytesToBase64(bytes: Uint8Array): string {
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
   }
 
   function buildReceiveUrls(fragment: string) {
@@ -592,10 +586,10 @@
     if (files.length > 0) {
       const { buffer: bytes, filename } = await resolvePayload();
       const b64 = btoa(String.fromCharCode(...bytes));
-      payload = { v: 1, mode: 'inline', kind: 'file', name: filename, type: 'application/octet-stream', data: b64 };
+      payload = { v: 2, mode: 'inline', kind: 'file', name: filename, type: 'application/octet-stream', data: b64 };
       pushDebug(`Inline payload prepared for ${filename} (${bytes.byteLength} bytes)`);
     } else {
-      payload = { v: 1, mode: 'inline', kind: 'text', text: textInput.trim() };
+      payload = { v: 2, mode: 'inline', kind: 'text', text: textInput.trim() };
       pushDebug(`Inline payload prepared for text (${textInput.trim().length} chars)`);
     }
     if (burn) payload.once = true;
@@ -604,9 +598,10 @@
     const json = JSON.stringify(payload);
     const jsonBytes = new TextEncoder().encode(json);
     const compressed = await gzipBytes(jsonBytes);
-    const compressedB64 = bytesToBase64(compressed);
     pushDebug(`Inline payload compressed from ${jsonBytes.byteLength} to ${compressed.byteLength} bytes`);
-    const encrypted = await encrypt(compressedB64, encryptionPassword, undefined, pendingLock?.secret);
+    // The gzip bytes go into the envelope directly; the old v1 path wrapped them in a base64 string first, which
+    // cost a third of the fragment for nothing. The receiver tells the layouts apart by the gzip magic.
+    const encrypted = await sealPassword(compressed, encryptionPassword, { timeSecret: pendingLock?.secret });
     const encoded = base64UrlEncode(encrypted);
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
@@ -725,14 +720,13 @@
     }
     pendingUploadBytes = null;
 
-    const ghostPayload = { v: 1, mode: 'ghost', urls: uploadUrls, stego: usedStego };
+    const ghostPayload = { v: 2, mode: 'ghost', urls: uploadUrls, stego: usedStego };
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressFinalLinkDetail'));
     const payloadJson = JSON.stringify(ghostPayload);
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
-    const compressedB64 = bytesToBase64(compressed);
-    const encPayload = await encrypt(compressedB64, encryptionPassword, undefined, pendingLock?.secret);
+    const encPayload = await sealPassword(compressed, encryptionPassword, { timeSecret: pendingLock?.secret });
     const encoded = base64UrlEncode(encPayload);
 
     const fragment = formatShareFragment({ payload: encoded, expires, burn: burned, lock: pendingLock?.lock });

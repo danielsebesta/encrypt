@@ -2,7 +2,7 @@
   import { readLimited } from '../../lib/httpLimits';
   import Icon from '../Icon.svelte';
   import { onMount, onDestroy, tick } from 'svelte';
-  import { decrypt } from '../../lib/aesGcm';
+  import { openPassword } from '../../lib/passwordEnvelope';
   import { decryptData } from '../../lib/ghost/crypto';
   import { extractStego } from '../../lib/ghost/steganography';
   import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
@@ -823,10 +823,19 @@
       pushDebug(`Time lock for round ${link.lock.round} opened`);
     }
     pushDebug(`Decoded outer payload to ${bytes.byteLength} bytes`);
-    const compressedB64 = await decrypt(bytes, password, timeSecret);
-    pushDebug(`Outer payload decrypted to base64 string (${compressedB64.length} chars)`);
-    const compressed = Uint8Array.from(atob(compressedB64), c => c.charCodeAt(0));
-    pushDebug(`Outer payload base64-decoded to ${compressed.byteLength} bytes`);
+    const openedBytes = await openPassword(bytes, password, timeSecret);
+    // v2 links seal the gzip bytes directly; the v1 path wrapped them in a base64 string first. The gzip magic
+    // tells the two apart, so older links keep opening unchanged.
+    let compressed: Uint8Array;
+    if (openedBytes.length >= 2 && openedBytes[0] === 0x1f && openedBytes[1] === 0x8b) {
+      compressed = openedBytes;
+      pushDebug(`Outer payload holds ${compressed.byteLength} gzip bytes`);
+    } else {
+      const compressedB64 = new TextDecoder().decode(openedBytes);
+      pushDebug(`Outer payload decrypted to base64 string (${compressedB64.length} chars)`);
+      compressed = Uint8Array.from(atob(compressedB64), c => c.charCodeAt(0));
+      pushDebug(`Outer payload base64-decoded to ${compressed.byteLength} bytes`);
+    }
 
     const decompressed = await gunzipBytes(compressed);
     pushDebug(`Outer payload gunzipped to ${decompressed.byteLength} bytes`);
@@ -834,7 +843,7 @@
     const data = JSON.parse(new TextDecoder().decode(decompressed)) as any;
     pushDebug(`Outer payload parsed: mode=${data.mode || 'unknown'}, version=${data.v ?? 'unknown'}`);
 
-    if (data.v !== 1) {
+    if (data.v !== 1 && data.v !== 2) {
       throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
     }
 
