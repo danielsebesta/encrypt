@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
-  import { decrypt as openWithPassword, encrypt as sealWithPassword } from '../../lib/aesGcm';
+  import { readLimited } from '../../lib/httpLimits';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
+  import { hkdfAesKey, hkdfKey } from '../../lib/kdf';
   import { generatePassphrase } from '../../lib/passphrase';
-  import { PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
+  import { openPassword as openEnvelope, sealPassword as sealEnvelope, PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
-  import { DRAND_CHAIN, roundAt, tlock as getTlock } from '../../lib/timelock';
+  import { DRAND_CHAIN, lockTimeSecret, roundAt, tlock as getTlock, unlockTimeSecret } from '../../lib/timelock';
   import CopyButton from '../CopyButton.svelte';
   import LinkWithQr from '../share/LinkWithQr.svelte';
   import PassphraseField from '../PassphraseField.svelte';
@@ -115,17 +116,80 @@
     return () => { if (countdownInterval) clearInterval(countdownInterval); };
   });
 
-  function tryDecodeCompact(input: string) {
-    const raw = input.trim();
-    if (!raw || raw.includes('\n')) return null;
+  const B64URL_RE = /^[A-Za-z0-9_-]+$/;
+
+  function toB64Url(bytes: Uint8Array): string {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function fromB64Url(text: string): Uint8Array | null {
+    if (!B64URL_RE.test(text) || text.length % 4 === 1) return null;
+    const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(text.length / 4) * 4, '='));
+    return Uint8Array.from(binary, c => c.charCodeAt(0));
+  }
+
+  async function gzipBytes(input: Uint8Array): Promise<Uint8Array> {
+    const stream = new Blob([input]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  async function gunzipBytes(input: Uint8Array): Promise<Uint8Array> {
+    // A capsule token is a few hundred bytes, so a crafted one is cut off long before it can inflate into one
+    // that buries the tab.
+    const stream = new Blob([input]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return readLimited(new Response(stream), 2 * 1024 * 1024);
+  }
+
+  /** AES-256-GCM under the time secret alone, for capsules without a password: until the round lands, it is the only key. */
+  async function sealWithTimeSecret(bytes: Uint8Array, secret: Uint8Array): Promise<Uint8Array> {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await hkdfAesKey(await hkdfKey(secret), 'encrypt.click/time-capsule/v2/secret');
+    const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, bytes as BufferSource));
+    const out = new Uint8Array(12 + cipher.length);
+    out.set(iv);
+    out.set(cipher, 12);
+    return out;
+  }
+
+  async function openWithTimeSecret(blob: Uint8Array, secret: Uint8Array): Promise<Uint8Array> {
+    if (blob.length < 12 + 16) throw new Error('Invalid capsule envelope');
+    const key = await hkdfAesKey(await hkdfKey(secret), 'encrypt.click/time-capsule/v2/secret');
+    return new Uint8Array(await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: blob.subarray(0, 12) as BufferSource },
+      key,
+      blob.subarray(12) as BufferSource,
+    ));
+  }
+
+  /** v1 tokens kept the armored age text inside LZString'd JSON. v2 carries the binary lock and the envelope as b64url fields of gzipped JSON. */
+  async function tryDecodeCapsule(input: string): Promise<{ v: 1; r?: number; t?: number; c: string } | { v: 2; r: number; t?: number; c: string; e: string } | null> {
+    // A quarter of every v1 token ever made is a quarter-byte long — the LZString encoder left lengths that
+    // no padding rule calls for — so nothing is rejected on shape beyond the alphabet. Standard base64 is
+    // normalised too: those tokens were legal input once, and they still open.
+    const raw = input.trim().replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    if (!raw || raw.includes('\n') || !B64URL_RE.test(raw)) return null;
     try {
       const b64 = raw.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(raw.length / 4) * 4, '=');
       const json = LZString.decompressFromBase64(b64);
       const obj = json ? JSON.parse(json) as { v: number; r?: number; t?: number; c: string } : null;
-      return obj?.v === 1 && typeof obj.c === 'string' && obj.c ? obj : null;
+      if (obj?.v === 1 && typeof obj.c === 'string' && obj.c) return { v: 1, r: obj.r, t: obj.t, c: obj.c };
     } catch {
-      return null;
+      /* not v1 */
     }
+    try {
+      const bytes = fromB64Url(raw);
+      if (!bytes) return null;
+      const json = JSON.parse(new TextDecoder().decode(await gunzipBytes(bytes))) as { v: number; r?: number; t?: number; c: string; e?: string };
+      if (json?.v === 2 && Number.isSafeInteger(json.r) && json.r > 0 && typeof json.c === 'string' && json.c
+        && typeof json.e === 'string' && json.e && fromB64Url(json.c) && fromB64Url(json.e)) {
+        return { v: 2, r: json.r, t: json.t, c: json.c, e: json.e };
+      }
+    } catch {
+      /* not v2 */
+    }
+    return null;
   }
 
   async function handleEncrypt() {
@@ -174,8 +238,6 @@
 
     loading = true;
     try {
-      const { timelockEncrypt, Buffer, client } = await getTlock();
-
       if (!Number.isFinite(timeMs)) {
         throw new Error(t(dict, 'tools.timeCapsule.errorInvalidBeacon'));
       }
@@ -185,20 +247,24 @@
 
       const round = roundAt(timeMs);
 
-      // The password goes inside the time lock, so whoever breaks the lock early still faces Argon2id and AES-256.
-      const payload = password ? Buffer.from(await sealWithPassword(message, password)) : Buffer.from(message, 'utf8');
-      const armored = await timelockEncrypt(round, payload, client);
+      // v2: only the 32-byte secret goes into the time lock. The message rides in a second envelope that needs both
+      // the secret and the password, so a broken lock still faces Argon2id and AES-256, while the lock itself stays
+      // the stripped binary age file — no armor, no base64 inside base64.
+      const { secret, lock } = await lockTimeSecret(timeMs);
+      const messageBytes = new TextEncoder().encode(message);
+      const envelopeBytes = password
+        ? await sealEnvelope(messageBytes, password, { timeSecret: secret })
+        : await sealWithTimeSecret(messageBytes, secret);
 
       const unix = Math.floor(timeMs / 1000);
       const packed = {
-        v: 1,
-        r: round,
+        v: 2,
+        r: lock.round,
         t: unix,
-        c: armored
+        c: toB64Url(lock.ciphertext),
+        e: toB64Url(envelopeBytes)
       };
-      const json = JSON.stringify(packed);
-      const compressed = LZString.compressToBase64(json);
-      const token = compressed.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      const token = toB64Url(await gzipBytes(new TextEncoder().encode(JSON.stringify(packed))));
 
       ciphertext = token;
       capsuleLink = `${location.origin}/experiments/time-capsule#c=${token}`;
@@ -223,14 +289,26 @@
     }
 
     decryptLoading = true;
-    const compact = tryDecodeCompact(input);
-    let opened: Uint8Array;
+    const capsule = await tryDecodeCapsule(input);
+    const unlock = capsule?.t && Number.isFinite(capsule.t) ? capsule.t : null;
+
+    let secret: Uint8Array;
+    let payloadBytes: Uint8Array;
     try {
-      if (!compact) throw new Error('Invalid capsule');
-      const { timelockDecrypt, client } = await getTlock();
-      opened = new Uint8Array(await timelockDecrypt(compact.c, client));
+      if (!capsule) throw new Error('Invalid capsule');
+      if (capsule.v === 2) {
+        const lockBytes = fromB64Url(capsule.c);
+        const envelopeBytes = fromB64Url(capsule.e);
+        if (!lockBytes || !envelopeBytes) throw new Error('Invalid capsule');
+        secret = await unlockTimeSecret({ round: capsule.r, ciphertext: lockBytes });
+        payloadBytes = envelopeBytes;
+      } else {
+        // v1 locked the whole payload: the password envelope, or the bare utf8 message, comes back out.
+        const { timelockDecrypt, client } = await getTlock();
+        payloadBytes = new Uint8Array(await timelockDecrypt(capsule.c, client));
+        secret = new Uint8Array(0);
+      }
     } catch {
-      const unlock = compact?.t && Number.isFinite(compact.t) ? compact.t : null;
       if (unlock && unlock > Math.floor(Date.now() / 1000)) {
         startCountdown(unlock);
       } else {
@@ -241,13 +319,34 @@
       return;
     }
     try {
-      if (!PASSWORD_ENVELOPE_MAGIC.every((byte, i) => opened[i] === byte)) {
-        decrypted = new TextDecoder().decode(opened);
+      const looksPasswordSealed = PASSWORD_ENVELOPE_MAGIC.every((byte, i) => payloadBytes[i] === byte);
+      if (capsule?.v === 2) {
+        // The magic cannot tell a password seal from the one secret seal in 2^40 whose random IV happens to
+        // begin with it, so every failure falls through to the other envelope before it gives up.
+        if (looksPasswordSealed && openPassword) {
+          try {
+            decrypted = new TextDecoder().decode(await openEnvelope(payloadBytes, openPassword, secret));
+          } catch {
+            decrypted = new TextDecoder().decode(await openWithTimeSecret(payloadBytes, secret));
+          }
+        } else if (looksPasswordSealed) {
+          try {
+            decrypted = new TextDecoder().decode(await openWithTimeSecret(payloadBytes, secret));
+          } catch {
+            decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
+            if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
+          }
+        } else {
+          // Bare utf8 only existed in v1; a v2 envelope without the magic is the time-secret GCM.
+          decrypted = new TextDecoder().decode(await openWithTimeSecret(payloadBytes, secret));
+        }
+      } else if (!looksPasswordSealed) {
+        decrypted = new TextDecoder().decode(payloadBytes);
       } else if (!openPassword) {
         decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
         if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
       } else {
-        decrypted = await openWithPassword(opened, openPassword);
+        decrypted = new TextDecoder().decode(await openEnvelope(payloadBytes, openPassword));
       }
     } catch {
       decryptError = t(dict, 'tools.timeCapsule.errorWrongPassword');
