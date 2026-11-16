@@ -61,11 +61,36 @@ const brandUrl = (() => {
 })();
 const siteJsonLd = {
 	'@context': 'https://schema.org',
-	'@type': 'WebSite',
-	name: brand,
-	...(brand === PRODUCT_NAME ? { alternateName: ['encrypt.click', 'Encrypt'] } : {}),
-	url: site.replace(/\/$/, '') + '/',
-	description,
+	'@graph': [
+		{
+			'@type': 'WebSite',
+			'@id': `${site.replace(/\/$/, '')}/#website`,
+			name: brand,
+			...(brand === PRODUCT_NAME ? { alternateName: ['encrypt.click', 'Encrypt'] } : {}),
+			url: site.replace(/\/$/, '') + '/',
+			description,
+			inLanguage: locale,
+		},
+		{
+			'@type': 'WebApplication',
+			'@id': `${site.replace(/\/$/, '')}/#webapp`,
+			name: brand,
+			url: site.replace(/\/$/, '') + '/',
+			applicationCategory: 'SecurityApplication',
+			operatingSystem: 'Any',
+			browserRequirements: 'Requires JavaScript. Requires Web Crypto API.',
+			offers: {
+				'@type': 'Offer',
+				price: '0',
+				priceCurrency: 'USD',
+			},
+			author: {
+				'@type': 'Person',
+				name: 'Daniel Šebesta',
+				url: 'https://sebesta.dev',
+			},
+		},
+	],
 };
 
 const languageOptions = locales.map(l => ({
