@@ -17,6 +17,7 @@ type Props = {
   canonical?: string;
   mainClass?: string;
   background?: boolean;
+  robots?: string;
 };
 
 const backgroundMode = 'ascii' as 'ascii' | 'flow';
@@ -34,6 +35,7 @@ const {
   canonical,
   mainClass = '',
   background = true,
+  robots = 'index, follow',
 } = Astro.props;
 
 const path = Astro.url.pathname;
@@ -117,7 +119,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
 		<meta name="color-scheme" content="light dark" />
-		<meta name="robots" content="index, follow" />
+		<meta name="robots" content={robots} />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
 		<link rel="shortcut icon" href="/favicon.ico" />
