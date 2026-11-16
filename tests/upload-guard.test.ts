@@ -7,6 +7,7 @@ import { runBudgetCommand } from '../src/server/budget';
 import { createChallenge, verifySolution, powDifficulty, type PowChallenge } from '../src/server/pow';
 import type { BlobMeta, BlobStore, Platform } from '../src/platform/types';
 import { sealPassword } from '../src/lib/passwordEnvelope';
+import { sealWithKey } from '../src/lib/keyEnvelope';
 import { prependEclkMagic } from '../src/lib/ghost/crypto';
 
 const SECRET = 'test-secret';
@@ -203,7 +204,7 @@ test('a same-origin upload is stored and downloads as the bare ciphertext', asyn
   assert.equal((await app.fetch(new Request('https://example.test/dl/not-an-id', { headers: browser }), render)).status, 404);
 });
 
-test('only password envelopes and stego PNGs are stored', async () => {
+test('only encrypted envelopes and stego PNGs are stored', async () => {
   const { app, blobs } = platform();
   const zip = new Uint8Array(64);
   zip.set([69, 67, 76, 75, 80, 75, 3, 4]);
@@ -212,6 +213,9 @@ test('only password envelopes and stego PNGs are stored', async () => {
   const png = new Uint8Array(64);
   png.set([69, 67, 76, 75, 137, 80, 78, 71, 13, 10, 26, 10]);
   assert.equal((await app.fetch(upload(png), render)).status, 200);
+  const keyBlob = prependEclkMagic(await sealWithKey(new Uint8Array(120), crypto.getRandomValues(new Uint8Array(32))));
+  assert.equal((await app.fetch(upload(keyBlob), render)).status, 200);
+  assert.equal(blobs.stored.size, 2);
 });
 
 test('version 3 envelopes are accepted, version 2 and unknown envelope layouts are not', async () => {

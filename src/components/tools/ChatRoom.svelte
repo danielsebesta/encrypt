@@ -34,7 +34,7 @@
     signPayload, verifyPayload, safetyNumber, keyCode,
     roomForwardSecret, forwardLocalKey, sealLocal, openLocal, type SigningIdentity,
   } from '../../lib/chatCrypto';
-  import { encryptData, decryptData } from '../../lib/ghost/crypto';
+  import { encryptDataWithKey, decryptData } from '../../lib/ghost/crypto';
   import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
   import { prepareSendUpload } from '../../lib/nologSend';
   import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
@@ -3649,8 +3649,10 @@
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
       // Each file gets a random key that travels only inside the message, so it is exactly as protected as the message itself.
-      const fileKey = arrayToB64url(crypto.getRandomValues(new Uint8Array(32)));
-      const encrypted = await encryptData(buffer, fileKey, file.name);
+      // The key bytes go straight into the raw-key envelope; the wire form is only for the message text.
+      const fileKeyBytes = crypto.getRandomValues(new Uint8Array(32));
+      const fileKey = arrayToB64url(fileKeyBytes);
+      const encrypted = await encryptDataWithKey(buffer, fileKeyBytes, file.name);
 
       // First-party R2 upload first; Send is the fallback.
       const uploadUrls: string[] = [];

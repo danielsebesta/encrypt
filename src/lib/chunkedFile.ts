@@ -1,6 +1,6 @@
 import { CHUNK_CIPHER_OVERHEAD, CHUNK_PLAIN_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, MAX_LEGACY_CHUNKED_PLAIN_BYTES } from './httpLimits';
 import { hkdfAesKey, hkdfKey } from './kdf';
-import { sealPassword, openPassword, PASSWORD_ENVELOPE_OVERHEAD, sealedLength } from './passwordEnvelope';
+import { preparePasswordOpen, sealPassword, PASSWORD_ENVELOPE_OVERHEAD, sealedLength } from './passwordEnvelope';
 import { padme } from './padding';
 
 /** Manifest layout marker: ECC1 + version byte. */
@@ -199,12 +199,15 @@ export async function openChunkedFile(data: Uint8Array, password: string, timeSe
   }
 
   let opened: { manifest: ChunkManifest; fileKey: Uint8Array; end: number } | null = null;
+  // The Argon2id key depends only on the envelope header, so it is derived once and every Padmé candidate below
+  // costs a GCM attempt instead of another KDF.
+  const prepared = await preparePasswordOpen(data, password, timeSecret);
   const limit = Math.min(data.length, MAX_ENVELOPE_BYTES);
-  for (let end = limit; end >= HEADER + LENGTH + TAG_BYTES; end--) {
-    const inner = end - HEADER - TAG_BYTES;
+  for (let end = limit; end >= prepared.headerLength + LENGTH + TAG_BYTES; end--) {
+    const inner = end - prepared.headerLength - TAG_BYTES;
     if (padme(inner) !== inner) continue;
     try {
-      const plain = await openPassword(data.subarray(0, end), password, timeSecret);
+      const plain = await prepared.open(end);
       const parsed = parseManifestPlain(plain);
       opened = { ...parsed, end };
       break;

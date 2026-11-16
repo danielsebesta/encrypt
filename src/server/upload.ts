@@ -3,6 +3,7 @@ import {
   clientPrefix,
   readJsonLimited,
 } from '../lib/httpLimits';
+import { KEY_ENVELOPE_MAGIC } from '../lib/keyEnvelope';
 import { PASSWORD_ENVELOPE_MAGIC } from '../lib/passwordEnvelope';
 import {
   BLOB_ID_RE,
@@ -29,8 +30,8 @@ export const DOWNLOAD_SCOPE = 'downloads';
 const GB = 1000 ** 3;
 const MAGIC_BYTES = new Uint8Array([69, 67, 76, 75]);
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-// Everything our clients upload is a password envelope or, for small shares, a stego PNG that wraps one.
-const FORMATS = [PASSWORD_ENVELOPE_MAGIC, PNG_SIGNATURE];
+// Everything our clients upload is a password envelope, a raw-key envelope, or, for small shares, a stego PNG that wraps one.
+const FORMATS = [PASSWORD_ENVELOPE_MAGIC, KEY_ENVELOPE_MAGIC, PNG_SIGNATURE];
 const HEAD_BYTES = MAGIC_BYTES.length + Math.max(...FORMATS.map(format => format.length));
 
 const enc = new TextEncoder();

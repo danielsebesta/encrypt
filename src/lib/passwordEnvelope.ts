@@ -200,14 +200,42 @@ export async function openPassword(data: Uint8Array, password: string, timeSecre
 }
 
 /**
+ * Derives the envelope's keys once, letting a caller open several candidate ends without re-running Argon2id: the
+ * key depends only on the header, so every Padmé candidate pays one GCM attempt, not another KDF.
+ */
+export type PreparedPasswordOpen = {
+  headerLength: number;
+  compact: boolean;
+  /** Opens to envelope that ends at the given byte; surplus scans walk this over candidate ends. */
+  open(end: number): Promise<Uint8Array>;
+};
+
+export async function preparePasswordOpen(data: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<PreparedPasswordOpen> {
+  const opened = await openingLayout(data, password, timeSecret);
+  const openBody = opened.compact ? openCompactBody : openFullBody;
+  return {
+    headerLength: opened.headerLength,
+    compact: opened.compact,
+    open: (end: number) => openBody(data, end, opened),
+  };
+}
+
+/** The farthest below the data's end the surplus scan looks for the envelope's true end. */
+const SURPLUS_WINDOW = 64;
+
+/**
  * For carriers that cannot mark where the envelope ends and yield a few extra bytes. Only a holder of the password can
  * tell the length, which keeps a cover from being confirmed without it. The full layout tries every Padmé size that
- * fits, the compact layout every byte, longest end first; envelopes sealed with maxLength are not supported.
+ * fits, the compact layout every byte, longest end first; envelopes sealed with maxLength are not supported. The
+ * scan stops SURPLUS_WINDOW bytes below the data: carriers only ever append a few spare bytes (the chat cover never
+ * more than about 12), and the bound keeps a pasted megabyte from turning a wrong password into minutes of work;
+ * a longer carrier is told the wrong password instead of being ground through.
  */
 export async function openPasswordWithSurplus(data: Uint8Array, password: string): Promise<Uint8Array> {
   const opened = await openingLayout(data, password);
+  const floor = Math.max(data.length - SURPLUS_WINDOW, opened.headerLength + (opened.compact ? 1 + TAG_COMPACT : LENGTH_FULL + TAG));
   if (opened.compact) {
-    for (let end = data.length; end >= opened.headerLength + 1 + TAG_COMPACT; end--) {
+    for (let end = data.length; end >= floor; end--) {
       try {
         return await openCompactBody(data, end, opened);
       } catch {
@@ -216,7 +244,7 @@ export async function openPasswordWithSurplus(data: Uint8Array, password: string
     }
     throw new Error('Wrong password');
   }
-  for (let end = data.length; end >= opened.headerLength + LENGTH_FULL + TAG; end--) {
+  for (let end = data.length; end >= floor; end--) {
     const inner = end - opened.headerLength - TAG;
     if (padme(inner) !== inner) continue;
     try {
