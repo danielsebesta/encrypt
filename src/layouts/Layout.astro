@@ -183,7 +183,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			<nav id="site-nav" class="nav" aria-label={t(dict, 'nav.menu')}>
 				<a href={homeHref} class="nav__brand">
 					<img src="/encryptclick_icon.svg" alt="" width="24" height="36" class="h-9 w-auto" decoding="async" />
-					<span>{PRODUCT_NAME}</span>
+					<span class="nav__brand-name">{PRODUCT_NAME}</span>
 				</a>
 
 				<div id="nav-links" class="nav__links">
@@ -303,7 +303,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</div>
 			</div>
 		</footer>
-		<script is:inline src="/ui.js?v=flow-v8" defer></script>
+		<script is:inline src="/ui.js?v=flow-v9" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v4" defer></script>
 	</body>
 </html>

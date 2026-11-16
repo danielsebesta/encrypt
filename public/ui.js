@@ -64,7 +64,7 @@
   }
 
   var toggles = Array.prototype.slice.call(document.querySelectorAll('[data-menu-toggle]'));
-  var hoverMenus = window.matchMedia('(hover: hover) and (min-width: 768px)');
+  var hoverMenus = window.matchMedia('(hover: hover) and (min-width: 1024px)');
 
   function menuFor(btn) {
     return document.getElementById(btn.getAttribute('aria-controls'));
@@ -195,7 +195,7 @@
     }
   });
 
-  window.matchMedia('(min-width: 768px)').addEventListener('change', function (e) {
+  window.matchMedia('(min-width: 1024px)').addEventListener('change', function (e) {
     if (e.matches) setNav(false);
   });
 })();

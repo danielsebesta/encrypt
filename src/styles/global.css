@@ -1049,6 +1049,12 @@ html.dark {
         @apply flex shrink-0 items-center;
     }
 
+    @media (max-width: 359px) {
+        .nav__brand-name {
+            @apply sr-only;
+        }
+    }
+
     .menu {
         @apply absolute left-0 top-full mt-2 min-w-56 gap-0.5 rounded-lg border border-line bg-bg p-1.5;
         display: none;
@@ -1106,7 +1112,7 @@ html.dark {
         display: block;
     }
 
-    @media (min-width: 768px) {
+    @media (min-width: 1024px) {
         .nav {
             display: grid;
             grid-template-columns: 1fr auto 1fr;
@@ -1139,7 +1145,7 @@ html.dark {
         }
     }
 
-    @media (max-width: 767px) {
+    @media (max-width: 1023px) {
         .nav--open .nav__links {
             @apply absolute inset-x-0 top-full mt-2 flex flex-col gap-0.5 overflow-y-auto rounded-lg border border-line bg-bg p-3;
             max-height: calc(100dvh - 6rem);
