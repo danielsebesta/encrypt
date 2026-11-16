@@ -18,6 +18,7 @@
   let current = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let alive = true;
+  let reduce: MediaQueryList | undefined;
 
   function build(text: string): HTMLElement[] {
     host.textContent = '';
@@ -68,7 +69,7 @@
     while (alive) {
       await wait(HOLD_MS);
       if (!alive) return;
-      if (document.hidden) continue;
+      if (document.hidden || reduce?.matches) continue;
       const next = (current + 1) % lines.length;
       let cells = build(lines[current]);
       lock(cells);
@@ -83,7 +84,8 @@
   }
 
   onMount(() => {
-    if (lines.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    if (lines.length < 2 || reduce.matches) return;
     cycle();
   });
 
