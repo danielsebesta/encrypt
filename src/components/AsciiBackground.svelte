@@ -19,25 +19,63 @@
     let pulsesRef: { params: Record<string, number> } | null = null;
     const TEXT = 'h1, h2, h3, h4, p, li, label, a, button, summary, dt, dd, th, td, .hint';
     const PANEL = '.card, .panel, .home-hero__form';
+    type Box = { l: number; t: number; r: number; b: number };
     let rects: DOMRect[] = [];
     let dirty = true;
+    let frame = 0;
     const range = document.createRange();
+    const GAP = 18;
+    const SNAP = 8;
     const mark = () => { dirty = true; };
+    const touches = (a: Box, b: Box) => a.l - GAP < b.r && b.l - GAP < a.r && a.t - GAP < b.b && b.t - GAP < a.b;
+    const collect = (): Box[] => {
+      const boxes: Box[] = [];
+      const push = (r: DOMRect) => {
+        if (r.width > 2 && r.height > 2 && r.bottom > -40 && r.top < innerHeight + 40) boxes.push({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+      };
+      for (const el of document.querySelectorAll(PANEL)) if (!canvas.contains(el)) push(el.getBoundingClientRect());
+      for (const el of document.querySelectorAll(TEXT)) {
+        if (canvas.contains(el) || el.closest(PANEL)) continue;
+        range.selectNodeContents(el);
+        for (const r of range.getClientRects()) push(r);
+      }
+      return boxes;
+    };
+    const merge = (boxes: Box[]): Box[] => {
+      let list = boxes;
+      for (let changed = true; changed;) {
+        changed = false;
+        const out: Box[] = [];
+        for (const box of list) {
+          const hit = out.find((o) => touches(o, box));
+          if (hit) {
+            hit.l = Math.min(hit.l, box.l); hit.t = Math.min(hit.t, box.t);
+            hit.r = Math.max(hit.r, box.r); hit.b = Math.max(hit.b, box.b);
+            changed = true;
+          } else out.push({ ...box });
+        }
+        list = out;
+      }
+      return list;
+    };
     const read = () => {
       if (!dirty) return rects;
       dirty = false;
-      rects = [...document.querySelectorAll(TEXT)].flatMap((el) => {
-        if (canvas.contains(el) || el.closest(PANEL)) return [];
-        range.selectNodeContents(el);
-        return [...range.getClientRects()].filter((r) => r.width > 2 && r.height > 2 && r.bottom > 0 && r.top < innerHeight);
-      });
+      const snap = (v: number, up: boolean) => (up ? Math.ceil(v / SNAP) : Math.floor(v / SNAP)) * SNAP;
+      rects = merge(collect()).map((o) => new DOMRect(snap(o.l, false), snap(o.t, false), snap(o.r, true) - snap(o.l, false), snap(o.b, true) - snap(o.t, false)));
       return rects;
     };
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; dirty = true; });
+    };
     addEventListener('scroll', mark, { passive: true, capture: true });
-    addEventListener('resize', mark, { passive: true });
-    document.fonts?.addEventListener('loadingdone', mark);
+    addEventListener('resize', schedule, { passive: true });
+    document.fonts?.addEventListener('loadingdone', schedule);
+    const layout = new ResizeObserver(schedule);
+    layout.observe(document.body);
     const content = new MutationObserver((records) => {
-      if (records.some((r) => !(r.target instanceof Element ? r.target : r.target.parentElement)?.closest(PANEL))) mark();
+      if (records.some((r) => !(r.target instanceof Element ? r.target : r.target.parentElement)?.closest(PANEL))) schedule();
     });
     content.observe(document.body, { childList: true, subtree: true, characterData: true });
     const isDark = () => document.documentElement.classList.contains('dark');
@@ -47,7 +85,7 @@
       const pulses = defineFieldEffect({
         name: 'flow-pulses',
         animate: true,
-        params: { depth: 0.75, dark: isDark() ? 1 : 0 },
+        params: { depth: 0.35, dark: isDark() ? 1 : 0 },
         shade: `
           float a = fract(time * 0.045) * 1.6 - 0.3;
           float b = fract(time * 0.032 + 0.5) * 1.6 - 0.3;
@@ -64,7 +102,7 @@
           c = mix(c, pale, smoothstep(0.7, 1., hue));
           vec3 lightInk = mix(vec3(0.56, 0.73, 0.50), vec3(0.86, 0.92, 0.84), hue);
           ink = mix(lightInk, c, params.dark);
-          inkAmount = mix(0.42, 0.6, params.dark);
+          inkAmount = mix(0.24, 0.34, params.dark);
         `,
       });
       pulsesRef = pulses as unknown as { params: Record<string, number> };
@@ -81,7 +119,7 @@
         drift: 0.06,
         effects: [pulses],
         label: '',
-        clear: { rects: read, padding: 14, softness: 30, strength: 1 },
+        clear: { rects: read, padding: 22, softness: 44, strength: 1 },
         hover: 'none',
         tap: 'none',
       }) as unknown as Field;
@@ -105,9 +143,11 @@
       gone = true;
       theme.disconnect();
       content.disconnect();
+      layout.disconnect();
+      cancelAnimationFrame(frame);
       removeEventListener('scroll', mark, { capture: true });
-      removeEventListener('resize', mark);
-      document.fonts?.removeEventListener('loadingdone', mark);
+      removeEventListener('resize', schedule);
+      document.fonts?.removeEventListener('loadingdone', schedule);
       field?.destroy();
     };
   });
