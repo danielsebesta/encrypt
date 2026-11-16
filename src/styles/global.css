@@ -2171,6 +2171,10 @@ html.ascii-ready.ascii-instant .flow-bg--ascii {
     html.ascii-ready .flow-bg--ascii { animation: none; }
 }
 
+html.ascii-ready main :is(h1, h2, h3, h4, p, li, dt, dd, label, .hint, .section-title, .page-lead):not(:is(.card, .panel, .home-hero__form, .btn, button, [role="dialog"]) *) {
+    text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg), 0 0 14px var(--bg), 0 0 26px var(--bg), 0 0 26px var(--bg), 0 0 40px var(--bg);
+}
+
 .ascii-bg {
     position: absolute;
     inset: 0;

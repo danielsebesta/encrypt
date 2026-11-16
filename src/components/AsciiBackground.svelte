@@ -17,81 +17,15 @@
     let field: Field | null = null;
     let gone = false;
     let pulsesRef: { params: Record<string, number> } | null = null;
-    const TEXT = 'h1, h2, h3, h4, p, li, label, a, button, summary, dt, dd, th, td, .hint';
-    const PANEL = '.card, .panel, .home-hero__form';
-    type Box = { l: number; t: number; r: number; b: number };
-    let rects: DOMRect[] = [];
-    let dirty = true;
-    let frame = 0;
-    const range = document.createRange();
-    const GAP = 18;
-    const SNAP = 8;
-    const mark = () => { dirty = true; };
-    const touches = (a: Box, b: Box) => a.l - GAP < b.r && b.l - GAP < a.r && a.t - GAP < b.b && b.t - GAP < a.b;
-    const collect = (): Box[] => {
-      const boxes: Box[] = [];
-      const push = (r: DOMRect) => {
-        if (r.width > 2 && r.height > 2 && r.bottom > -40 && r.top < innerHeight + 40) boxes.push({ l: r.left, t: r.top, r: r.right, b: r.bottom });
-      };
-      for (const el of document.querySelectorAll(PANEL)) if (!canvas.contains(el)) push(el.getBoundingClientRect());
-      for (const el of document.querySelectorAll(TEXT)) {
-        if (canvas.contains(el) || el.closest(PANEL)) continue;
-        range.selectNodeContents(el);
-        for (const r of range.getClientRects()) push(r);
-      }
-      return boxes;
-    };
-    const merge = (boxes: Box[]): Box[] => {
-      let list = boxes;
-      for (let changed = true; changed;) {
-        changed = false;
-        const out: Box[] = [];
-        for (const box of list) {
-          const hit = out.find((o) => touches(o, box));
-          if (hit) {
-            hit.l = Math.min(hit.l, box.l); hit.t = Math.min(hit.t, box.t);
-            hit.r = Math.max(hit.r, box.r); hit.b = Math.max(hit.b, box.b);
-            changed = true;
-          } else out.push({ ...box });
-        }
-        list = out;
-      }
-      return list;
-    };
-    const read = () => {
-      if (!dirty) return rects;
-      dirty = false;
-      const snap = (v: number, up: boolean) => (up ? Math.ceil(v / SNAP) : Math.floor(v / SNAP)) * SNAP;
-      rects = merge(collect()).map((o) => new DOMRect(snap(o.l, false), snap(o.t, false), snap(o.r, true) - snap(o.l, false), snap(o.b, true) - snap(o.t, false)));
-      return rects;
-    };
-    const schedule = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => { frame = 0; dirty = true; });
-    };
-    addEventListener('scroll', mark, { passive: true, capture: true });
-    addEventListener('resize', schedule, { passive: true });
-    document.fonts?.addEventListener('loadingdone', schedule);
-    const layout = new ResizeObserver(schedule);
-    layout.observe(document.body);
-    const content = new MutationObserver((records) => {
-      if (records.some((r) => !(r.target instanceof Element ? r.target : r.target.parentElement)?.closest(PANEL))) schedule();
-    });
-    content.observe(document.body, { childList: true, subtree: true, characterData: true });
     const isDark = () => document.documentElement.classList.contains('dark');
 
     import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported, defineFieldEffect }) => {
       if (gone || !isGlyphFieldSupported()) return;
       const pulses = defineFieldEffect({
         name: 'flow-pulses',
-        animate: true,
+        animate: false,
         params: { depth: 0.35, dark: isDark() ? 1 : 0 },
         shade: `
-          float a = fract(time * 0.045) * 1.6 - 0.3;
-          float b = fract(time * 0.032 + 0.5) * 1.6 - 0.3;
-          float h = fract(time * 0.028 + 0.2) * 1.5 - 0.25;
-          float k = smoothstep(0.2, 0., abs(uv.x - a)) + smoothstep(0.16, 0., abs(uv.x - b)) + smoothstep(0.22, 0., abs(uv.y - h));
-          tone *= 1. - clamp(k, 0., 1.) * params.depth;
           float hue = clamp((fbm(uv * vec2(aspect, 1.) * 1.3 + vec2(time * 0.006, 0.)) - 0.5) * 3.2 + 0.5 + (uv.x - 0.5) * 0.6, 0., 1.);
           vec3 deep = vec3(0.20, 0.55, 0.40);
           vec3 moss = vec3(0.47, 0.72, 0.36);
@@ -116,10 +50,9 @@
         ramp: RAMPS[isDark() ? 'dark' : 'light'],
         background: 'transparent',
         shade: 0.2,
-        drift: 0.06,
+        drift: 0,
         effects: [pulses],
         label: '',
-        clear: { rects: read, padding: 22, softness: 44, strength: 1 },
         hover: 'none',
         tap: 'none',
       }) as unknown as Field;
@@ -142,12 +75,6 @@
     return () => {
       gone = true;
       theme.disconnect();
-      content.disconnect();
-      layout.disconnect();
-      cancelAnimationFrame(frame);
-      removeEventListener('scroll', mark, { capture: true });
-      removeEventListener('resize', schedule);
-      document.fonts?.removeEventListener('loadingdone', schedule);
       field?.destroy();
     };
   });
