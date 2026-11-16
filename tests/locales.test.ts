@@ -11,7 +11,6 @@ const ALLOW_SAME_AS_EN = new Set([
   'install.android.title',
   'install.guide.device.androidSamsung',
   'install.guide.device.androidFirefox',
-  'home.facts.3.value',
   'emoji.label',
   'app.new.kindChat',
   'app.settings.app',
