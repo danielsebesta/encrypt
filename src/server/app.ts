@@ -34,6 +34,22 @@ function ensureHtmlCharset(response: Response): Response {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
+const BASELINE_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Cache-Control': 'no-store',
+};
+
+// Routes that never reach Astro skip its middleware and the static _headers file, so they get the baseline here.
+// Headers the response already set win; the body stream is passed through untouched.
+function hardened(response: Response): Response {
+  if (response.status === 101) return response;
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(BASELINE_HEADERS)) if (!headers.has(name)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function routeOf(path: string): string | null {
   const lower = path.toLowerCase();
   if (lower.startsWith('/parties/')) return '/parties';
@@ -106,23 +122,23 @@ export function createApp(platform: Platform) {
         });
       }
       const path = routingPath(url.pathname);
-      if (path === null) return new Response('Bad request', { status: 400 });
-      if (path === '/healthz') return Response.json({ status: 'ok' }, { headers: { 'Cache-Control': 'no-store' } });
+      if (path === null) return hardened(new Response('Bad request', { status: 400 }));
+      if (path === '/healthz') return hardened(Response.json({ status: 'ok' }));
       // The service worker answers the share sheet on the device; if it is not running yet, the body is dropped unread.
-      if (SHARE_TARGET.test(path)) return new Response(null, { status: 303, headers: { Location: new URL('/app?tab=files', request.url).href, 'Cache-Control': 'no-store' } });
+      if (SHARE_TARGET.test(path)) return hardened(new Response(null, { status: 303, headers: { Location: new URL('/app?tab=files', request.url).href } }));
       const route = routeOf(path);
       if (route !== null) {
-        if (crossSite(request)) return new Response('Forbidden', { status: 403 });
+        if (crossSite(request)) return hardened(new Response('Forbidden', { status: 403 }));
         const refused = await withinBudget(route, request);
-        if (refused) return refused;
+        if (refused) return hardened(refused);
         if (route === '/parties') return platform.realtime(request);
-        if (route === '/status') return handleStatus(request, platform);
+        if (route === '/status') return hardened(await handleStatus(request, platform));
         if (route === '/api/ghost/upload' && request.method === 'POST') {
           const held = await relayAllowance(request);
-          if (held) return held;
+          if (held) return hardened(held);
         }
         const handled = await handleUploadRoute(request, path, platform);
-        if (handled) return handled;
+        if (handled) return hardened(handled);
       }
       const redirected = localeResponse(request);
       if (redirected) return redirected;

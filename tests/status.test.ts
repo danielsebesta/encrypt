@@ -117,3 +117,32 @@ test('HTML responses without a charset get UTF-8 declared', async () => {
   );
   assert.equal(res.headers.get('Content-Type'), 'text/html; charset=utf-8');
 });
+
+const baseline = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cross-origin-resource-policy': 'same-origin', 'cache-control': 'no-store' };
+
+function assertBaseline(res: Response) {
+  for (const [name, value] of Object.entries(baseline)) assert.equal(res.headers.get(name), value, name);
+  assert.equal(res.headers.get('strict-transport-security'), null);
+}
+
+test('non-rendered routes carry the baseline hardening headers', async () => {
+  const site = app();
+  assertBaseline(await site.fetch(new Request('https://example.test/healthz'), render));
+  assertBaseline(await site.fetch(status(), render));
+  assertBaseline(await site.fetch(status({}, 'POST'), render));
+  assertBaseline(await site.fetch(new Request('https://example.test/upload/status', { headers: browser }), render));
+  assertBaseline(await site.fetch(new Request('https://example.test/upload/challenge', { headers: browser }), render));
+  assertBaseline(await site.fetch(new Request('https://example.test/upload', { headers: browser }), render));
+  assertBaseline(await site.fetch(new Request('https://example.test/status', { headers: { 'Sec-Fetch-Site': 'cross-site' } }), render));
+  const page = await site.fetch(new Request('https://example.test/'), render);
+  assert.equal(page.headers.get('x-content-type-options'), null);
+});
+
+test('realtime upgrades pass through and download headers stay', async () => {
+  const upgrade = new Response('', { status: 426, headers: { Upgrade: 'websocket' } });
+  const site = app({}, { realtime: async () => upgrade });
+  assert.equal(await site.fetch(new Request('https://example.test/parties/chat/room', { headers: { Upgrade: 'websocket' } }), render), upgrade);
+  const gone = await site.fetch(new Request('https://example.test/dl/missing', { headers: browser }), render);
+  assert.equal(gone.status, 404);
+  assert.equal(gone.headers.get('x-content-type-options'), 'nosniff');
+});

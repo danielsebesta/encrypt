@@ -4,7 +4,7 @@ The code that runs encrypt.click on Cloudflare Workers also runs as one long-liv
 
 - the Node server: pages, APIs, ciphertext uploads and the chat and whiteboard rooms (WebSockets, room settings in SQLite),
 - [Caddy](https://caddyserver.com) for automatic HTTPS when `DOMAIN` is set,
-- [coturn](https://github.com/coturn/coturn) as the TURN relay for calls between browsers that cannot reach each other directly.
+- [coturn](https://github.com/coturn/coturn) as the TURN relay every call goes through.
 
 Browsers only expose Web Crypto on HTTPS pages (and on `localhost`), so a public instance needs a domain and a certificate.
 
@@ -85,12 +85,14 @@ Everything is set with environment variables.
 | 3478 | UDP, TCP | TURN. |
 | 49152-49251 | UDP | TURN relay range. |
 
-Calls connect browsers directly. When both sides sit behind strict NATs or firewalls, the media goes through the relay instead, and every relayed participant holds one port from the range, so 100 ports carry about 50 relayed participants at once. Widen the range for bigger instances; with host networking that costs nothing. Media stays end-to-end encrypted: every audio and video frame is sealed in the browser with AES-256-GCM under keys only the call members hold, inside DTLS-SRTP, and the relay never reaches private, loopback or reserved addresses.
+Calls never connect browsers directly. The client sets `iceTransportPolicy: 'relay'`, so all call media goes through TURN, which also keeps participants' IP addresses from reaching each other. A working TURN relay is therefore required for calls, and every participant holds one port from the range, so 100 ports carry about 50 participants at once. Widen the range for bigger instances; with host networking that costs nothing. Media stays end-to-end encrypted: every audio and video frame is sealed in the browser with AES-256-GCM under keys only the call members hold, inside DTLS-SRTP, and the relay never reaches private, loopback or reserved addresses.
+
+The bundled coturn denies private, loopback and other reserved peer ranges (see `docker/entrypoint.sh`). Two machines on the same LAN that share one relay therefore only reach each other through the relay's public address: set `TURN_EXTERNAL_IP` to it (required with port mappings or any NAT) and make sure the relay port range is reachable on that address. A relay that advertises a private address cannot carry calls between peers on private networks.
 
 ## HTTPS options
 
 - **Bundled Caddy.** Set `DOMAIN` and open ports 80 and 443. Certificates and the ACME account are kept in `$DATA_DIR/caddy`.
-- **Your own reverse proxy.** Leave `DOMAIN` unset and set `PUBLIC_URL=https://your.host`, `TRUST_PROXY=1` and `TURN_HOST=your.host`. Make sure only the proxy can reach port 8080. The proxy has to pass WebSocket upgrades (rooms live under `/parties/`), accept request bodies up to 100 MB, replace rather than append to `X-Forwarded-For`, and keep no access logs, because URLs can carry encrypted payloads. For nginx:
+- **Your own reverse proxy.** Leave `DOMAIN` unset and set `PUBLIC_URL=https://your.host`, `TRUST_PROXY=1` and `TURN_HOST=your.host`. Make sure only the proxy can reach port 8080. The proxy has to pass WebSocket upgrades (rooms live under `/parties/`), accept request bodies of at least 130 MB (the largest upload, `maxFileBytes`, is 135266304 bytes, about 129 MB), replace rather than append to `X-Forwarded-For`, and keep no access logs, because URLs can carry encrypted payloads. For nginx:
 
   ```nginx
   map $http_upgrade $connection_upgrade { default upgrade; '' close; }
@@ -98,7 +100,7 @@ Calls connect browsers directly. When both sides sit behind strict NATs or firew
   server {
     # listen 443 ssl; server_name, certificates ...
     access_log off;
-    client_max_body_size 100m;
+    client_max_body_size 130m;
     location / {
       proxy_pass http://127.0.0.1:8080;
       proxy_http_version 1.1;
@@ -112,7 +114,7 @@ Calls connect browsers directly. When both sides sit behind strict NATs or firew
   }
   ```
 
-The pages send `Strict-Transport-Security` with `includeSubDomains` like encrypt.click does, which covers subdomains of the host you serve it on.
+The pages send `Strict-Transport-Security` with `includeSubDomains` like encrypt.click does, which covers subdomains of the host you serve it on. The Node server answers its non-page routes (`/healthz`, `/status`, `/upload/*`, API errors) with `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Resource-Policy` and `Cache-Control: no-store`, but never adds `Strict-Transport-Security` to them: HSTS belongs to the TLS terminator, so set it in Caddy or your own proxy if you want it on those routes.
 
 ## Status
 
@@ -128,7 +130,7 @@ The pages send `Strict-Transport-Security` with `includeSubDomains` like encrypt
     "available": true,
     "today": { "bytes": 1200000000, "uploads": 41 },
     "month": { "bytes": 9100000000, "uploads": 380 },
-    "limits": { "dailyBytes": 100000000000, "monthlyBytes": 1000000000000, "monthlyUploads": 500000, "clientDailyBytes": 5000000000, "maxFileBytes": 95420416 }
+    "limits": { "dailyBytes": 100000000000, "monthlyBytes": 1000000000000, "monthlyUploads": 500000, "clientDailyBytes": 5000000000, "maxFileBytes": 135266304 }
   }
 }
 ```
