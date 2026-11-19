@@ -124,7 +124,7 @@ const COMPUTED_CLASS: Record<string, string> = {
  * (see docs/design-system.md, "Migration"). Do not add entries; remove them as files migrate.
  */
 const PENDING: Record<string, string[]> = {
-  'src/components/tools/ChatCall.svelte': ['call-mini__main', 'call-mini__btn', 'call__top-btn', 'call__expand', 'call__btn', 'chat-call-fullscreen__close'],
+  'src/components/tools/ChatCall.svelte': ['call-mini__btn', 'call__btn'],
   'src/components/tools/ChatRoom.svelte': [
     'chat-me-pill', 'chat-react-btn', 'app-incoming__btn', 'chat-call-accept', 'chat-call-decline', 'chat-key-warn', 'chat-once-reveal',
     'chat-file__dl', 'chat-whiteboard-card__btn', 'chat-preview-img-btn', 'chat-preview-expand', 'chat-kmsg-actions__btn', 'chat-kmsg-pending',

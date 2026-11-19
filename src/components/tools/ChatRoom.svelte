@@ -5061,7 +5061,7 @@
       const active = document.activeElement;
       if (active && active !== document.body) return;
       if (opener && opener !== document.body && opener.isConnected) opener.focus();
-      else document.querySelector<HTMLElement>('.call__expand')?.focus();
+      else document.querySelector<HTMLElement>('.call__expand, .call__corner')?.focus();
     }));
   }
 

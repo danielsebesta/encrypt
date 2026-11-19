@@ -268,10 +268,11 @@
 </script>
 
     {#if callActive || callError}
-      <div class="call" class:call--error={!callActive && Boolean(callError)} class:call--mini={callActive && minimized}>
+      <div class="call" class:call--site={!appMode} class:call--error={!callActive && Boolean(callError)} class:call--mini={callActive && minimized}>
         {#if callActive && minimized}
           <div class="call-mini">
-            <button type="button" class="call-mini__main" on:click={() => { minimized = false; }} aria-label={t(dict, 'chat.callReturn')}>
+            <button type="button" class={appMode ? 'call-mini__main' : 'btn-ghost call-mini__open'} on:click={() => { minimized = false; }} aria-label={appMode ? t(dict, 'chat.callReturn') : undefined}>
+              {#if !appMode}<span class="sr-only">{t(dict, 'chat.callReturn')}</span>{/if}
               {#if miniVideo}
                 <video class="call-mini__video" use:streamMedia={{ stream: miniVideo, muted: true, volume: 0 }} autoplay muted playsinline disablepictureinpicture disableremoteplayback on:pause={onkeepplaying}></video>
               {:else}
@@ -288,14 +289,20 @@
               </span>
             </button>
             {#if pipSupported && onpip}
-              <button type="button" class="call-mini__btn" title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
+              <button type="button" class={appMode ? 'call-mini__btn' : 'btn-ghost btn-icon'} title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
                 <Icon name="picture-in-picture-2" size={20} />
               </button>
             {/if}
-            <button type="button" class="call-mini__btn" class:call-mini__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
-              <Icon name={micMuted ? 'mic-off' : 'mic'} size={20} />
-            </button>
-            <button type="button" class="call-mini__btn call-mini__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
+            {#if appMode}
+              <button type="button" class="call-mini__btn" class:call-mini__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
+                <Icon name={micMuted ? 'mic-off' : 'mic'} size={20} />
+              </button>
+            {:else}
+              <button type="button" class="btn-ghost btn-icon" title={t(dict, 'chat.callMute')} aria-label={t(dict, 'chat.callMute')} aria-pressed={micMuted} on:click={ontogglemic}>
+                <Icon name={micMuted ? 'mic-off' : 'mic'} />
+              </button>
+            {/if}
+            <button type="button" class={appMode ? 'call-mini__btn call-mini__btn--leave' : 'btn-danger btn-icon'} title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
               <Icon name="phone-off" size={20} />
             </button>
           </div>
@@ -320,11 +327,11 @@
             </div>
             <div class="call__top-actions">
               {#if pipSupported && onpip}
-                <button type="button" class="call__top-btn" title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
+                <button type="button" class={appMode ? 'call__top-btn' : 'btn-ghost btn-sm btn-icon'} title={t(dict, 'chat.callPopOut')} aria-label={t(dict, 'chat.callPopOut')} on:click={onpip}>
                   <Icon name="picture-in-picture-2" size={20} />
                 </button>
               {/if}
-              <button type="button" class="call__top-btn" title={t(dict, 'chat.callMinimize')} aria-label={t(dict, 'chat.callMinimize')} on:click={() => { minimized = true; callSettingsOpen = false; }}>
+              <button type="button" class={appMode ? 'call__top-btn' : 'btn-ghost btn-sm btn-icon'} title={t(dict, 'chat.callMinimize')} aria-label={t(dict, 'chat.callMinimize')} on:click={() => { minimized = true; callSettingsOpen = false; }}>
                 <Icon name="chevron-down" size={20} />
               </button>
             </div>
@@ -347,7 +354,7 @@
                     on:contextmenu={onpreventcontextmenu}
                     on:dblclick={() => onopenfullscreen({ source: 'local' })}
                   ></video>
-                  <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'local' })}>
+                  <button type="button" class={appMode ? 'call__expand' : 'btn-secondary btn-sm btn-icon call__corner'} title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'local' })}>
                     <Icon name="maximize" />
                   </button>
                 {:else}
@@ -382,7 +389,7 @@
                       on:contextmenu={onpreventcontextmenu}
                       on:dblclick={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}
                     ></video>
-                    <button type="button" class="call__expand" title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}>
+                    <button type="button" class={appMode ? 'call__expand' : 'btn-secondary btn-sm btn-icon call__corner'} title={t(dict, 'chat.callEnterFullscreen')} aria-label={t(dict, 'chat.callEnterFullscreen')} on:click={() => onopenfullscreen({ source: 'peer', peerId: peer.id })}>
                       <Icon name="maximize" />
                     </button>
                   {:else}
@@ -415,37 +422,63 @@
             </div>
           </div>
 
-          <div class="call__bar" inert={minimized || undefined}>
-            <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
-              {#if micMuted}
-                <Icon name="mic-off" size={20} />
-              {:else}
-                <Icon name="mic" size={20} />
+          {#if appMode}
+            <div class="call__bar" inert={minimized || undefined}>
+              <button type="button" class="call__btn" class:call__btn--off={micMuted} title={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-label={micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute')} aria-pressed={!micMuted} on:click={ontogglemic}>
+                {#if micMuted}
+                  <Icon name="mic-off" size={20} />
+                {:else}
+                  <Icon name="mic" size={20} />
+                {/if}
+              </button>
+              <button type="button" class="call__btn" class:call__btn--off={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={ontogglecamera}>
+                {#if cameraOff}
+                  <Icon name="video-off" size={20} />
+                {:else}
+                  <Icon name="video" size={20} />
+                {/if}
+              </button>
+              {#if screenShareSupported || screenSharing}
+                <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={ontogglescreen}>
+                  <Icon name="monitor-up" size={20} />
+                </button>
               {/if}
-            </button>
-            <button type="button" class="call__btn" class:call__btn--off={cameraOff} title={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-label={cameraOff ? t(dict, 'chat.callCameraOn') : t(dict, 'chat.callCameraOff')} aria-pressed={!cameraOff} on:click={ontogglecamera}>
-              {#if cameraOff}
-                <Icon name="video-off" size={20} />
-              {:else}
-                <Icon name="video" size={20} />
+              <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
+                <Icon name="settings" size={20} />
+              </button>
+              <button type="button" class="call__btn call__btn--chat" class:call__btn--on={wide && callChatOpen} title={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={wide ? callChatOpen : undefined} on:click={showChat}>
+                <Icon name="message-square" size={20} />
+                {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
+              </button>
+              <button type="button" class="call__btn call__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
+                <Icon name="phone-off" size={20} />
+              </button>
+            </div>
+          {:else}
+            <div class="call__bar" inert={minimized || undefined}>
+              <button type="button" class="btn-secondary btn-icon" title={t(dict, 'chat.callMute')} aria-label={t(dict, 'chat.callMute')} aria-pressed={micMuted} on:click={ontogglemic}>
+                <Icon name={micMuted ? 'mic-off' : 'mic'} />
+              </button>
+              <button type="button" class="btn-secondary btn-icon" title={t(dict, 'chat.callCameraOff')} aria-label={t(dict, 'chat.callCameraOff')} aria-pressed={cameraOff} on:click={ontogglecamera}>
+                <Icon name={cameraOff ? 'video-off' : 'video'} />
+              </button>
+              {#if screenShareSupported || screenSharing}
+                <button type="button" class="btn-secondary btn-icon" title={t(dict, 'chat.callStartScreen')} aria-label={t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={ontogglescreen}>
+                  <Icon name="monitor-up" />
+                </button>
               {/if}
-            </button>
-{#if screenShareSupported || screenSharing}
-                        <button type="button" class="call__btn" class:call__btn--on={screenSharing} title={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-label={screenSharing ? t(dict, 'chat.callStopScreen') : t(dict, 'chat.callStartScreen')} aria-pressed={screenSharing} on:click={ontogglescreen}>
-              <Icon name="monitor-up" size={20} />
-            </button>
-            {/if}
-            <button type="button" class="call__btn" class:call__btn--on={callSettingsOpen} title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
-              <Icon name="settings" size={20} />
-            </button>
-            <button type="button" class="call__btn call__btn--chat" class:call__btn--on={wide && callChatOpen} title={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-label={wide && callChatOpen ? t(dict, 'chat.callHideChat') : t(dict, 'chat.callShowChat')} aria-pressed={wide ? callChatOpen : undefined} on:click={showChat}>
-              <Icon name="message-square" size={20} />
-              {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
-            </button>
-            <button type="button" class="call__btn call__btn--leave" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
-              <Icon name="phone-off" size={20} />
-            </button>
-          </div>
+              <button type="button" class="btn-secondary btn-icon" title={t(dict, 'chat.callAudioAndDevices')} aria-label={t(dict, 'chat.callAudioAndDevices')} aria-expanded={callSettingsOpen} aria-controls="chat-call-settings" data-call-settings-trigger on:click={() => { callSettingsOpen = !callSettingsOpen; }}>
+                <Icon name="settings" />
+              </button>
+              <button type="button" class="btn-secondary btn-icon" title={t(dict, 'chat.callShowChat')} aria-label={callChatUnread ? `${t(dict, 'chat.callShowChat')} · ${t(dict, 'chat.newBelow')}` : t(dict, 'chat.callShowChat')} aria-pressed={wide ? callChatOpen : undefined} on:click={showChat}>
+                <Icon name="message-square" />
+                {#if callChatUnread}<span class="call__badge" aria-hidden="true"></span>{/if}
+              </button>
+              <button type="button" class="btn-danger btn-icon" title={t(dict, 'chat.callHangUp')} aria-label={t(dict, 'chat.callHangUp')} on:click={onendcall}>
+                <Icon name="phone-off" />
+              </button>
+            </div>
+          {/if}
 
           {#if callSettingsOpen}
             <div class="call__settings" id="chat-call-settings" role="dialog" aria-label={t(dict, 'chat.callAudioAndDevices')}>
@@ -504,7 +537,7 @@
                   {#each callPeers as peer (peer.id)}
                     <div class="call__peer">
                       <div class="call__peer-name">
-                        <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} aria-label={peer.name}></div>
+                        <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(peer.alias, peer.name)}" aria-hidden="true"></div>
                         <span>{peer.name}</span>
                       </div>
                       <button type="button" class="btn-ghost btn-sm btn-icon" class:text-danger={peer.audioMuted} title={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-label={peer.audioMuted ? t(dict, 'chat.callUnmuteAllAudio') : t(dict, 'chat.callMuteAllAudio')} aria-pressed={peer.audioMuted} on:click={() => onsetpeeraudiomuted(peer.id, !peer.audioMuted)}>
@@ -525,7 +558,7 @@
         {/if}
         {#if callError}
           {#if callActive}
-            <div class="call__toast" role="alert">
+            <div class={appMode ? 'call__toast' : 'toast call__toast-site'} role="alert">
               <Icon name="info" />
               <span>{callError}</span>
             </div>
@@ -551,7 +584,7 @@
         <span>{fullscreenMedia.name}</span>
         {#if fullscreenMedia.isScreen}<span>{t(dict, 'chat.callScreenSharing')}</span>{/if}
       </div>
-      <button class="chat-call-fullscreen__close" title={t(dict, 'chat.callExitFullscreen')} aria-label={t(dict, 'chat.callExitFullscreen')} on:click={() => onclosefullscreen()}>
+      <button type="button" class={appMode ? 'chat-call-fullscreen__close' : 'btn-secondary btn-icon chat-call-fullscreen__action'} title={t(dict, 'chat.callExitFullscreen')} aria-label={t(dict, 'chat.callExitFullscreen')} on:click={() => onclosefullscreen()}>
         <Icon name="minimize" size={20} />
       </button>
     </div>
@@ -579,6 +612,19 @@
     --call-fill: color-mix(in srgb, var(--call-text) 16%, transparent);
     --call-fill-mid: color-mix(in srgb, var(--call-text) 18%, transparent);
     --call-name-bg: color-mix(in srgb, var(--call-bg) 60%, transparent);
+  }
+  .call--site:not(.call--mini, .call--error) {
+    --bg: var(--call-bg);
+    --surface: var(--call-surface);
+    --surface-2: var(--call-surface-2);
+    --line: var(--call-line);
+    --line-soft: var(--call-line);
+    --control-line: var(--call-line);
+    --text: var(--call-text);
+    --muted: var(--call-muted);
+  }
+  .call--site:not(.call--mini, .call--error) :focus-visible {
+    outline-color: var(--call-text);
   }
   .call {
     position: relative;
@@ -659,6 +705,10 @@
     background: none; color: inherit; text-align: start; cursor: pointer;
   }
   .call-mini__main:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+  .call-mini__open {
+    flex: 1; min-width: 0; justify-content: flex-start; gap: 0.625rem; padding: 0.25rem 0.375rem; text-align: start;
+  }
+  .call-mini__open:focus-visible { outline-offset: -2px; }
   .call-mini__main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .call-mini__video {
     width: 64px; height: 40px; flex: none; border-radius: 8px; object-fit: cover; background: var(--call-bg);
@@ -711,7 +761,11 @@
     box-shadow: var(--shadow-float);
     animation: call-toast-in var(--duration-base) var(--ease-out);
   }
-  .call__toast svg { flex: none; color: var(--warn); }
+  .call__toast-site {
+    position: absolute;
+    bottom: 5.25rem;
+    max-width: min(26rem, calc(100% - 2rem));
+  }
   @keyframes call-toast-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
   @media (prefers-reduced-motion: reduce) {
     .call-mini, .call__toast { animation: none; }
@@ -795,13 +849,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .call__name svg {
-    flex: none;
-    color: var(--danger);
-  }
-  .call__name .call__name-screen {
-    color: var(--accent);
-  }
   .call__name-state {
     flex: none;
     width: 7px;
@@ -853,6 +900,17 @@
   }
   .call__tile:hover .call__expand,
   .call__expand:focus-visible {
+    opacity: 1;
+  }
+  .call__corner {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .call__tile:hover .call__corner,
+  .call__corner:focus-visible {
     opacity: 1;
   }
   .call__count {
@@ -947,24 +1005,36 @@
     overflow: auto;
     overscroll-behavior: contain;
   }
+  @media (max-width: 30rem) {
+    .call--site .call__settings {
+      position: static;
+      order: 1;
+      width: auto;
+      max-height: 50%;
+      margin: 0 0.6rem;
+    }
+    .call--site .call__bar {
+      order: 2;
+    }
+  }
   .call__settings-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-weight: 700;
+    font-weight: 600;
   }
-  .call__settings .label,
-  .call__settings .check {
+  :global(:where(:root[data-app-platform])) .call__settings .label,
+  :global(:where(:root[data-app-platform])) .call__settings .check {
     color: var(--call-text);
   }
-  .call__settings .label {
+  :global(:where(:root[data-app-platform])) .call__settings .label {
     font-size: 0.75rem;
     color: var(--call-muted);
   }
   .call__settings .field {
     gap: 0.25rem;
   }
-  .call__settings .check {
+  :global(:where(:root[data-app-platform])) .call__settings .check {
     min-height: 2rem;
     gap: 0.5rem;
     font-size: 0.8125rem;
@@ -972,7 +1042,7 @@
   .call__settings input[type="range"] {
     height: 1.25rem;
   }
-  .call__settings .input {
+  :global(:where(:root[data-app-platform])) .call__settings .input {
     background: var(--call-bg);
     border-color: var(--call-line);
     color: var(--call-text);
@@ -981,14 +1051,14 @@
     padding-bottom: 0.25rem;
     font-size: 0.8125rem;
   }
-  .call__settings .btn-ghost {
+  :global(:where(:root[data-app-platform])) .call__settings .btn-ghost {
     color: var(--call-muted);
   }
-  .call__settings .btn-ghost:hover {
+  :global(:where(:root[data-app-platform])) .call__settings .btn-ghost:hover {
     background: var(--call-surface-2);
     color: var(--call-text);
   }
-  .call__settings .btn-ghost.text-danger {
+  :global(:where(:root[data-app-platform])) .call__settings .btn-ghost.text-danger {
     color: var(--danger);
   }
   .call__fields {
@@ -1065,32 +1135,12 @@
     }
   }
   @media (hover: none) {
-    .call__expand {
+    .call__expand,
+    .call__corner {
       opacity: 1;
     }
   }
 
-  .chat-call-fullscreen-btn {
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    z-index: 2;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--call-text);
-    background: var(--call-overlay);
-    border: 1px solid var(--call-fill);
-    opacity: 0;
-    transform: translateY(-2px);
-    transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
-  }
-  .chat-call-fullscreen-btn:hover {
-    background: var(--accent);
-  }
   .chat-call-fullscreen {
     position: fixed;
     inset: 0;
@@ -1158,10 +1208,7 @@
   .chat-call-fullscreen__close:hover {
     background: var(--danger);
   }
-  @media (hover: none) {
-    .chat-call-fullscreen-btn {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .chat-call-fullscreen__action {
+    pointer-events: auto;
   }
 </style>
