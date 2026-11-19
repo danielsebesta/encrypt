@@ -1303,6 +1303,16 @@ html.dark {
         background: transparent;
     }
 
+    @media (pointer: coarse) {
+        .passphrase .input {
+            min-height: calc(2.75rem - 2px);
+        }
+
+        .passphrase .btn-icon {
+            margin-block: -1px;
+        }
+    }
+
     /* ── Site chrome ── */
 
     .skip-link {
