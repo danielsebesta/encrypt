@@ -2,7 +2,9 @@
   import { onMount, tick } from 'svelte';
   import { randomIndex } from "../../lib/random";
   import { t } from '../../lib/t';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
+  import Field from '../ui/Field.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import WizardProgress from '../WizardProgress.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -107,6 +109,7 @@
     passwordError = '';
     if (!passwordLongEnough(password)) {
       passwordError = t(dict, 'common.passwordTooShort');
+      void focusFirstInvalid(stepEl);
       return;
     }
     const roomId = roomName || genRoomId();
@@ -122,40 +125,36 @@
 
   {#if step === 1}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitRoom}>
-      <div class="field">
-        <label class="label" for="wb-room">{t(dict, 'whiteboard.customRoomId')}</label>
-        <input
-          id="wb-room"
-          class="input"
-          type="text"
-          bind:value={customRoomId}
-          on:input={handleRoomIdInput}
-          placeholder={t(dict, 'whiteboard.customRoomIdPlaceholder')}
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-          data-lpignore="true"
-          data-1p-ignore
-          data-bwignore="true"
-          aria-describedby="wb-room-hint"
-        />
-        <p id="wb-room-hint" class="hint">{t(dict, 'whiteboard.customRoomIdHint')}</p>
-      </div>
+      <Field label={t(dict, 'whiteboard.customRoomId')} hint={t(dict, 'whiteboard.customRoomIdHint')}>
+        {#snippet children(control)}
+          <input
+            {...control}
+            class="input"
+            type="text"
+            bind:value={customRoomId}
+            on:input={handleRoomIdInput}
+            placeholder={t(dict, 'whiteboard.customRoomIdPlaceholder')}
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore="true"
+          />
+        {/snippet}
+      </Field>
       <div class="wizard-actions">
         <button class="btn btn-block" type="submit">{t(dict, 'common.continue')}</button>
       </div>
     </form>
   {:else}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={openBoard}>
-      <div class="field">
-        <label class="label" for="wb-pass">{t(dict, 'whiteboard.password')}</label>
-        <PassphraseField {dict} id="wb-pass" bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby={passwordError ? 'wb-pass-error wb-pass-rules wb-pass-hint' : 'wb-pass-rules wb-pass-hint'} invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
-        <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
-        {#if passwordError}
-          <p id="wb-pass-error" class="sr-only" role="alert">{passwordError}</p>
-        {/if}
-        <p id="wb-pass-hint" class="hint">{t(dict, 'whiteboard.createDescription')}</p>
-      </div>
+      <Field label={t(dict, 'whiteboard.password')} hint={t(dict, 'whiteboard.createDescription')} error={passwordError} required>
+        {#snippet children(control)}
+          <PassphraseField {dict} id={control.id} bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby={[control['aria-describedby'], 'wb-pass-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
+          <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
+        {/snippet}
+      </Field>
       <div class="wizard-actions">
         <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'common.back')}</button>
         <button class="btn" type="submit">{t(dict, 'whiteboard.createRoom')}</button>
