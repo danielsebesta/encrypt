@@ -103,3 +103,11 @@ export async function clearAppCaches(): Promise<boolean> {
     return false;
   }
 }
+
+const USER_CONTENT_CACHES = ['share-target-inbox', 'push-text', 'encrypt-push-rooms'];
+
+export async function clearUserContentCaches(): Promise<void> {
+  try {
+    await Promise.all(USER_CONTENT_CACHES.map((name) => caches.delete(name)));
+  } catch {}
+}

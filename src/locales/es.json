@@ -1469,6 +1469,7 @@
   "app.settings.wipeError": "No se pudieron borrar algunos datos",
   "app.voice.speed": "Velocidad de reproducción",
   "app.cancel": "Cancelar",
+  "app.sheet.close": "Cerrar hoja",
   "app.done": "Listo",
   "app.close": "Cerrar",
   "app.install.title": "Instalar Encrypt",

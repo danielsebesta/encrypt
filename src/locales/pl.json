@@ -1469,6 +1469,7 @@
   "app.settings.wipeError": "Nie udało się usunąć części danych",
   "app.voice.speed": "Prędkość odtwarzania",
   "app.cancel": "Anuluj",
+  "app.sheet.close": "Zamknij panel",
   "app.done": "Gotowe",
   "app.close": "Zamknij",
   "app.install.title": "Zainstaluj Encrypt",

@@ -1469,6 +1469,7 @@
   "app.settings.wipeError": "Některá data se nepodařilo smazat",
   "app.voice.speed": "Rychlost přehrávání",
   "app.cancel": "Zrušit",
+  "app.sheet.close": "Zavřít panel",
   "app.done": "Hotovo",
   "app.close": "Zavřít",
   "app.install.title": "Nainstalovat Encrypt",

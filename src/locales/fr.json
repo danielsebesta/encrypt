@@ -1469,6 +1469,7 @@
   "app.settings.wipeError": "Certaines données n'ont pas pu être effacées",
   "app.voice.speed": "Vitesse de lecture",
   "app.cancel": "Annuler",
+  "app.sheet.close": "Fermer la feuille",
   "app.done": "Terminé",
   "app.close": "Fermer",
   "app.install.title": "Installer Encrypt",

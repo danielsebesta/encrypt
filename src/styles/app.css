@@ -749,6 +749,7 @@ html[data-app-platform] ::selection {
     justify-content: center;
     width: 2rem;
     height: 2rem;
+    min-height: 44px;
     margin: 0;
     margin-inline-end: -0.25rem;
     padding: 0;
@@ -4272,7 +4273,34 @@ html[data-app-platform] ::selection {
 }
 
 /* M3 bottom sheet: optional headline (title-large 22sp) under the handle. */
+.app-sheet-headline-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.app-sheet-headline__close {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--app-label-2);
+}
+.app-sheet-headline__close:active {
+    background: color-mix(in srgb, var(--app-label) 8%, transparent);
+}
+.app-sheet-headline__close:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+}
 .app-sheet-headline {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
     padding: 0.25rem 0.5rem 0.25rem;
     font-size: 22px;

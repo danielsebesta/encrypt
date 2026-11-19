@@ -88,6 +88,7 @@
     LOCK_TIMEOUT_OPTIONS,
     applyReduceMotion,
     clearAppCaches,
+    clearUserContentCaches,
     loadDefaultRoomMode,
     loadHapticsMode,
     loadKeepAwake,
@@ -1376,7 +1377,7 @@
       // Broadcast first so sibling tabs and in-flight board saves see the flag
       // before IndexedDB deletes finish.
       try { localStorage.setItem(PANIC_FLAG, String(Date.now())); } catch {}
-      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards(), forgetPushRooms()]);
+      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards(), forgetPushRooms(), clearUserContentCaches()]);
       wipeLocalSecrets();
       // Drop the flag so later board saves are not permanently suppressed in this tab.
       try { localStorage.removeItem(PANIC_FLAG); } catch {}
@@ -1770,7 +1771,12 @@
       {/if}
     </div>
   {:else}
-    <h3 id={id} class="app-sheet-headline">{title}</h3>
+    <div class="app-sheet-headline-row">
+      <h3 id={id} class="app-sheet-headline">{title}</h3>
+      <button type="button" class="app-sheet-headline__close" onclick={onClose} aria-label={t(dict, confirm ? 'app.cancel' : 'app.sheet.close')}>
+        <AppIcons name="close" size={20} />
+      </button>
+    </div>
   {/if}
 {/snippet}
 

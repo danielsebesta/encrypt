@@ -1479,6 +1479,7 @@
   "app.settings.wipeError": "Couldn't erase some data",
   "app.voice.speed": "Playback speed",
   "app.cancel": "Cancel",
+  "app.sheet.close": "Close sheet",
   "app.done": "Done",
   "app.close": "Close",
   "app.install.title": "Install Encrypt",

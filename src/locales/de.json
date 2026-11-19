@@ -1469,6 +1469,7 @@
   "app.settings.wipeError": "Einige Daten konnten nicht gelöscht werden",
   "app.voice.speed": "Wiedergabegeschwindigkeit",
   "app.cancel": "Abbrechen",
+  "app.sheet.close": "Dialogfeld schließen",
   "app.done": "Fertig",
   "app.close": "Schließen",
   "app.install.title": "Encrypt installieren",
