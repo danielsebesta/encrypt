@@ -149,10 +149,10 @@
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={openBoard}>
       <div class="field">
         <label class="label" for="wb-pass">{t(dict, 'whiteboard.password')}</label>
-        <PassphraseField {dict} id="wb-pass" bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby="wb-pass-rules wb-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
-        <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules}  {dict}/>
+        <PassphraseField {dict} id="wb-pass" bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby={passwordError ? 'wb-pass-error wb-pass-rules wb-pass-hint' : 'wb-pass-rules wb-pass-hint'} invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
+        <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
         {#if passwordError}
-          <p class="status status--error status--box" role="alert">{passwordError}</p>
+          <p id="wb-pass-error" class="sr-only" role="alert">{passwordError}</p>
         {/if}
         <p id="wb-pass-hint" class="hint">{t(dict, 'whiteboard.createDescription')}</p>
       </div>

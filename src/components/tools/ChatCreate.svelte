@@ -176,11 +176,11 @@
           data-lpignore="true"
           data-1p-ignore
           data-bwignore="true"
-          aria-describedby="chat-room-hint"
+          aria-describedby={roomError ? 'chat-room-error chat-room-hint' : 'chat-room-hint'}
           aria-invalid={roomError ? 'true' : undefined}
         />
         {#if roomError}
-          <p class="status status--error" role="alert">{roomError}</p>
+          <p id="chat-room-error" class="status status--error" role="alert">{roomError}</p>
         {/if}
         <p id="chat-room-hint" class="hint">{t(dict, 'chat.customRoomIdHint')}</p>
       </div>
@@ -193,10 +193,10 @@
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={startChat}>
       <div class="field">
         <label class="label" for="chat-pass">{t(dict, 'chat.password')}</label>
-        <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby="chat-pass-rules chat-pass-hint" invalid={!!passwordError} generate={() => { passwordError = ''; return genRoomPassphrase(); }} />
-        <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules}  {dict}/>
+        <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby={passwordError ? 'chat-pass-error chat-pass-rules chat-pass-hint' : 'chat-pass-rules chat-pass-hint'} invalid={!!passwordError} generate={() => { passwordError = ''; return genRoomPassphrase(); }} />
+        <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
         {#if passwordError}
-          <p class="status status--error status--box" role="alert">{passwordError}</p>
+          <p id="chat-pass-error" class="sr-only" role="alert">{passwordError}</p>
         {/if}
         <p id="chat-pass-hint" class="hint">{t(dict, 'chat.createDescription')}</p>
       </div>

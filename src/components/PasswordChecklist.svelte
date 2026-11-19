@@ -6,11 +6,12 @@
   export let label: string;
   export let rules: { ok: boolean; label: string }[];
   export let dict: Record<string, string> | undefined = undefined;
+  export let invalid = false;
 </script>
 
 <ul {id} class="pw-rules" aria-label={label}>
   {#each rules as rule}
-    <li class="pw-rules__item" class:pw-rules__item--ok={rule.ok}>
+    <li class="pw-rules__item" class:pw-rules__item--ok={rule.ok} class:pw-rules__item--bad={invalid && !rule.ok}>
       {#if rule.ok}
         <Icon name="check" />
       {:else}
@@ -42,6 +43,9 @@
   }
   .pw-rules__item--ok {
     color: var(--text);
+  }
+  .pw-rules__item--bad {
+    color: var(--danger);
   }
   .pw-rules__item--ok svg {
     color: var(--accent);

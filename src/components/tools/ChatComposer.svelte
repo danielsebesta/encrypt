@@ -405,6 +405,16 @@
     display: flex; align-items: flex-end; gap: 0.6rem;
     padding: 0.75rem 1rem;
     border-top: 1px solid var(--line-soft);
+    transition: box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .chat-input:has(.chat-input-field:focus-visible) {
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  @media (forced-colors: active) {
+    .chat-input:has(.chat-input-field:focus-visible) {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
   }
   .chat-input-field {
     flex: 1; min-width: 0; background: transparent; border: none; outline: none;
