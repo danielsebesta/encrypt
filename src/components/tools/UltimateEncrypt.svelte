@@ -106,7 +106,8 @@
   $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: isHuge = payloadSize > MAX_FILE;
-  $: deliveryMode = isHuge ? 'local' : isLarge ? 'ghost' : 'link';
+  // A link cannot forget itself, so a short message that must burn after reading is stored on the server instead.
+  $: deliveryMode = isHuge ? 'local' : isLarge || burn ? 'ghost' : 'link';
   $: shareUrl = shortUrl || resultUrl;
   $: resultPass = resultPassword || password;
   // The blurb carries only the link — sharing link and password in one message defeats the point of sharing them separately.
@@ -572,7 +573,6 @@
       payload = { v: 2, mode: 'inline', kind: 'text', text: textInput.trim() };
       pushDebug(`Inline payload prepared for text (${textInput.trim().length} chars)`);
     }
-    if (burn) payload.once = true;
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
     const json = JSON.stringify(payload);
@@ -585,14 +585,14 @@
     const encoded = base64UrlEncode(encrypted);
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
-    const fragment = formatShareFragment({ payload: encoded, burn: burn || undefined, lock: pendingLock?.lock });
+    const fragment = formatShareFragment({ payload: encoded, lock: pendingLock?.lock });
     const urls = buildReceiveUrls(fragment);
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
     shortenableUrl = urls.shortenable;
     resultHasTemporaryUpload = false;
     resultExpires = undefined;
-    resultBurn = burn;
+    resultBurn = false;
     resultUnlock = pendingLock ? roundTime(pendingLock.lock.round) : undefined;
     setDropFromFragment(fragment);
   }
@@ -938,7 +938,7 @@
         <details class="more" bind:open={optionsOpen}>
           <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
           <div class="more__body">
-            <ShareOptions {dict} mode={deliveryMode} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
+            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
           </div>
         </details>
 

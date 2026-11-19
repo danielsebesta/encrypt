@@ -7,6 +7,8 @@
   export let mode: 'link' | 'ghost' | 'local' = 'link';
   export let retention: Retention;
   export let burn = false;
+  /** Small enough to travel inside the link unless it has to burn after reading. */
+  export let short = false;
   /** Timelock + reminder copy: treat unlock as a dead-man's release window. */
   export let deadMan = false;
   /** datetime-local value, empty for no time lock. */
@@ -35,8 +37,8 @@
 </script>
 
 {#if mode !== 'local'}
-  {#if upload}
-    <div class="grid gap-x-4 gap-y-2 sm:grid-cols-2 sm:items-end">
+  <div class="grid gap-x-4 gap-y-2 sm:grid-cols-2 sm:items-end">
+    {#if upload}
       <div class="field">
         <label class="label" for="ue-retention">{t(dict, 'tools.ultimateEncrypt.options.retention')}</label>
         <select id="ue-retention" class="input" bind:value={retention}>
@@ -45,22 +47,18 @@
           {/each}
         </select>
       </div>
-      <label class="check">
-        <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" />
-        <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
-      </label>
-    </div>
-    <p id="ue-burn-hint" class="hint -mt-2">{t(dict, 'tools.ultimateEncrypt.options.burnHint')}</p>
-  {:else}
-    <div class="grid gap-1">
-      <label class="check">
-        <input type="checkbox" bind:checked={burn} aria-describedby="ue-view-once-hint" />
-        <span>{t(dict, 'tools.ultimateEncrypt.options.viewOnce')}</span>
-      </label>
-      <p id="ue-view-once-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.viewOnceHint')}</p>
-      <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.inlineHint')}</p>
-    </div>
-  {/if}
+    {/if}
+    <label class="check">
+      <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" />
+      <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
+    </label>
+  </div>
+  <div id="ue-burn-hint" class="-mt-2 grid gap-1">
+    <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.burnHint')}</p>
+    {#if short}
+      <p class="hint">{t(dict, burn ? 'tools.ultimateEncrypt.options.burnStoredHint' : 'tools.ultimateEncrypt.options.inlineHint')}</p>
+    {/if}
+  </div>
 
   <div class="field">
     <label class="label" for="ue-unlock">{t(dict, 'tools.ultimateEncrypt.options.unlockAfter')}</label>

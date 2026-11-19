@@ -854,7 +854,11 @@
         burnedNotice = t(dict, 'tools.ultimateDecrypt.viewOnceBurned');
       }
     } else if (data.mode === 'ghost') {
-      await handleGhostPayload(data, timeSecret);
+      await handleGhostPayload(data, timeSecret, link.burn === true);
+      if (link.burn) {
+        markViewOnceConsumed(hashPayload);
+        burnedNotice = t(dict, 'tools.ultimateDecrypt.burnOpened');
+      }
     } else {
       throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnknownMode'));
     }
@@ -897,7 +901,7 @@
     }
   }
 
-  async function handleGhostPayload(data: any, timeSecret?: Uint8Array) {
+  async function handleGhostPayload(data: any, timeSecret?: Uint8Array, burn = false) {
     const urls: string[] = Array.isArray(data.urls) ? data.urls.filter((url: unknown): url is string => typeof url === 'string') : [];
     const isStego: boolean = data.stego ?? false;
     pushDebug(`Ghost payload opened: urls=${urls.length}, stego=${isStego}`);
@@ -916,6 +920,7 @@
 
         const res = await ghostFetch(url);
         pushDebug(`Proxy fetch response HTTP ${res.status} for ${url}`);
+        if (burn && res.status === 404) throw new Notice(t(dict, 'tools.ultimateDecrypt.burnGone'));
         if (!res.ok) {
           lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
           pushDebug(`Source failed before body read: ${lastErr}`);
@@ -966,6 +971,7 @@
         presentFile(decryptedData, name);
         return;
       } catch (e: any) {
+        if (e instanceof Notice) throw e;
         lastErr = e?.message || t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
         pushDebug(`Source ${url} failed: ${lastErr}`);
       }
