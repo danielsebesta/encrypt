@@ -3,11 +3,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ICONS, OUTLINE } from '../src/lib/iconManifest.ts';
+import { FILLED_EXTRAS } from '../src/lib/iconExtras.ts';
 
 const root = new URL('../', import.meta.url);
 const file = (p) => fileURLToPath(new URL(p, root));
 
 const data = JSON.parse(readFileSync(file('node_modules/@iconify-json/tabler/icons.json'), 'utf8'));
+Object.assign(data.icons, FILLED_EXTRAS);
 
 function resolve(name) {
   let current = name;

@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ICONS, OUTLINE } from '../src/lib/iconManifest';
 import { TABLER, ICON_CREDIT } from '../src/lib/icons';
+import { FILLED_EXTRAS } from '../src/lib/iconExtras';
 
 const tabler = JSON.parse(
   readFileSync(new URL('../node_modules/@iconify-json/tabler/icons.json', import.meta.url), 'utf8'),
 ) as { icons: Record<string, { body: string }>; aliases?: Record<string, { parent: string }> };
+Object.assign(tabler.icons, FILLED_EXTRAS);
 
 function resolve(name: string): string | null {
   let current = name;
@@ -42,7 +44,6 @@ const FORCED_OUTLINE = [
 ] as const;
 
 const NATURAL_OUTLINE = [
-  'android',
   'arrow-up-right',
   'at-sign',
   'audio-lines',
