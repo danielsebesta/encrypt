@@ -3,6 +3,7 @@
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
   import { REACTION_EMOJI, type ReactionEmoji } from '../../lib/chatReactions';
+  import { menu } from '../ui/menu';
 
   let { dict, open, align = 'start', mine = [], canBurn = false, ontoggle, onreply, onreact, onmore, onburn }: {
     dict: Record<string, string>;
@@ -25,10 +26,7 @@
   $effect(() => {
     if (!open) return;
     upward = roomAbove();
-    void tick().then(() => {
-      menuEl?.querySelector<HTMLElement>('button')?.focus();
-      fitMenu();
-    });
+    void tick().then(fitMenu);
   });
 
   function fitMenu() {
@@ -69,22 +67,11 @@
   }
 
   function onkeydown(event: KeyboardEvent) {
-    const items = [...(menuEl?.querySelectorAll<HTMLElement>('button') ?? [])];
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    const items = [...(menuEl?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
     const at = items.indexOf(document.activeElement as HTMLElement);
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close(true);
-    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      items[(at + 1) % items.length]?.focus();
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      items[(at - 1 + items.length) % items.length]?.focus();
-    } else if (event.key === 'Home' || event.key === 'End') {
-      event.preventDefault();
-      items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
-    }
+    event.preventDefault();
+    items[(at + (event.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length]?.focus();
   }
 
   function onfocusout(event: FocusEvent) {
@@ -95,7 +82,7 @@
 <div class="msg-actions" class:msg-actions--open={open} bind:this={rootEl} {onfocusout}>
   <button
     type="button"
-    class="msg-actions__trigger"
+    class="btn-ghost btn-sm btn-icon msg-actions__trigger"
     bind:this={triggerEl}
     aria-haspopup="menu"
     aria-expanded={open}
@@ -106,14 +93,23 @@
     <Icon name="ellipsis" />
   </button>
   {#if open}
-    <div class="msg-actions__menu" class:msg-actions__menu--up={upward} class:msg-actions__menu--end={align === 'end'} role="menu" tabindex="-1" aria-label={t(dict, 'chat.messageActions')} bind:this={menuEl} {onkeydown}>
+    <div
+      class="menu menu--open msg-actions__menu"
+      class:msg-actions__menu--up={upward}
+      class:msg-actions__menu--end={align === 'end'}
+      role="menu"
+      tabindex="-1"
+      aria-label={t(dict, 'chat.messageActions')}
+      bind:this={menuEl}
+      use:menu={{ open, onclose: () => ontoggle(false), trigger: triggerEl }}
+      {onkeydown}
+    >
       <div class="msg-actions__emoji">
         {#each REACTION_EMOJI as emoji}
           <button
             type="button"
             role="menuitemcheckbox"
-            class="msg-actions__react"
-            class:msg-actions__react--on={mine.includes(emoji)}
+            class="btn-ghost btn-icon msg-actions__react"
             aria-checked={mine.includes(emoji)}
             aria-label={t(dict, 'chat.reactWith').replace('{emoji}', emoji)}
             title={t(dict, 'chat.reactWith').replace('{emoji}', emoji)}
@@ -124,19 +120,20 @@
           <button
             type="button"
             role="menuitem"
-            class="msg-actions__react msg-actions__more chat-emoji-btn"
+            class="btn-ghost btn-icon chat-emoji-btn"
             aria-label={t(dict, 'chat.reactMore')}
             title={t(dict, 'chat.reactMore')}
             onclick={() => { const anchor = triggerEl; ontoggle(false); if (anchor) onmore(anchor); }}
-          ><Icon name="smile-plus" size={20} /></button>
+          ><Icon name="smile-plus" /></button>
         {/if}
       </div>
-      <button type="button" role="menuitem" class="menu__item msg-actions__reply" onclick={() => { ontoggle(false); onreply(); }}>
+      <div class="menu__sep" role="separator"></div>
+      <button type="button" role="menuitem" class="menu__item" onclick={() => { ontoggle(false); onreply(); }}>
         <Icon name="reply" />
         <span>{t(dict, 'chat.reply')}</span>
       </button>
       {#if canBurn && onburn}
-        <button type="button" role="menuitem" class="menu__item msg-actions__burn" onclick={() => { ontoggle(false); onburn(); }}>
+        <button type="button" role="menuitem" class="menu__item menu__item--danger" onclick={() => { ontoggle(false); onburn(); }}>
           <Icon name="trash" />
           <span>{t(dict, 'chat.burnForEveryone')}</span>
         </button>
@@ -151,20 +148,9 @@
     flex-shrink: 0;
   }
   .msg-actions__trigger {
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    margin: -0.25rem 0;
-    border-radius: 6px;
-    color: var(--muted);
+    margin: -0.375rem 0;
     opacity: 0;
-    transition: opacity var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
-  }
-  .msg-actions__trigger:hover,
-  .msg-actions--open .msg-actions__trigger {
-    background: var(--surface-2);
-    color: var(--text);
+    transition: opacity var(--duration-fast) var(--ease-out);
   }
   .msg-actions--open .msg-actions__trigger,
   .msg-actions__trigger:focus-visible,
@@ -173,25 +159,18 @@
     opacity: 1;
   }
   @media (hover: none) {
-    .msg-actions__trigger { opacity: 0.7; }
+    .msg-actions__trigger { opacity: 1; }
   }
   .msg-actions__menu {
-    position: absolute;
     left: 0.25rem;
     top: 2.1rem;
-    z-index: var(--z-menu);
-    display: grid;
-    gap: 2px;
-    padding: 0.3rem;
+    margin: 0;
+    min-width: 0;
     width: max-content;
     max-width: calc(100vw - 1rem);
     max-height: min(70dvh, 24rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: 8px;
-    background: var(--bg);
-    border: 1px solid var(--line-soft);
-    box-shadow: var(--shadow-float);
   }
   .msg-actions__menu--end {
     left: auto;
@@ -207,33 +186,12 @@
     gap: 2px;
   }
   .msg-actions__react {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    overflow: hidden;
-    border-radius: 8px;
-    font-size: 1.15rem;
+    font-size: 1.25rem;
     line-height: 1;
-    transition: background-color var(--duration-fast) var(--ease-out);
   }
-  .msg-actions__react:hover,
-  .msg-actions__react:focus-visible {
-    background: var(--surface-2);
-  }
-  .msg-actions__more { color: var(--muted); }
-  .msg-actions__react--on {
+  .msg-actions__react[aria-checked="true"] {
+    --btn-fg: var(--accent-strong);
+    border-color: var(--accent-line);
     background: var(--accent-weak);
-  }
-  .msg-actions__reply,
-  .msg-actions__burn {
-    width: 100%;
-    min-height: 2.75rem;
-  }
-  .msg-actions__burn {
-    color: var(--danger);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .msg-actions__trigger, .msg-actions__react { transition: none; }
   }
 </style>

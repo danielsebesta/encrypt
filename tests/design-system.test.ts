@@ -117,7 +117,6 @@ const COMPUTED_CLASS: Record<string, string> = {
   'src/components/ui/Tabs.svelte': 'renders class="tab"',
   'src/components/CopyButton.svelte': "baseClass is 'btn' or 'btn-ghost btn-sm'",
   'src/components/ShareLinkButton.svelte': "className defaults to 'btn-ghost btn-sm'; callers pass a canonical variant",
-  'src/components/tools/ChatMembers.svelte': "btn() returns 'btn btn-sm' / 'btn-secondary btn-sm' outside /app",
 };
 
 /**
@@ -127,17 +126,13 @@ const COMPUTED_CLASS: Record<string, string> = {
 const PENDING: Record<string, string[]> = {
   'src/components/tools/ChatCall.svelte': ['call-mini__main', 'call-mini__btn', 'call__top-btn', 'call__expand', 'call__btn', 'chat-call-fullscreen__close'],
   'src/components/tools/ChatComposer.svelte': ['chat-attach-btn', 'chat-attach-option', 'chat-send-btn', '{cls}'],
-  'src/components/tools/ChatMembers.svelte': ['chat-member__head'],
-  'src/components/tools/ChatMessageActions.svelte': ['msg-actions__trigger', 'msg-actions__react'],
-  'src/components/tools/ChatQuote.svelte': ['msg-quote__body'],
-  'src/components/tools/ChatReactions.svelte': ['msg-reactions__chip'],
   'src/components/tools/ChatRoom.svelte': [
     'chat-me-pill', 'chat-react-btn', 'app-incoming__btn', 'chat-call-accept', 'chat-call-decline', 'chat-key-warn', 'chat-once-reveal',
     'chat-file__dl', 'chat-whiteboard-card__btn', 'chat-preview-img-btn', 'chat-preview-expand', 'chat-kmsg-actions__btn', 'chat-kmsg-pending',
     'chat-send-state', 'chat-jump-latest', 'chat-lightbox__close',
   ],
-  'src/components/tools/ChatVoiceMessage.svelte': ['voice-msg__play', 'voice-msg__rate'],
-  'src/components/tools/ChatVoiceRecorder.svelte': ['voice-rec-app__cancel', 'voice-rec-app__send', 'voice-rec__stop'],
+  'src/components/tools/ChatVoiceMessage.svelte': ['voice-msg__rate'],
+  'src/components/tools/ChatVoiceRecorder.svelte': ['voice-rec-app__cancel', 'voice-rec-app__send'],
   'src/components/tools/EmojiPicker.svelte': ['ep__cell', 'ep__swatch', 'ep__clear', 'ep__tone-toggle', 'ep__tab'],
   'src/components/tools/RoomInviteCard.svelte': ['invite-card__copy'],
   'src/components/tools/Whiteboard.svelte': ['wb-btn', 'wb-color', 'wb-key-warn', 'wb-people-trigger'],

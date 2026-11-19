@@ -6306,7 +6306,7 @@
             {#snippet text()}
               {#if msg.replyTo}
                 {@const quote = quoteOf(msg.replyTo, messageIndex)}
-                <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
+                <ChatQuote {dict} {appMode} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
               {/if}
               {#if msg.once && !msg.mine && !msg.revealed}
                 <button type="button" class="chat-once-reveal" on:click={() => revealOnce(msg)}>
@@ -6417,7 +6417,7 @@
                     {t(dict, 'chat.tryAgain')}
                   </button>
                 {/if}
-                <ChatReactions {dict} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
+                <ChatReactions {dict} {appMode} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
                 {#if msg.ttl > 0}
                   <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
                     <svg class="chat-timer__ring" viewBox="0 0 24 24">
@@ -6485,7 +6485,7 @@
               </div>
               {#if msg.replyTo}
                 {@const quote = quoteOf(msg.replyTo, messageIndex)}
-                <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
+                <ChatQuote {dict} {appMode} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
               {/if}
               {#if msg.once && !msg.mine && !msg.revealed}
                 <button type="button" class="chat-once-reveal" on:click={() => revealOnce(msg)}>
@@ -6561,7 +6561,7 @@
                 <p class="chat-once-note">{t(dict, 'chat.onceBurned')}</p>
               {/if}
               {/if}
-              <ChatReactions {dict} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
+              <ChatReactions {dict} {appMode} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
             </div>
             {#if msg.ttl > 0}
               <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
@@ -6643,7 +6643,7 @@
         {#if replyTarget}
           {@const quote = quoteOf(replyTarget.id, messageIndex)}
           <div class="chat-reply-bar">
-            <ChatQuote {dict} name={quote.name} color={quote.color} text={quote.text} oncancel={() => { replyTarget = null; inputEl?.focus(); }} />
+            <ChatQuote {dict} {appMode} name={quote.name} color={quote.color} text={quote.text} oncancel={() => { replyTarget = null; inputEl?.focus(); }} />
           </div>
         {/if}
         {#if scheduledDrafts.length}
