@@ -827,6 +827,17 @@ html.dark {
         }
     }
 
+    @media (forced-colors: active) {
+        .tab[aria-selected="true"] {
+            border-bottom-color: Highlight;
+        }
+
+        .tabs--slide .tab[aria-selected="true"] {
+            outline: 2px solid Highlight;
+            outline-offset: -2px;
+        }
+    }
+
     .tabs--glide .tab[aria-selected="true"] {
         @apply bg-transparent;
     }

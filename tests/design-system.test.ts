@@ -107,7 +107,6 @@ const MODIFIERS: readonly string[] = BUTTON_MODIFIERS;
 /** Other canonical control classes a `<button>` may carry instead of a button variant. */
 const CONTROL_CLASSES = ['menu__item', 'chip', 'tab', 'nav__link', 'dropzone'];
 const CANONICAL = [...VARIANTS, ...CONTROL_CLASSES];
-const BTN_TOKEN = /(?<![\w-])btn-[a-z][a-z0-9-]*(?![\w-])/g;
 /** Internal parts of CopyButton / ShareLinkButton feedback animation, not button styles. */
 const BTN_INTERNAL = /^btn-feedback(?:__|--|$)/;
 
