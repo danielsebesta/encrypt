@@ -11,6 +11,11 @@ type Props = {
 const { dict } = Astro.props;
 const localePrefix = '';
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s+(?=\p{Lu})/u)[0];
+const taskSlugs = ['steganography', 'photo-cipher', 'time-capsule', 'spectral-cipher', 'chat-cipher'];
+const tasks = taskSlugs.map((slug, i) => ({
+  label: t(dict, `home.tools.tasks.${i + 1}`),
+  href: `${localePrefix}/experiments/${slug}`,
+}));
 const items = tools.map((tool) => ({
   label: t(dict, tool.navLabelKey),
   text: firstSentence(t(dict, `${tool.i18nPrefix}.subtitle`)),
@@ -39,4 +44,18 @@ const items = tools.map((tool) => ({
       </li>
     ))}
   </ul>
+
+  <div class="home-tools__tasks">
+    <h3 class="home-tools__tasks-title">{t(dict, 'home.tools.tasks.title')}</h3>
+    <ul class="home-tools__tasks-list">
+      {tasks.map((task) => (
+        <li>
+          <a href={task.href}>
+            <Icon name="chevron-right" />
+            <span>{task.label}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
 </section>

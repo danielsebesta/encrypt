@@ -4,6 +4,8 @@ import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
 import HeroTagline from '../components/home/HeroTagline.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
+import AppQr from '../components/home/AppQr.svelte';
+import AppShowcase from '../components/home/AppShowcase.svelte';
 import { REPO_URL } from '../lib/repo';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
@@ -16,7 +18,12 @@ const taglines = [1, 2, 3, 4].map((n) => t(dict, `home.tagline.${n}`));
 const facts = [1, 2, 3];
 const steps = [1, 2, 3];
 const deviceItems = [1, 2, 3];
-const appFeatures = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3]] as const;
+const appFeatures = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3], ['download', 4]] as const;
+const appShots = [
+  { id: 'chats', src: '/screenshot-hub-chats.png?v=9', label: t(dict, 'app.tab.chats') },
+  { id: 'boards', src: '/screenshot-hub-boards.png?v=9', label: t(dict, 'app.tab.boards') },
+  { id: 'settings', src: '/screenshot-android-hub-settings.png?v=9', label: t(dict, 'app.tab.settings') },
+];
 const serverItems = [1, 2, 3];
 ---
 
@@ -95,16 +102,22 @@ const serverItems = [1, 2, 3];
     <HomeTools locale={locale} dict={dict} />
 
     <section class="home-app" aria-labelledby="home-app-title">
-      <div class="home-app__head">
-        <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
-        <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
-          <li class="platform-pill"><Icon name="apple" size={16} />{t(dict, 'pwa.platforms.ios')}</li>
-          <li class="platform-pill"><Icon name="android" size={16} />{t(dict, 'pwa.platforms.android')}</li>
-        </ul>
-        <div class="actions mt-2">
-          <button type="button" class="btn hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
-          <a href={`${localePrefix}/install`} class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
+      <div class="home-app__hero">
+        <div class="home-app__copy">
+          <p class="home-app__badge"><Icon name="smartphone" size={16} />{t(dict, 'pwa.promo.badge')}</p>
+          <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
+          <p class="page-lead">{t(dict, 'pwa.promo.lead')}</p>
+          <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
+            <li class="platform-pill"><Icon name="apple" size={16} />{t(dict, 'pwa.platforms.ios')}</li>
+            <li class="platform-pill"><Icon name="android" size={16} />{t(dict, 'pwa.platforms.android')}</li>
+          </ul>
+          <div class="actions">
+            <button type="button" class="btn hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+            <a href={`${localePrefix}/install`} class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
+          </div>
+          <AppQr client:visible path={`${localePrefix}/install`} label={t(dict, 'pwa.promo.scan')} alt={t(dict, 'install.guide.qrAlt')} />
         </div>
+        <AppShowcase client:visible shots={appShots} label={t(dict, 'pwa.promo.screens')} />
       </div>
       <ul class="home-app__features">
         {appFeatures.map(([icon, n]) => (
@@ -115,11 +128,6 @@ const serverItems = [1, 2, 3];
           </li>
         ))}
       </ul>
-      <div class="home-app__gallery" aria-hidden="true">
-        <img class="app-shot home-app__shot home-app__shot--side" src="/screenshot-hub-boards.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
-        <img class="app-shot home-app__shot home-app__shot--main" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="lazy" decoding="async" />
-        <img class="app-shot home-app__shot home-app__shot--side" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
-      </div>
     </section>
   </div>
 </Layout>

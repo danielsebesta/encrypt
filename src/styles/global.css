@@ -1653,26 +1653,128 @@ html.dark {
         @apply translate-x-0.5 text-text;
     }
 
+    .home-tools__tasks {
+        @apply mt-4 grid gap-1 rounded-lg border border-line bg-surface-2 px-4 py-3 md:px-5;
+    }
+
+    .home-tools__tasks-title {
+        @apply text-sm font-semibold text-text;
+    }
+
+    .home-tools__tasks-list {
+        @apply m-0 grid list-none p-0 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3;
+    }
+
+    .home-tools__tasks-list a {
+        @apply inline-flex min-h-11 items-center gap-1.5 text-sm text-muted;
+        transition: color var(--duration-fast) var(--ease-out);
+    }
+
+    .home-tools__tasks-list a:hover,
+    .home-tools__tasks-list a:focus-visible {
+        @apply text-text;
+    }
+
     .home-app {
-        @apply grid gap-10 overflow-hidden pt-6 md:gap-14 md:pt-12;
+        @apply grid gap-12 overflow-hidden pt-6 md:gap-16 md:pt-12;
     }
 
-    .home > .home-app {
-        @apply -mb-16;
+    .home-app__hero {
+        @apply grid items-center gap-10 lg:grid-cols-2 lg:gap-16;
     }
 
-    .home-app__head {
-        @apply grid justify-items-center gap-5 text-center;
+    .home-app__copy {
+        @apply grid min-w-0 justify-items-center gap-5 text-center lg:justify-items-start lg:text-left;
     }
 
-    .home-app__head .section-title {
-        @apply max-w-3xl font-semibold leading-[1.05] tracking-tight;
-        font-size: clamp(2.25rem, 1.1rem + 4.6vw, 4.5rem);
+    .home-app__badge {
+        @apply m-0 inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1 text-sm font-medium text-muted;
     }
 
-    .home-app__head .platform-pills,
-    .home-app__head .actions {
-        @apply justify-center;
+    .home-app__copy .section-title {
+        @apply max-w-xl font-semibold leading-[1.05] tracking-tight;
+        font-size: clamp(2.25rem, 1.2rem + 4.2vw, 4rem);
+    }
+
+    .home-app__copy .page-lead {
+        @apply max-w-lg;
+    }
+
+    .home-app__copy .platform-pills,
+    .home-app__copy .actions {
+        @apply justify-center lg:justify-start;
+    }
+
+    .home-app__qr {
+        @apply hidden gap-2 rounded-lg border border-line bg-surface p-3 md:grid;
+    }
+
+    .home-app__qr-label {
+        @apply m-0 text-xs font-medium text-muted;
+    }
+
+    .home-app__qr-code {
+        @apply h-[7.5rem] w-[7.5rem] overflow-hidden rounded-md border border-line bg-white p-1;
+    }
+
+    .home-app__qr-code svg {
+        @apply h-full w-full;
+    }
+
+    .home-app__showcase {
+        @apply grid min-w-0 justify-items-center gap-5;
+    }
+
+    .home-app__phone {
+        @apply relative w-full;
+        max-width: clamp(11rem, 46vw, 20rem);
+        aspect-ratio: 220 / 476;
+    }
+
+    .home-app__shot {
+        @apply absolute inset-0 h-full w-full opacity-0;
+        transition: opacity var(--duration-base) var(--ease-out);
+    }
+
+    .home-app__shot.is-active {
+        @apply opacity-100;
+    }
+
+    .home-app__chips {
+        @apply flex gap-1 rounded-lg border border-line bg-surface p-1;
+    }
+
+    .home-app__chip {
+        @apply min-h-9 rounded-md px-3 text-sm font-medium text-muted;
+        transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+    }
+
+    .home-app__chip:hover {
+        @apply text-text;
+    }
+
+    .home-app__chip[aria-selected='true'] {
+        @apply bg-surface-2 text-text;
+    }
+
+    .home-app__features {
+        @apply m-0 grid w-full list-none gap-6 border-t border-line p-0 pt-8 sm:grid-cols-2 lg:grid-cols-4;
+    }
+
+    .home-app__features li {
+        @apply grid content-start gap-1;
+    }
+
+    .home-app__feature-icon {
+        @apply mb-2 inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-surface-2 text-accent;
+    }
+
+    .home-app__feature-title {
+        @apply text-base font-medium text-text;
+    }
+
+    .home-app__feature-text {
+        @apply text-sm text-muted;
     }
 
     .install-now {
@@ -1705,47 +1807,6 @@ html.dark {
 
     .install-now__qr svg {
         @apply h-full w-full;
-    }
-
-    .home-app__features {
-        @apply mx-auto grid w-full max-w-3xl gap-4 md:grid-cols-3 md:gap-6;
-    }
-
-    .home-app__features li {
-        @apply grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-x-3;
-    }
-
-    .home-app__feature-icon {
-        @apply row-span-2 inline-flex h-9 w-9 items-center justify-center rounded-md border border-line bg-surface-2 text-accent;
-    }
-
-    .home-app__feature-title {
-        @apply text-sm font-medium text-text;
-    }
-
-    .home-app__feature-text {
-        @apply text-sm text-muted;
-    }
-
-    .home-app__gallery {
-        @apply flex items-end justify-center gap-3 md:gap-6;
-    }
-
-    .home-app__shot {
-        @apply shrink-0;
-        width: clamp(8.5rem, 24vw, 14rem);
-        margin-bottom: -4rem;
-    }
-
-    .home-app__shot--main {
-        width: clamp(9.5rem, 28vw, 16rem);
-        margin-bottom: -2rem;
-    }
-
-    @media (max-width: 639px) {
-        .home-app__shot--side {
-            display: none;
-        }
     }
 
     /* ── Article ── */
