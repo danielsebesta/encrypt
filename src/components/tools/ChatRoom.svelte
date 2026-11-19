@@ -26,6 +26,8 @@
   let accessToken = "";
   let channelId = "";
   const replay = new ReplayWindow();
+  import { newPresenceState, presenceDeparture } from '../../lib/chatPresence';
+  import { ToggleQueue } from '../../lib/toggleQueue';
   import { onMount, onDestroy, tick as settled } from 'svelte';
   import PartySocket from 'partysocket';
   import {
@@ -558,6 +560,7 @@
   let fsSession: ForwardSecrecySession | null = null;
   let localKey: CryptoKey | null = null;
   let lastPresenceCount = 0;
+  const presenceState = newPresenceState();
   let inbound: Promise<void> = Promise.resolve();
   let callSignals: Promise<void> = Promise.resolve();
   let wantTimer: ReturnType<typeof setTimeout> | undefined;
@@ -2152,11 +2155,15 @@
     if (messages.some((m) => m.id === id)) messages = messages.map((m) => (m.id === id ? { ...m, ...patch } : m));
   }
 
+  const slowTimers = new Set<ReturnType<typeof setTimeout>>();
+
   function markSlowLater(id: string) {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      slowTimers.delete(timer);
       const m = messages.find((x) => x.id === id);
       if (m && (m.pending || m.unacked) && !m.slow) patchMessage(id, { slow: true });
     }, SLOW_SEND_MS);
+    slowTimers.add(timer);
   }
 
   function awaitAck(payload: ChatPayload, signed: string, createdAt: number, keep: boolean) {
@@ -2779,6 +2786,7 @@
       pushKey = typeof data.push === 'string' ? data.push : '';
       serverPresence = typeof data.presence === 'number' ? data.presence : 0;
       lastPresenceCount = serverPresence;
+      presenceState.last = serverPresence;
       const config = applyRoomConfig(data.config);
       if (!cryptoKey && pendingSecret) {
         await openWithConfig(config);
@@ -2812,7 +2820,8 @@
     }
     if (data.type === 'presence') {
       serverPresence = typeof data.count === 'number' ? data.count : 0;
-      const left = serverPresence < lastPresenceCount;
+      const leftTag = typeof data.left === 'string' ? data.left : undefined;
+      const left = presenceDeparture(presenceState, serverPresence, leftTag);
       lastPresenceCount = serverPresence;
       const gone = typeof data.left === 'string' ? departedClient(data.left) : undefined;
       if (cryptoKey && joinedRoom && verifying && !verified && serverPresence <= 1) {
@@ -3487,9 +3496,19 @@
     return reactionBook.mine(target, mySignerId);
   }
 
-  async function toggleReaction(target: Message, emoji: ReactionEmoji) {
-    if (!cryptoKey || !ws || !connected) return;
-    const remove = reactionBook.has(target.id, emoji, mySignerId);
+  const reactionQueue = new ToggleQueue();
+
+  function toggleReaction(target: Message, emoji: ReactionEmoji): Promise<void> {
+    if (!cryptoKey || !ws || !connected) return Promise.resolve();
+    return reactionQueue.toggle(
+      `${target.id}\u0000${emoji}`,
+      () => reactionBook.has(target.id, emoji, mySignerId),
+      (on) => sendReaction(target, emoji, !on),
+    );
+  }
+
+  async function sendReaction(target: Message, emoji: ReactionEmoji, remove: boolean): Promise<boolean> {
+    if (!cryptoKey || !ws || !connected) return false;
     const ttl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
     const id = genId();
     const createdAt = Date.now();
@@ -3502,11 +3521,12 @@
       ({ signed } = await sendContent(payload, createdAt));
     } catch {
       fileError = t(dict, 'chat.sendFailed');
-      return;
+      return false;
     }
     seenMessageIds.add(id);
     if (!ttl) void storeLocalSigned(id, signed, createdAt).catch(() => {});
     applyReaction(id, JSON.parse(signed), mySignerId, identity.name, signed);
+    return true;
   }
 
   async function copyMessageText(msg: Message) {
@@ -5638,6 +5658,10 @@
     setupCallMediaSession(false);
     clearTimeout(callErrorTimer);
     clearTimeout(typingSweep);
+    for (const timer of slowTimers) clearTimeout(timer);
+    slowTimers.clear();
+    for (const timer of leaveTimers.values()) clearTimeout(timer);
+    leaveTimers.clear();
     if (ackWatch) clearInterval(ackWatch);
     if (outboxPersistTimer && cryptoKey && channelId && typeof sessionStorage !== 'undefined') {
       clearTimeout(outboxPersistTimer);

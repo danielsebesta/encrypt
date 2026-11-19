@@ -330,36 +330,57 @@ export async function getRoom(kind: RoomKind, roomId: string): Promise<RoomEntry
   }
 }
 
+async function mutateRoom(id: string, change: (entry: RoomEntry) => RoomEntry, fallback?: RoomEntry): Promise<RoomEntry | null> {
+  const db = await openDb();
+  try {
+    return await new Promise<RoomEntry | null>((resolve, reject) => {
+      const tx = db.transaction(ROOMS, 'readwrite');
+      const store = tx.objectStore(ROOMS);
+      let result: RoomEntry | null = null;
+      const read = store.get(id);
+      read.onsuccess = () => {
+        const base = validEntry(read.result) ?? fallback;
+        if (!base) return;
+        result = change(base);
+        store.put(result);
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
 /** A visit to a saved room moves it up the list; no unlock is needed because the secret is left as it is. */
 export async function touchRoom(kind: RoomKind, roomId: string): Promise<RoomEntry | null> {
-  const entry = await getRoom(kind, roomId);
-  if (!entry) return null;
-  const next = { ...entry, lastSeen: Date.now() };
-  try { await withStore(ROOMS, 'readwrite', (s) => s.put(next)); } catch {}
-  return next;
+  if (!validRoomId(roomId) || !(await vaultExists())) return null;
+  try {
+    return await mutateRoom(entryId(kind, roomId), (e) => ({ ...e, lastSeen: Date.now() }));
+  } catch {
+    return null;
+  }
 }
 
 export async function renameRoom(entry: RoomEntry, label: string): Promise<RoomEntry> {
-  const next = { ...entry, label: cleanLabel(label, entry.roomId) };
-  await withStore(ROOMS, 'readwrite', (s) => s.put(next));
-  return next;
+  return (await mutateRoom(entry.id, (e) => ({ ...e, label: cleanLabel(label, e.roomId) }), entry)) as RoomEntry;
 }
 
 /** The secret is sealed to the entry id only, so the mode can follow what the room reports. */
 export async function setRoomMode(entry: RoomEntry, mode: string): Promise<RoomEntry> {
   if (entry.mode === mode || !validMode(entry.kind, mode)) return entry;
-  const next: RoomEntry = { ...entry, mode };
-  await withStore(ROOMS, 'readwrite', (s) => s.put(next));
-  return next;
+  return (await mutateRoom(entry.id, (e) => ({ ...e, mode }), entry)) as RoomEntry;
 }
 
 /** Pin is plaintext vault metadata beside name/mode; it never touches the sealed secret. */
 export async function setRoomPinned(entry: RoomEntry, pinned: boolean): Promise<RoomEntry> {
-  const next: RoomEntry = { ...entry };
-  if (pinned) next.pinned = true;
-  else delete next.pinned;
-  await withStore(ROOMS, 'readwrite', (s) => s.put(next));
-  return next;
+  return (await mutateRoom(entry.id, (e) => {
+    const next: RoomEntry = { ...e };
+    if (pinned) next.pinned = true;
+    else delete next.pinned;
+    return next;
+  }, entry)) as RoomEntry;
 }
 
 export async function forgetRoom(entry: RoomEntry): Promise<void> {
