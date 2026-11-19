@@ -2613,67 +2613,8 @@ html.dark {
         @apply block h-auto w-full;
     }
 
-    .ue-result {
-        @apply grid gap-5;
-    }
-
-    .ue-progress {
-        @apply relative overflow-hidden rounded-lg;
-    }
-
-    .ue-progress__line {
-        @apply pointer-events-none absolute inset-x-0 bottom-0 h-[3px];
-    }
-
-    .ue-progress__line::after {
-        content: "";
-        @apply absolute inset-0 bg-accent;
-        transform: scaleX(var(--ue-progress, 0));
-        transform-origin: left;
-        transition: transform var(--duration-base) var(--ease-out);
-    }
-
-    .ue-progress__line--busy::after {
-        width: 35%;
-        transform: translateX(-100%);
-        animation: progress-sweep 1.4s var(--ease-move) infinite;
-    }
-
-    .ue-progress__line--error::after {
-        @apply bg-danger;
-    }
-
-    @keyframes progress-sweep {
-        to {
-            transform: translateX(290%);
-        }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .ue-progress__line--busy::after {
-            animation: none;
-            opacity: 0;
-        }
-    }
-
     .ue-result__ready {
         @apply flex items-center gap-2 text-base font-semibold text-accent;
-    }
-
-    .ue-result-more {
-        @apply rounded-lg border border-line bg-surface px-3 py-1;
-    }
-
-    .ue-result-tell {
-        @apply grid gap-2 rounded-lg border border-line-soft bg-surface-2 px-3.5 py-3 text-sm leading-snug text-muted;
-    }
-
-    .ue-result-tell__title {
-        @apply font-semibold text-text;
-    }
-
-    .ue-result-tell ul {
-        @apply list-disc space-y-1 pl-5;
     }
 
     .ud-entry {
