@@ -1,5 +1,5 @@
 ---
-import AsciiBackground from '../components/AsciiBackground.svelte';
+import FlowBackground from '../components/FlowBackground.astro';
 import '../styles/global.css'
 
 import { getTranslations, t, languages, locales, getLocalePath, type Locale } from '../lib/i18n';
@@ -20,7 +20,6 @@ type Props = {
   robots?: string;
 };
 
-const backgroundMode = 'ascii' as 'ascii' | 'flow';
 const isHome = /^\/(?:(?:cs|de|es|fr|sk|pl)\/?)?$/.test(Astro.url.pathname);
 const isInstall = /^\/(?:(?:cs|de|es|fr|sk|pl)\/)?install\/?$/.test(Astro.url.pathname);
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -138,10 +137,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#f9faef" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#11140e" media="(prefers-color-scheme: dark)" />
-		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
-		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
-		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
-		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content={robots} />
 		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
@@ -174,11 +169,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</script>
 	</head>
 	<body>
-		{!background ? null : backgroundMode === 'flow' ? (
-			<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
-		) : (
-			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:load /></div>
-		)}
+		{background && <FlowBackground />}
 		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
 		<header class="site-header">
 			<div
@@ -326,7 +317,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</p>
 			</div>
 		</footer>
-		<script is:inline src="/ui.js?v=flow-v9" defer></script>
+		<script is:inline src="/ui.js?v=ui-v10" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v4" defer></script>
 	</body>
 </html>

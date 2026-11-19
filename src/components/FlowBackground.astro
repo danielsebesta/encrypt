@@ -1,0 +1,16 @@
+---
+const src = '/flow-lines.svg?v=1';
+const framings = [
+  { name: 'wide', viewBox: '0 0 1920 1080' },
+  { name: 'compact', viewBox: '0 0 1920 1080' },
+  { name: 'portrait', viewBox: '0 0 900 1600' },
+];
+---
+
+<div class="flow-bg" aria-hidden="true">
+  {framings.map((f) => (
+    <svg class={`flow-bg__art flow-bg__art--${f.name}`} viewBox={f.viewBox} preserveAspectRatio="xMidYMid slice" focusable="false">
+      <use href={`${src}#${f.name}`} />
+    </svg>
+  ))}
+</div>
