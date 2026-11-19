@@ -74,7 +74,7 @@
   import { readSealedOutbox, writeSealedOutbox, type OutboxEntry } from '../../lib/chatOutbox';
   import ChatMessageActions from './ChatMessageActions.svelte';
   import ChatReactions from './ChatReactions.svelte';
-  import { kitAllowed, loadKit } from '../../lib/asciiKit';
+  import { prefersReducedMotion } from '../../lib/appPrefs';
   import ChatQuote from './ChatQuote.svelte';
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
   import ChatComposer from './ChatComposer.svelte';
@@ -3259,11 +3259,19 @@
     reactionBook.forget(id);
     const drop = () => { messages = messages.filter((msg) => msg.id !== id); };
     const row = document.getElementById(`chat-msg-${id}`);
-    if (!row || !kitAllowed() || matchMedia('(prefers-reduced-motion: reduce)').matches) { drop(); return; }
-    loadKit()
-      .then((kit) => Promise.race([kit.disintegrate(row), new Promise((resolve) => setTimeout(resolve, 1600))]))
-      .catch(() => {})
-      .then(drop);
+    if (!row || prefersReducedMotion() || typeof row.animate !== 'function') { drop(); return; }
+    if (row.dataset.burning) return;
+    row.dataset.burning = '1';
+    const height = row.offsetHeight;
+    const style = getComputedStyle(row);
+    row.style.overflow = 'hidden';
+    row.style.transformOrigin = messages.find((msg) => msg.id === id)?.mine ? 'right center' : 'left center';
+    const burn = row.animate([
+      { opacity: 1, transform: 'scale(1)', height: `${height}px`, marginTop: style.marginTop, marginBottom: style.marginBottom, easing: 'ease-in' },
+      { opacity: 0, transform: 'scale(0.96)', height: `${height}px`, marginTop: style.marginTop, marginBottom: style.marginBottom, offset: 0.5, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
+      { opacity: 0, transform: 'scale(0.96)', height: '0px', marginTop: '0px', marginBottom: '0px' },
+    ], { duration: 320, fill: 'forwards' });
+    Promise.race([burn.finished, new Promise((resolve) => setTimeout(resolve, 380))]).catch(() => {}).then(drop);
   }
 
   async function sendMessageBurn(target: string) {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '../../lib/t';
-  import { asciiKit, glAvailable } from '../../lib/asciiKit';
+  import { prefersReducedMotion } from '../../lib/appPrefs';
   import type { ReactionEmoji, ReactionSummary } from '../../lib/chatReactions';
 
   let { dict, items, ontoggle }: {
@@ -10,36 +10,13 @@
   } = $props();
 
   const HEART = '❤️';
-  const bursts = new WeakMap<HTMLElement, { burst(): void; undo(): void }>();
+  const SPARKS = [0, 60, 120, 180, 240, 300];
+  let pop = $state<{ emoji: string; n: number } | null>(null);
+  let popSeq = 0;
 
-  function heartBurst(node: HTMLElement, emoji: string) {
-    return asciiKit(node, (kit, el) => {
-      if (emoji !== HEART || !glAvailable()) return null;
-      const made = kit.likeBurst(el, { kind: 'heart', icon: '[data-emoji]', manage: false, outset: 28, ink: el.closest('.chat-bubble--mine, .chat-kmsg--mine') ? 'var(--on-accent)' : 'var(--accent)', limit: el.closest<HTMLElement>('.chat-bubble, .chat-kmsg'), look: { cellSize: 6 } });
-      bursts.set(el, made);
-      return { destroy() { bursts.delete(el); clearTimeout(pending.get(el)); pending.delete(el); made.destroy(); } };
-    });
-  }
-
-  const busy = new WeakSet<HTMLElement>();
-  const pending = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-
-  function press(item: ReactionSummary, node: HTMLElement) {
-    const burst = bursts.get(node);
-    if (!burst) {
-      ontoggle(item.emoji);
-      return;
-    }
-    if (busy.has(node)) return;
-    busy.add(node);
-    setTimeout(() => busy.delete(node), 650);
-    try { if (item.mine) burst.undo(); else burst.burst(); } catch {}
-    if (item.mine) {
-      pending.set(node, setTimeout(() => {
-        pending.delete(node);
-        if (items.some((entry) => entry.emoji === item.emoji && entry.mine)) ontoggle(item.emoji);
-      }, 320));
-    } else ontoggle(item.emoji);
+  function press(item: ReactionSummary) {
+    if (item.emoji === HEART && !item.mine && !prefersReducedMotion()) pop = { emoji: item.emoji, n: ++popSeq };
+    ontoggle(item.emoji);
   }
 
   const label = (item: ReactionSummary) => t(dict, 'chat.reactionBy').replace('{emoji}', item.emoji).replace('{names}', item.names.join(', '));
@@ -52,13 +29,22 @@
         type="button"
         class="msg-reactions__chip"
         class:msg-reactions__chip--mine={item.mine}
+        class:msg-reactions__chip--pop={pop?.emoji === item.emoji}
         aria-pressed={item.mine}
         aria-label={label(item)}
         title={label(item)}
-        use:heartBurst={item.emoji}
-        onclick={(event) => press(item, event.currentTarget)}
+        onclick={() => press(item)}
       >
-        <span aria-hidden="true" data-emoji>{item.emoji}</span>
+        <span class="msg-reactions__emoji" aria-hidden="true">{item.emoji}</span>
+        {#if pop?.emoji === item.emoji}
+          {#key pop.n}
+            <span class="msg-reactions__pop" aria-hidden="true" onanimationend={(event) => { if (event.target === event.currentTarget) pop = null; }}>
+              {#each SPARKS as angle (angle)}
+                <span class="msg-reactions__spark" style="--spark-a: {angle}deg"></span>
+              {/each}
+            </span>
+          {/key}
+        {/if}
         <span class="msg-reactions__count" aria-hidden="true">{item.count}</span>
       </button>
     {/each}
@@ -73,6 +59,7 @@
     margin-top: 0.35rem;
   }
   .msg-reactions__chip {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
@@ -101,7 +88,60 @@
   .msg-reactions__chip--mine .msg-reactions__count {
     color: var(--accent-strong);
   }
+  .msg-reactions__emoji {
+    display: inline-block;
+  }
+  .msg-reactions__chip--pop .msg-reactions__emoji {
+    animation: msg-reaction-pop var(--duration-slow) var(--ease-out);
+  }
+  .msg-reactions__pop {
+    position: absolute;
+    top: 50%;
+    left: 0.85rem;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    animation: msg-reaction-hold var(--duration-slow) linear;
+  }
+  .msg-reactions__spark {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 6px;
+    height: 6px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0;
+    animation: msg-reaction-spark var(--duration-slow) var(--ease-out);
+  }
+  :global(.chat-bubble--mine) .msg-reactions__spark,
+  :global(.chat-kmsg--mine) .msg-reactions__spark {
+    border: 1px solid var(--accent);
+    background: var(--on-accent);
+  }
+  @keyframes msg-reaction-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+  }
+  @keyframes msg-reaction-hold {
+    from { opacity: 1; }
+    to { opacity: 1; }
+  }
+  @keyframes msg-reaction-spark {
+    0% { opacity: 1; transform: rotate(var(--spark-a)) translateY(-8px) scale(1); }
+    55% { opacity: 1; }
+    100% { opacity: 0; transform: rotate(var(--spark-a)) translateY(-19px) scale(0.5); }
+  }
   @media (prefers-reduced-motion: reduce) {
     .msg-reactions__chip { transition: none; }
+    .msg-reactions__chip--pop .msg-reactions__emoji,
+    .msg-reactions__pop,
+    .msg-reactions__spark { animation: none; }
+    .msg-reactions__pop { display: none; }
   }
+  :global(:root[data-app-reduce-motion="1"]) .msg-reactions__chip--pop .msg-reactions__emoji,
+  :global(:root[data-app-reduce-motion="1"]) .msg-reactions__spark { animation: none; }
+  :global(:root[data-app-reduce-motion="1"]) .msg-reactions__pop { display: none; }
 </style>

@@ -5117,32 +5117,90 @@ html[data-app-platform] ::selection {
 }
 
 .app-slide {
+    --slide-thumb: 42px;
     position: relative;
     display: flex;
     align-items: center;
     height: 48px;
     margin-top: 14px;
-    border: 1px solid var(--app-separator, rgb(128 128 128 / 0.3));
-    border-radius: 24px;
+    border: 1px solid var(--app-separator);
+    border-radius: 8px;
+    background: var(--app-fill);
     overflow: hidden;
     touch-action: pan-y;
     user-select: none;
+    -webkit-user-select: none;
+}
+:root[data-app-platform="material"] .app-slide {
+    border-color: var(--app-outline);
+    background: var(--app-surface-2);
+}
+.app-slide__fill {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: calc(var(--slide-thumb) + 3px + var(--slide-p) * (100% - var(--slide-thumb) - 6px));
+    background: var(--app-error-weak);
+    pointer-events: none;
 }
 .app-slide__label {
+    position: relative;
     flex: 1;
+    padding-inline: calc(var(--slide-thumb) + 10px) 12px;
     text-align: center;
     font-size: 14px;
+    font-weight: 500;
     color: var(--app-label-2);
+    opacity: max(0, calc(1 - var(--slide-p) * 1.2));
+    clip-path: inset(0 0 0 calc(var(--slide-p) * (100% - var(--slide-thumb) - 4px) + var(--slide-thumb)));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     pointer-events: none;
 }
 .app-slide__thumb {
     position: absolute;
-    inset: 3px auto 3px 3px;
-    width: 42px;
-    border-radius: 21px;
+    top: 2px;
+    left: calc(2px + var(--slide-p) * (100% - var(--slide-thumb) - 4px));
+    display: grid;
+    place-items: center;
+    width: var(--slide-thumb);
+    height: var(--slide-thumb);
+    border-radius: 6px;
     background: var(--app-error);
+    color: var(--app-on-error);
     cursor: grab;
+    touch-action: none;
+    outline: none;
 }
-.app-slide[data-state="confirmed"] .app-slide__label {
+.app-slide__thumb:focus-visible {
+    outline: 2px solid var(--app-on-error);
+    outline-offset: -5px;
+}
+.app-slide--dragging .app-slide__thumb {
+    cursor: grabbing;
+}
+.app-slide:not(.app-slide--dragging) .app-slide__thumb {
+    transition: left 180ms var(--ease-out);
+}
+.app-slide:not(.app-slide--dragging) .app-slide__fill {
+    transition: width 180ms var(--ease-out);
+}
+.app-slide:not(.app-slide--dragging) .app-slide__label {
+    transition: opacity 180ms var(--ease-out), clip-path 180ms var(--ease-out);
+}
+.app-slide--confirmed .app-slide__label {
     opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-slide .app-slide__thumb,
+    .app-slide .app-slide__fill,
+    .app-slide .app-slide__label {
+        transition: none !important;
+    }
+}
+:root[data-app-reduce-motion="1"] .app-slide .app-slide__thumb,
+:root[data-app-reduce-motion="1"] .app-slide .app-slide__fill,
+:root[data-app-reduce-motion="1"] .app-slide .app-slide__label {
+    transition: none !important;
 }
