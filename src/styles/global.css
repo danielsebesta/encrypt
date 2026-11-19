@@ -2207,11 +2207,7 @@ html.ascii-ready.ascii-instant .flow-bg--ascii {
 }
 
 .flow-bg--ascii {
-    position: fixed;
-    inset: 0;
-    height: 100lvh;
-    -webkit-mask-size: 100% 250%, 100% 250%, 100% 300%;
-    mask-size: 100% 250%, 100% 250%, 100% 300%;
+    height: min(max(100%, max(100vh, 46rem)), 187.5vw);
 }
 
 @media (max-width: 767px) {
