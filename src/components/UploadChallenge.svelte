@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Modal from './Modal.svelte';
   import { t } from '../lib/t';
   import { solvePow } from '../lib/pow';
 
@@ -9,15 +10,16 @@
     oncancel: () => void;
   } = $props();
 
-  let dialog: HTMLDialogElement;
+  let open = $state(true);
   let progress = $state(0);
   let failed = $state(false);
+  let passed = false;
   const abort = new AbortController();
 
-  function cancel(event?: Event) {
-    event?.preventDefault();
+  function closed() {
     abort.abort();
-    dialog.close();
+    if (passed) return;
+    passed = true;
     oncancel();
   }
 
@@ -31,7 +33,8 @@
       const res = await fetch('/upload/pass', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ solution }) });
       const data = await res.json();
       if (!res.ok || typeof data.pass !== 'string' || !Number.isSafeInteger(data.expires)) throw new Error();
-      dialog.close();
+      passed = true;
+      open = false;
       onpass(data.pass, data.expires);
     } catch {
       if (!abort.signal.aborted) failed = true;
@@ -39,42 +42,25 @@
   }
 
   onMount(() => {
-    dialog.showModal();
     void prove();
     return () => abort.abort();
   });
 </script>
 
-<dialog bind:this={dialog} class="upload-challenge card" aria-labelledby="upload-challenge-title" aria-describedby="upload-challenge-body" oncancel={cancel}>
-  <div class="stack">
-    <div>
-      <h2 id="upload-challenge-title" class="section-title">{t(dict, 'common.uploadChallenge.title')}</h2>
-      <p id="upload-challenge-body" class="hint mt-1">{t(dict, 'common.uploadChallenge.body')}</p>
-    </div>
-    <progress class="upload-challenge__progress" max="1" value={progress} aria-labelledby="upload-challenge-title"></progress>
+<Modal bind:open {dict} size="sm" title={t(dict, 'common.uploadChallenge.title')} description={t(dict, 'common.uploadChallenge.body')} onclose={closed}>
+  <progress class="upload-challenge__progress" max="1" value={progress} aria-label={t(dict, 'common.uploadChallenge.title')}></progress>
+  {#if failed}
+    <p class="status status--error" role="alert">{t(dict, 'common.uploadChallenge.failed')}</p>
+  {/if}
+  {#snippet actions()}
     {#if failed}
-      <p class="status status--error" role="alert">{t(dict, 'common.uploadChallenge.failed')}</p>
+      <button type="button" class="btn" onclick={prove}>{t(dict, 'common.uploadChallenge.retry')}</button>
     {/if}
-    <div class="actions">
-      {#if failed}
-        <button type="button" class="btn" onclick={prove}>{t(dict, 'common.uploadChallenge.retry')}</button>
-      {/if}
-      <button type="button" class="btn-secondary" onclick={() => cancel()}>{t(dict, 'common.uploadChallenge.cancel')}</button>
-    </div>
-  </div>
-</dialog>
+    <button type="button" class="btn-secondary" onclick={() => { open = false; }}>{t(dict, 'common.uploadChallenge.cancel')}</button>
+  {/snippet}
+</Modal>
 
 <style>
-  .upload-challenge {
-    width: min(24rem, calc(100vw - 2rem));
-    margin: auto;
-    color: var(--text);
-    box-shadow: var(--shadow-float);
-    animation: upload-challenge-in var(--duration-dialog) var(--ease-out);
-  }
-  .upload-challenge::backdrop {
-    background: color-mix(in srgb, var(--bg) 70%, transparent);
-  }
   .upload-challenge__progress {
     width: 100%;
     height: 0.5rem;
@@ -95,11 +81,5 @@
   .upload-challenge__progress::-moz-progress-bar {
     border-radius: 4px;
     background: var(--accent);
-  }
-  @keyframes upload-challenge-in {
-    from {
-      opacity: 0;
-      transform: translateY(0.5rem);
-    }
   }
 </style>

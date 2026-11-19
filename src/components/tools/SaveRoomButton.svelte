@@ -2,6 +2,7 @@
   import { MenuListItem } from 'konsta/svelte';
   import { t, tApp } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import Modal from '../Modal.svelte';
   import PasskeyExplain from './PasskeyExplain.svelte';
   import {
     LABEL_MAX, forgetRoom, saveRoom, touchRoom, validMode, validRoomId, validSecret, vaultState, getRoom,
@@ -32,15 +33,9 @@
   let busy = $state(false);
   let message = $state('');
   let tone = $state<'ok' | 'warn' | 'error'>('ok');
-  let dialog = $state<HTMLDialogElement>();
+  let open = $state(false);
   let host = $state('');
   let checked = false;
-
-  // The dialog must outlive the menu it is opened from: inside a closed popover it would be hidden along with it.
-  function portal(node: HTMLElement) {
-    document.body.appendChild(node);
-    return { destroy() { node.remove(); } };
-  }
 
   const usable = $derived(validRoomId(roomId) && validMode(kind, mode));
   const secret = $derived.by((): RoomSecret | null => {
@@ -69,7 +64,7 @@
     host = location.hostname;
     label = entry?.label ?? roomId;
     vault = await vaultState();
-    dialog?.showModal();
+    open = true;
   }
 
   async function save(includeSecret: boolean) {
@@ -99,6 +94,10 @@
   }
 </script>
 
+{#snippet forgetAction()}
+  <button type="button" class="btn-ghost btn-sm text-danger" disabled={busy} onclick={forget}>{t(dict, 'rooms.forget')}</button>
+{/snippet}
+
 {#if ready && usable}
   {#if variant === 'konsta'}
     <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={title} onClick={openDialog}>
@@ -116,74 +115,37 @@
     </button>
   {/if}
 
-  <dialog bind:this={dialog} use:portal class="save-room card" aria-labelledby="save-room-title" aria-describedby="save-room-intro">
-    <form class="stack" onsubmit={(event) => { event.preventDefault(); void save(withPasskey); }}>
-      <div>
-        <h2 id="save-room-title" class="section-title">{title}</h2>
-        <p id="save-room-intro" class="hint mt-1">{tApp(dict, withPasskey ? 'rooms.saveIntro' : secret ? 'rooms.saveNamesOnly' : 'rooms.saveNoPassword', variant === 'konsta')}</p>
-      </div>
-      <div class="field">
-        <label class="label" for="save-room-label">{t(dict, 'rooms.renameLabel')}</label>
-        <input id="save-room-label" class="input" type="text" maxlength={LABEL_MAX} bind:value={label} autocomplete="off" spellcheck="false" />
-        <div class:mt-3={Boolean(message)} aria-live="polite">
-          {#if message}
-            <p class="status status--{tone}">{message}</p>
-          {/if}
-        </div>
-      </div>
-      <div class="actions save-room__actions">
-        <button type="submit" class="btn" disabled={busy}>
-          {t(dict, !withPasskey ? 'rooms.saveNameOnly' : vault === 'new' ? 'rooms.createAndSave' : 'rooms.saveWithPasskey')}
-        </button>
-        {#if withPasskey}
-          <button type="button" class="btn-secondary" disabled={busy} onclick={() => save(false)}>{t(dict, 'rooms.saveNameOnly')}</button>
+  <Modal
+    bind:open
+    {dict}
+    {title}
+    description={tApp(dict, withPasskey ? 'rooms.saveIntro' : secret ? 'rooms.saveNamesOnly' : 'rooms.saveNoPassword', variant === 'konsta')}
+    {busy}
+    footer={entry ? forgetAction : undefined}
+    onsubmit={() => { void save(withPasskey); }}
+  >
+    <div class="field">
+      <label class="label" for="save-room-label">{t(dict, 'rooms.renameLabel')}</label>
+      <input id="save-room-label" class="input" type="text" maxlength={LABEL_MAX} bind:value={label} autocomplete="off" spellcheck="false" />
+      <div class:mt-3={Boolean(message)} aria-live="polite">
+        {#if message}
+          <p class="status status--{tone}">{message}</p>
         {/if}
       </div>
-      {#if withPasskey && vault === 'new'}
-        <p class="hint">{tApp(dict, 'rooms.saveNewPasskey', variant === 'konsta').replace('{host}', host)}</p>
-      {/if}
+    </div>
+    {#if withPasskey && vault === 'new'}
+      <p class="hint">{tApp(dict, 'rooms.saveNewPasskey', variant === 'konsta').replace('{host}', host)}</p>
+    {/if}
+    {#if withPasskey}
+      <PasskeyExplain {dict} collapsible />
+    {/if}
+    {#snippet actions()}
+      <button type="submit" class="btn" disabled={busy}>
+        {t(dict, !withPasskey ? 'rooms.saveNameOnly' : vault === 'new' ? 'rooms.createAndSave' : 'rooms.saveWithPasskey')}
+      </button>
       {#if withPasskey}
-        <PasskeyExplain {dict} collapsible />
+        <button type="button" class="btn-secondary" disabled={busy} onclick={() => save(false)}>{t(dict, 'rooms.saveNameOnly')}</button>
       {/if}
-      <div class="actions justify-between">
-        {#if entry}
-          <button type="button" class="btn-ghost btn-sm text-danger" disabled={busy} onclick={forget}>{t(dict, 'rooms.forget')}</button>
-        {/if}
-        <button type="button" class="btn-ghost btn-sm ml-auto" onclick={() => dialog?.close()}>{t(dict, 'rooms.close')}</button>
-      </div>
-    </form>
-  </dialog>
+    {/snippet}
+  </Modal>
 {/if}
-
-<style>
-  .save-room {
-    width: min(32rem, calc(100vw - 2rem));
-    max-height: calc(100dvh - 2rem);
-    overflow-y: auto;
-    margin: auto;
-    color: var(--text);
-    text-align: left;
-    visibility: visible;
-    box-shadow: var(--shadow-float);
-    animation: save-room-in var(--duration-dialog) var(--ease-out);
-  }
-  .save-room::backdrop {
-    background: color-mix(in srgb, var(--bg) 70%, transparent);
-  }
-  @keyframes save-room-in {
-    from {
-      opacity: 0;
-      transform: translateY(0.5rem);
-    }
-  }
-  @media (max-width: 30rem) {
-    .save-room__actions > :global(button) {
-      flex: 1 1 100%;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .save-room {
-      animation: none;
-    }
-  }
-</style>

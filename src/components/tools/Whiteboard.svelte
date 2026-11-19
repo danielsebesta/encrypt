@@ -26,6 +26,7 @@
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
   import Icon from '../Icon.svelte';
+  import Modal from '../Modal.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -175,7 +176,10 @@
 
   let sharePassword = '';
   let shareDismissed = false;
-  let backupDialog: HTMLDialogElement;
+  let backupOpen = false;
+  let clearConfirmOpen = false;
+  let pendingClear: (() => void) | null = null;
+  let clearConfirmed = false;
   let backupMode: 'export' | 'import' = 'export';
   let backupPassword = '';
   let backupPasswordConfirm = '';
@@ -1122,8 +1126,8 @@
       if (channelId) void clearLocalBoard(channelId);
     };
     if (appMode && onClearRequest) return onClearRequest(doClear);
-    if (!confirm(t(dict, 'whiteboard.clearConfirm'))) return;
-    doClear();
+    pendingClear = doClear;
+    clearConfirmOpen = true;
   }
 
   function toggleGrid() {
@@ -1172,11 +1176,11 @@
     backupPasswordConfirm = '';
     backupError = '';
     backupBusy = false;
-    backupDialog?.showModal();
+    backupOpen = true;
   }
 
   function closeBackupDialog() {
-    backupDialog?.close();
+    backupOpen = false;
     backupPassword = '';
     backupPasswordConfirm = '';
     backupError = '';
@@ -1309,7 +1313,7 @@
   }
 
   function onWindowKeydown(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || backupDialog?.open) return;
+    if (e.key !== 'Escape' || backupOpen || clearConfirmOpen) return;
     if (chatOpen) {
       chatOpen = false;
       document.getElementById('wb-chat-trigger')?.focus();
@@ -1931,31 +1935,51 @@
       <input bind:this={imageInput} type="file" accept="image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true" on:change={onImagePicked} />
       <input bind:this={importInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={importBoard} />
       <input bind:this={encryptedImportInput} type="file" accept="application/json,.json" class="sr-only" tabindex="-1" aria-hidden="true" on:change={onEncryptedImportPicked} />
-      <dialog bind:this={backupDialog} class="wb-backup-dialog card" aria-labelledby="wb-backup-title" on:cancel|preventDefault={closeBackupDialog}>
-        <form class="stack" method="dialog" on:submit|preventDefault={confirmBackupPassword}>
-          <div>
-            <h2 id="wb-backup-title" class="section-title">{t(dict, backupMode === 'export' ? 'whiteboard.exportEncrypted' : 'whiteboard.importEncrypted')}</h2>
-            <p class="hint mt-1">{t(dict, 'whiteboard.passwordPrompt')}</p>
-          </div>
+      <Modal
+        bind:open={backupOpen}
+        {dict}
+        icon="lock"
+        title={t(dict, backupMode === 'export' ? 'whiteboard.exportEncrypted' : 'whiteboard.importEncrypted')}
+        description={t(dict, 'whiteboard.passwordPrompt')}
+        busy={backupBusy}
+        onsubmit={confirmBackupPassword}
+        onclose={closeBackupDialog}
+      >
+        <div class="field">
+          <label class="label" for="wb-backup-pass">{t(dict, 'whiteboard.password')}</label>
+          <input id="wb-backup-pass" class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+        </div>
+        {#if backupMode === 'export'}
           <div class="field">
-            <label class="label" for="wb-backup-pass">{t(dict, 'whiteboard.password')}</label>
-            <input id="wb-backup-pass" class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+            <label class="label" for="wb-backup-pass-confirm">{t(dict, 'whiteboard.passwordConfirm')}</label>
+            <input id="wb-backup-pass-confirm" class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
           </div>
-          {#if backupMode === 'export'}
-            <div class="field">
-              <label class="label" for="wb-backup-pass-confirm">{t(dict, 'whiteboard.passwordConfirm')}</label>
-              <input id="wb-backup-pass-confirm" class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
-            </div>
-          {/if}
-          {#if backupError}
-            <p class="status status--error" role="alert">{backupError}</p>
-          {/if}
-          <div class="actions">
-            <button type="submit" class="btn" disabled={backupBusy}>{t(dict, backupMode === 'export' ? 'whiteboard.encryptedExportAction' : 'whiteboard.encryptedImportAction')}</button>
-            <button type="button" class="btn-secondary" disabled={backupBusy} on:click={closeBackupDialog}>{t(dict, 'rooms.cancel')}</button>
-          </div>
-        </form>
-      </dialog>
+        {/if}
+        {#if backupError}
+          <p class="status status--error" role="alert">{backupError}</p>
+        {/if}
+        {#snippet actions()}
+          <button type="submit" class="btn" disabled={backupBusy}>{t(dict, backupMode === 'export' ? 'whiteboard.encryptedExportAction' : 'whiteboard.encryptedImportAction')}</button>
+          <button type="button" class="btn-secondary" disabled={backupBusy} on:click={closeBackupDialog}>{t(dict, 'rooms.cancel')}</button>
+        {/snippet}
+      </Modal>
+      <Modal
+        bind:open={clearConfirmOpen}
+        {dict}
+        role="alertdialog"
+        tone="danger"
+        icon="trash"
+        size="sm"
+        title={t(dict, 'whiteboard.clearConfirm')}
+        initialFocus=".modal__actions .btn-secondary"
+        onsubmit={() => { clearConfirmed = true; clearConfirmOpen = false; }}
+        onclose={() => { if (clearConfirmed) pendingClear?.(); clearConfirmed = false; pendingClear = null; }}
+      >
+        {#snippet actions()}
+          <button type="submit" class="btn btn-danger">{t(dict, 'whiteboard.clear')}</button>
+          <button type="button" class="btn-secondary" on:click={() => { clearConfirmOpen = false; }}>{t(dict, 'rooms.cancel')}</button>
+        {/snippet}
+      </Modal>
       {#if notice}
         <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
           <span class="min-w-0 flex-1">{notice.text}</span>
@@ -2577,32 +2601,6 @@
     border-bottom: 1px solid var(--accent-line);
     background: var(--accent-weak);
   }
-  .wb-backup-dialog {
-    width: min(28rem, calc(100vw - 2rem));
-    max-height: calc(100dvh - 2rem);
-    overflow-y: auto;
-    margin: auto;
-    color: var(--text);
-    text-align: left;
-    visibility: visible;
-    box-shadow: var(--shadow-float);
-    animation: wb-backup-in var(--duration-dialog) var(--ease-out);
-  }
-  .wb-backup-dialog::backdrop {
-    background: color-mix(in srgb, var(--bg) 70%, transparent);
-  }
-  @keyframes wb-backup-in {
-    from {
-      opacity: 0;
-      transform: translateY(0.5rem);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .wb-backup-dialog {
-      animation: none;
-    }
-  }
-
   .wb-footer {
     display: flex;
     align-items: center;

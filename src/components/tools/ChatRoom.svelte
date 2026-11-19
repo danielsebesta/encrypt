@@ -48,6 +48,7 @@
   } from '../../lib/transferProgress';
   import { t, tApp } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import Modal from '../Modal.svelte';
   import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
@@ -135,6 +136,7 @@
     remaining: number;
     file?: ChatFile;
     fileError?: boolean;
+    fileData?: { data: Uint8Array; name: string };
     preview?: { type: 'image' | 'text'; url?: string; text?: string; expanded?: boolean; width?: number; height?: number };
     previewState?: 'loading' | 'ready' | 'failed';
     revealed?: boolean;
@@ -3324,20 +3326,6 @@
     removeBurnedMessage(msg.id);
   }
 
-  let burnDialog: HTMLDialogElement | undefined;
-
-  function showBurnDialog(node: HTMLDialogElement) {
-    const onClose = () => { burnConfirmMsg = null; };
-    node.addEventListener('close', onClose);
-    node.showModal();
-    return {
-      destroy() {
-        node.removeEventListener('close', onClose);
-        if (node.open) node.close();
-      },
-    };
-  }
-
   function burnDialogClass(): string {
     return document.documentElement.dataset.appPlatform === 'ios' ? 'app-dialog--stack' : '';
   }
@@ -3691,6 +3679,8 @@
 
       // First-party R2 upload first; Send is the fallback.
       const uploadUrls: string[] = [];
+      const once = onceEnabled;
+      const burn = once && soleRecipient();
       const onProgress = (loaded: number, total: number) => {
         uploadSnap = uploadMeter.report(loaded, total);
       };
@@ -3699,7 +3689,7 @@
         try {
           uploadMeter.reset();
           if (svc === 'eclk') {
-            const uploaded = await uploadFirstParty(body, dict, { onProgress });
+            const uploaded = await uploadFirstParty(body, dict, { onProgress, burn });
             return uploaded?.url ?? null;
           }
 
@@ -3733,7 +3723,6 @@
         return;
       }
 
-      const once = onceEnabled;
       let fileTtl = roomConfig.mode === 'live' ? 0 : getRoomTtlSeconds();
       if (once) fileTtl = fileTtl > 0 ? Math.min(fileTtl, ONCE_TTL_SECONDS) : ONCE_TTL_SECONDS;
       const keep = !once && !fileTtl;
@@ -3792,8 +3781,21 @@
     }
   }
 
-  async function fetchChatFile(msg: Message): Promise<Uint8Array | null> {
-    if (!msg.file || fileGone(msg)) return null;
+  // Only one other person can see a view-once file, so its upload is deleted on the first download.
+  function soleRecipient(): boolean {
+    let clients = 0;
+    for (const [pk, ids] of liveClients) {
+      if (ids.size === 0) continue;
+      if (pk === mySignerId) return false;
+      clients += ids.size;
+    }
+    return clients === 1;
+  }
+
+  // A view-once file may be deleted from the server once fetched, so its opened bytes stay with the message.
+  async function openChatFile(msg: Message): Promise<{ data: Uint8Array; name: string } | null> {
+    if (!msg.file) return null;
+    if (msg.fileData) return msg.fileData;
     const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
     for (const fileUrl of msg.file.urls) {
       try {
@@ -3801,10 +3803,17 @@
         if (!res.ok) continue;
         let bytes = new Uint8Array(await res.arrayBuffer());
         if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
-        return (await decryptData(bytes, msg.file.key)).data;
+        const opened = await decryptData(bytes, msg.file.key);
+        if (msg.once) msg.fileData = opened;
+        return opened;
       } catch { continue; }
     }
     return null;
+  }
+
+  async function fetchChatFile(msg: Message): Promise<Uint8Array | null> {
+    if (!msg.file || fileGone(msg)) return null;
+    return (await openChatFile(msg))?.data ?? null;
   }
 
   async function loadVoice(msg: Message): Promise<Blob | null> {
@@ -3820,27 +3829,14 @@
       messages = messages;
       return;
     }
-    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
-
-    for (const fileUrl of msg.file.urls) {
-      try {
-        const res = await ghostFetch(fileUrl);
-        if (!res.ok) continue;
-        let bytes = new Uint8Array(await res.arrayBuffer());
-
-        if (isSendUrl(fileUrl)) {
-          bytes = await decryptSendBlob(bytes, fileUrl);
-        }
-
-        const { data, name } = await decryptData(bytes, msg.file.key);
-        const blob = new Blob([data], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = msg.file!.name || name;
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-        return;
-      } catch { continue; }
+    const opened = await openChatFile(msg);
+    if (opened) {
+      const url = URL.createObjectURL(new Blob([opened.data as BlobPart], { type: 'application/octet-stream' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = msg.file.name || opened.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      return;
     }
     msg.fileError = true;
     messages = messages;
@@ -5182,19 +5178,7 @@
       return;
     }
 
-    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
-    const data = await withPreviewSlot(async () => {
-      for (const fileUrl of msg.file!.urls) {
-        try {
-          const res = await ghostFetch(fileUrl);
-          if (!res.ok) continue;
-          let bytes = new Uint8Array(await res.arrayBuffer());
-          if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);
-          return (await decryptData(bytes, msg.file!.key)).data;
-        } catch { continue; }
-      }
-      return null;
-    });
+    const data = await withPreviewSlot(async () => (await openChatFile(msg))?.data ?? null);
     await finish(data);
   }
 
@@ -6093,16 +6077,24 @@
           {/snippet}
         </Dialog>
       {:else}
-        <dialog bind:this={burnDialog} use:showBurnDialog class="chat-burn-dialog card" aria-labelledby="chat-burn-title" aria-describedby="chat-burn-body">
-          <form class="stack" on:submit|preventDefault={() => { void confirmBurnOwnMessage(); }}>
-            <h2 id="chat-burn-title" class="section-title">{t(dict, 'chat.burnForEveryone')}</h2>
-            <p id="chat-burn-body" class="hint">{t(dict, 'chat.burnConfirm')}</p>
-            <div class="actions">
-              <button type="submit" class="btn chat-burn-dialog__confirm">{t(dict, 'chat.burnConfirmYes')}</button>
-              <button type="button" class="btn-secondary" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
-            </div>
-          </form>
-        </dialog>
+        <Modal
+          open
+          {dict}
+          role="alertdialog"
+          tone="danger"
+          icon="trash"
+          size="sm"
+          title={t(dict, 'chat.burnForEveryone')}
+          description={t(dict, 'chat.burnConfirm')}
+          initialFocus=".modal__actions .btn-secondary"
+          onsubmit={() => { void confirmBurnOwnMessage(); }}
+          onclose={() => { burnConfirmMsg = null; }}
+        >
+          {#snippet actions()}
+            <button type="submit" class="btn btn-danger">{t(dict, 'chat.burnConfirmYes')}</button>
+            <button type="button" class="btn-secondary" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
+          {/snippet}
+        </Modal>
       {/if}
     {/if}
 
@@ -6992,37 +6984,6 @@
     font-weight: 600;
     color: var(--warn);
     background: var(--surface);
-  }
-  .chat-burn-dialog {
-    width: min(26rem, calc(100vw - 2rem));
-    margin: auto;
-    color: var(--text);
-    text-align: left;
-    visibility: visible;
-    box-shadow: var(--shadow-float);
-    animation: chat-burn-in var(--duration-base) var(--ease-out);
-  }
-  .chat-burn-dialog::backdrop {
-    background: color-mix(in srgb, var(--bg) 70%, transparent);
-  }
-  .chat-burn-dialog__confirm {
-    border: 1px solid transparent;
-    background: var(--danger);
-    color: var(--on-accent);
-  }
-  .chat-burn-dialog__confirm:not(:disabled):hover {
-    background: color-mix(in srgb, var(--danger) 85%, var(--bg));
-  }
-  @keyframes chat-burn-in {
-    from {
-      opacity: 0;
-      transform: translateY(0.5rem);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chat-burn-dialog {
-      animation: none;
-    }
   }
   .chat-call-banner {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
