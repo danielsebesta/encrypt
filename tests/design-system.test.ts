@@ -126,9 +126,8 @@ const COMPUTED_CLASS: Record<string, string> = {
 const PENDING: Record<string, string[]> = {
   'src/components/tools/ChatCall.svelte': ['call-mini__btn', 'call__btn'],
   'src/components/tools/ChatRoom.svelte': [
-    'chat-me-pill', 'chat-react-btn', 'app-incoming__btn', 'chat-call-accept', 'chat-call-decline', 'chat-key-warn', 'chat-once-reveal',
-    'chat-file__dl', 'chat-whiteboard-card__btn', 'chat-preview-img-btn', 'chat-preview-expand', 'chat-kmsg-actions__btn', 'chat-kmsg-pending',
-    'chat-send-state', 'chat-jump-latest', 'chat-lightbox__close',
+    'chat-react-btn', 'app-incoming__btn', 'chat-key-warn', 'chat-once-reveal', 'chat-file__dl', 'chat-whiteboard-card__btn',
+    'chat-preview-img-btn', 'chat-preview-expand', 'chat-kmsg-actions__btn', 'chat-kmsg-pending', 'chat-lightbox__close',
   ],
   'src/components/tools/ChatVoiceMessage.svelte': ['voice-msg__rate'],
   'src/components/tools/ChatVoiceRecorder.svelte': ['voice-rec-app__cancel', 'voice-rec-app__send'],

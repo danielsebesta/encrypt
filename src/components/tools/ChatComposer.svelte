@@ -311,8 +311,8 @@
   {/if}
 {/snippet}
 
-<div class="chat-input">
-  <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={onfileselect} />
+<div class="chat-input" class:chat-input--site={!appMode}>
+  <input id="chat-file" type="file" class="sr-only" tabindex="-1" aria-label={t(dict, 'chat.uploadFile')} bind:this={fileInputEl} on:change={onfileselect} />
   {#if appMode}
     <div class="app-composer">
       {#if !voiceRecording}
@@ -401,6 +401,11 @@
     color: var(--muted); transition: color var(--duration-fast) var(--ease-out);
   }
   .chat-attach-menu { position: relative; flex-shrink: 0; }
+  @media (max-width: 24rem) {
+    .chat-input--site { flex-wrap: wrap; padding: 0.5rem 0.75rem; }
+    .chat-input--site .chat-input-field { order: -1; flex-basis: 100%; }
+    .chat-input--site .chat-attach-menu { margin-inline-end: auto; }
+  }
   .chat-attach-btn:hover:not(:disabled),
   .chat-attach-btn--active {
     color: var(--accent);

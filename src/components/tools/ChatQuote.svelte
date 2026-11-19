@@ -16,12 +16,12 @@
 <div class="msg-quote" class:msg-quote--composer={Boolean(oncancel)}>
   {#if onjump}
     <button type="button" class={appMode ? 'msg-quote__body' : 'btn-ghost btn-sm btn-block msg-quote__body'} onclick={onjump} title={t(dict, 'chat.replyJump')}>
-      {#if name}<span class="msg-quote__name" style="color: {color}">{name}</span>{/if}
+      {#if name}<span class="msg-quote__name" style="color: {appMode ? color : `color-mix(in srgb, ${color} 50%, var(--text))`}">{name}</span>{/if}
       <span class="msg-quote__text">{text}</span>
     </button>
   {:else}
     <div class="msg-quote__body">
-      {#if name}<span class="msg-quote__name" style="color: {color}">{oncancel ? t(dict, 'chat.replyingTo').replace('{name}', name) : name}</span>{/if}
+      {#if name}<span class="msg-quote__name" style="color: {appMode ? color : `color-mix(in srgb, ${color} 50%, var(--text))`}">{oncancel ? t(dict, 'chat.replyingTo').replace('{name}', name) : name}</span>{/if}
       <span class="msg-quote__text">{text}</span>
     </div>
   {/if}

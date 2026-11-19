@@ -8,7 +8,7 @@
     shouldSuppressJoin,
   } from '../../lib/chatMemberEvents';
   import { padPayload, SIGNATURE_BYTES } from '../../lib/padding';
-  import { loadRoomIdentity, loadTrustTable, saveTrustTable, forgetTrustTable, type TrustTable } from '../../lib/chatIdentity';
+  import { loadRoomIdentity, loadTrustTable, saveTrustTable, type TrustTable } from '../../lib/chatIdentity';
   import { ForwardSecrecySession, MAX_SYNC_ITEMS, PENDING, validEphemeralKey, type FsMember } from '../../lib/chatRatchet';
   let verificationChallenge = '';
   let roomIdentity: SigningIdentity | null = null;
@@ -539,9 +539,6 @@
   let nickInput = '';
   let previewAlias: Alias = alias;
 
-  function rerollAvatar() {
-    previewAlias = { ...alias, h: newAlias().h };
-  }
   let nickError = '';
   let historyReady = false;
   let clock = Date.now();
@@ -1890,16 +1887,6 @@
     }
   }
 
-  function getServerQualityLabel(quality: ServerQuality): string {
-    switch (quality) {
-      case 'good': return t(dict, 'chat.serverQualityGood');
-      case 'fair': return t(dict, 'chat.serverQualityFair');
-      case 'poor': return t(dict, 'chat.serverQualityPoor');
-      case 'offline': return t(dict, 'chat.serverQualityOffline');
-      default: return t(dict, 'chat.serverQualityUnknown');
-    }
-  }
-
   function recordServerLatencySample(startedAt: number) {
     if (!startedAt) return;
     serverLatencyMs = Math.max(0, Date.now() - startedAt);
@@ -2018,13 +2005,6 @@
     if (items.some((item) => item.id === id)) return;
     items.push({ type: 'message', id, v: 2, sealed, createdAt });
     writeLocalHistory(items);
-  }
-
-  function clearLocalHistory() {
-    if (!localHistoryKey) return;
-    try {
-      localStorage.removeItem(localHistoryKey);
-    } catch {}
   }
 
   async function restoreLocalHistory() {
@@ -5872,7 +5852,7 @@
         <span class="chat-status" class:chat-status--connected={connected}></span>
         <div class="flex items-center -space-x-1.5">
           <div class="chat-profile" bind:this={profileEl}>
-            <button type="button" class="chat-me-pill" title={t(dict, 'chat.editProfile')} aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
+            <button type="button" class="btn-ghost btn-sm chat-me-pill" title={t(dict, 'chat.editProfile')} aria-expanded={profileOpen} aria-controls="chat-profile-pop" on:click={toggleProfile}>
               <span class="chat-avatar chat-avatar--sm" style="background: {aliasGradient(alias, identity.name)}" aria-hidden="true"></span>
               <span class="chat-me-pill__name">{identity.name}</span>
               <Icon name="pencil" />
@@ -5884,14 +5864,14 @@
             {/if}
           </div>
           {#each onlineUsers as user}
-            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name} aria-label={user.name}></div>
+            <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(user.alias, user.name)}" title={user.name} role="img" aria-label={user.name}></div>
           {/each}
         </div>
       </div>
-      <div class="flex flex-wrap items-center justify-end gap-1.5">
+      <div class="chat-header__actions flex flex-wrap items-center justify-end gap-1.5">
         <span class="sr-only" aria-live="polite">{connected ? t(dict, 'chat.connected') : cryptoKey ? t(dict, 'chat.connecting') : t(dict, 'common.working')}</span>
-        <div class="chat-room-chips" aria-label={getRoomModeLabel()}>
-          <span class="chat-mode-badge chat-mode-badge--soft" title={t(dict, 'chat.chip.online').replace('{n}', String(serverPresence))}>{t(dict, 'chat.chip.online').replace('{n}', String(Math.max(0, serverPresence)))}</span>
+        <div class="chat-room-chips" role="group" aria-label={getRoomModeLabel()}>
+          <span class="badge" title={t(dict, 'chat.chip.online').replace('{n}', String(serverPresence))}>{t(dict, 'chat.chip.online').replace('{n}', String(Math.max(0, serverPresence)))}</span>
         </div>
         <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callStart')} aria-label={t(dict, 'chat.callStart')} on:click={() => { closeHeaderMenu(); startCall(); }} disabled={!connected || !verified || callJoining || callActive}>
           {#if callJoining}
@@ -6176,15 +6156,15 @@
     {:else if activeCallNotice && !callActive}
       <div class="chat-call-banner">
         <div class="chat-call-banner__meta">
-          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" title={activeCallNotice.name} aria-label={activeCallNotice.name}></div>
+          <div class="chat-avatar chat-avatar--sm" style="background: {gradientFor(activeCallNotice.alias, activeCallNotice.name)}" aria-hidden="true"></div>
           <div class="min-w-0">
             <p class="chat-call-banner__title">{t(dict, 'chat.callInProgress')}</p>
             <p class="chat-call-banner__name">{t(dict, 'chat.callInProgressBy').replace('{name}', activeCallNotice.name)}</p>
           </div>
         </div>
         <div class="chat-call-banner__actions">
-          <button class="chat-call-accept" on:click={joinActiveCall}>{t(dict, 'chat.callJoin')}</button>
-          <button class="chat-call-decline" on:click={() => { activeCallNotice = null; callNoticeDismissed = true; }}>{t(dict, 'chat.callDismiss')}</button>
+          <button type="button" class="btn btn-sm" on:click={joinActiveCall}>{t(dict, 'chat.callJoin')}</button>
+          <button type="button" class="btn-secondary btn-sm" on:click={() => { activeCallNotice = null; callNoticeDismissed = true; }}>{t(dict, 'chat.callDismiss')}</button>
         </div>
       </div>
     {/if}
@@ -6446,16 +6426,16 @@
         >
           <div class="flex items-start gap-2">
             {#if !msg.mine}
-              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}" title={msg.sender} aria-label={msg.sender}></div>
+              <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}" title={msg.sender} aria-hidden="true"></div>
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
-                <span class="chat-sender" style="color: {msg.mine ? 'var(--on-accent)' : safeColor(msg.color)}">{msg.sender}</span>
+                <span class="chat-sender" style="color: {msg.mine ? 'var(--on-accent)' : `color-mix(in srgb, ${safeColor(msg.color)} 50%, var(--text))`}">{msg.sender}</span>
                 {#if msg.once}
-                  <span class="chat-once-badge" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
+                  <span class="badge badge--accent" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
                 {/if}
                 {#if msg.keyWarning}
-                  <button type="button" class="chat-key-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
+                  <button type="button" class="btn-ghost btn-sm chat-key-flag" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
                 {#if (msg.pending || msg.unacked) && msg.slow}
                   <span class="chat-send-state" role="status">
@@ -6463,7 +6443,7 @@
                     {t(dict, 'chat.queued')}
                   </span>
                 {:else if msg.failed}
-                  <button type="button" class="chat-send-state chat-send-state--failed" on:click={() => retryQueued(msg)}>
+                  <button type="button" class="btn-secondary btn-sm chat-retry" on:click={() => retryQueued(msg)}>
                     <Icon name="rotate-ccw-clock" />
                     {t(dict, 'chat.tryAgain')}
                   </button>
@@ -6488,7 +6468,7 @@
                 <ChatQuote {dict} {appMode} name={quote.name} color={quote.color} text={quote.text} onjump={quote.name ? () => jumpTo(msg.replyTo) : undefined} />
               {/if}
               {#if msg.once && !msg.mine && !msg.revealed}
-                <button type="button" class="chat-once-reveal" on:click={() => revealOnce(msg)}>
+                <button type="button" class="btn-secondary btn-block chat-once-veil" on:click={() => revealOnce(msg)}>
                   <span class="chat-once-reveal__blur" aria-hidden="true">{msg.file?.voice ? t(dict, 'chat.onceBlurVoice') : msg.file ? t(dict, 'chat.onceBlurFile') : (msg.text || t(dict, 'chat.onceBlurText'))}</span>
                   <span class="chat-once-reveal__label">{t(dict, 'chat.onceReveal')}</span>
                 </button>
@@ -6517,7 +6497,7 @@
                     </span>
                   </div>
                   {#if !gone && !msg.pending}
-                    <button type="button" class="chat-file__dl" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')}>
+                    <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => downloadChatFile(msg)} aria-label={t(dict, 'chat.downloadFile')} title={t(dict, 'chat.downloadFile')}>
                       <Icon name="download" />
                     </button>
                   {/if}
@@ -6532,7 +6512,7 @@
                     <p class="chat-whiteboard-card__title">{t(dict, 'chat.whiteboardTitle')}</p>
                     <p class="chat-whiteboard-card__meta">{t(dict, 'chat.whiteboardStartedBy').replace('{name}', msg.whiteboard.sender)}</p>
                     <div class="chat-whiteboard-card__actions">
-                      <button type="button" class="chat-whiteboard-card__btn chat-whiteboard-card__btn--primary" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
+                      <button type="button" class="btn btn-sm" on:click={() => openWhiteboardNewTab(msg.whiteboard!)}>
                         <Icon name="external-link" />
                         {t(dict, 'chat.whiteboardOpenNewTab')}
                       </button>
@@ -6545,9 +6525,9 @@
                   <img src={msg.preview.url} alt={msg.file?.name || ''} class="chat-preview-img" decoding="async" style={msg.preview.width && msg.preview.height ? `aspect-ratio: ${msg.preview.width} / ${msg.preview.height}` : undefined} />
                 {:else if msg.preview.type === 'text' && msg.preview.text}
                   <div class="chat-preview-text">
-                    <pre class="chat-preview-code">{msg.preview.expanded ? msg.preview.text : msg.preview.text.slice(0, PREVIEW_TEXT_LIMIT)}{!msg.preview.expanded && msg.preview.text.length > PREVIEW_TEXT_LIMIT ? '…' : ''}</pre>
+                    <pre class="chat-preview-code" tabindex="0">{msg.preview.expanded ? msg.preview.text : msg.preview.text.slice(0, PREVIEW_TEXT_LIMIT)}{!msg.preview.expanded && msg.preview.text.length > PREVIEW_TEXT_LIMIT ? '…' : ''}</pre>
                     {#if msg.preview.text.length > PREVIEW_TEXT_LIMIT}
-                      <button class="chat-preview-expand" on:click={() => { if (msg.preview) msg.preview.expanded = !msg.preview.expanded; messages = messages; }}>
+                      <button type="button" class="btn-ghost btn-sm btn-block chat-preview-more" aria-expanded={msg.preview.expanded} on:click={() => { if (msg.preview) msg.preview.expanded = !msg.preview.expanded; messages = messages; }}>
                         {msg.preview.expanded ? t(dict, 'chat.previewLess') : t(dict, 'chat.previewMore')}
                       </button>
                     {/if}
@@ -6585,7 +6565,15 @@
         </div>
 
         {#if !stickToBottom}
-          <button type="button" class="chat-jump-latest" class:chat-jump-latest--new={belowCount > 0} on:click={jumpToLatest} aria-label={t(dict, 'chat.jumpLatest')}>
+          <button
+            type="button"
+            class={appMode ? 'chat-jump-latest' : belowCount > 0 ? 'btn-secondary btn-sm chat-jump' : 'btn-secondary btn-sm btn-icon chat-jump'}
+            class:chat-jump-latest--new={appMode && belowCount > 0}
+            on:click={jumpToLatest}
+            aria-label={appMode || belowCount === 0 ? t(dict, 'chat.jumpLatest') : undefined}
+            title={appMode ? undefined : t(dict, 'chat.jumpLatest')}
+          >
+            {#if !appMode && belowCount > 0}<span class="sr-only">{t(dict, 'chat.jumpLatest')}</span>{/if}
             {#if belowCount > 0}
               <span class="chat-jump-latest__count">{belowCount > 99 ? '99+' : belowCount}</span>
               <span>{t(dict, 'chat.newBelow')}</span>
@@ -6765,6 +6753,7 @@
     justify-content: center;
     padding: 2rem;
   }
+  .chat-header__actions { margin-inline-start: auto; }
   .chat-header {
     flex-wrap: wrap;
     gap: 0.5rem;
@@ -6796,9 +6785,6 @@
     color: var(--accent);
     flex-shrink: 0;
   }
-  .chat-header-menu__danger:not(:disabled):hover {
-    color: var(--danger);
-  }
   .chat-profile { position: relative; z-index: 3; }
   .chat-profile__pop {
     position: absolute;
@@ -6811,8 +6797,14 @@
     overscroll-behavior: contain;
     padding: 1rem;
     border-radius: 8px;
+    border: 1px solid var(--line);
     background: var(--surface);
     box-shadow: var(--shadow-float);
+  }
+  @media (max-width: 30rem) {
+    .chat-header { position: relative; }
+    .chat-profile { position: static; }
+    .chat-profile__pop { top: 100%; left: 0.75rem; right: 0.75rem; width: auto; }
   }
   .chat-body {
     flex: 1;
@@ -6865,6 +6857,13 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+  .chat-jump {
+    position: absolute;
+    right: 1.25rem;
+    bottom: 0.75rem;
+    z-index: 4;
+    max-width: calc(100% - 2rem);
+  }
   .chat-jump-latest__count {
     display: inline-flex;
     min-width: 1.25rem;
@@ -6888,30 +6887,6 @@
     justify-content: flex-end;
     gap: 0.35rem;
   }
-  .chat-mode-badge {
-    min-height: 30px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 0.55rem;
-    border-radius: 6px;
-    border: 1px solid var(--accent-line);
-    background: var(--accent-weak);
-    color: var(--accent-strong);
-    font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .chat-mode-badge--soft {
-    border-color: var(--line-soft);
-    background: var(--surface-2);
-    color: var(--muted);
-    font-weight: 600;
-  }
-  :global(.dark) .chat-mode-badge--soft {
-    color: var(--muted);
-    border-color: var(--line-soft);
-    background: transparent;
-  }
   .chat-safety-banner .chat-member__safety {
     margin-top: 0.15rem;
     font-size: 1.15rem;
@@ -6930,14 +6905,9 @@
   @keyframes chat-emoji-pop-in { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .chat-emoji-pop { animation: none; } }
   .chat-react-btn--more { color: var(--muted); }
-  .chat-me-pill {
-    display: inline-flex; align-items: center; gap: 0.5rem; max-width: 14rem;
-    padding: 0.25rem 0.625rem 0.25rem 0.25rem; border-radius: 6px;
-    border: 0; background: var(--surface-2); color: var(--muted); cursor: pointer;
-    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
-  }
-  .chat-me-pill:hover, .chat-me-pill[aria-expanded="true"] { color: var(--text); background: var(--line-soft); }
-  .chat-me-pill__name { font-size: 0.8125rem; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-me-pill { max-width: 14rem; padding-inline: 0.25rem 0.625rem; }
+  .chat-me-pill[aria-expanded="true"] { --btn-fg: var(--text); background: var(--surface-2); }
+  .chat-me-pill__name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chat-me { display: grid; gap: 0.875rem; padding: 0.875rem; border-radius: 8px; background: var(--surface-2); }
   .chat-profile__pop .chat-me { padding: 0; background: none; }
   .chat-me__row { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
@@ -6980,10 +6950,39 @@
     padding: 0 0.4rem;
     border-radius: 6px;
     border: 1px solid var(--warn);
-    font-size: 11px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--warn);
     background: var(--surface);
+  }
+  .chat-key-flag {
+    --btn-fg: var(--warn);
+    min-height: 1.5rem;
+    padding-inline: 0.375rem;
+    border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+    background: var(--surface);
+    font-size: 0.75rem;
+  }
+  .chat-retry {
+    --btn-fg: var(--danger);
+    min-height: 1.5rem;
+    gap: 0.25rem;
+    padding-inline: 0.375rem;
+    font-size: 0.75rem;
+  }
+  .chat-once-veil {
+    display: block;
+    margin-top: 0.15rem;
+    padding: 0.65rem 0.75rem;
+    border-style: dashed;
+    background: var(--surface-2);
+    text-align: start;
+    overflow: hidden;
+  }
+  .chat-preview-more {
+    border-radius: 0;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
   }
   .chat-call-banner {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
@@ -6996,7 +6995,7 @@
     display: flex; align-items: center; gap: 0.55rem;
   }
   .chat-call-banner__title {
-    font-size: 12px; font-weight: 800;
+    font-size: 0.8125rem; font-weight: 600;
     color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
@@ -7005,25 +7004,6 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chat-call-banner__actions { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
-  .chat-call-accept,
-  .chat-call-decline {
-    min-height: 30px;
-    padding: 0 0.65rem;
-    border-radius: 8px;
-    font-size: 12px; font-weight: 800;
-  }
-  .chat-call-accept {
-    color: var(--on-accent);
-    background: var(--accent);
-  }
-  .chat-call-decline {
-    color: var(--muted);
-    background: var(--surface-2);
-  }
-  :global(.dark) .chat-call-decline {
-    color: var(--text);
-    background: var(--surface-2);
-  }
   .chat-loader {
     display: block;
     width: 1.5rem;
@@ -7167,7 +7147,7 @@
     align-items: center;
     padding: 0.05rem 0.4rem;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--accent-strong);
     background: var(--accent-weak);
@@ -7201,13 +7181,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 800;
-    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-strong);
   }
   .chat-once-note {
     margin-top: 0.35rem;
-    font-size: 11px;
+    font-size: 0.75rem;
     color: var(--muted);
   }
   .chat-text {
@@ -7220,12 +7200,6 @@
   .chat-bubble--mine .chat-timer__ring,
   .chat-bubble--mine .chat-timer__num {
     color: var(--on-accent);
-  }
-  .chat-bubble--mine .chat-send-state--failed {
-    color: var(--danger);
-    background: var(--surface);
-    border-radius: 6px;
-    padding: 0 0.35rem;
   }
   .chat-timer {
     position: relative; width: 32px; height: 32px; flex-shrink: 0;
@@ -7241,11 +7215,9 @@
   }
   .chat-send-state {
     display: inline-flex; align-items: center; gap: 4px;
-    font-size: 11px; color: var(--muted);
+    font-size: 0.75rem; color: var(--muted);
     animation: chat-send-state-in var(--duration-base) var(--ease-out);
   }
-  .chat-send-state--failed { color: var(--danger); background: none; border: 0; padding: 0; cursor: pointer; }
-  .chat-send-state--failed:hover { text-decoration: underline; }
   @keyframes chat-send-state-in { from { opacity: 0; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
     .chat-send-state { animation: none; }
@@ -7277,14 +7249,6 @@
     .chat-typing__dots i { animation: none; opacity: 0.7; }
   }
   .chat-avatar--xs { width: 16px; height: 16px; }
-  .chat-avatar--lg { width: 48px; height: 48px; }
-  .chat-wrong-password {
-    display: flex; align-items: center; gap: 0.4rem;
-    font-size: 0.75rem; color: var(--danger);
-    padding: 0.5rem 0.75rem; margin-top: 0.25rem;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--danger) 10%, var(--surface));
-  }
   .chat-file-error {
     display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
     padding: 0.375rem 0.75rem 0.375rem 1rem;
