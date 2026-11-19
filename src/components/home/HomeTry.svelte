@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { t } from '../../lib/t';
   import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
-  import { asciiKit, glAvailable, type KitModule } from '../../lib/asciiKit';
   import Icon from '../Icon.svelte';
   import { sendIcon, chatIcon, whiteboardIcon } from '../../lib/tools';
   import type { IconName } from '../../lib/iconManifest';
@@ -26,30 +26,33 @@
   let visited: Record<Tab, boolean> = { send: true, chat: false, whiteboard: false };
 
   let glide = false;
-  let handle: { select(index: number, focus?: boolean): void; destroy(): void } | null = null;
 
   function choose(index: number) {
     const tab = tabs[index].id;
     active = tab;
     visited[tab] = true;
-    try { handle?.select(index); } catch {}
     document.getElementById(`home-tab-${tab}`)?.focus();
   }
 
-  const mountTabs = (kit: KitModule, node: HTMLElement) => {
-    if (!glAvailable() || matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
-    const made = kit.tabs(node, { panels: 'none', manage: false });
-    handle = made;
-    try { made.select(tabs.findIndex((x) => x.id === active), false); } catch {}
-    let tries = 0;
-    const probe = () => {
-      if (!handle) return;
-      if (node.style.getPropertyValue('--tabs-w')) glide = true;
-      else if (tries++ < 30) requestAnimationFrame(probe);
+  function slideThumb(node: HTMLElement) {
+    let frame = 0;
+    const place = () => {
+      const tab = node.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (!tab || !tab.offsetWidth) return;
+      node.style.setProperty('--tabs-x', `${tab.offsetLeft}px`);
+      node.style.setProperty('--tabs-y', `${tab.offsetTop}px`);
+      node.style.setProperty('--tabs-w', `${tab.offsetWidth}px`);
+      node.style.setProperty('--tabs-h', `${tab.offsetHeight}px`);
+      if (!glide) frame = requestAnimationFrame(() => { glide = true; });
     };
-    requestAnimationFrame(probe);
-    return { destroy() { glide = false; handle = null; made.destroy(); } };
-  };
+    const observer = new ResizeObserver(place);
+    observer.observe(node);
+    place();
+    return {
+      update() { tick().then(place); },
+      destroy() { observer.disconnect(); cancelAnimationFrame(frame); },
+    };
+  }
 
   function onKey(event: KeyboardEvent) {
     if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
@@ -68,7 +71,7 @@
 </script>
 
 <div class="stack">
-  <div class="tabs tabs--slide" class:tabs--kit={glide} role="tablist" tabindex="-1" aria-label={t(dict, 'landing.try.label')} on:keydown={onKey} use:asciiKit={mountTabs}>
+  <div class="tabs tabs--slide" class:tabs--glide={glide} role="tablist" tabindex="-1" aria-label={t(dict, 'landing.try.label')} on:keydown={onKey} use:slideThumb={active}>
     <span class="tabs__thumb" aria-hidden="true"></span>
     {#each tabs as tab}
       <button

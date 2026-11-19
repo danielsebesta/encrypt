@@ -15,7 +15,6 @@
   import CopyButton from '../CopyButton.svelte';
   import ShareLinkButton from '../ShareLinkButton.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
-  import { asciiKit, glAvailable, kitAllowed, loadKit } from '../../lib/asciiKit';
   import { t } from '../../lib/t';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
@@ -349,25 +348,6 @@
   }
 
   let orbDone = false;
-  let beamHandle: { progress(value: number): void; success(): void; error(): void; destroy(): void } | null = null;
-  $: beamExpected = step === 'processing' && typeof window !== 'undefined' && kitAllowed() && glAvailable();
-  let beamFailed = false;
-  if (typeof window !== 'undefined' && kitAllowed() && glAvailable()) loadKit().catch(() => { beamFailed = true; });
-  const mountBeam = (kit: any, node: HTMLElement) => {
-    try {
-      const made = kit.beam(node, { palette: 'mono', ink: 'var(--accent)', mode: 'progress', grain: 'dots', hover: false });
-      beamHandle = made;
-      return { destroy() { beamHandle = null; made.destroy(); } };
-    } catch {
-      beamFailed = true;
-      return null;
-    }
-  };
-  $: if (beamHandle) {
-    if (error) beamHandle.error();
-    else if (orbDone) beamHandle.success();
-    else beamHandle.progress(Math.max(0.06, transferBar ?? 0));
-  }
 
   async function goToResult() {
     if (shortenableUrl && !shortUrl) {
@@ -1043,16 +1023,25 @@
     </div>
 
   {:else if step === 'processing'}
-    <div class="stack ue-beam" use:asciiKit={mountBeam}>
-      <ProgressPulse
-        orb={!beamExpected || beamFailed}
-        bar={!beamExpected || beamFailed}
-        title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
-        detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
-        ratio={transferBar}
-        transferLine={transferLine}
-        state={error ? 'error' : orbDone ? 'success' : 'loading'}
-      />
+    <div class="stack">
+      <div class="ue-progress">
+        <ProgressPulse
+          bar={false}
+          title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
+          detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
+          ratio={transferBar}
+          transferLine={transferLine}
+          state={error ? 'error' : orbDone ? 'success' : 'loading'}
+        />
+        <span
+          class="ue-progress__line"
+          class:ue-progress__line--busy={!error && !orbDone && transferBar == null}
+          class:ue-progress__line--done={!error && orbDone}
+          class:ue-progress__line--error={!!error}
+          style:--ue-progress={error || orbDone ? 1 : transferBar ?? 0}
+          aria-hidden="true"
+        ></span>
+      </div>
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
       {/if}

@@ -195,7 +195,7 @@ for (const path of paths) {
     if (hydrated) {
       await page.keyboard.press('ArrowRight');
       await expectTab(page, '/ (reduced motion)', 'home-tab-whiteboard', 'ArrowRight');
-      check(await page.evaluate(() => !document.querySelector('.tabs--kit')), '/ (reduced motion): plain pill, no kit chrome');
+      check(await page.evaluate(() => { const thumb = document.querySelector('.tabs__thumb'); return !thumb || getComputedStyle(thumb).transitionDuration.split(',').every((d) => parseFloat(d) < 0.01); }), '/ (reduced motion): indicator moves without a transition');
     } else {
       fail('/ (reduced motion): component did not hydrate');
     }

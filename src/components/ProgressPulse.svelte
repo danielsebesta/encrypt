@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import Icon from './Icon.svelte';
 
   export let title = '';
   export let detail = '';
@@ -9,39 +9,10 @@
   /** Secondary line: bytes, speed, ETA, online/offline. */
   export let transferLine = '';
   export let state: 'loading' | 'success' | 'error' = 'loading';
-  /** Set false when another element (a border beam) shows the progress: no orb, no spinner. */
+  /** Set false when another element shows the progress: no ring, no spinner. */
   export let orb = true;
   /** Set false to keep the progress value for screen readers only. */
   export let bar = true;
-
-  let orbEl: HTMLSpanElement | undefined;
-  let orbOn = false;
-  let handle: { supported: boolean; loading(): void; success(): void; error(): void; destroy(): void } | null = null;
-
-  onMount(() => {
-    if (compact || !orb || !orbEl || matchMedia('(prefers-reduced-data: reduce)').matches) return;
-    let gone = false;
-    import('asciify-engine/kit').then(({ statusOrb }) => {
-      if (gone || !orbEl) return;
-      const orb = statusOrb(orbEl, { ring: true, colourByState: true, ink: 'var(--accent)', colors: { success: 'var(--accent)', error: 'var(--danger)', warning: 'var(--warn)' }, lazy: false });
-      if (!orb.supported) { orb.destroy(); return; }
-      handle = orb;
-      orbOn = true;
-      applyState(state);
-    });
-    return () => {
-      gone = true;
-      handle?.destroy();
-    };
-  });
-
-  function applyState(next: typeof state) {
-    if (!handle) return;
-    if (next === 'success') handle.success();
-    else if (next === 'error') handle.error();
-    else handle.loading();
-  }
-  $: applyState(state);
 
   let phaseKey = '';
   let livePct = -1;
@@ -58,8 +29,12 @@
   }
 </script>
 
-<div class="status status--busy" class:status--orb={orbOn || !orb}>
-  {#if !compact && orb}<span bind:this={orbEl} class="status__orb" aria-hidden="true"></span>{/if}
+<div class="status status--busy" class:status--orb={!compact || !orb}>
+  {#if !compact && orb}
+    <span class="status__ring status__ring--{state}" aria-hidden="true">
+      {#if state === 'success'}<Icon name="check" size={20} />{:else if state === 'error'}<Icon name="x" size={20} />{/if}
+    </span>
+  {/if}
   <div class="status__body">
     <div role="status" aria-live="polite">
       <p class="status__title">{title}</p>
