@@ -557,7 +557,7 @@ html.dark {
     }
 
     .page--room {
-        max-width: min(100%, 96rem);
+        max-width: min(100%, 74rem);
     }
 
     .page-head {
