@@ -1,6 +1,5 @@
 <script lang="ts">
   import { ListItem, MenuList, MenuListItem, Popover } from 'konsta/svelte';
-  import { PALETTE } from "../../lib/palette";
   import { syncAnswerDelay } from '../../lib/whiteboardSyncElection';
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
@@ -27,6 +26,10 @@
   import RoomInviteCard from './RoomInviteCard.svelte';
   import Icon from '../Icon.svelte';
   import Modal from '../Modal.svelte';
+  import Field from '../ui/Field.svelte';
+  import { menu } from '../ui/menu';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
+  import ToolStatus from './ToolStatus.svelte';
 
   export let locale = 'en';
   export let roomId = '';
@@ -62,15 +65,6 @@
   const RESTORE_ORIGIN = 'local-restore';
   const LOCAL_PERSIST_MS = 800;
   const NOTICE_MS = 6000;
-
-  const BOARD_PALETTE = { light: PALETTE.light.board, dark: PALETTE.dark.board };
-
-  THEMES.light.background = BOARD_PALETTE.light.paper;
-  THEMES.light.grid.dot = { ...BOARD_PALETTE.light.gridDot };
-  THEMES.light.grid.line = { ...BOARD_PALETTE.light.gridLine };
-  THEMES.dark.background = BOARD_PALETTE.dark.paper;
-  THEMES.dark.grid.dot = { ...BOARD_PALETTE.dark.gridDot };
-  THEMES.dark.grid.line = { ...BOARD_PALETTE.dark.gridLine };
 
   const TOOL_ICONS: Record<Exclude<ToolId, 'geo'>, IconName> = {
     select: 'mouse-pointer-2',
@@ -169,6 +163,7 @@
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
+  let passwordEl: HTMLInputElement | undefined;
   let serverPresence = 0;
 
   let onlineUsers: { id: string; name: string; color: string; alias?: Alias; pk: string; warn: boolean }[] = [];
@@ -184,6 +179,9 @@
   let backupPassword = '';
   let backupPasswordConfirm = '';
   let backupError = '';
+  let backupPasswordError = '';
+  let backupConfirmError = '';
+  let backupFieldsEl: HTMLElement | undefined;
   let backupBusy = false;
   let pendingEncryptedImport = '';
   let encryptedImportInput: HTMLInputElement;
@@ -225,9 +223,7 @@
     if (styleOpen) { styleOpen = false; return true; }
     return false;
   };
-  $: if (menuOpen && !appMode) void tick().then(() => wbMenuItems()[0]?.focus());
   let wbMenuEl: HTMLButtonElement | undefined = undefined;
-  let wbMenuPanelEl: HTMLElement | undefined = undefined;
   let isFullscreen = false;
   let fullscreenSupported = false;
   let rootEl: HTMLDivElement;
@@ -278,7 +274,12 @@
 
   async function submitPassword() {
     passwordError = '';
-    if (!passwordInput.trim()) { passwordError = t(dict, 'whiteboard.errorEnterPassword'); return; }
+    if (!passwordInput.trim()) {
+      passwordError = t(dict, 'whiteboard.errorEnterPassword');
+      await tick();
+      passwordEl?.focus();
+      return;
+    }
     await enterWithPassword(passwordInput.trim());
   }
 
@@ -835,31 +836,6 @@
     }
   }
 
-  function wbMenuItems(): HTMLElement[] {
-    return [...(wbMenuPanelEl?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled]), [role="menuitemcheckbox"]:not([disabled])') ?? [])];
-  }
-
-  function onWbMenuKeydown(e: KeyboardEvent) {
-    const items = wbMenuItems();
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      menuOpen = false;
-      wbMenuEl?.focus();
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      const dir = e.key === 'ArrowDown' ? 1 : -1;
-      items[at < 0 ? (dir === 1 ? 0 : items.length - 1) : (at + dir + items.length) % items.length]?.focus();
-    } else if (e.key === 'Home' || e.key === 'End') {
-      e.preventDefault();
-      items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
-    }
-  }
-
-  function onWbMenuFocusout(e: FocusEvent) {
-    if (menuOpen && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) menuOpen = false;
-  }
-
   function onTrustChange() {
     if (!trust) return;
     memberList = [...trust.members.values()];
@@ -945,28 +921,72 @@
     return document.documentElement.classList.contains('dark');
   }
 
-  // In the app the board shares the shell background (light/dark per platform, black on amoled)
-  // so the canvas reads as part of the app instead of a pasted-in card.
-  function appBoardBackground(): string | null {
-    if (!appMode || typeof document === 'undefined') return null;
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position: fixed; visibility: hidden; pointer-events: none; background: var(--app-bg);';
+  function cssColor(value: string): string {
+    const probe = document.createElement('span');
+    probe.style.cssText = `position: fixed; visibility: hidden; pointer-events: none; color: ${value}`;
     document.body.appendChild(probe);
-    const bg = getComputedStyle(probe).backgroundColor;
+    const resolved = getComputedStyle(probe).color;
     probe.remove();
-    return bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : null;
+    return resolved;
   }
 
   function syncBoardTheme() {
-    const bg = appBoardBackground();
-    if (bg) {
-      THEMES.light.background = bg;
-      THEMES.dark.background = bg;
-    }
     themeId = isDarkTheme() ? 'dark' : 'light';
+    const theme = THEMES[themeId];
+    const ink = (share: number) => cssColor(`color-mix(in srgb, var(--text) ${share}%, transparent)`);
+    theme.background = cssColor(appMode ? 'var(--app-bg, var(--bg))' : 'var(--bg)');
+    theme.grid.dot = { minor: ink(18), major: ink(32) };
+    theme.grid.line = { minor: ink(7), major: ink(14) };
   }
 
-  // Marks a scrollable tool row with edge fades, but only while there is more to scroll that way.
+  function stageHeight(node: HTMLElement) {
+    const ro = new ResizeObserver(() => node.style.setProperty('--wb-stage-h', `${node.clientHeight}px`));
+    ro.observe(node);
+    return { destroy: () => ro.disconnect() };
+  }
+
+  function roving(node: HTMLElement, options: { columns?: number } = {}) {
+    const items = () => [...node.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+    let last: HTMLElement | null = null;
+    const sync = () => {
+      const list = items();
+      const current = (last && list.includes(last as HTMLButtonElement) ? last : null) ?? list.find((el) => el.getAttribute('aria-pressed') === 'true') ?? list[0];
+      for (const el of list) el.tabIndex = el === current ? 0 : -1;
+    };
+    const onFocusin = (e: FocusEvent) => {
+      const el = (e.target as HTMLElement).closest('button');
+      if (el && node.contains(el)) { last = el; sync(); }
+    };
+    const onKeydown = (e: KeyboardEvent) => {
+      const list = items();
+      const at = list.indexOf(document.activeElement as HTMLButtonElement);
+      if (at < 0 || e.ctrlKey || e.metaKey || e.altKey) return;
+      const cols = options.columns ?? 0;
+      let next = -1;
+      if (e.key === 'ArrowRight' || (e.key === 'ArrowDown' && !cols)) next = (at + 1) % list.length;
+      else if (e.key === 'ArrowLeft' || (e.key === 'ArrowUp' && !cols)) next = (at - 1 + list.length) % list.length;
+      else if (e.key === 'ArrowDown') next = at + cols < list.length ? at + cols : at;
+      else if (e.key === 'ArrowUp') next = at - cols >= 0 ? at - cols : at;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = list.length - 1;
+      else return;
+      e.preventDefault();
+      list[next]?.focus();
+    };
+    node.addEventListener('focusin', onFocusin);
+    node.addEventListener('keydown', onKeydown);
+    const mo = new MutationObserver(sync);
+    mo.observe(node, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'disabled'] });
+    sync();
+    return {
+      destroy() {
+        node.removeEventListener('focusin', onFocusin);
+        node.removeEventListener('keydown', onKeydown);
+        mo.disconnect();
+      },
+    };
+  }
+
   function scrollEdges(node: HTMLElement) {
     const update = () => {
       node.classList.toggle('wb-track--right', node.scrollLeft + node.clientWidth < node.scrollWidth - 2);
@@ -1175,6 +1195,8 @@
     backupPassword = '';
     backupPasswordConfirm = '';
     backupError = '';
+    backupPasswordError = '';
+    backupConfirmError = '';
     backupBusy = false;
     backupOpen = true;
   }
@@ -1184,6 +1206,8 @@
     backupPassword = '';
     backupPasswordConfirm = '';
     backupError = '';
+    backupPasswordError = '';
+    backupConfirmError = '';
     backupBusy = false;
     pendingEncryptedImport = '';
     wbMenuEl?.focus();
@@ -1249,14 +1273,18 @@
   async function confirmBackupPassword() {
     if (backupBusy) return;
     backupError = '';
+    backupPasswordError = '';
+    backupConfirmError = '';
     const password = backupPassword.trim();
     if (!password) {
-      backupError = t(dict, 'whiteboard.encryptedPasswordRequired');
+      backupPasswordError = t(dict, 'whiteboard.encryptedPasswordRequired');
+      void focusFirstInvalid(backupFieldsEl);
       return;
     }
     if (backupMode === 'export') {
       if (password !== backupPasswordConfirm.trim()) {
-        backupError = t(dict, 'whiteboard.encryptedPasswordMismatch');
+        backupConfirmError = t(dict, 'whiteboard.encryptedPasswordMismatch');
+        void focusFirstInvalid(backupFieldsEl);
         return;
       }
       if (!ydoc) return;
@@ -1285,7 +1313,8 @@
       if (message === 'too-large') {
         backupError = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
       } else if (message === 'Wrong password') {
-        backupError = t(dict, 'whiteboard.encryptedWrongPassword');
+        backupPasswordError = t(dict, 'whiteboard.encryptedWrongPassword');
+        void focusFirstInvalid(backupFieldsEl);
       } else {
         backupError = t(dict, 'whiteboard.encryptedImportInvalid');
       }
@@ -1519,17 +1548,12 @@
   });
 </script>
 
-<div
-  class="wb-container"
-  class:wb-container--fullscreen={isFullscreen}
-  style="--wb-paper-light: {BOARD_PALETTE.light.paper}; --wb-paper-dark: {BOARD_PALETTE.dark.paper}"
-  bind:this={rootEl}
->
+<div class="wb-container" class:wb-container--fullscreen={isFullscreen} bind:this={rootEl}>
   {#if roomFull}
     <div class="wb-center">
-      <div class="space-y-4 max-w-xs w-full text-center">
+      <div class="stack w-full max-w-xs text-center">
         {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="users" size={20} /></span>{/if}
-        <p class="status status--error" role="alert">{t(dict, 'whiteboard.roomFull')}</p>
+        <ToolStatus tone="error">{t(dict, 'whiteboard.roomFull')}</ToolStatus>
         <p class="hint">{t(dict, 'whiteboard.roomFullDetail')}</p>
         <button type="button" class="btn btn-block" on:click={() => { roomFull = false; verifying = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'whiteboard.roomFullRetry')}</button>
         {#if appMode}
@@ -1540,46 +1564,44 @@
 
   {:else if needsPassword}
     <div class="wb-center">
-      <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
-        <div class="text-center space-y-2">
+      <form class="stack w-full max-w-xs" novalidate on:submit|preventDefault={submitPassword}>
+        <div class="space-y-2 text-center">
           {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="lock-keyhole" size={20} /></span>{/if}
           <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
         {#if boardMissing}
-          <p class="status status--warn" role="alert">{t(dict, 'whiteboard.boardMissing')}</p>
+          <ToolStatus tone="warn">{t(dict, 'whiteboard.boardMissing')}</ToolStatus>
           {#if appMode}
             <button type="button" class="btn-secondary btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
           {:else}
             <a class="btn-secondary btn-block" href={`/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
           {/if}
         {/if}
-        <div class="field">
-          <input
-            type="password"
-            class="input w-full"
-            aria-label={t(dict, 'whiteboard.password')}
-            aria-invalid={passwordError ? 'true' : undefined}
-            aria-describedby={passwordError ? 'wb-password-error' : undefined}
-            placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
-            bind:value={passwordInput}
-            autocomplete="off"
-            data-lpignore="true"
-            data-1p-ignore
-            data-bwignore="true"
-          />
-          {#if passwordError}
-            <p id="wb-password-error" class="field-error" role="alert">{passwordError}</p>
-          {/if}
-        </div>
+        <Field label={t(dict, 'whiteboard.password')} hideLabel error={passwordError}>
+          {#snippet children(control)}
+            <input
+              {...control}
+              bind:this={passwordEl}
+              type="password"
+              class="input w-full"
+              placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')}
+              bind:value={passwordInput}
+              autocomplete="off"
+              data-lpignore="true"
+              data-1p-ignore
+              data-bwignore="true"
+            />
+          {/snippet}
+        </Field>
         <button type="submit" class="btn btn-block">{t(dict, 'whiteboard.enterRoom')}</button>
       </form>
     </div>
 
   {:else if verifying}
     <div class="wb-center">
-      <div class="text-center space-y-2" role="status" aria-live="polite">
-        <span class="wb-loader" aria-hidden="true"></span>
+      <div class="space-y-2 text-center" role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
         <p class="hint">{serverPresence > 1 ? t(dict, 'whiteboard.verifyingPassword') : t(dict, 'whiteboard.verifyingAlone')}</p>
       </div>
     </div>
@@ -1598,7 +1620,7 @@
       </div>
     {/if}
 
-    <div class="wb-stage">
+    <div class="wb-stage" use:stageHeight>
       <div
         class="wb-board"
         use:board
@@ -1613,45 +1635,45 @@
         {#if c.id !== myConnId && c.pk !== myPk}
           {@const s = toScreen(c.x, c.y, camTick)}
           <div class="wb-cursor" style="transform: translate({s.x}px, {s.y}px); --wb-peer: {c.color}" aria-hidden="true">
-            <svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1v17l4.5-4 3 7 3-1.4-3-6.6H15z" fill="var(--wb-peer)" stroke="white" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1v17l4.5-4 3 7 3-1.4-3-6.6H15z" stroke-width="1.4" stroke-linejoin="round"/></svg>
             <span class="wb-cursor__name">{c.name}{#if c.warn}<span class="wb-key-mark">!</span>{/if}</span>
           </div>
         {/if}
       {/each}
 
       <div class="wb-bar wb-bar--start">
-        <div class="wb-pill" role="group" aria-label={t(dict, 'whiteboard.history')}>
-          <button type="button" class="wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={t(dict, 'whiteboard.undo')}>
+        <div class="wb-pill" role="toolbar" aria-label={t(dict, 'whiteboard.history')} use:roving>
+          <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => store.undo()} disabled={!canUndo} aria-label={t(dict, 'whiteboard.undo')} title={`${t(dict, 'whiteboard.undo')} (Ctrl+Z)`}>
             <Icon name="undo-2" size={20} />
           </button>
-          <button type="button" class="wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={t(dict, 'whiteboard.redo')}>
+          <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => store.redo()} disabled={!canRedo} aria-label={t(dict, 'whiteboard.redo')} title={`${t(dict, 'whiteboard.redo')} (Ctrl+Shift+Z)`}>
             <Icon name="redo-2" size={20} />
           </button>
         </div>
-        <div class="wb-pill wb-zoom" role="group" aria-label={t(dict, 'whiteboard.zoom')}>
-          <button type="button" class="wb-btn" on:click={() => zoomBy(0.8)} aria-label={t(dict, 'whiteboard.zoomOut')} title={t(dict, 'whiteboard.zoomOut')}>
+        <div class="wb-pill wb-zoom" role="toolbar" aria-label={t(dict, 'whiteboard.zoom')} use:roving>
+          <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => zoomBy(0.8)} aria-label={t(dict, 'whiteboard.zoomOut')} title={t(dict, 'whiteboard.zoomOut')}>
             <Icon name="zoom-out" size={20} />
           </button>
-          <button type="button" class="wb-btn wb-btn--text" on:click={zoomReset} aria-label={`${t(dict, 'whiteboard.zoomReset')} (${zoomLabel})`} title={t(dict, 'whiteboard.zoomReset')}>{zoomLabel}</button>
-          <button type="button" class="wb-btn" on:click={() => zoomBy(1.25)} aria-label={t(dict, 'whiteboard.zoomIn')} title={t(dict, 'whiteboard.zoomIn')}>
+          <button type="button" class="btn-ghost wb-btn wb-btn--text" on:click={zoomReset} aria-label={`${t(dict, 'whiteboard.zoomReset')} (${zoomLabel})`} title={t(dict, 'whiteboard.zoomReset')}>{zoomLabel}</button>
+          <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => zoomBy(1.25)} aria-label={t(dict, 'whiteboard.zoomIn')} title={t(dict, 'whiteboard.zoomIn')}>
             <Icon name="zoom-in" size={20} />
           </button>
-          <button type="button" class="wb-btn" on:click={zoomFit} aria-label={t(dict, 'whiteboard.zoomFit')} title={`${t(dict, 'whiteboard.zoomFit')} (Shift+1)`}>
+          <button type="button" class="btn-ghost btn-icon wb-btn" on:click={zoomFit} aria-label={t(dict, 'whiteboard.zoomFit')} title={`${t(dict, 'whiteboard.zoomFit')} (Shift+1)`}>
             <Icon name="maximize" size={20} />
           </button>
         </div>
         {#if selectionSize > 0}
-          <div class="wb-pill wb-selection" role="group" aria-label={t(dict, 'whiteboard.selectionActions')}>
-            <button type="button" class="wb-btn" on:click={() => editor?.duplicateSelection()} aria-label={t(dict, 'whiteboard.duplicate')} title={`${t(dict, 'whiteboard.duplicate')} (Ctrl+D)`}>
+          <div class="wb-pill wb-selection" role="toolbar" aria-label={t(dict, 'whiteboard.selectionActions')} use:roving>
+            <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => editor?.duplicateSelection()} aria-label={t(dict, 'whiteboard.duplicate')} title={`${t(dict, 'whiteboard.duplicate')} (Ctrl+D)`}>
               <Icon name="copy" size={20} />
             </button>
-            <button type="button" class="wb-btn" on:click={() => editor?.bringToFront()} aria-label={t(dict, 'whiteboard.bringToFront')} title={`${t(dict, 'whiteboard.bringToFront')} (])`}>
+            <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => editor?.bringToFront()} aria-label={t(dict, 'whiteboard.bringToFront')} title={`${t(dict, 'whiteboard.bringToFront')} (])`}>
               <Icon name="bring-to-front" size={20} />
             </button>
-            <button type="button" class="wb-btn" on:click={() => editor?.sendToBack()} aria-label={t(dict, 'whiteboard.sendToBack')} title={`${t(dict, 'whiteboard.sendToBack')} ([)`}>
+            <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => editor?.sendToBack()} aria-label={t(dict, 'whiteboard.sendToBack')} title={`${t(dict, 'whiteboard.sendToBack')} ([)`}>
               <Icon name="send-to-back" size={20} />
             </button>
-            <button type="button" class="wb-btn wb-btn--danger" on:click={deleteSelected} aria-label={t(dict, 'whiteboard.delete')} title={`${t(dict, 'whiteboard.delete')} (Del)`}>
+            <button type="button" class="btn-ghost btn-icon wb-btn wb-btn--danger" on:click={deleteSelected} aria-label={t(dict, 'whiteboard.delete')} title={`${t(dict, 'whiteboard.delete')} (Del)`}>
               <Icon name="trash" size={20} />
             </button>
           </div>
@@ -1662,7 +1684,7 @@
         <button
           id="wb-chat-trigger"
           type="button"
-          class="wb-pill wb-btn wb-btn--solo wb-chat-trigger"
+          class="btn-secondary btn-icon wb-btn wb-btn--solo wb-chat-trigger"
           aria-expanded={chatOpen}
           aria-controls="wb-chat"
           aria-label={chatUnread ? `${t(dict, 'whiteboard.chat')} (${t(dict, 'whiteboard.chatUnread').replace('{n}', String(chatUnread))})` : t(dict, 'whiteboard.chat')}
@@ -1670,13 +1692,13 @@
           on:click={toggleChat}
         >
           <Icon name="message-square" size={20} />
-          {#if chatUnread}<span class="wb-chat-badge" aria-hidden="true">{chatUnread > 9 ? '9+' : chatUnread}</span>{/if}
+          {#if chatUnread}<span class="badge badge--danger wb-chat-badge" aria-hidden="true">{chatUnread > 9 ? '9+' : chatUnread}</span>{/if}
         </button>
         <div class="wb-pop" data-wb-style>
           <button
             id="wb-style-trigger"
             type="button"
-            class="wb-pill wb-btn wb-btn--solo"
+            class="btn-secondary btn-icon wb-btn wb-btn--solo"
             aria-expanded={styleOpen}
             aria-controls="wb-style-panel"
             aria-label={t(dict, 'whiteboard.style')}
@@ -1685,14 +1707,14 @@
           >
             <span class="wb-swatch" style="background: {swatch}"></span>
           </button>
-          <div id="wb-style-panel" class="menu wb-menu-panel wb-panel" class:menu--open={styleOpen}>
-            <fieldset class="wb-field">
-              <legend class="wb-legend">{t(dict, 'whiteboard.color')}</legend>
-              <div class="wb-colors">
+          <div id="wb-style-panel" class="menu menu--end wb-menu-panel wb-panel" class:menu--open={styleOpen} role="group" aria-label={t(dict, 'whiteboard.style')}>
+            <div class="wb-field" role="group" aria-labelledby="wb-color-label">
+              <span id="wb-color-label" class="wb-legend">{t(dict, 'whiteboard.color')}</span>
+              <div class="wb-colors" use:roving={{ columns: 6 }}>
                 {#each COLOR_IDS as c}
                   <button
                     type="button"
-                    class="wb-color"
+                    class="btn-ghost btn-icon wb-color"
                     aria-pressed={activeColor === c}
                     aria-label={t(dict, `whiteboard.colors.${c}`)}
                     title={t(dict, `whiteboard.colors.${c}`)}
@@ -1701,54 +1723,54 @@
                   ></button>
                 {/each}
               </div>
-            </fieldset>
-            <fieldset class="wb-field">
-              <legend class="wb-legend">{t(dict, 'whiteboard.size')}</legend>
-              <div class="wb-seg">
+            </div>
+            <div class="wb-field" role="group" aria-labelledby="wb-size-label">
+              <span id="wb-size-label" class="wb-legend">{t(dict, 'whiteboard.size')}</span>
+              <div class="wb-seg" use:roving>
                 {#each SIZE_IDS as s, i}
-                  <button type="button" class="wb-btn" aria-pressed={styles.size === s} aria-label={t(dict, `whiteboard.sizes.${s}`)} title={t(dict, `whiteboard.sizes.${s}`)} on:click={() => setStyle('size', s)}>
+                  <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.size === s} aria-label={t(dict, `whiteboard.sizes.${s}`)} title={t(dict, `whiteboard.sizes.${s}`)} on:click={() => setStyle('size', s)}>
                     <span class="wb-dot" style="--wb-dot: {5 + i * 3}px"></span>
                   </button>
                 {/each}
               </div>
-            </fieldset>
-            <fieldset class="wb-field">
-              <legend class="wb-legend">{t(dict, 'whiteboard.dash')}</legend>
-              <div class="wb-seg">
+            </div>
+            <div class="wb-field" role="group" aria-labelledby="wb-dash-label">
+              <span id="wb-dash-label" class="wb-legend">{t(dict, 'whiteboard.dash')}</span>
+              <div class="wb-seg" use:roving>
                 {#each DASH_IDS as d}
-                  <button type="button" class="wb-btn" aria-pressed={styles.dash === d} aria-label={t(dict, `whiteboard.dashes.${d}`)} title={t(dict, `whiteboard.dashes.${d}`)} on:click={() => setStyle('dash', d)}>
+                  <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.dash === d} aria-label={t(dict, `whiteboard.dashes.${d}`)} title={t(dict, `whiteboard.dashes.${d}`)} on:click={() => setStyle('dash', d)}>
                     <Icon name={DASH_ICONS[d]} size={20} class="wb-dash-{d}" />
                   </button>
                 {/each}
               </div>
-            </fieldset>
-            <fieldset class="wb-field">
-              <legend class="wb-legend">{t(dict, 'whiteboard.fill')}</legend>
-              <div class="wb-seg">
+            </div>
+            <div class="wb-field" role="group" aria-labelledby="wb-fill-label">
+              <span id="wb-fill-label" class="wb-legend">{t(dict, 'whiteboard.fill')}</span>
+              <div class="wb-seg" use:roving>
                 {#each FILL_IDS as f}
-                  <button type="button" class="wb-btn" aria-pressed={styles.fill === f} aria-label={t(dict, `whiteboard.fills.${f}`)} title={t(dict, `whiteboard.fills.${f}`)} on:click={() => setStyle('fill', f)}>
+                  <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.fill === f} aria-label={t(dict, `whiteboard.fills.${f}`)} title={t(dict, `whiteboard.fills.${f}`)} on:click={() => setStyle('fill', f)}>
                     <Icon name={FILL_ICONS[f]} size={20} class="wb-fill-{f}" />
                   </button>
                 {/each}
               </div>
-            </fieldset>
-            <fieldset class="wb-field">
-              <legend class="wb-legend">{t(dict, 'whiteboard.font')}</legend>
-              <div class="wb-seg">
+            </div>
+            <div class="wb-field" role="group" aria-labelledby="wb-font-label">
+              <span id="wb-font-label" class="wb-legend">{t(dict, 'whiteboard.font')}</span>
+              <div class="wb-seg" use:roving>
                 {#each Object.keys(FONTS) as f}
-                  <button type="button" class="wb-btn wb-btn--font" aria-pressed={styles.font === f} aria-label={t(dict, `whiteboard.fonts.${f}`)} title={t(dict, `whiteboard.fonts.${f}`)} style="font-family: {FONTS[f as keyof typeof FONTS]}" on:click={() => setStyle('font', f as Styles['font'])}>Aa</button>
+                  <button type="button" class="btn-ghost btn-icon wb-btn wb-btn--font" aria-pressed={styles.font === f} aria-label={t(dict, `whiteboard.fonts.${f}`)} title={t(dict, `whiteboard.fonts.${f}`)} style="font-family: {FONTS[f as keyof typeof FONTS]}" on:click={() => setStyle('font', f as Styles['font'])}>Aa</button>
                 {/each}
               </div>
-            </fieldset>
+            </div>
           </div>
         </div>
 
-        <div class="wb-pop" data-wb-menu on:focusout={onWbMenuFocusout}>
+        <div class="wb-pop" data-wb-menu>
           <button
             bind:this={wbMenuEl}
             id="wb-menu-trigger"
             type="button"
-            class="wb-pill wb-btn wb-btn--solo"
+            class="btn-secondary btn-icon wb-btn wb-btn--solo"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls="wb-menu"
@@ -1798,49 +1820,48 @@
               </MenuList>
             </Popover>
           {:else}
-          <div
-            id="wb-menu"
-            class="menu wb-menu-panel"
-            class:menu--open={menuOpen}
-            role="menu"
-            tabindex="-1"
-            aria-label={t(dict, 'whiteboard.menu')}
-            bind:this={wbMenuPanelEl}
-            on:keydown={onWbMenuKeydown}
-          >
-            <button type="button" class="menu__item" role="menuitem" on:click={exportPng} disabled={shapeCount === 0}>
-              <Icon name="download" />{t(dict, 'whiteboard.exportPng')}
-            </button>
-            <button type="button" class="menu__item" role="menuitem" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
-              <Icon name="save" />{t(dict, 'whiteboard.exportBoard')}
-            </button>
-            <button type="button" class="menu__item" role="menuitem" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
-              <Icon name="save" />{t(dict, 'whiteboard.exportEncrypted')}
-            </button>
-            <button type="button" class="menu__item" role="menuitem" on:click={chooseImport} aria-describedby="wb-backup-hint">
-              <Icon name="upload" />{t(dict, 'whiteboard.importBoard')}
-            </button>
-            <button type="button" class="menu__item" role="menuitem" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
-              <Icon name="upload" />{t(dict, 'whiteboard.importEncrypted')}
-            </button>
-            <p id="wb-backup-hint" class="hint wb-menu-hint" role="presentation">{t(dict, 'whiteboard.backupHint')}</p>
-            <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
-            <button type="button" class="menu__item" role="menuitem" on:click={zoomFit} disabled={shapeCount === 0}>
-              <Icon name="maximize" />{t(dict, 'whiteboard.zoomFit')}
-            </button>
-            <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={gridOn} on:click={toggleGrid}>
-              <Icon name="grid-3x3" />{t(dict, 'whiteboard.grid')}
-              {#if gridOn}<Icon name="check" class="wb-menu-check" />{/if}
-            </button>
-            {#if fullscreenSupported}
-              <button type="button" class="menu__item" role="menuitem" on:click={toggleFullscreen}>
-                <Icon name={isFullscreen ? 'minimize-2' : 'maximize-2'} />{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
+            <div
+              id="wb-menu"
+              class="menu menu--end wb-menu-panel"
+              class:menu--open={menuOpen}
+              role="menu"
+              tabindex="-1"
+              aria-label={t(dict, 'whiteboard.menu')}
+              use:menu={{ open: menuOpen, onclose: () => { menuOpen = false; }, trigger: wbMenuEl }}
+            >
+              <button type="button" class="menu__item" role="menuitem" on:click={exportPng} disabled={shapeCount === 0}>
+                <Icon name="download" />{t(dict, 'whiteboard.exportPng')}
               </button>
-            {/if}
-            <button type="button" class="menu__item wb-menu-danger" role="menuitem" on:click={clearAll} disabled={shapeCount === 0}>
-              <Icon name="trash" />{t(dict, 'whiteboard.clear')}
-            </button>
-          </div>
+              <button type="button" class="menu__item" role="menuitem" on:click={exportBoard} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+                <Icon name="save" />{t(dict, 'whiteboard.exportBoard')}
+              </button>
+              <button type="button" class="menu__item" role="menuitem" on:click={chooseEncryptedExport} disabled={shapeCount === 0} aria-describedby="wb-backup-hint">
+                <Icon name="save" />{t(dict, 'whiteboard.exportEncrypted')}
+              </button>
+              <button type="button" class="menu__item" role="menuitem" on:click={chooseImport} aria-describedby="wb-backup-hint">
+                <Icon name="upload" />{t(dict, 'whiteboard.importBoard')}
+              </button>
+              <button type="button" class="menu__item" role="menuitem" on:click={chooseEncryptedImport} aria-describedby="wb-backup-hint">
+                <Icon name="upload" />{t(dict, 'whiteboard.importEncrypted')}
+              </button>
+              <p id="wb-backup-hint" class="hint wb-menu-hint" role="presentation">{t(dict, 'whiteboard.backupHint')}</p>
+              <SaveRoomButton {dict} kind="whiteboard" {roomId} mode="live" password={passwordInput} ready={verified} variant="menu" />
+              <button type="button" class="menu__item" role="menuitem" on:click={zoomFit} disabled={shapeCount === 0}>
+                <Icon name="maximize" />{t(dict, 'whiteboard.zoomFit')}
+              </button>
+              <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={gridOn} on:click={toggleGrid}>
+                <Icon name="grid-3x3" />{t(dict, 'whiteboard.grid')}
+                {#if gridOn}<Icon name="check" class="wb-menu-check" />{/if}
+              </button>
+              {#if fullscreenSupported}
+                <button type="button" class="menu__item" role="menuitem" on:click={toggleFullscreen}>
+                  <Icon name={isFullscreen ? 'minimize-2' : 'maximize-2'} />{t(dict, isFullscreen ? 'whiteboard.exitFullscreen' : 'whiteboard.fullscreen')}
+                </button>
+              {/if}
+              <button type="button" class="menu__item menu__item--danger" role="menuitem" on:click={clearAll} disabled={shapeCount === 0}>
+                <Icon name="trash" />{t(dict, 'whiteboard.clear')}
+              </button>
+            </div>
           {/if}
         </div>
       </div>
@@ -1849,18 +1870,17 @@
         <section id="wb-chat" class="wb-chat" aria-label={t(dict, 'whiteboard.chat')}>
           <header class="wb-chat__head">
             <h2 class="wb-chat__title">{t(dict, 'whiteboard.chat')}</h2>
-            <button type="button" class="wb-btn" on:click={toggleChat} aria-label={t(dict, 'whiteboard.chatClose')} title={t(dict, 'whiteboard.chatClose')}>
-              <Icon name="x" size={20} />
+            <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={toggleChat} aria-label={t(dict, 'whiteboard.chatClose')} title={t(dict, 'whiteboard.chatClose')}>
+              <Icon name="x" size={16} />
             </button>
           </header>
           <ol class="wb-chat__list" bind:this={chatListEl} use:revealSpoilers aria-live="polite">
             {#each chatView as m (m.id)}
               <li class="wb-chat__msg" class:wb-chat__msg--mine={m.mine}>
-                <span class="wb-chat__name" style="color: {m.color}">
+                <span class="wb-chat__name">
+                  <span class="wb-chat__swatch" style="background: {m.color}" aria-hidden="true"></span>
                   {m.name}
-                  {#if m.warn}
-                    <button type="button" class="wb-key-warn" title={t(dict, 'whiteboard.keyNewHint')} on:click={togglePeople}>{t(dict, 'whiteboard.keyNew')}</button>
-                  {/if}
+                  {#if m.warn}<span class="badge badge--warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
                 </span>
                 <div class="wb-chat__text chat-md">{@html m.html}</div>
                 {#if m.expiresAt}
@@ -1868,7 +1888,7 @@
                 {/if}
               </li>
             {:else}
-              <li class="wb-chat__empty">{t(dict, 'whiteboard.chatEmpty')}</li>
+              <li class="empty wb-chat__empty">{t(dict, 'whiteboard.chatEmpty')}</li>
             {/each}
           </ol>
           <form class="wb-chat__form" on:submit|preventDefault={sendChat}>
@@ -1885,7 +1905,7 @@
               data-lpignore="true"
               data-1p-ignore
             />
-            <button type="submit" class="wb-btn" disabled={!chatInput.trim() || !connected} aria-label={t(dict, 'whiteboard.chatSend')} title={t(dict, 'whiteboard.chatSend')}>
+            <button type="submit" class="btn-ghost btn-icon wb-btn" disabled={!chatInput.trim() || !connected} aria-label={t(dict, 'whiteboard.chatSend')} title={t(dict, 'whiteboard.chatSend')}>
               <Icon name="send" size={20} />
             </button>
           </form>
@@ -1896,13 +1916,13 @@
         <section id="wb-people" class="wb-chat wb-people" aria-label={t(dict, 'whiteboard.people')}>
           <header class="wb-chat__head">
             <h2 class="wb-chat__title">{t(dict, 'whiteboard.people')}</h2>
-            <button type="button" class="wb-btn" on:click={togglePeople} aria-label={t(dict, 'whiteboard.peopleClose')} title={t(dict, 'whiteboard.peopleClose')}>
-              <Icon name="x" size={20} />
+            <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={togglePeople} aria-label={t(dict, 'whiteboard.peopleClose')} title={t(dict, 'whiteboard.peopleClose')}>
+              <Icon name="x" size={16} />
             </button>
           </header>
           <ul class="wb-chat__list">
             <li class="wb-member">
-              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}"></span>
+              <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}" aria-hidden="true"></span>
               <div class="min-w-0 flex-1">
                 <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
                 <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
@@ -1910,11 +1930,11 @@
             </li>
             {#each memberList as member (member.pk)}
               <li class="wb-member" class:wb-member--warn={!member.trusted}>
-                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}"></span>
+                <span class="wb-avatar" style="background: {gradientFor(memberAlias(member), member.name)}" aria-hidden="true"></span>
                 <div class="min-w-0 flex-1">
                   <p class="wb-member__name">
                     {member.name}
-                    {#if !member.trusted}<span class="wb-key-warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
+                    {#if !member.trusted}<span class="badge badge--warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
                   </p>
                   <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={memberCodes[member.pk]?.code ?? ''}>{memberCodes[member.pk]?.code ?? ''}</span></p>
                   <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><span class="wb-member__emoji wb-member__safety" aria-label={memberCodes[member.pk]?.safety ?? ''}>{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</span></p>
@@ -1925,7 +1945,7 @@
                 </div>
               </li>
             {:else}
-              <li class="wb-chat__empty">{t(dict, 'whiteboard.noPeopleYet')}</li>
+              <li class="empty wb-chat__empty">{t(dict, 'whiteboard.noPeopleYet')}</li>
             {/each}
           </ul>
           <p class="hint wb-people__hint">{t(dict, 'whiteboard.safetyNumberHint')}</p>
@@ -1945,21 +1965,25 @@
         onsubmit={confirmBackupPassword}
         onclose={closeBackupDialog}
       >
-        <div class="field">
-          <label class="label" for="wb-backup-pass">{t(dict, 'whiteboard.password')}</label>
-          <input id="wb-backup-pass" class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+        <div class="stack" bind:this={backupFieldsEl}>
+          <Field label={t(dict, 'whiteboard.password')} error={backupPasswordError} required>
+            {#snippet children(control)}
+              <input {...control} class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+            {/snippet}
+          </Field>
+          {#if backupMode === 'export'}
+            <Field label={t(dict, 'whiteboard.passwordConfirm')} error={backupConfirmError} required>
+              {#snippet children(control)}
+                <input {...control} class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+              {/snippet}
+            </Field>
+          {/if}
+          {#if backupError}
+            <ToolStatus tone="error">{backupError}</ToolStatus>
+          {/if}
         </div>
-        {#if backupMode === 'export'}
-          <div class="field">
-            <label class="label" for="wb-backup-pass-confirm">{t(dict, 'whiteboard.passwordConfirm')}</label>
-            <input id="wb-backup-pass-confirm" class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
-          </div>
-        {/if}
-        {#if backupError}
-          <p class="status status--error" role="alert">{backupError}</p>
-        {/if}
         {#snippet actions()}
-          <button type="submit" class="btn" disabled={backupBusy}>{t(dict, backupMode === 'export' ? 'whiteboard.encryptedExportAction' : 'whiteboard.encryptedImportAction')}</button>
+          <button type="submit" class="btn" aria-busy={backupBusy} disabled={backupBusy}>{t(dict, backupMode === 'export' ? 'whiteboard.encryptedExportAction' : 'whiteboard.encryptedImportAction')}</button>
           <button type="button" class="btn-secondary" disabled={backupBusy} on:click={closeBackupDialog}>{t(dict, 'rooms.cancel')}</button>
         {/snippet}
       </Modal>
@@ -1983,8 +2007,8 @@
       {#if notice}
         <div class="wb-notice status" class:status--error={notice.error} class:status--ok={!notice.error} role={notice.error ? 'alert' : 'status'}>
           <span class="min-w-0 flex-1">{notice.text}</span>
-          <button type="button" class="wb-btn wb-notice__close" on:click={() => { notice = null; }} aria-label={t(dict, 'whiteboard.noticeClose')} title={t(dict, 'whiteboard.noticeClose')}>
-            <Icon name="x" size={20} />
+          <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={() => { notice = null; }} aria-label={t(dict, 'whiteboard.noticeClose')} title={t(dict, 'whiteboard.noticeClose')}>
+            <Icon name="x" size={16} />
           </button>
         </div>
       {/if}
@@ -1992,12 +2016,12 @@
       <div class="wb-dock-wrap">
         {#if tool === 'geo'}
           <div class="wb-pill wb-geo" role="group" aria-label={t(dict, 'whiteboard.geoKinds')}>
-            <div class="wb-track" use:scrollEdges>
+            <div class="wb-track" use:scrollEdges use:roving>
               {#each GEO_IDS as g}
                 {@const label = t(dict, `whiteboard.geo.${g}`)}
                 {@const geoIcon = GEO_ICONS[g]}
                 {@const fallback = dict[`whiteboard.geo.${g}`] ?? ''}
-                <button type="button" class="wb-btn" class:wb-btn--text={!geoIcon && !!fallback} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
+                <button type="button" class="btn-ghost wb-btn" class:btn-icon={!!geoIcon} class:wb-btn--text={!geoIcon && !!fallback} aria-pressed={geoKind === g} aria-label={label} title={GEO_KEYS[g] ? `${label} (${GEO_KEYS[g]})` : label} on:click={() => pickGeo(g)}>
                   {#if geoIcon}
                     <Icon name={geoIcon} size={20} />
                   {:else if fallback}
@@ -2009,14 +2033,13 @@
           </div>
         {/if}
         <div class="wb-pill wb-dock" role="toolbar" aria-label={t(dict, 'whiteboard.toolbar')} aria-orientation="horizontal">
-          <div class="wb-track" use:scrollEdges>
+          <div class="wb-track" use:scrollEdges use:roving>
             {#each TOOLS as item}
               {@const label = t(dict, `whiteboard.tool.${item.id}`)}
               {@const icon = item.id === 'geo' ? GEO_ICONS[geoKind] : TOOL_ICONS[item.id]}
               <button
                 type="button"
-                class="wb-btn wb-tool"
-                class:wb-btn--text={!icon}
+                class="btn-ghost btn-icon wb-btn wb-tool"
                 aria-pressed={tool === item.id}
                 aria-label={label}
                 title={`${label} (${item.key})`}
@@ -2030,7 +2053,7 @@
                 {/if}
               </button>
             {/each}
-            <button type="button" class="wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
+            <button type="button" class="btn-ghost btn-icon wb-btn wb-tool" aria-label={t(dict, 'whiteboard.insertImage')} title={t(dict, 'whiteboard.insertImage')} on:click={chooseImage}>
               <Icon name="image" size={20} />
             </button>
           </div>
@@ -2039,22 +2062,22 @@
     </div>
 
     <div class="wb-footer">
-      <div class="flex items-center gap-2 min-w-0">
+      <div class="flex min-w-0 items-center gap-2">
         {#if !appMode}
-          <span class="wb-status" class:wb-status--connected={connected} aria-hidden="true"></span>
+          <span class={connected ? 'wb-link-dot' : 'spinner'} aria-hidden="true"></span>
           <span class="sr-only" aria-live="polite">{connected ? t(dict, 'whiteboard.connected') : cryptoKey ? t(dict, 'whiteboard.connecting') : t(dict, 'common.working')}</span>
         {/if}
         <button
           id="wb-people-trigger"
           type="button"
-          class="wb-people-trigger"
+          class="btn-ghost btn-sm wb-people-trigger"
           aria-expanded={peopleOpen}
           aria-controls="wb-people"
           aria-label={keyWarnings ? `${t(dict, 'whiteboard.people')} (${t(dict, 'whiteboard.keyWarnings').replace('{n}', String(keyWarnings))})` : t(dict, 'whiteboard.people')}
           title={t(dict, 'whiteboard.people')}
           on:click={togglePeople}
         >
-          <span class="flex items-center -space-x-1.5">
+          <span class="flex items-center -space-x-1.5" aria-hidden="true">
             <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}"></span>
             {#each onlineUsers as user (user.id)}
               <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}"></span>
@@ -2091,29 +2114,11 @@
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
-    /* Text on a data-driven peer colour; the cursor glyph is white too. */
-    --wb-on-peer: #ffffff;
   }
   .wb-container--fullscreen {
     height: 100dvh;
     border-radius: 0;
     border: 0;
-  }
-
-  .wb-loader {
-    display: inline-block;
-    width: 1.5rem;
-    height: 1.5rem;
-    box-sizing: border-box;
-    border-radius: 50%;
-    border: 2.5px solid color-mix(in srgb, var(--accent) 25%, transparent);
-    border-top-color: var(--accent);
-    animation: wb-spin calc(var(--duration-slow) * 2) linear infinite;
-    will-change: transform;
-    backface-visibility: hidden;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .wb-loader { animation: none; will-change: auto; opacity: 0.85; }
   }
 
   .wb-center {
@@ -2135,13 +2140,8 @@
   .wb-board {
     position: absolute;
     inset: 0;
-    background: var(--wb-paper-light);
+    background: var(--bg);
   }
-  :global(html.dark) .wb-board,
-  .wb-board:global([data-qd-theme='dark']) {
-    background: var(--wb-paper-dark);
-  }
-  /* In the app the board is the shell surface itself: same bg as the rest of the app. */
   :global(html[data-app-platform]) .wb-board {
     background: var(--app-bg);
   }
@@ -2160,7 +2160,7 @@
     pointer-events: none;
     z-index: 2;
   }
-  .wb-bar--start { left: 0.5rem; right: 9.5rem; }
+  .wb-bar--start { left: 0.5rem; right: 10.5rem; }
   .wb-bar--end { right: 0.5rem; z-index: 3; }
 
   .wb-pill {
@@ -2175,47 +2175,23 @@
     pointer-events: auto;
   }
 
-  .wb-btn {
-    width: 36px;
-    height: 36px;
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.5rem;
-    color: var(--muted);
-    transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
-  }
   .wb-btn :global(svg.wb-dash-dashed path) { stroke-dasharray: 5 3; }
   .wb-btn :global(svg.wb-dash-dotted path) { stroke-dasharray: 0.1 4; stroke-width: 3; }
   .wb-btn :global(svg.wb-fill-none path) { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
   .wb-btn :global(svg.wb-fill-semi path) { fill: currentColor; fill-opacity: 0.35; }
   .wb-btn :global(svg.wb-fill-solid path) { fill: currentColor; fill-opacity: 1; }
-  .wb-btn:not(:disabled):hover {
-    background: var(--surface-2);
-    color: var(--text);
-  }
-  .wb-btn[aria-pressed="true"] {
-    background: var(--accent-weak);
-    color: var(--accent-strong);
-  }
-  .wb-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .wb-btn--danger:not(:disabled):hover { color: var(--danger); background: var(--danger-weak); }
+  .wb-btn--danger:not(:disabled):hover { --btn-fg: var(--danger); background: var(--danger-weak); }
   .wb-btn--text {
-    width: auto;
     min-width: 3.25rem;
-    padding: 0 0.375rem;
+    padding-inline: 0.375rem;
     font-size: 0.75rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
   .wb-btn--font { font-size: 0.95rem; }
   .wb-btn--solo {
-    width: 44px;
-    height: 44px;
+    pointer-events: auto;
+    box-shadow: var(--shadow-float);
   }
 
   .wb-swatch {
@@ -2226,45 +2202,33 @@
     border: 1px solid var(--line);
   }
 
-  .wb-pop { position: relative; pointer-events: auto; }
+  .wb-pop { pointer-events: auto; }
   .wb-menu-panel {
     min-width: 14rem;
-    max-width: calc(100vw - 1rem);
-    text-align: left;
-  }
-  .wb-menu-panel :global(.menu__item) {
-    min-height: 2.75rem;
-  }
-  [data-wb-style] .wb-menu-panel {
-    left: auto;
-    right: 0;
-  }
-  [data-wb-menu] .wb-menu-panel {
-    /* Keep the ⋮ panel on-screen; items stay left-aligned inside. */
-    left: auto;
-    right: 0;
-    max-height: min(70dvh, 28rem);
+    max-width: calc(100cqw - 1rem);
+    max-height: calc(var(--wb-stage-h, 70dvh) - 4.25rem);
     overflow-y: auto;
     overscroll-behavior: contain;
+    text-align: left;
+  }
+  .wb-menu-panel :global(.menu__item .wb-menu-check) { margin-left: auto; color: var(--accent); }
+  .wb-menu-hint {
+    max-width: 15rem;
+    padding: 0 0.75rem 0.375rem;
+    font-size: 0.75rem;
   }
 
   .wb-panel {
-    width: 15.5rem;
+    width: min(19rem, calc(100cqw - 1rem));
     min-width: 0;
-    max-height: min(70dvh, 28rem);
-    overflow-y: auto;
     gap: 0.5rem;
     padding: 0.625rem;
   }
-
   .wb-field {
-    border: 0;
-    margin: 0;
-    padding: 0;
     min-width: 0;
   }
   .wb-legend {
-    padding: 0;
+    display: block;
     margin-bottom: 0.25rem;
     font-size: 0.75rem;
     font-weight: 700;
@@ -2272,48 +2236,33 @@
   }
   .wb-colors {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 2px;
   }
   .wb-color {
-    height: 2.75rem;
-    border-radius: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color var(--duration-fast) var(--ease-out);
+    width: 100%;
+    min-width: 0;
   }
   .wb-color::before {
     content: '';
-    width: 20px;
-    height: 20px;
+    width: 1.25rem;
+    height: 1.25rem;
+    box-sizing: border-box;
     border-radius: 50%;
+    border: 1px solid var(--line);
     background: var(--wb-swatch);
   }
-  .wb-color:hover { background: var(--surface-2); }
-  .wb-color[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
   .wb-seg {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 2px;
   }
-  .wb-seg .wb-btn { width: 100%; height: 2.75rem; }
+  .wb-seg .wb-btn { width: 100%; min-width: 0; }
   .wb-dot {
     width: var(--wb-dot);
     height: var(--wb-dot);
     border-radius: 50%;
     background: currentColor;
-  }
-
-  .menu__item:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  .menu__item :global(.wb-menu-check) { margin-left: auto; color: var(--accent); }
-  .wb-menu-hint {
-    max-width: 15rem;
-    padding: 0 0.75rem 0.375rem;
-    font-size: 0.75rem;
   }
 
   .wb-notice {
@@ -2327,8 +2276,6 @@
     box-shadow: var(--shadow-float);
     z-index: 4;
   }
-  .wb-notice__close { width: 32px; height: 32px; color: inherit; }
-  .wb-menu-danger:not(:disabled):hover { color: var(--danger); }
 
   .wb-dock-wrap {
     position: absolute;
@@ -2342,9 +2289,7 @@
     pointer-events: none;
     z-index: 2;
   }
-  .wb-dock {
-    max-width: 100%;
-  }
+  .wb-dock,
   .wb-geo { max-width: 100%; }
   .wb-track {
     display: flex;
@@ -2354,7 +2299,6 @@
     flex-wrap: wrap;
     justify-content: center;
   }
-  /* In the app the tool row is one horizontally scrollable line; wrapping hid tools behind the fold. */
   :global(html[data-app-platform]) .wb-track {
     flex-wrap: nowrap;
     justify-content: flex-start;
@@ -2383,12 +2327,18 @@
     transition: transform var(--duration-base) linear;
     will-change: transform;
   }
+  .wb-cursor path {
+    fill: var(--wb-peer);
+    stroke: var(--bg);
+  }
   .wb-cursor__name {
     margin-top: 14px;
-    padding: 1px 6px;
+    padding: 1px 6px 1px 9px;
     border-radius: 6px;
-    background: var(--wb-peer);
-    color: var(--wb-on-peer);
+    border: 1px solid var(--line);
+    background: var(--bg);
+    box-shadow: inset 3px 0 0 var(--wb-peer);
+    color: var(--text);
     font-size: 0.75rem;
     font-weight: 700;
     white-space: nowrap;
@@ -2397,25 +2347,16 @@
     .wb-cursor { transition: none; }
   }
 
-  .wb-chat-trigger { position: relative; }
   .wb-chat-trigger[aria-expanded="true"] {
+    --btn-fg: var(--accent-strong);
+    border-color: var(--accent-line);
     background: var(--accent-weak);
-    color: var(--accent-strong);
   }
   .wb-chat-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 4px;
-    border-radius: 6px;
-    background: var(--danger);
-    color: var(--bg);
-    font-size: 0.6875rem;
-    font-weight: 800;
-    line-height: 18px;
-    text-align: center;
+    top: -6px;
+    right: -6px;
+    pointer-events: none;
   }
   .wb-chat {
     position: absolute;
@@ -2441,7 +2382,7 @@
   }
   .wb-chat__title {
     font-size: 0.875rem;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--text);
   }
   .wb-chat__list {
@@ -2472,37 +2413,32 @@
     background: var(--accent-weak);
   }
   .wb-chat__name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.75rem;
-    font-weight: 800;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .wb-chat__swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    flex: none;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1px solid var(--line);
   }
   .wb-chat__timer {
     justify-self: end;
     font-size: 0.6875rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
   .wb-chat__empty {
     margin: auto 0;
-    text-align: center;
-    font-size: 0.8125rem;
-    color: var(--muted);
-  }
-  .wb-key-warn {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 0.25rem;
-    padding: 0 0.375rem;
-    border-radius: 6px;
-    background: var(--warn-weak);
-    color: var(--warn);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    vertical-align: middle;
-  }
-  button.wb-key-warn:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
+    padding: 0;
   }
   .wb-key-mark {
     display: inline-flex;
@@ -2515,7 +2451,7 @@
     background: var(--warn);
     color: var(--bg);
     font-size: 0.625rem;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1;
   }
   .wb-chat.wb-people {
@@ -2577,18 +2513,13 @@
   .wb-chat__input {
     flex: 1;
     min-width: 0;
-    min-height: 2.5rem;
   }
 
   @container (max-width: 560px) {
-    /* Zoom controls are desktop tools; on touch screens the canvas pinches. */
     .wb-zoom { display: none; }
-    .wb-btn { width: 34px; height: 34px; }
     .wb-chat { bottom: 7rem; }
   }
 
-  /* Ultra-narrow viewports (Display Zoom, SE): a full selection row is wider
-     than the bar itself, so the pill clusters into a 2x2 grid instead of clipping. */
   @container (max-width: 374px) {
     .wb-selection {
       flex-wrap: wrap;
@@ -2597,6 +2528,9 @@
   }
 
   .wb-share-banner {
+    flex: none;
+    max-height: 40%;
+    overflow-y: auto;
     padding: 0.5rem 0.75rem;
     border-bottom: 1px solid var(--accent-line);
     background: var(--accent-weak);
@@ -2612,31 +2546,12 @@
     color: var(--muted);
   }
 
-  .wb-status {
+  .wb-link-dot {
     width: 8px;
     height: 8px;
     flex: none;
-    box-sizing: border-box;
     border-radius: 50%;
-    border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
-    border-top-color: var(--accent);
-    background: transparent;
-    animation: wb-spin calc(var(--duration-slow) * 2) linear infinite;
-    will-change: transform;
-    backface-visibility: hidden;
-  }
-  .wb-status--connected {
-    border: 0;
     background: var(--accent);
-    animation: none;
-    will-change: auto;
-  }
-  @keyframes wb-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .wb-status { animation: none; will-change: auto; opacity: 0.85; }
   }
 
   .wb-avatar {
@@ -2654,28 +2569,17 @@
   }
   .wb-avatar--warn { border-color: var(--warn); }
   .wb-people-trigger {
-    display: inline-flex;
-    align-items: center;
-    min-height: 2.25rem;
-    padding: 0 0.25rem;
-    border-radius: 0.5rem;
-    transition: background-color var(--duration-fast) var(--ease-out);
+    padding-inline: 0.25rem;
   }
-  .wb-people-trigger:hover,
   .wb-people-trigger[aria-expanded="true"] { background: var(--surface-2); }
-  .wb-people-trigger:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
 
   .wb-counter {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
-  .wb-lock[aria-pressed="true"] { color: var(--accent-strong); }
   @media (max-width: 479px) {
-    .wb-lock { width: 2.25rem; padding: 0; }
+    .wb-lock { width: 2rem; padding: 0; }
     .wb-lock__text {
       position: absolute;
       width: 1px;
@@ -2684,5 +2588,8 @@
       clip-path: inset(50%);
       white-space: nowrap;
     }
+  }
+  @media (max-width: 479px) and (pointer: coarse) {
+    .wb-lock { width: 2.75rem; }
   }
 </style>
