@@ -1,4 +1,5 @@
 import { hkdfAesKey, hkdfBytes } from './kdf';
+import { trimTrailing } from './trailing';
 
 const ED25519 = { name: 'Ed25519' };
 const SIGNATURE_RE = /^[A-Za-z0-9_-]{86}$/;
@@ -184,7 +185,7 @@ export function stableStringify(value: unknown): string {
 export function arrayToB64url(arr: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return trimTrailing(btoa(binary).replace(/\+/g, '-').replace(/\//g, '_'), '=');
 }
 
 export function b64urlToArray(str: string): Uint8Array {

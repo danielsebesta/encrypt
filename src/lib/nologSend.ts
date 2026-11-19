@@ -1,5 +1,6 @@
 import { readLimited, MAX_TRANSFER_BYTES, SLOW_TRANSFER_TIMEOUT_MS, fetchNoRedirect } from './httpLimits';
 import { parseAllowedFetchUrl } from './ghost/allowedFetch';
+import { trimTrailing } from './trailing';
 const DEFAULT_NONCE = 'yRCdyQ1EMSA3mo4rqSkuNQ==';
 const KEY_LENGTH = 16;
 const NONCE_LENGTH = 12;
@@ -24,7 +25,7 @@ export interface SendInstance {
 function arrayToB64(array: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < array.length; i++) binary += String.fromCharCode(array[i]);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return trimTrailing(btoa(binary).replace(/\+/g, '-').replace(/\//g, '_'), '=');
 }
 
 function b64ToArray(str: string): Uint8Array {
@@ -445,7 +446,7 @@ class NologSendKeychain {
 }
 
 function normalizeSendBaseUrl(baseUrl: string) {
-  return baseUrl.replace(/\/+$/g, '');
+  return trimTrailing(baseUrl, '/');
 }
 
 function parseSendDownloadUrl(urlString: string, requireSecret = true) {

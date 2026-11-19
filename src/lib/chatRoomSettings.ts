@@ -215,7 +215,7 @@ export function passwordLongEnough(password: string): boolean {
 
 // A trailing "!N" makes one message disappear after N seconds in any room mode. Out-of-range or
 // fractional values are clamped rather than ignored, so a typo never turns a private message permanent.
-const BURN_SUFFIX = /\s*!(\d{1,9}(?:[.,]\d*)?)$/;
+const BURN_SUFFIX = /!(\d{1,9}(?:[.,]\d*)?)$/;
 const BURN_MAX_SECONDS = 3600;
 
 export function parseBurnSuffix(raw: string): { text: string; ttl: number } | null {

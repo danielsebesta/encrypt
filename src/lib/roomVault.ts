@@ -2,6 +2,7 @@ import { hkdfAesKey, hkdfKey } from './kdf';
 import { normalizeChatMode } from './chatRoomSettings';
 import { sealPassword, openPassword } from './passwordEnvelope';
 import { deleteIdbDatabase } from './idbDelete';
+import { trimTrailing } from './trailing';
 
 export type RoomKind = 'chat' | 'whiteboard';
 export type RoomSecret = { type: 'password'; value: string };
@@ -541,7 +542,7 @@ const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 function toB64Url(bytes: Uint8Array): string {
   let bin = '';
   for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return trimTrailing(btoa(bin).replace(/\+/g, '-').replace(/\//g, '_'), '=');
 }
 
 function fromB64Url(text: string): Uint8Array | null {
