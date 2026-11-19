@@ -1654,11 +1654,20 @@ html.dark {
     }
 
     .home-app {
-        @apply grid gap-8 overflow-hidden rounded-lg border border-line bg-surface px-5 pt-10 md:px-8 md:pt-12;
+        @apply grid gap-10 overflow-hidden pt-6 md:gap-14 md:pt-12;
+    }
+
+    .home > .home-app {
+        @apply -mb-16;
     }
 
     .home-app__head {
-        @apply grid justify-items-center gap-4 text-center;
+        @apply grid justify-items-center gap-5 text-center;
+    }
+
+    .home-app__head .section-title {
+        @apply max-w-3xl font-semibold leading-[1.05] tracking-tight;
+        font-size: clamp(2.25rem, 1.1rem + 4.6vw, 4.5rem);
     }
 
     .home-app__head .platform-pills,
