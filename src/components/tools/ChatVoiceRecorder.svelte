@@ -112,14 +112,14 @@
       <span class="voice-rec__label">{t(dict, 'chat.voiceRecording')}</span>
       <span class="voice-rec__time">{formatClock(elapsed)} / {formatClock(MAX_VOICE_SECONDS)}</span>
     </div>
-    <button type="button" class="btn-ghost btn-sm btn-icon" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
+    <button type="button" class="btn-ghost btn-icon" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
       <Icon name="trash" />
     </button>
-    <button type="button" class="btn-danger btn-sm btn-icon" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.voiceStop')} title={t(dict, 'chat.voiceStop')}>
+    <button type="button" class="btn-danger btn-icon" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.voiceStop')} title={t(dict, 'chat.voiceStop')}>
       <Icon name="square" />
     </button>
   {:else}
-    <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-sm btn-icon'} use:hapticTap={'medium'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
+    <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-icon'} use:hapticTap={'medium'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
       <Icon name="mic" size={20} />
     </button>
   {/if}

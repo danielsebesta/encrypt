@@ -5068,7 +5068,7 @@
   function handleCallFullscreenKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && composerMenuOpen) {
       composerMenuOpen = false;
-      document.querySelector<HTMLElement>('.chat-attach-menu .chat-attach-btn')?.focus();
+      document.querySelector<HTMLElement>('.chat-attach-menu > button')?.focus();
       return;
     }
     if (event.key === 'Escape' && appMode && emojiTarget) { closeEmoji(); return; }
