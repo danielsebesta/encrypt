@@ -309,12 +309,18 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					</div>
 				</div>
 			</div>}
+			{background && (
+				<section class="site-footer__cta" aria-labelledby="site-footer-cta-title">
+					<h2 id="site-footer-cta-title" class="site-footer__cta-title">{t(dict, 'landing.about.title')}</h2>
+					<p class="site-footer__cta-text">{t(dict, 'home.trust.lead')}</p>
+					<div class="actions">
+						<a class="btn" href={`${localePrefix}/security`}>{t(dict, 'landing.about.security')}</a>
+						<a class="btn-secondary" href={repoUrl} target="_blank" rel="noopener noreferrer">{t(dict, 'landing.about.github')}<Icon name="arrow-up-right" /></a>
+					</div>
+				</section>
+			)}
 			<div class="site-footer__inner">
-				<a href={homeHref} class="nav__brand">
-					<img src="/encryptclick_icon.svg" alt="" width="14" height="22" class="h-[22px] w-auto" decoding="async" />
-					<span class="text-sm">{PRODUCT_NAME}</span>
-				</a>
-				<div class="site-footer__links">
+				<nav class="site-footer__nav" aria-label={PRODUCT_NAME}>
 					<a href={`${localePrefix}/u`}>{t(dict, 'home.footer.decrypt')}</a>
 					<a href={`${localePrefix}/install`}>{t(dict, 'home.footer.install')}</a>
 					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
@@ -322,12 +328,14 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
 						<Icon name="github" />GitHub
 						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
+						<Icon name="arrow-up-right" />
 					</a>
-					<span>
-						{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer" class="text-text">Daniel Šebesta</a>
-					</span>
-				</div>
+				</nav>
+				<p class="site-footer__legal">
+					{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer">Daniel Šebesta</a>
+				</p>
 			</div>
+			{background && <div class="site-footer__mark" aria-hidden="true"><span>{PRODUCT_NAME}</span></div>}
 		</footer>
 		<script is:inline src="/ui.js?v=flow-v9" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v4" defer></script>
