@@ -11,7 +11,6 @@ import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const localePrefix = '';
 const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
 const taglines = [1, 2, 3, 4].map((n) => t(dict, `home.tagline.${n}`));
@@ -38,7 +37,7 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
           ))}
         </ul>
       </div>
-      <div class="home-hero__form" id="try">
+      <div class="home-hero__form panel" id="try">
         <HomeTry client:visible locale={locale} dict={tryDict} />
       </div>
     </section>
@@ -49,9 +48,9 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
         <p class="hint">{t(dict, 'home.trust.lead')}</p>
       </div>
       <div class="home-flow">
-        <div class="home-flow__side home-flow__side--device">
+        <div class="home-flow__side home-flow__side--device panel panel--flush">
           <div class="home-flow__head">
-            <span class="home-flow__badge"><Icon name="lock-keyhole" size={20} /></span>
+            <span class="icon-tile icon-tile--accent"><Icon name="lock-keyhole" size={20} /></span>
             <div>
               <h3 class="home-flow__title">{t(dict, 'home.trust.device.title')}</h3>
               <p class="home-flow__note">{t(dict, 'home.trust.device.note')}</p>
@@ -65,13 +64,17 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
         </div>
         <div class="home-flow__bridge">
           <span class="home-flow__line" aria-hidden="true"></span>
-          <p class="home-flow__chip"><Icon name="lock" /><span>{t(dict, 'home.trust.bridge')}</span><span class="home-flow__algo">AES-GCM</span></p>
+          <div class="home-flow__label">
+            <Icon name="lock" />
+            <span>{t(dict, 'home.trust.bridge')}</span>
+            <span class="badge badge--mono">AES-GCM</span>
+          </div>
           <span class="home-flow__line" aria-hidden="true"></span>
           <span class="home-flow__arrow" aria-hidden="true"><Icon name="chevron-down" class="md:hidden" /><Icon name="chevron-right" class="hidden md:block" /></span>
         </div>
-        <div class="home-flow__side home-flow__side--server">
+        <div class="home-flow__side home-flow__side--server panel panel--flush">
           <div class="home-flow__head">
-            <span class="home-flow__badge"><Icon name="cloud" size={20} /></span>
+            <span class="icon-tile"><Icon name="cloud" size={20} /></span>
             <div>
               <h3 class="home-flow__title">{t(dict, 'home.trust.server.title')}</h3>
               <p class="home-flow__note">{t(dict, 'home.trust.server.note')}</p>
@@ -84,9 +87,9 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
           </ul>
         </div>
       </div>
-      <div class="home-expiry">
+      <div class="home-expiry panel panel--flush">
         <div class="home-flow__head home-expiry__head">
-          <span class="home-flow__badge"><Icon name="timer" size={20} /></span>
+          <span class="icon-tile"><Icon name="timer" size={20} /></span>
           <div>
             <h3 class="home-flow__title">{t(dict, 'home.trust.expiryTitle')}</h3>
             <p class="home-flow__note">{t(dict, 'home.trust.expiryLead')}</p>
@@ -94,14 +97,14 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
         </div>
         <ul class="home-expiry__chips">
           {retention.map((key) => (
-            <li>{t(dict, `tools.ultimateEncrypt.options.${key}`)}</li>
+            <li class="badge">{t(dict, `tools.ultimateEncrypt.options.${key}`)}</li>
           ))}
-          <li><Icon name="flame" />{t(dict, 'tools.ultimateEncrypt.options.burn')}</li>
+          <li class="badge badge--warn"><Icon name="flame" />{t(dict, 'tools.ultimateEncrypt.options.burn')}</li>
         </ul>
         <p class="home-expiry__inline"><Icon name="link" /><span>{t(dict, 'home.trust.inline')}</span></p>
       </div>
       <div class="home-trust__links">
-        <a class="btn-secondary btn-sm" href={`${localePrefix}/security`}><Icon name="shield-check" />{t(dict, 'landing.about.security')}</a>
+        <a class="btn-secondary btn-sm" href="/security"><Icon name="shield-check" />{t(dict, 'landing.about.security')}</a>
         <a class="btn-ghost btn-sm" href={REPO_URL} target="_blank" rel="noopener noreferrer"><Icon name="github" />{t(dict, 'landing.about.github')}<Icon name="arrow-up-right" /></a>
       </div>
     </section>
@@ -112,10 +115,10 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
       </div>
       <ol class="home-steps">
         {steps.map(([n, icon]) => (
-          <li class="home-step">
+          <li class="home-step panel">
             <div class="home-step__top">
               <span class="home-step__num" aria-hidden="true">{String(n).padStart(2, '0')}</span>
-              <span class="home-flow__badge home-step__icon"><Icon name={icon} size={20} /></span>
+              <span class="icon-tile"><Icon name={icon} size={20} /></span>
             </div>
             <h3 class="home-card__title">{t(dict, `landing.how.${n}.title`)}</h3>
             <p class="home-step__text">{t(dict, `landing.how.${n}.text`)}</p>
@@ -140,20 +143,20 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
         <button type="button" class="btn hidden" data-pwa-install>{t(dict, 'install.guide.button')}</button>
       </div>
       <div class="home-app__grid">
-        <div class="home-app__card">
+        <div class="home-app__card panel">
           <h3 id="home-app-ios" class="home-app__card-title"><Icon name="apple" size={20} />{t(dict, 'install.ios.title')}</h3>
           <p class="home-app__card-text">{t(dict, 'install.ios.2')}</p>
-          <a href={`${localePrefix}/install#install-ios`} id="home-app-ios-how" aria-labelledby="home-app-ios-how home-app-ios" class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
+          <a href="/install#install-ios" id="home-app-ios-how" aria-labelledby="home-app-ios-how home-app-ios" class="btn-secondary btn-block">{t(dict, 'pwa.promo.how')}</a>
         </div>
-        <div class="home-app__card">
+        <div class="home-app__card panel">
           <h3 id="home-app-android" class="home-app__card-title"><Icon name="android" size={20} />{t(dict, 'install.android.title')}</h3>
           <p class="home-app__card-text">{t(dict, 'install.android.2')}</p>
-          <a href={`${localePrefix}/install#install-android`} id="home-app-android-how" aria-labelledby="home-app-android-how home-app-android" class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
+          <a href="/install#install-android" id="home-app-android-how" aria-labelledby="home-app-android-how home-app-android" class="btn-secondary btn-block">{t(dict, 'pwa.promo.how')}</a>
         </div>
-        <div class="home-app__card home-app__card--qr">
+        <div class="home-app__card home-app__card--qr panel">
           <h3 class="home-app__card-title"><Icon name="qr-code" size={20} />{t(dict, 'pwa.promo.scan')}</h3>
           <p class="home-app__card-text">{t(dict, 'pwa.promo.scanText')}</p>
-          <AppQr client:visible path={`${localePrefix}/install`} alt={t(dict, 'install.guide.qrAlt')} />
+          <AppQr client:visible path="/install" alt={t(dict, 'install.guide.qrAlt')} />
         </div>
       </div>
     </section>

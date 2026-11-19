@@ -9,11 +9,7 @@ type Props = {
 
 const { dict } = Astro.props;
 const memory = Array.from({ length: 48 }, (_, i) => (i * 7 + (i >> 2) * 3) % 5 < 2);
-const steps = [
-  { n: 1, side: 'left' },
-  { n: 2, side: 'right' },
-  { n: 3, side: 'left' },
-] as const;
+const steps = [1, 2, 3] as const;
 const files = ['aesGcm.ts', 'kdf.ts', 'hybridKem.ts', 'chatRatchet.ts', 'passwordEnvelope.ts'];
 ---
 
@@ -24,13 +20,13 @@ const files = ['aesGcm.ts', 'kdf.ts', 'hybridKem.ts', 'chatRatchet.ts', 'passwor
   </div>
 
   <div class="home-bento">
-    <article class="home-bento__card home-bento__card--third home-bento__card--center">
+    <article class="home-bento__card panel home-bento__card--third home-bento__card--center">
       <div class="home-bento__stat" aria-hidden="true">{t(dict, 'home.bento.1.value')}</div>
       <h3 class="home-bento__title">AES-GCM</h3>
       <p class="home-bento__text">{t(dict, 'home.bento.1.text')}</p>
     </article>
 
-    <article class="home-bento__card home-bento__card--third home-bento__card--center">
+    <article class="home-bento__card panel home-bento__card--third home-bento__card--center">
       <div class="home-bento__visual" aria-hidden="true">
         <div class="home-bento__memory">
           {memory.map((on) => <span class:list={['home-bento__cell', on && 'is-on']}></span>)}
@@ -41,23 +37,23 @@ const files = ['aesGcm.ts', 'kdf.ts', 'hybridKem.ts', 'chatRatchet.ts', 'passwor
       <p class="home-bento__text">{t(dict, 'home.bento.2.text')}</p>
     </article>
 
-    <article class="home-bento__card home-bento__card--third home-bento__card--center">
+    <article class="home-bento__card panel home-bento__card--third home-bento__card--center">
       <div class="home-bento__visual" aria-hidden="true">
         <div class="home-bento__chips">
-          <span class="home-bento__chip">P-256</span>
+          <span class="badge badge--mono">P-256</span>
           <span class="home-bento__plus">+</span>
-          <span class="home-bento__chip">ML-KEM-768</span>
+          <span class="badge badge--mono">ML-KEM-768</span>
         </div>
         <span class="home-bento__stem"></span>
-        <span class="home-bento__chip home-bento__chip--accent">AES-256-GCM</span>
+        <span class="badge badge--mono badge--accent">AES-256-GCM</span>
       </div>
       <h3 class="home-bento__title">{t(dict, 'home.bento.3.title')}</h3>
       <p class="home-bento__text">{t(dict, 'home.bento.3.text')}</p>
     </article>
 
-    <article class="home-bento__card home-bento__card--half home-bento__card--split">
+    <article class="home-bento__card panel home-bento__card--half home-bento__card--split">
       <div class="home-bento__copy">
-        <span class="home-bento__badge" aria-hidden="true"><Icon name="code" size={20} /></span>
+        <span class="icon-tile" aria-hidden="true"><Icon name="code" size={20} /></span>
         <div class="home-bento__body">
           <h3 class="home-bento__title">{t(dict, 'home.bento.4.title')}</h3>
           <p class="home-bento__text">{t(dict, 'home.bento.4.text')}</p>
@@ -71,19 +67,19 @@ const files = ['aesGcm.ts', 'kdf.ts', 'hybridKem.ts', 'chatRatchet.ts', 'passwor
       </a>
     </article>
 
-    <article class="home-bento__card home-bento__card--half home-bento__card--split">
+    <article class="home-bento__card panel home-bento__card--half home-bento__card--split">
       <div class="home-bento__copy">
-        <span class="home-bento__badge" aria-hidden="true"><Icon name="clock" size={20} /></span>
+        <span class="icon-tile" aria-hidden="true"><Icon name="clock" size={20} /></span>
         <div class="home-bento__body">
           <h3 class="home-bento__title">{t(dict, 'home.bento.5.title')}</h3>
           <p class="home-bento__text">{t(dict, 'home.bento.5.text')}</p>
         </div>
       </div>
       <ol class="home-bento__timeline">
-        {steps.map(({ n, side }) => (
-          <li class={`home-bento__step home-bento__step--${side}`}>
-            <span class="home-bento__chip">{t(dict, `home.bento.5.step.${n}`)}</span>
+        {steps.map((n) => (
+          <li class="home-bento__step">
             <span class:list={['home-bento__dot', n === 3 && 'is-on']}></span>
+            <span class:list={['badge', n === 3 && 'badge--accent']}>{t(dict, `home.bento.5.step.${n}`)}</span>
           </li>
         ))}
       </ol>

@@ -9,17 +9,16 @@ type Props = {
 };
 
 const { dict } = Astro.props;
-const localePrefix = '';
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s+(?=\p{Lu})/u)[0];
 const taskSlugs = ['steganography', 'photo-cipher', 'time-capsule', 'spectral-cipher', 'chat-cipher'];
 const tasks = taskSlugs.map((slug, i) => ({
   label: t(dict, `home.tools.tasks.${i + 1}`),
-  href: `${localePrefix}/experiments/${slug}`,
+  href: `/experiments/${slug}`,
 }));
 const items = tools.map((tool) => ({
   label: t(dict, tool.navLabelKey),
   text: firstSentence(t(dict, `${tool.i18nPrefix}.subtitle`)),
-  href: `${localePrefix}/experiments/${tool.slug}`,
+  href: `/experiments/${tool.slug}`,
   icon: tool.icon,
 }));
 ---
@@ -30,7 +29,7 @@ const items = tools.map((tool) => ({
     <p class="hint">{t(dict, 'home.tools.subtitle')}</p>
   </div>
 
-  <ul class="home-tools__grid">
+  <ul class="home-tools__grid panel panel--flush">
     {items.map((tool) => (
       <li>
         <a href={tool.href} class="home-tools__card">
@@ -45,7 +44,7 @@ const items = tools.map((tool) => ({
     ))}
   </ul>
 
-  <div class="home-tools__tasks">
+  <div class="home-tools__tasks panel">
     <h3 class="home-tools__tasks-title">{t(dict, 'home.tools.tasks.title')}</h3>
     <ul class="home-tools__tasks-list">
       {tasks.map((task) => (

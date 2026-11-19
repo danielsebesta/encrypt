@@ -40,9 +40,8 @@ const {
 const path = Astro.url.pathname;
 const cleanPath = getLocalePath(path, 'en');
 const canonicalUrl = canonical || new URL(cleanPath, site).href;
-const localePrefix = '';
 const homeHref = '/';
-const navCategories = getNavCategories(t, dict, localePrefix);
+const navCategories = getNavCategories(t, dict);
 const enableIntegrityCheck = import.meta.env.PROD;
 const integrityRepository = REPO_SLUG;
 const repoUrl = REPO_URL;
@@ -100,11 +99,13 @@ const languageOptions = locales.map(l => ({
   active: l === locale
 }));
 
+const languageLabel = `${t(dict, 'nav.language')}: ${languages[locale].name}`;
+
 const primaryLinks = [
-  { href: `${localePrefix}/share`, label: t(dict, 'nav.send'), icon: sendIcon },
-  { href: `${localePrefix}/u`, label: t(dict, 'nav.decrypt'), icon: decryptIcon },
-  { href: `${localePrefix}/chat`, label: t(dict, 'nav.chat'), icon: chatIcon },
-  { href: `${localePrefix}/whiteboard`, label: t(dict, 'nav.whiteboard'), icon: whiteboardIcon },
+  { href: '/share', label: t(dict, 'nav.send'), icon: sendIcon },
+  { href: '/u', label: t(dict, 'nav.decrypt'), icon: decryptIcon },
+  { href: '/chat', label: t(dict, 'nav.chat'), icon: chatIcon },
+  { href: '/whiteboard', label: t(dict, 'nav.whiteboard'), icon: whiteboardIcon },
 ];
 
 const isCurrent = (href: string) => path === href || path === `${href}/`;
@@ -153,7 +154,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<script is:inline>
 			(function () {
 				var root = document.documentElement;
-				root.classList.add('theme-instant');
+				root.classList.add('theme-instant', 'js');
 				try {
 					var t = localStorage.getItem('theme');
 					var d = t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches);
@@ -191,7 +192,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<p class="integrity-alert__message" data-integrity-message></p>
 						<div class="integrity-alert__links" data-integrity-links></div>
 					</div>
-					<button class="btn-ghost btn-sm btn-icon" type="button" aria-label={t(dict, 'integrity.dismissLabel')} data-integrity-dismiss>
+					<button class="btn-ghost btn-sm btn-icon" type="button" aria-label={t(dict, 'integrity.dismissLabel')} title={t(dict, 'integrity.dismissLabel')} data-integrity-dismiss>
 						<Icon name="x" />
 					</button>
 				</div>
@@ -233,48 +234,47 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer" class="btn-ghost btn-icon nav__github" aria-label={t(dict, 'nav.github')} title={t(dict, 'nav.github')}>
 						<Icon name="github" size={20} />
 					</a>
-					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.toggleTheme')} aria-pressed="false">
+					<button id="theme-toggle" type="button" class="btn-ghost btn-icon" aria-label={t(dict, 'nav.themeToDark')} title={t(dict, 'nav.themeToDark')} data-label-dark={t(dict, 'nav.themeToDark')} data-label-light={t(dict, 'nav.themeToLight')}>
 						<Icon name="moon" size={20} class="dark:hidden" />
 						<Icon name="sun" size={20} class="hidden dark:block" />
 					</button>
 					<div class="nav__group">
-						<button type="button" class="nav__link nav__lang" aria-label={t(dict, 'nav.language')} aria-expanded="false" aria-controls="nav-menu-lang" data-menu-toggle>
+						<button type="button" class="nav__link nav__lang" aria-label={languageLabel} title={languageLabel} aria-expanded="false" aria-controls="nav-menu-lang" data-menu-toggle>
 							<Icon name="languages" size={20} />
 							<Icon name="chevron-down" class="nav__chevron" />
 						</button>
 						<div id="nav-menu-lang" class="menu menu--end">
 							{languageOptions.map((lang) => (
-								<a href={lang.choose} rel="nofollow" class="menu__item" aria-current={lang.active ? 'page' : undefined} lang={lang.code}>
+								<a href={lang.choose} rel="nofollow" class="menu__item" aria-current={lang.active ? 'true' : undefined} lang={lang.code}>
 									<span class="menu__code">{lang.code}</span>
 									{lang.name}
 								</a>
 							))}
 						</div>
 					</div>
-					<button id="nav-toggle" type="button" class="btn-ghost btn-icon nav__burger" aria-label={t(dict, 'nav.menu')} aria-expanded="false" aria-controls="nav-links">
+					<button id="nav-toggle" type="button" class="btn-ghost btn-icon nav__burger" aria-label={t(dict, 'nav.menu')} title={t(dict, 'nav.menu')} aria-expanded="false" aria-controls="nav-links">
 						<Icon name="menu" size={20} class="nav__burger-open" />
 						<Icon name="x" size={20} class="nav__burger-close" />
 					</button>
 				</div>
 			</nav>
-		</header>
-
-		<div
-			id="pwa-notice"
-			class="pwa-notice hidden"
-			role="status"
-			data-desktop={t(dict, 'pwa.notice.desktop')}
-			data-install-ios={t(dict, 'pwa.notice.installIos')}
-			data-install-android={t(dict, 'pwa.notice.installAndroid')}
-		>
-			<img class="app-shot app-shot--xs pwa-notice__shot" src="/screenshot-hub-chats.png?v=9" alt="" width="52" height="113" decoding="async" />
-			<div class="pwa-notice__body min-w-0 flex-1">
-				<p data-pwa-notice-text></p>
-				<a class="pwa-notice__cta" href={`${localePrefix}/install`}>{t(dict, 'pwa.notice.cta')}</a>
+			<div
+				id="pwa-notice"
+				class="pwa-notice hidden"
+				role="status"
+				data-desktop={t(dict, 'pwa.notice.desktop')}
+				data-install-ios={t(dict, 'pwa.notice.installIos')}
+				data-install-android={t(dict, 'pwa.notice.installAndroid')}
+			>
+				<img class="app-shot app-shot--xs pwa-notice__shot" src="/screenshot-hub-chats.png?v=9" alt="" width="52" height="113" decoding="async" />
+				<div class="pwa-notice__body min-w-0 flex-1">
+					<p data-pwa-notice-text></p>
+					<a class="pwa-notice__cta" href="/install">{t(dict, 'pwa.notice.cta')}</a>
+				</div>
+				<button type="button" class="btn btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
+				<button type="button" class="btn-ghost btn-sm" data-pwa-notice-dismiss>{t(dict, 'pwa.notice.dismiss')}</button>
 			</div>
-			<button type="button" class="btn btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
-			<button type="button" class="btn-ghost btn-sm" data-pwa-notice-dismiss>{t(dict, 'pwa.notice.dismiss')}</button>
-		</div>
+		</header>
 
 		<main id="main" class={`flex-1 ${mainClass}`} tabindex="-1">
 			<slot />
@@ -294,7 +294,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<p class="hidden pwa-promo__hint" data-pwa-hint-menu>{t(dict, 'pwa.promo.menu')}</p>
 						<div class="pwa-promo__actions">
 							<button type="button" class="btn btn-sm hidden" data-pwa-install>{t(dict, 'pwa.promo.install')}</button>
-							<a class="btn-secondary btn-sm" href={`${localePrefix}/install`}>{t(dict, 'pwa.promo.how')}</a>
+							<a class="btn-secondary btn-sm" href="/install">{t(dict, 'pwa.promo.how')}</a>
 							<button type="button" class="btn-ghost btn-sm" data-pwa-promo-dismiss>{t(dict, 'pwa.promo.dismiss')}</button>
 						</div>
 					</div>
@@ -302,9 +302,9 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 			</div>}
 			<div class="site-footer__inner">
 				<nav class="site-footer__nav" aria-label={PRODUCT_NAME}>
-					<a href={`${localePrefix}/u`}>{t(dict, 'home.footer.decrypt')}</a>
-					<a href={`${localePrefix}/install`}>{t(dict, 'home.footer.install')}</a>
-					<a href={`${localePrefix}/security`}>{t(dict, 'home.footer.security')}</a>
+					<a href="/u">{t(dict, 'home.footer.decrypt')}</a>
+					<a href="/install">{t(dict, 'home.footer.install')}</a>
+					<a href="/security">{t(dict, 'home.footer.security')}</a>
 					<a href="mailto:hello@encrypt.click">{t(dict, 'home.footer.contact')}</a>
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
 						<Icon name="github" />GitHub
@@ -317,7 +317,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 				</p>
 			</div>
 		</footer>
-		<script is:inline src="/ui.js?v=ui-v10" defer></script>
+		<script is:inline src="/ui.js?v=ui-v11" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v4" defer></script>
 	</body>
 </html>

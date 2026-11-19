@@ -224,7 +224,7 @@ async function runMobile(page) {
 async function checkAriaCurrent(page) {
   await goto(page, '/share/');
   check('nav link keeps aria-current="page"', (await page.locator('#site-nav a.nav__link[aria-current="page"]').count()) >= 1);
-  check('language menu keeps aria-current="page"', (await page.locator('#nav-menu-lang .menu__item[aria-current="page"]').count()) === 1);
+  check('language menu marks the current language with aria-current="true"', (await page.locator('#nav-menu-lang .menu__item[aria-current="true"]').count()) === 1);
   await goto(page, '/experiments/chat-cipher/');
   check('menu item keeps aria-current="page"', (await page.locator('#nav-links .menu__item[aria-current="page"]').count()) === 1);
 }

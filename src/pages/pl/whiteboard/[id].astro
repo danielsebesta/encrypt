@@ -1,24 +1,7 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import Whiteboard from '../../../components/tools/Whiteboard.svelte';
-import { getTranslations, t, pickDict, type Locale } from '../../../lib/i18n';
-
-const locale = (Astro.currentLocale ?? 'en') as Locale;
-const dict = getTranslations(locale);
-const clientDict = pickDict(dict, ['whiteboard', 'common', 'chat.alias', 'rooms']);
-const { id } = Astro.params;
+import Room from '../../whiteboard/[id].astro';
 
 export const prerender = false;
 ---
 
-<Layout
-  background={false}
-  title={t(dict, 'whiteboard.meta.roomTitle')}
-  description={t(dict, 'whiteboard.meta.roomDescription')}
-  robots="noindex, nofollow"
->
-  <div class="page pt-5 pb-8 md:pt-6">
-    <h1 class="section-title mb-3">{t(dict, 'whiteboard.pageTitle')}</h1>
-    <Whiteboard client:idle roomId={id || 'default'} locale={locale} dict={clientDict} />
-  </div>
-</Layout>
+<Room />
