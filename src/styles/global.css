@@ -2173,8 +2173,10 @@ html.ascii-ready.ascii-instant .flow-bg--ascii {
 
 .ascii-bg {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0 auto auto 0;
+    width: calc(100% / var(--ascii-zoom, 1));
+    height: calc(100% / var(--ascii-zoom, 1));
+    transform: scale(var(--ascii-zoom, 1));
+    transform-origin: 0 0;
     opacity: 1;
 }

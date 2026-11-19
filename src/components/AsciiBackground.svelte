@@ -5,6 +5,7 @@
 
   const RAMPS = { dark: [...PALETTE.dark.ramp], light: [...PALETTE.light.ramp] };
 
+  const ZOOM = 0.67;
   const SEEN = 'encrypt.click:ascii-bg-seen';
 
   let canvas: HTMLCanvasElement;
@@ -14,10 +15,11 @@
     type Field = { update(options: Record<string, unknown>): void; destroy(): void };
     let field: Field | null = null;
     let gone = false;
+    const virtualWidth = () => innerWidth / ZOOM;
     const pickSource = () => {
       const tall = (canvas.clientHeight || innerHeight) / (canvas.clientWidth || innerWidth) > 0.95;
       if (tall) return '/flow-ascii-src-portrait.webp?v=3';
-      return innerWidth < 1500 ? '/flow-ascii-src-compact.webp?v=3' : '/flow-ascii-src.webp?v=3';
+      return virtualWidth() < 1500 ? '/flow-ascii-src-compact.webp?v=3' : '/flow-ascii-src.webp?v=3';
     };
     const isDark = () => document.documentElement.classList.contains('dark');
 
@@ -26,7 +28,7 @@
       field = mountGlyphField(canvas, {
         source: pickSource(),
         charset: ' .:-=+YCIFSA#@',
-        cellSize: Math.round(Math.min(14, Math.max(10, innerWidth / 120))),
+        cellSize: Math.round(Math.min(14, Math.max(9, virtualWidth() / 170))),
         cellAspect: 0.62,
         sample: 'shape',
         color: 'ink',
@@ -61,4 +63,4 @@
   });
 </script>
 
-<canvas bind:this={canvas} class="ascii-bg" aria-hidden="true"></canvas>
+<canvas bind:this={canvas} class="ascii-bg" aria-hidden="true" style="--ascii-zoom: {ZOOM}"></canvas>
