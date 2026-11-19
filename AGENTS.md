@@ -77,6 +77,7 @@ Companion app shell wrapping rooms, the share form and settings. Stack: Konsta U
 ## Working rules
 
 - Use only the tokens and component classes in `src/styles/global.css`; do not add parallel abstractions. Copy an existing tool page for the layout.
+- Buttons, fields, tabs, menus, dialogs, badges and status follow `docs/design-system.md` (primitives in `src/components/ui/`, guarded by `tests/design-system.test.ts`).
 - Icons come from `<Icon name="..." />` only; add one by mapping its semantic name to a Tabler icon in `src/lib/iconManifest.ts` and running `pnpm run build:icons`. Prefer the filled variant. `tests/icons.test.ts` enforces this.
 - No decorative imagery: no illustrations, mascots, 3D or stock photos. Motion is feedback only and must respect `prefers-reduced-motion`.
 - Never hardcode user-facing English in components or pages.
