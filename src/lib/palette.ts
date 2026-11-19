@@ -2,10 +2,10 @@
 export const PALETTE = {
   "light": {
     "ramp": [
-      "#d2f7af",
-      "#c4e8a1",
-      "#b3d792",
-      "#a3c683"
+      "#b9dd97",
+      "#a6c985",
+      "#93b674",
+      "#7ea061"
     ],
     "board": {
       "paper": "#f9faef",
@@ -21,10 +21,10 @@ export const PALETTE = {
   },
   "dark": {
     "ramp": [
-      "#203c07",
-      "#36531d",
-      "#527137",
-      "#6f9052"
+      "#2d4a14",
+      "#44622a",
+      "#608045",
+      "#7ea061"
     ],
     "board": {
       "paper": "#11140e",
