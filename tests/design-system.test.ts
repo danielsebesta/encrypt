@@ -132,7 +132,6 @@ const PENDING: Record<string, string[]> = {
   ],
   'src/components/tools/ChatVoiceMessage.svelte': ['voice-msg__rate'],
   'src/components/tools/ChatVoiceRecorder.svelte': ['voice-rec-app__cancel', 'voice-rec-app__send'],
-  'src/components/tools/RoomInviteCard.svelte': ['invite-card__copy'],
   'src/components/tools/Whiteboard.svelte': ['wb-btn', 'wb-color', 'wb-key-warn', 'wb-people-trigger'],
 };
 

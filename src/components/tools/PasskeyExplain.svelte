@@ -48,9 +48,6 @@
     display: grid;
     gap: 0.75rem;
   }
-  details.passkey-explain > summary {
-    min-height: 2.75rem;
-  }
   .passkey-explain__body-wrap {
     margin-top: 0.25rem;
     gap: 0.75rem;

@@ -109,7 +109,7 @@
     </div>
     {#if onDismiss}
       <div class="invite-card__actions">
-        <button type="button" class={appMode ? 'app-icon-btn' : 'btn-ghost btn-sm btn-icon'} on:click={() => onDismiss?.()} aria-label={t(dict, 'chat.inviteCard.dismiss')}>
+        <button type="button" class={appMode ? 'app-icon-btn' : 'btn-ghost btn-sm btn-icon'} on:click={() => onDismiss?.()} aria-label={t(dict, 'chat.inviteCard.dismiss')} title={t(dict, 'chat.inviteCard.dismiss')}>
           <Icon name="x" />
         </button>
       </div>
@@ -123,7 +123,7 @@
   <div class="invite-card__row">
     <span class="invite-card__label">{t(dict, 'chat.inviteCard.link')}</span>
     <code class="invite-card__value">{url}</code>
-    <button type="button" class="invite-card__copy" on:click={() => copy(url, 'link')} aria-label={t(dict, 'chat.inviteCard.copyLink')} title={copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}>
+    <button type="button" class={appMode ? 'invite-card__copy' : 'btn-ghost btn-sm btn-icon'} on:click={() => copy(url, 'link')} aria-label={t(dict, 'chat.inviteCard.copyLink')} title={copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}>
       {#if copiedLink}
         <Icon name="check" class="text-accent" />
       {:else}
@@ -138,7 +138,7 @@
       <code class="invite-card__value">{showPassword ? password : '•'.repeat(Math.min(password.length, 16))}</code>
       <button
         type="button"
-        class="invite-card__copy"
+        class={appMode ? 'invite-card__copy' : 'btn-ghost btn-sm btn-icon'}
         on:click={() => { showPassword = !showPassword; }}
         aria-label={t(dict, showPassword ? 'common.hidePassword' : 'common.showPassword')}
         aria-pressed={showPassword}
@@ -146,7 +146,7 @@
       >
         <Icon name={showPassword ? 'eye-off' : 'eye'} />
       </button>
-      <button type="button" class="invite-card__copy" on:click={() => copy(password, 'pass')} aria-label={t(dict, 'chat.inviteCard.copyPasswordSeparate')} title={copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}>
+      <button type="button" class={appMode ? 'invite-card__copy' : 'btn-ghost btn-sm btn-icon'} on:click={() => copy(password, 'pass')} aria-label={t(dict, 'chat.inviteCard.copyPasswordSeparate')} title={copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}>
         {#if copiedPass}
           <Icon name="check" class="text-accent" />
         {:else}
@@ -156,6 +156,8 @@
     </div>
   {/if}
 
+  <span class="sr-only" role="status">{copiedLink || copiedPass ? t(dict, 'common.copied') : ''}</span>
+
   <div class="invite-card__share">
     {#if canShare}
       <button type="button" class={appMode ? 'app-sheet-btn w-full' : 'btn btn-sm btn-block'} on:click={share} disabled={!url}>
@@ -164,11 +166,11 @@
       </button>
     {/if}
     <div class="invite-card__share-row">
-      <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : canShare ? 'btn-secondary btn-sm flex-1' : 'btn btn-sm flex-1'} on:click={() => copy(url, 'link')} disabled={!url}>
+      <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : canShare ? 'btn-secondary btn-sm invite-card__share-btn' : 'btn btn-sm invite-card__share-btn'} on:click={() => copy(url, 'link')} disabled={!url}>
         {copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}
       </button>
       {#if password}
-        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm flex-1'} on:click={() => copy(password, 'pass')}>
+        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm invite-card__share-btn'} on:click={() => copy(password, 'pass')}>
           {copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}
         </button>
       {/if}
@@ -190,14 +192,14 @@
   }
   .invite-card__title {
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 600;
     color: var(--text);
     word-break: break-word;
   }
   .invite-card__warn {
     margin-top: 0.25rem;
-    font-size: 0.8125rem;
-    font-weight: 700;
+    font-size: 0.875rem;
+    font-weight: 500;
     color: var(--accent);
   }
   .invite-card__actions {
@@ -215,6 +217,13 @@
     gap: 0.375rem;
     margin-bottom: 0.375rem;
   }
+  .invite-card.panel .invite-card__row {
+    gap: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+  .invite-card.panel .invite-card__label {
+    min-width: 4.5rem;
+  }
   .invite-card__label {
     flex-shrink: 0;
     white-space: nowrap;
@@ -229,7 +238,7 @@
     color: var(--muted);
     background: var(--surface-2);
     padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
+    border-radius: 6px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -247,7 +256,7 @@
     margin: -0.625rem -0.5rem -0.625rem 0;
     padding: 0;
     color: var(--muted);
-    transition: color 0.15s;
+    transition: color var(--duration-fast) var(--ease-out);
   }
   .invite-card__copy:hover {
     color: var(--accent);
@@ -261,5 +270,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+  }
+  .invite-card__share-btn {
+    flex: 1 1 12rem;
   }
 </style>

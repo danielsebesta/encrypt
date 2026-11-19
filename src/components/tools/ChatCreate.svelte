@@ -7,6 +7,7 @@
   import { RETENTION_SECONDS, checkRoomPassword, passwordLongEnough, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import MyRooms from './MyRooms.svelte';
+  import Field from '../ui/Field.svelte';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -160,30 +161,25 @@
       <button class="btn btn-block" type="submit">{t(dict, 'common.continue')}</button>
     </form>
   {:else if step === 2}
-    <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitRoom}>
-      <div class="field">
-        <label class="label" for="chat-room">{t(dict, 'chat.customRoomId')}</label>
-        <input
-          id="chat-room"
-          class="input"
-          type="text"
-          bind:value={customRoomId}
-          on:input={handleRoomIdInput}
-          placeholder={t(dict, 'chat.customRoomIdPlaceholder')}
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-          data-lpignore="true"
-          data-1p-ignore
-          data-bwignore="true"
-          aria-describedby={roomError ? 'chat-room-error chat-room-hint' : 'chat-room-hint'}
-          aria-invalid={roomError ? 'true' : undefined}
-        />
-        {#if roomError}
-          <p id="chat-room-error" class="field-error" role="alert">{roomError}</p>
-        {/if}
-        <p id="chat-room-hint" class="hint">{t(dict, 'chat.customRoomIdHint')}</p>
-      </div>
+    <form class="stack" method="dialog" novalidate bind:this={stepEl} on:submit|preventDefault={submitRoom}>
+      <Field id="chat-room" label={t(dict, 'chat.customRoomId')} hint={t(dict, 'chat.customRoomIdHint')} error={roomError} required>
+        {#snippet children(control)}
+          <input
+            {...control}
+            class="input"
+            type="text"
+            bind:value={customRoomId}
+            on:input={handleRoomIdInput}
+            placeholder={t(dict, 'chat.customRoomIdPlaceholder')}
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            data-lpignore="true"
+            data-1p-ignore
+            data-bwignore="true"
+          />
+        {/snippet}
+      </Field>
       <div class="wizard-actions">
         <button class="btn-secondary" type="button" on:click={() => goTo(1)}>{t(dict, 'common.back')}</button>
         <button class="btn" type="submit">{t(dict, 'common.continue')}</button>
@@ -217,7 +213,7 @@
   }
   .retention-value {
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
   }
   .retention-scale {
