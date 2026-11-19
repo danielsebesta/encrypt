@@ -337,6 +337,21 @@
   $: reviewWhere = t(dict, deliveryMode === 'ghost' ? 'tools.ultimateEncrypt.review.whereGhost' : deliveryMode === 'link' ? 'tools.ultimateEncrypt.review.whereLink' : 'tools.ultimateEncrypt.review.whereLocal');
 
   let optionsOpen = false;
+  let storageChecked = false;
+  let burnUnavailable = false;
+  $: if (optionsOpen && !storageChecked) void checkStorage();
+  $: if (burnUnavailable) burn = false;
+
+  async function checkStorage() {
+    storageChecked = true;
+    try {
+      const res = await fetch('/upload/status', { cache: 'no-store' });
+      const data = await res.json().catch(() => null) as { available?: unknown } | null;
+      burnUnavailable = res.ok && data?.available === false;
+    } catch {
+      burnUnavailable = false;
+    }
+  }
 
   async function focusEncryptError() {
     const unlockFocused =
@@ -938,7 +953,7 @@
         <details class="more" bind:open={optionsOpen}>
           <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
           <div class="more__body">
-            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
+            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} {burnUnavailable} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
           </div>
         </details>
 

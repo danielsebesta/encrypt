@@ -9,6 +9,8 @@
   export let burn = false;
   /** Small enough to travel inside the link unless it has to burn after reading. */
   export let short = false;
+  /** The server has no room for uploads, so nothing can be stored to burn. */
+  export let burnUnavailable = false;
   /** Timelock + reminder copy: treat unlock as a dead-man's release window. */
   export let deadMan = false;
   /** datetime-local value, empty for no time lock. */
@@ -48,13 +50,13 @@
         </select>
       </div>
     {/if}
-    <label class="check">
-      <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" />
+    <label class="check" class:opacity-60={burnUnavailable}>
+      <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" disabled={burnUnavailable} />
       <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
     </label>
   </div>
   <div id="ue-burn-hint" class="-mt-2 grid gap-1">
-    <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.burnHint')}</p>
+    <p class="hint">{t(dict, burnUnavailable ? 'tools.ultimateEncrypt.options.burnUnavailable' : 'tools.ultimateEncrypt.options.burnHint')}</p>
     {#if short}
       <p class="hint">{t(dict, burn ? 'tools.ultimateEncrypt.options.burnStoredHint' : 'tools.ultimateEncrypt.options.inlineHint')}</p>
     {/if}
