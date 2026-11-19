@@ -1,16 +1,39 @@
----
-const src = '/flow-lines.svg?v=1';
-const framings = [
-  { name: 'wide', viewBox: '0 0 1920 1080' },
-  { name: 'compact', viewBox: '0 0 1920 1080' },
-  { name: 'portrait', viewBox: '0 0 900 1600' },
-];
----
-
 <div class="flow-bg" aria-hidden="true">
-  {framings.map((f) => (
-    <svg class={`flow-bg__art flow-bg__art--${f.name}`} viewBox={f.viewBox} preserveAspectRatio="xMidYMid slice" focusable="false">
-      <use href={`${src}#${f.name}`} />
-    </svg>
-  ))}
+  <svg class="flow-bg__art" focusable="false" xmlns="http://www.w3.org/2000/svg"></svg>
 </div>
+
+<script>
+  import { flowLines, hashSeed } from '../lib/flowField';
+
+  const box = document.querySelector<HTMLElement>('.flow-bg');
+  const svg = box?.querySelector('svg');
+  if (box && svg) {
+    const page = location.pathname.replace(/\/+$/, '') || '/';
+    const seed = hashSeed(`${__APP_COMMIT__}|${page}`);
+    let drawn = { width: 0, height: 0 };
+
+    const draw = () => {
+      const width = Math.round(box.clientWidth);
+      const height = Math.round(box.clientHeight);
+      if (!width || !height) return;
+      if (width === drawn.width && Math.abs(height - drawn.height) < 120) return;
+      drawn = { width, height };
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('width', String(width));
+      svg.setAttribute('height', String(height));
+      svg.replaceChildren(...flowLines(seed, width, height).map(({ d, opacity, width: stroke }) => {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('stroke-opacity', String(opacity));
+        path.setAttribute('stroke-width', String(stroke));
+        return path;
+      }));
+    };
+
+    let frame = 0;
+    new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(draw);
+    }).observe(box);
+  }
+</script>
