@@ -1349,23 +1349,6 @@ html.dark {
         @apply md:col-span-2;
     }
 
-    .site-footer__cta {
-        @apply mx-auto flex max-w-2xl flex-col items-center gap-4 px-4 pt-16 pb-12 text-center md:pt-24;
-    }
-
-    .site-footer__cta-title {
-        @apply font-semibold leading-tight text-text;
-        font-size: clamp(1.75rem, 1.1rem + 2.6vw, 2.5rem);
-    }
-
-    .site-footer__cta-text {
-        @apply max-w-prose text-base leading-relaxed text-muted;
-    }
-
-    .site-footer__cta .actions {
-        @apply mt-2 justify-center;
-    }
-
     .site-footer__inner {
         @apply mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-3;
     }
@@ -1392,21 +1375,6 @@ html.dark {
 
     .site-footer__stars {
         @apply inline-flex items-center gap-1 whitespace-nowrap font-mono text-xs text-muted;
-    }
-
-    .site-footer__mark {
-        @apply mx-auto w-full max-w-6xl px-4;
-        container-type: inline-size;
-    }
-
-    .site-footer__mark span {
-        @apply block select-none whitespace-nowrap font-semibold text-line;
-        height: 11cqw;
-        overflow: hidden;
-        font-size: 15.4cqw;
-        line-height: 0.9;
-        letter-spacing: -0.045em;
-        text-align: center;
     }
 
     /* ── Home ── */

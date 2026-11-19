@@ -309,16 +309,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					</div>
 				</div>
 			</div>}
-			{background && (
-				<section class="site-footer__cta" aria-labelledby="site-footer-cta-title">
-					<h2 id="site-footer-cta-title" class="site-footer__cta-title">{t(dict, 'landing.about.title')}</h2>
-					<p class="site-footer__cta-text">{t(dict, 'home.trust.lead')}</p>
-					<div class="actions">
-						<a class="btn" href={`${localePrefix}/security`}>{t(dict, 'landing.about.security')}</a>
-						<a class="btn-secondary" href={repoUrl} target="_blank" rel="noopener noreferrer">{t(dict, 'landing.about.github')}<Icon name="arrow-up-right" /></a>
-					</div>
-				</section>
-			)}
 			<div class="site-footer__inner">
 				<nav class="site-footer__nav" aria-label={PRODUCT_NAME}>
 					<a href={`${localePrefix}/u`}>{t(dict, 'home.footer.decrypt')}</a>
@@ -335,7 +325,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer">Daniel Šebesta</a>
 				</p>
 			</div>
-			{background && <div class="site-footer__mark" aria-hidden="true"><span>{PRODUCT_NAME}</span></div>}
 		</footer>
 		<script is:inline src="/ui.js?v=flow-v9" defer></script>
 		<script is:inline src="/pwa.js?v=pwa-v4" defer></script>
