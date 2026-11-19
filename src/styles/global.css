@@ -70,13 +70,7 @@
     --call-line: #44483e;
     --call-text: #e2e3d9;
     --call-muted: #c4c8ba;
-    --ascii-ramp: #a3c683 #8eb06f #799a5c #658549;
     /* palette:end */
-    --ascii-ink: var(--accent);
-    --ascii-ink-strong: var(--text);
-    --ascii-success: var(--accent);
-    --ascii-warning: var(--warn);
-    --ascii-error: var(--danger);
     --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.18), 0 0 0 1px var(--line);
 
 }
@@ -107,7 +101,6 @@ html.dark {
     --call-line: #44483e;
     --call-text: #e2e3d9;
     --call-muted: #c4c8ba;
-    --ascii-ramp: #3b5821 #57763c #749557 #93b674;
     /* palette:end */
     --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--line);
 

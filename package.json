@@ -31,7 +31,6 @@
     "@noble/post-quantum": "0.7.1",
     "@quickdrawjs/core": "0.3.0",
     "@tailwindcss/vite": "^4.3.3",
-    "asciify-engine": "^4.33.0",
     "astro": "^7.3.8",
     "drand-client": "^1.4.2",
     "hash-wasm": "^4.12.0",
