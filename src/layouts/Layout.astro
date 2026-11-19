@@ -20,7 +20,7 @@ type Props = {
   robots?: string;
 };
 
-const backgroundMode = 'streams' as 'streams' | 'ascii' | 'flow';
+const backgroundMode = 'ascii' as 'ascii' | 'flow';
 const isHome = /^\/(?:(?:cs|de|es|fr|sk|pl)\/?)?$/.test(Astro.url.pathname);
 const isInstall = /^\/(?:(?:cs|de|es|fr|sk|pl)\/)?install\/?$/.test(Astro.url.pathname);
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -138,7 +138,8 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#f9faef" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#11140e" media="(prefers-color-scheme: dark)" />
-		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src.webp" fetchpriority="low" />}
+		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src.webp?v=3" media="(orientation: landscape)" fetchpriority="low" />}
+		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src-portrait.webp?v=3" media="(orientation: portrait)" fetchpriority="low" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
@@ -175,9 +176,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</script>
 	</head>
 	<body>
-		{!background ? null : backgroundMode === 'streams' ? (
-			<div class="bg-streams" aria-hidden="true"></div>
-		) : backgroundMode === 'flow' ? (
+		{!background ? null : backgroundMode === 'flow' ? (
 			<div class="flow-bg" aria-hidden="true"><div class="flow-bg__base"></div><div class="flow-bg__sw flow-bg__sw--x"><div class="flow-bg__img"></div></div><div class="flow-bg__sw flow-bg__sw--y"><div class="flow-bg__img"></div></div></div>
 		) : (
 			<div class="flow-bg flow-bg--ascii" aria-hidden="true"><AsciiBackground client:load /></div>
