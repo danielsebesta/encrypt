@@ -2185,8 +2185,55 @@ html.ascii-ready.ascii-instant .flow-bg--ascii {
     html.ascii-ready .flow-bg--ascii { animation: none; }
 }
 
-html.ascii-ready main :is(h1, h2, h3, h4, p, li, dt, dd, label, .hint, .section-title, .page-lead):not(:is(.card, .panel, .home-hero__form, .btn, button, [role="dialog"]) *) {
-    text-shadow: 0 0 6px var(--bg), 0 0 14px var(--bg), 0 0 14px var(--bg), 0 0 26px var(--bg), 0 0 26px var(--bg), 0 0 40px var(--bg);
+.flow-bg--ascii {
+    height: min(max(100%, max(100vh, 46rem)), 187.5vw);
+}
+
+.bg-streams {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.bg-streams::before,
+.bg-streams::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: min(50vw, calc(100vh * 960 / 1080));
+    background-color: var(--accent);
+    opacity: 0.5;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+
+.bg-streams::before {
+    left: 0;
+    -webkit-mask-image: url("/streams-left.svg");
+    mask-image: url("/streams-left.svg");
+}
+
+.bg-streams::after {
+    right: 0;
+    -webkit-mask-image: url("/streams-right.svg");
+    mask-image: url("/streams-right.svg");
+}
+
+html.dark .bg-streams::before,
+html.dark .bg-streams::after {
+    opacity: 0.4;
+}
+
+@media (max-width: 767px) {
+    .bg-streams::before,
+    .bg-streams::after {
+        opacity: 0.22;
+    }
 }
 
 .ascii-bg {
