@@ -39,7 +39,7 @@ function build(seed, dark) {
     '--call-line': nrole('outlineVariant'),
     '--call-text': nrole('onSurface'),
     '--call-muted': nrole('onSurfaceVariant'),
-    '--ascii-ramp': (dark ? [28, 38, 50, 62] : [84, 77, 70, 62]).map((t) => hex(primary.tone(t))).join(' '),
+    '--ascii-ramp': (dark ? [34, 46, 58, 70] : [76, 68, 60, 52]).map((t) => hex(primary.tone(t))).join(' '),
   };
 }
 

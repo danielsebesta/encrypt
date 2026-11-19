@@ -26,7 +26,7 @@
       field = mountGlyphField(canvas, {
         source: pickSource(),
         charset: ' .:-=+YCIFSA#@',
-        cellSize: innerWidth < 1500 ? 10 : 12,
+        cellSize: Math.round(Math.min(14, Math.max(10, innerWidth / 120))),
         cellAspect: 0.62,
         sample: 'shape',
         color: 'ink',
