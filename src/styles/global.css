@@ -1292,7 +1292,11 @@ html.dark {
     }
 
     .passphrase .input {
-        @apply min-w-0 flex-1 border-0 bg-transparent font-mono;
+        @apply min-w-0 flex-1 border-0 bg-transparent pr-1 font-mono;
+    }
+
+    .passphrase .input::placeholder {
+        @apply font-sans;
     }
 
     .passphrase .input,
