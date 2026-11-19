@@ -1,15 +1,18 @@
 <script lang="ts">
+  import Button from '../ui/Button.svelte';
+  import Field from '../ui/Field.svelte';
   import Tabs from '../ui/Tabs.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
-  import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
+  import ToolResult from './ToolResult.svelte';
+  import ToolStatus from './ToolStatus.svelte';
 
-  export let locale = 'en';
   export let dict: Record<string, string>;
 
   let imageFiles: File[] = [];
@@ -19,6 +22,9 @@
   let canvas: HTMLCanvasElement;
   let fileInput: HTMLInputElement;
   let status = '';
+  let statusTone: 'info' | 'ok' | 'warn' | 'error' = 'info';
+  let attempted = false;
+  let panelEl: HTMLElement;
   let mode: 'encode' | 'decode' = 'encode';
   let decodedMessage = '';
   let encodedImageUrl: string | null = null;
@@ -33,6 +39,14 @@
     { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
   ];
   $: multiEncode = mode === 'encode' && imageFiles.length > 1;
+  $: passwordError = attempted && !password ? t(dict, 'common.fieldRequired') : attempted && mode === 'encode' && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
+  $: messageError = attempted && !message ? t(dict, 'common.fieldRequired') : '';
+  $: imageError = attempted && !imageFiles.length ? t(dict, 'common.fieldRequired') : '';
+
+  function say(text: string, tone: 'info' | 'ok' | 'warn' | 'error' = 'info') {
+    status = text;
+    statusTone = tone;
+  }
 
   function revokePreview() {
     if (imageUrl?.startsWith('blob:')) URL.revokeObjectURL(imageUrl);
@@ -47,6 +61,7 @@
     encodedImageUrl = null;
     decodedMessage = '';
     status = '';
+    attempted = false;
     if (fileInput) fileInput.value = '';
   }
 
@@ -63,12 +78,12 @@
     if (mode === 'decode') {
       const file = picked[0];
       if (file.size > MAX_BYTES) {
-        status = t(dict, 'tools.steganography.imageTooLarge');
+        say(t(dict, 'tools.steganography.imageTooLarge'), 'error');
         return;
       }
       imageFiles = [file];
       imageUrl = URL.createObjectURL(file);
-      status = t(dict, 'tools.steganography.imageLoaded');
+      say(t(dict, 'tools.steganography.imageLoaded'));
       return;
     }
 
@@ -79,17 +94,16 @@
       else ok.push(file);
     }
     if (!ok.length) {
-      status = t(dict, 'tools.steganography.imageTooLarge');
+      say(t(dict, 'tools.steganography.imageTooLarge'), 'error');
       return;
     }
     imageFiles = ok;
     imageUrl = URL.createObjectURL(ok[0]);
-    status = ok.length === 1
+    const loaded = ok.length === 1
       ? t(dict, 'tools.steganography.imageLoaded')
       : t(dict, 'tools.steganography.batchSelected').replace('{count}', String(ok.length));
-    if (skipped) {
-      status = `${status} ${t(dict, 'tools.steganography.imageTooLarge')}`;
-    }
+    if (skipped) say(`${loaded} ${t(dict, 'tools.steganography.imageTooLarge')}`, 'warn');
+    else say(loaded);
   }
 
   function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -157,12 +171,9 @@
   }
 
   async function encode() {
-    if (!canvas || !imageFiles.length || !message || !password) {
-      status = t(dict, 'tools.steganography.pleaseProvide');
-      return;
-    }
-    if (!passwordLongEnough(password)) {
-      status = t(dict, 'common.passwordTooShort');
+    attempted = true;
+    if (!canvas || !imageFiles.length || !message || !password || !passwordLongEnough(password)) {
+      void focusFirstInvalid(panelEl);
       return;
     }
     processing = true;
@@ -171,9 +182,9 @@
     let ok = 0;
     let failed = 0;
     for (let i = 0; i < total; i++) {
-      status = t(dict, 'tools.steganography.batchProgress')
+      say(t(dict, 'tools.steganography.batchProgress')
         .replace('{current}', String(i + 1))
-        .replace('{total}', String(total));
+        .replace('{total}', String(total)));
       try {
         const img = await loadImageFromFile(imageFiles[i]);
         const dataUrl = await encodeIntoDataUrl(img);
@@ -184,9 +195,9 @@
       } catch (e) {
         failed++;
         if (total === 1) {
-          status = (e as Error)?.message === 'tooLong'
+          say((e as Error)?.message === 'tooLong'
             ? t(dict, 'tools.steganography.messageTooLong')
-            : t(dict, 'tools.steganography.encryptionFailed');
+            : t(dict, 'tools.steganography.encryptionFailed'), 'error');
           processing = false;
           return;
         }
@@ -194,16 +205,16 @@
       if (total > 1) await new Promise((r) => setTimeout(r, 120));
     }
     if (failed === 0) {
-      status = total === 1
+      say(total === 1
         ? t(dict, 'tools.steganography.messageHidden')
         : t(dict, 'tools.steganography.batchDone')
           .replace('{ok}', String(ok))
-          .replace('{total}', String(total));
+          .replace('{total}', String(total)), 'ok');
     } else {
-      status = t(dict, 'tools.steganography.batchPartial')
+      say(t(dict, 'tools.steganography.batchPartial')
         .replace('{ok}', String(ok))
         .replace('{total}', String(total))
-        .replace('{failed}', String(failed));
+        .replace('{failed}', String(failed)), 'warn');
     }
     processing = false;
   }
@@ -215,12 +226,15 @@
   }
 
   function decode() {
+    attempted = true;
     if (!canvas || !imageUrl || !password) {
-      status = t(dict, 'tools.steganography.pleaseProvideImage');
+      void focusFirstInvalid(panelEl);
       return;
     }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    decodedMessage = '';
+    processing = true;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = async () => {
@@ -247,85 +261,90 @@
       try {
         const extractedMagic = new TextDecoder().decode(readBits(32));
         if (extractedMagic !== MAGIC) {
-          status = t(dict, 'tools.steganography.noHiddenMessage');
+          say(t(dict, 'tools.steganography.noHiddenMessage'), 'error');
           return;
         }
         const lengthBytes = readBits(32);
         const lengthHeader = (lengthBytes[0] << 24) | (lengthBytes[1] << 16) | (lengthBytes[2] << 8) | lengthBytes[3];
         if (lengthHeader <= 0 || lengthHeader > (data.length / 8)) {
-          status = t(dict, 'tools.steganography.corrupted');
+          say(t(dict, 'tools.steganography.corrupted'), 'error');
           return;
         }
         const msgBytes = readBits(lengthHeader * 8);
-        status = t(dict, 'tools.steganography.decryptingMessage');
+        say(t(dict, 'tools.steganography.decryptingMessage'));
         decodedMessage = await decryptMsg(msgBytes, password);
-        status = t(dict, 'tools.steganography.decryptSuccess');
+        say(t(dict, 'tools.steganography.decryptSuccess'), 'ok');
       } catch (e) {
-        status = t(dict, 'tools.steganography.decryptFailed');
+        say(t(dict, 'tools.steganography.decryptFailed'), 'error');
         decodedMessage = '';
+      } finally {
+        processing = false;
       }
+    };
+    img.onerror = () => {
+      say(t(dict, 'tools.steganography.decryptFailed'), 'error');
+      processing = false;
     };
     img.src = imageUrl;
   }
 </script>
-<div class="stack">
-  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.steganography.encode') }, { id: 'decode', label: t(dict, 'tools.steganography.decode') }]} value={mode} label={t(dict, 'tools.steganography.h1')} idBase="stego" panelClass="grid gap-6 md:grid-cols-2" onchange={setMode}>
+<div class="stack" bind:this={panelEl}>
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.steganography.encode') }, { id: 'decode', label: t(dict, 'tools.steganography.decode') }]} value={mode} label={t(dict, 'tools.steganography.h1')} idBase="stego" panelClass="grid items-start gap-6 md:grid-cols-2" onchange={setMode}>
     <div class="stack">
-      <div class="field">
-        <span class="label">{t(dict, 'tools.steganography.sourceImage')}</span>
-        <label class="dropzone aspect-video" class:dropzone--active={!!imageUrl} for="stego-file">
-          {#if encodedImageUrl && !multiEncode}
-            <img src={encodedImageUrl} alt={t(dict, 'tools.steganography.encodedResultAlt')} />
-          {:else if imageUrl}
-            <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} />
-          {:else}
-            <Icon name="image" size={20} />
-            <span class="dropzone__title">{t(dict, 'tools.steganography.sourceImage')}</span>
-            <span>{mode === 'encode' ? t(dict, 'tools.steganography.batchHint') : t(dict, 'tools.steganography.pngRecommended')}</span>
-          {/if}
-          <input id="stego-file" bind:this={fileInput} type="file" accept="image/*" multiple={mode === 'encode'} on:change={handleImageFile} class="sr-only" />
-        </label>
-        {#if multiEncode}
-          <p class="hint">{t(dict, 'tools.steganography.batchSelected').replace('{count}', String(imageFiles.length))}</p>
-        {/if}
-      </div>
+      <Field label={t(dict, 'tools.steganography.sourceImage')} error={imageError} required>
+        {#snippet children(control)}
+          <div class="dropzone aspect-video" class:dropzone--active={!!imageUrl}>
+            {#if encodedImageUrl && !multiEncode}
+              <img src={encodedImageUrl} alt={t(dict, 'tools.steganography.encodedResultAlt')} />
+            {:else if imageUrl}
+              <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} />
+            {:else}
+              <Icon name="image" size={20} />
+              <span class="dropzone__title">{t(dict, 'tools.steganography.sourceImage')}</span>
+              <span>{mode === 'encode' ? t(dict, 'tools.steganography.batchHint') : t(dict, 'tools.steganography.pngRecommended')}</span>
+            {/if}
+            <input {...control} bind:this={fileInput} type="file" accept="image/*" multiple={mode === 'encode'} on:change={handleImageFile} class="sr-only" />
+            <label class="absolute inset-0 cursor-pointer" for={control.id} aria-hidden="true"></label>
+          </div>
+        {/snippet}
+      </Field>
+      {#if multiEncode}
+        <p class="hint">{t(dict, 'tools.steganography.batchSelected').replace('{count}', String(imageFiles.length))}</p>
+      {/if}
       {#if status}
-        <p class="status" class:status--busy={processing} role="status">{status}</p>
+        <ToolStatus tone={processing ? 'busy' : statusTone}>{status}</ToolStatus>
       {/if}
     </div>
 
-    <div class="stack">
+    <form class="stack" novalidate on:submit|preventDefault={mode === 'encode' ? encode : decode}>
       {#if mode === 'encode'}
-        <div class="field">
-          <label class="label" for="stego-message">{t(dict, 'tools.steganography.secretMessage')}</label>
-          <textarea id="stego-message" bind:value={message} placeholder={t(dict, 'tools.steganography.messagePlaceholder')} class="input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
-        </div>
-        <div class="field">
-          <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
-          <PassphraseField {dict} id="stego-password" bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby="stego-password-rules" generate={generatePassphrase} />
-          <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
-        </div>
-        <button type="button" on:click={encode} class="btn btn-block" disabled={processing}>{t(dict, 'tools.steganography.injectPixels')}</button>
+        <Field label={t(dict, 'tools.steganography.secretMessage')} error={messageError} required>
+          {#snippet children(control)}
+            <textarea {...control} bind:value={message} placeholder={t(dict, 'tools.steganography.messagePlaceholder')} class="input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          {/snippet}
+        </Field>
+        <Field label={t(dict, 'tools.steganography.securityPassword')} error={passwordError} required>
+          {#snippet children(control)}
+            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby={[control['aria-describedby'], 'stego-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
+            <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+          {/snippet}
+        </Field>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.steganography.injectPixels')}</Button>
         {#if encodedImageUrl && !multiEncode}
-          <button type="button" on:click={downloadEncoded} class="btn-secondary btn-block">{t(dict, 'tools.steganography.downloadEncrypted')}</button>
+          <Button variant="secondary" block icon="download" onclick={downloadEncoded}>{t(dict, 'tools.steganography.downloadEncrypted')}</Button>
         {/if}
       {:else}
-        <div class="field">
-          <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
-          <input id="stego-password" type="password" bind:value={password} placeholder={t(dict, 'tools.steganography.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
-        </div>
-        <button type="button" on:click={decode} class="btn btn-block">{t(dict, 'tools.steganography.scanPixels')}</button>
+        <Field label={t(dict, 'tools.steganography.securityPassword')} error={passwordError} required>
+          {#snippet children(control)}
+            <input {...control} type="password" bind:value={password} placeholder={t(dict, 'tools.steganography.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+          {/snippet}
+        </Field>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.steganography.scanPixels')}</Button>
         {#if decodedMessage}
-          <div class="field">
-            <div class="output-head">
-              <span class="label" id="stego-out-label">{t(dict, 'tools.steganography.foundMessage')}</span>
-              <CopyButton text={decodedMessage} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-            </div>
-            <output class="output output--ok min-h-32 break-words" aria-labelledby="stego-out-label" aria-live="polite">{decodedMessage}</output>
-          </div>
+          <ToolResult {dict} id="stego-out" label={t(dict, 'tools.steganography.foundMessage')} text={decodedMessage} prose class="min-h-32" />
         {/if}
       {/if}
-    </div>
+    </form>
   </Tabs>
   <canvas bind:this={canvas} class="hidden"></canvas>
 </div>

@@ -19,7 +19,7 @@ const clientDict = toolClientDict(dict, 'tools.spectralCipher');
       <p class="page-lead">{t(dict, 'tools.spectralCipher.subtitle')}</p>
     </header>
     <div class="panel">
-      <SpectralCipherView client:idle locale={locale} dict={clientDict} />
+      <SpectralCipherView client:idle dict={clientDict} />
     </div>
     <ToolAbout dict={dict} prefix="tools.spectralCipher" />
   </div>

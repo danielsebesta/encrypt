@@ -1079,6 +1079,10 @@ html.dark {
         @apply border-solid border-control-line bg-surface text-text;
     }
 
+    .dropzone:has(input[aria-invalid="true"]) {
+        @apply border-solid border-danger;
+    }
+
     .dropzone__title {
         @apply font-semibold text-text;
     }

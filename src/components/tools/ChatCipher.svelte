@@ -1,14 +1,18 @@
 <script lang="ts">
-  import Tabs from '../ui/Tabs.svelte';
   import { onMount } from 'svelte';
+  import Button from '../ui/Button.svelte';
+  import Field from '../ui/Field.svelte';
+  import Tabs from '../ui/Tabs.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
-  import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import CoverStream from './CoverStream.svelte';
+  import ToolResult from './ToolResult.svelte';
+  import ToolStatus from './ToolStatus.svelte';
   import {
     COVER_LANGS,
     chatCipherErrorKey,
@@ -38,6 +42,8 @@
   let result = '';
   let error = '';
   let errorKey: ChatCipherErrorKey | '' = '';
+  let attempted = false;
+  let panelEl: HTMLElement;
   let busy = false;
   let progressTitle = '';
   let progressDetail = '';
@@ -46,6 +52,8 @@
   let streamDone = true;
   let streamWaiter: (() => void) | null = null;
 
+  $: inputError = attempted && !inputText ? t(dict, 'common.fieldRequired') : '';
+  $: passwordError = attempted && !password ? t(dict, 'common.fieldRequired') : attempted && mode === 'encrypt' && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
   $: coverLang = coverChoice === 'auto' ? autoLang : coverChoice;
   $: autoLabel = t(dict, 'tools.chatCipher.lang.auto').replace('{lang}', t(dict, `tools.chatCipher.lang.${autoLang}`));
   $: passwordChecks = checkRoomPassword(password, '');
@@ -146,18 +154,13 @@
     detectedLang = null;
     coverRatio = null;
     streamDone = true;
+    attempted = true;
+    if (!inputText || !password || (mode === 'encrypt' && !passwordLongEnough(password))) {
+      streamWaiting = false;
+      void focusFirstInvalid(panelEl);
+      return;
+    }
     streamWaiting = mode === 'encrypt';
-    if (!inputText || !password) {
-      errorKey = 'tools.chatCipher.errorBoth';
-      error = t(dict, errorKey);
-      streamWaiting = false;
-      return;
-    }
-    if (mode === 'encrypt' && !passwordLongEnough(password)) {
-      error = t(dict, 'common.passwordTooShort');
-      streamWaiting = false;
-      return;
-    }
     await run(async () => {
       let text: string;
       if (mode === 'encrypt') {
@@ -197,73 +200,67 @@
     detectedLang = null;
     onStreamDone();
     coverRatio = null;
+    attempted = false;
     clearError();
   }
 </script>
 
-<div class="stack">
+<div class="stack" bind:this={panelEl}>
   <Tabs items={[{ id: 'encrypt', label: t(dict, 'tools.chatCipher.encrypt') }, { id: 'decrypt', label: t(dict, 'tools.chatCipher.decrypt') }]} value={mode} label={t(dict, 'tools.chatCipher.h1')} idBase="chat-cipher" panelClass="stack" onchange={toggleMode}>
     <p class="status">{t(dict, 'tools.chatCipher.tableNote')}</p>
 
-    <div class="field">
-      <label for="chat-cipher-lang" class="label">{t(dict, 'tools.chatCipher.coverLang')}</label>
-      <select
-        id="chat-cipher-lang"
-        class="input"
-        bind:value={coverChoice}
-        disabled={busy}
-        on:change={onCoverLangChange}
-      >
-        <option value="auto">{autoLabel}</option>
-        {#each COVER_LANGS as lang}
-          <option value={lang}>{t(dict, `tools.chatCipher.lang.${lang}`)}</option>
-        {/each}
-      </select>
-    </div>
+    <form class="stack" novalidate on:submit|preventDefault={handleProcess}>
+      <Field label={t(dict, 'tools.chatCipher.coverLang')}>
+        {#snippet children(control)}
+          <select {...control} class="input" bind:value={coverChoice} disabled={busy} on:change={onCoverLangChange}>
+            <option value="auto">{autoLabel}</option>
+            {#each COVER_LANGS as lang}
+              <option value={lang}>{t(dict, `tools.chatCipher.lang.${lang}`)}</option>
+            {/each}
+          </select>
+        {/snippet}
+      </Field>
 
-    <div class="field">
-      <label for="chat-cipher-input" class="label">{mode === 'encrypt' ? t(dict, 'tools.chatCipher.inputText') : t(dict, 'tools.chatCipher.coverText')}</label>
-      <textarea
-        id="chat-cipher-input"
-        bind:value={inputText}
-        placeholder={mode === 'encrypt' ? t(dict, 'tools.chatCipher.encryptPlaceholder') : t(dict, 'tools.chatCipher.decryptPlaceholder')}
-        class="input"
-        spellcheck="false"
-        autocomplete="off"
-        autocapitalize="off"
-        disabled={busy}
-      ></textarea>
-    </div>
+      <Field label={mode === 'encrypt' ? t(dict, 'tools.chatCipher.inputText') : t(dict, 'tools.chatCipher.coverText')} error={inputError} required>
+        {#snippet children(control)}
+          <textarea
+            {...control}
+            bind:value={inputText}
+            placeholder={mode === 'encrypt' ? t(dict, 'tools.chatCipher.encryptPlaceholder') : t(dict, 'tools.chatCipher.decryptPlaceholder')}
+            class="input"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+            disabled={busy}
+          ></textarea>
+        {/snippet}
+      </Field>
 
-    <div class="field">
-      <label for="chat-cipher-password" class="label">{t(dict, 'tools.chatCipher.password')}</label>
-      {#if mode === 'encrypt'}
-        <PassphraseField {dict} id="chat-cipher-password" bind:value={password} placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')} describedby="chat-cipher-password-rules" generate={generatePassphrase} />
-        <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
-      {:else}
-        <input
-          id="chat-cipher-password"
-          type="password"
-          bind:value={password}
-          placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')}
-          class="input"
-          autocomplete="current-password"
-          spellcheck="false"
-          autocapitalize="off"
-          data-lpignore="true"
-          data-1p-ignore
-          disabled={busy}
-        />
-      {/if}
-    </div>
+      <Field label={t(dict, 'tools.chatCipher.password')} error={passwordError} required>
+        {#snippet children(control)}
+          {#if mode === 'encrypt'}
+            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')} describedby={[control['aria-describedby'], 'chat-cipher-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
+            <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+          {:else}
+            <input
+              {...control}
+              type="password"
+              bind:value={password}
+              placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')}
+              class="input"
+              autocomplete="current-password"
+              spellcheck="false"
+              autocapitalize="off"
+              data-lpignore="true"
+              data-1p-ignore
+              disabled={busy}
+            />
+          {/if}
+        {/snippet}
+      </Field>
 
-    <button type="button" class="btn btn-block" disabled={busy} on:click={handleProcess}>
-      {#if busy}
-        {t(dict, 'tools.chatCipher.progress.workingBtn')}
-      {:else}
-        {mode === 'encrypt' ? t(dict, 'tools.chatCipher.encryptBtn') : t(dict, 'tools.chatCipher.decryptBtn')}
-      {/if}
-    </button>
+      <Button type="submit" block {busy}>{mode === 'encrypt' ? t(dict, 'tools.chatCipher.encryptBtn') : t(dict, 'tools.chatCipher.decryptBtn')}</Button>
+    </form>
 
     {#if busy}
       <ProgressPulse title={progressTitle} detail={progressDetail} ratio={coverRatio} />
@@ -274,43 +271,23 @@
         <div>
           <p class="status__title">{error}</p>
           {#if errorKey && chatCipherErrorRetryable(errorKey)}
-            <button type="button" class="btn-ghost btn-sm" disabled={busy} on:click={redownloadTable}>
-              {t(dict, 'tools.chatCipher.errorRetryTable')}
-            </button>
+            <Button variant="ghost" size="sm" disabled={busy} onclick={redownloadTable}>{t(dict, 'tools.chatCipher.errorRetryTable')}</Button>
           {/if}
         </div>
       </div>
     {/if}
     {#if mode === 'encrypt' && (streamWaiting || result)}
-      <div class="field">
-        <div class="output-head">
-          <span class="label" id="chat-cipher-out-label">{t(dict, 'tools.chatCipher.coverOutput')}</span>
-          {#if result && streamDone}
-            <CopyButton text={result} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-          {/if}
-        </div>
-        <CoverStream
-          target={result}
-          waiting={streamWaiting && !result}
-          labelledby="chat-cipher-out-label"
-          on:done={onStreamDone}
-        />
-      </div>
+      <ToolResult {dict} id="chat-cipher-out" label={t(dict, 'tools.chatCipher.coverOutput')} text={result} copy={streamDone}>
+        {#snippet output()}
+          <CoverStream target={result} waiting={streamWaiting && !result} labelledby="chat-cipher-out-label" on:done={onStreamDone} />
+        {/snippet}
+      </ToolResult>
     {:else if result}
-      <div class="field">
-        <div class="output-head">
-          <span class="label" id="chat-cipher-out-label">{t(dict, 'tools.chatCipher.plainOutput')}</span>
-          <CopyButton text={result} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-        </div>
-        <output
-          class="output output--ok break-words"
-          aria-labelledby="chat-cipher-out-label"
-          aria-live="polite"
-        >{result}</output>
+      <ToolResult {dict} id="chat-cipher-out" label={t(dict, 'tools.chatCipher.plainOutput')} text={result} prose>
         {#if detectedLang}
           <p class="hint">{t(dict, 'tools.chatCipher.detectedLang').replace('{lang}', t(dict, `tools.chatCipher.lang.${detectedLang}`))}</p>
         {/if}
-      </div>
+      </ToolResult>
     {/if}
   </Tabs>
 </div>

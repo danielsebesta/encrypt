@@ -1,14 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
 
-  /** Final cover text once ready; empty while still computing. */
   export let target = '';
-  /** Show a waiting caret before the target arrives. */
   export let waiting = false;
   export let labelledby = '';
 
   const dispatch = createEventDispatcher<{ done: void }>();
-  /** Whole reveal should feel like a quick flourish, not a real stream. */
   const TOTAL_MS = 380;
 
   let visible = '';
@@ -56,7 +53,6 @@
     started = performance.now();
     const step = (now: number) => {
       const t = Math.min(1, (now - started) / TOTAL_MS);
-      // Ease-out so the last bits land quickly.
       const eased = 1 - (1 - t) * (1 - t);
       const at = Math.min(text.length, Math.ceil(text.length * eased));
       visible = text.slice(0, at);

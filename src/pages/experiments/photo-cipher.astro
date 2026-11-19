@@ -19,7 +19,7 @@ const clientDict = toolClientDict(dict, 'tools.photoCipher');
       <p class="page-lead">{t(dict, 'tools.photoCipher.subtitle')}</p>
     </header>
     <div class="panel">
-      <PhotoCipherView client:idle locale={locale} dict={clientDict} />
+      <PhotoCipherView client:idle dict={clientDict} />
     </div>
     <ToolAbout dict={dict} prefix="tools.photoCipher" />
   </div>
