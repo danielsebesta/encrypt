@@ -1,20 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
+  import { buttonClass, type ButtonSize, type ButtonVariant } from './ui/button';
 
   export let url = '';
   export let title = '';
   export let text = '';
   export let label = '';
-  export let copiedLabel = '';
+  export let doneLabel = '';
   export let errorLabel = '';
-  export let hint = '';
-  export let className = 'btn-ghost btn-sm';
+  export let variant: ButtonVariant = 'secondary';
+  export let size: ButtonSize = 'md';
+  export let block = false;
   export let iconOnly = false;
-  export let size = 16;
 
   let supported = false;
-  let status: 'idle' | 'copied' | 'error' = 'idle';
+  let status: 'idle' | 'done' | 'error' = 'idle';
   let timeout: ReturnType<typeof setTimeout>;
 
   function payload(shareUrl = url): ShareData {
@@ -27,8 +28,7 @@
   onMount(() => {
     if (typeof navigator.share !== 'function') return;
     try {
-      const probe = payload(url || location.href);
-      supported = !navigator.canShare || navigator.canShare(probe);
+      supported = !navigator.canShare || navigator.canShare(payload(url || location.href));
     } catch {
       supported = false;
     }
@@ -39,50 +39,41 @@
     clearTimeout(timeout);
     try {
       await navigator.share(payload());
-      status = 'copied';
-      timeout = setTimeout(() => { status = 'idle'; }, 1500);
+      status = 'done';
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       status = 'error';
-      timeout = setTimeout(() => { status = 'idle'; }, 1500);
     }
+    timeout = setTimeout(() => { status = 'idle'; }, 1500);
   }
 
-  $: iconSize = (size <= 15 ? 16 : 20) as 16 | 20;
-  $: doneText = copiedLabel || label;
+  $: doneText = doneLabel || label;
   $: failText = errorLabel || label;
-  $: reserveCh = Math.max(label.length, doneText.length, failText.length, 1);
-  $: activeLabel = status === 'copied' ? doneText : status === 'error' ? failText : label;
 </script>
 
 {#if supported}
   <button
     type="button"
-    class="{className} btn-feedback"
-    class:btn-icon={iconOnly}
-    class:btn-feedback--done={status === 'copied'}
+    class="{buttonClass({ variant, size, block, icon: iconOnly })} btn-feedback"
+    class:btn-feedback--done={status === 'done'}
     class:btn-feedback--error={status === 'error'}
     on:click={share}
     disabled={!url}
-    aria-label={iconOnly ? activeLabel : undefined}
-    title={iconOnly ? activeLabel : undefined}
+    aria-label={iconOnly ? label : undefined}
+    title={iconOnly ? label : undefined}
   >
     <span class="btn-feedback__icon inline-grid shrink-0" aria-hidden="true">
-      <span class="btn-feedback__layer btn-feedback__layer--idle col-start-1 row-start-1" class:opacity-0={status !== 'idle'}><Icon name="share-2" size={iconSize} /></span>
-      <span class="btn-feedback__layer btn-feedback__layer--done col-start-1 row-start-1" class:opacity-0={status !== 'copied'}><Icon name="check" size={iconSize} /></span>
-      <span class="btn-feedback__layer btn-feedback__layer--error col-start-1 row-start-1" class:opacity-0={status !== 'error'}><Icon name="x" size={iconSize} /></span>
+      <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'idle'}><Icon name="share-2" /></span>
+      <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'done'}><Icon name="check" /></span>
+      <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'error'}><Icon name="x" /></span>
     </span>
     {#if !iconOnly}
-      <span class="btn-feedback__label inline-grid justify-items-start" style="min-inline-size: {reserveCh}ch" role="status">
-        <span class="btn-feedback__layer btn-feedback__layer--idle col-start-1 row-start-1" class:opacity-0={status !== 'idle'} aria-hidden={status !== 'idle'}>{label}</span>
-        <span class="btn-feedback__layer btn-feedback__layer--done col-start-1 row-start-1" class:opacity-0={status !== 'copied'} aria-hidden={status !== 'copied'}>{doneText}</span>
-        <span class="btn-feedback__layer btn-feedback__layer--error col-start-1 row-start-1" class:opacity-0={status !== 'error'} aria-hidden={status !== 'error'}>{failText}</span>
+      <span class="inline-grid justify-items-start">
+        <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'idle'} aria-hidden={status !== 'idle'}>{label}</span>
+        <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'done'} aria-hidden={status !== 'done'}>{doneText}</span>
+        <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'error'} aria-hidden={status !== 'error'}>{failText}</span>
       </span>
-    {:else}
-      <span class="sr-only" role="status">{status === 'idle' ? '' : activeLabel}</span>
     {/if}
   </button>
-  {#if hint}
-    <p class="hint">{hint}</p>
-  {/if}
+  <span class="sr-only" role="status">{status === 'done' ? doneText : status === 'error' ? failText : ''}</span>
 {/if}

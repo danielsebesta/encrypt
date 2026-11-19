@@ -1,13 +1,16 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { copyText } from '../lib/clipboard';
+  import { buttonClass, type ButtonSize, type ButtonVariant } from './ui/button';
 
   export let text = '';
   export let label = '';
   export let copiedLabel = '';
   export let errorLabel = '';
-  export let className = '';
-  export let variant: 'ghost' | 'primary' = 'ghost';
+  export let variant: ButtonVariant = 'ghost';
+  /** Defaults to small for the ghost variant (inline next to a label), regular otherwise. */
+  export let size: ButtonSize | undefined = undefined;
+  export let block = false;
 
   let status: 'idle' | 'copied' | 'error' = 'idle';
   let timeout: ReturnType<typeof setTimeout>;
@@ -20,29 +23,37 @@
     timeout = setTimeout(() => { status = 'idle'; }, 1500);
   }
 
-  $: baseClass = variant === 'primary' ? 'btn' : 'btn-ghost btn-sm';
+  $: resolvedSize = size ?? (variant === 'ghost' ? 'sm' : 'md');
   $: doneText = copiedLabel || label;
   $: failText = errorLabel || label;
-  $: reserveCh = Math.max(label.length, doneText.length, 1);
+  $: labels = [
+    { state: 'idle', text: label },
+    { state: 'copied', text: doneText },
+    { state: 'error', text: failText },
+  ] as const;
 </script>
 
 <button
   type="button"
-  class="{baseClass} btn-feedback {className}"
+  class="{buttonClass({ variant, size: resolvedSize, block })} btn-feedback"
   class:btn-feedback--done={status === 'copied'}
   class:btn-feedback--error={status === 'error'}
   on:click={copy}
   disabled={!text}
 >
   <span class="btn-feedback__icon inline-grid shrink-0" aria-hidden="true">
-    <span class="btn-feedback__layer btn-feedback__layer--idle col-start-1 row-start-1" class:opacity-0={status !== 'idle'}><Icon name="copy" /></span>
-    <span class="btn-feedback__layer btn-feedback__layer--done col-start-1 row-start-1" class:opacity-0={status !== 'copied'}><Icon name="check" /></span>
-    <span class="btn-feedback__layer btn-feedback__layer--error col-start-1 row-start-1" class:opacity-0={status !== 'error'}><Icon name="x" /></span>
+    <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'idle'}><Icon name="copy" /></span>
+    <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'copied'}><Icon name="check" /></span>
+    <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== 'error'}><Icon name="x" /></span>
   </span>
-  <span class="btn-feedback__label inline-grid justify-items-start" style="min-inline-size: {reserveCh}ch" role="status">
-    <span class="btn-feedback__layer btn-feedback__layer--idle col-start-1 row-start-1" class:opacity-0={status !== 'idle'} aria-hidden={status !== 'idle'}>{label}</span>
-    <span class="btn-feedback__layer btn-feedback__layer--done col-start-1 row-start-1" class:opacity-0={status !== 'copied'} aria-hidden={status !== 'copied'}>{doneText}</span>
-    <span class="btn-feedback__layer btn-feedback__layer--error col-start-1 row-start-1" class:opacity-0={status !== 'error'} aria-hidden="true">{label}</span>
-    {#if status === 'error'}<span class="sr-only">{failText}</span>{/if}
-  </span>
+  {#if variant === 'ghost'}
+    <span>{labels.find((l) => l.state === status)?.text}</span>
+  {:else}
+    <span class="inline-grid justify-items-start">
+      {#each labels as l (l.state)}
+        <span class="btn-feedback__layer col-start-1 row-start-1" class:opacity-0={status !== l.state} aria-hidden={status !== l.state}>{l.text}</span>
+      {/each}
+    </span>
+  {/if}
 </button>
+<span class="sr-only" role="status">{status === 'copied' ? doneText : status === 'error' ? failText : ''}</span>
