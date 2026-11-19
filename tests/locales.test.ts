@@ -29,6 +29,8 @@ const ALLOW_SAME_AS_EN = new Set([
   'chat.callRelay',
   'chat.callRelayHost',
   'chat.callRelayTransport',
+  'chat.chip.online',
+  'chat.membersOnline',
   'chat.serverQualityOffline',
   'chat.voicePause',
   'chat.whiteboardTitle',

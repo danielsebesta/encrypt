@@ -8,6 +8,11 @@ const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const localePrefix = '';
 const guideDict = pickDict(dict, ['install.guide', 'common.copy', 'common.copied', 'common.uploadChallenge.retry']);
+const perks = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3], ['download', 4]] as const;
+const platforms = [
+  { id: 'install-ios', icon: 'apple', prefix: 'install.ios' },
+  { id: 'install-android', icon: 'android', prefix: 'install.android' },
+] as const;
 
 export const prerender = true;
 ---
@@ -21,90 +26,37 @@ export const prerender = true;
       <div class="install-hero__copy">
         <h1 class="page-title">{t(dict, 'install.h1')}</h1>
         <p class="page-lead">{t(dict, 'install.subtitle')}</p>
-        <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
-          <li class="platform-pill">
-            <Icon name="apple" size={16} />
-            {t(dict, 'pwa.platforms.ios')}
-          </li>
-          <li class="platform-pill">
-            <Icon name="android" size={16} />
-            {t(dict, 'pwa.platforms.android')}
-          </li>
+        <ul class="home-app__perks install-hero__perks">
+          {perks.map(([icon, n]) => (
+            <li><Icon name={icon} />{t(dict, `pwa.feature.${n}.title`)}</li>
+          ))}
         </ul>
       </div>
-      <div class="home-app__gallery install-hero__gallery" aria-hidden="true">
-        <img class="app-shot app-shot--primary" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="eager" decoding="async" />
-        <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="eager" decoding="async" />
-      </div>
+      <img class="app-shot install-hero__shot" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="eager" decoding="async" />
     </header>
 
     <InstallGuide client:load dict={guideDict} appHref={`${localePrefix}/app`} />
 
-    <section class="install-benefits" aria-labelledby="install-benefits">
-      <h2 id="install-benefits" class="section-title">{t(dict, 'install.benefits.title')}</h2>
-      <ol class="install-benefits__grid">
-        <li class="install-benefit">
-          <span class="install-benefit__num" aria-hidden="true">01</span>
-          <p>{t(dict, 'install.benefits.1')}</p>
-        </li>
-        <li class="install-benefit">
-          <span class="install-benefit__num" aria-hidden="true">02</span>
-          <p>{t(dict, 'install.benefits.2')}</p>
-        </li>
-        <li class="install-benefit">
-          <span class="install-benefit__num" aria-hidden="true">03</span>
-          <p>{t(dict, 'install.benefits.3')}</p>
-        </li>
-      </ol>
-    </section>
-
-    <section class="install-platforms" aria-labelledby="install-platforms-title">
-      <div class="install-platforms__intro">
-        <h2 id="install-platforms-title" class="section-title">{t(dict, 'install.platforms.title')}</h2>
-        <p class="hint mt-1">{t(dict, 'install.platforms.text')}</p>
-      </div>
-
+    <section class="install-manual" aria-labelledby="install-manual-title">
+      <h2 id="install-manual-title" class="section-title">{t(dict, 'install.manual.title')}</h2>
       <div class="install-guides">
-        <section class="install-guide install-guide--shot" aria-labelledby="install-ios">
-          <div class="install-guide__shot">
-            <img class="app-shot app-shot--md" src="/screenshot-hub-settings.png?v=9" alt={t(dict, 'install.ios.shotAlt')} width="360" height="780" loading="lazy" decoding="async" />
-          </div>
-          <div class="install-guide__body">
-            <p class="platform-pill install-guide__badge">{t(dict, 'pwa.platforms.ios')}</p>
-            <h3 id="install-ios" class="home-card__title">{t(dict, 'install.ios.title')}</h3>
+        {platforms.map(({ id, icon, prefix }) => (
+          <section class="install-guide" aria-labelledby={id}>
+            <h3 id={id} class="install-guide__title">
+              <span class="home-flow__badge"><Icon name={icon} size={20} /></span>
+              {t(dict, `${prefix}.title`)}
+            </h3>
             <ol class="install-steps">
-              <li>{t(dict, 'install.ios.1')}</li>
-              <li>{t(dict, 'install.ios.2')}</li>
-              <li>{t(dict, 'install.ios.3')}</li>
+              {[1, 2, 3].map((n) => <li>{t(dict, `${prefix}.${n}`)}</li>)}
             </ol>
-          </div>
-        </section>
-
-        <section class="install-guide install-guide--shot" aria-labelledby="install-android">
-          <div class="install-guide__shot">
-            <img class="app-shot app-shot--md" src="/screenshot-android-chat.png?v=9" alt={t(dict, 'install.android.shotAlt')} width="360" height="780" loading="lazy" decoding="async" />
-          </div>
-          <div class="install-guide__body">
-            <p class="platform-pill install-guide__badge">{t(dict, 'pwa.platforms.android')}</p>
-            <h3 id="install-android" class="home-card__title">{t(dict, 'install.android.title')}</h3>
-            <ol class="install-steps">
-              <li>{t(dict, 'install.android.1')}</li>
-              <li>{t(dict, 'install.android.2')}</li>
-              <li>{t(dict, 'install.android.3')}</li>
-            </ol>
-          </div>
-        </section>
+          </section>
+        ))}
       </div>
     </section>
 
-    <section class="install-guide install-guide--wide" aria-labelledby="install-desktop">
-      <h2 id="install-desktop" class="section-title">{t(dict, 'install.desktop.title')}</h2>
-      <p class="install-guide__text">{t(dict, 'install.desktop.text')}</p>
-    </section>
-
-    <div class="actions">
-      <a href={`${localePrefix}/share`} class="btn">{t(dict, 'install.cta.share')}</a>
-      <a href={`${localePrefix}/u`} class="btn-secondary">{t(dict, 'install.cta.decrypt')}</a>
-    </div>
+    <nav class="install-more" aria-label={t(dict, 'install.more')}>
+      <a href={`${localePrefix}/share`} class="btn-secondary"><Icon name="lock" />{t(dict, 'install.cta.share')}</a>
+      <a href={`${localePrefix}/u`} class="btn-ghost"><Icon name="lock-open" />{t(dict, 'install.cta.decrypt')}</a>
+    </nav>
   </div>
 </Layout>
