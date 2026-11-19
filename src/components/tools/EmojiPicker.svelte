@@ -46,7 +46,7 @@
 
   const TONE_KEYS = ['default', 'light', 'mediumLight', 'medium', 'mediumDark', 'dark'];
   const TONE_COLORS = ['#ffc93a', '#f7d7c4', '#e5b48f', '#c68e62', '#9e6a43', '#5c4033'];
-  const CELL: Record<Skin, number> = { web: 38, ios: 44, material: 48 };
+  const CELL: Record<Skin, number> = { web: 40, ios: 44, material: 48 };
   const PAD: Record<Skin, number> = { web: 6, ios: 8, material: 8 };
   const uid = `ep-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -76,6 +76,7 @@
   let savedTop = 0;
 
   const cell = $derived(CELL[skin]);
+  const web = $derived(skin === 'web');
   const searching = $derived(query.trim().length > 0);
   const withTone = (emoji: string, tones: boolean) => (tones && tone ? applySkinTone(emoji, tone) : emoji);
 
@@ -144,13 +145,13 @@
   $effect(() => {
     void visible;
     tick().then(() => {
-      if (!tabStop?.isConnected || searching) setTabStop(scrollEl?.querySelector<HTMLElement>('.ep__cell') ?? null);
+      if (!tabStop?.isConnected || searching) setTabStop(scrollEl?.querySelector<HTMLElement>('[data-s]') ?? null);
     });
   });
 
   $effect(() => {
     const row = tabsEl;
-    const tab = row?.querySelector<HTMLElement>(`.ep__tab:nth-child(${tabs.indexOf(active) + 1})`);
+    const tab = row?.querySelector<HTMLElement>(`[data-tab]:nth-child(${tabs.indexOf(active) + 1})`);
     if (!row || !tab || row.scrollWidth <= row.clientWidth) return;
     const left = tab.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft;
     if (left < row.scrollLeft) row.scrollLeft = left;
@@ -242,7 +243,7 @@
   }
 
   function cellFrom(target: EventTarget | null): { el: HTMLElement; s: string; i: number } | null {
-    const el = (target as HTMLElement | null)?.closest?.<HTMLElement>('.ep__cell');
+    const el = (target as HTMLElement | null)?.closest?.<HTMLElement>('[data-s]');
     if (!el?.dataset.s) return null;
     return { el, s: el.dataset.s, i: Number(el.dataset.i) };
   }
@@ -285,7 +286,7 @@
       rendered[next.s] = true;
       await tick();
     }
-    const el = scrollEl?.querySelector<HTMLElement>(`.ep__cell[data-s="${next.s}"][data-i="${next.i}"]`);
+    const el = scrollEl?.querySelector<HTMLElement>(`[data-s="${next.s}"][data-i="${next.i}"]`);
     if (!el) return;
     setTabStop(el);
     el.focus({ preventScroll: true });
@@ -376,12 +377,12 @@
     if (!scrollEl || !el) return;
     scrollEl.scrollTop = el.offsetTop;
     active = id;
-    const first = el.querySelector<HTMLElement>('.ep__cell');
+    const first = el.querySelector<HTMLElement>('[data-s]');
     if (first) setTabStop(first);
   }
 
   function onTabsKey(e: KeyboardEvent) {
-    const buttons = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('.ep__tab')];
+    const buttons = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-tab]')];
     const at = buttons.indexOf(e.target as HTMLButtonElement);
     if (at < 0) return;
     const to = e.key === 'ArrowRight' ? (at + 1) % buttons.length
@@ -449,7 +450,7 @@
     {#if rendered[section.id] || section.id === 'search'}
       <div class="ep__grid" role="group" aria-labelledby="{uid}-{section.id}">
         {#each section.items as emoji, i}
-          <button type="button" class="ep__cell" tabindex="-1" data-s={section.id} data-i={i} aria-label={label(emoji)}>{emoji}</button>
+          <button type="button" class={web ? 'btn-ghost btn-icon ep__emoji' : 'ep__cell'} tabindex="-1" data-s={section.id} data-i={i} aria-label={label(emoji)}>{emoji}</button>
         {/each}
       </div>
     {:else}
@@ -473,7 +474,7 @@
           <button
             type="button"
             role="radio"
-            class="ep__swatch"
+            class={web ? 'btn-ghost btn-icon ep__tone' : 'ep__swatch'}
             aria-checked={tone === v}
             aria-label={toneName(v)}
             title={toneName(v)}
@@ -488,7 +489,7 @@
       </div>
     {:else}
       <div class="ep__search">
-        <Icon name={EMOJI_ICONS.search} class="ep__search-icon" />
+        <span class="ep__search-icon" aria-hidden="true"><Icon name={EMOJI_ICONS.search} /></span>
         <input
           bind:this={searchEl}
           class="ep__input"
@@ -509,8 +510,9 @@
         {#if query}
           <button
             type="button"
-            class="ep__clear"
+            class={web ? 'btn-ghost btn-sm btn-icon ep__end' : 'ep__clear'}
             aria-label={t(dict, 'emoji.clearSearch')}
+            title={t(dict, 'emoji.clearSearch')}
             onclick={() => {
               setQuery('');
               searchEl?.focus();
@@ -524,7 +526,7 @@
     <button
       bind:this={toneBtnEl}
       type="button"
-      class="ep__tone-toggle"
+      class={web ? 'btn-secondary btn-icon' : 'ep__tone-toggle'}
       aria-expanded={toneOpen}
       aria-label={t(dict, 'emoji.skinToneCurrent').replace('{tone}', toneName(tone))}
       title={t(dict, 'emoji.skinTone')}
@@ -540,7 +542,8 @@
       {#each tabs as id (id)}
         <button
           type="button"
-          class="ep__tab"
+          class={web ? 'btn-ghost btn-sm btn-icon ep__cat' : 'ep__tab'}
+          data-tab={id}
           aria-label={sectionTitle(id)}
           title={sectionTitle(id)}
           aria-current={!searching && active === id ? 'true' : undefined}
@@ -555,7 +558,7 @@
 
   <div class="ep__scroll" id="{uid}-grid" bind:this={scrollEl} onscroll={onScroll} onclick={onGridClick} onkeydown={onGridKey}>
     {#if failed}
-      <div class="ep__empty">{t(dict, 'emoji.noResults')}</div>
+      <div class={web ? 'empty' : 'ep__empty'}>{t(dict, 'emoji.noResults')}</div>
     {:else if !groups}
       <div class="ep__skeleton" aria-busy="true" aria-label={t(dict, 'emoji.loading')}>
         <span class="ep__skeleton-head"></span>
@@ -570,7 +573,7 @@
         {#if results.length}
           {@render block({ id: 'search', items: results })}
         {:else}
-          <div class="ep__empty" role="status">
+          <div class={web ? 'empty' : 'ep__empty'} role="status">
             <Icon name={EMOJI_ICONS.search} size={20} />
             <span>{t(dict, 'emoji.noResults')}</span>
           </div>
@@ -671,8 +674,7 @@
   .ep__search-icon {
     position: absolute;
     left: 0.75rem;
-    width: 1.0625rem;
-    height: 1.0625rem;
+    display: grid;
     color: var(--ep-muted);
     pointer-events: none;
   }
@@ -716,10 +718,7 @@
   }
 
   .ep--ios .ep__search-icon {
-    left: 0.5rem;
-    width: 1.125rem;
-    height: 1.125rem;
-    stroke-width: 2.4;
+    left: 0.625rem;
   }
 
   .ep--material .ep__input {
@@ -730,8 +729,6 @@
 
   .ep--material .ep__search-icon {
     left: 1rem;
-    width: 1.375rem;
-    height: 1.375rem;
     color: var(--app-label);
   }
 
@@ -749,12 +746,11 @@
     cursor: pointer;
   }
 
-  .ep__clear svg {
-    width: 1rem;
-    height: 1rem;
+  .ep__end {
+    position: absolute;
+    right: 0.25rem;
   }
 
-  .ep--web .ep__clear:hover,
   .ep--material .ep__clear:hover {
     background: var(--ep-hover);
     color: var(--ep-text);
@@ -766,26 +762,11 @@
     height: 1.75rem;
   }
 
-  .ep--ios .ep__clear svg {
-    width: 1.0625rem;
-    height: 1.0625rem;
-    padding: 0.1875rem;
-    border-radius: 50%;
-    background: var(--app-label-3);
-    color: var(--ep-bg);
-    stroke-width: 3.4;
-  }
-
   .ep--material .ep__clear {
     right: 0.5rem;
     width: 2.5rem;
     height: 2.5rem;
     color: var(--app-label);
-  }
-
-  .ep--material .ep__clear svg {
-    width: 1.375rem;
-    height: 1.375rem;
   }
 
   .ep__tone-toggle {
@@ -798,11 +779,6 @@
     border-radius: var(--ep-radius);
     background: transparent;
     cursor: pointer;
-  }
-
-  .ep--web .ep__tone-toggle {
-    border: 1px solid var(--line);
-    border-radius: 8px;
   }
 
   .ep--ios .ep__tone-toggle {
@@ -821,11 +797,6 @@
 
   .ep__tone-toggle[aria-expanded="true"] {
     background: var(--ep-hover);
-  }
-
-  .ep--web .ep__tone-toggle:hover {
-    border-color: var(--accent);
-    background: var(--accent-weak);
   }
 
   .ep--material .ep__tone-toggle:hover {
@@ -872,7 +843,8 @@
     height: 2.5rem;
   }
 
-  .ep__swatch::before {
+  .ep__swatch::before,
+  .ep__tone::before {
     content: "";
     width: 1.5rem;
     height: 1.5rem;
@@ -881,7 +853,8 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent);
   }
 
-  .ep__swatch[aria-checked="true"]::before {
+  .ep__swatch[aria-checked="true"]::before,
+  .ep__tone[aria-checked="true"]::before {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent), 0 0 0 2px var(--ep-bg), 0 0 0 4px var(--ep-accent);
   }
 
@@ -911,24 +884,30 @@
     transition: color var(--duration-fast) var(--ease-out);
   }
 
-  .ep__tab svg {
-    width: 1.125rem;
-    height: 1.125rem;
-  }
-
   .ep__tab:focus-visible {
     outline-offset: -2px;
-  }
-
-  .ep--web .ep__tab:hover {
-    color: var(--text);
   }
 
   .ep__tab[aria-current="true"] {
     color: var(--ep-accent);
   }
 
-  .ep--web .ep__tab[aria-current="true"]::after,
+  .ep__cat {
+    position: relative;
+    flex: 1 1 0;
+    width: auto;
+    min-width: 2rem;
+  }
+
+  .ep__cat:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .ep__cat[aria-current="true"] {
+    --btn-fg: var(--accent);
+  }
+
+  .ep__cat[aria-current="true"]::after,
   .ep--material .ep__tab[aria-current="true"]::after {
     content: "";
     position: absolute;
@@ -941,8 +920,7 @@
     background: var(--ep-accent);
   }
 
-  .ep--ios .ep__tabs,
-  .ep--material .ep__tabs {
+  .ep__tabs {
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
@@ -950,8 +928,7 @@
     touch-action: pan-x;
   }
 
-  .ep--ios .ep__tabs::-webkit-scrollbar,
-  .ep--material .ep__tabs::-webkit-scrollbar {
+  .ep__tabs::-webkit-scrollbar {
     display: none;
   }
 
@@ -963,11 +940,6 @@
     flex: 1 0 3rem;
     height: 3rem;
     color: var(--app-label-2);
-  }
-
-  .ep--material .ep__tab svg {
-    width: 1.375rem;
-    height: 1.375rem;
   }
 
   .ep--material .ep__tab::before {
@@ -1000,13 +972,6 @@
     flex: 1 0 2.75rem;
     height: 2.75rem;
     color: var(--app-label-2);
-  }
-
-  .ep--ios .ep__tab svg {
-    position: relative;
-    width: 1.25rem;
-    height: 1.25rem;
-    stroke-width: 1.9;
   }
 
   .ep--ios .ep__tab::before {
@@ -1109,6 +1074,24 @@
     -webkit-touch-callout: none;
   }
 
+  .ep__emoji {
+    width: 100%;
+    min-width: 0;
+    height: var(--cell);
+    min-height: 0;
+    font-family: var(--emoji-font);
+    font-size: var(--ep-emoji);
+    font-weight: 400;
+    line-height: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .ep__emoji:focus-visible {
+    outline-offset: -2px;
+  }
+
   .ep--material .ep__cell {
     width: var(--cell);
     justify-self: center;
@@ -1151,12 +1134,6 @@
     font-size: 0.9375rem;
   }
 
-  .ep__empty svg {
-    width: 2rem;
-    height: 2rem;
-    opacity: 0.7;
-  }
-
   .ep__skeleton-head {
     display: block;
     width: 6rem;
@@ -1178,8 +1155,5 @@
   .ep--material .ep__skeleton-head,
   .ep--material .ep__skeleton-cell {
     background: var(--ep-field);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ep__tab, .ep--material .ep__tab::before { transition: none; }
   }
 </style>
