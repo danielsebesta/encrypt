@@ -14,12 +14,17 @@
     type Field = { update(options: Record<string, unknown>): void; destroy(): void };
     let field: Field | null = null;
     let gone = false;
+    const pickSource = () => {
+      const tall = (canvas.clientHeight || innerHeight) / (canvas.clientWidth || innerWidth) > 0.95;
+      if (tall) return '/flow-ascii-src-portrait.webp?v=3';
+      return innerWidth < 1500 ? '/flow-ascii-src-compact.webp?v=3' : '/flow-ascii-src.webp?v=3';
+    };
     const isDark = () => document.documentElement.classList.contains('dark');
 
     import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported }) => {
       if (gone || !isGlyphFieldSupported()) return;
       field = mountGlyphField(canvas, {
-        source: matchMedia('(orientation: portrait)').matches ? '/flow-ascii-src-portrait.webp?v=3' : innerWidth < 1500 ? '/flow-ascii-src-compact.webp?v=3' : '/flow-ascii-src.webp?v=3',
+        source: pickSource(),
         charset: ' .:-=+YCIFSA#@',
         cellSize: innerWidth < 1500 ? 10 : 12,
         cellAspect: 0.62,

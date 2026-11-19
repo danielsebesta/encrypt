@@ -138,9 +138,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="twitter:image" content={ogImage} />
 		<meta name="theme-color" content="#f9faef" media="(prefers-color-scheme: light)" />
 		<meta name="theme-color" content="#11140e" media="(prefers-color-scheme: dark)" />
-		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src.webp?v=3" media="(orientation: landscape) and (min-width: 1500px)" fetchpriority="low" />}
-		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src-compact.webp?v=3" media="(orientation: landscape) and (max-width: 1499px)" fetchpriority="low" />}
-		{background && backgroundMode === 'ascii' && <link rel="preload" as="image" href="/flow-ascii-src-portrait.webp?v=3" media="(orientation: portrait)" fetchpriority="low" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-sweep-dark.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: dark)" />}
 		{backgroundMode === 'flow' && <link rel="preload" as="fetch" href="/flow-bg-light.svg" crossorigin fetchpriority="low" media="(prefers-color-scheme: light)" />}
