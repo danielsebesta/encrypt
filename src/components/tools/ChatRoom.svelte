@@ -6705,14 +6705,14 @@
     display: flex;
     flex-direction: column;
     container: chat-body / inline-size;
-    height: min(75dvh, 700px);
+    height: clamp(30rem, calc(100dvh - 8.5rem), 1200px);
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
   }
   .chat-container:has(.chat-body--call) {
-    height: min(88dvh, 940px);
+    height: clamp(32rem, calc(100dvh - 6rem), 1300px);
   }
   .chat-center {
     flex: 1;

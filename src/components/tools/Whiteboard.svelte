@@ -2037,7 +2037,7 @@
   .wb-container {
     display: flex;
     flex-direction: column;
-    height: min(82dvh, 880px);
+    height: clamp(30rem, calc(100dvh - 8.5rem), 1300px);
     min-height: 420px;
     border-radius: 8px;
     overflow: hidden;

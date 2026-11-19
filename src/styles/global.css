@@ -556,6 +556,14 @@ html.dark {
         padding-inline: max(1rem, env(safe-area-inset-left));
     }
 
+    .page--room {
+        max-width: min(100%, 96rem);
+    }
+
+    body:has(.page--room) .nav {
+        width: min(100% - 2rem, 96rem);
+    }
+
     .page-head {
         @apply mb-6 md:mb-8;
     }
