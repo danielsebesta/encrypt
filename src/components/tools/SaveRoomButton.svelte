@@ -121,13 +121,7 @@
       <div>
         <h2 id="save-room-title" class="section-title">{title}</h2>
         <p id="save-room-intro" class="hint mt-1">{tApp(dict, withPasskey ? 'rooms.saveIntro' : secret ? 'rooms.saveNamesOnly' : 'rooms.saveNoPassword', variant === 'konsta')}</p>
-        {#if withPasskey && vault === 'new'}
-          <p class="hint mt-2">{tApp(dict, 'rooms.saveNewPasskey', variant === 'konsta').replace('{host}', host)}</p>
-        {/if}
       </div>
-      {#if withPasskey}
-        <PasskeyExplain {dict} />
-      {/if}
       <div class="field">
         <label class="label" for="save-room-label">{t(dict, 'rooms.renameLabel')}</label>
         <input id="save-room-label" class="input" type="text" maxlength={LABEL_MAX} bind:value={label} autocomplete="off" spellcheck="false" />
@@ -137,7 +131,7 @@
           {/if}
         </div>
       </div>
-      <div class="actions">
+      <div class="actions save-room__actions">
         <button type="submit" class="btn" disabled={busy}>
           {t(dict, !withPasskey ? 'rooms.saveNameOnly' : vault === 'new' ? 'rooms.createAndSave' : 'rooms.saveWithPasskey')}
         </button>
@@ -145,6 +139,12 @@
           <button type="button" class="btn-secondary" disabled={busy} onclick={() => save(false)}>{t(dict, 'rooms.saveNameOnly')}</button>
         {/if}
       </div>
+      {#if withPasskey && vault === 'new'}
+        <p class="hint">{tApp(dict, 'rooms.saveNewPasskey', variant === 'konsta').replace('{host}', host)}</p>
+      {/if}
+      {#if withPasskey}
+        <PasskeyExplain {dict} collapsible />
+      {/if}
       <div class="actions justify-between">
         {#if entry}
           <button type="button" class="btn-ghost btn-sm text-danger" disabled={busy} onclick={forget}>{t(dict, 'rooms.forget')}</button>
@@ -174,6 +174,11 @@
     from {
       opacity: 0;
       transform: translateY(0.5rem);
+    }
+  }
+  @media (max-width: 30rem) {
+    .save-room__actions > :global(button) {
+      flex: 1 1 100%;
     }
   }
   @media (prefers-reduced-motion: reduce) {
