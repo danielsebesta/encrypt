@@ -45,6 +45,10 @@ export function connectionRequest(request: Request): Request {
   return new Request(url, request);
 }
 
+export const MAX_JOINED = 32;
+export const MAX_PENDING = 16;
+export const AUTH_TIMEOUT_MS = 5000;
+
 export class RoomAccess {
   private left = new WeakSet<RoomConnection>();
   private windows = new WeakMap<RoomConnection, { start: number; count: number; bytes: number }>();
@@ -54,10 +58,26 @@ export class RoomAccess {
     this.deadlines.set(conn, setTimeout(() => {
       if (!this.has(conn)) conn.close(4003, 'AUTH_TIMEOUT');
       this.deadlines.delete(conn);
-    }, 5000));
+    }, AUTH_TIMEOUT_MS));
   }
   // Authorization lives in the connection's own state so it survives Durable Object hibernation.
   has(conn: RoomConnection) { return !this.left.has(conn) && (conn.state as { joined?: boolean } | null)?.joined === true; }
+  joinedCount(exclude?: RoomConnection) {
+    let count = 0;
+    for (const conn of this.room.getConnections()) if (conn !== exclude && this.has(conn)) count++;
+    return count;
+  }
+  pendingCount(exclude?: RoomConnection) {
+    let count = 0;
+    for (const conn of this.room.getConnections()) if (conn !== exclude && !this.left.has(conn) && !this.has(conn)) count++;
+    return count;
+  }
+  // Only joined members count toward the cap; sockets that have not proved the password get their own small budget.
+  admit(conn: RoomConnection) {
+    if (this.joinedCount(conn) >= MAX_JOINED || this.pendingCount(conn) >= MAX_PENDING) { conn.close(4008, 'ROOM_FULL'); return false; }
+    return true;
+  }
+  full(conn: RoomConnection) { return !this.has(conn) && this.joinedCount(conn) >= MAX_JOINED; }
   isLocker(conn: RoomConnection) { return (conn.state as { locker?: boolean } | null)?.locker === true; }
   locked() { for (const conn of this.room.getConnections()) if (!this.left.has(conn) && this.isLocker(conn)) return true; return false; }
   setLocker(conn: RoomConnection, locker: boolean) { conn.setState({ ...(conn.state as object | null), locker }); }

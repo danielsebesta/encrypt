@@ -40,6 +40,7 @@ export class FileBlobStore implements BlobStore {
 
   async init() {
     await mkdir(this.tmp, { recursive: true, mode: 0o700 });
+    for (const entry of await readdir(this.tmp)) await rm(path.join(this.tmp, entry), { recursive: true, force: true }).catch(() => {});
   }
 
   async put(id: string, body: ReadableStream<Uint8Array>, size: number, meta: BlobMeta): Promise<void> {

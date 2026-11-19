@@ -12,7 +12,7 @@ export default class WhiteboardRoom {
   }
 
   onConnect(conn: RoomConnection) {
-    if ([...this.host.getConnections()].length > 32) { conn.close(4008, 'ROOM_FULL'); return; }
+    if (!this.access.admit(conn)) return;
     if (this.access.locked()) {
       conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED" }));
       conn.close(4001, "ROOM_LOCKED");
@@ -37,6 +37,7 @@ export default class WhiteboardRoom {
 
     if (!parsed || typeof parsed !== 'object') return;
     if (parsed.type === 'join') {
+      if (this.access.full(sender)) { sender.close(4008, 'ROOM_FULL'); return; }
       if (!await this.access.join(sender, parsed.token, () => this.access.locked())) { sender.close(4003, 'FORBIDDEN'); return; }
       sender.send(JSON.stringify({ type: 'init', connId: sender.id, presence: this.getConnectionCount(), locked: this.access.locked() }));
       this.broadcastPresence();

@@ -64,7 +64,7 @@ export default class ChatRoom {
   }
 
   onConnect(conn: RoomConnection) {
-    if (this.getConnectionCount() > 32) { conn.close(4008, "ROOM_FULL"); return; }
+    if (!this.access.admit(conn)) return;
     if (this.access.locked()) {
       conn.send(JSON.stringify({ type: "error", code: "ROOM_LOCKED" }));
       conn.close(4001, "ROOM_LOCKED");
@@ -104,6 +104,7 @@ export default class ChatRoom {
     switch (parsed.type) {
       case "join": {
         const alreadyJoined = this.access.has(sender);
+        if (this.access.full(sender)) { sender.close(4008, "ROOM_FULL"); return; }
         if (!await this.access.join(sender, parsed.token, () => this.access.locked())) { sender.close(4003, "FORBIDDEN"); return; }
         const hadConfig = Boolean(this.state.config);
         if (!this.state.config) {
@@ -240,6 +241,8 @@ export default class ChatRoom {
     const keys = readVapidKeys(this.host.env);
     const now = Date.now();
     if (!keys || now - this.lastPushAt < PUSH_COOLDOWN_MS) return;
+    const previous = this.lastPushAt;
+    this.lastPushAt = now;
     const targets = await this.pushTargets();
     const awake = new Set<string>();
     for (const conn of this.host.getConnections()) {
@@ -247,8 +250,7 @@ export default class ChatRoom {
       if (endpoint) awake.add(endpoint);
     }
     const sleeping = targets.filter(target => !awake.has(target.endpoint));
-    if (!sleeping.length) return;
-    this.lastPushAt = now;
+    if (!sleeping.length) { this.lastPushAt = previous; return; }
     const results = await Promise.all(sleeping.map(target => sendPush(target, keys)));
     const gone = new Set(sleeping.filter((_, index) => results[index] === "gone").map(target => target.endpoint));
     if (!gone.size) return;
