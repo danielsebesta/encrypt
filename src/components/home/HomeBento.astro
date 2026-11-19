@@ -63,7 +63,7 @@ const files = ['aesGcm.ts', 'kdf.ts', 'hybridKem.ts', 'chatRatchet.ts', 'passwor
           <p class="home-bento__text">{t(dict, 'home.bento.4.text')}</p>
         </div>
       </div>
-      <a class="home-bento__files" href={`${REPO_URL}/tree/main/src/lib`} target="_blank" rel="noopener noreferrer" aria-label={t(dict, 'home.bento.4.cta')}>
+      <a class="home-bento__files" href={`${REPO_URL}/tree/main/src/lib`} target="_blank" rel="noopener noreferrer">
         <ul>
           {files.map((file) => <li><Icon name="code" />{file}</li>)}
         </ul>
