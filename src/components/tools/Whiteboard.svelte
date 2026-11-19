@@ -171,6 +171,7 @@
 
   let sharePassword = '';
   let shareDismissed = false;
+  let shareOpen = false;
   let backupOpen = false;
   let clearConfirmOpen = false;
   let pendingClear: (() => void) | null = null;
@@ -1609,14 +1610,26 @@
   {:else}
     {#if sharePassword && !shareDismissed}
       <div class="wb-share-banner">
-        <RoomInviteCard
-          {dict}
-          title={roomId}
-          url={roomLink()}
-          password={sharePassword}
-          warning={t(dict, 'whiteboard.sharePasswordWarning')}
-          onDismiss={() => { shareDismissed = true; }}
-        />
+        <div class="wb-share-banner__bar">
+          <button type="button" class="btn-ghost btn-sm" aria-expanded={shareOpen} aria-controls="wb-share-card" on:click={() => { shareOpen = !shareOpen; }}>
+            <Icon name={shareOpen ? 'chevron-up' : 'chevron-down'} />{t(dict, 'chat.inviteCard.share')}
+          </button>
+          {#if !shareOpen}
+            <button type="button" class="btn-ghost btn-icon btn-sm" on:click={() => { shareDismissed = true; }} aria-label={t(dict, 'chat.inviteCard.dismiss')} title={t(dict, 'chat.inviteCard.dismiss')}>
+              <Icon name="x" />
+            </button>
+          {/if}
+        </div>
+        <div id="wb-share-card" hidden={!shareOpen}>
+          <RoomInviteCard
+            {dict}
+            title={roomId}
+            url={roomLink()}
+            password={sharePassword}
+            warning={t(dict, 'whiteboard.sharePasswordWarning')}
+            onDismiss={() => { shareDismissed = true; }}
+          />
+        </div>
       </div>
     {/if}
 
@@ -2529,11 +2542,17 @@
 
   .wb-share-banner {
     flex: none;
-    max-height: 40%;
+    max-height: 60%;
     overflow-y: auto;
-    padding: 0.5rem 0.75rem;
+    padding: 0.25rem 0.75rem;
     border-bottom: 1px solid var(--accent-line);
     background: var(--accent-weak);
+  }
+  .wb-share-banner__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
   .wb-footer {
     display: flex;

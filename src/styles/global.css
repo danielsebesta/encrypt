@@ -1227,8 +1227,8 @@ html.dark {
     .about__body {
         @apply mt-3 cursor-pointer overflow-hidden text-base leading-relaxed text-muted;
         max-height: 9.5rem;
-        mask-image: linear-gradient(to bottom, #000 50%, transparent);
-        -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent);
+        mask-image: linear-gradient(to bottom, #000 40%, transparent 88%);
+        -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 88%);
     }
 
     .about--open .about__body,
