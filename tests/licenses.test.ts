@@ -17,10 +17,10 @@ const LICENSES_KEYS = [
   'licenses.deps.body',
   'licenses.link.license',
   'licenses.link.source',
-  'licenses.link.fontsFlex',
-  'licenses.link.fontsCode',
-  'licenses.link.oflFlex',
-  'licenses.link.oflCode',
+  'licenses.link.fontsSans',
+  'licenses.link.fontsMono',
+  'licenses.link.oflSans',
+  'licenses.link.oflMono',
   'licenses.link.repo',
 ] as const;
 

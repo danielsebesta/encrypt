@@ -1,9 +1,8 @@
-Copyright 2025 The Google Sans Code Project Authors (github.com/googlefonts/googlesans-code)
+Copyright 2023 Commit Mono authors (https://github.com/eigilnikolajsen/commit-mono)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
-https://openfontlicense.org
-
+http://scripts.sil.org/OFL
 
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
