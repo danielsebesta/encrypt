@@ -16,6 +16,7 @@ const taglines = [1, 2, 3, 4].map((n) => t(dict, `home.tagline.${n}`));
 const facts = [1, 2, 3];
 const steps = [1, 2, 3];
 const deviceItems = [1, 2, 3];
+const appFeatures = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3]] as const;
 const serverItems = [1, 2, 3];
 ---
 
@@ -94,9 +95,8 @@ const serverItems = [1, 2, 3];
     <HomeTools locale={locale} dict={dict} />
 
     <section class="home-app" aria-labelledby="home-app-title">
-      <div class="home-app__copy">
+      <div class="home-app__head">
         <h2 id="home-app-title" class="section-title">{t(dict, 'pwa.promo.title')}</h2>
-        <p class="home-app__text">{t(dict, 'pwa.promo.text')}</p>
         <ul class="platform-pills" aria-label={t(dict, 'pwa.platforms.label')}>
           <li class="platform-pill"><Icon name="apple" size={16} />{t(dict, 'pwa.platforms.ios')}</li>
           <li class="platform-pill"><Icon name="android" size={16} />{t(dict, 'pwa.platforms.android')}</li>
@@ -106,9 +106,19 @@ const serverItems = [1, 2, 3];
           <a href={`${localePrefix}/install`} class="btn-secondary">{t(dict, 'pwa.promo.how')}</a>
         </div>
       </div>
-      <div class="home-app__gallery install-hero__gallery" aria-hidden="true">
-        <img class="app-shot app-shot--primary" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="lazy" decoding="async" />
-        <img class="app-shot app-shot--secondary" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
+      <ul class="home-app__features">
+        {appFeatures.map(([icon, n]) => (
+          <li>
+            <span class="home-app__feature-icon" aria-hidden="true"><Icon name={icon} size={16} /></span>
+            <span class="home-app__feature-title">{t(dict, `pwa.feature.${n}.title`)}</span>
+            <span class="home-app__feature-text">{t(dict, `pwa.feature.${n}.text`)}</span>
+          </li>
+        ))}
+      </ul>
+      <div class="home-app__gallery" aria-hidden="true">
+        <img class="app-shot home-app__shot home-app__shot--side" src="/screenshot-hub-boards.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
+        <img class="app-shot home-app__shot home-app__shot--main" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="lazy" decoding="async" />
+        <img class="app-shot home-app__shot home-app__shot--side" src="/screenshot-android-hub-settings.png?v=9" alt="" width="200" height="433" loading="lazy" decoding="async" />
       </div>
     </section>
   </div>
