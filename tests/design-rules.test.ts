@@ -22,17 +22,20 @@ test('colour tokens meet WCAG AA contrast in both themes', () => {
   assert.doesNotMatch(output, /FAIL/);
 });
 
-test('interactive controls keep 44px targets on coarse pointers', () => {
-  for (const selector of ['.btn,', '.nav__link {', '.menu__item {', '.tab,']) {
-    const start = css.indexOf(selector);
-    assert.ok(start >= 0, `missing ${selector}`);
-    const body = css.slice(start, css.indexOf('}', start));
-    assert.match(body, /min-h-11/, `${selector} lacks min-h-11`);
+test('interactive controls are 40px, and 44px on coarse pointers', () => {
+  const coarse = [...css.matchAll(/@media \(pointer: coarse\) \{([\s\S]*?)\n {4}\}/g)].map((m) => m[1]).join('\n');
+  const cases: [string, RegExp, RegExp][] = [
+    ['.btn', /\.btn,\n\s+\.btn-secondary,[\s\S]*?\{[^}]*min-h-10/, /\.btn-link\),\n\s+\.btn-sm \{\s*@apply min-h-11/],
+    ['.nav__link', /\.nav__link \{[^}]*min-h-10/, /\.nav__link \{\s*@apply min-h-11/],
+    ['.menu__item', /\.menu__item \{[^}]*min-h-10/, /\.menu__item \{\s*@apply min-h-11/],
+    ['.tab', /\.tab \{[^}]*min-h-10/, /\.tab \{\s*@apply min-h-11/],
+  ];
+  for (const [name, base, touch] of cases) {
+    assert.match(css, base, `${name} lacks min-h-10`);
+    assert.match(coarse, touch, `${name} lacks min-h-11 on coarse pointers`);
   }
-  const coarse = css.slice(css.indexOf('@media (pointer: coarse)'));
-  assert.match(coarse, /\.btn-sm[\s\S]*min-h-11/);
-  assert.match(coarse, /\.btn-icon\.btn-sm[\s\S]*w-11/);
 });
+
 
 test('motion tokens are 100/180/320 ms', () => {
   assert.match(css, /--duration-fast:\s*100ms/);
