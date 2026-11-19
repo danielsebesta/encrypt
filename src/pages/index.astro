@@ -16,7 +16,7 @@ const localePrefix = '';
 const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
 const taglines = [1, 2, 3, 4].map((n) => t(dict, `home.tagline.${n}`));
-const facts = [1, 2, 3];
+const facts = [1, 2];
 const steps = [1, 2, 3];
 const deviceItems = [1, 2, 3];
 const appFeatures = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3], ['download', 4]] as const;
@@ -34,7 +34,6 @@ const serverItems = [1, 2, 3];
       <div class="home-hero__copy">
         <HeroTagline client:visible id="home-hero-title" lines={taglines} />
         <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
-        <p class="hint">{t(dict, 'landing.hero.note')}</p>
         <ul class="home-facts">
           {facts.map((n) => (
             <li>
