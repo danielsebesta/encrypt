@@ -2489,12 +2489,12 @@ html.dark {
     }
 
     .sec-toc a {
-        @apply inline-flex min-h-8 items-center text-muted underline-offset-4 hover:text-accent-strong hover:underline;
+        @apply grid min-h-8 grid-cols-[1.75rem_minmax(0,1fr)] content-center items-baseline py-1 text-muted underline-offset-4 hover:text-accent-strong hover:underline;
     }
 
     .sec-toc a::before {
         content: counter(sec) ".";
-        @apply mr-2 inline-block w-5 font-mono text-xs text-muted;
+        @apply font-mono text-xs text-muted;
     }
 
     .article .sec-block {
