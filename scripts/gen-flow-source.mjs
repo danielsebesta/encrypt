@@ -29,7 +29,7 @@ function art(W, H, band, count) {
 }
 
 const target = (name) => new URL(`../public/${name}`, import.meta.url);
-for (const [name, W, H, band, count] of [['flow-ascii-src.webp', 1920, 1080, 420, 200], ['flow-ascii-src-portrait.webp', 900, 1600, 300, 150]]) {
+for (const [name, W, H, band, count] of [['flow-ascii-src.webp', 1920, 1080, 420, 200], ['flow-ascii-src-compact.webp', 1920, 1080, 700, 240], ['flow-ascii-src-portrait.webp', 900, 1600, 300, 150]]) {
   await sharp(Buffer.from(art(W, H, band, count))).webp({ quality: 80 }).toFile(target(name).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 }
 console.log('flow sources written');

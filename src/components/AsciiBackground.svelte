@@ -19,9 +19,9 @@
     import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported }) => {
       if (gone || !isGlyphFieldSupported()) return;
       field = mountGlyphField(canvas, {
-        source: matchMedia('(orientation: portrait)').matches ? '/flow-ascii-src-portrait.webp?v=3' : '/flow-ascii-src.webp?v=3',
+        source: matchMedia('(orientation: portrait)').matches ? '/flow-ascii-src-portrait.webp?v=3' : innerWidth < 1500 ? '/flow-ascii-src-compact.webp?v=3' : '/flow-ascii-src.webp?v=3',
         charset: ' .:-=+YCIFSA#@',
-        cellSize: 12,
+        cellSize: innerWidth < 1500 ? 10 : 12,
         cellAspect: 0.62,
         sample: 'shape',
         color: 'ink',
