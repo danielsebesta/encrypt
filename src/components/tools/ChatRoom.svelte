@@ -553,6 +553,7 @@
   let keyConfig: RoomConfig | null = null;
   let pendingSecret: RoomSecret | null = null;
   let roomMissing = false;
+  let roomFull = false;
   let configChanged = false;
   const members = new Map<string, Member>();
   let memberList: Member[] = [];
@@ -2749,7 +2750,13 @@
       }
       void flushOutbox();
     });
-    ws.addEventListener('close', () => {
+    ws.addEventListener('close', (event) => {
+      if (event.code === 4008 && event.reason === 'ROOM_FULL') {
+        roomFull = true;
+        checkingRoom = false;
+        verifying = false;
+        try { ws?.close(); } catch {}
+      }
       connected = false;
       joinedRoom = false;
       requeueInflight();
@@ -5776,6 +5783,19 @@
           <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
         {:else}
           <a class="btn-secondary w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
+        {/if}
+      </div>
+    </div>
+
+  {:else if roomFull}
+    <div class="chat-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="users" size={20} /></span>{/if}
+        <p class="status status--error" role="alert">{t(dict, 'chat.roomFull')}</p>
+        <p class="hint">{t(dict, 'chat.roomFullDetail')}</p>
+        <button type="button" class="btn w-full" on:click={() => { roomFull = false; checkingRoom = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'chat.roomFullRetry')}</button>
+        {#if appMode}
+          <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
         {/if}
       </div>
     </div>

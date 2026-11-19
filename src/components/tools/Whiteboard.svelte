@@ -132,6 +132,7 @@
   let peopleOpen = false;
   let canCreate = false;
   let boardMissing = false;
+  let roomFull = false;
   let localKey: CryptoKey | null = null;
   let localRestored = false;
   let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -684,7 +685,12 @@
       if (rejoin && ydoc && (store.size || ychat.length)) queueDocUpdate(Y.encodeStateAsUpdate(ydoc));
     });
 
-    ws.addEventListener('close', () => {
+    ws.addEventListener('close', (event) => {
+      if (event.code === 4008 && event.reason === 'ROOM_FULL') {
+        roomFull = true;
+        verifying = false;
+        try { ws?.close(); } catch {}
+      }
       connected = false;
     });
 
@@ -1515,7 +1521,20 @@
   style="--wb-paper-light: {BOARD_PALETTE.light.paper}; --wb-paper-dark: {BOARD_PALETTE.dark.paper}"
   bind:this={rootEl}
 >
-  {#if needsPassword}
+  {#if roomFull}
+    <div class="wb-center">
+      <div class="space-y-4 max-w-xs w-full text-center">
+        {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="users" size={20} /></span>{/if}
+        <p class="status status--error" role="alert">{t(dict, 'whiteboard.roomFull')}</p>
+        <p class="hint">{t(dict, 'whiteboard.roomFullDetail')}</p>
+        <button type="button" class="btn w-full" on:click={() => { roomFull = false; verifying = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'whiteboard.roomFullRetry')}</button>
+        {#if appMode}
+          <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+        {/if}
+      </div>
+    </div>
+
+  {:else if needsPassword}
     <div class="wb-center">
       <form class="space-y-4 max-w-xs w-full" on:submit|preventDefault={submitPassword}>
         <div class="text-center space-y-2">
