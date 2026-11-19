@@ -125,7 +125,7 @@
 <div class="voice-msg" class:voice-msg--gone={gone} class:voice-msg--app={appMode}>
   <button
     type="button"
-    class={appMode ? 'voice-msg__play' : 'btn btn-sm btn-icon'}
+    class={appMode ? 'voice-msg__play' : 'btn-secondary btn-sm btn-icon'}
     onclick={toggle}
     disabled={gone || (appMode && loading)}
     aria-busy={!appMode && loading ? 'true' : undefined}

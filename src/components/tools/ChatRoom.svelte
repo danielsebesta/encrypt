@@ -3295,6 +3295,7 @@
   function burnOwnMessage(msg: Message) {
     if (!msg.mine || msg.whiteboard || !connected) return;
     actionMenuFor = null;
+    if (!appMode) document.querySelector<HTMLElement>(`#chat-msg-${msg.id} .msg-actions__trigger`)?.focus();
     burnConfirmMsg = msg;
   }
 
@@ -3304,6 +3305,7 @@
     if (!msg || !msg.mine || msg.whiteboard || !connected) return;
     await sendMessageBurn(msg.id);
     removeBurnedMessage(msg.id);
+    if (!appMode) inputEl?.focus();
   }
 
   function burnDialogClass(): string {
@@ -6430,7 +6432,7 @@
             {/if}
             <div class="flex-1 min-w-0">
               <div class="chat-sender-row">
-                <span class="chat-sender" style="color: {msg.mine ? 'var(--on-accent)' : `color-mix(in srgb, ${safeColor(msg.color)} 50%, var(--text))`}">{msg.sender}</span>
+                <span class="chat-sender" style="color: {msg.mine ? 'var(--on-accent)' : `color-mix(in srgb, ${safeColor(msg.color)} 40%, var(--text))`}">{msg.sender}</span>
                 {#if msg.once}
                   <span class="badge badge--accent" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
                 {/if}
@@ -7199,6 +7201,9 @@
   .chat-bubble--mine .chat-once-note,
   .chat-bubble--mine .chat-timer__ring,
   .chat-bubble--mine .chat-timer__num {
+    color: var(--on-accent);
+  }
+  .chat-bubble--mine :global(.voice-msg__meta) {
     color: var(--on-accent);
   }
   .chat-timer {
