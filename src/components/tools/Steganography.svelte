@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tabs from '../ui/Tabs.svelte';
   import { encrypt, decrypt as decryptMsg } from '../../lib/aesGcm';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
@@ -268,12 +269,7 @@
   }
 </script>
 <div class="stack">
-  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.steganography.h1')}>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="stego-panel" on:click={() => setMode('encode')}>{t(dict, 'tools.steganography.encode')}</button>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="stego-panel" on:click={() => setMode('decode')}>{t(dict, 'tools.steganography.decode')}</button>
-  </div>
-
-  <div id="stego-panel" role="tabpanel" class="grid gap-6 md:grid-cols-2">
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.steganography.encode') }, { id: 'decode', label: t(dict, 'tools.steganography.decode') }]} value={mode} label={t(dict, 'tools.steganography.h1')} idBase="stego" panelClass="grid gap-6 md:grid-cols-2" onchange={setMode}>
     <div class="stack">
       <div class="field">
         <span class="label">{t(dict, 'tools.steganography.sourceImage')}</span>
@@ -309,16 +305,16 @@
           <PassphraseField {dict} id="stego-password" bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby="stego-password-rules" generate={generatePassphrase} />
           <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
         </div>
-        <button type="button" on:click={encode} class="btn w-full" disabled={processing}>{t(dict, 'tools.steganography.injectPixels')}</button>
+        <button type="button" on:click={encode} class="btn btn-block" disabled={processing}>{t(dict, 'tools.steganography.injectPixels')}</button>
         {#if encodedImageUrl && !multiEncode}
-          <button type="button" on:click={downloadEncoded} class="btn-secondary w-full">{t(dict, 'tools.steganography.downloadEncrypted')}</button>
+          <button type="button" on:click={downloadEncoded} class="btn-secondary btn-block">{t(dict, 'tools.steganography.downloadEncrypted')}</button>
         {/if}
       {:else}
         <div class="field">
           <label class="label" for="stego-password">{t(dict, 'tools.steganography.securityPassword')}</label>
           <input id="stego-password" type="password" bind:value={password} placeholder={t(dict, 'tools.steganography.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
         </div>
-        <button type="button" on:click={decode} class="btn w-full">{t(dict, 'tools.steganography.scanPixels')}</button>
+        <button type="button" on:click={decode} class="btn btn-block">{t(dict, 'tools.steganography.scanPixels')}</button>
         {#if decodedMessage}
           <div class="field">
             <div class="output-head">
@@ -330,6 +326,6 @@
         {/if}
       {/if}
     </div>
-  </div>
+  </Tabs>
   <canvas bind:this={canvas} class="hidden"></canvas>
 </div>

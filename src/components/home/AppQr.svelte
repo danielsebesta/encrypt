@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QR_COLORS } from '../../lib/qrColors';
   import { onMount } from 'svelte';
 
   export let path: string;
@@ -13,7 +14,7 @@
       errorCorrectionLevel: 'M',
       margin: 1,
       width: 120,
-      color: { dark: '#0a0a0a', light: '#ffffff' },
+      color: QR_COLORS,
     });
   });
 </script>

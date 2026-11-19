@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tabs from '../ui/Tabs.svelte';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { sealPassword, openPassword, stripFixedHeader, restoreFixedHeader } from '../../lib/passwordEnvelope';
@@ -419,12 +420,7 @@
   }
 </script>
 <div class="stack">
-  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.photoCipher.h1')}>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="photo-panel" on:click={() => setMode('encode')}>{t(dict, 'tools.photoCipher.encode')}</button>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="photo-panel" on:click={() => setMode('decode')}>{t(dict, 'tools.photoCipher.decode')}</button>
-  </div>
-
-  <div id="photo-panel" role="tabpanel" class="grid gap-6 md:grid-cols-2">
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.photoCipher.encode') }, { id: 'decode', label: t(dict, 'tools.photoCipher.decode') }]} value={mode} label={t(dict, 'tools.photoCipher.h1')} idBase="photo" panelClass="grid gap-6 md:grid-cols-2" onchange={setMode}>
     <div class="stack">
       <div class="field">
         <span class="label">{t(dict, 'tools.photoCipher.sourceImage')}</span>
@@ -464,7 +460,7 @@
           <PassphraseField {dict} id="photo-password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.encPasswordPlaceholder')} describedby="photo-password-rules" generate={generatePassphrase} />
           <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
         </div>
-        <button type="button" on:click={encode} class="btn w-full" disabled={processing}>
+        <button type="button" on:click={encode} class="btn btn-block" disabled={processing}>
           {#if processing && imageFiles.length > 1}
             {t(dict, 'tools.photoCipher.batchProgress').replace('{current}', String(batchCurrent)).replace('{total}', String(imageFiles.length))}
           {:else if processing}
@@ -474,14 +470,14 @@
           {/if}
         </button>
         {#if encodedImageUrl && !multiEncode}
-          <button type="button" on:click={downloadEncoded} class="btn-secondary w-full">{t(dict, 'tools.photoCipher.downloadEncoded')}</button>
+          <button type="button" on:click={downloadEncoded} class="btn-secondary btn-block">{t(dict, 'tools.photoCipher.downloadEncoded')}</button>
         {/if}
       {:else}
         <div class="field">
           <label class="label" for="photo-password">{t(dict, 'tools.photoCipher.securityPassword')}</label>
           <input id="photo-password" type="password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
         </div>
-        <button type="button" on:click={decode} class="btn w-full" disabled={processing}>
+        <button type="button" on:click={decode} class="btn btn-block" disabled={processing}>
           {processing ? t(dict, 'tools.photoCipher.extracting') : t(dict, 'tools.photoCipher.extractFromPixels')}
         </button>
         {#if decodedMessage}
@@ -495,5 +491,5 @@
         {/if}
       {/if}
     </div>
-  </div>
+  </Tabs>
 </div>

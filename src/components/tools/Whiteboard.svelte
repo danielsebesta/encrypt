@@ -1531,9 +1531,9 @@
         {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="users" size={20} /></span>{/if}
         <p class="status status--error" role="alert">{t(dict, 'whiteboard.roomFull')}</p>
         <p class="hint">{t(dict, 'whiteboard.roomFullDetail')}</p>
-        <button type="button" class="btn w-full" on:click={() => { roomFull = false; verifying = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'whiteboard.roomFullRetry')}</button>
+        <button type="button" class="btn btn-block" on:click={() => { roomFull = false; verifying = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'whiteboard.roomFullRetry')}</button>
         {#if appMode}
-          <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+          <button type="button" class="btn-secondary btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
         {/if}
       </div>
     </div>
@@ -1549,9 +1549,9 @@
         {#if boardMissing}
           <p class="status status--warn" role="alert">{t(dict, 'whiteboard.boardMissing')}</p>
           {#if appMode}
-            <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+            <button type="button" class="btn-secondary btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
           {:else}
-            <a class="btn-secondary w-full" href={`/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
+            <a class="btn-secondary btn-block" href={`/whiteboard?name=${encodeURIComponent(roomId)}`}>{t(dict, 'whiteboard.boardMissingCreate')}</a>
           {/if}
         {/if}
         <div class="field">
@@ -1569,10 +1569,10 @@
             data-bwignore="true"
           />
           {#if passwordError}
-            <p class="status status--error" id="wb-password-error" role="alert">{passwordError}</p>
+            <p id="wb-password-error" class="field-error" role="alert">{passwordError}</p>
           {/if}
         </div>
-        <button type="submit" class="btn w-full">{t(dict, 'whiteboard.enterRoom')}</button>
+        <button type="submit" class="btn btn-block">{t(dict, 'whiteboard.enterRoom')}</button>
       </form>
     </div>
 
@@ -1920,7 +1920,7 @@
                   <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><span class="wb-member__emoji wb-member__safety" aria-label={memberCodes[member.pk]?.safety ?? ''}>{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</span></p>
                   {#if !member.trusted}
                     <p class="hint">{t(dict, 'whiteboard.keyNewHint')}</p>
-                    <button type="button" class="btn-outline btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
+                    <button type="button" class="btn-secondary btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
                   {/if}
                 </div>
               </li>
@@ -1976,7 +1976,7 @@
         onclose={() => { if (clearConfirmed) pendingClear?.(); clearConfirmed = false; pendingClear = null; }}
       >
         {#snippet actions()}
-          <button type="submit" class="btn btn-danger">{t(dict, 'whiteboard.clear')}</button>
+          <button type="submit" class="btn-danger">{t(dict, 'whiteboard.clear')}</button>
           <button type="button" class="btn-secondary" on:click={() => { clearConfirmOpen = false; }}>{t(dict, 'rooms.cancel')}</button>
         {/snippet}
       </Modal>
@@ -2562,7 +2562,7 @@
     flex-wrap: wrap;
     gap: 0.25rem;
   }
-  .wb-member .btn-outline { justify-self: start; }
+  .wb-member .btn-secondary { justify-self: start; }
   .wb-people__hint {
     padding: 0.5rem 0.75rem;
     border-top: 1px solid var(--line-soft);

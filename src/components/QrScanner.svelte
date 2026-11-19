@@ -162,7 +162,7 @@
     {#if notice}
       <p class="status status--warn">{t(dict, key(notice))}</p>
     {/if}
-    <button bind:this={closeButton} type="button" class="btn-secondary w-full" on:click={close}>{t(dict, key('close'))}</button>
+    <button bind:this={closeButton} type="button" class="btn-secondary btn-block" on:click={close}>{t(dict, key('close'))}</button>
   {:else}
     <div class="actions">
       <button bind:this={openButton} type="button" class="btn-secondary" on:click={openCamera} disabled={status !== 'idle'}>

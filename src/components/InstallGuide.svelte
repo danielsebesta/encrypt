@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QR_COLORS } from '../lib/qrColors';
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
   import CopyButton from './CopyButton.svelte';
@@ -62,7 +63,7 @@
     window.addEventListener('appinstalled', () => { installed = true; canInstall = false; });
     if (device === 'desktop') {
       import('qrcode')
-        .then(({ default: QRCode }) => QRCode.toString(pageUrl, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 168, color: { dark: '#0a0a0a', light: '#ffffff' } }))
+        .then(({ default: QRCode }) => QRCode.toString(pageUrl, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 168, color: QR_COLORS }))
         .then((svg) => { qrSvg = svg; })
         .catch(() => {});
     }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QR_COLORS } from '../../lib/qrColors';
   import CopyButton from '../CopyButton.svelte';
   import Icon from '../Icon.svelte';
 
@@ -22,7 +23,7 @@
     const { default: QRCode } = await import('qrcode');
     for (const errorCorrectionLevel of ['H', 'L'] as const) {
       try {
-        const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel, margin: 1, width: 320, color: { dark: '#0a0a0a', light: '#ffffff' } });
+        const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel, margin: 1, width: 320, color: QR_COLORS });
         if (qrFor === text) qrSvg = svg;
         return;
       } catch {

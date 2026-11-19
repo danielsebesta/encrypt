@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tabs from '../ui/Tabs.svelte';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
 
@@ -439,12 +440,7 @@
   }
 </script>
 <div class="stack">
-  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.spectralCipher.h1')}>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'encode'} aria-controls="spectral-panel" on:click={() => mode = 'encode'}>{t(dict, 'tools.spectralCipher.encode')}</button>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'decode'} aria-controls="spectral-panel" on:click={() => mode = 'decode'}>{t(dict, 'tools.spectralCipher.decode')}</button>
-  </div>
-
-  <div id="spectral-panel" role="tabpanel" class="grid gap-6 md:grid-cols-2">
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.spectralCipher.encode') }, { id: 'decode', label: t(dict, 'tools.spectralCipher.decode') }]} value={mode} label={t(dict, 'tools.spectralCipher.h1')} idBase="spectral" panelClass="grid gap-6 md:grid-cols-2" onchange={(next) => (mode = next)}>
     <div class="stack">
       {#if mode === 'encode'}
         <div class="field">
@@ -489,22 +485,22 @@
             <p id="spectral-strength-hint" class="hint">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
           </div>
         {/if}
-        <button type="button" on:click={encodeImage} class="btn w-full" disabled={processing || !imageUrl}>
+        <button type="button" on:click={encodeImage} class="btn btn-block" disabled={processing || !imageUrl}>
           {t(dict, 'tools.spectralCipher.encodeButton')}
         </button>
         {#if wavBlobUrl}
           <audio src={wavBlobUrl} controls class="w-full"></audio>
-          <button type="button" on:click={downloadWav} class="btn-secondary w-full">{t(dict, 'tools.spectralCipher.downloadWav')}</button>
+          <button type="button" on:click={downloadWav} class="btn-secondary btn-block">{t(dict, 'tools.spectralCipher.downloadWav')}</button>
         {/if}
       {:else}
-        <button type="button" on:click={decodeAudio} class="btn w-full" disabled={processing || !audioFile}>
+        <button type="button" on:click={decodeAudio} class="btn btn-block" disabled={processing || !audioFile}>
           {t(dict, 'tools.spectralCipher.decodeButton')}
         </button>
         {#if extractedImageUrl}
-          <button type="button" on:click={downloadImage} class="btn-secondary w-full">{t(dict, 'tools.spectralCipher.downloadImage')}</button>
+          <button type="button" on:click={downloadImage} class="btn-secondary btn-block">{t(dict, 'tools.spectralCipher.downloadImage')}</button>
         {/if}
       {/if}
     </div>
-  </div>
+  </Tabs>
   <canvas bind:this={offscreenCanvas} class="hidden"></canvas>
 </div>

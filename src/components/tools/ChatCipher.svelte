@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tabs from '../ui/Tabs.svelte';
   import { onMount } from 'svelte';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
@@ -201,12 +202,7 @@
 </script>
 
 <div class="stack">
-  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.chatCipher.h1')}>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'encrypt'} aria-controls="chat-cipher-panel" on:click={() => { if (mode !== 'encrypt') toggleMode(); }}>{t(dict, 'tools.chatCipher.encrypt')}</button>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'decrypt'} aria-controls="chat-cipher-panel" on:click={() => { if (mode !== 'decrypt') toggleMode(); }}>{t(dict, 'tools.chatCipher.decrypt')}</button>
-  </div>
-
-  <div id="chat-cipher-panel" role="tabpanel" class="stack">
+  <Tabs items={[{ id: 'encrypt', label: t(dict, 'tools.chatCipher.encrypt') }, { id: 'decrypt', label: t(dict, 'tools.chatCipher.decrypt') }]} value={mode} label={t(dict, 'tools.chatCipher.h1')} idBase="chat-cipher" panelClass="stack" onchange={toggleMode}>
     <p class="status">{t(dict, 'tools.chatCipher.tableNote')}</p>
 
     <div class="field">
@@ -261,7 +257,7 @@
       {/if}
     </div>
 
-    <button type="button" class="btn w-full" disabled={busy} on:click={handleProcess}>
+    <button type="button" class="btn btn-block" disabled={busy} on:click={handleProcess}>
       {#if busy}
         {t(dict, 'tools.chatCipher.progress.workingBtn')}
       {:else}
@@ -316,5 +312,5 @@
         {/if}
       </div>
     {/if}
-  </div>
+  </Tabs>
 </div>

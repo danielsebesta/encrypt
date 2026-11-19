@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Tabs from '../ui/Tabs.svelte';
   import { onMount } from 'svelte';
   import LZString from 'lz-string';
   import { readLimited } from '../../lib/httpLimits';
@@ -356,12 +357,7 @@
   }
 </script>
 <div class="stack">
-  <div class="tabs" role="tablist" aria-label={t(dict, 'tools.timeCapsule.h1')}>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'encrypt'} aria-controls="tc-panel" on:click={() => (mode = 'encrypt')}>{t(dict, 'tools.timeCapsule.createCapsule')}</button>
-    <button type="button" role="tab" class="tab" aria-selected={mode === 'decrypt'} aria-controls="tc-panel" on:click={() => (mode = 'decrypt')}>{t(dict, 'tools.timeCapsule.openCapsule')}</button>
-  </div>
-
-  <div id="tc-panel" role="tabpanel" class="stack">
+  <Tabs items={[{ id: 'encrypt', label: t(dict, 'tools.timeCapsule.createCapsule') }, { id: 'decrypt', label: t(dict, 'tools.timeCapsule.openCapsule') }]} value={mode} label={t(dict, 'tools.timeCapsule.h1')} idBase="tc" panelClass="stack" onchange={(next) => (mode = next)}>
     {#if mode === 'encrypt'}
       <div class="field">
         <label class="label" for="tc-message">{t(dict, 'tools.timeCapsule.message')}</label>
@@ -408,7 +404,7 @@
         </div>
       </details>
 
-      <button class="btn w-full" type="button" on:click={handleEncrypt} disabled={loading}>
+      <button class="btn btn-block" type="button" on:click={handleEncrypt} disabled={loading}>
         {loading ? t(dict, 'tools.timeCapsule.encrypting') : t(dict, 'tools.timeCapsule.lockMessage')}
       </button>
       {#if error}
@@ -444,7 +440,7 @@
         <label class="label" for="tc-open-password">{t(dict, 'tools.timeCapsule.openPasswordLabel')}</label>
         <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore on:keydown={(e) => { if (e.key === 'Enter' && !decryptLoading) { e.preventDefault(); void handleDecrypt(); } }} />
       </div>
-      <button class="btn w-full" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
+      <button class="btn btn-block" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
         {decryptLoading ? t(dict, 'tools.timeCapsule.decrypting') : t(dict, 'tools.timeCapsule.openCapsule')}
       </button>
       {#if decryptError}
@@ -469,5 +465,5 @@
         </div>
       {/if}
     {/if}
-  </div>
+  </Tabs>
 </div>

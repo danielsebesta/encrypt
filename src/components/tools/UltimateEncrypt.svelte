@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QR_COLORS } from '../../lib/qrColors';
   import Icon from '../Icon.svelte';
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
@@ -315,10 +316,7 @@
         errorCorrectionLevel: 'H',
         margin: 1,
         width: 320,
-        color: {
-          dark: '#0a0a0a',
-          light: '#ffffff',
-        },
+        color: QR_COLORS,
       });
     } catch (e: any) {
       pushDebug(`QR generation failed: ${e?.message || 'unknown error'}`);
@@ -979,7 +977,7 @@
         <p class="status status--error" role="alert">{error}</p>
       {/if}
 
-      <button class="btn w-full" type="submit" disabled={!hasContent}>{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>
+      <button class="btn btn-block" type="submit" disabled={!hasContent}>{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>
       {#if !hasContent}
         <p class="hint text-center">{t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile')}</p>
       {/if}
@@ -998,7 +996,7 @@
         <p class="status status--error" role="alert">{error}</p>
       {/if}
       {#if localFileUrl}
-        <a href={localFileUrl} download={localFileName} class="btn w-full">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</a>
+        <a href={localFileUrl} download={localFileName} class="btn btn-block">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</a>
         <div class="hint grid gap-1.5">
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
           <p class="actions gap-x-4">
@@ -1073,7 +1071,7 @@
               <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
             </div>
             <input id="ue-result-link" class="input input--mono" type="text" readonly value={shareUrl} />
-            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} className="btn-secondary w-full" />
+            <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} className="btn-secondary btn-block" />
             <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
             {#if deadMan && resultUnlock}
               <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.options.deadManResult').replace('{time}', new Date(resultUnlock).toLocaleString(locale))}</p>
@@ -1124,7 +1122,7 @@
         <summary>{t(dict, 'tools.ultimateEncrypt.result.moreTitle')}</summary>
         <div class="more__body">
           {#if qrSvg && shareUrl}
-            <button type="button" class="btn-secondary w-full" aria-expanded={qrOpen} aria-controls="ue-qr" on:click={() => (qrOpen = !qrOpen)}>
+            <button type="button" class="btn-secondary btn-block" aria-expanded={qrOpen} aria-controls="ue-qr" on:click={() => (qrOpen = !qrOpen)}>
               {qrOpen ? t(dict, 'tools.ultimateEncrypt.hideQr') : t(dict, 'tools.ultimateEncrypt.showQr')}
             </button>
             {#if qrOpen}
@@ -1142,13 +1140,13 @@
           </div>
           {#if dropUrl}
             <div class="field">
-              <a href={dropUrl} download={dropName} class="btn-secondary w-full">{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
+              <a href={dropUrl} download={dropName} class="btn-secondary btn-block">{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
               <p class="hint">{t(dict, 'tools.ultimateEncrypt.offlineDropHint')}</p>
             </div>
           {/if}
           {#if shortenFailed && shortenableUrl && !shortUrl}
             <div class="field">
-              <button type="button" class="btn-secondary w-full" disabled={shortening} on:click={shortenLink}>
+              <button type="button" class="btn-secondary btn-block" disabled={shortening} on:click={shortenLink}>
                 {shortening ? t(dict, 'tools.ultimateEncrypt.shortening') : t(dict, 'tools.ultimateEncrypt.shortenLink')}
               </button>
               {#if shortenFailed}
@@ -1181,7 +1179,7 @@
         </details>
       {/if}
 
-      <button type="button" class="btn-secondary w-full" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
+      <button type="button" class="btn-secondary btn-block" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
     </div>
   {/if}
 </div>

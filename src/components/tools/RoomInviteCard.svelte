@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { QR_COLORS } from '../../lib/qrColors';
   import { onMount, onDestroy } from 'svelte';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
@@ -48,7 +49,7 @@
             errorCorrectionLevel,
             margin: 1,
             width: 220,
-            color: { dark: '#0a0a0a', light: '#ffffff' },
+            color: QR_COLORS,
           });
           if (qrFor === text) qrSvg = svg;
           return;
@@ -96,7 +97,7 @@
   }
 </script>
 
-<div class="invite-card" class:card={!appMode} class:invite-card--app={appMode}>
+<div class="invite-card" class:panel={!appMode} class:invite-card--app={appMode}>
   <div class="invite-card__head">
     <div class="min-w-0 flex-1">
       {#if title}
@@ -157,7 +158,7 @@
 
   <div class="invite-card__share">
     {#if canShare}
-      <button type="button" class={appMode ? 'app-sheet-btn w-full' : 'btn btn-sm w-full'} on:click={share} disabled={!url}>
+      <button type="button" class={appMode ? 'app-sheet-btn w-full' : 'btn btn-sm btn-block'} on:click={share} disabled={!url}>
         <Icon name="share-2" />
         <span>{t(dict, 'chat.inviteCard.share')}</span>
       </button>

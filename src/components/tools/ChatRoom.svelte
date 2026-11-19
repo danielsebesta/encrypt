@@ -5772,9 +5772,9 @@
         <p class="status status--error" role="alert">{t(dict, 'chat.configChanged')}</p>
         <p class="hint">{t(dict, 'chat.configChangedDetail')}</p>
         {#if appMode}
-          <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+          <button type="button" class="btn-secondary btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
         {:else}
-          <a class="btn-secondary w-full" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
+          <a class="btn-secondary btn-block" href={`${getLocalePrefix()}/chat`}>{t(dict, 'chat.newChat')}</a>
         {/if}
       </div>
     </div>
@@ -5785,9 +5785,9 @@
         {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="users" size={20} /></span>{/if}
         <p class="status status--error" role="alert">{t(dict, 'chat.roomFull')}</p>
         <p class="hint">{t(dict, 'chat.roomFullDetail')}</p>
-        <button type="button" class="btn w-full" on:click={() => { roomFull = false; checkingRoom = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'chat.roomFullRetry')}</button>
+        <button type="button" class="btn btn-block" on:click={() => { roomFull = false; checkingRoom = true; try { ws?.reconnect(); } catch {} }}>{t(dict, 'chat.roomFullRetry')}</button>
         {#if appMode}
-          <button type="button" class="btn-secondary w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+          <button type="button" class="btn-secondary btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
         {/if}
       </div>
     </div>
@@ -5799,11 +5799,11 @@
         <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
         {#if appMode}
-          <button type="button" class="btn w-full" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
+          <button type="button" class="btn btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
         {:else}
-          <a class="btn w-full" href={`${getLocalePrefix()}/chat?room=${encodeURIComponent(roomId)}`}>{t(dict, 'chat.roomMissingCreate')}</a>
+          <a class="btn btn-block" href={`${getLocalePrefix()}/chat?room=${encodeURIComponent(roomId)}`}>{t(dict, 'chat.roomMissingCreate')}</a>
         {/if}
-        <button type="button" class="btn-secondary w-full" on:click={retryPasswordEntry}>{t(dict, 'chat.tryAgain')}</button>
+        <button type="button" class="btn-secondary btn-block" on:click={retryPasswordEntry}>{t(dict, 'chat.tryAgain')}</button>
       </div>
     </div>
 
@@ -5843,12 +5843,12 @@
             data-bwignore="true"
           />
           {#if passwordError}
-            <p class="status status--error" id="chat-password-error" role="alert">{passwordError}</p>
+            <p id="chat-password-error" class="field-error" role="alert">{passwordError}</p>
           {/if}
         </div>
-        <button class="btn w-full" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
+        <button class="btn btn-block" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
         {#if appMode && onSavedPassword}
-          <button class="btn btn-secondary w-full" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
+          <button class="btn-secondary btn-block" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
         {/if}
       </div>
     </div>
@@ -6055,7 +6055,7 @@
         </div>
         <div class="chat-call-banner__actions">
           {#if !safetyPrompt.trusted}
-            <button type="button" class="btn-outline btn-sm" on:click={() => trustKey(safetyPrompt!.pk)}>{t(dict, 'chat.keyTrust')}</button>
+            <button type="button" class="btn-secondary btn-sm" on:click={() => trustKey(safetyPrompt!.pk)}>{t(dict, 'chat.keyTrust')}</button>
           {/if}
           <button type="button" class="btn-ghost btn-sm" on:click={dismissSafetyPrompt}>{t(dict, 'chat.safetyCompareDismiss')}</button>
         </div>
@@ -6091,7 +6091,7 @@
           onclose={() => { burnConfirmMsg = null; }}
         >
           {#snippet actions()}
-            <button type="submit" class="btn btn-danger">{t(dict, 'chat.burnConfirmYes')}</button>
+            <button type="submit" class="btn-danger">{t(dict, 'chat.burnConfirmYes')}</button>
             <button type="button" class="btn-secondary" on:click={() => { burnConfirmMsg = null; }}>{t(dict, 'chat.burnConfirmNo')}</button>
           {/snippet}
         </Modal>

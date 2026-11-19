@@ -69,7 +69,7 @@
     {#if raised && effectiveRetention}
       <p class="status" role="status">{t(dict, 'tools.ultimateEncrypt.options.retentionRaised').replace('{retention}', t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention}`))}</p>
     {:else if tooFar}
-      <p id="ue-unlock-error" class="status status--error" role="alert">{t(dict, 'tools.ultimateEncrypt.options.unlockTooFar')}</p>
+      <p id="ue-unlock-error" class="field-error" role="alert">{t(dict, 'tools.ultimateEncrypt.options.unlockTooFar')}</p>
     {/if}
   </div>
 

@@ -157,7 +157,7 @@
           </label>
         </div>
       </fieldset>
-      <button class="btn w-full" type="submit">{t(dict, 'common.continue')}</button>
+      <button class="btn btn-block" type="submit">{t(dict, 'common.continue')}</button>
     </form>
   {:else if step === 2}
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={submitRoom}>
@@ -180,7 +180,7 @@
           aria-invalid={roomError ? 'true' : undefined}
         />
         {#if roomError}
-          <p id="chat-room-error" class="status status--error" role="alert">{roomError}</p>
+          <p id="chat-room-error" class="field-error" role="alert">{roomError}</p>
         {/if}
         <p id="chat-room-hint" class="hint">{t(dict, 'chat.customRoomIdHint')}</p>
       </div>

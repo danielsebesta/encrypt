@@ -1045,9 +1045,9 @@
         }}
       />
       {#if linkError}
-        <p id="ud-link-error" class="status status--error" role="alert">{linkError}</p>
+        <p id="ud-link-error" class="field-error" role="alert">{linkError}</p>
       {/if}
-      <button type="button" class="btn w-full" on:click={applyLinkDraft}>{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
+      <button type="button" class="btn btn-block" on:click={applyLinkDraft}>{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
     </div>
   {:else if entryMode === 'scan'}
     <button type="button" class="btn-ghost btn-sm self-start" bind:this={viewBackButton} on:click={backToPick}>{t(dict, 'common.back')}</button>
@@ -1121,7 +1121,7 @@
     </div>
 
     <button
-      class="btn w-full"
+      class="btn btn-block"
       type="button"
       on:click={handleDecrypt}
       disabled={loading || !hasPayloadSource}
