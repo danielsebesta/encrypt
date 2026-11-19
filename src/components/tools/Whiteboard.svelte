@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ListItem, MenuList, MenuListItem, Popover } from 'konsta/svelte';
   import { PALETTE } from "../../lib/palette";
+  import { syncAnswerDelay } from '../../lib/whiteboardSyncElection';
   import { ReplayWindow, safeColor } from "../../lib/roomAccess";
   import { loadAlias, newAlias, parseAlias, aliasWire, aliasKey, aliasName, aliasColor, aliasGradient, gradientFor, type Alias } from "../../lib/alias";
   import { onMount, onDestroy, tick } from 'svelte';
@@ -647,9 +648,16 @@
     return location.href;
   }
 
-  function shouldAnswerSync(newcomer: string) {
-    if (!myConnId) return true;
-    return onlineUsers.every(u => u.id === newcomer || u.id >= myConnId);
+  function scheduleSyncAnswer(newcomer: string) {
+    const delay = syncAnswerDelay(myConnId, newcomer, onlineUsers.map(u => u.id), !!(store.size || ychat.length));
+    if (delay === null) return;
+    const send = () => {
+      if (!ws || !verified || !ydoc) return;
+      flushToDoc();
+      queueDocUpdate(Y.encodeStateAsUpdate(ydoc), newcomer);
+    };
+    if (delay === 0) send();
+    else setTimeout(send, delay);
   }
 
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
@@ -786,10 +794,7 @@
         if (verified && ws) {
           const ack = await seal('verify-ack', { alias: aliasWire(alias) });
           if (ack) socketSend(JSON.stringify({ type: 'envelope', kind: 'verify-ack', payload: ack, id: 'vack-' + genId() }), true);
-          if ((store.size || ychat.length) && shouldAnswerSync(from)) {
-            flushToDoc();
-            queueDocUpdate(Y.encodeStateAsUpdate(ydoc), from);
-          }
+          scheduleSyncAnswer(from);
         }
         return;
       }
