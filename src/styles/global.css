@@ -1675,6 +1675,150 @@ html.dark {
         @apply text-text;
     }
 
+    .home-bento {
+        @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-6;
+    }
+
+    .home-bento__card {
+        @apply relative flex min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-line bg-surface p-5 sm:col-span-2 md:p-6;
+    }
+
+    .home-bento__card--third {
+        @apply sm:col-span-1 lg:col-span-2;
+    }
+
+    .home-bento__card--third:first-child {
+        @apply sm:col-span-2 lg:col-span-2;
+    }
+
+    .home-bento__card--half {
+        @apply lg:col-span-3;
+    }
+
+    .home-bento__card--center {
+        @apply items-center text-center;
+    }
+
+    .home-bento__card--split {
+        @apply sm:grid sm:grid-cols-2 sm:gap-6;
+    }
+
+    .home-bento__title {
+        @apply text-base font-semibold text-text;
+    }
+
+    .home-bento__text {
+        @apply m-0 text-sm leading-relaxed text-muted;
+    }
+
+    .home-bento__stat {
+        @apply my-4 inline-flex items-center justify-center border-2 border-accent-line px-8 py-5 font-mono text-4xl font-semibold text-text;
+        border-radius: 50%;
+    }
+
+    .home-bento__visual {
+        @apply my-2 grid min-h-28 w-full max-w-60 content-center justify-items-center gap-3;
+    }
+
+    .home-bento__memory {
+        @apply grid w-full grid-cols-12 gap-1;
+    }
+
+    .home-bento__cell {
+        @apply aspect-square rounded-sm border border-line-soft bg-surface-2;
+    }
+
+    .home-bento__cell.is-on {
+        @apply border-accent-line bg-accent-weak;
+    }
+
+    .home-bento__caption {
+        @apply m-0 font-mono text-xs text-muted;
+    }
+
+    .home-bento__chips {
+        @apply flex items-center gap-2;
+    }
+
+    .home-bento__chip {
+        @apply inline-flex items-center rounded-md border border-line bg-surface-2 px-2 py-1 font-mono text-xs text-text;
+    }
+
+    .home-bento__chip--accent {
+        @apply border-accent-line bg-accent-weak text-accent-strong;
+    }
+
+    .home-bento__plus {
+        @apply font-mono text-xs text-muted;
+    }
+
+    .home-bento__stem {
+        @apply block h-4 w-px bg-line;
+    }
+
+    .home-bento__copy {
+        @apply flex flex-col justify-between gap-8 sm:gap-6;
+    }
+
+    .home-bento__body {
+        @apply grid gap-2;
+    }
+
+    .home-bento__badge {
+        @apply inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-surface-2 text-accent;
+    }
+
+    .home-bento__files {
+        @apply grid content-between gap-4 rounded-md border border-line bg-surface-2 p-4 text-text;
+        transition: border-color var(--duration-fast) var(--ease-out);
+    }
+
+    .home-bento__files:hover,
+    .home-bento__files:focus-visible {
+        @apply border-control-line;
+    }
+
+    .home-bento__files ul {
+        @apply m-0 grid list-none gap-2 p-0;
+    }
+
+    .home-bento__files li {
+        @apply flex items-center gap-2 font-mono text-xs text-muted;
+    }
+
+    .home-bento__files-cta {
+        @apply inline-flex items-center gap-1.5 text-sm font-medium text-text;
+    }
+
+    .home-bento__timeline {
+        @apply relative m-0 grid list-none content-center gap-5 p-0 py-2;
+    }
+
+    .home-bento__timeline::before {
+        content: '';
+        @apply absolute inset-y-0 left-1/2 w-px bg-line;
+    }
+
+    .home-bento__step {
+        @apply relative grid grid-cols-2 items-center;
+    }
+
+    .home-bento__step--left .home-bento__chip {
+        @apply col-start-1 mr-4 justify-self-end;
+    }
+
+    .home-bento__step--right .home-bento__chip {
+        @apply col-start-2 ml-4 justify-self-start;
+    }
+
+    .home-bento__dot {
+        @apply absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-control-line bg-surface;
+    }
+
+    .home-bento__dot.is-on {
+        @apply border-accent bg-accent;
+    }
+
     .home-app {
         @apply grid gap-12 overflow-hidden pt-6 md:gap-16 md:pt-12;
     }

@@ -4,6 +4,7 @@ import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
 import HeroTagline from '../components/home/HeroTagline.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
+import HomeBento from '../components/home/HomeBento.astro';
 import AppQr from '../components/home/AppQr.svelte';
 import AppShowcase from '../components/home/AppShowcase.svelte';
 import { REPO_URL } from '../lib/repo';
@@ -98,6 +99,8 @@ const serverItems = [1, 2, 3];
         ))}
       </ol>
     </section>
+
+    <HomeBento dict={dict} />
 
     <HomeTools locale={locale} dict={dict} />
 

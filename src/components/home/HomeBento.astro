@@ -1,0 +1,92 @@
+---
+import { t } from '../../lib/i18n';
+import { REPO_URL } from '../../lib/repo';
+import Icon from '../Icon.astro';
+
+type Props = {
+  dict: Record<string, string>;
+};
+
+const { dict } = Astro.props;
+const memory = Array.from({ length: 48 }, (_, i) => (i * 7 + (i >> 2) * 3) % 5 < 2);
+const steps = [
+  { n: 1, side: 'left' },
+  { n: 2, side: 'right' },
+  { n: 3, side: 'left' },
+] as const;
+const files = ['aesGcm.ts', 'kdf.ts', 'hybridKem.ts', 'chatRatchet.ts', 'passwordEnvelope.ts'];
+---
+
+<section id="home-bento" aria-labelledby="home-bento-title">
+  <div class="home-section__head">
+    <h2 id="home-bento-title" class="section-title">{t(dict, 'home.bento.title')}</h2>
+    <p class="hint">{t(dict, 'home.bento.lead')}</p>
+  </div>
+
+  <div class="home-bento">
+    <article class="home-bento__card home-bento__card--third home-bento__card--center">
+      <div class="home-bento__stat" aria-hidden="true">{t(dict, 'home.bento.1.value')}</div>
+      <h3 class="home-bento__title">AES-GCM</h3>
+      <p class="home-bento__text">{t(dict, 'home.bento.1.text')}</p>
+    </article>
+
+    <article class="home-bento__card home-bento__card--third home-bento__card--center">
+      <div class="home-bento__visual" aria-hidden="true">
+        <div class="home-bento__memory">
+          {memory.map((on) => <span class:list={['home-bento__cell', on && 'is-on']}></span>)}
+        </div>
+        <p class="home-bento__caption">Argon2id · {t(dict, 'home.bento.2.caption')}</p>
+      </div>
+      <h3 class="home-bento__title">{t(dict, 'home.bento.2.title')}</h3>
+      <p class="home-bento__text">{t(dict, 'home.bento.2.text')}</p>
+    </article>
+
+    <article class="home-bento__card home-bento__card--third home-bento__card--center">
+      <div class="home-bento__visual" aria-hidden="true">
+        <div class="home-bento__chips">
+          <span class="home-bento__chip">P-256</span>
+          <span class="home-bento__plus">+</span>
+          <span class="home-bento__chip">ML-KEM-768</span>
+        </div>
+        <span class="home-bento__stem"></span>
+        <span class="home-bento__chip home-bento__chip--accent">AES-256-GCM</span>
+      </div>
+      <h3 class="home-bento__title">{t(dict, 'home.bento.3.title')}</h3>
+      <p class="home-bento__text">{t(dict, 'home.bento.3.text')}</p>
+    </article>
+
+    <article class="home-bento__card home-bento__card--half home-bento__card--split">
+      <div class="home-bento__copy">
+        <span class="home-bento__badge" aria-hidden="true"><Icon name="code" size={20} /></span>
+        <div class="home-bento__body">
+          <h3 class="home-bento__title">{t(dict, 'home.bento.4.title')}</h3>
+          <p class="home-bento__text">{t(dict, 'home.bento.4.text')}</p>
+        </div>
+      </div>
+      <a class="home-bento__files" href={`${REPO_URL}/tree/main/src/lib`} target="_blank" rel="noopener noreferrer" aria-label={t(dict, 'home.bento.4.cta')}>
+        <ul>
+          {files.map((file) => <li><Icon name="code" />{file}</li>)}
+        </ul>
+        <span class="home-bento__files-cta">{t(dict, 'home.bento.4.cta')}<Icon name="arrow-up-right" /></span>
+      </a>
+    </article>
+
+    <article class="home-bento__card home-bento__card--half home-bento__card--split">
+      <div class="home-bento__copy">
+        <span class="home-bento__badge" aria-hidden="true"><Icon name="clock" size={20} /></span>
+        <div class="home-bento__body">
+          <h3 class="home-bento__title">{t(dict, 'home.bento.5.title')}</h3>
+          <p class="home-bento__text">{t(dict, 'home.bento.5.text')}</p>
+        </div>
+      </div>
+      <ol class="home-bento__timeline">
+        {steps.map(({ n, side }) => (
+          <li class={`home-bento__step home-bento__step--${side}`}>
+            <span class="home-bento__chip">{t(dict, `home.bento.5.step.${n}`)}</span>
+            <span class:list={['home-bento__dot', n === 3 && 'is-on']}></span>
+          </li>
+        ))}
+      </ol>
+    </article>
+  </div>
+</section>
