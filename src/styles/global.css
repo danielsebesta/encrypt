@@ -2168,7 +2168,21 @@ html.ascii-ready.ascii-instant .flow-bg--ascii {
 }
 
 .flow-bg--ascii {
-    height: min(max(100%, max(100vh, 46rem)), 187.5vw);
+    position: fixed;
+    inset: 0;
+    height: 100lvh;
+    -webkit-mask-image: linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.8) 22%, rgb(0 0 0 / 0.22) 50%, rgb(0 0 0 / 0.8) 78%, #000 100%);
+    mask-image: linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.8) 22%, rgb(0 0 0 / 0.22) 50%, rgb(0 0 0 / 0.8) 78%, #000 100%);
+    -webkit-mask-composite: initial;
+    mask-composite: initial;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+}
+
+@media (max-width: 767px) {
+    html.ascii-ready .flow-bg--ascii {
+        opacity: 0.4;
+    }
 }
 
 .ascii-bg {

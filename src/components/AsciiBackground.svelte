@@ -15,20 +15,14 @@
     type Field = { update(options: Record<string, unknown>): void; destroy(): void };
     let field: Field | null = null;
     let gone = false;
-    const virtualWidth = () => innerWidth / ZOOM;
-    const pickSource = () => {
-      const tall = (canvas.clientHeight || innerHeight) / (canvas.clientWidth || innerWidth) > 0.95;
-      if (tall) return '/flow-ascii-src-portrait.webp?v=3';
-      return virtualWidth() < 1500 ? '/flow-ascii-src-compact.webp?v=3' : '/flow-ascii-src.webp?v=3';
-    };
     const isDark = () => document.documentElement.classList.contains('dark');
 
     import('asciify-engine/field').then(({ mountGlyphField, isGlyphFieldSupported }) => {
       if (gone || !isGlyphFieldSupported()) return;
       field = mountGlyphField(canvas, {
-        source: pickSource(),
+        source: '/flow-ascii-src.webp?v=6',
         charset: ' .:-=+YCIFSA#@',
-        cellSize: Math.round(Math.min(14, Math.max(9, virtualWidth() / 170))),
+        cellSize: 12,
         cellAspect: 0.62,
         sample: 'shape',
         color: 'ink',
