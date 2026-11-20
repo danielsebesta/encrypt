@@ -27,3 +27,11 @@ Copyright 2023 Commit Mono authors (https://github.com/eigilnikolajsen/commit-mo
 Licensed under the SIL Open Font License, Version 1.1. The font authors declare no Reserved Font Name. The full license text is served at `/fonts/OFL-commit-mono.txt` (`public/fonts/OFL-commit-mono.txt`).
 
 The shipped files are the 400, 500 and 700 weights, subset to Latin and Latin Extended.
+
+## Roboto Flex
+
+Copyright 2017 The Roboto Flex Project Authors (https://github.com/googlefonts/roboto-flex)
+
+Licensed under the SIL Open Font License, Version 1.1. The font authors declare no Reserved Font Name. The full license text is served at `/fonts/OFL-roboto-flex.txt` (`public/fonts/OFL-roboto-flex.txt`).
+
+Used only by the Material design of the /app PWA. The shipped files are a subset: Latin and Latin Extended only, with the weight axis (100 to 1000) and no other variation axes. Taken from the npm package `@fontsource-variable/roboto-flex` (version 5.3.0).
