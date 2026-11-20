@@ -1752,8 +1752,37 @@ html.dark {
         @apply justify-start;
     }
 
-    .install-hero__shot {
-        @apply hidden w-44 md:block;
+    .install-hero__showcase {
+        @apply w-full max-w-[21rem] justify-self-center md:w-[26rem] md:max-w-none;
+    }
+
+    .app-showcase {
+        @apply flex items-start justify-center pt-1.5;
+    }
+
+    .app-showcase__phone {
+        @apply relative w-[34%] shrink-0 overflow-hidden rounded-lg border border-line bg-surface-2;
+        aspect-ratio: 9 / 19.5;
+        margin-top: 12%;
+    }
+
+    .app-showcase__phone--front {
+        @apply z-[1] w-[40%];
+        margin: 0 -7%;
+        outline: 6px solid var(--bg);
+    }
+
+    .app-showcase__img {
+        @apply block h-full w-full object-cover object-top;
+    }
+
+    .app-showcase__img--dark,
+    html.dark .app-showcase__img--light {
+        @apply hidden;
+    }
+
+    html.dark .app-showcase__img--dark {
+        @apply block;
     }
 
     .install-manual {
@@ -2245,6 +2274,12 @@ html.dark {
 
     .home-app__perks svg {
         @apply text-accent;
+    }
+
+    .home-app__showcase {
+        @apply mx-auto -mb-6 w-full max-w-[30rem] overflow-hidden;
+        max-height: 24rem;
+        mask-image: linear-gradient(to bottom, #000 72%, transparent);
     }
 
     .home-app__grid {

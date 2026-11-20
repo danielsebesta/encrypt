@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dns from 'node:dns';
+import { tmpdir } from 'node:os';
 
 // Windows Node often hangs on Wikimedia IPv6; prefer v4.
 dns.setDefaultResultOrder('ipv4first');
@@ -50,6 +51,12 @@ const androidCaptures = [
   { name: 'screenshot-android-chat', path: '/app?shots=1&platform=material&room=allsafe&kind=chat', wait: 'Allsafe audit notes from today.' },
   { name: 'screenshot-android-hub-files', path: '/app?shots=1&platform=material&tab=files', wait: 'Choose files' },
   { name: 'screenshot-android-hub-settings', path: '/app?shots=1&platform=material&tab=settings', wait: 'Haptic' },
+];
+
+const SHOWCASE = [
+  ['screenshot-hub-chats', 'ios-chats'],
+  ['screenshot-chat', 'ios-room'],
+  ['screenshot-android-chat', 'android-room'],
 ];
 
 mkdirSync(shotsDir, { recursive: true });
@@ -230,15 +237,15 @@ function chromeCss(barBg) {
     `;
 }
 
-async function captureSuite(browser, device, platform, shots, barBg, sizes) {
+async function captureSuite(browser, device, platform, shots, barBg, sizes, scheme = 'dark') {
   const context = await browser.newContext({
     ...device,
-    colorScheme: 'dark',
+    colorScheme: scheme,
   });
-  await context.addInitScript((skin) => {
+  await context.addInitScript(([skin, appearance]) => {
     try {
       localStorage.setItem('encrypt-app-platform', skin);
-      localStorage.setItem('encrypt-app-appearance', 'dark');
+      localStorage.setItem('encrypt-app-appearance', appearance);
     } catch {
       /* ignore */
     }
@@ -258,9 +265,9 @@ async function captureSuite(browser, device, platform, shots, barBg, sizes) {
       },
       true,
     );
-  }, platform);
+  }, [platform, scheme]);
   const page = await context.newPage();
-  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.emulateMedia({ colorScheme: scheme });
   const shotCss = chromeCss(barBg);
 
   for (const shot of shots) {
@@ -281,7 +288,7 @@ async function captureSuite(browser, device, platform, shots, barBg, sizes) {
     await page.getByText(shot.wait).first().waitFor({ timeout: 30_000 });
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.waitForTimeout(350);
-    if (shot.name === 'screenshot-chat' || shot.name === 'screenshot-android-chat') {
+    if (shot.path.includes('kind=chat')) {
       await page.locator('img.chat-preview-img').first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
       await page.evaluate(() => {
         const el = document.querySelector('.chat-messages');
@@ -290,7 +297,7 @@ async function captureSuite(browser, device, platform, shots, barBg, sizes) {
       await page.waitForTimeout(400);
     }
     const buf = await page.screenshot({ type: 'png', fullPage: false, animations: 'disabled' });
-    const file = join(publicDir, `${shot.name}.png`);
+    const file = shot.file || join(publicDir, `${shot.name}.png`);
     writeFileSync(file, buf);
     sizes[shot.name] = { bytes: buf.length, ...(await (await import('sharp')).default(buf).metadata()) };
     console.log('  wrote', file, buf.length);
@@ -370,6 +377,22 @@ async function captureAll() {
   ];
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log('Updated site.webmanifest screenshots');
+
+  // Light versions of the showcase phones, then small WebP copies of both themes for the site pages.
+  const tmp = join(tmpdir(), 'encrypt-showcase');
+  mkdirSync(tmp, { recursive: true });
+  const light = (list) => list.map((shot) => ({ ...shot, path: `${shot.path}&scheme=light`, file: join(tmp, `${shot.name}-light.png`) }));
+  const pick = (list, names) => list.filter((shot) => names.includes(shot.name));
+  await captureSuite(browser, iosPhone, 'ios', light(pick(iosCaptures, ['screenshot-hub-chats', 'screenshot-chat'])), 'var(--app-bg)', {}, 'light');
+  await captureSuite(browser, androidPhone, 'material', light(pick(androidCaptures, ['screenshot-android-chat'])), 'var(--app-bg)', {}, 'light');
+  const screensDir = join(publicDir, 'screens');
+  mkdirSync(screensDir, { recursive: true });
+  for (const [name, out] of SHOWCASE) {
+    for (const [scheme, src] of [['dark', join(publicDir, `${name}.png`)], ['light', join(tmp, `${name}-light.png`)]]) {
+      await sharp(src).resize({ width: 540 }).webp({ quality: 82 }).toFile(join(screensDir, `${out}-${scheme}.webp`));
+    }
+  }
+  console.log('Wrote showcase WebP files to public/screens');
 
   await browser.close();
   return sizes;

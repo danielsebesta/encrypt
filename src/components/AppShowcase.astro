@@ -1,0 +1,30 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className = '' } = Astro.props;
+const phones = [
+  { id: 'android-room', place: 'start', width: 540, height: 1203 },
+  { id: 'ios-chats', place: 'front', width: 540, height: 1174 },
+  { id: 'ios-room', place: 'end', width: 540, height: 1174 },
+] as const;
+---
+
+<div class:list={['app-showcase', className]} aria-hidden="true">
+  {phones.map(({ id, place, width, height }) => (
+    <div class:list={['app-showcase__phone', `app-showcase__phone--${place}`]}>
+      {(['light', 'dark'] as const).map((scheme) => (
+        <img
+          class:list={['app-showcase__img', `app-showcase__img--${scheme}`]}
+          src={`/screens/${id}-${scheme}.webp?v=1`}
+          alt=""
+          width={width}
+          height={height}
+          loading="lazy"
+          decoding="async"
+        />
+      ))}
+    </div>
+  ))}
+</div>

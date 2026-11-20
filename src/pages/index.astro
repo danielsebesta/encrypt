@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import AppShowcase from '../components/AppShowcase.astro';
 import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
@@ -140,6 +141,7 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
         </ul>
         <button type="button" class="btn hidden" data-pwa-install>{t(dict, 'install.guide.button')}</button>
       </div>
+      <AppShowcase class="home-app__showcase" />
       <div class="home-app__grid">
         <div class="home-app__card panel">
           <h3 id="home-app-ios" class="home-app__card-title"><Icon name="apple" size={20} />{t(dict, 'install.ios.title')}</h3>

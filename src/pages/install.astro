@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import InstallGuide from '../components/InstallGuide.svelte';
+import AppShowcase from '../components/AppShowcase.astro';
 import { getTranslations, pickDict, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -31,7 +32,7 @@ export const prerender = true;
           ))}
         </ul>
       </div>
-      <img class="app-shot install-hero__shot" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="eager" decoding="async" />
+      <AppShowcase class="install-hero__showcase" />
     </header>
 
     <InstallGuide client:load dict={guideDict} appHref="/app" />
