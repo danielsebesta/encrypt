@@ -2647,7 +2647,7 @@ html[data-app-platform] ::selection {
 
 /* P0: shared flat overrides — P1/P2 split */
 /* Solid chrome. Konsta frost layers stay inside the bar and do not blur. */
-:root[data-app-platform] :is(.k-glass, .k-navbar, .k-toolbar, .k-toolbar-pane, .k-dialog, .k-sheet, .k-popover, .k-actions, .app-main-tabbar, .k-tabbar) {
+:root[data-app-platform="ios"] :is(.k-glass, .k-navbar, .k-toolbar, .k-toolbar-pane, .k-dialog, .k-sheet, .k-popover, .k-actions, .app-main-tabbar, .k-tabbar) {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 }
@@ -2664,7 +2664,7 @@ html[data-app-platform] ::selection {
     -webkit-backdrop-filter: none;
 }
 /* Full-width bar. The selected tab is an 8px tint wash, not a floating capsule. */
-:root[data-app-platform] .app-main-tabbar {
+:root[data-app-platform="ios"] .app-main-tabbar {
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     background: var(--app-surface);
@@ -2673,7 +2673,7 @@ html[data-app-platform] ::selection {
     border-radius: 0;
     box-shadow: none;
 }
-:root[data-app-platform] :is(.app-main-tabbar, .k-tabbar) :is(.k-toolbar-pane, .k-glass) {
+:root[data-app-platform="ios"] :is(.app-main-tabbar, .k-tabbar) :is(.k-toolbar-pane, .k-glass) {
     background: var(--app-surface);
     background-image: none;
     border: 0;
@@ -2688,25 +2688,25 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute > span:first-child {
     background: var(--app-tint-container);
 }
-:root[data-app-platform] :is(.k-navbar, .k-toolbar, .app-main-tabbar) .bg-gradient-to-t {
+:root[data-app-platform="ios"] :is(.k-navbar, .k-toolbar, .app-main-tabbar) .bg-gradient-to-t {
     background-image: none;
 }
-:root[data-app-platform] :is(.k-dialog, .k-popover .k-glass, .k-actions .k-actions-group) {
+:root[data-app-platform="ios"] :is(.k-dialog, .k-popover .k-glass, .k-actions .k-actions-group) {
     border-radius: 8px;
 }
-:root[data-app-platform] .k-sheet {
+:root[data-app-platform="ios"] .k-sheet {
     border-radius: 8px 8px 0 0;
 }
-:root[data-app-platform] .k-segmented {
+:root[data-app-platform="ios"] .k-segmented {
     border-radius: 8px;
     box-shadow: none;
 }
-:root[data-app-platform] .k-segmented > span,
-:root[data-app-platform] .k-segmented .k-button {
+:root[data-app-platform="ios"] .k-segmented > span,
+:root[data-app-platform="ios"] .k-segmented .k-button {
     border-radius: 6px;
     box-shadow: none;
 }
-:root[data-app-platform] .k-searchbar .k-glass {
+:root[data-app-platform="ios"] .k-searchbar .k-glass {
     border-radius: 8px;
     background-image: none;
     box-shadow: none;
@@ -2714,28 +2714,23 @@ html[data-app-platform] ::selection {
 :root[data-app-platform="ios"] .k-searchbar > .k-glass:not(button) {
     border: 1px solid var(--app-outline);
 }
-:root[data-app-platform="material"] .k-searchbar input {
-    border-radius: 8px;
-    border: 1px solid var(--app-outline);
-    box-shadow: none;
-}
-:root[data-app-platform] .k-searchbar > button.k-glass {
+:root[data-app-platform="ios"] .k-searchbar > button.k-glass {
     border-radius: 8px;
 }
-:root[data-app-platform] .k-fab {
+:root[data-app-platform="ios"] .k-fab {
     border-radius: 8px;
     box-shadow: none;
     background-image: none;
 }
-:root[data-app-platform] .k-navbar .k-glass {
+:root[data-app-platform="ios"] .k-navbar .k-glass {
     background: var(--app-fill);
     background-image: none;
     border-radius: 8px;
     box-shadow: none;
 }
-:root[data-app-platform] .duration-300 {
+:root[data-app-platform="ios"] .duration-300 {
     transition-duration: 180ms;
 }
-:root[data-app-platform] .duration-600 {
+:root[data-app-platform="ios"] .duration-600 {
     transition-duration: 320ms;
 }
