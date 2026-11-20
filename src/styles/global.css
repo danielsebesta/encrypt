@@ -313,7 +313,7 @@ html.dark {
         transform: scale(0.98);
     }
 
-    :is(.btn-secondary, .btn-ghost)[aria-pressed="true"] {
+    :is(.btn-secondary, .btn-ghost):is([aria-pressed="true"], [aria-checked="true"]) {
         --btn-fg: var(--accent-strong);
         border-color: var(--accent-line);
         background: var(--accent-weak);
@@ -404,7 +404,7 @@ html.dark {
             border-color: ButtonText;
         }
 
-        :is(.btn-secondary, .btn-ghost)[aria-pressed="true"] {
+        :is(.btn-secondary, .btn-ghost):is([aria-pressed="true"], [aria-checked="true"]) {
             forced-color-adjust: none;
             border-color: Highlight;
             background: Highlight;
@@ -465,7 +465,7 @@ html.dark {
     }
 
     .input {
-        @apply w-full min-w-0 min-h-10 rounded-md border border-control-line bg-transparent px-3 py-2 text-base text-text placeholder:text-muted;
+        @apply w-full min-w-0 min-h-10 rounded-md border border-control-line bg-transparent px-3 py-1.5 text-base leading-6 text-text placeholder:text-muted;
         transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
     }
 
@@ -480,6 +480,7 @@ html.dark {
     }
 
     .input:focus-visible,
+    .input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]):focus-within,
     .passphrase:focus-within {
         border-color: var(--accent);
         outline: none;
@@ -491,9 +492,13 @@ html.dark {
         border-color: var(--danger);
     }
 
-    .input[aria-invalid="true"]:focus-visible,
+    .input[aria-invalid="true"]:is(:focus-visible, [type="date"]:focus-within, [type="time"]:focus-within, [type="datetime-local"]:focus-within),
     .passphrase:has([aria-invalid="true"]):focus-within {
         box-shadow: 0 0 0 3px var(--ring-danger);
+    }
+
+    .input::-webkit-calendar-picker-indicator {
+        @apply cursor-pointer rounded-sm;
     }
 
     .input:disabled {
@@ -505,18 +510,14 @@ html.dark {
     }
 
     textarea.input {
-        @apply min-h-32 resize-y leading-relaxed;
+        @apply min-h-32 resize-y py-2 leading-relaxed;
     }
 
     select.input {
         @apply cursor-pointer appearance-none bg-no-repeat pr-10;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2344483e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9l6 6l6-6'/%3E%3C/svg%3E");
-        background-position: right 0.75rem center;
-        background-size: 16px 16px;
-    }
-
-    html.dark select.input {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c4c8ba' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9l6 6l6-6'/%3E%3C/svg%3E");
+        background-image: linear-gradient(45deg, transparent calc(50% - 1.25px), var(--muted) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 1.25px)), linear-gradient(-45deg, transparent calc(50% - 1.25px), var(--muted) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 1.25px));
+        background-position: right calc(0.75rem + 5px) center, right 0.75rem center;
+        background-size: 5px 5px;
     }
 
     select.input option {
@@ -536,8 +537,8 @@ html.dark {
     }
 
     input[type="checkbox"] {
+        @apply inline-grid place-content-center;
         border-radius: 4px;
-        background-size: 12px 12px;
     }
 
     input[type="radio"] {
@@ -556,23 +557,27 @@ html.dark {
         border-color: var(--danger);
     }
 
+    input[type="checkbox"]::before {
+        content: "";
+        @apply h-3 w-3 bg-on-accent;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12l5 5L20 7'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12l5 5L20 7'/%3E%3C/svg%3E") center / contain no-repeat;
+        visibility: hidden;
+    }
+
+    input[type="checkbox"]:indeterminate::before {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+    }
+
     input[type="checkbox"]:checked,
     input[type="checkbox"]:indeterminate {
         border-color: var(--accent);
         background-color: var(--accent);
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12l5 5L20 7'/%3E%3C/svg%3E");
     }
 
-    input[type="checkbox"]:indeterminate {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
-    }
-
-    html.dark input[type="checkbox"]:checked {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c3704' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12l5 5L20 7'/%3E%3C/svg%3E");
-    }
-
-    html.dark input[type="checkbox"]:indeterminate {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c3704' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+    html:not([data-app-platform]) input[type="checkbox"]:is(:checked, :indeterminate)::before {
+        visibility: visible;
     }
 
     input[type="radio"]:checked {
@@ -580,8 +585,7 @@ html.dark {
         background-image: radial-gradient(circle, var(--accent) 0 3.5px, transparent 4px);
     }
 
-    input[type="checkbox"][role="switch"],
-    html.dark input[type="checkbox"][role="switch"] {
+    input[type="checkbox"][role="switch"] {
         @apply h-5 w-9 rounded-full border-transparent;
         background-color: var(--control-line);
         background-image: radial-gradient(circle at 10px 50%, var(--bg) 0 7px, transparent 7.5px);
@@ -590,8 +594,11 @@ html.dark {
         transition: background-color var(--duration-fast) var(--ease-out), background-position var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
     }
 
-    input[type="checkbox"][role="switch"]:checked,
-    html.dark input[type="checkbox"][role="switch"]:checked {
+    input[type="checkbox"][role="switch"]::before {
+        content: none;
+    }
+
+    input[type="checkbox"][role="switch"]:checked {
         background-color: var(--accent);
         background-position: 16px 0;
     }
@@ -615,6 +622,7 @@ html.dark {
 
     @media (forced-colors: active) {
         .input:focus-visible,
+        .input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"], [type="week"]):focus-within,
         .passphrase:focus-within,
         input[type="checkbox"]:focus-visible,
         input[type="radio"]:focus-visible {
@@ -625,6 +633,10 @@ html.dark {
         input[type="checkbox"],
         input[type="radio"] {
             appearance: auto;
+        }
+
+        input[type="checkbox"]::before {
+            content: none;
         }
     }
 
@@ -1195,6 +1207,12 @@ html.dark {
         animation: toast-enter var(--duration-base) var(--ease-out) both;
     }
 
+    .toast--contained {
+        @apply absolute;
+        bottom: var(--toast-offset, 1rem);
+        max-width: min(26rem, calc(100% - 2rem));
+    }
+
     .toast--error {
         @apply border-danger text-danger;
     }
@@ -1313,6 +1331,7 @@ html.dark {
 
     .passphrase .input {
         @apply min-w-0 flex-1 border-0 bg-transparent pr-1 font-mono;
+        min-height: calc(2.5rem - 2px);
     }
 
     .passphrase .input::placeholder {

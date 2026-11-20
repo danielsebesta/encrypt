@@ -559,7 +559,7 @@
         {/if}
         {#if callError}
           {#if callActive}
-            <div class={appMode ? 'call__toast' : 'toast call__toast-site'} role="alert">
+            <div class={appMode ? 'call__toast' : 'toast toast--contained'} style={appMode ? undefined : '--toast-offset: 5.25rem'} role="alert">
               <Icon name="info" />
               <span>{callError}</span>
             </div>
@@ -761,11 +761,6 @@
     line-height: 1.35;
     box-shadow: var(--shadow-float);
     animation: call-toast-in var(--duration-base) var(--ease-out);
-  }
-  .call__toast-site {
-    position: absolute;
-    bottom: 5.25rem;
-    max-width: min(26rem, calc(100% - 2rem));
   }
   @keyframes call-toast-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
   @media (prefers-reduced-motion: reduce) {
