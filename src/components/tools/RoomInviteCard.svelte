@@ -270,7 +270,9 @@
   }
   .invite-card__share {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
+    min-width: 0;
     margin-top: 0.75rem;
   }
   .invite-card__share-row {
@@ -284,9 +286,8 @@
   }
   .invite-card.panel .invite-card__share-label {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
   }
   .invite-card__qr-toggle {
     display: none;
