@@ -44,6 +44,33 @@ export function palette(seed = SITE_SEED) {
   return { light: build(seed, false), dark: build(seed, true) };
 }
 
+const rgba = (h, a) => `rgba(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)}, ${a})`;
+
+export function iosAccent(seed = SITE_SEED) {
+  const out = {};
+  for (const dark of [false, true]) {
+    const p = new SchemeTonalSpot(Hct.fromInt(argbFromHex(seed)), dark, 0).primaryPalette;
+    const t = (tone) => hex(p.tone(tone));
+    const tint = t(dark ? 80 : 40);
+    const strong = t(dark ? 90 : 25);
+    out[dark ? 'dark' : 'light'] = {
+      '--app-tint': tint,
+      '--app-on-tint': t(dark ? 20 : 100),
+      '--app-tint-strong': strong,
+      '--app-tint-container': rgba(tint, dark ? 0.17 : 0.14),
+      '--app-on-tint-container': strong,
+      '--app-bubble-mine': t(40),
+      '--app-on-bubble-mine': t(100),
+      '--k-color-primary': tint,
+      '--k-color-brand-primary': tint,
+      '--k-color-ios-primary': tint,
+      '--k-color-ios-primary-tint': t(dark ? 90 : 50),
+      '--k-color-ios-primary-shade': t(dark ? 70 : 30),
+    };
+  }
+  return out;
+}
+
 export function themeColors(p) {
   return { light: p.light['--bg'], dark: p.dark['--bg'] };
 }
@@ -69,6 +96,15 @@ if (process.argv[1] && process.argv[1].endsWith('gen-palette.mjs')) {
       css = css.replace(re(scope), `$1${START}\n${block(vars)}\n    ${END}`);
     }
     writeFileSync(file, css);
+    const appFile = new URL('../src/styles/app.css', import.meta.url);
+    let app = readFileSync(appFile, 'utf8');
+    const ios = iosAccent(SEED);
+    const marker = (scope) => new RegExp(`(${scope}\\s*\\{[^}]*?)/\\* ios-accent:start \\*/[\\s\\S]*?/\\* ios-accent:end \\*/`);
+    for (const [scope, vars] of [['\\[data-app-scheme="light"\\]', ios.light], [':root:not\\(\\[data-app-platform\\]\\)', ios.dark]]) {
+      if (!marker(scope).test(app)) throw new Error(`ios-accent markers missing in ${scope}`);
+      app = app.replace(marker(scope), `$1/* ios-accent:start */\n${block(vars)}\n    /* ios-accent:end */`);
+    }
+    writeFileSync(appFile, app);
     const root = (p) => new URL(p, import.meta.url);
     const tc = themeColors({ light, dark });
     const layout = root('../src/layouts/Layout.astro');

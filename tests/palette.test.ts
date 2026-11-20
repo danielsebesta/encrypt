@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { palette } from '../scripts/gen-palette.mjs';
+import { palette, iosAccent, SITE_SEED } from '../scripts/gen-palette.mjs';
+import { DEFAULT_SEED } from '../src/lib/appTheme';
 
 type Palette = Record<string, string>;
 const generated = palette() as { light: Palette; dark: Palette };
@@ -61,3 +62,18 @@ for (const [mode, scope] of [['light', /:root/], ['dark', /html\.dark/]] as cons
     }
   });
 }
+
+test('the /app Material seed and iOS accent follow the site palette', () => {
+  assert.equal(DEFAULT_SEED, SITE_SEED);
+  const app = readFileSync(new URL('../src/styles/app.css', import.meta.url), 'utf8');
+  const blocks = [...app.matchAll(/\/\* ios-accent:start \*\/([\s\S]*?)\/\* ios-accent:end \*\//g)];
+  assert.equal(blocks.length, 2, 'ios-accent markers missing in app.css');
+  const expected = iosAccent() as { light: Palette; dark: Palette };
+  [expected.light, expected.dark].forEach((want, i) => {
+    const got: Palette = {};
+    for (const decl of blocks[i][1].matchAll(/(--[\w-]+):\s*([^;]+);/g)) got[decl[1]] = decl[2].trim();
+    assert.deepEqual(got, want, 'app.css iOS accent is out of date: run corepack pnpm run build:palette');
+  });
+  assert.equal(expected.light['--app-tint'], generated.light['--accent']);
+  assert.equal(expected.dark['--app-tint'], generated.dark['--accent']);
+});

@@ -98,6 +98,14 @@ test('loadThemeState defaults to detected platform and system appearance', () =>
   assert.equal(state.seed, DEFAULT_SEED);
 });
 
+test('the old slate default and the retired green preset load as the site seed', () => {
+  for (const legacy of ['#5b6472', '#4C8A3C']) {
+    const store = stubLocalStorage();
+    store.set('encrypt-app-seed', legacy);
+    assert.equal(loadThemeState().seed, DEFAULT_SEED);
+  }
+});
+
 test('saveThemeState persists choices for the next load', () => {
   stubLocalStorage();
   saveThemeState({ platform: 'ios', appearance: 'light', seed: DEFAULT_SEED });

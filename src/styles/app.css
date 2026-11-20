@@ -89,11 +89,6 @@
     --app-label: #000000;
     --app-label-2: rgba(60, 60, 67, 0.78);
     --app-label-3: rgba(60, 60, 67, 0.42);
-    --app-tint: #1e7e34;
-    --app-on-tint: #ffffff;
-    --app-tint-strong: #1d6b33;
-    --app-tint-container: rgba(52, 199, 89, 0.15);
-    --app-on-tint-container: #1d6b33;
     --app-tint-weak: rgba(120, 120, 128, 0.16);
     --app-on-tint-weak: #1c1c1e;
     --app-error: #d92f24;
@@ -107,8 +102,6 @@
     --app-sheet: #f2f2f7;
     --app-bubble: #e9e9eb;
     --app-on-bubble: #000000;
-    --app-bubble-mine: #1e7e34;
-    --app-on-bubble-mine: #ffffff;
     --app-scrim: rgba(0, 0, 0, 0.4);
     --app-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
     --app-glass: #ffffff;
@@ -124,11 +117,20 @@
     --color-ios-light-surface-1: #ffffff;
     --color-ios-light-surface-variant: #e5e5ea;
 
-    --k-color-primary: #1e7e34;
-    --k-color-brand-primary: #1e7e34;
-    --k-color-ios-primary: #1e7e34;
-    --k-color-ios-primary-tint: #3aa855;
-    --k-color-ios-primary-shade: #1d6b33;
+    /* ios-accent:start */
+    --app-tint: #48672e;
+    --app-on-tint: #ffffff;
+    --app-tint-strong: #26430e;
+    --app-tint-container: rgba(72, 103, 46, 0.14);
+    --app-on-tint-container: #26430e;
+    --app-bubble-mine: #48672e;
+    --app-on-bubble-mine: #ffffff;
+    --k-color-primary: #48672e;
+    --k-color-brand-primary: #48672e;
+    --k-color-ios-primary: #48672e;
+    --k-color-ios-primary-tint: #608045;
+    --k-color-ios-primary-shade: #324e19;
+    /* ios-accent:end */
 }
 
 :root[data-app-platform="ios"][data-app-scheme="dark"],
@@ -145,11 +147,6 @@
     --app-label: #ffffff;
     --app-label-2: rgba(235, 235, 245, 0.6);
     --app-label-3: rgba(235, 235, 245, 0.32);
-    --app-tint: #30d158;
-    --app-on-tint: #03280f;
-    --app-tint-strong: #45e070;
-    --app-tint-container: rgba(48, 209, 88, 0.17);
-    --app-on-tint-container: #63df83;
     --app-tint-weak: rgba(120, 120, 128, 0.24);
     --app-on-tint-weak: #f2f2f7;
     --app-error: #ff453a;
@@ -163,8 +160,6 @@
     --app-sheet: #2c2c2e;
     --app-bubble: #3a3a3c;
     --app-on-bubble: #f2f2f7;
-    --app-bubble-mine: #198038;
-    --app-on-bubble-mine: #ffffff;
     --app-scrim: rgba(0, 0, 0, 0.55);
     --app-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
     --app-glass: #2c2c2e;
@@ -178,11 +173,20 @@
     --color-ios-dark-surface-1: #2c2c2e;
     --color-ios-dark-surface-variant: #48484a;
 
-    --k-color-primary: #30d158;
-    --k-color-brand-primary: #30d158;
-    --k-color-ios-primary: #30d158;
-    --k-color-ios-primary-tint: #4ade77;
-    --k-color-ios-primary-shade: #25ac4a;
+    /* ios-accent:start */
+    --app-tint: #aed18d;
+    --app-on-tint: #1c3704;
+    --app-tint-strong: #c9eea7;
+    --app-tint-container: rgba(174, 209, 141, 0.17);
+    --app-on-tint-container: #c9eea7;
+    --app-bubble-mine: #48672e;
+    --app-on-bubble-mine: #ffffff;
+    --k-color-primary: #aed18d;
+    --k-color-brand-primary: #aed18d;
+    --k-color-ios-primary: #aed18d;
+    --k-color-ios-primary-tint: #c9eea7;
+    --k-color-ios-primary-shade: #93b674;
+    /* ios-accent:end */
 }
 
 :root[data-app-platform="ios"][data-app-scheme="dark"][data-app-amoled] {

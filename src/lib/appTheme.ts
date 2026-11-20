@@ -12,10 +12,11 @@ export type AppPlatform = 'ios' | 'material';
 export type AppScheme = 'light' | 'dark';
 export type AppAppearance = 'system' | AppScheme;
 
-// Neutral slate seed: low chroma (HCT ~13) at a cool blue-grey hue, so the generated
-// Material roles read as technical chrome instead of a brand colour. SchemeTonalSpot
-// fixes the primary/secondary/tertiary chroma, so the seed's hue is what sets the tint.
-export const DEFAULT_SEED = '#5b6472';
+// The site palette seed (SITE_SEED in scripts/gen-palette.mjs), so Material You matches the website.
+export const DEFAULT_SEED = '#5f8f36';
+
+// Earlier defaults and the retired green preset now resolve to the site seed.
+const LEGACY_SEEDS = ['#5b6472', '#4c8a3c'];
 
 // Material You seeds offered in Settings; the scheme guard keeps every on-role at AA for any seed.
 export const SEED_PRESETS = [
@@ -23,7 +24,6 @@ export const SEED_PRESETS = [
   { id: 'red', hex: '#b3423a' },
   { id: 'orange', hex: '#b5652a' },
   { id: 'yellow', hex: '#9a7b1c' },
-  { id: 'green', hex: '#4c8a3c' },
   { id: 'teal', hex: '#2f8a87' },
   { id: 'purple', hex: '#7656b0' },
   { id: 'pink', hex: '#b04a7a' },
@@ -275,7 +275,7 @@ export function loadThemeState(): AppThemeState {
       ? appearanceRaw
       : 'system';
   const seedRaw = readStored(LS_SEED);
-  const seed = isSeed(seedRaw) ? seedRaw : DEFAULT_SEED;
+  const seed = isSeed(seedRaw) && !LEGACY_SEEDS.includes(seedRaw.toLowerCase()) ? seedRaw : DEFAULT_SEED;
   return { platform, appearance, seed, amoled: readStored(LS_AMOLED) === '1' };
 }
 
