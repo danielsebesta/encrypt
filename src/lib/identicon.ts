@@ -155,7 +155,6 @@ export const CENTER_SHAPES: readonly { name: string; draw: Draw }[] = [
 
 export const SHAPE_COUNT = SHAPES.length;
 export const CENTER_COUNT = CENTER_SHAPES.length;
-export const LAYOUT_COUNT = 1;
 
 const luminanceCache = new Map<string, number>();
 
@@ -208,11 +207,6 @@ function pickColors(pal: Palette, b: Uint8Array): { bg: string; fg: string; acce
   return { bg, fg, accent };
 }
 
-export function renderShape(shape: number, f: string, g = f): string {
-  void g;
-  return SHAPES[shape % SHAPE_COUNT].draw(f);
-}
-
 const SIZE = 100;
 /** Keep tiles inside the inscribed circle so CSS `rounded-full` does not clip the motif away. */
 const PAD = 10;
@@ -226,7 +220,6 @@ function placeTile(col: number, row: number, markup: string, angle: number, mirr
   const cy = PAD + row * CELL + CELL / 2;
   const sx = (mirrorX ? -TILE : TILE).toFixed(2);
   const sy = TILE.toFixed(2);
-  // Center the unit tile, flip/scale, rotate, then park on the grid.
   return `<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${angle * 90}) scale(${sx} ${sy}) translate(-0.5 -0.5)">${markup}</g>`;
 }
 

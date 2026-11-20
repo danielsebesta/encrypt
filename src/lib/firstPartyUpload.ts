@@ -129,7 +129,6 @@ export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: U
   try {
     const payload = prependEclkMagic(body);
 
-    // 1. Try direct-to-storage upload (bypasses Cloudflare Worker limits)
     try {
       const directRes = await sendWithUploadPass('/upload/direct', {
         method: 'POST',
@@ -163,7 +162,6 @@ export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: U
       // Fall through to relay upload if direct route errors
     }
 
-    // 2. Fallback to relay upload via Cloudflare Worker
     const res = await sendWithUploadPass('/upload', {
       method: 'POST',
       headers: {

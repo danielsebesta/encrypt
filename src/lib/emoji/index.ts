@@ -236,12 +236,6 @@ export function recordEmojiUse(emoji: string, store: KeyValueStore | null = defa
   } catch {}
 }
 
-export function clearRecentEmoji(store: KeyValueStore | null = defaultStore()): void {
-  try {
-    store?.removeItem(RECENT_KEY);
-  } catch {}
-}
-
 export function getSkinTone(store: KeyValueStore | null = defaultStore()): SkinTone {
   try {
     const n = Number(store?.getItem(TONE_KEY));

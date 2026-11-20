@@ -48,6 +48,7 @@
   } from '../../lib/transferProgress';
   import { t, tApp } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import { menu } from '../ui/menu';
   import Modal from '../Modal.svelte';
   import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
@@ -919,6 +920,7 @@
     if (actionMenuFor && !target?.closest?.('.msg-actions, .chat-msg-sheet')) actionMenuFor = null;
   }
   let roomMenuEl: HTMLDivElement | undefined;
+  let roomMenuTriggerEl: HTMLButtonElement | undefined;
   const OVERLAY_FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
   function overlayFocusables(root: HTMLElement | undefined | null): HTMLElement[] {
     return root ? [...root.querySelectorAll<HTMLElement>(OVERLAY_FOCUSABLE)].filter((el) => el.offsetParent !== null) : [];
@@ -5446,21 +5448,6 @@
     document.getElementById('chat-room-menu-trigger')?.focus();
   }
 
-  function onRoomMenuKeydown(event: KeyboardEvent) {
-    const items = [...(roomMenuEl?.querySelectorAll<HTMLElement>('.menu__item') ?? [])].filter((el) => !(el as HTMLButtonElement).disabled);
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      items[(at + 1) % items.length]?.focus();
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      items[(at - 1 + items.length) % items.length]?.focus();
-    } else if (event.key === 'Home' || event.key === 'End') {
-      event.preventDefault();
-      items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
-    }
-  }
-
   async function applyProfile() {
     const next = nickInput.trim();
     if (next && !NICKNAME_RE.test(next)) {
@@ -5888,6 +5875,7 @@
         <div class="chat-header-menu relative" data-chat-menu>
           <button
             id="chat-room-menu-trigger"
+            bind:this={roomMenuTriggerEl}
             type="button"
             class="btn-ghost btn-sm btn-icon"
             title={t(dict, 'chat.roomMenu')}
@@ -5899,7 +5887,7 @@
           >
             <Icon name="ellipsis-vertical" />
           </button>
-          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" bind:this={roomMenuEl} on:keydown={onRoomMenuKeydown}>
+          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" aria-label={t(dict, 'chat.roomMenu')} bind:this={roomMenuEl} use:menu={{ open: headerMenuOpen, onclose: closeHeaderMenu, trigger: roomMenuTriggerEl, autofocus: false }}>
             <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
               <Icon name="link" class="chat-header-menu__icon" />
               {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
@@ -6302,7 +6290,6 @@
               {:else if msg.file && msg.previewState === 'loading'}
                 <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
               {:else if msg.file && appMode && msg.previewState === 'ready' && msg.preview?.type === 'image'}
-                <!-- the picture alone: tap it for the detail view -->
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -6481,7 +6468,6 @@
               {:else if msg.file && msg.previewState === 'loading'}
                 <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
               {:else if msg.file && appMode && msg.previewState === 'ready' && msg.preview?.type === 'image'}
-                <!-- the picture alone: tap it for the detail view -->
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -6772,9 +6758,6 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  .chat-header-menu__panel :global(.menu__item) {
-    min-height: 2.75rem;
-  }
   :global(.chat-header-menu__icon) {
     width: 1rem;
     height: 1rem;
@@ -6907,7 +6890,7 @@
   @keyframes chat-emoji-pop-in { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .chat-emoji-pop { animation: none; } }
   .chat-react-btn--more { color: var(--muted); }
-  .chat-me-pill { max-width: 14rem; padding-inline: 0.25rem 0.625rem; }
+  .chat-me-pill { max-width: 14rem; padding-block: 0; padding-inline: 0.25rem 0.625rem; }
   .chat-me-pill[aria-expanded="true"] { --btn-fg: var(--text); background: var(--surface-2); }
   .chat-me-pill__name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chat-me { display: grid; gap: 0.875rem; padding: 0.875rem; border-radius: 8px; background: var(--surface-2); }

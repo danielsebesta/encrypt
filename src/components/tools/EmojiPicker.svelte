@@ -3,6 +3,7 @@
   import { t } from '../../lib/t';
   import { EMOJI_ICONS } from '../../lib/emoji/icons';
   import Icon from '../Icon.svelte';
+  import { roving } from '../ui/roving';
   import {
     applySkinTone,
     detectEmojiSupport,
@@ -381,21 +382,6 @@
     if (first) setTabStop(first);
   }
 
-  function onTabsKey(e: KeyboardEvent) {
-    const buttons = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[data-tab]')];
-    const at = buttons.indexOf(e.target as HTMLButtonElement);
-    if (at < 0) return;
-    const to = e.key === 'ArrowRight' ? (at + 1) % buttons.length
-      : e.key === 'ArrowLeft' ? (at - 1 + buttons.length) % buttons.length
-      : e.key === 'Home' ? 0
-      : e.key === 'End' ? buttons.length - 1
-      : -1;
-    if (to < 0) return;
-    e.preventDefault();
-    buttons.forEach((b, n) => (b.tabIndex = n === to ? 0 : -1));
-    buttons[to].focus();
-  }
-
   function onScroll() {
     if (scrollFrame) return;
     scrollFrame = requestAnimationFrame(() => {
@@ -537,8 +523,7 @@
   </div>
 
   {#if tabs.length}
-    <!-- svelte-ignore a11y_interactive_supports_focus -->
-    <div class="ep__tabs" bind:this={tabsEl} role="toolbar" aria-label={t(dict, 'emoji.categories')} onkeydown={onTabsKey}>
+    <div class="ep__tabs" bind:this={tabsEl} role="toolbar" aria-label={t(dict, 'emoji.categories')} use:roving>
       {#each tabs as id (id)}
         <button
           type="button"
@@ -547,7 +532,6 @@
           aria-label={sectionTitle(id)}
           title={sectionTitle(id)}
           aria-current={!searching && active === id ? 'true' : undefined}
-          tabindex={active === id ? 0 : -1}
           onclick={() => jump(id)}
         >
           <Icon name={EMOJI_ICONS[id]} />

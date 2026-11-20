@@ -189,9 +189,4 @@
     font-size: 1.25rem;
     line-height: 1;
   }
-  .msg-actions__react[aria-checked="true"] {
-    --btn-fg: var(--accent-strong);
-    border-color: var(--accent-line);
-    background: var(--accent-weak);
-  }
 </style>
