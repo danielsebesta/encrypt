@@ -406,6 +406,8 @@
   "chat.schedule.1h": "O 1 hodinu",
   "chat.inviteCard.dismiss": "Zavrieť pozvánku",
   "chat.inviteCard.qrAlt": "QR kód odkazu na miestnosť",
+  "chat.inviteCard.showQr": "Zobraziť QR kód",
+  "chat.inviteCard.hideQr": "Skryť QR kód",
   "chat.inviteCard.link": "Odkaz",
   "chat.inviteCard.password": "Heslo",
   "chat.inviteCard.copyLink": "Kopírovať odkaz",

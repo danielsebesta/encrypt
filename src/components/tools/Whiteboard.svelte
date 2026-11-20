@@ -2502,11 +2502,16 @@
 
   .wb-share-banner {
     flex: none;
-    max-height: 60%;
+    max-height: min(60%, 24rem);
     overflow-y: auto;
     padding: 0.25rem 0.75rem;
     border-bottom: 1px solid var(--accent-line);
     background: var(--accent-weak);
+  }
+  @media (max-width: 399px), (max-height: 479px) {
+    .wb-share-banner {
+      max-height: min(60%, 16rem);
+    }
   }
   .wb-share-banner__bar {
     display: flex;

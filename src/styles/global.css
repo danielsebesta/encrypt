@@ -1232,7 +1232,7 @@ html.dark {
 
     .more > summary::before {
         content: "";
-        @apply h-2 w-2 rotate-45 border-b-2 border-r-2 border-current;
+        @apply ml-0.5 h-2 w-2 rotate-45 border-b-2 border-r-2 border-current;
         transition: transform var(--duration-fast) var(--ease-out);
     }
 
@@ -1462,6 +1462,8 @@ html.dark {
         left: auto;
         right: 0;
         min-width: 11rem;
+        width: max-content;
+        max-width: calc(100vw - 1.5rem);
     }
 
     .menu__item {

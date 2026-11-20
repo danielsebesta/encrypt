@@ -42,7 +42,7 @@
 </script>
 
 {#if mode !== 'local'}
-  <div class="grid gap-5">
+  <div class="grid gap-6">
     {#if upload}
       <Field label={t(dict, 'tools.ultimateEncrypt.options.retention')} id="ue-retention" class="sm:max-w-xs">
         {#snippet children(control)}
@@ -60,7 +60,7 @@
         <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" disabled={burnUnavailable} />
         <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
       </label>
-      <div id="ue-burn-hint" class="grid gap-1">
+      <div id="ue-burn-hint" class="-mt-1.5 grid gap-1">
         <p class="hint">{t(dict, burnUnavailable ? 'tools.ultimateEncrypt.options.burnUnavailable' : 'tools.ultimateEncrypt.options.burnHint')}</p>
         {#if short}
           <p class="hint">{t(dict, burn ? 'tools.ultimateEncrypt.options.burnStoredHint' : 'tools.ultimateEncrypt.options.inlineHint')}</p>
@@ -89,7 +89,7 @@
         <input type="checkbox" bind:checked={deadMan} aria-describedby="ue-dead-man-hint" disabled={!unlockAt} />
         <span>{t(dict, 'tools.ultimateEncrypt.options.deadMan')}</span>
       </label>
-      <p id="ue-dead-man-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
+      <p id="ue-dead-man-hint" class="hint -mt-1.5">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
     </div>
   </div>
 {/if}
