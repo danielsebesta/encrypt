@@ -3,6 +3,7 @@
   "meta.defaultDescription": "Outils open source. La cryptographie s’exécute dans votre navigateur. Lors d’un partage, d’un chat ou d’un téléversement, seuls le texte chiffré et les métadonnées nécessaires quittent votre appareil.",
   "common.working": "Traitement…",
   "common.fieldRequired": "Ce champ est obligatoire.",
+  "common.dropOrChoose": "Déposez ici ou choisissez un fichier",
   "common.copy": "Copier",
   "common.copied": "Copié",
   "common.shared": "Partagé",

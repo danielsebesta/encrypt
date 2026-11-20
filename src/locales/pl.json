@@ -3,6 +3,7 @@
   "meta.defaultDescription": "Narzędzia open source. Kryptografia działa w przeglądarce. Podczas udostępniania, czatu lub przesyłania urządzenie opuszczają tylko szyfrogram i niezbędne metadane.",
   "common.working": "Pracuję…",
   "common.fieldRequired": "To pole jest wymagane.",
+  "common.dropOrChoose": "Upuść tutaj lub wybierz plik",
   "common.copy": "Kopiuj",
   "common.copied": "Skopiowano",
   "common.shared": "Udostępniono",

@@ -8,6 +8,7 @@
   import { generatePassphrase } from '../../lib/passphrase';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import { dropFiles } from './dropFiles';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
   import ToolResult from './ToolResult.svelte';
@@ -293,14 +294,14 @@
     <div class="stack">
       <Field label={t(dict, 'tools.steganography.sourceImage')} error={imageError} required>
         {#snippet children(control)}
-          <div class="dropzone aspect-video" class:dropzone--active={!!imageUrl}>
+          <div class="dropzone aspect-video" use:dropFiles class:dropzone--active={!!imageUrl}>
             {#if encodedImageUrl && !multiEncode}
               <img src={encodedImageUrl} alt={t(dict, 'tools.steganography.encodedResultAlt')} />
             {:else if imageUrl}
               <img src={imageUrl} alt={t(dict, 'tools.steganography.previewAlt')} />
             {:else}
               <Icon name="image" size={20} />
-              <span class="dropzone__title">{t(dict, 'tools.steganography.sourceImage')}</span>
+              <span class="dropzone__title">{t(dict, 'common.dropOrChoose')}</span>
               <span>{mode === 'encode' ? t(dict, 'tools.steganography.batchHint') : t(dict, 'tools.steganography.pngRecommended')}</span>
             {/if}
             <input {...control} bind:this={fileInput} type="file" accept="image/*" multiple={mode === 'encode'} on:change={handleImageFile} class="sr-only" />
