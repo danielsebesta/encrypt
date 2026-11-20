@@ -261,6 +261,7 @@
   "tools.ultimateEncrypt.encryptAnother": "Partager autre chose",
   "tools.ultimateEncrypt.progressDefaultTitle": "Chiffrement",
   "tools.ultimateEncrypt.progressDefaultDetail": "Le chiffrement tourne dans le navigateur.",
+  "tools.ultimateEncrypt.serverBusy": "Le serveur est occupé. L'envoi sera relancé dans un instant…",
   "tools.ultimateEncrypt.progressPreparingTitle": "Préparation",
   "tools.ultimateEncrypt.progressPreparingDetail": "Mise en forme de votre message pour le chiffrement.",
   "tools.ultimateEncrypt.progressZipDetail": "Création de l’archive ZIP...",

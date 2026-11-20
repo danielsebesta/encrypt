@@ -261,6 +261,7 @@
   "tools.ultimateEncrypt.encryptAnother": "Compartir otra cosa",
   "tools.ultimateEncrypt.progressDefaultTitle": "Cifrando",
   "tools.ultimateEncrypt.progressDefaultDetail": "El cifrado se ejecuta en el navegador.",
+  "tools.ultimateEncrypt.serverBusy": "El servidor está ocupado. La subida se reintentará en breve…",
   "tools.ultimateEncrypt.progressPreparingTitle": "Preparando el mensaje",
   "tools.ultimateEncrypt.progressPreparingDetail": "Recopilando el texto o archivo y preparándolo para cifrarlo.",
   "tools.ultimateEncrypt.progressZipDetail": "Creando un archivo ZIP...",

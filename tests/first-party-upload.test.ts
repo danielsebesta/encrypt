@@ -45,3 +45,23 @@ test('sendWithUploadPass gives up after repeated 503s', async () => {
     globalThis.fetch = original;
   }
 });
+
+test('sendWithUploadPass reports each wait before retrying a 429', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  const waits: number[] = [];
+  globalThis.fetch = (async () => {
+    calls++;
+    if (calls === 1) return new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '0' } });
+    return Response.json({ success: true });
+  }) as typeof fetch;
+  try {
+    const res = await sendWithUploadPass('/upload', { method: 'POST', body: '{}' }, {}, undefined, (ms) => waits.push(ms));
+    assert.equal(res.status, 200);
+    assert.equal(calls, 2);
+    assert.equal(waits.length, 1);
+    assert.ok(waits[0] >= 250);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

@@ -261,6 +261,7 @@
   "tools.ultimateEncrypt.encryptAnother": "Etwas anderes teilen",
   "tools.ultimateEncrypt.progressDefaultTitle": "Verschlüssele",
   "tools.ultimateEncrypt.progressDefaultDetail": "Verschlüsselung läuft im Browser.",
+  "tools.ultimateEncrypt.serverBusy": "Der Server ist ausgelastet. Der Upload wird gleich erneut versucht…",
   "tools.ultimateEncrypt.progressPreparingTitle": "Nachricht wird vorbereitet",
   "tools.ultimateEncrypt.progressPreparingDetail": "Text oder Datei werden erfasst und für die Verschlüsselung vorbereitet.",
   "tools.ultimateEncrypt.progressZipDetail": "ZIP-Archiv wird erstellt...",

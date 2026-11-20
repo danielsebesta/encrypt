@@ -261,6 +261,7 @@
   "tools.ultimateEncrypt.encryptAnother": "Udostępnij coś innego",
   "tools.ultimateEncrypt.progressDefaultTitle": "Szyfrowanie",
   "tools.ultimateEncrypt.progressDefaultDetail": "Szyfrowanie działa w przeglądarce.",
+  "tools.ultimateEncrypt.serverBusy": "Serwer jest zajęty. Przesyłanie zostanie wkrótce ponowione…",
   "tools.ultimateEncrypt.progressPreparingTitle": "Przygotowujemy wiadomość",
   "tools.ultimateEncrypt.progressPreparingDetail": "Pobieramy tekst lub plik i przygotowujemy go do zaszyfrowania.",
   "tools.ultimateEncrypt.progressZipDetail": "Tworzenie archiwum ZIP...",

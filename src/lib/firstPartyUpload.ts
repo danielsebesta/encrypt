@@ -89,6 +89,7 @@ export async function sendWithUploadPass(
   init: { method: string; body?: BodyInit | null; headers?: Record<string, string> },
   dict: Dict,
   onUploadProgress?: ByteProgress,
+  onWait?: (ms: number) => void,
 ): Promise<Response> {
   const send = (pass: string | null, progress?: ByteProgress) => requestOnce(url, {
     ...init,
@@ -106,7 +107,9 @@ export async function sendWithUploadPass(
       continue;
     }
     if (isTransientUploadStatus(res.status) && attempt < TRANSIENT_RETRIES) {
-      await sleep(retryAfterMs(res, attempt));
+      const wait = retryAfterMs(res, attempt);
+      onWait?.(wait);
+      await sleep(wait);
       continue;
     }
     return res;
@@ -117,6 +120,7 @@ export type UploadOptions = {
   retention?: Retention;
   burn?: boolean;
   onProgress?: ByteProgress;
+  onWait?: (ms: number) => void;
 };
 
 export type FirstPartyUpload = { id: string; url: string; expires: number | null; burn: boolean };
@@ -137,7 +141,7 @@ export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: U
           ...(options?.retention ? { [RETENTION_HEADER]: options.retention, [BURN_HEADER]: options.burn ? '1' : '0' } : {}),
         },
         body: JSON.stringify({ size: payload.length }),
-      }, dict);
+      }, dict, undefined, options?.onWait);
 
       if (directRes.ok) {
         const directData = await directRes.json().catch(() => null) as any;
@@ -169,7 +173,7 @@ export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: U
         ...(options?.retention ? { [RETENTION_HEADER]: options.retention, [BURN_HEADER]: options.burn ? '1' : '0' } : {}),
       },
       body: payload as BodyInit,
-    }, dict, options?.onProgress);
+    }, dict, options?.onProgress, options?.onWait);
     if (!res.ok) return null;
     const data = await res.json().catch(() => null) as any;
     if (!data?.success || typeof data.id !== 'string' || !BLOB_ID_RE.test(data.id)) return null;

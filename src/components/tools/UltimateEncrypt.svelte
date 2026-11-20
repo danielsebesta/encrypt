@@ -272,6 +272,10 @@
     }
   }
 
+  function showServerBusy() {
+    progressDetail = t(dict, 'tools.ultimateEncrypt.serverBusy');
+  }
+
   function onTransferProgress(loaded: number, total: number) {
     transferSnap = transferMeter.report(loaded, total);
   }
@@ -685,6 +689,7 @@
             retention: kept,
             burn,
             onProgress: onTransferProgress,
+            onWait: showServerBusy,
           });
           if (!uploaded) pushDebug('encrypt.click upload failed');
           if (uploaded?.expires) expires = Math.floor(uploaded.expires / 1000);
@@ -702,7 +707,7 @@
             'X-Send-Auth': prepared.authHeader,
             ...(sendInstance ? { 'X-Send-Instance': sendInstance.host } : {}),
           },
-        }, dict, onTransferProgress);
+        }, dict, onTransferProgress, showServerBusy);
         const data = await res.json().catch(() => null) as any;
         const result = data?.results?.[0];
         if (!res.ok || !result?.url) {

@@ -261,6 +261,7 @@
   "tools.ultimateEncrypt.encryptAnother": "Sdílet něco dalšího",
   "tools.ultimateEncrypt.progressDefaultTitle": "Šifruji",
   "tools.ultimateEncrypt.progressDefaultDetail": "Šifrování běží v prohlížeči.",
+  "tools.ultimateEncrypt.serverBusy": "Server je vytížený. Nahrání se za chvíli zkusí znovu…",
   "tools.ultimateEncrypt.progressPreparingTitle": "Připravuji zprávu",
   "tools.ultimateEncrypt.progressPreparingDetail": "Sbírám text nebo soubor a připravuji ho k zašifrování.",
   "tools.ultimateEncrypt.progressZipDetail": "Vytvářím ZIP archiv...",
