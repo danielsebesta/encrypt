@@ -1,5 +1,6 @@
 const KEYBOARD_MIN_PX = 120;
 const FALLBACK_KEYBOARD_RATIO = 0.4;
+const FALLBACK_KEYBOARD_RATIO_LANDSCAPE = 0.55;
 
 function isTextField(node: EventTarget | null): boolean {
   return node instanceof HTMLElement && (node.matches('input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=file]), textarea') || node.isContentEditable);
@@ -34,7 +35,7 @@ export function installViewportSync(): () => void {
     const unreported = focused && !reported && root.dataset.appPlatform === 'ios';
     if (!focused && covered <= KEYBOARD_MIN_PX) fullHeight = window.innerHeight;
     const height = unreported
-      ? Math.round(fullHeight * (1 - FALLBACK_KEYBOARD_RATIO))
+      ? Math.round(fullHeight * (1 - (window.innerWidth > window.innerHeight ? FALLBACK_KEYBOARD_RATIO_LANDSCAPE : FALLBACK_KEYBOARD_RATIO)))
       : Math.max(200, Math.round(vv.height));
     // WebKit pans the visual viewport down to reveal the focused field; the app has to
     // follow that pan or it ends up above the visible window (an empty void on iOS).
@@ -54,16 +55,20 @@ export function installViewportSync(): () => void {
     later(350);
     later(700);
   };
+  // iOS 26 can leave the visual viewport panned for a moment after the keyboard closes.
   const onFocusOut = () => {
     later(50);
     later(350);
+    later(900);
   };
+  const onVisible = () => { if (document.visibilityState === 'visible') later(50); };
   apply();
   vv.addEventListener('resize', apply);
   vv.addEventListener('scroll', apply);
   window.addEventListener('scroll', settle, { passive: true });
   document.addEventListener('focusin', onFocusIn);
   document.addEventListener('focusout', onFocusOut);
+  document.addEventListener('visibilitychange', onVisible);
   return () => {
     for (const timer of timers) clearTimeout(timer);
     vv.removeEventListener('resize', apply);
@@ -71,6 +76,7 @@ export function installViewportSync(): () => void {
     window.removeEventListener('scroll', settle);
     document.removeEventListener('focusin', onFocusIn);
     document.removeEventListener('focusout', onFocusOut);
+    document.removeEventListener('visibilitychange', onVisible);
     root.style.removeProperty('--app-vvh');
     root.style.removeProperty('--app-vvo');
     root.classList.remove('app-kbd');

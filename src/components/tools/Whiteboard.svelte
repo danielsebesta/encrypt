@@ -302,7 +302,8 @@
 
   let acceptedPassword = '';
   let reportedPassword = '';
-  $: if (verified && acceptedPassword && acceptedPassword !== reportedPassword) {
+  let passwordConfirmed = false;
+  $: if (verified && passwordConfirmed && acceptedPassword && acceptedPassword !== reportedPassword) {
     reportedPassword = acceptedPassword;
     onPasswordAccepted?.(acceptedPassword);
   }
@@ -744,6 +745,7 @@
           ws?.close();
           return;
         }
+        if (sharePassword || boardHasContent()) passwordConfirmed = true;
         verified = true;
         verifying = false;
       } else if (verifying && serverPresence > 1) {
@@ -779,6 +781,7 @@
     if (!opened || !replay.accept(opened.body._id as string) || !connectionKeys.bind(data.from, opened.signer)) return;
     const { body, signer } = opened;
     const from: string = data.from;
+    passwordConfirmed = true;
     if (verifying) { verified = true; verifying = false; }
 
     try {

@@ -2333,6 +2333,9 @@
   // the signatures still verify, but nothing that crossed the relay earlier becomes readable with that newcomer's keys.
   const SYNC_BATCH_CHARS = 300_000;
 
+  const ACK_SYNC_MIN_GAP_MS = 60_000;
+  const ackSyncAt = new Map<string, number>();
+
   async function sendLiveHistorySync(member: FsMember) {
     if (roomConfig.mode !== 'live' || !fsSession) return;
     const shared = messages
@@ -2546,6 +2549,7 @@
     // After a real leave window, this tab may announce join again; soft reconnects stay quiet.
     if (disconnectedAt && Date.now() - disconnectedAt >= MEMBER_LEAVE_GRACE_MS) {
       joinAnnounced = false;
+      joinAfterAbsence = true;
       try { localStorage.removeItem('encrypt:joined:' + roomId); } catch {}
     }
     disconnectedAt = 0;
@@ -2573,7 +2577,10 @@
 
   let acceptedPassword = '';
   let reportedPassword = '';
-  $: if (verified && acceptedPassword && acceptedPassword !== reportedPassword) {
+  // An empty channel also counts as verified, so a mistyped password is only remembered once something proves it right.
+  let passwordConfirmed = false;
+  $: if (acceptedPassword && !passwordConfirmed && (sharePassword || messages.some((m) => !m.mine && !!m.pk && m.pk !== mySignerId))) passwordConfirmed = true;
+  $: if (verified && passwordConfirmed && acceptedPassword && acceptedPassword !== reportedPassword) {
     reportedPassword = acceptedPassword;
     onPasswordAccepted?.(acceptedPassword);
   }
@@ -2951,6 +2958,7 @@
         ws.send(JSON.stringify({ type: 'message', payload: ack, id: genId() }));
       }
       if (!bindClient(parsed.clientId, signer)) return true;
+      passwordConfirmed = true;
       if (callActive) void sendCallSignal({ action: 'presence' });
       const joiner = senderInfo(parsed);
       addOnlineUser(joiner);
@@ -2983,12 +2991,16 @@
       const member = fsMember(parsed, signer);
       if (fsSession && member) await fsSession.memberSeen(member, parsed.challenge === verificationChallenge);
       if (parsed.challenge !== verificationChallenge) return true;
+      passwordConfirmed = true;
       if (verifying) markVerified();
       addOnlineUser(acker);
       noteMember(signer, acker);
       clientArrived(signer, parsed.clientId);
       // Sync runs both ways: whoever comes back hands over what they wrote while the others were away.
-      if (fsSession && member) void sendLiveHistorySync(member);
+      if (fsSession && member && parsed.clientId && Date.now() - (ackSyncAt.get(parsed.clientId) ?? 0) > ACK_SYNC_MIN_GAP_MS) {
+        ackSyncAt.set(parsed.clientId, Date.now());
+        void sendLiveHistorySync(member);
+      }
       return true;
     }
 
@@ -5216,7 +5228,7 @@
   function clientDeparted(clientId: string) {
     const signer = clientSigners.get(clientId);
     const set = signer ? liveClients.get(signer) : undefined;
-    if (!signer || !set || !set.delete(clientId)) return;
+    if (!signer || signer === mySignerId || !set || !set.delete(clientId)) return;
     refreshOnline();
     if (set.size) return;
     const name = members.get(signer)?.name ?? '';
@@ -5287,6 +5299,8 @@
 
   // Everyone gets one notice when a person arrives, not one per reconnect: skip it if this browser announced itself just now.
   let joinAnnounced = false;
+  // After a real absence the others have been told this person left, even if that notice has not reached this browser yet.
+  let joinAfterAbsence = false;
   $: if (verified && !joinAnnounced && (roomConfig.mode !== 'live' || fsSession)) {
     joinAnnounced = true;
     void announceJoin();
@@ -5297,7 +5311,9 @@
     try {
       if (shouldSuppressJoin(Number(localStorage.getItem(key) || 0))) return;
     } catch {}
-    if (stillAnnounced(messages.flatMap((m) => (m.notice ? [m.notice] : [])), mySignerId, identity.name)) return;
+    const afterAbsence = joinAfterAbsence;
+    joinAfterAbsence = false;
+    if (!afterAbsence && stillAnnounced(messages.flatMap((m) => (m.notice ? [m.notice] : [])), mySignerId, identity.name)) return;
     if (await sendMemberEvent('joined', {}, mySignerId)) {
       try { localStorage.setItem(key, String(Date.now())); } catch {}
     } else {

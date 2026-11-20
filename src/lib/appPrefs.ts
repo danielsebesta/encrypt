@@ -72,6 +72,12 @@ export function saveRememberPasswords(on: boolean) {
   write(LS_REMEMBER_PASSWORDS, on ? '1' : '0');
 }
 
+export function resetRememberPasswords() {
+  try {
+    localStorage.removeItem(LS_REMEMBER_PASSWORDS);
+  } catch {}
+}
+
 export function loadDefaultRoomMode(): DefaultRoomMode {
   return read(LS_DEFAULT_ROOM) === 'ttl' ? 'ttl' : 'live';
 }
