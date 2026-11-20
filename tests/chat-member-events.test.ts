@@ -7,6 +7,7 @@ import {
   memberEventBucket,
   memberEventId,
   shouldSuppressJoin,
+  stillAnnounced,
 } from '../src/lib/chatMemberEvents';
 
 describe('chat member events', () => {
@@ -43,5 +44,13 @@ describe('chat member events', () => {
     assert.equal(a.length, 16);
     assert.equal(a, b);
     assert.notEqual(a, c);
+  });
+
+  it('skips a join notice while the last one about the member still says joined', () => {
+    assert.equal(stillAnnounced([], 'pk', 'Ann'), false);
+    assert.equal(stillAnnounced([{ kind: 'joined', who: 'pk' }], 'pk', 'Ann'), true);
+    assert.equal(stillAnnounced([{ kind: 'joined', who: 'pk' }, { kind: 'left', who: 'Ann' }], 'pk', 'Ann'), false);
+    assert.equal(stillAnnounced([{ kind: 'joined', who: 'pk' }, { kind: 'left', who: 'Bob' }], 'pk', 'Ann'), true);
+    assert.equal(stillAnnounced([{ kind: 'joined', who: 'other' }], 'pk', 'Ann'), false);
   });
 });

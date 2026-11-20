@@ -6,6 +6,8 @@
     isDuplicateMemberNotice,
     memberEventId,
     shouldSuppressJoin,
+    stillAnnounced,
+    type MemberNotice,
   } from '../../lib/chatMemberEvents';
   import { padPayload, SIGNATURE_BYTES } from '../../lib/padding';
   import { loadRoomIdentity, loadTrustTable, saveTrustTable, type TrustTable } from '../../lib/chatIdentity';
@@ -150,6 +152,7 @@
     unacked?: boolean;
     slow?: boolean;
     failed?: boolean;
+    notice?: MemberNotice;
   };
 
   type ChatFile = { name: string; size: number; urls: string[]; key: string; voice?: true; duration?: number };
@@ -5240,6 +5243,7 @@
     const msg: Message = {
       id, text: memberEventText(parsed, name), sender: '', initials: parsed.kind === 'left' ? '←' : '→', color: 'var(--accent)',
       mine: false, time: at, ttl: 0, remaining: 0, pk: signer,
+      ...(parsed.kind === 'joined' || parsed.kind === 'left' ? { notice: { kind: parsed.kind, who: parsed.kind === 'left' ? String(parsed.name ?? '') : signer } } : {}),
       ...(signed ? { signed } : {}),
     };
     messages = [...messages, msg].sort((x, y) => x.time - y.time);
@@ -5282,6 +5286,7 @@
     try {
       if (shouldSuppressJoin(Number(localStorage.getItem(key) || 0))) return;
     } catch {}
+    if (stillAnnounced(messages.flatMap((m) => (m.notice ? [m.notice] : [])), mySignerId, identity.name)) return;
     if (await sendMemberEvent('joined', {}, mySignerId)) {
       try { localStorage.setItem(key, String(Date.now())); } catch {}
     } else {
