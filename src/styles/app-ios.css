@@ -1,0 +1,1231 @@
+:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane,
+:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-glass {
+    background: var(--app-surface) !important;
+    background-image: none !important;
+    border: 0;
+    border-radius: 0;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+/* Konsta's bottom fade is a band under the bar; hide it in captures. */
+:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > .absolute.bottom-0 {
+    display: none !important;
+}
+/* Konsta fades the iOS navbar to transparent (mask + /50 surface) so thread
+   media bleeds through the title — keep the room bar readable. */
+:root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(1),
+:root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(2) {
+    background: var(--app-bg) !important;
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    opacity: 1 !important;
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+    /* Konsta hangs these layers 26px below the bar for its fade; the room bar is
+       opaque, so that overhang only painted a band over the content underneath. */
+    bottom: 0 !important;
+    height: 100% !important;
+}
+:root[data-app-platform="ios"] .k-navbar.app-hub-bar > div:last-child .app-hub-label {
+    letter-spacing: 0.01em;
+}
+:root[data-app-platform="ios"] .app-sheet {
+    border-radius: 8px 8px 0 0;
+    transition-timing-function: var(--ease-move);
+    box-shadow: var(--shadow-float);
+}
+
+/* iOS 26: tab presses contract with a spring settle (Material uses ink ripple instead) */
+:root[data-app-platform="ios"] .k-toolbar .k-link {
+    transition: transform 180ms var(--ease-move);
+}
+:root[data-app-platform="ios"] .k-toolbar .k-link:active {
+    transform: scale(0.94);
+}
+@media (prefers-reduced-motion: reduce) {
+    :root[data-app-platform="ios"] .k-toolbar .k-link {
+        transition: none;
+    }
+}
+:root[data-app-platform="ios"] .attach-badge { color: var(--app-on-tint); }
+:root[data-app-platform="ios"] .attach-badge--file { background: var(--app-tint); }
+:root[data-app-platform="ios"] .attach-badge--board { background: var(--app-tint-strong); }
+:root[data-app-platform="ios"] .attach-badge--once { background: var(--app-warn); }
+:root[data-app-platform="ios"] .attach-badge--schedule { background: var(--app-fill); color: var(--app-label); }
+:root[data-app-platform="ios"] .app-scroll {
+    padding-bottom: calc(8.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* ============================================================
+   iOS skin — Cupertino look for embedded site components
+   ============================================================ */
+
+:root[data-app-platform="ios"] {
+    .btn {
+        background: var(--app-tint);
+        color: var(--app-on-tint);
+    }
+    @media (hover: hover) {
+        .btn:not(:disabled):hover {
+            background: var(--app-tint-strong);
+        }
+    }
+    .btn:not(:disabled):active {
+        opacity: 0.7;
+    }
+    .btn:disabled {
+        background: var(--app-fill);
+        color: var(--app-label-3);
+    }
+    .btn-secondary {
+        background: var(--app-fill);
+        color: var(--app-tint);
+    }
+    @media (hover: hover) {
+        .btn-secondary:not(:disabled):hover {
+            background: var(--app-fill-2);
+            border-color: transparent;
+        }
+    }
+    .btn-outline {
+        background: transparent;
+        color: var(--app-tint);
+        border: 1px solid var(--app-outline);
+    }
+    @media (hover: hover) {
+        .btn-outline:not(:disabled):hover {
+            border-color: var(--app-tint);
+            background: var(--app-tint-container);
+        }
+    }
+    .btn-sm {
+        border-radius: 6px;
+        min-height: 34px;
+    }
+    .btn-icon {
+        border-radius: 50%;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Fields: filled gray, no border, 10px radius */
+    .input {
+        background: var(--app-fill);
+        border: none;
+        border-radius: 6px;
+        min-height: 38px;
+        color: var(--app-label);
+        font-size: 16px;
+    }
+    .input::placeholder {
+        color: var(--app-label-3);
+    }
+    .input:focus-visible {
+        outline: 1.5px solid var(--app-tint);
+        outline-offset: 0;
+    }
+    .input[aria-invalid="true"] {
+        box-shadow: 0 0 0 1.5px var(--app-error);
+    }
+    textarea.input {
+        border-radius: 6px;
+    }
+    select.input {
+        background-color: var(--app-fill);
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 16px;
+        padding-inline-end: 2.5rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9l6 6l6-6'/%3E%3C/svg%3E");
+    }
+    .label {
+        color: var(--app-label);
+        font-weight: 600;
+        font-size: 15px;
+    }
+
+    /* Grouped cards */
+    .panel,
+    .card {
+        background: var(--app-surface);
+        border: none;
+        border-radius: 8px;
+        box-shadow: none;
+    }
+
+    /* Dropzone */
+    .dropzone {
+        background: var(--app-fill);
+        border: 1.5px dashed var(--app-outline);
+        border-radius: 8px;
+        color: var(--app-label-2);
+    }
+    .dropzone--dragging {
+        border-color: var(--app-tint);
+        background: var(--app-tint-container);
+        color: var(--app-tint);
+    }
+    .dropzone--active {
+        border-style: solid;
+    }
+
+    /* Status banners */
+    .status {
+        border: none;
+        border-radius: 8px;
+        background: var(--app-fill);
+        color: var(--app-label-2);
+    }
+    .status--error {
+        background: var(--app-error-weak);
+        color: var(--app-on-error-weak);
+    }
+    .status--warn {
+        background: var(--app-warn-weak);
+        color: var(--app-on-warn-weak);
+    }
+    .status--busy {
+        background: var(--app-fill);
+        color: var(--app-label-2);
+    }
+
+    /* Popup menus — solid surface, hairline, float shadow */
+    .menu,
+    .msg-actions__menu,
+    .chat-profile__pop,
+    .save-room,
+    .chat-members {
+        background: var(--app-surface);
+        border: 1px solid var(--app-outline);
+        border-radius: 8px;
+        box-shadow: var(--shadow-float);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    .chat-profile__pop {
+        border-radius: 8px;
+    }
+    .chat-members {
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .menu__item {
+        border-radius: 8px;
+        color: var(--app-label);
+        font-weight: 500;
+    }
+    .menu__item:not(:disabled):focus-visible {
+        background: var(--app-fill);
+        color: var(--app-label);
+    }
+    @media (hover: hover) {
+        .menu__item:not(:disabled):hover {
+            background: var(--app-fill);
+            color: var(--app-label);
+        }
+    }
+    .chat-jump-latest {
+        background: var(--app-surface);
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    /* Chat chrome — solid bar. Menus paint above it. */
+    .chat-header {
+        background: transparent;
+        border-bottom: none;
+        position: relative;
+        isolation: isolate;
+        z-index: 40;
+    }
+    .chat-header::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--app-bg);
+        box-shadow: none;
+    }
+    .chat-share-banner,
+    .chat-call-banner {
+        background: var(--app-surface);
+        border-bottom: 1px solid var(--app-outline);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    .chat-messages {
+        scrollbar-width: none;
+        /* Extra top gap so the first messages clear the header's bottom edge
+           and its fade instead of sitting right under it. */
+        padding: 1.4rem 0.75rem 0.75rem;
+    }
+    .chat-messages::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Konsta Message bubbles (iMessage-style) */
+    .chat-messages {
+        gap: 0;
+    }
+    .chat-kmsg-wrap {
+        display: flex;
+        flex-direction: column;
+        margin-top: 3px;
+        content-visibility: auto;
+        contain-intrinsic-size: auto 12rem auto 4rem;
+    }
+    .chat-kmsg-wrap--break {
+        margin-top: 10px;
+    }
+    .chat-kmsg {
+        margin: 0;
+    }
+    .chat-system {
+        margin-block: 8px;
+    }
+    .chat-kmsg-wrap.chat-bubble--highlight .k-message > .flex-col > .break-words {
+        box-shadow: 0 0 0 2px var(--accent-line);
+    }
+    .chat-kmsg {
+        max-width: 85%;
+    }
+    /* Tablets / foldables: cap bubbles so they never stretch into screen-wide bars. */
+    @media (min-width: 768px) {
+        .chat-kmsg {
+            max-width: min(65%, 34rem);
+        }
+    }
+    .chat-kmsg > .flex-col > .break-words {
+        border-radius: 8px 8px 8px 6px;
+        position: relative;
+    }
+    .chat-kmsg--mine > .flex-col > .break-words {
+        border-radius: 8px 8px 6px 8px;
+    }
+    /* actions float beside the bubble, hover/long-press reveals */
+    .chat-kmsg-actions {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        left: calc(100% + 6px);
+        z-index: 3;
+        opacity: 0;
+        transition: opacity 180ms var(--ease-out);
+    }
+    .chat-kmsg--mine .chat-kmsg-actions {
+        left: auto;
+        right: calc(100% + 6px);
+    }
+    .chat-kmsg-actions:focus-within,
+    .chat-kmsg-wrap.chat-bubble--menu .chat-kmsg-actions {
+        opacity: 1;
+    }
+    @media (hover: hover) {
+        .chat-kmsg-wrap:hover .chat-kmsg-actions {
+            opacity: 1;
+        }
+    }
+    .chat-kmsg--mine .chat-sender-row,
+    .chat-kmsg--mine .chat-kmsg-meta {
+        justify-content: flex-end;
+    }
+    .chat-kmsg-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .k-message-avatar .chat-avatar {
+        width: 100%;
+        height: 100%;
+    }
+    .chat-kmsg--mine .chat-text,
+    .chat-kmsg--mine .chat-file__name,
+    .chat-kmsg--mine .chat-once-note,
+    .chat-kmsg--mine .chat-preview-code,
+    .chat-kmsg--mine .chat-sender,
+    .chat-kmsg--mine .chat-timer__ring,
+    .chat-kmsg--mine .chat-timer__num,
+    .chat-kmsg--mine .msg-actions__trigger {
+        color: var(--app-on-bubble-mine) !important;
+    }
+    .chat-kmsg--mine .chat-sender,
+    .chat-kmsg--mine .msg-actions__trigger {
+        color: color-mix(in srgb, var(--app-on-bubble-mine) 82%, transparent) !important;
+    }
+    .chat-kmsg--mine .msg-actions--open .msg-actions__trigger {
+        background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
+        color: var(--app-on-bubble-mine) !important;
+    }
+    @media (hover: hover) {
+        .chat-kmsg--mine .msg-actions__trigger:hover {
+            background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
+            color: var(--app-on-bubble-mine) !important;
+        }
+    }
+    .chat-kmsg--mine .chat-once-badge {
+        background: color-mix(in srgb, var(--app-on-bubble-mine) 18%, transparent);
+        color: var(--app-on-bubble-mine) !important;
+    }
+    .chat-text {
+        color: var(--app-on-bubble);
+    }
+    .chat-system {
+        color: var(--app-label-2);
+        font-size: 12px;
+    }
+    .chat-avatar {
+        box-shadow: none;
+        background-color: var(--app-surface-3);
+    }
+    .chat-sender {
+        font-weight: 600;
+    }
+    .chat-mode-badge {
+        border: none;
+        border-radius: 6px;
+        background: var(--app-tint-container);
+        color: var(--app-on-tint-container);
+        font-size: 11px;
+        font-weight: 600;
+        min-height: 24px;
+    }
+    .chat-mode-badge--soft {
+        background: var(--app-fill);
+        color: var(--app-label-2);
+    }
+    .chat-call-accept {
+        background: var(--app-tint);
+        color: var(--app-on-tint);
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    .chat-call-decline {
+        background: var(--app-fill);
+        color: var(--app-label);
+        border-radius: 6px;
+    }
+    .chat-key-warn {
+        background: var(--app-warn-weak);
+        color: var(--app-on-warn-weak);
+    }
+    .chat-member--warn {
+        background: var(--app-warn-weak);
+        border-radius: 8px;
+    }
+    .chat-jump-latest {
+        color: var(--app-tint);
+        border-radius: 6px;
+    }
+    .chat-jump-latest__count {
+        background: var(--app-error);
+        color: var(--app-on-error);
+    }
+    .chat-file {
+        background: var(--app-fill);
+        border: none;
+        border-radius: 8px;
+        color: var(--app-tint);
+    }
+    .chat-kmsg--mine .chat-file {
+        background: color-mix(in srgb, var(--app-on-bubble-mine) 12%, transparent);
+        color: var(--app-on-bubble-mine);
+    }
+    @media (hover: hover) {
+        .chat-file__dl:hover {
+            background: var(--app-fill-2);
+        }
+    }
+    .chat-whiteboard-card {
+        border: none;
+        background: var(--app-fill);
+        border-radius: 8px;
+    }
+    .chat-whiteboard-card__icon {
+        background: var(--app-tint-container);
+        color: var(--app-on-tint-container);
+        border-radius: 8px;
+    }
+    .chat-whiteboard-card__btn {
+        border: none;
+        border-radius: 6px;
+        background: var(--app-fill-2);
+        color: var(--app-label);
+    }
+    .chat-whiteboard-card__btn--primary {
+        background: var(--app-tint);
+        color: var(--app-on-tint);
+    }
+    .chat-preview-text {
+        border-color: var(--app-separator);
+        border-radius: 8px;
+    }
+    .chat-preview-expand {
+        background: var(--app-fill);
+        color: var(--app-tint);
+        border-top-color: var(--app-separator);
+    }
+    .chat-once-reveal {
+        border: 1px dashed var(--app-outline);
+        border-radius: 8px;
+        background: var(--app-fill);
+    }
+    .chat-once-reveal__label {
+        color: var(--app-tint);
+    }
+    .chat-once-badge {
+        background: var(--app-tint-container);
+        color: var(--app-on-tint-container);
+        border-radius: 6px;
+    }
+    .chat-schedule-item {
+        background: var(--app-fill);
+        border: none;
+        border-radius: 8px;
+    }
+    .chat-schedule-item__when {
+        color: var(--app-tint);
+    }
+    .chat-reply-bar,
+    .chat-schedule-list {
+        background: var(--app-bg);
+    }
+    .chat-wrong-password,
+    .chat-file-error {
+        background: var(--app-error-weak);
+        color: var(--app-error);
+    }
+    .chat-upload-progress .status {
+        border-radius: 8px;
+    }
+    .chat-thread--drop {
+        outline-color: var(--app-tint);
+    }
+    .chat-status {
+        background: transparent;
+        border: 1.5px solid color-mix(in srgb, var(--app-tint) 28%, transparent);
+        border-top-color: var(--app-tint);
+        animation: app-spin 320ms var(--ease-move) infinite;
+        will-change: transform;
+        backface-visibility: hidden;
+    }
+    .chat-status--connected {
+        border: 0;
+        background: var(--app-tint);
+        box-shadow: none;
+        animation: none;
+        will-change: auto;
+    }
+    .chat-loader {
+        border-color: color-mix(in srgb, var(--app-tint) 25%, transparent);
+        border-top-color: var(--app-tint);
+    }
+
+    /* Whiteboard chrome — solid bar, same stacking reason as .chat-header */
+    .wb-pill {
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        position: relative;
+        isolation: isolate;
+    }
+    .wb-pill::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        background: var(--app-surface);
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    .wb-bar:has(.menu--open) {
+        z-index: 40;
+    }
+    .wb-pop {
+        z-index: 40;
+    }
+    .wb-btn {
+        color: var(--app-label);
+        border-radius: 50%;
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
+    @media (hover: hover) {
+        .wb-btn:not(:disabled):hover {
+            background: var(--app-fill);
+        }
+    }
+    .wb-btn[aria-pressed="true"],
+    .wb-btn--active {
+        color: var(--app-tint);
+    }
+    .wb-share-banner {
+        background: var(--app-surface);
+        border-bottom: 1px solid var(--app-separator);
+    }
+    .wb-chat {
+        background: var(--app-surface) !important;
+        border: 1px solid var(--app-separator) !important;
+        border-radius: 8px !important;
+    }
+
+    /* Checkboxes — iOS circular check */
+    input[type="checkbox"] {
+        border-radius: 6px;
+        border-color: var(--app-label-3);
+        background: transparent;
+    }
+    input[type="checkbox"]:checked {
+        background-color: var(--app-tint);
+        border-color: var(--app-tint);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12l5 5L20 7'/%3E%3C/svg%3E");
+    }
+    input[type="radio"] {
+        border-color: var(--app-label-3);
+        background: transparent;
+    }
+    input[type="radio"]:checked {
+        border-color: var(--app-tint);
+        background-color: var(--app-tint);
+        background-image: none;
+        background-clip: content-box;
+        padding: 4px;
+        box-shadow: none;
+    }
+
+    /* Range — iOS slider */
+    input[type="range"]::-webkit-slider-runnable-track {
+        background: var(--app-fill-2);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+        border: none;
+        background: var(--app-surface);
+        box-shadow: none;
+        width: 24px;
+        height: 24px;
+        margin-top: -9px;
+    }
+
+    /* Empty state art */
+    .empty__title {
+        color: var(--app-label);
+    }
+}
+
+/* ============================================================
+   Konsta tuning — finishing touches per platform
+   ============================================================ */
+
+/* Navbar capsules and the tab bar are solid surfaces. The back link keeps
+   its press feedback. */
+:root[data-app-platform="ios"] {
+    --app-glass-shadow-sm: none;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:active {
+    transform: scale(0.94);
+}
+/* Icon-only nav controls (back, +, share) shrink to the icon. Keep a 44px square so the 8px radius stays even. */
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(button:only-child),
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(.k-link:only-child) {
+    min-width: 44px;
+}
+:root[data-app-platform="ios"] .k-navbar-back-link {
+    border-radius: 6px;
+    transition: background 180ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+    :root[data-app-platform="ios"] .k-navbar-back-link {
+        transition: none;
+    }
+}
+:root[data-app-platform="ios"] .app-composer__field {
+    flex: 1;
+    min-width: 0;
+    min-height: 38px;
+    background: var(--app-fill);
+    border-radius: 6px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+}
+:root[data-app-platform="ios"] .voice-rec-app__cancel {
+    background: var(--app-fill);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: var(--app-error);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .voice-rec-app__cancel:hover {
+        background: color-mix(in srgb, var(--app-surface) 80%, var(--app-label) 16%);
+    }
+}
+:root[data-app-platform="ios"] .voice-rec-app__mic:active:not(:disabled) {
+    transform: scale(0.9);
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--app-fill);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: var(--app-label);
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move), color 180ms var(--ease-move);
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn svg {
+    transition: transform 320ms var(--ease-move);
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn[aria-expanded="true"] svg {
+    transform: rotate(45deg);
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn:active:not(:disabled) {
+    transform: scale(0.9);
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn--active {
+    background: var(--app-tint);
+    color: var(--app-on-tint);
+    box-shadow: none;
+}
+:root[data-app-platform="ios"] .chat-input .chat-attach-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .chat-input .chat-attach-btn:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--app-surface) 80%, var(--app-label) 16%);
+        color: var(--app-label);
+    }
+    :root[data-app-platform="ios"] .chat-input .chat-attach-btn--active:hover:not(:disabled) {
+        background: var(--app-tint-strong);
+        color: var(--app-on-tint);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    :root[data-app-platform="ios"] .chat-input .chat-attach-btn,
+    :root[data-app-platform="ios"] .chat-input .chat-attach-btn svg {
+        transition: none;
+    }
+}
+
+:root[data-app-platform="ios"][data-app-scheme] .chat-attach-dropdown,
+:root[data-app-platform="ios"][data-app-scheme] .chat-attach-submenu {
+    background: var(--app-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: none;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 6px;
+    width: 232px;
+}
+:root[data-app-platform="ios"][data-app-scheme] .chat-attach-submenu {
+    margin: 2px 0 4px;
+    padding: 2px 0 2px 10px;
+    border-left: none;
+    border-radius: 8px;
+    width: auto;
+    background: var(--app-fill);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+}
+:root[data-app-platform="ios"] .chat-attach-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--app-label);
+    text-align: left;
+    transition: background 100ms var(--ease-out);
+}
+:root[data-app-platform="ios"] .chat-attach-option:active { background: var(--app-fill); }
+:root[data-app-platform="ios"] .chat-attach-option:disabled { opacity: 0.4; }
+:root[data-app-platform="ios"] .chat-attach-option--on { color: var(--app-tint); }
+:root[data-app-platform="ios"] .chat-attach-option svg { color: var(--app-tint); }
+
+:root[data-app-platform="ios"] .chat-input .chat-send-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--app-fill);
+    color: var(--app-label-3);
+    opacity: 1;
+    box-shadow: none;
+    transition: transform 320ms var(--ease-move), background 180ms var(--ease-move), color 180ms var(--ease-move), box-shadow 180ms var(--ease-move);
+}
+:root[data-app-platform="ios"] .chat-input .chat-send-btn.chat-send-btn--ready:not(:disabled) {
+    background: var(--app-tint);
+    color: var(--app-on-tint);
+    box-shadow: none;
+}
+:root[data-app-platform="ios"] .chat-input .chat-send-btn:active:not(:disabled) { transform: scale(0.9); }
+:root[data-app-platform="ios"] .chat-input .chat-send-btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
+:root[data-app-platform="ios"] .chat-input .chat-send-btn:disabled {
+    background: var(--app-fill);
+    color: var(--app-label-3);
+    opacity: 1;
+    box-shadow: none;
+    cursor: default;
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .chat-input .chat-send-btn.chat-send-btn--ready:hover:not(:disabled) {
+        background: var(--app-tint-strong);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    :root[data-app-platform="ios"] .chat-input .chat-send-btn {
+        transition: none;
+    }
+}
+
+:root[data-app-platform="ios"] .msg-quote {
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--app-on-bubble) 9%, transparent);
+    border-left: 2.5px solid var(--app-tint);
+    overflow: hidden;
+}
+:root[data-app-platform="ios"] .msg-quote__body { padding: 6px 10px; }
+:root[data-app-platform="ios"] .chat-kmsg--mine .msg-quote {
+    background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
+    border-left-color: var(--app-on-bubble-mine);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .msg-quote__text { color: color-mix(in srgb, var(--app-on-bubble-mine) 78%, transparent); }
+:root[data-app-platform="ios"] .msg-quote--composer {
+    background: var(--app-fill);
+    border-left-color: var(--app-tint);
+}
+
+:root[data-app-platform="ios"] .msg-reactions__chip {
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 13px;
+    border-color: var(--app-outline);
+    background: var(--app-surface);
+    box-shadow: none;
+    color: var(--app-label);
+}
+:root[data-app-platform="ios"] .msg-reactions__chip--mine {
+    background: var(--app-tint-container);
+    color: var(--app-on-tint-container);
+    box-shadow: 0 0 0 0.5px var(--app-tint);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .msg-reactions__chip {
+    background: color-mix(in srgb, var(--app-on-bubble-mine) 16%, transparent);
+    box-shadow: none;
+    color: var(--app-on-bubble-mine);
+}
+
+:root[data-app-platform="ios"] .msg-actions__trigger {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 6px;
+    color: var(--app-label-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 100ms var(--ease-out), color 100ms var(--ease-out);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .msg-actions__trigger:hover { background: var(--app-fill); color: var(--app-label); }
+}
+
+:root[data-app-platform="ios"] .chat-typing { color: var(--app-label-2); font-size: 13px; }
+
+:root[data-app-platform="ios"] .chat-once-reveal {
+    border-radius: 8px;
+    background: var(--app-fill);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-once-reveal {
+    background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
+}
+:root[data-app-platform="ios"] .chat-once-reveal__label {
+    color: var(--app-tint);
+    font-weight: 600;
+}
+
+:root[data-app-platform="ios"] .chat-preview-text {
+    background: color-mix(in srgb, var(--app-on-bubble) 7%, transparent);
+    border-radius: 8px;
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-preview-text {
+    background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-file__size,
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-whiteboard-card__meta,
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-preview-expand,
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-once-note {
+    color: color-mix(in srgb, var(--app-on-bubble-mine) 75%, transparent);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-whiteboard-card {
+    background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-whiteboard-card__title {
+    color: var(--app-on-bubble-mine);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .chat-whiteboard-card__btn--primary {
+    background: var(--app-on-bubble-mine);
+    color: var(--app-bubble-mine);
+}
+:root[data-app-platform="ios"] .chat-kmsg--mine .msg-quote__name { color: var(--app-on-bubble-mine) !important; }
+
+/* Reduced transparency: swap Liquid Glass for opaque surfaces, keep text contrast */
+@media (prefers-reduced-transparency: reduce) {
+    :root[data-app-platform="ios"] .k-glass,
+    :root[data-app-platform="ios"] .k-navbar-back-link,
+    :root[data-app-platform="ios"] .k-sheet,
+    :root[data-app-platform="ios"] .app-sheet,
+    :root[data-app-platform="ios"] .k-dialog,
+    :root[data-app-platform="ios"] .k-popover .k-glass,
+    :root[data-app-platform="ios"] .k-actions .k-actions-group,
+    :root[data-app-platform="ios"] .menu,
+    :root[data-app-platform="ios"] .msg-actions__menu,
+    :root[data-app-platform="ios"] .chat-profile__pop,
+    :root[data-app-platform="ios"] .save-room,
+    :root[data-app-platform="ios"] .chat-members,
+    :root[data-app-platform="ios"] .chat-jump-latest,
+    :root[data-app-platform="ios"] .chat-share-banner,
+    :root[data-app-platform="ios"] .chat-call-banner,
+    :root[data-app-platform="ios"] .chat-input .chat-attach-btn:not(.chat-attach-btn--active),
+    :root[data-app-platform="ios"] .chat-attach-dropdown,
+    :root[data-app-platform="ios"] .chat-attach-submenu {
+        background: var(--app-surface) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    :root[data-app-platform="ios"] .chat-header::before,
+    :root[data-app-platform="ios"] .wb-pill::before {
+        background: var(--app-surface);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+
+/* iOS alerts follow the app tint, as UIAlertController follows the window tintColor.
+   Konsta resolves --color-primary once on :root, so the --color-* tokens are overridden at this scope. */
+:root[data-app-platform="ios"] .k-dialog,
+:root[data-app-platform="ios"] .k-actions {
+    --color-primary: var(--app-tint);
+    --color-brand-primary: var(--app-tint);
+    --color-ios-primary: var(--app-tint);
+    --color-ios-primary-tint: var(--app-tint);
+    --color-ios-primary-shade: var(--app-tint-strong);
+}
+:root[data-app-platform="ios"] .k-dialog .app-dialog-primary:not(:disabled) {
+    color: var(--app-on-tint);
+}
+:root[data-app-platform="ios"] .k-dialog .app-dialog-cancel {
+    --color-primary: var(--app-label);
+    --color-brand-primary: var(--app-label);
+    --color-ios-primary: var(--app-label);
+}
+:root[data-app-platform="ios"] .k-dialog .k-button {
+    padding-inline: 0.875rem;
+}
+:root[data-app-platform="ios"] .k-dialog.app-dialog--stack > div:has(> .k-button) {
+    flex-direction: column-reverse;
+    align-items: stretch;
+}
+:root[data-app-platform="ios"] .k-dialog.app-dialog--stack > div:has(> .k-button) > .k-button {
+    width: 100%;
+}
+:root[data-app-platform="ios"] .k-dialog .app-dialog-destructive {
+    --color-primary: var(--app-error);
+    --color-brand-primary: var(--app-error);
+    --color-ios-primary: var(--app-error);
+    --color-ios-primary-tint: var(--app-error);
+    --color-ios-primary-shade: var(--app-error);
+}
+
+
+/* iOS 26 toolbar: related actions share one glass capsule, each with its own pressed state.
+   Konsta's whole-capsule glare and scale would light up all three at once, so they are off here. */
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(> .app-nav-btn) {
+    flex: 0 0 auto;
+    gap: 0;
+    padding-inline: 0.125rem;
+    --color-ios-hover-highlight: transparent;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(> .app-nav-btn):active {
+    transform: none;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 8px;
+    background: transparent;
+    transition: background-color 180ms var(--ease-out);
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:active:not(:disabled) {
+    background: color-mix(in srgb, var(--app-label) 16%, transparent);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:hover:not(:disabled):not(:active) {
+        background: color-mix(in srgb, var(--app-label) 8%, transparent);
+    }
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:disabled {
+    opacity: 0.4;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: -2px;
+}
+/* Konsta's menu/list glare is a 50% (light) / 30% (dark) white spotlight under the pointer. */
+:root[data-app-platform="ios"] {
+    --color-ios-hover-highlight: color-mix(in srgb, var(--app-label) 12%, transparent);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] {
+    --color-ios-hover-highlight: color-mix(in srgb, var(--app-label) 8%, transparent);
+}
+
+:root[data-app-platform="ios"] .call__bar {
+    flex-wrap: nowrap;
+    align-self: center;
+    width: fit-content;
+    max-width: calc(100% - 1.5rem);
+    gap: 0.25rem;
+    margin: 0.5rem auto calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.375rem;
+    border-radius: 6px;
+    background: var(--app-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+}
+:root[data-app-platform="ios"] .call__btn {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--app-label);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .call__btn:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--app-label) 14%, transparent);
+    }
+}
+:root[data-app-platform="ios"] .call__btn:active:not(:disabled) {
+    background: color-mix(in srgb, var(--app-label) 14%, transparent);
+    transform: scale(0.94);
+}
+:root[data-app-platform="ios"] .call__btn--off,
+:root[data-app-platform="ios"] .call__btn--on {
+    background: var(--app-label);
+    color: var(--app-bg);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .call__btn--off:hover:not(:disabled),
+    :root[data-app-platform="ios"] .call__btn--on:hover:not(:disabled) {
+        background: var(--app-label);
+        color: var(--app-bg);
+    }
+}
+:root[data-app-platform="ios"] .call__btn--leave {
+    width: 68px;
+    background: var(--app-error);
+    color: var(--app-on-error);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .call__btn--leave:hover:not(:disabled) {
+        width: 68px;
+        background: var(--app-error);
+        color: var(--app-on-error);
+    }
+}
+:root[data-app-platform="ios"] .call__btn--leave:active:not(:disabled) {
+    background: var(--app-error);
+}
+@media (max-width: 360px) {
+    :root[data-app-platform="ios"] .call__btn {
+        width: 42px;
+        height: 42px;
+    }
+    :root[data-app-platform="ios"] .call__btn--leave {
+        width: 58px;
+    }
+}
+:root[data-app-platform="ios"] .call__settings {
+    bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    border: 1px solid var(--app-outline);
+    border-radius: 8px;
+    background: var(--app-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--shadow-float);
+    color: var(--app-label);
+}
+:root[data-app-platform="ios"] .app-update-banner {
+    border-radius: 8px;
+    background: var(--app-sheet);
+    box-shadow: var(--shadow-float);
+}
+:root[data-app-platform="ios"] .app-update-banner__icon {
+    border-radius: 8px;
+}
+
+/* In-content search field: flat fill, same as Messages / Settings. */
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass {
+    background: var(--app-fill) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass::before,
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass::after {
+    display: none;
+}
+:root[data-app-platform="ios"] .app-content .k-searchbar input {
+    height: 2.25rem;
+    background: transparent;
+}
+:root[data-app-platform="ios"] .k-list-item [class="text-sm"] {
+    font-size: 15px;
+    margin-top: 1px;
+}
+:root[data-app-platform="ios"] .app-settings .k-list-item [class="text-sm"] {
+    font-size: 13px;
+}
+
+/* Grouped cells inside iOS dark sheets step up one surface or they vanish into the sheet. */
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list ul,
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list > div,
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list {
+    --color-ios-dark-surface-1: var(--app-surface-2);
+}
+
+/* iOS: the full-height form detent has no grabber (Calendar / Reminders);
+   pull-to-dismiss still works from the body. Partial sheets keep it. */
+:root[data-app-platform="ios"] .app-sheet--tall > .app-sheet__handle {
+    height: 0;
+    margin: 6px auto 0;
+    visibility: hidden;
+}
+:root[data-app-platform="ios"] .app-sheet {
+    border-radius: 8px 8px 0 0;
+}
+
+/* Row context menu (long-press / right-click on a saved room). iOS dims the
+   row behind the menu. Material menus float without a scrim. */
+:root[data-app-platform="ios"] div:has(+ .k-popover.app-row-menu) {
+    background: var(--app-scrim);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] div:has(+ .k-popover.app-row-menu) {
+    background: var(--app-scrim);
+}
+:root[data-app-platform="ios"] .app-row-menu .k-list-item button {
+    font-size: 17px;
+}
+:root[data-app-platform="ios"] .app-upload-wrapper .label {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--app-label-2);
+    padding-inline: 1rem;
+}
+:root[data-app-platform="ios"] .app-upload-wrapper :is(.input, .dropzone) {
+    background: var(--app-surface);
+    border-radius: 8px;
+}
+:root[data-app-platform="ios"] .app-upload-wrapper textarea.input {
+    padding: 0.75rem 1rem;
+    font-size: 17px;
+}
+:root[data-app-platform="ios"] :is(.chat-center, .wb-center) .input {
+    background: var(--app-surface);
+    min-height: 50px;
+    border-radius: 6px;
+    padding-inline: 1rem;
+    font-size: 17px;
+}
+:root[data-app-platform="ios"] .app-toast > div {
+    border-radius: 6px;
+    background: var(--app-surface);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: var(--app-label);
+}
+:root[data-app-platform="ios"] .app-toast > div > div {
+    padding: 0;
+}
+:root[data-app-platform="ios"] { --app-switch-w: 4rem; }
+:root[data-app-platform="ios"] .call-mini {
+    background: var(--app-bar, var(--app-surface));
+    border: 1px solid var(--app-separator);
+    border-radius: 8px;
+    padding: 5px 6px;
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+:root[data-app-platform="ios"] .app-filter .app-seg {
+    display: block;
+}
+:root[data-app-platform="ios"] .k-searchbar > button[style*="margin-right: -"] {
+    visibility: hidden;
+    transition: all 320ms var(--ease-out), visibility 0s 320ms;
+}
+
+:root[data-app-platform="ios"] .app-value-row div:has(> div > div.ms-auto) {
+    min-width: 0;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(> div.ms-auto) {
+    flex-wrap: wrap;
+    column-gap: 0.5rem;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(+ div.ms-auto) {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+:root[data-app-platform="ios"] .app-value-row div.ms-auto {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(> div.ms-auto):has(> svg) {
+    padding-inline-end: 1.25rem;
+}
+:root[data-app-platform="ios"] .app-value-row div:has(> div.ms-auto) > svg {
+    position: absolute;
+    inset-inline-end: calc(1rem + env(safe-area-inset-right, 0px));
+    top: 50%;
+    translate: 0 -50%;
+    margin: 0;
+}
