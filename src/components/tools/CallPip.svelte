@@ -83,7 +83,7 @@
   .call-pip__avatar {
     width: 2.75rem;
     height: 2.75rem;
-    border-radius: 9999px;
+    border-radius: 50%;
     outline: 2px solid transparent;
     outline-offset: 2px;
     transition: outline-color var(--duration-fast) var(--ease-out);
