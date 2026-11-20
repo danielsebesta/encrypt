@@ -140,7 +140,7 @@
       <PasskeyExplain {dict} collapsible />
     {/if}
     {#snippet actions()}
-      <button type="submit" class="btn" disabled={busy}>
+      <button type="submit" class="btn" aria-busy={busy ? 'true' : undefined}>
         {t(dict, !withPasskey ? 'rooms.saveNameOnly' : vault === 'new' ? 'rooms.createAndSave' : 'rooms.saveWithPasskey')}
       </button>
       {#if withPasskey}

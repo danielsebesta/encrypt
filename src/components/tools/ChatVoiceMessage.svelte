@@ -36,7 +36,7 @@
   });
 
   async function toggle() {
-    if (!audio || gone) return;
+    if (!audio || gone || loading) return;
     if (playing) {
       audio.pause();
       return;
@@ -113,7 +113,7 @@
 </script>
 
 {#snippet playIcon()}
-  {#if loading}
+  {#if loading && appMode}
     <Icon name="loader-circle" class="animate-spin" />
   {:else if playing}
     <Icon name="pause" />
@@ -125,9 +125,10 @@
 <div class="voice-msg" class:voice-msg--gone={gone} class:voice-msg--app={appMode}>
   <button
     type="button"
-    class="voice-msg__play"
+    class={appMode ? 'voice-msg__play' : 'btn-secondary btn-sm btn-icon'}
     onclick={toggle}
-    disabled={gone || loading}
+    disabled={gone || (appMode && loading)}
+    aria-busy={!appMode && loading ? 'true' : undefined}
     aria-label={t(dict, playing ? 'chat.voicePause' : 'chat.voicePlay')}
     title={t(dict, playing ? 'chat.voicePause' : 'chat.voicePlay')}
   >
@@ -218,12 +219,11 @@
   }
   .voice-msg__bar {
     width: 100%;
-    accent-color: var(--accent);
   }
   .voice-msg__meta {
     display: flex;
     gap: 0.3rem;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--muted);
     white-space: nowrap;
     overflow: hidden;

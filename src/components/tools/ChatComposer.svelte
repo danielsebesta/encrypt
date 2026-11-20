@@ -6,6 +6,7 @@
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
   import ChatVoiceRecorder from './ChatVoiceRecorder.svelte';
+  import { menu } from '../ui/menu';
   import type { VoiceRecording } from '../../lib/voiceMessage';
   import type { SchedulePreset } from '../../lib/chatSchedule';
 
@@ -99,46 +100,31 @@
 
   let attachBtnEl: HTMLButtonElement | undefined = $state();
   let attachMenuRoot: HTMLDivElement | undefined = $state();
-  let attachMenuEl: HTMLDivElement | undefined = $state();
   let scheduleItemEl: HTMLButtonElement | undefined = $state();
-  let scheduleMenuEl: HTMLDivElement | undefined = $state();
+  let scheduleGroupEl: HTMLDivElement | undefined = $state();
   let attachMenuWasOpen = false;
 
-  function attachItems(): HTMLElement[] {
-    const root = scheduleMenuOpen && scheduleMenuEl ? scheduleMenuEl : attachMenuEl;
-    return [...(root?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])') ?? [])];
+  function openSchedule() {
+    scheduleMenuOpen = true;
+    void tick().then(() => scheduleGroupEl?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
   }
 
-  function onAttachMenuKeys(e: KeyboardEvent) {
-    const items = attachItems();
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      if (scheduleMenuOpen) {
-        scheduleMenuOpen = false;
-        scheduleItemEl?.focus();
-        return;
-      }
-      closeMenus();
-      attachBtnEl?.focus();
-    } else if (e.key === 'ArrowRight' && !scheduleMenuOpen && document.activeElement === scheduleItemEl) {
-      e.preventDefault();
-      scheduleMenuOpen = true;
-      void tick().then(() => attachItems()[0]?.focus());
-    } else if (e.key === 'ArrowLeft' && scheduleMenuOpen) {
-      e.preventDefault();
-      scheduleMenuOpen = false;
-      scheduleItemEl?.focus();
-    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      if (!items.length) return;
-      e.preventDefault();
-      const dir = e.key === 'ArrowDown' ? 1 : -1;
-      items[at < 0 ? (dir === 1 ? 0 : items.length - 1) : (at + dir + items.length) % items.length]?.focus();
-    } else if (e.key === 'Home' || e.key === 'End') {
-      e.preventDefault();
-      items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
-    }
+  function closeSchedule() {
+    scheduleItemEl?.focus();
+    scheduleMenuOpen = false;
+  }
+
+  function onScheduleItemKeys(e: KeyboardEvent) {
+    if (e.key !== 'ArrowRight' || scheduleMenuOpen || !inputText.trim()) return;
+    e.preventDefault();
+    openSchedule();
+  }
+
+  function onScheduleGroupKeys(e: KeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeSchedule();
   }
 
   function onAttachMenuFocusout(e: FocusEvent) {
@@ -148,15 +134,13 @@
   $effect(() => {
     const wasOpen = attachMenuWasOpen;
     attachMenuWasOpen = composerMenuOpen;
+    if (!appMode) return;
     if (!composerMenuOpen) {
-      if (wasOpen && appMode) attachBtnEl?.focus();
+      if (wasOpen) attachBtnEl?.focus();
       return;
     }
     void tick().then(() => {
-      const first = appMode
-        ? attachMenuRoot?.querySelector<HTMLElement>('.chat-attach-sheet button:not([disabled])') ?? null
-        : attachItems()[0] ?? null;
-      first?.focus();
+      attachMenuRoot?.querySelector<HTMLElement>('.chat-attach-sheet button:not([disabled])')?.focus();
     });
   });
   $effect(() => {
@@ -172,7 +156,7 @@
   <div class="chat-attach-menu" bind:this={attachMenuRoot} on:focusout={onAttachMenuFocusout}>
     <button
       type="button"
-      class="chat-attach-btn"
+      class={appMode ? 'chat-attach-btn' : 'btn-ghost btn-icon'}
       class:chat-attach-btn--active={composerMenuOpen || onceEnabled}
       bind:this={attachBtnEl}
       use:hapticTap
@@ -190,44 +174,45 @@
       {/if}
     </button>
     {#if composerMenuOpen && !appMode}
-      <div class="chat-attach-dropdown" role="menu" tabindex="-1" aria-label={t(dict, 'chat.addMenu')} bind:this={attachMenuEl} on:keydown={onAttachMenuKeys}>
-        <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); onchoosefile(); }}>
+      <div
+        class="menu menu--open chat-attach-dropdown"
+        role="menu"
+        tabindex="-1"
+        aria-label={t(dict, 'chat.addMenu')}
+        use:menu={{ open: composerMenuOpen, onclose: closeMenus, trigger: attachBtnEl }}
+      >
+        <button type="button" class="menu__item" role="menuitem" on:click={() => { closeMenus(); onchoosefile(); }}>
           <Icon name="file" />
           <span>{t(dict, 'chat.uploadFile')}</span>
         </button>
-        <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); oncreatewhiteboard(); }} disabled={!verified}>
+        <button type="button" class="menu__item" role="menuitem" on:click={() => { closeMenus(); oncreatewhiteboard(); }} disabled={!verified}>
           <Icon name="presentation" />
           <span>{t(dict, 'chat.createWhiteboard')}</span>
         </button>
-        <button
-          type="button"
-          class="chat-attach-option"
-          class:chat-attach-option--on={onceEnabled}
-          role="menuitemcheckbox"
-          aria-checked={onceEnabled}
-          on:click={() => { onceEnabled = !onceEnabled; }}
-        >
+        <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={onceEnabled} on:click={() => { onceEnabled = !onceEnabled; }}>
           <Icon name="eye-off" />
           <span>{t(dict, 'chat.once')}</span>
+          {#if onceEnabled}<Icon name="check" class="chat-attach-dropdown__end" />{/if}
         </button>
         <button
           type="button"
-          class="chat-attach-option"
+          class="menu__item"
           role="menuitem"
-          aria-haspopup="menu"
           aria-expanded={scheduleMenuOpen}
-          aria-owns="chat-schedule-menu"
+          aria-controls="chat-schedule-menu"
           bind:this={scheduleItemEl}
           disabled={!inputText.trim()}
-          on:click={() => { scheduleMenuOpen = !scheduleMenuOpen; }}
+          on:keydown={onScheduleItemKeys}
+          on:click={() => { if (scheduleMenuOpen) scheduleMenuOpen = false; else openSchedule(); }}
         >
           <Icon name="clock" />
           <span>{t(dict, 'chat.schedule')}</span>
+          <Icon name={scheduleMenuOpen ? 'chevron-up' : 'chevron-down'} class="chat-attach-dropdown__end" />
         </button>
         {#if scheduleMenuOpen}
-          <div class="chat-attach-submenu" role="menu" id="chat-schedule-menu" aria-label={t(dict, 'chat.schedule')} bind:this={scheduleMenuEl} on:keydown={onAttachMenuKeys}>
+          <div class="chat-attach-submenu" role="group" id="chat-schedule-menu" aria-label={t(dict, 'chat.schedule')} bind:this={scheduleGroupEl} on:keydown={onScheduleGroupKeys}>
             {#each schedulePresets as preset}
-              <button type="button" class="chat-attach-option" role="menuitem" on:click={() => { closeMenus(); onschedule(preset.offsetMs); }}>
+              <button type="button" class="menu__item" role="menuitem" on:click={() => { closeMenus(); onschedule(preset.offsetMs); }}>
                 <span>{presetLabel(preset.id)}</span>
               </button>
             {/each}
@@ -284,9 +269,10 @@
   {#if !voiceRecording}
   <button
     type="button"
-    class="chat-send-btn"
-    class:chat-send-btn--ready={Boolean(inputText.trim()) || uploading}
+    class={appMode ? 'chat-send-btn' : 'btn btn-icon'}
+    class:chat-send-btn--ready={appMode && (Boolean(inputText.trim()) || uploading)}
     aria-label={t(dict, 'chat.send')}
+    title={t(dict, 'chat.send')}
     use:hapticTap
     on:mousedown|preventDefault
     on:pointerdown={() => { keepFocus = document.activeElement === inputEl; }}
@@ -305,11 +291,11 @@
   {/if}
 {/snippet}
 
-{#snippet emojiBtn(cls: string)}
+{#snippet emojiBtn()}
   {#if onemoji}
     <button
       type="button"
-      class={cls}
+      class={appMode ? 'app-composer__emoji' : 'btn-ghost btn-icon chat-emoji-btn'}
       class:chat-emoji-btn--active={emojiOpen}
       use:hapticTap
       aria-label={t(dict, 'emoji.label')}
@@ -325,8 +311,8 @@
   {/if}
 {/snippet}
 
-<div class="chat-input">
-  <input id="chat-file" type="file" class="sr-only" bind:this={fileInputEl} on:change={onfileselect} />
+<div class="chat-input" class:chat-input--site={!appMode}>
+  <input id="chat-file" type="file" class="sr-only" tabindex="-1" aria-label={t(dict, 'chat.uploadFile')} bind:this={fileInputEl} on:change={onfileselect} />
   {#if appMode}
     <div class="app-composer">
       {#if !voiceRecording}
@@ -356,7 +342,7 @@
             data-bwignore
             rows="1"
           ></textarea>
-          {@render emojiBtn('app-composer__emoji')}
+          {@render emojiBtn()}
         </div>
       {/if}
       <ChatVoiceRecorder {dict} {appMode} bind:recording={voiceRecording} disabled={(!connected && !allowQueue) || !verified || uploading} onrecorded={onvoicerecorded} onerror={onvoiceerror} />
@@ -368,7 +354,7 @@
     {@render attachMenu()}
     {#if !voiceRecording}
     <textarea
-      class="chat-input-field"
+      class="input chat-input-field"
       id="chat-compose-input"
       name="encrypt-chat-compose"
       aria-label={t(dict, 'chat.messagePlaceholder')}
@@ -391,7 +377,7 @@
       data-bwignore
       rows="1"
     ></textarea>
-    {@render emojiBtn('chat-attach-btn chat-emoji-btn')}
+    {@render emojiBtn()}
     {/if}
   {/if}
   {#if !appMode}
@@ -402,109 +388,54 @@
 
 <style>
   .chat-input {
-    display: flex; align-items: flex-end; gap: 0.6rem;
+    display: flex; align-items: flex-end; gap: 0.5rem;
     padding: 0.75rem 1rem;
     border-top: 1px solid var(--line-soft);
-    transition: box-shadow var(--duration-fast) var(--ease-out);
-  }
-  .chat-input:has(.chat-input-field:focus-visible) {
-    box-shadow: inset 0 2px 0 var(--accent);
-  }
-  @media (forced-colors: active) {
-    .chat-input:has(.chat-input-field:focus-visible) {
-      outline: 2px solid Highlight;
-      outline-offset: -2px;
-    }
   }
   .chat-input-field {
-    flex: 1; min-width: 0; background: transparent; border: none; outline: none;
-    font: inherit; font-size: 15px; line-height: 1.4; color: var(--text);
-    padding: 0.5rem 0; margin: 0; resize: none; overflow-y: hidden;
-    box-sizing: content-box; height: 1.4em; display: block;
+    flex: 1; min-height: 2.5rem; padding-block: 0.4375rem;
+    line-height: 1.5; resize: none; overflow-y: hidden; display: block;
   }
-  :global(.dark) .chat-input-field { color: var(--text); }
-  .chat-input-field::placeholder { color: var(--muted); }
   .chat-attach-btn {
     padding: 0.4rem; border-radius: 8px;
     color: var(--muted); transition: color var(--duration-fast) var(--ease-out);
   }
   .chat-attach-menu { position: relative; flex-shrink: 0; }
+  @media (max-width: 24rem) {
+    .chat-input--site { flex-wrap: wrap; padding: 0.5rem 0.75rem; }
+    .chat-input--site .chat-input-field { order: -1; flex-basis: 100%; }
+    .chat-input--site .chat-attach-menu { margin-inline-end: auto; }
+  }
   .chat-attach-btn:hover:not(:disabled),
   .chat-attach-btn--active {
     color: var(--accent);
   }
   .chat-attach-btn:disabled { opacity: 0.3; }
-  .chat-emoji-btn { flex-shrink: 0; display: inline-flex; }
+  .chat-emoji-btn { flex-shrink: 0; }
   .chat-emoji-btn--active { color: var(--accent); }
   .chat-attach-dropdown {
-    position: absolute;
-    left: 0;
-    bottom: calc(100% + 8px);
-    z-index: 30;
-    width: 210px;
-    max-width: calc(100vw - 1rem);
-    max-height: min(60dvh, 22rem);
+    top: auto;
+    bottom: calc(100% + 0.5rem);
+    margin: 0;
+    width: max-content;
+    max-width: calc(100vw - 2rem);
+    max-height: min(60dvh, 24rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0.3rem;
-    border-radius: 8px;
-    border: 1px solid var(--line-soft);
-    background: var(--bg);
-    box-shadow: var(--shadow-float);
+  }
+  .chat-attach-dropdown :global(.chat-attach-dropdown__end) {
+    margin-left: auto;
   }
   .chat-attach-submenu {
-    margin: 0.15rem 0 0.2rem;
-    padding: 0.2rem 0 0.1rem 0.55rem;
+    display: grid;
+    gap: 0.125rem;
+    margin-left: 1.25rem;
+    padding-left: 0.5rem;
     border-left: 2px solid var(--line-soft);
   }
-  :global(.dark) .chat-attach-dropdown {
-    background: var(--bg);
-    box-shadow: var(--shadow-float);
-  }
-  .chat-attach-option {
-    width: 100%;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0 0.55rem;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 800;
-    color: var(--muted);
-    text-align: left;
-  }
-  .chat-attach-option:hover:not(:disabled) {
-    color: var(--accent);
-    background: var(--accent-weak);
-  }
-  .chat-attach-option--on {
-    color: var(--accent);
-    background: var(--accent-weak);
-  }
-  .chat-attach-option:disabled {
-    opacity: 0.42;
-    cursor: not-allowed;
-  }
-  :global(.dark) .chat-attach-option {
-    color: var(--text);
-  }
-  /* Desktop site only — /app paints a filled primary circle in app.css */
   .chat-send-btn {
     padding: 0.4rem;
     border-radius: 8px;
     transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), opacity var(--duration-fast) var(--ease-out);
-  }
-  :global(:root:not([data-app-platform])) .chat-send-btn {
-    color: var(--accent);
-  }
-  :global(:root:not([data-app-platform])) .chat-send-btn:hover:not(:disabled) {
-    background: var(--accent-weak);
-  }
-  :global(:root:not([data-app-platform])) .chat-send-btn:disabled {
-    opacity: 0.3;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chat-attach-btn, .chat-send-btn { transition: none; }
   }
 </style>

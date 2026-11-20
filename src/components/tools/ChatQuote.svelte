@@ -2,8 +2,9 @@
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
 
-  let { dict, name, color, text, onjump, oncancel }: {
+  let { dict, appMode = false, name, color, text, onjump, oncancel }: {
     dict: Record<string, string>;
+    appMode?: boolean;
     name: string;
     color: string;
     text: string;
@@ -14,13 +15,13 @@
 
 <div class="msg-quote" class:msg-quote--composer={Boolean(oncancel)}>
   {#if onjump}
-    <button type="button" class="msg-quote__body" onclick={onjump} title={t(dict, 'chat.replyJump')}>
-      {#if name}<span class="msg-quote__name" style="color: {color}">{name}</span>{/if}
+    <button type="button" class={appMode ? 'msg-quote__body' : 'btn-ghost btn-sm btn-block msg-quote__body'} onclick={onjump} title={t(dict, 'chat.replyJump')}>
+      {#if name}<span class="msg-quote__name" style="color: {appMode ? color : `color-mix(in srgb, ${color} 40%, var(--text))`}">{name}</span>{/if}
       <span class="msg-quote__text">{text}</span>
     </button>
   {:else}
     <div class="msg-quote__body">
-      {#if name}<span class="msg-quote__name" style="color: {color}">{oncancel ? t(dict, 'chat.replyingTo').replace('{name}', name) : name}</span>{/if}
+      {#if name}<span class="msg-quote__name" style="color: {appMode ? color : `color-mix(in srgb, ${color} 40%, var(--text))`}">{oncancel ? t(dict, 'chat.replyingTo').replace('{name}', name) : name}</span>{/if}
       <span class="msg-quote__text">{text}</span>
     </div>
   {/if}
@@ -49,6 +50,7 @@
   .msg-quote__body {
     display: grid;
     flex: 1;
+    justify-content: start;
     min-width: 0;
     padding: 0.3rem 0.5rem;
     text-align: left;

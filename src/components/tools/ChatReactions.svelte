@@ -3,8 +3,9 @@
   import { prefersReducedMotion } from '../../lib/appPrefs';
   import type { ReactionEmoji, ReactionSummary } from '../../lib/chatReactions';
 
-  let { dict, items, ontoggle }: {
+  let { dict, appMode = false, items, ontoggle }: {
     dict: Record<string, string>;
+    appMode?: boolean;
     items: ReactionSummary[];
     ontoggle: (emoji: ReactionEmoji) => void;
   } = $props();
@@ -27,8 +28,8 @@
     {#each items as item (item.emoji)}
       <button
         type="button"
-        class="msg-reactions__chip"
-        class:msg-reactions__chip--mine={item.mine}
+        class={appMode ? 'msg-reactions__chip' : 'chip msg-reactions__item'}
+        class:msg-reactions__chip--mine={appMode && item.mine}
         class:msg-reactions__chip--pop={pop?.emoji === item.emoji}
         aria-pressed={item.mine}
         aria-label={label(item)}
@@ -58,6 +59,11 @@
     gap: 0.25rem;
     margin-top: 0.35rem;
   }
+  .msg-reactions__item {
+    position: relative;
+    gap: 0.25rem;
+    padding: 0 0.5rem;
+  }
   .msg-reactions__chip {
     position: relative;
     display: inline-flex;
@@ -80,12 +86,12 @@
     background: var(--accent-weak);
   }
   .msg-reactions__count {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
-  .msg-reactions__chip--mine .msg-reactions__count {
+  [aria-pressed="true"] .msg-reactions__count {
     color: var(--accent-strong);
   }
   .msg-reactions__emoji {
@@ -135,7 +141,6 @@
     100% { opacity: 0; transform: rotate(var(--spark-a)) translateY(-19px) scale(0.5); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .msg-reactions__chip { transition: none; }
     .msg-reactions__chip--pop .msg-reactions__emoji,
     .msg-reactions__pop,
     .msg-reactions__spark { animation: none; }
