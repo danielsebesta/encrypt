@@ -146,10 +146,10 @@ test('the vault falls back to names only without WebAuthn or PRF', async () => {
 });
 
 test('opening hands secrets over outside the address bar', () => {
-  assert.deepEqual(openTarget('chat', 'team-room', 'en', { type: 'password', value: 'pw' }), { href: '/chat/team-room', handoff: ['chat-password', 'pw'] });
-  assert.deepEqual(openTarget('chat', 'abc', 'cs', { type: 'password', value: 'pw' }), { href: '/chat/abc', handoff: ['chat-password', 'pw'] });
-  assert.deepEqual(openTarget('whiteboard', 'b1', 'de', { type: 'password', value: 'pw' }), { href: '/whiteboard/b1', handoff: ['whiteboard-password', 'pw'] });
-  assert.deepEqual(openTarget('whiteboard', 'b1', 'en', null), { href: '/whiteboard/b1', handoff: null });
+  assert.deepEqual(openTarget('chat', 'team-room', { type: 'password', value: 'pw' }), { href: '/chat/team-room', handoff: ['chat-password', 'pw'] });
+  assert.deepEqual(openTarget('chat', 'abc', { type: 'password', value: 'pw' }), { href: '/chat/abc', handoff: ['chat-password', 'pw'] });
+  assert.deepEqual(openTarget('whiteboard', 'b1', { type: 'password', value: 'pw' }), { href: '/whiteboard/b1', handoff: ['whiteboard-password', 'pw'] });
+  assert.deepEqual(openTarget('whiteboard', 'b1', null), { href: '/whiteboard/b1', handoff: null });
 });
 
 test('relative visit times pick the largest whole unit', () => {

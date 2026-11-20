@@ -40,7 +40,7 @@ export const sendIcon: IconName = 'upload';
 export const decryptIcon: IconName = 'lock-keyhole-open';
 export const whiteboardIcon: IconName = 'presentation';
 
-export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>, localePrefix = '') {
+export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>) {
   const categories: ToolCategory[] = ['experiments'];
 
   return categories.map(cat => ({
@@ -50,7 +50,7 @@ export function getNavCategories(t: (dict: Record<string, string>, key: string) 
       .filter(tool => tool.category === cat)
       .map(tool => ({
         label: t(dict, tool.navLabelKey),
-        href: `${localePrefix}/experiments/${tool.slug}`,
+        href: `/experiments/${tool.slug}`,
         icon: tool.icon,
       })),
   }));

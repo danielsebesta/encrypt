@@ -169,16 +169,12 @@ export function vaultStateFor(input: { webauthn: boolean; namesOnly: boolean; re
   return input.unlocked ? 'unlocked' : 'locked';
 }
 
-export function localePrefix(locale: string): string {
-  return '';
-}
-
 /**
  * Where Open goes and what it hands over. Passwords travel in the session storage slot the room page reads and clears on
  * load, so they never show in the address bar.
  */
-export function openTarget(kind: RoomKind, roomId: string, locale: string, secret: RoomSecret | null): { href: string; handoff: [string, string] | null } {
-  const path = `${localePrefix(locale)}/${kind}/${encodeURIComponent(roomId)}`;
+export function openTarget(kind: RoomKind, roomId: string, secret: RoomSecret | null): { href: string; handoff: [string, string] | null } {
+  const path = `/${kind}/${encodeURIComponent(roomId)}`;
   if (!secret) return { href: path, handoff: null };
   return { href: path, handoff: [kind === 'chat' ? 'chat-password' : 'whiteboard-password', secret.value] };
 }
@@ -493,14 +489,14 @@ export async function revealSecret(entry: RoomEntry): Promise<RoomSecret | null>
 }
 
 /** Unlocks if needed and goes to the room. False when a stored secret could not be released, so nothing happens. */
-export async function openRoom(entry: RoomEntry, locale: string): Promise<boolean> {
+export async function openRoom(entry: RoomEntry): Promise<boolean> {
   let secret: RoomSecret | null = null;
   if (entry.secret) {
     if (!(await unlockVault())) return false;
     secret = await revealSecret(entry);
     if (!secret) return false;
   }
-  const target = openTarget(entry.kind, entry.roomId, locale, secret);
+  const target = openTarget(entry.kind, entry.roomId, secret);
   if (target.handoff) {
     try { sessionStorage.setItem(target.handoff[0], target.handoff[1]); } catch {}
   }
@@ -542,8 +538,6 @@ export async function saveRoom(
     return 'failed';
   }
 }
-
-/* ---------- Vault backup (encrypted export / import) ---------- */
 
 export const VAULT_BACKUP_FORMAT = 'encrypt-click-vault-backup';
 export const VAULT_BACKUP_VERSION = 1;

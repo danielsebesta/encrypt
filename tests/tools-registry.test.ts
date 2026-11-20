@@ -51,14 +51,14 @@ for (const locale of LOCALES) {
   });
 }
 
-test('getNavCategories builds labels from the dictionary and hrefs under the locale prefix', () => {
+test('getNavCategories builds labels from the dictionary and experiment hrefs', () => {
   const d = dict('en');
-  const nav = getNavCategories(t, d, '/cs');
+  const nav = getNavCategories(t, d);
   assert.equal(nav.length, Object.keys(categoryI18nKeys).length);
   const links = nav.flatMap((group) => group.tools);
   assert.equal(links.length, tools.length);
   for (const tool of tools) {
-    const link = links.find((item) => item.href === `/cs/experiments/${tool.slug}`);
+    const link = links.find((item) => item.href === `/experiments/${tool.slug}`);
     assert.ok(link, `no link for ${tool.slug}`);
     assert.equal(link.label, d[tool.navLabelKey]);
     assert.equal(link.icon, tool.icon);

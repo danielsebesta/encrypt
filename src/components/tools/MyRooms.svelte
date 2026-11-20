@@ -77,7 +77,7 @@
     error = '';
     busy = true;
     opening = room.id;
-    const ok = await openRoom(room, locale);
+    const ok = await openRoom(room);
     busy = false;
     opening = null;
     if (!ok) error = t(dict, 'rooms.unlockFailed');
