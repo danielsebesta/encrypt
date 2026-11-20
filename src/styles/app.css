@@ -229,6 +229,21 @@ html[data-app-platform] body {
     height: 100dvh;
     min-height: 0;
 }
+/* Installed on iOS 26, dvh and the fixed containing block stop a home-indicator height short of the
+   screen, leaving a band under the composer; vh still spans the whole screen there. */
+@media (display-mode: standalone) {
+    @supports (-webkit-touch-callout: none) {
+        html[data-app-platform] body {
+            height: 100vh;
+        }
+    }
+}
+/* A closed sheet waits just below the fixed containing block. Where that block ends above the
+   screen edge its blurred glass showed over the composer, so it is hidden once it has slid out. */
+html[data-app-platform] .k-sheet[inert] {
+    visibility: hidden;
+    transition-property: transform, translate, visibility;
+}
 /* Konsta's min-h-screen (100vh) would keep the app taller than the visible viewport
    wherever browser chrome takes a bite — and min-height beats the keyboard
    max-height below, leaving the app behind the keyboard. */
