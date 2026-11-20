@@ -1232,7 +1232,7 @@ html.dark {
 
     .more > summary::before {
         content: "";
-        @apply h-2 w-2 rotate-45 border-b-2 border-r-2 border-current;
+        @apply ml-0.5 h-2 w-2 rotate-45 border-b-2 border-r-2 border-current;
         transition: transform var(--duration-fast) var(--ease-out);
     }
 
