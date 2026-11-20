@@ -460,6 +460,7 @@
   "emoji.clearSearch": "Wyczyść wyszukiwanie",
   "emoji.searchResults": "Wyniki wyszukiwania",
   "emoji.noResults": "Nie znaleziono emoji",
+  "emoji.loadFailed": "Nie udało się wczytać emoji. Zamknij wybór i spróbuj ponownie.",
   "emoji.loading": "Wczytywanie emoji…",
   "emoji.categories": "Kategorie emoji",
   "emoji.skinTone": "Odcień skóry",

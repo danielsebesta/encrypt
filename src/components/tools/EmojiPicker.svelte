@@ -455,7 +455,7 @@
   <div class="ep__top">
     {#if toneOpen}
       <!-- svelte-ignore a11y_interactive_supports_focus -->
-      <div class="ep__tones" role="radiogroup" aria-label={t(dict, 'emoji.skinTone')} bind:this={tonesEl} onkeydown={onTonesKey}>
+      <div id="{uid}-tones" class="ep__tones" role="radiogroup" aria-label={t(dict, 'emoji.skinTone')} bind:this={tonesEl} onkeydown={onTonesKey}>
         {#each SKIN_TONES as v (v)}
           <button
             type="button"
@@ -514,6 +514,7 @@
       type="button"
       class={web ? 'btn-secondary btn-icon' : 'ep__tone-toggle'}
       aria-expanded={toneOpen}
+      aria-controls={toneOpen ? `${uid}-tones` : undefined}
       aria-label={t(dict, 'emoji.skinToneCurrent').replace('{tone}', toneName(tone))}
       title={t(dict, 'emoji.skinTone')}
       onclick={() => (toneOpen ? closeTones() : openTones())}
@@ -542,9 +543,9 @@
 
   <div class="ep__scroll" id="{uid}-grid" bind:this={scrollEl} onscroll={onScroll} onclick={onGridClick} onkeydown={onGridKey}>
     {#if failed}
-      <div class={web ? 'empty' : 'ep__empty'}>{t(dict, 'emoji.noResults')}</div>
+      <div class={web ? 'empty' : 'ep__empty'} role="alert">{t(dict, 'emoji.loadFailed')}</div>
     {:else if !groups}
-      <div class="ep__skeleton" aria-busy="true" aria-label={t(dict, 'emoji.loading')}>
+      <div class="ep__skeleton" role="status" aria-busy="true" aria-label={t(dict, 'emoji.loading')}>
         <span class="ep__skeleton-head"></span>
         <div class="ep__grid">
           {#each { length: cols * 4 } as _, n (n)}

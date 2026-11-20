@@ -460,6 +460,7 @@
   "emoji.clearSearch": "Suche löschen",
   "emoji.searchResults": "Suchergebnisse",
   "emoji.noResults": "Keine Emoji gefunden",
+  "emoji.loadFailed": "Die Emoji konnten nicht geladen werden. Schließe die Auswahl und versuche es erneut.",
   "emoji.loading": "Emoji werden geladen …",
   "emoji.categories": "Emoji-Kategorien",
   "emoji.skinTone": "Hautfarbe",

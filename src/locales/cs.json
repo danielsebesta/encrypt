@@ -460,6 +460,7 @@
   "emoji.clearSearch": "Vymazat hledání",
   "emoji.searchResults": "Výsledky hledání",
   "emoji.noResults": "Žádné emoji nenalezeno",
+  "emoji.loadFailed": "Emoji se nepodařilo načíst. Zavři výběr a zkus to znovu.",
   "emoji.loading": "Načítání emoji…",
   "emoji.categories": "Kategorie emoji",
   "emoji.skinTone": "Odstín pleti",

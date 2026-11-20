@@ -460,6 +460,7 @@
   "emoji.clearSearch": "Clear search",
   "emoji.searchResults": "Search results",
   "emoji.noResults": "No emoji found",
+  "emoji.loadFailed": "Emoji could not be loaded. Close the picker and try again.",
   "emoji.loading": "Loading emoji…",
   "emoji.categories": "Emoji categories",
   "emoji.skinTone": "Skin tone",
