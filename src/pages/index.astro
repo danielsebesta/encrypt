@@ -18,14 +18,17 @@ const deviceItems = [[1, 'file-text'], [2, 'key'], [3, 'shield-keyhole']] as con
 const appFeatures = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3], ['download', 4]] as const;
 const serverItems = [[1, 'file-lock'], [2, 'clock'], [3, 'globe']] as const;
 const retention = ['retention1h', 'retention1d', 'retention7d'];
+const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+/).map((line) => (line.split(/\s+/).length > 3 ? line.replace(/\s+(\S+)$/, '\u00a0$1') : line));
+const tagline = sentences('home.tagline.1');
+const lead = sentences('landing.hero.subtitle');
 ---
 
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')} background="classic">
   <div class="page home">
     <section class="home-hero" aria-labelledby="home-hero-title">
       <div class="home-hero__copy">
-        <h1 id="home-hero-title" class="page-title home-hero__title">{t(dict, 'home.tagline.1')}</h1>
-        <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
+        <h1 id="home-hero-title" class="page-title home-hero__title">{tagline.map((line) => <span class="block">{line}</span>)}</h1>
+        <p class="page-lead">{lead.map((line) => <span class="block">{line}</span>)}</p>
       </div>
       <div class="home-hero__form panel" id="try">
         <HomeTry client:visible locale={locale} dict={tryDict} />

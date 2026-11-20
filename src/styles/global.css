@@ -1920,13 +1920,14 @@ html.dark {
 
     .home-hero .page-title {
         @apply leading-[1.1];
-        font-size: clamp(2rem, 1.2rem + 3vw, 3rem);
+        font-size: clamp(2rem, 1.2rem + 3vw, 2.875rem);
         font-weight: 560;
         letter-spacing: -0.025em;
     }
 
     .home-hero .page-lead {
         @apply mt-0 text-lg;
+        text-wrap: balance;
     }
 
     .home-hero__form {
