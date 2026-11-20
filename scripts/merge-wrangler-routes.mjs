@@ -1,12 +1,16 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 // The Cloudflare Vite plugin drops `routes`, `[assets]` and sometimes R2 bindings; copy them from wrangler.toml.
+// A path argument (wrangler.production.json) is then laid over the result, its `vars` merged and other keys replaced.
+const overlayPath = process.argv[2];
 const toml = readFileSync('wrangler.toml', 'utf8');
 const block = toml.match(/^routes\s*=\s*\[([\s\S]*?)^\]/m)?.[1] ?? '';
 const routes = [...block.matchAll(/\{\s*pattern\s*=\s*"([^"]+)"(?:\s*,\s*custom_domain\s*=\s*(true|false))?\s*\}/g)]
   .map(([, pattern, customDomain]) => customDomain === 'true' ? { pattern, custom_domain: true } : pattern);
 const workersDev = /^workers_dev\s*=\s*(true|false)/m.exec(toml)?.[1];
 const previewUrls = /^preview_urls\s*=\s*(true|false)/m.exec(toml)?.[1];
+const crons = toml.match(/^crons\s*=\s*\[([^\]]*)\]/m)?.[1];
+const cronList = crons ? [...crons.matchAll(/"([^"]+)"/g)].map(([, cron]) => cron) : [];
 const runFirst = toml.match(/^run_worker_first\s*=\s*\[([^\]]*)\]/m)?.[1];
 const runWorkerFirst = runFirst ? [...runFirst.matchAll(/"([^"]+)"/g)].map(([, pattern]) => pattern) : null;
 
@@ -20,7 +24,7 @@ for (const chunk of toml.split('[[r2_buckets]]').slice(1)) {
   }
 }
 
-if (!routes.length && !workersDev && !runWorkerFirst && !r2Buckets.length) process.exit(0);
+if (!routes.length && !workersDev && !runWorkerFirst && !r2Buckets.length && !cronList.length && !overlayPath) process.exit(0);
 
 const path = 'dist/server/wrangler.json';
 const config = JSON.parse(readFileSync(path, 'utf8'));
@@ -29,6 +33,13 @@ if (workersDev) config.workers_dev = workersDev === 'true';
 if (previewUrls) config.preview_urls = previewUrls === 'true';
 if (runWorkerFirst) config.assets = { ...(config.assets ?? {}), run_worker_first: runWorkerFirst };
 if (r2Buckets.length) config.r2_buckets = r2Buckets;
+if (cronList.length) config.triggers = { ...(config.triggers ?? {}), crons: cronList };
+if (overlayPath) {
+  const { vars, ...rest } = JSON.parse(readFileSync(overlayPath, 'utf8'));
+  Object.assign(config, rest);
+  if (vars) config.vars = { ...(config.vars ?? {}), ...vars };
+  console.log(`Applied ${overlayPath} to ${path}`);
+}
 writeFileSync(path, JSON.stringify(config));
 console.log(
   `Merged ${routes.length} route(s), ${runWorkerFirst ? runWorkerFirst.length : 0} worker-first pattern(s), ${r2Buckets.length} r2 bucket(s) into ${path}`,

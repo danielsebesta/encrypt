@@ -1063,6 +1063,7 @@
   "home.trust.expiryTitle": "Uploads löschen sich selbst",
   "home.trust.expiryLead": "Du wählst, wie lange die verschlüsselte Datei bleibt. Danach funktioniert der Link nicht mehr.",
   "home.trust.inline": "Kurze Nachrichten reisen im Link selbst. Nichts wird gespeichert, nichts läuft ab, außer du wählst „Nach dem Lesen vernichten“.",
+  "home.trust.deploy": "Auf Cloudflare bereitstellen",
   "nav.tool.chatCipher": "Chat-Chiffre",
   "tools.chatCipher.meta.title": "Chat-Chiffre – Nachricht in Alltagschat verstecken",
   "tools.chatCipher.meta.description": "Verschlüssele eine Nachricht mit einem Passwort und verwandle sie in alltäglichen Chat-Text auf Tschechisch, Englisch, Deutsch, Spanisch, Französisch, Slowakisch oder Polnisch. Läuft sofort im Browser, ohne Modell oder GPU.",

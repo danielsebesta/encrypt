@@ -1063,6 +1063,7 @@
   "home.trust.expiryTitle": "Uploads delete themselves",
   "home.trust.expiryLead": "You choose how long the encrypted file stays. After that, the link stops working.",
   "home.trust.inline": "Short messages travel inside the link itself. Nothing is stored and nothing expires, unless you choose burn after reading.",
+  "home.trust.deploy": "Deploy to Cloudflare",
   "nav.tool.chatCipher": "Chat cipher",
   "tools.chatCipher.meta.title": "Chat cipher – hide a message in casual chat",
   "tools.chatCipher.meta.description": "Encrypt a message with a password and turn it into ordinary-looking chat text in Czech, English, German, Spanish, French, Slovak or Polish. It runs instantly in your browser, with no model or GPU.",

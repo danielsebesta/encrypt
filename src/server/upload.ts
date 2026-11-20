@@ -162,13 +162,13 @@ async function directUpload(request: Request, platform: Platform): Promise<Respo
   if (!Number.isSafeInteger(length) || length <= HEAD_BYTES) return json({ error: 'Invalid size' }, 400);
   if (length > MAX_FIRST_PARTY_BYTES) return json({ error: 'Payload too large' }, 413);
 
-  const accountId = platform.env.R2_ACCOUNT_ID || platform.env.CLOUDFLARE_ACCOUNT_ID || platform.env.CF_ACCOUNT_ID || 'c76ce085303f62a966fac128aa2952ae';
+  const accountId = platform.env.R2_ACCOUNT_ID || platform.env.CLOUDFLARE_ACCOUNT_ID || platform.env.CF_ACCOUNT_ID;
   const accessKeyId = platform.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = platform.env.R2_SECRET_ACCESS_KEY;
-  const bucketName = platform.env.R2_BUCKET_NAME || 'encrypt-r2';
-  const jurisdiction = platform.env.R2_JURISDICTION || 'eu';
+  const bucketName = platform.env.R2_BUCKET_NAME;
+  const jurisdiction = platform.env.R2_JURISDICTION || undefined;
 
-  if (!accountId || !accessKeyId || !secretAccessKey) {
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
     return json({ success: true, mode: 'relay' });
   }
 

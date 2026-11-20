@@ -34,6 +34,7 @@ jobs:
       - run: pnpm test
       - run: pnpm check
       - run: pnpm build
+      - run: node scripts/merge-wrangler-routes.mjs wrangler.production.json
       - name: Package the build
         run: |
           set -o pipefail

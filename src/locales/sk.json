@@ -1063,6 +1063,7 @@
   "home.trust.expiryTitle": "Nahrané súbory sa samy zmažú",
   "home.trust.expiryLead": "Zvolíš, ako dlho zašifrovaný súbor zostane. Potom odkaz prestane fungovať.",
   "home.trust.inline": "Krátke správy putujú priamo v odkaze. Nič sa neukladá a nič nevyprší, pokiaľ nezvolíš spálenie po prečítaní.",
+  "home.trust.deploy": "Nasadiť na Cloudflare",
   "nav.tool.chatCipher": "Chatová šifra",
   "tools.chatCipher.meta.title": "Chatová šifra – skry správu v bežnom chate",
   "tools.chatCipher.meta.description": "Zašifruj správu heslom a zmeň ju na bežný chat v češtine, angličtine, nemčine, španielčine, francúzštine, slovenčine alebo poľštine. Beží okamžite v prehliadači, bez modelu aj GPU.",

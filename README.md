@@ -5,9 +5,11 @@
 **Chat like nobody's watching. Because no one is.**
 
 Files, chats and calls are encrypted in your browser before they leave.<br>
-Free, no account, open source, and you can run your own copy in one Docker container.
+Free, no account, open source, and you can run your own copy on Cloudflare in one click or in one Docker container.
 
 [**Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [Security](https://encrypt.click/security) &nbsp;·&nbsp; [Install the app](https://encrypt.click/install) &nbsp;·&nbsp; [Self-host](docs/self-hosting.md) &nbsp;·&nbsp; [Contribute](CONTRIBUTING.md)
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt)
 
 ![Live](https://img.shields.io/badge/encrypt.click-live-48672e?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-48672e?style=flat-square)
@@ -158,9 +160,21 @@ flowchart TB
 
 ## Deploy
 
-### Cloudflare
+### Your own copy on Cloudflare
 
-Production deploys from GitHub Actions on every push to `main` ([`deploy.yml`](.github/workflows/deploy.yml)), after tests, type check and build. `pnpm run deploy` does the same from a machine logged in with `wrangler login`. The build writes assets to `dist/client` and the Worker config to `dist/server/wrangler.json`; `scripts/merge-wrangler-routes.mjs` copies the custom domains and the `run_worker_first` patterns from `wrangler.toml` into it. Deploy assets and Worker together, because the CSP hashes in `_headers` are computed from the built scripts.
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt)
+
+The button copies this repository to your GitHub account, creates the R2 bucket and the Durable Objects, asks for the secrets, then builds and deploys to `<name>.<your-subdomain>.workers.dev`. Every push to your copy deploys again, and a small instance fits in the free plan.
+
+1. Enable R2 in the Cloudflare dashboard first. It asks for a payment method even on the free tier, and the deploy cannot create the bucket without it.
+2. Press the button and fill in `ROOM_TURN_SECRET`, `RATE_LIMIT_SECRET` and `UPLOAD_PASS_SECRET` with random strings, for example from `openssl rand -hex 32`.
+3. For calls, create a TURN key under Realtime → TURN Server and fill in `CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN`. Calls always go through the relay, so without the key the rest works and calls do not.
+
+Expired uploads are deleted by an hourly cron in the Worker, so the bucket needs no lifecycle rules. A custom domain goes under the Worker's Settings → Domains & Routes. Short links stay off unless you set `SHORTENER_URL`.
+
+### encrypt.click
+
+Production deploys from GitHub Actions on every push to `main` ([`deploy.yml`](.github/workflows/deploy.yml)), after tests, type check and build. `wrangler.toml` describes a fresh install; [`wrangler.production.json`](wrangler.production.json) adds what only encrypt.click has: the Worker name, the custom domains, the EU bucket and the variables for direct uploads to it, short links and the full Durable Object migration history. The build writes assets to `dist/client` and the Worker config to `dist/server/wrangler.json`; `scripts/merge-wrangler-routes.mjs` copies the `run_worker_first` patterns, the cron and the bucket from `wrangler.toml` into it and, given a file, lays that file over the result. The workflow passes `wrangler.production.json`, and `pnpm run deploy:production` does the same from a machine logged in with `wrangler login`; plain `pnpm run deploy` deploys a fresh install. Deploy assets and Worker together, because the CSP hashes in `_headers` are computed from the built scripts. A new Durable Object migration goes into both files, which `tests/r2-sweep.test.ts` checks.
 
 Repository secrets for the workflow:
 
@@ -182,7 +196,7 @@ Worker secrets:
 
 Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
 
-Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main|whiteboard/<room>`; they relay encrypted envelopes and keep at most a small room config, never a message), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction (pass `--jurisdiction eu` to every `wrangler r2` command). Uploads are stored under one key prefix per retention class, `t1h/`, `t1d/` and `t7d/`, with the expiry time and the one-time flag in the object's custom metadata; the Worker refuses anything past its expiry, and one lifecycle rule per prefix deletes the objects for free. `SHORTENER_URL` in `wrangler.toml` enables short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
+Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main|whiteboard/<room>`; they relay encrypted envelopes and keep at most a small room config, never a message), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction (pass `--jurisdiction eu` to every `wrangler r2` command). Uploads are stored under one key prefix per retention class, `t1h/`, `t1d/` and `t7d/`, with the expiry time and the one-time flag in the object's custom metadata; the Worker refuses anything past its expiry, an hourly cron deletes it, and one lifecycle rule per prefix catches anything the cron missed. `SHORTENER_URL` in `wrangler.production.json` enables short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
 
 Lifecycle rules for the upload bucket. R2 counts in whole days, so the 1-hour class is deleted after a day while the Worker already refuses it after an hour. Uploads from before the retention classes sit under their bare UUID; the rules for the prefixes `0` to `f` delete those after a day and can be removed two days after the deploy. Add the new rules first, then remove the old rule that covered the whole bucket (its name is in the `list` output), then deploy:
 

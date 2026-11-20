@@ -11,6 +11,7 @@
     "build": "astro build && node scripts/inject-csp-hashes.mjs && node scripts/generate-integrity-manifest.mjs && node scripts/merge-wrangler-routes.mjs",
     "preview": "astro preview",
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
+    "deploy:production": "npm run build && node scripts/merge-wrangler-routes.mjs wrangler.production.json && wrangler deploy --config dist/server/wrangler.json",
     "build:node": "node scripts/build-node.mjs",
     "start:node": "node dist/node/server.mjs",
     "astro": "astro",
@@ -83,5 +84,36 @@
     "typescript": "~6.0.3",
     "vite": "^8.3.4",
     "wrangler": "^4.149.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "BUCKET": {
+        "description": "Holds encrypted uploads for 1 hour, 1 day or 7 days. An hourly cron deletes them when they expire. R2 has to be enabled on the account first."
+      },
+      "SECURITY_BUDGET": {
+        "description": "Rate limits, upload quotas and proof-of-work replay protection."
+      },
+      "CHAT": {
+        "description": "Chat rooms. They relay encrypted messages and keep only the room settings, never a message."
+      },
+      "WHITEBOARD": {
+        "description": "Whiteboard rooms. They relay encrypted strokes and never store them."
+      },
+      "ROOM_TURN_SECRET": {
+        "description": "Signs the short-lived grants that let room members fetch TURN credentials for calls. Any random string of 32 bytes or more, for example from `openssl rand -hex 32`."
+      },
+      "RATE_LIMIT_SECRET": {
+        "description": "Keys the hashes of client addresses used for rate limits. Any random string of 32 bytes or more, for example from `openssl rand -hex 32`."
+      },
+      "UPLOAD_PASS_SECRET": {
+        "description": "Signs proof-of-work challenges and upload passes. Any random string of 32 bytes or more, for example from `openssl rand -hex 32`."
+      },
+      "CLOUDFLARE_TURN_TOKEN_ID": {
+        "description": "Needed for voice and video calls, which always go through a TURN relay so members never see each other’s IP address. Create a TURN key under **Realtime → TURN Server** in the Cloudflare dashboard and paste its key ID here. Leave empty to deploy without calls."
+      },
+      "CLOUDFLARE_TURN_API_TOKEN": {
+        "description": "The API token of that TURN key. Leave empty to deploy without calls."
+      }
+    }
   }
 }

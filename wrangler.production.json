@@ -1,0 +1,25 @@
+{
+  "name": "encrypt-click",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "encrypt.click", "custom_domain": true },
+    { "pattern": "www.encrypt.click", "custom_domain": true }
+  ],
+  "vars": {
+    "SHORTENER_URL": "https://l.encrypt.click/api/shorten",
+    "R2_ACCOUNT_ID": "c76ce085303f62a966fac128aa2952ae",
+    "R2_JURISDICTION": "eu",
+    "R2_BUCKET_NAME": "encrypt-r2"
+  },
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "encrypt-r2", "jurisdiction": "eu" }
+  ],
+  "migrations": [
+    { "tag": "security-v1", "new_sqlite_classes": ["SecurityBudget"] },
+    { "tag": "realtime-v1", "new_sqlite_classes": ["ChatServer", "WhiteboardServer"] },
+    { "tag": "persistent-v1", "new_sqlite_classes": ["PersistentChatServer"] },
+    { "tag": "saved-whiteboard-v1", "new_sqlite_classes": ["SavedWhiteboardServer"] },
+    { "tag": "remove-saved-rooms-v1", "deleted_classes": ["PersistentChatServer", "SavedWhiteboardServer"] }
+  ]
+}

@@ -8,6 +8,8 @@ The code that runs encrypt.click on Cloudflare Workers also runs as one long-liv
 
 Browsers only expose Web Crypto on HTTPS pages (and on `localhost`), so a public instance needs a domain and a certificate.
 
+To run it on your own Cloudflare account instead, with no server to look after, use the Deploy to Cloudflare button in the [README](../README.md#your-own-copy-on-cloudflare).
+
 ## Quick start
 
 On a Linux host with Docker whose DNS name already points at it:

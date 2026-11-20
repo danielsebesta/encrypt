@@ -20,6 +20,8 @@ pnpm check
 
 Validate changes with `pnpm test`, `pnpm check` and `pnpm build`; server or realtime changes also with `pnpm build:node`.
 
+`wrangler.toml` describes a fresh install, the one the Deploy to Cloudflare button provisions. encrypt.click's Worker name, domains, EU bucket, variables and full migration history live in `wrangler.production.json`, which the deploy workflow and `pnpm run deploy:production` lay over the build. A new Durable Object migration goes into both.
+
 Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws`) belong only in `src/adapters/*`, `src/worker.ts` and `party/server.ts`. Everything else talks to the `Platform` interface, reads settings through `src/platform/env.ts` and uses same-origin URLs, so no deployment hostname is ever hardcoded.
 
 ## Architecture

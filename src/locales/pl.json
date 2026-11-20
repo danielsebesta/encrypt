@@ -1063,6 +1063,7 @@
   "home.trust.expiryTitle": "Przesłane pliki same się usuwają",
   "home.trust.expiryLead": "Wybierasz, jak długo zaszyfrowany plik zostaje. Potem link przestaje działać.",
   "home.trust.inline": "Krótkie wiadomości są zapisane w samym linku. Nic nie jest przechowywane i nic nie wygasa, chyba że wybierzesz spalenie po przeczytaniu.",
+  "home.trust.deploy": "Wdróż na Cloudflare",
   "nav.tool.chatCipher": "Szyfr czatu",
   "tools.chatCipher.meta.title": "Szyfr czatu – ukryj wiadomość w zwykłym czacie",
   "tools.chatCipher.meta.description": "Zaszyfruj wiadomość hasłem i zamień ją na zwykły czat po czesku, angielsku, niemiecku, hiszpańsku, francusku, słowacku lub polsku. Działa od razu w przeglądarce, bez modelu i GPU.",

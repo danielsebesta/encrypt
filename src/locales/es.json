@@ -1063,6 +1063,7 @@
   "home.trust.expiryTitle": "Las subidas se borran solas",
   "home.trust.expiryLead": "Tú eliges cuánto tiempo se queda el archivo cifrado. Después, el enlace deja de funcionar.",
   "home.trust.inline": "Los mensajes cortos viajan dentro del propio enlace. No se guarda nada y nada caduca, salvo que elijas destruir tras leer.",
+  "home.trust.deploy": "Desplegar en Cloudflare",
   "nav.tool.chatCipher": "Cifrado de chat",
   "tools.chatCipher.meta.title": "Cifrado de chat – oculta un mensaje en un chat casual",
   "tools.chatCipher.meta.description": "Cifra un mensaje con una contraseña y conviértelo en chat cotidiano en checo, inglés, alemán, español, francés, eslovaco o polaco. Corre al instante en el navegador, sin modelo ni GPU.",

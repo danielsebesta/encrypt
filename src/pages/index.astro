@@ -6,7 +6,7 @@ import HomeTry from '../components/home/HomeTry.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
 import HomeBento from '../components/home/HomeBento.astro';
 import AppQr from '../components/home/AppQr.svelte';
-import { REPO_URL } from '../lib/repo';
+import { DEPLOY_URL, REPO_URL } from '../lib/repo';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
@@ -113,6 +113,7 @@ const stack = ['AES-256-GCM', 'ECDH P-256', 'ML-KEM-768', 'Ed25519', 'Argon2id',
       <div class="home-trust__links">
         <a class="btn-secondary btn-sm" href="/security"><Icon name="shield-check" />{t(dict, 'landing.about.security')}</a>
         <a class="btn-ghost btn-sm" href={REPO_URL} target="_blank" rel="noopener noreferrer"><Icon name="github" />{t(dict, 'landing.about.github')}<Icon name="arrow-up-right" /></a>
+        <a class="btn-ghost btn-sm" href={DEPLOY_URL} target="_blank" rel="noopener noreferrer"><Icon name="cloud" />{t(dict, 'home.trust.deploy')}<Icon name="arrow-up-right" /></a>
       </div>
     </section>
 

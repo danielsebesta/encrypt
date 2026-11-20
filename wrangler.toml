@@ -1,13 +1,11 @@
-name = "encrypt-click"
+# A fresh install that the Deploy to Cloudflare button can provision. encrypt.click itself deploys with
+# wrangler.production.json on top: its domains, worker name, EU bucket and its full migration history.
+name = "encrypt"
 main = "src/worker.ts"
 compatibility_date = "2026-10-07"
 compatibility_flags = ["nodejs_compat"]
-workers_dev = false
+workers_dev = true
 preview_urls = false
-routes = [
-  { pattern = "encrypt.click", custom_domain = true },
-  { pattern = "www.encrypt.click", custom_domain = true }
-]
 
 logpush = false
 
@@ -27,17 +25,14 @@ run_worker_first = [
   "/cs", "/cs/*", "/de", "/de/*", "/es", "/es/*", "/fr", "/fr/*", "/sk", "/sk/*", "/pl", "/pl/*",
 ]
 
-[vars]
-SHORTENER_URL = "https://l.encrypt.click/api/shorten"
-R2_ACCOUNT_ID = "c76ce085303f62a966fac128aa2952ae"
-R2_JURISDICTION = "eu"
-R2_BUCKET_NAME = "encrypt-r2"
+# Expired uploads are deleted by the hourly sweep in src/worker.ts, so a bucket without lifecycle rules stays clean.
+[triggers]
+crons = ["17 * * * *"]
 
-# Uploaded ciphertext, served same-origin from /dl/<id>, under t1h/, t1d/ and t7d/; one lifecycle rule per prefix deletes it.
+# Uploaded ciphertext, served same-origin from /dl/<id>, under t1h/, t1d/ and t7d/.
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "encrypt-r2"
-jurisdiction = "eu"
+bucket_name = "encrypt-uploads"
 
 [[durable_objects.bindings]]
 name = "SECURITY_BUDGET"
@@ -58,18 +53,3 @@ new_sqlite_classes = ["SecurityBudget"]
 [[migrations]]
 tag = "realtime-v1"
 new_sqlite_classes = ["ChatServer", "WhiteboardServer"]
-
-# Production already applied persistent-v1 and saved-whiteboard-v1; wrangler replays every migration when it
-# cannot find the published tag, so they stay listed. The last one drops the removed saved-room classes and
-# their Durable Object storage.
-[[migrations]]
-tag = "persistent-v1"
-new_sqlite_classes = ["PersistentChatServer"]
-
-[[migrations]]
-tag = "saved-whiteboard-v1"
-new_sqlite_classes = ["SavedWhiteboardServer"]
-
-[[migrations]]
-tag = "remove-saved-rooms-v1"
-deleted_classes = ["PersistentChatServer", "SavedWhiteboardServer"]

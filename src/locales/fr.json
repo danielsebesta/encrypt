@@ -1063,6 +1063,7 @@
   "home.trust.expiryTitle": "Les envois se suppriment d’eux-mêmes",
   "home.trust.expiryLead": "Vous choisissez combien de temps le fichier chiffré reste. Ensuite, le lien ne fonctionne plus.",
   "home.trust.inline": "Les messages courts voyagent dans le lien lui-même. Rien n’est stocké, rien n’expire, sauf si vous choisissez la destruction après lecture.",
+  "home.trust.deploy": "Déployer sur Cloudflare",
   "nav.tool.chatCipher": "Chiffre chat",
   "tools.chatCipher.meta.title": "Chiffre de chat – cacher un message dans un chat ordinaire",
   "tools.chatCipher.meta.description": "Chiffrez un message avec un mot de passe et transformez-le en chat ordinaire en tchèque, anglais, allemand, espagnol, français, slovaque ou polonais. Instantané dans le navigateur, sans modèle ni GPU.",
