@@ -3,6 +3,7 @@
   import { aliasGradient, gradientFor, type Alias } from '../../lib/alias';
   import Icon from '../Icon.svelte';
   import { roving } from '../ui/roving';
+  import ToolStatus from './ToolStatus.svelte';
 
   export type ChatCallPeer = {
     id: string;
@@ -255,6 +256,12 @@
     };
   }
 
+  function focusOnOpen(node: HTMLElement) {
+    if (appMode || node.contains(document.activeElement)) return;
+    const from = document.activeElement;
+    if (from instanceof HTMLElement && from.matches('[data-call-settings-trigger]')) node.focus({ preventScroll: true });
+  }
+
   function streamMedia(node: HTMLMediaElement, options: StreamMediaOptions) {
     applyStreamMediaOptions(node, options);
     return {
@@ -359,7 +366,7 @@
                     <Icon name="maximize" />
                   </button>
                 {:else}
-                  <div class="call__avatar" style="background: {aliasGradient(alias, localName)}" title={localName} aria-label={localName}></div>
+                  <div class="call__avatar" style="background: {aliasGradient(alias, localName)}" title={localName} role="img" aria-label={localName}></div>
                 {/if}
                 <div class="call__name">
                   <span>{t(dict, 'chat.callYou')}</span>
@@ -404,7 +411,7 @@
                         on:contextmenu={onpreventcontextmenu}
                       ></audio>
                     {/if}
-                    <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} aria-label={peer.name}></div>
+                    <div class="call__avatar" style="background: {gradientFor(peer.alias, peer.name)}" title={peer.name} role="img" aria-label={peer.name}></div>
                   {/if}
                   <div class="call__name">
                     <span>{peer.name}</span>
@@ -482,9 +489,9 @@
           {/if}
 
           {#if callSettingsOpen}
-            <div class="call__settings" id="chat-call-settings" role="dialog" aria-label={t(dict, 'chat.callAudioAndDevices')}>
+            <div class="call__settings" id="chat-call-settings" role="dialog" aria-labelledby="chat-call-settings-title" tabindex="-1" use:focusOnOpen>
               <div class="call__settings-head">
-                <span>{t(dict, 'chat.callAudioAndDevices')}</span>
+                <span id="chat-call-settings-title">{t(dict, 'chat.callAudioAndDevices')}</span>
                 <button type="button" class="btn-ghost btn-sm btn-icon" title={t(dict, 'chat.callRefreshDevices')} aria-label={t(dict, 'chat.callRefreshDevices')} on:click={onrefreshdevices}>
                   <Icon name="refresh-cw" />
                 </button>
@@ -564,7 +571,7 @@
               <span>{callError}</span>
             </div>
           {:else}
-            <p class="status status--error" role="alert">{callError}</p>
+            <ToolStatus tone="error">{callError}</ToolStatus>
           {/if}
         {/if}
       </div>
@@ -656,7 +663,7 @@
     flex-wrap: wrap;
     gap: 0.4rem;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--call-muted);
   }
   .call__top {
@@ -837,7 +844,7 @@
     border-radius: 6px;
     background: var(--call-name-bg);
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--call-text);
   }
   .call__name > span:first-child {
@@ -1001,7 +1008,17 @@
     overflow: auto;
     overscroll-behavior: contain;
   }
+  .call--site .call__settings input[type="range"] {
+    height: 2rem;
+  }
   @media (max-width: 30rem) {
+    .call--site .call__bar {
+      gap: 0.25rem;
+    }
+    .call--site .call-mini__avatars,
+    .call--site .call-mini__video {
+      display: none;
+    }
     .call--site .call__settings {
       position: static;
       order: 1;
@@ -1090,7 +1107,7 @@
     font-size: 0.75rem;
     color: var(--call-muted);
   }
-  .call .status--error {
+  .call :global(.status--error) {
     margin: 0.75rem;
   }
   :global(.chat-body--call.chat-body--call-mini) {
@@ -1136,6 +1153,22 @@
       opacity: 1;
     }
   }
+  @media (forced-colors: active) {
+    .call__tile {
+      outline: 1px solid CanvasText;
+    }
+    .call__tile--speaking {
+      outline: 2px solid Highlight;
+    }
+    .call__dot,
+    .call__level,
+    .call__name-state,
+    .call__badge,
+    .call__avatar,
+    .call-mini__avatar {
+      forced-color-adjust: none;
+    }
+  }
 
   .chat-call-fullscreen {
     position: fixed;
@@ -1175,8 +1208,8 @@
     color: var(--call-text);
     background: var(--call-overlay-strong);
     border: 1px solid var(--call-fill-weak);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 600;
     pointer-events: auto;
   }
   .chat-call-fullscreen__meta span {
