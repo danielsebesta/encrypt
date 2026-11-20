@@ -232,4 +232,14 @@
   .voice-msg__time {
     font-variant-numeric: tabular-nums;
   }
+  .voice-msg:not(.voice-msg--app) {
+    width: 15rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__meta {
+    flex-wrap: wrap;
+    column-gap: 0.3rem;
+    white-space: normal;
+  }
 </style>

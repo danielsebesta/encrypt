@@ -110,7 +110,7 @@
     <div class="voice-rec" role="status">
       <span class="voice-rec__dot" aria-hidden="true"></span>
       <span class="voice-rec__label">{t(dict, 'chat.voiceRecording')}</span>
-      <span class="voice-rec__time">{formatClock(elapsed)} / {formatClock(MAX_VOICE_SECONDS)}</span>
+      <span class="voice-rec__time" role="timer" aria-live="off">{formatClock(elapsed)} / {formatClock(MAX_VOICE_SECONDS)}</span>
     </div>
     <button type="button" class="btn-ghost btn-icon" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
       <Icon name="trash" />

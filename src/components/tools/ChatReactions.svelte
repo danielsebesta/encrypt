@@ -20,7 +20,7 @@
     ontoggle(item.emoji);
   }
 
-  const label = (item: ReactionSummary) => t(dict, 'chat.reactionBy').replace('{emoji}', item.emoji).replace('{names}', item.names.join(', '));
+  const label = (item: ReactionSummary) => t(dict, 'chat.reactionBy').replace('{emoji}', item.emoji).replace('{count}', String(item.count)).replace('{names}', item.names.join(', '));
 </script>
 
 {#if items.length}

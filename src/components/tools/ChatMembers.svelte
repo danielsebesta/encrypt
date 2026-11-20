@@ -39,6 +39,8 @@
   const here = $derived(others.filter((member) => online.has(member.pk)));
   const earlier = $derived(others.filter((member) => !online.has(member.pk)));
 
+  const panelId = (pk: string) => `chat-member-${pk.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
   function toggle(pk: string) {
     openPk = openPk === pk ? '' : pk;
   }
@@ -65,7 +67,7 @@
 {#snippet row(member: Member)}
   {@const s = memberState(member)}
   <li class="chat-member" class:chat-member--open={openPk === member.pk}>
-    <button type="button" class={appMode ? 'chat-member__head' : 'btn-ghost btn-block chat-member__row'} aria-expanded={openPk === member.pk} onclick={() => toggle(member.pk)}>
+    <button type="button" class={appMode ? 'chat-member__head' : 'btn-ghost btn-block chat-member__row'} aria-expanded={openPk === member.pk} aria-controls={panelId(member.pk)} onclick={() => toggle(member.pk)}>
       <span class="chat-avatar chat-member__avatar" style="background: {gradientFor(member.alias, member.name)}" aria-hidden="true">
         {#if online.has(member.pk)}<span class="chat-member__dot"></span>{/if}
       </span>
@@ -81,13 +83,13 @@
       <Icon name="chevron-down" class="chat-member__chevron" />
     </button>
     {#if openPk === member.pk}
-      <div class="chat-member__panel">
+      <div class="chat-member__panel" id={panelId(member.pk)}>
         {#if !member.trusted}
           <p class="chat-member__hint">{t(dict, 'chat.keyNewHint')}</p>
           <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} onclick={() => ontrust(member.pk)}>{t(dict, 'chat.keyTrust')}</button>
         {:else}
           <p class="chat-member__hint">{t(dict, 'chat.verifyHint')}</p>
-          <p class="chat-member__safety" aria-label={member.safety}>
+          <p class="chat-member__safety">
             {#each member.safety.split(' ') as group}<span>{group}</span>{/each}
           </p>
           {#if differs[member.pk]}
@@ -100,7 +102,7 @@
               <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} onclick={() => mismatch(member.pk)}>{t(dict, 'chat.verifyMismatch')}</button>
             </div>
           {/if}
-          <p class="chat-member__code"><span>{t(dict, 'chat.keyCode')}</span><span class="chat-member__code-value" aria-label={member.code}>{member.code}</span></p>
+          <p class="chat-member__code"><span>{t(dict, 'chat.keyCode')}</span><span class="chat-member__code-value">{member.code}</span></p>
         {/if}
       </div>
     {/if}
@@ -156,6 +158,9 @@
   .chat-member--open :global(.chat-member__chevron) { transform: rotate(180deg); }
   .chat-member__panel {
     display: grid; gap: 0.75rem; padding: 0.25rem 0.75rem 0.875rem calc(0.75rem + 36px + 0.75rem); justify-items: start;
+  }
+  @container chat-body (max-width: 30rem) {
+    .chat-members__list--site .chat-member__panel { padding-inline-start: 0.75rem; }
   }
   .chat-member__hint { margin: 0; font-size: 0.8125rem; line-height: 1.4; color: var(--muted); }
   .chat-member__safety {
