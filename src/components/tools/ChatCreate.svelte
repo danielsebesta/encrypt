@@ -8,6 +8,7 @@
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import MyRooms from './MyRooms.svelte';
   import Field from '../ui/Field.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -93,6 +94,7 @@
     roomError = '';
     if (!roomId) {
       roomError = t(dict, 'chat.roomNameRequired');
+      void focusFirstInvalid(stepEl);
       return;
     }
     customRoomId = roomId;

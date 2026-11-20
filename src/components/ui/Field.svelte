@@ -53,5 +53,5 @@
   {/if}
   {@render children(control)}
   {#if hint}<p id={hintId} class="hint">{hint}</p>{/if}
-  {#if error}<p id={errorId} class="field-error" role="alert">{error}</p>{/if}
+  {#if error}<p id={errorId} class="field-error">{error}</p>{/if}
 </div>

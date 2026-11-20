@@ -127,7 +127,7 @@ Legacy (`export let`) components that build class strings call `buttonClass({ va
 | `.choice-list` / `.choice` | radio cards |
 | `.field-error` | error text under a control, with an alert icon |
 
-Error contract: the control gets `aria-invalid="true"` and `aria-describedby` that includes the error id; the error is `<p id=… class="field-error" role="alert">`. Box-style errors that are not tied to one control use `.status.status--error`.
+Error contract: the control gets `aria-invalid="true"` and `aria-describedby` that includes the error id; the error is `<p id=… class="field-error">`. It carries no live role: on submit focus moves to the first invalid control (below) and the screen reader reads its error through `aria-describedby`, so a form with several errors does not fire several alerts at once. Only a form with a single password field whose error appears without moving focus (share, receive, room password) adds `role="alert"`. Box-style errors that are not tied to one control use `.status.status--error`.
 
 On a failed submit, call `focusFirstInvalid(formEl)` from `src/lib/focusInvalid.ts`: it waits a tick for the error state to render, then focuses the first `[aria-invalid="true"]` control inside the root.
 
