@@ -1833,7 +1833,7 @@
 {#snippet hubPlus()}
   <button
     type="button"
-    class="w-11 h-11 flex items-center justify-center text-primary rounded-lg"
+    class="w-11 h-11 flex items-center justify-center rounded-full"
     onclick={() => openNewRoom(activeTab === 'boards' ? 'whiteboard' : 'chat')}
     aria-label={t(dict, activeTab === 'boards' ? 'app.new.titleBoard' : 'app.new.titleChat')}
   >
@@ -1844,6 +1844,7 @@
 {#snippet roomBar()}
   <Navbar
     class="app-room-bar {platform === 'material' ? 'app-bar ' : ''}z-40"
+    role="banner"
     centerTitle={true}
     titleClass="app-room-title"
   >
@@ -1856,7 +1857,7 @@
           type="button"
           class="app-nav-title block truncate w-full text-center"
           onclick={() => roomInfo?.()}
-          aria-label={t(dict, 'chat.members')}
+          aria-label={`${activeRoomLabel || activeRoomId}, ${t(dict, 'chat.members')}`}
         >
           {activeRoomLabel || activeRoomId}
         </button>
@@ -1899,7 +1900,7 @@
       {#if activeView === 'room'}
         <button
           type="button"
-          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-lg"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center {platform === 'ios' ? 'rounded-full' : 'text-primary rounded-lg'}"
           onclick={() => roomCall?.()}
           aria-label={roomCallState.active ? t(dict, 'chat.callInProgress') : t(dict, 'chat.callStart')}
           disabled={!roomCallState.ready && !roomCallState.active}
@@ -1911,7 +1912,7 @@
       {#if activeView === 'board'}
         <button
           type="button"
-          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-lg"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center {platform === 'ios' ? 'rounded-full' : 'text-primary rounded-lg'}"
           onclick={shareRoom}
           aria-label={t(dict, 'common.shareLink')}
         >
@@ -1922,7 +1923,7 @@
         <button
           type="button"
           id="chat-room-menu-trigger"
-          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center text-primary rounded-lg"
+          class="app-nav-btn shrink-0 w-11 h-11 flex items-center justify-center {platform === 'ios' ? 'rounded-full' : 'text-primary rounded-lg'}"
           onclick={() => roomMenu?.()}
           aria-label={t(dict, 'chat.roomMenu')}
           aria-haspopup="menu"
@@ -1992,16 +1993,16 @@
       {@const showPlus = platform === 'ios' && (activeTab === 'chats' || activeTab === 'boards')}
       <main class="flex-1 overflow-y-auto min-h-0 app-scroll" class:app-scroll--scrolled={hubScrolled} bind:this={scroller} onscroll={() => { hubScrolled = (scroller?.scrollTop ?? 0) > 2; }}>
         {#if showPlus}
-          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40" role="banner">
             {#snippet title()}{@render hubTitle()}{/snippet}
             {#snippet right()}{@render hubPlus()}{/snippet}
           </Navbar>
         {:else if platform === 'ios'}
-          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40" role="banner">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {:else}
-          <Navbar class="app-bar app-hub-bar z-40">
+          <Navbar class="app-bar app-hub-bar z-40" role="banner">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {/if}
@@ -2400,6 +2401,7 @@
       {/if}
 
       <Tabbar
+        role="navigation"
         labels={true}
         icons={true}
         role="navigation"

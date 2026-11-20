@@ -1,40 +1,281 @@
-:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane,
-:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-glass {
-    background: var(--app-surface) !important;
-    background-image: none !important;
+/* ============================================================
+   iOS 26 Liquid Glass. Glass sits on the control layer only:
+   nav bar controls, tab bar, menus, alerts, partial sheets.
+   Content (rows, bubbles, cards) stays opaque.
+   ============================================================ */
+:root[data-app-platform="ios"] {
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --radius-3xl: 1.5rem;
+}
+:root[data-app-platform="ios"][data-app-scheme] {
+    --app-glass-fill: color-mix(in srgb, var(--app-surface) 70%, transparent);
+    --app-glass-fill-strong: color-mix(in srgb, var(--app-surface) 88%, transparent);
+    --app-glass-blur: blur(20px) saturate(170%);
+    --app-edge-blur: blur(4px);
+    --app-glass-rim: var(--shadow-ios-light-glass);
+    --app-glass-control: color-mix(in srgb, var(--app-label) 6%, transparent);
+    --app-edge: var(--app-bg);
+    --app-edge-soft: color-mix(in srgb, var(--app-bg) 90%, transparent);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] {
+    --app-glass-fill: color-mix(in srgb, var(--app-surface) 64%, transparent);
+    --app-glass-rim: var(--shadow-ios-dark-glass);
+    --app-glass-control: color-mix(in srgb, var(--app-label) 10%, transparent);
+}
+:root[data-app-platform="ios"][data-app-reduce-transparency="1"] {
+    --app-glass-fill: var(--app-surface);
+    --app-glass-fill-strong: var(--app-surface);
+    --app-glass-blur: none;
+    --app-edge-blur: none;
+    --app-glass-rim: 0 0 0 1px var(--app-outline);
+    --app-edge-soft: var(--app-bg);
+}
+@media (prefers-reduced-transparency: reduce) {
+    :root[data-app-platform="ios"][data-app-scheme] {
+        --app-glass-fill: var(--app-surface);
+        --app-glass-fill-strong: var(--app-surface);
+        --app-glass-blur: none;
+        --app-edge-blur: none;
+        --app-glass-rim: 0 0 0 1px var(--app-outline);
+        --app-edge-soft: var(--app-bg);
+    }
+}
+@media (prefers-contrast: more) {
+    :root[data-app-platform="ios"][data-app-scheme] {
+        --app-glass-fill: var(--app-surface);
+        --app-glass-fill-strong: var(--app-surface);
+        --app-glass-blur: none;
+        --app-edge-blur: none;
+        --app-glass-rim: 0 0 0 1px var(--app-label);
+        --app-edge-soft: var(--app-bg);
+        --app-label-2: color-mix(in srgb, var(--app-label) 86%, var(--app-bg));
+        --app-separator: var(--app-outline);
+    }
+}
+
+:root[data-app-platform="ios"] :is(
+    .k-navbar .k-glass,
+    .app-main-tabbar .k-toolbar-pane,
+    .k-popover > .k-glass,
+    .k-dialog,
+    .k-actions .k-actions-group,
+    .k-sheet.app-sheet:not(.app-sheet--tall),
+    .app-toast > div,
+    .menu,
+    .msg-actions__menu,
+    .chat-profile__pop,
+    .save-room,
+    .call__settings,
+    .app-update-banner,
+    .app-call-return,
+    .chat-jump-latest,
+    .call-mini,
+    .call__bar
+) {
+    background-color: var(--app-glass-fill);
+    background-image: none;
     border: 0;
-    border-radius: 0;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    box-shadow: none !important;
+    box-shadow: var(--app-glass-rim);
+    -webkit-backdrop-filter: var(--app-glass-blur);
+    backdrop-filter: var(--app-glass-blur);
 }
-/* Konsta's bottom fade is a band under the bar; hide it in captures. */
-:root[data-app-shots="1"][data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > .absolute.bottom-0 {
-    display: none !important;
+:root[data-app-platform="ios"] :is(.k-popover > .k-glass, .k-dialog, .k-actions .k-actions-group, .k-sheet.app-sheet:not(.app-sheet--tall), .app-toast > div, .menu, .msg-actions__menu, .chat-profile__pop, .save-room, .call__settings, .app-update-banner) {
+    background-color: var(--app-glass-fill-strong);
 }
-/* Konsta fades the iOS navbar to transparent (mask + /50 surface) so thread
-   media bleeds through the title — keep the room bar readable. */
-:root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(1),
-:root[data-app-platform="ios"] .k-navbar.app-room-bar > div:nth-child(2) {
-    background: var(--app-bg) !important;
-    background-image: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    opacity: 1 !important;
-    mask-image: none !important;
-    -webkit-mask-image: none !important;
-    /* Konsta hangs these layers 26px below the bar for its fade; the room bar is
-       opaque, so that overhang only painted a band over the content underneath. */
-    bottom: 0 !important;
-    height: 100% !important;
+@media (forced-colors: active) {
+    :root[data-app-platform="ios"][data-app-scheme] {
+        --app-glass-blur: none;
+        --app-edge-blur: none;
+    }
+}
+:root[data-app-platform="ios"] .k-glass {
+    -webkit-backdrop-filter: var(--app-glass-blur);
+    backdrop-filter: var(--app-glass-blur);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root[data-app-platform="ios"][data-app-scheme] {
+        --app-glass-fill: var(--app-surface);
+        --app-glass-fill-strong: var(--app-surface);
+        --app-glass-rim: 0 0 0 1px var(--app-outline);
+    }
+}
+/* In-content controls are fills, never glass. */
+:root[data-app-platform="ios"] :is(.k-searchbar .k-glass, .k-segmented, .k-segmented .k-glass) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+@media (forced-colors: active) {
+    :root[data-app-platform="ios"] :is(.k-navbar .k-glass, .app-main-tabbar .k-toolbar-pane, .k-popover > .k-glass, .k-dialog, .k-actions .k-actions-group, .k-sheet.app-sheet:not(.app-sheet--tall), .k-sheet.app-sheet--tall, .app-toast > div, .menu, .msg-actions__menu, .chat-profile__pop, .save-room, .call__settings, .app-update-banner, .app-call-return, .chat-jump-latest, .call-mini, .call__bar) {
+        background: Canvas;
+        border: 1px solid CanvasText;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+    :root[data-app-platform="ios"] .app-main-tabbar [aria-current="page"] {
+        outline: 2px solid Highlight;
+        outline-offset: -4px;
+        border-radius: 9999px;
+    }
+    :root[data-app-platform="ios"] .k-segmented [aria-pressed="true"] {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+    }
+}
+
+/* Scroll edge effect instead of bar hairlines: a fade into the page
+   background where content passes under the bars, solid behind titles. */
+:root[data-app-platform="ios"] .k-navbar > div:nth-child(1) {
+    -webkit-backdrop-filter: var(--app-edge-blur);
+    backdrop-filter: var(--app-edge-blur);
+}
+:root[data-app-platform="ios"] .k-navbar > div:nth-child(2) {
+    background-image: linear-gradient(to bottom, var(--app-edge) 0, var(--app-edge-soft) calc(100% - 26px), transparent 100%);
+    opacity: 1;
+}
+:root[data-app-platform="ios"] .k-navbar > :is(div:nth-child(1), div:nth-child(2)) {
+    transition: opacity 180ms var(--ease-out);
+}
+:root[data-app-platform="ios"] .app-scroll:not(.app-scroll--scrolled) .k-navbar > :is(div:nth-child(1), div:nth-child(2)) {
+    opacity: 0;
+}
+:root[data-app-platform="ios"] .app-main-tabbar > div:first-child {
+    background-image: linear-gradient(to top, var(--app-edge) 0, var(--app-edge-soft) 45%, transparent 100%);
+}
+
+/* Bar controls: circular (single) or capsule (grouped) glass, monochrome glyphs. */
+:root[data-app-platform="ios"] .k-navbar .k-glass {
+    min-width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    color: var(--app-label);
+    transition: transform 180ms var(--ease-move);
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass :is(.k-navbar-back-link, .k-link, button) {
+    height: 100%;
+    margin: 0;
+    border: none;
+    background: transparent;
+    border-radius: inherit;
+    color: inherit;
+    transform: none !important;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(> :only-child) :is(.k-navbar-back-link, .k-link, button) {
+    width: 44px;
+    justify-content: center;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:not(:has(> .app-nav-btn)):active {
+    transform: scale(0.94);
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:not(:has(> .app-nav-btn)):has(:focus-visible) {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:not(:has(> .app-nav-btn)) :focus-visible {
+    outline: none;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(> .app-nav-btn) {
+    flex: 0 0 auto;
+    gap: 0;
+    --color-ios-hover-highlight: transparent;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    transition: background-color 180ms var(--ease-out);
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:active:not(:disabled) {
+    background: color-mix(in srgb, var(--app-label) 14%, transparent);
+}
+@media (hover: hover) {
+    :root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:hover:not(:disabled):not(:active) {
+        background: color-mix(in srgb, var(--app-label) 8%, transparent);
+    }
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:disabled {
+    opacity: 0.4;
+}
+:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    :root[data-app-platform="ios"] .k-navbar .k-glass,
+    :root[data-app-platform="ios"] .k-navbar > :is(div:nth-child(1), div:nth-child(2)) {
+        transition: none;
+    }
+    :root[data-app-platform="ios"] .k-navbar .k-glass:active {
+        transform: none;
+    }
 }
 :root[data-app-platform="ios"] .k-navbar.app-hub-bar > div:last-child .app-hub-label {
     letter-spacing: 0.01em;
 }
-:root[data-app-platform="ios"] .app-sheet {
-    border-radius: 8px 8px 0 0;
-    transition-timing-function: var(--ease-move);
-    box-shadow: var(--shadow-float);
+
+:root[data-app-platform="ios"] .k-navbar .k-glass:has(> .app-nav-btn ~ .app-nav-btn) {
+    padding-inline: 2px;
+}
+
+/* Chat thread scrolls under the room bar, as in Messages. */
+:root[data-app-platform="ios"] {
+    --app-room-bar-h: calc(max(6px, var(--k-safe-area-top, 0px)) + 2.75rem);
+}
+:root[data-app-platform="ios"] .k-navbar.app-room-bar:has(+ .app-room-wrapper) {
+    position: absolute;
+    inset: 0 0 auto;
+}
+:root[data-app-platform="ios"] .app-room-wrapper .chat-container {
+    padding-top: var(--app-room-bar-h);
+}
+:root[data-app-platform="ios"] .app-room-wrapper .chat-container:not(:has(> .chat-share-banner, > .chat-call-banner)) > .chat-body:not(.chat-body--call) {
+    margin-top: calc(-1 * var(--app-room-bar-h));
+}
+:root[data-app-platform="ios"] .app-room-wrapper .chat-container:not(:has(> .chat-share-banner, > .chat-call-banner)) > .chat-body:not(.chat-body--call) .chat-messages {
+    padding-top: calc(var(--app-room-bar-h) + 1.4rem);
+    scroll-padding-top: var(--app-room-bar-h);
+}
+
+:root[data-app-platform="ios"] .app-call-return {
+    border-radius: 9999px;
+}
+
+/* Menus open without an arrow and grow from their source. */
+:root[data-app-platform="ios"] .k-popover > div.pointer-events-none {
+    display: none;
+}
+:root[data-app-platform="ios"] .k-popover > .k-glass {
+    margin-inline: 6px;
+}
+
+/* Tab bar: Konsta's floating glass capsule. The selected tab sits on a light
+   fill with an on-tint-container glyph, which keeps AA over any content behind. */
+:root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute > span:first-child {
+    background: var(--app-glass-control);
+}
+:root[data-app-platform="ios"] .app-main-tabbar .text-primary {
+    color: var(--app-on-tint-container);
+}
+:root[data-app-platform="ios"] .app-main-tabbar .k-link:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: -4px;
+    border-radius: 9999px;
+}
+:root[data-app-platform="ios"] .app-scroll {
+    padding-bottom: calc(8.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Store captures keep the floating capsule and the scroll edge layers. */
+:root[data-app-platform="ios"][data-app-shots="1"] .k-navbar > :is(div:nth-child(1), div:nth-child(2)) {
+    display: block !important;
+}
+:root[data-app-platform="ios"][data-app-shots="1"] .app-main-tabbar {
+    background: transparent !important;
+    border-top: 0;
+}
+:root[data-app-platform="ios"][data-app-shots="1"] .app-scroll {
+    padding-bottom: 8.25rem !important;
 }
 
 /* iOS 26: tab presses contract with a spring settle (Material uses ink ripple instead) */
@@ -54,9 +295,6 @@
 :root[data-app-platform="ios"] .attach-badge--board { background: var(--app-tint-strong); }
 :root[data-app-platform="ios"] .attach-badge--once { background: var(--app-warn); }
 :root[data-app-platform="ios"] .attach-badge--schedule { background: var(--app-fill); color: var(--app-label); }
-:root[data-app-platform="ios"] .app-scroll {
-    padding-bottom: calc(8.25rem + env(safe-area-inset-bottom, 0px));
-}
 
 /* ============================================================
    iOS skin — Cupertino look for embedded site components
@@ -101,7 +339,7 @@
         }
     }
     .btn-sm {
-        border-radius: 6px;
+        border-radius: 9999px;
         min-height: 34px;
     }
     .btn-icon {
@@ -114,7 +352,7 @@
     .input {
         background: var(--app-fill);
         border: none;
-        border-radius: 6px;
+        border-radius: 12px;
         min-height: 38px;
         color: var(--app-label);
         font-size: 16px;
@@ -130,7 +368,7 @@
         box-shadow: 0 0 0 1.5px var(--app-error);
     }
     textarea.input {
-        border-radius: 6px;
+        border-radius: 12px;
     }
     select.input {
         background-color: var(--app-fill);
@@ -151,7 +389,7 @@
     .card {
         background: var(--app-surface);
         border: none;
-        border-radius: 8px;
+        border-radius: 1rem;
         box-shadow: none;
     }
 
@@ -159,7 +397,7 @@
     .dropzone {
         background: var(--app-fill);
         border: 1.5px dashed var(--app-outline);
-        border-radius: 8px;
+        border-radius: 1rem;
         color: var(--app-label-2);
     }
     .dropzone--dragging {
@@ -174,7 +412,7 @@
     /* Status banners */
     .status {
         border: none;
-        border-radius: 8px;
+        border-radius: 12px;
         background: var(--app-fill);
         color: var(--app-label-2);
     }
@@ -191,28 +429,20 @@
         color: var(--app-label-2);
     }
 
-    /* Popup menus — solid surface, hairline, float shadow */
     .menu,
     .msg-actions__menu,
     .chat-profile__pop,
-    .save-room,
+    .save-room {
+        border-radius: 1.5rem;
+    }
     .chat-members {
         background: var(--app-surface);
-        border: 1px solid var(--app-outline);
-        border-radius: 8px;
-        box-shadow: var(--shadow-float);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-    .chat-profile__pop {
-        border-radius: 8px;
-    }
-    .chat-members {
+        border: 0;
         border-radius: 0;
         box-shadow: none;
     }
     .menu__item {
-        border-radius: 8px;
+        border-radius: 0.75rem;
         color: var(--app-label);
         font-weight: 500;
     }
@@ -226,14 +456,6 @@
             color: var(--app-label);
         }
     }
-    .chat-jump-latest {
-        background: var(--app-surface);
-        border: none;
-        box-shadow: none;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-
     /* Chat chrome — solid bar. Menus paint above it. */
     .chat-header {
         background: transparent;
@@ -301,11 +523,11 @@
         }
     }
     .chat-kmsg > .flex-col > .break-words {
-        border-radius: 8px 8px 8px 6px;
+        border-radius: 18px 18px 18px 6px;
         position: relative;
     }
     .chat-kmsg--mine > .flex-col > .break-words {
-        border-radius: 8px 8px 6px 8px;
+        border-radius: 18px 18px 6px 18px;
     }
     /* actions float beside the bubble, hover/long-press reveals */
     .chat-kmsg-actions {
@@ -383,7 +605,7 @@
     }
     .chat-mode-badge {
         border: none;
-        border-radius: 6px;
+        border-radius: 9999px;
         background: var(--app-tint-container);
         color: var(--app-on-tint-container);
         font-size: 11px;
@@ -397,21 +619,21 @@
     .chat-call-accept {
         background: var(--app-tint);
         color: var(--app-on-tint);
-        border-radius: 6px;
+        border-radius: 9999px;
         font-weight: 600;
     }
     .chat-call-decline {
         background: var(--app-fill);
         color: var(--app-label);
-        border-radius: 6px;
+        border-radius: 9999px;
     }
     .chat-key-warn {
         background: var(--app-warn-weak);
         color: var(--app-on-warn-weak);
     }
     .chat-jump-latest {
-        color: var(--app-tint);
-        border-radius: 6px;
+        color: var(--app-label);
+        border-radius: 9999px;
     }
     .chat-jump-latest__count {
         background: var(--app-error);
@@ -420,7 +642,7 @@
     .chat-file {
         background: var(--app-fill);
         border: none;
-        border-radius: 8px;
+        border-radius: 1rem;
         color: var(--app-tint);
     }
     .chat-kmsg--mine .chat-file {
@@ -435,16 +657,16 @@
     .chat-whiteboard-card {
         border: none;
         background: var(--app-fill);
-        border-radius: 8px;
+        border-radius: 1rem;
     }
     .chat-whiteboard-card__icon {
         background: var(--app-tint-container);
         color: var(--app-on-tint-container);
-        border-radius: 8px;
+        border-radius: 10px;
     }
     .chat-whiteboard-card__btn {
         border: none;
-        border-radius: 6px;
+        border-radius: 9999px;
         background: var(--app-fill-2);
         color: var(--app-label);
     }
@@ -454,7 +676,7 @@
     }
     .chat-preview-text {
         border-color: var(--app-separator);
-        border-radius: 8px;
+        border-radius: 1rem;
     }
     .chat-preview-expand {
         background: var(--app-fill);
@@ -463,7 +685,7 @@
     }
     .chat-once-reveal {
         border: 1px dashed var(--app-outline);
-        border-radius: 8px;
+        border-radius: 1rem;
         background: var(--app-fill);
     }
     .chat-once-reveal__label {
@@ -472,12 +694,12 @@
     .chat-once-badge {
         background: var(--app-tint-container);
         color: var(--app-on-tint-container);
-        border-radius: 6px;
+        border-radius: 9999px;
     }
     .chat-schedule-item {
         background: var(--app-fill);
         border: none;
-        border-radius: 8px;
+        border-radius: 12px;
     }
     .chat-schedule-item__when {
         color: var(--app-tint);
@@ -492,7 +714,7 @@
         color: var(--app-error);
     }
     .chat-upload-progress .status {
-        border-radius: 8px;
+        border-radius: 12px;
     }
     .chat-thread--drop {
         outline-color: var(--app-tint);
@@ -521,7 +743,7 @@
     .wb-pill {
         background: transparent;
         border: none;
-        border-radius: 6px;
+        border-radius: 9999px;
         position: relative;
         isolation: isolate;
     }
@@ -563,7 +785,7 @@
     .wb-chat {
         background: var(--app-surface) !important;
         border: 1px solid var(--app-separator) !important;
-        border-radius: 8px !important;
+        border-radius: 1.5rem !important;
     }
 
     /* Checkboxes — iOS circular check */
@@ -613,34 +835,12 @@
    Konsta tuning — finishing touches per platform
    ============================================================ */
 
-/* Navbar capsules and the tab bar are solid surfaces. The back link keeps
-   its press feedback. */
-:root[data-app-platform="ios"] {
-    --app-glass-shadow-sm: none;
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass:active {
-    transform: scale(0.94);
-}
-/* Icon-only nav controls (back, +, share) shrink to the icon. Keep a 44px square so the 8px radius stays even. */
-:root[data-app-platform="ios"] .k-navbar .k-glass:has(button:only-child),
-:root[data-app-platform="ios"] .k-navbar .k-glass:has(.k-link:only-child) {
-    min-width: 44px;
-}
-:root[data-app-platform="ios"] .k-navbar-back-link {
-    border-radius: 6px;
-    transition: background 180ms var(--ease-out);
-}
-@media (prefers-reduced-motion: reduce) {
-    :root[data-app-platform="ios"] .k-navbar-back-link {
-        transition: none;
-    }
-}
 :root[data-app-platform="ios"] .app-composer__field {
     flex: 1;
     min-width: 0;
     min-height: 38px;
     background: var(--app-fill);
-    border-radius: 6px;
+    border-radius: 1.25rem;
     padding: 0 14px;
     display: flex;
     align-items: center;
@@ -715,46 +915,6 @@
     }
 }
 
-:root[data-app-platform="ios"][data-app-scheme] .chat-attach-dropdown,
-:root[data-app-platform="ios"][data-app-scheme] .chat-attach-submenu {
-    background: var(--app-surface);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    border: none;
-    border-radius: 8px;
-    box-shadow: none;
-    padding: 6px;
-    width: 232px;
-}
-:root[data-app-platform="ios"][data-app-scheme] .chat-attach-submenu {
-    margin: 2px 0 4px;
-    padding: 2px 0 2px 10px;
-    border-left: none;
-    border-radius: 8px;
-    width: auto;
-    background: var(--app-fill);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    box-shadow: none;
-}
-:root[data-app-platform="ios"] .chat-attach-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 9px 12px;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--app-label);
-    text-align: left;
-    transition: background 100ms var(--ease-out);
-}
-:root[data-app-platform="ios"] .chat-attach-option:active { background: var(--app-fill); }
-:root[data-app-platform="ios"] .chat-attach-option:disabled { opacity: 0.4; }
-:root[data-app-platform="ios"] .chat-attach-option--on { color: var(--app-tint); }
-:root[data-app-platform="ios"] .chat-attach-option svg { color: var(--app-tint); }
-
 :root[data-app-platform="ios"] .chat-input .chat-send-btn {
     width: 38px;
     height: 38px;
@@ -801,7 +961,7 @@
 }
 
 :root[data-app-platform="ios"] .msg-quote {
-    border-radius: 8px;
+    border-radius: 12px;
     background: color-mix(in srgb, var(--app-on-bubble) 9%, transparent);
     border-left: 2.5px solid var(--app-tint);
     overflow: hidden;
@@ -818,7 +978,7 @@
 }
 
 :root[data-app-platform="ios"] .msg-reactions__chip {
-    border-radius: 6px;
+    border-radius: 9999px;
     padding: 2px 8px;
     font-size: 13px;
     border-color: var(--app-outline);
@@ -841,7 +1001,7 @@
     width: 24px;
     height: 24px;
     padding: 0;
-    border-radius: 6px;
+    border-radius: 9999px;
     color: var(--app-label-2);
     display: flex;
     align-items: center;
@@ -855,7 +1015,7 @@
 :root[data-app-platform="ios"] .chat-typing { color: var(--app-label-2); font-size: 13px; }
 
 :root[data-app-platform="ios"] .chat-once-reveal {
-    border-radius: 8px;
+    border-radius: 1rem;
     background: var(--app-fill);
 }
 :root[data-app-platform="ios"] .chat-kmsg--mine .chat-once-reveal {
@@ -868,7 +1028,7 @@
 
 :root[data-app-platform="ios"] .chat-preview-text {
     background: color-mix(in srgb, var(--app-on-bubble) 7%, transparent);
-    border-radius: 8px;
+    border-radius: 1rem;
 }
 :root[data-app-platform="ios"] .chat-kmsg--mine .chat-preview-text {
     background: color-mix(in srgb, var(--app-on-bubble-mine) 14%, transparent);
@@ -890,38 +1050,6 @@
     color: var(--app-bubble-mine);
 }
 :root[data-app-platform="ios"] .chat-kmsg--mine .msg-quote__name { color: var(--app-on-bubble-mine) !important; }
-
-/* Reduced transparency: swap Liquid Glass for opaque surfaces, keep text contrast */
-@media (prefers-reduced-transparency: reduce) {
-    :root[data-app-platform="ios"] .k-glass,
-    :root[data-app-platform="ios"] .k-navbar-back-link,
-    :root[data-app-platform="ios"] .k-sheet,
-    :root[data-app-platform="ios"] .app-sheet,
-    :root[data-app-platform="ios"] .k-dialog,
-    :root[data-app-platform="ios"] .k-popover .k-glass,
-    :root[data-app-platform="ios"] .k-actions .k-actions-group,
-    :root[data-app-platform="ios"] .menu,
-    :root[data-app-platform="ios"] .msg-actions__menu,
-    :root[data-app-platform="ios"] .chat-profile__pop,
-    :root[data-app-platform="ios"] .save-room,
-    :root[data-app-platform="ios"] .chat-members,
-    :root[data-app-platform="ios"] .chat-jump-latest,
-    :root[data-app-platform="ios"] .chat-share-banner,
-    :root[data-app-platform="ios"] .chat-call-banner,
-    :root[data-app-platform="ios"] .chat-input .chat-attach-btn:not(.chat-attach-btn--active),
-    :root[data-app-platform="ios"] .chat-attach-dropdown,
-    :root[data-app-platform="ios"] .chat-attach-submenu {
-        background: var(--app-surface) !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-    }
-    :root[data-app-platform="ios"] .chat-header::before,
-    :root[data-app-platform="ios"] .wb-pill::before {
-        background: var(--app-surface);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-}
 
 /* iOS alerts follow the app tint, as UIAlertController follows the window tintColor.
    Konsta resolves --color-primary once on :root, so the --color-* tokens are overridden at this scope. */
@@ -951,49 +1079,35 @@
 :root[data-app-platform="ios"] .k-dialog.app-dialog--stack > div:has(> .k-button) > .k-button {
     width: 100%;
 }
+:root[data-app-platform="ios"] .app-sheet-btn,
+:root[data-app-platform="ios"] .app-slide,
+:root[data-app-platform="ios"] .app-slide__fill,
+:root[data-app-platform="ios"] .app-slide__thumb {
+    border-radius: 9999px;
+}
+:root[data-app-platform="ios"] .app-slide {
+    border-color: transparent;
+}
+/* Destructive actions on glass: a filled red capsule in alerts, the deeper
+   on-error-weak red in menus, so both stay AA over whatever is behind. */
 :root[data-app-platform="ios"] .k-dialog .app-dialog-destructive {
     --color-primary: var(--app-error);
     --color-brand-primary: var(--app-error);
     --color-ios-primary: var(--app-error);
     --color-ios-primary-tint: var(--app-error);
     --color-ios-primary-shade: var(--app-error);
+    background: var(--app-error);
+    color: var(--app-on-error);
+}
+:root[data-app-platform="ios"] .k-dialog .app-dialog-destructive:active {
+    filter: brightness(0.92);
+}
+:root[data-app-platform="ios"] .app-row-menu .app-menu-danger,
+:root[data-app-platform="ios"] .app-row-menu .app-menu-danger :is(button, span, div, svg) {
+    color: var(--app-on-error-weak) !important;
 }
 
 
-/* iOS 26 toolbar: related actions share one glass capsule, each with its own pressed state.
-   Konsta's whole-capsule glare and scale would light up all three at once, so they are off here. */
-:root[data-app-platform="ios"] .k-navbar .k-glass:has(> .app-nav-btn) {
-    flex: 0 0 auto;
-    gap: 0;
-    padding-inline: 0.125rem;
-    --color-ios-hover-highlight: transparent;
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass:has(> .app-nav-btn):active {
-    transform: none;
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn {
-    width: 44px;
-    height: 44px;
-    flex: 0 0 auto;
-    border-radius: 8px;
-    background: transparent;
-    transition: background-color 180ms var(--ease-out);
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:active:not(:disabled) {
-    background: color-mix(in srgb, var(--app-label) 16%, transparent);
-}
-@media (hover: hover) {
-    :root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:hover:not(:disabled):not(:active) {
-        background: color-mix(in srgb, var(--app-label) 8%, transparent);
-    }
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:disabled {
-    opacity: 0.4;
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass button.app-nav-btn:focus-visible {
-    outline: 2px solid var(--app-tint);
-    outline-offset: -2px;
-}
 /* Konsta's menu/list glare is a 50% (light) / 30% (dark) white spotlight under the pointer. */
 :root[data-app-platform="ios"] {
     --color-ios-hover-highlight: color-mix(in srgb, var(--app-label) 12%, transparent);
@@ -1010,11 +1124,7 @@
     gap: 0.25rem;
     margin: 0.5rem auto calc(0.75rem + env(safe-area-inset-bottom, 0px));
     padding: 0.375rem;
-    border-radius: 6px;
-    background: var(--app-surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: none;
+    border-radius: 9999px;
 }
 :root[data-app-platform="ios"] .call__btn {
     width: 48px;
@@ -1073,37 +1183,48 @@
     left: 50%;
     right: auto;
     transform: translateX(-50%);
-    border: 1px solid var(--app-outline);
-    border-radius: 8px;
-    background: var(--app-surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    box-shadow: var(--shadow-float);
+    border-radius: 1.5rem;
     color: var(--app-label);
 }
 :root[data-app-platform="ios"] .app-update-banner {
-    border-radius: 8px;
-    background: var(--app-sheet);
-    box-shadow: var(--shadow-float);
+    border-radius: 1.5rem;
 }
 :root[data-app-platform="ios"] .app-update-banner__icon {
-    border-radius: 8px;
+    border-radius: 0.625rem;
 }
 
-/* In-content search field: flat fill, same as Messages / Settings. */
+/* In-content search field and filter: 44pt capsules on a fill, as in Messages / Settings. */
 :root[data-app-platform="ios"] .app-content .k-searchbar .k-glass {
-    background: var(--app-fill) !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    background: var(--app-fill);
+    box-shadow: none;
+    border-radius: 9999px;
 }
 :root[data-app-platform="ios"] .app-content .k-searchbar .k-glass::before,
 :root[data-app-platform="ios"] .app-content .k-searchbar .k-glass::after {
     display: none;
 }
 :root[data-app-platform="ios"] .app-content .k-searchbar input {
-    height: 2.25rem;
+    height: 2.75rem;
     background: transparent;
+}
+:root[data-app-platform="ios"] .app-content .k-searchbar .k-glass:has(input:focus-visible) {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+}
+:root[data-app-platform="ios"] .k-segmented,
+:root[data-app-platform="ios"] .k-segmented > span,
+:root[data-app-platform="ios"] .k-segmented .k-button {
+    border-radius: 9999px;
+}
+:root[data-app-platform="ios"] .k-segmented {
+    background: var(--app-fill);
+    box-shadow: none;
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-segmented > span {
+    background: var(--app-surface-3);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] .k-segmented .k-segmented-strong-button-active {
+    color: var(--app-label);
 }
 :root[data-app-platform="ios"] .k-list-item [class="text-sm"] {
     font-size: 15px;
@@ -1127,8 +1248,57 @@
     margin: 6px auto 0;
     visibility: hidden;
 }
-:root[data-app-platform="ios"] .app-sheet {
-    border-radius: 8px 8px 0 0;
+/* Partial sheets float inset as glass; at the full-height detent a form sheet
+   is opaque and edge-anchored. */
+:root[data-app-platform="ios"] .k-sheet.app-sheet {
+    border-radius: 2rem 2rem 0 0;
+    transition-timing-function: var(--ease-move);
+}
+:root[data-app-platform="ios"] .k-sheet.app-sheet:not(.app-sheet--tall) {
+    left: calc(0.5rem + var(--k-safe-area-left, 0px));
+    right: calc(0.5rem + var(--k-safe-area-right, 0px));
+    max-width: 40rem;
+    margin-inline: auto;
+    padding-bottom: 0;
+    border-radius: 2rem;
+}
+:root[data-app-platform="ios"] .k-sheet.app-sheet:not(.app-sheet--tall)[class*="-translate-y-full"] {
+    translate: 0 calc(-100% - 0.5rem - env(safe-area-inset-bottom, 0px));
+}
+:root[data-app-platform="ios"] .k-sheet.app-sheet:not(.app-sheet--tall) .app-sheet-bar {
+    background: transparent;
+}
+:root[data-app-platform="ios"] .app-sheet-bar__btn {
+    background: var(--app-glass-fill);
+    box-shadow: var(--app-glass-rim);
+    -webkit-backdrop-filter: var(--app-glass-blur);
+    backdrop-filter: var(--app-glass-blur);
+}
+:root[data-app-platform="ios"] .app-sheet-bar__btn--confirm:not(:disabled) {
+    background: var(--app-tint);
+    color: var(--app-on-tint);
+}
+:root[data-app-platform="ios"] .app-sheet-bar__btn--confirm:disabled {
+    color: var(--app-label-3);
+}
+:root[data-app-platform="ios"] .k-sheet.app-sheet:not(.app-sheet--tall) .app-sheet-bar__btn:not(.app-sheet-bar__btn--confirm:enabled) {
+    background: var(--app-fill);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+@media (forced-colors: active) {
+    :root[data-app-platform="ios"] .app-sheet-bar__btn {
+        border: 1px solid CanvasText;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+}
+:root[data-app-platform="ios"] .k-sheet.app-sheet--tall {
+    box-shadow: var(--shadow-float);
+}
+:root[data-app-platform="ios"] .k-sheet.app-sheet:not([class*="-translate-y-full"]) {
+    box-shadow: none;
 }
 
 /* Row context menu (long-press / right-click on a saved room). iOS dims the
@@ -1150,7 +1320,7 @@
 }
 :root[data-app-platform="ios"] .app-upload-wrapper :is(.input, .dropzone) {
     background: var(--app-surface);
-    border-radius: 8px;
+    border-radius: 12px;
 }
 :root[data-app-platform="ios"] .app-upload-wrapper textarea.input {
     padding: 0.75rem 1rem;
@@ -1159,16 +1329,12 @@
 :root[data-app-platform="ios"] :is(.chat-center, .wb-center) .input {
     background: var(--app-surface);
     min-height: 50px;
-    border-radius: 6px;
+    border-radius: 12px;
     padding-inline: 1rem;
     font-size: 17px;
 }
 :root[data-app-platform="ios"] .app-toast > div {
-    border-radius: 6px;
-    background: var(--app-surface);
-    box-shadow: var(--shadow-float);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
+    border-radius: 1.375rem;
     color: var(--app-label);
 }
 :root[data-app-platform="ios"] .app-toast > div > div {
@@ -1176,13 +1342,8 @@
 }
 :root[data-app-platform="ios"] { --app-switch-w: 4rem; }
 :root[data-app-platform="ios"] .call-mini {
-    background: var(--app-bar, var(--app-surface));
-    border: 1px solid var(--app-separator);
-    border-radius: 8px;
+    border-radius: 9999px;
     padding: 5px 6px;
-    box-shadow: var(--shadow-float);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
 }
 :root[data-app-platform="ios"] .app-filter .app-seg {
     display: block;
