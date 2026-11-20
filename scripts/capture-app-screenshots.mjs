@@ -243,6 +243,7 @@ async function captureSuite(browser, device, platform, shots, barBg, sizes) {
       /* ignore */
     }
     Object.defineProperty(navigator, 'standalone', { get: () => true });
+    if ('Notification' in window) Object.defineProperty(Notification, 'permission', { get: () => 'granted' });
     window.addEventListener(
       'focusin',
       (e) => {
