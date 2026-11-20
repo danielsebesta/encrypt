@@ -2,6 +2,7 @@
   "meta.defaultTitle": "Encrypt.click | Dateien und Nachrichten im Browser verschlüsseln",
   "meta.defaultDescription": "Open-Source-Tools. Die Kryptografie läuft in deinem Browser. Beim Teilen, Chatten oder Hochladen verlassen nur Geheimtext und notwendige Metadaten dein Gerät.",
   "common.working": "Wird verarbeitet…",
+  "common.fieldRequired": "Dieses Feld ist erforderlich.",
   "common.copy": "Kopieren",
   "common.copied": "Kopiert",
   "common.shared": "Geteilt",

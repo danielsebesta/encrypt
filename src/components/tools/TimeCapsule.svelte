@@ -1,6 +1,9 @@
 <script lang="ts">
-  import Tabs from '../ui/Tabs.svelte';
   import { onMount } from 'svelte';
+  import Button from '../ui/Button.svelte';
+  import Field from '../ui/Field.svelte';
+  import Tabs from '../ui/Tabs.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import LZString from 'lz-string';
   import { readLimited } from '../../lib/httpLimits';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
@@ -9,12 +12,12 @@
   import { openPassword as openEnvelope, sealPassword as sealEnvelope, PASSWORD_ENVELOPE_MAGIC } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
   import { DRAND_CHAIN, lockTimeSecret, roundAt, tlock as getTlock, unlockTimeSecret } from '../../lib/timelock';
-  import CopyButton from '../CopyButton.svelte';
   import LinkWithQr from '../share/LinkWithQr.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
+  import ToolResult from './ToolResult.svelte';
+  import ToolStatus from './ToolStatus.svelte';
 
-  export let locale = 'en';
   export let dict: Record<string, string>;
 
   let mode: 'encrypt' | 'decrypt' = 'encrypt';
@@ -37,8 +40,22 @@
 
   let error = '';
   let decryptError = '';
+  let messageError = '';
+  let passwordError = '';
+  let dateError = '';
+  let unixError = '';
+  let pasteError = '';
+  let openPasswordError = '';
+  let advancedOpen = false;
+  let panelEl: HTMLElement;
   let loading = false;
   let decryptLoading = false;
+
+  $: if (message.trim()) messageError = '';
+  $: if (!password || passwordLongEnough(password)) passwordError = '';
+  $: if (targetLocal || useManualUnix || manualUnix) { dateError = ''; unixError = ''; }
+  $: if (decryptInput.trim()) pasteError = '';
+  $: if (openPassword) openPasswordError = '';
 
   let debugUtc = '';
   let debugUnix = '';
@@ -176,9 +193,7 @@
       const json = LZString.decompressFromBase64(b64);
       const obj = json ? JSON.parse(json) as { v: number; r?: number; t?: number; c: string } : null;
       if (obj?.v === 1 && typeof obj.c === 'string' && obj.c) return { v: 1, r: obj.r, t: obj.t, c: obj.c };
-    } catch {
-      /* not v1 */
-    }
+    } catch {}
     try {
       const bytes = fromB64Url(raw);
       if (!bytes) return null;
@@ -187,9 +202,7 @@
         && typeof json.e === 'string' && json.e && fromB64Url(json.c) && fromB64Url(json.e)) {
         return { v: 2, r: json.r, t: json.t, c: json.c, e: json.e };
       }
-    } catch {
-      /* not v2 */
-    }
+    } catch {}
     return null;
   }
 
@@ -198,50 +211,36 @@
     ciphertext = '';
     capsuleLink = '';
     decrypted = '';
+    messageError = message.trim() ? '' : t(dict, 'tools.timeCapsule.errorMessage');
+    passwordError = password && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
+    dateError = '';
+    unixError = '';
 
-    if (!message.trim()) {
-      error = t(dict, 'tools.timeCapsule.errorMessage');
-      return;
-    }
-    if (password && !passwordLongEnough(password)) {
-      error = t(dict, 'common.passwordTooShort');
-      return;
-    }
-
-    let timeMs: number;
-
+    let timeMs = NaN;
     const manual = String(manualUnix ?? '').trim();
-    if (useManualUnix && manual) {
+    const usesUnix = useManualUnix && !!manual;
+    const timeError = (text: string) => { if (usesUnix) unixError = text; else dateError = text; };
+    if (usesUnix) {
       const unix = Number(manual);
-      if (!Number.isFinite(unix) || unix <= 0) {
-        error = t(dict, 'tools.timeCapsule.errorInvalidUnix');
-        return;
-      }
-      timeMs = unix * 1000;
+      if (!Number.isFinite(unix) || unix <= 0) unixError = t(dict, 'tools.timeCapsule.errorInvalidUnix');
+      else timeMs = unix * 1000;
+    } else if (!targetLocal) {
+      dateError = t(dict, 'tools.timeCapsule.errorUnlockTime');
     } else {
-      if (!targetLocal) {
-        error = t(dict, 'tools.timeCapsule.errorUnlockTime');
-        return;
-      }
-      const localDate = new Date(targetLocal);
-      timeMs = localDate.getTime();
+      timeMs = new Date(targetLocal).getTime();
     }
-    if (!Number.isFinite(timeMs)) {
-      error = t(dict, 'tools.timeCapsule.errorInvalidDate');
-      return;
+    if (!unixError && !dateError) {
+      if (!Number.isFinite(timeMs)) timeError(t(dict, 'tools.timeCapsule.errorInvalidDate'));
+      else if (timeMs <= Date.now()) timeError(t(dict, 'tools.timeCapsule.errorFuture'));
     }
-
-    const now = Date.now();
-    if (timeMs <= now) {
-      error = t(dict, 'tools.timeCapsule.errorFuture');
+    if (messageError || passwordError || dateError || unixError) {
+      if (unixError) advancedOpen = true;
+      void focusFirstInvalid(panelEl);
       return;
     }
 
     loading = true;
     try {
-      if (!Number.isFinite(timeMs)) {
-        throw new Error(t(dict, 'tools.timeCapsule.errorInvalidBeacon'));
-      }
       if (timeMs < DRAND_CHAIN.genesis * 1000) {
         throw new Error(t(dict, 'tools.timeCapsule.errorAfterGenesis'));
       }
@@ -281,11 +280,13 @@
 
   async function handleDecrypt() {
     decryptError = '';
+    openPasswordError = '';
     decrypted = '';
 
     const input = decryptInput.trim();
     if (!input) {
-      decryptError = t(dict, 'tools.timeCapsule.errorPaste');
+      pasteError = t(dict, 'tools.timeCapsule.errorPaste');
+      void focusFirstInvalid(panelEl);
       return;
     }
 
@@ -334,7 +335,7 @@
           try {
             decrypted = new TextDecoder().decode(await openWithTimeSecret(payloadBytes, secret));
           } catch {
-            decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
+            openPasswordError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
             if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
           }
         } else {
@@ -344,126 +345,119 @@
       } else if (!looksPasswordSealed) {
         decrypted = new TextDecoder().decode(payloadBytes);
       } else if (!openPassword) {
-        decryptError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
+        openPasswordError = t(dict, 'tools.timeCapsule.errorPasswordNeeded');
         if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
       } else {
         decrypted = new TextDecoder().decode(await openEnvelope(payloadBytes, openPassword));
       }
     } catch {
-      decryptError = t(dict, 'tools.timeCapsule.errorWrongPassword');
+      openPasswordError = t(dict, 'tools.timeCapsule.errorWrongPassword');
     } finally {
       decryptLoading = false;
     }
   }
 </script>
-<div class="stack">
+<div class="stack" bind:this={panelEl}>
   <Tabs items={[{ id: 'encrypt', label: t(dict, 'tools.timeCapsule.createCapsule') }, { id: 'decrypt', label: t(dict, 'tools.timeCapsule.openCapsule') }]} value={mode} label={t(dict, 'tools.timeCapsule.h1')} idBase="tc" panelClass="stack" onchange={(next) => (mode = next)}>
     {#if mode === 'encrypt'}
-      <div class="field">
-        <label class="label" for="tc-message">{t(dict, 'tools.timeCapsule.message')}</label>
-        <textarea id="tc-message" class="input" bind:value={message} placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')} spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
-      </div>
-      <div class="field">
-        <label class="label" for="tc-password">{t(dict, 'tools.timeCapsule.passwordLabel')}</label>
-        <PassphraseField {dict} id="tc-password" bind:value={password} placeholder={t(dict, 'tools.timeCapsule.passwordPlaceholder')} describedby={password ? 'tc-password-rules tc-password-hint' : 'tc-password-hint'} generate={generatePassphrase} />
-        {#if password}
-          <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
-        {/if}
-        <p id="tc-password-hint" class="hint">{t(dict, 'tools.timeCapsule.passwordHint')}</p>
-      </div>
-      <div class="field">
-        <label class="label" for="tc-date">{t(dict, 'tools.timeCapsule.unlockAfter')}</label>
-        <input id="tc-date" type="datetime-local" class="input" bind:value={targetLocal} on:change={updateDerived} />
-      </div>
-
-      <details class="more">
-        <summary>{t(dict, 'tools.timeCapsule.advancedTiming')}</summary>
-        <div class="more__body">
-          <dl class="grid gap-1 text-sm text-muted sm:grid-cols-[auto_1fr] sm:gap-x-4">
-            <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.localTime')}</dt>
-            <dd class="font-mono">{targetLocal || '-'}</dd>
-            {#if debugUtc}
-              <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.utc')}</dt>
-              <dd class="font-mono">{debugUtc}</dd>
-              <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.unixTimestamp')}</dt>
-              <dd class="font-mono">{debugUnix}</dd>
-              {#if debugRound}
-                <dt class="font-bold text-text">{t(dict, 'tools.timeCapsule.drandRound')}</dt>
-                <dd class="font-mono">{debugRound}</dd>
-              {/if}
+      <form class="stack" novalidate on:submit|preventDefault={handleEncrypt}>
+        <Field label={t(dict, 'tools.timeCapsule.message')} error={messageError} required>
+          {#snippet children(control)}
+            <textarea {...control} class="input" bind:value={message} placeholder={t(dict, 'tools.timeCapsule.messagePlaceholder')} spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          {/snippet}
+        </Field>
+        <Field label={t(dict, 'tools.timeCapsule.passwordLabel')} hint={t(dict, 'tools.timeCapsule.passwordHint')} error={passwordError}>
+          {#snippet children(control)}
+            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.timeCapsule.passwordPlaceholder')} describedby={[control['aria-describedby'], password && 'tc-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
+            {#if password}
+              <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
             {/if}
-          </dl>
-          <div class="field">
-            <label class="label" for="tc-manual-unix">{t(dict, 'tools.timeCapsule.manualUnix')}</label>
-            <input id="tc-manual-unix" type="number" inputmode="numeric" class="input input--mono" bind:value={manualUnix} placeholder={t(dict, 'tools.timeCapsule.manualUnixPlaceholder')} />
-          </div>
-          <label class="check">
-            <input type="checkbox" bind:checked={useManualUnix} />
-            <span>{t(dict, 'tools.timeCapsule.useManualUnix')}</span>
-          </label>
-        </div>
-      </details>
+          {/snippet}
+        </Field>
+        <Field label={t(dict, 'tools.timeCapsule.unlockAfter')} error={dateError} required>
+          {#snippet children(control)}
+            <input {...control} type="datetime-local" class="input" bind:value={targetLocal} on:change={updateDerived} />
+          {/snippet}
+        </Field>
 
-      <button class="btn btn-block" type="button" on:click={handleEncrypt} disabled={loading}>
-        {loading ? t(dict, 'tools.timeCapsule.encrypting') : t(dict, 'tools.timeCapsule.lockMessage')}
-      </button>
-      {#if error}
-        <p class="status status--error" role="alert">{error}</p>
-      {/if}
-      {#if ciphertext}
-        <div class="field">
-          <div class="output-head">
-            <label class="label" for="tc-output">{t(dict, 'tools.timeCapsule.ciphertext')}</label>
-            <CopyButton text={ciphertext} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
+        <details class="more" bind:open={advancedOpen}>
+          <summary>{t(dict, 'tools.timeCapsule.advancedTiming')}</summary>
+          <div class="more__body">
+            <dl class="grid gap-1 text-sm text-muted sm:grid-cols-[auto_1fr] sm:gap-x-4">
+              <dt class="font-semibold text-text">{t(dict, 'tools.timeCapsule.localTime')}</dt>
+              <dd class="font-mono">{targetLocal || '-'}</dd>
+              {#if debugUtc}
+                <dt class="font-semibold text-text">{t(dict, 'tools.timeCapsule.utc')}</dt>
+                <dd class="font-mono">{debugUtc}</dd>
+                <dt class="font-semibold text-text">{t(dict, 'tools.timeCapsule.unixTimestamp')}</dt>
+                <dd class="font-mono">{debugUnix}</dd>
+                {#if debugRound}
+                  <dt class="font-semibold text-text">{t(dict, 'tools.timeCapsule.drandRound')}</dt>
+                  <dd class="font-mono">{debugRound}</dd>
+                {/if}
+              {/if}
+            </dl>
+            <Field label={t(dict, 'tools.timeCapsule.manualUnix')} error={unixError}>
+              {#snippet children(control)}
+                <input {...control} type="number" inputmode="numeric" class="input input--mono" bind:value={manualUnix} placeholder={t(dict, 'tools.timeCapsule.manualUnixPlaceholder')} />
+              {/snippet}
+            </Field>
+            <label class="check">
+              <input type="checkbox" bind:checked={useManualUnix} />
+              <span>{t(dict, 'tools.timeCapsule.useManualUnix')}</span>
+            </label>
           </div>
-          <textarea id="tc-output" class="input input--mono min-h-44" readonly value={ciphertext}></textarea>
-        </div>
-        {#if capsuleLink}
-          <LinkWithQr
-            id="tc-link"
-            url={capsuleLink}
-            label={t(dict, 'tools.timeCapsule.link')}
-            copyLabel={t(dict, 'tools.timeCapsule.copyLink')}
-            copiedLabel={t(dict, 'common.copied')}
-            qrLabel={t(dict, 'tools.timeCapsule.showQr')}
-            qrAlt={t(dict, 'tools.timeCapsule.qrAlt')}
-            hint={t(dict, 'tools.timeCapsule.linkHint')}
-          />
+        </details>
+
+        <Button type="submit" block busy={loading}>{t(dict, 'tools.timeCapsule.lockMessage')}</Button>
+        {#if error}
+          <ToolStatus tone="error">{error}</ToolStatus>
         {/if}
-      {/if}
+        {#if ciphertext}
+          <ToolResult {dict} id="tc-output" label={t(dict, 'tools.timeCapsule.ciphertext')} text={ciphertext} class="output--scroll" />
+          {#if capsuleLink}
+            <LinkWithQr
+              id="tc-link"
+              url={capsuleLink}
+              label={t(dict, 'tools.timeCapsule.link')}
+              copyLabel={t(dict, 'tools.timeCapsule.copyLink')}
+              copiedLabel={t(dict, 'common.copied')}
+              qrLabel={t(dict, 'tools.timeCapsule.showQr')}
+              qrAlt={t(dict, 'tools.timeCapsule.qrAlt')}
+              hint={t(dict, 'tools.timeCapsule.linkHint')}
+            />
+          {/if}
+        {/if}
+      </form>
     {:else}
-      <div class="field">
-        <label class="label" for="tc-cipher">{t(dict, 'tools.timeCapsule.ciphertext')}</label>
-        <textarea id="tc-cipher" class="input input--mono min-h-40" bind:value={decryptInput} placeholder={t(dict, 'tools.timeCapsule.pastePlaceholder')}></textarea>
-      </div>
-      <div class="field">
-        <label class="label" for="tc-open-password">{t(dict, 'tools.timeCapsule.openPasswordLabel')}</label>
-        <input id="tc-open-password" type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore on:keydown={(e) => { if (e.key === 'Enter' && !decryptLoading) { e.preventDefault(); void handleDecrypt(); } }} />
-      </div>
-      <button class="btn btn-block" type="button" on:click={handleDecrypt} disabled={decryptLoading}>
-        {decryptLoading ? t(dict, 'tools.timeCapsule.decrypting') : t(dict, 'tools.timeCapsule.openCapsule')}
-      </button>
-      {#if decryptError}
-        <p class="status status--error" role="alert">{decryptError}</p>
-      {/if}
-      {#if countdownTarget}
-        <div class="status status--warn" role="status">
-          <div>
-            <p class="status__title">{t(dict, 'tools.timeCapsule.tooEarly').split('{time}')[0].replace(/\.?\s*$/, '')}</p>
-            <p class="mt-1 font-mono text-2xl font-bold tabular-nums text-text">{countdownDisplay}</p>
-            <p class="status__detail">{new Date(countdownTarget * 1000).toLocaleString()}</p>
+      <form class="stack" novalidate on:submit|preventDefault={handleDecrypt}>
+        <Field label={t(dict, 'tools.timeCapsule.ciphertext')} error={pasteError} required>
+          {#snippet children(control)}
+            <textarea {...control} class="input input--mono min-h-40" bind:value={decryptInput} placeholder={t(dict, 'tools.timeCapsule.pastePlaceholder')}></textarea>
+          {/snippet}
+        </Field>
+        <Field id="tc-open-password" label={t(dict, 'tools.timeCapsule.openPasswordLabel')} error={openPasswordError}>
+          {#snippet children(control)}
+            <input {...control} type="password" class="input" bind:value={openPassword} autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+          {/snippet}
+        </Field>
+        <Button type="submit" block busy={decryptLoading}>{t(dict, 'tools.timeCapsule.openCapsule')}</Button>
+        {#if decryptError}
+          <ToolStatus tone="error">{decryptError}</ToolStatus>
+        {/if}
+        {#if countdownTarget}
+          <div class="status status--warn" role="status">
+            <div>
+              <p class="status__title">{t(dict, 'tools.timeCapsule.tooEarly').split('{time}')[0].replace(/\.?\s*$/, '')}</p>
+              <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-text">{countdownDisplay}</p>
+              <p class="status__detail">{new Date(countdownTarget * 1000).toLocaleString()}</p>
+            </div>
           </div>
-        </div>
-      {/if}
-      {#if decrypted}
-        <div class="field">
-          <div class="output-head">
-            <span class="label" id="tc-decrypted-label">{t(dict, 'tools.timeCapsule.decryptedMessage')}</span>
-            <CopyButton text={decrypted} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-          </div>
-          <output class="output output--ok break-words" aria-labelledby="tc-decrypted-label" aria-live="polite">{decrypted}</output>
-        </div>
-      {/if}
+        {/if}
+        {#if decrypted}
+          <ToolResult {dict} id="tc-decrypted" label={t(dict, 'tools.timeCapsule.decryptedMessage')} text={decrypted} prose />
+        {/if}
+      </form>
     {/if}
   </Tabs>
 </div>

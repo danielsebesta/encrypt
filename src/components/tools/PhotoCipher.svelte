@@ -1,15 +1,18 @@
 <script lang="ts">
+  import Button from '../ui/Button.svelte';
+  import Field from '../ui/Field.svelte';
   import Tabs from '../ui/Tabs.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { checkRoomPassword, passwordLongEnough } from '../../lib/chatRoomSettings';
   import { generatePassphrase } from '../../lib/passphrase';
   import { sealPassword, openPassword, stripFixedHeader, restoreFixedHeader } from '../../lib/passwordEnvelope';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
-  import CopyButton from '../CopyButton.svelte';
   import PassphraseField from '../PassphraseField.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
+  import ToolResult from './ToolResult.svelte';
+  import ToolStatus from './ToolStatus.svelte';
 
-  export let locale = 'en';
   export let dict: Record<string, string>;
 
   const BLOCK = 8;
@@ -33,6 +36,14 @@
     { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
   ];
   $: multiEncode = mode === 'encode' && imageFiles.length > 1;
+  $: passwordError = attempted && !password ? t(dict, 'common.fieldRequired') : attempted && mode === 'encode' && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
+  $: messageError = attempted && !message ? t(dict, 'common.fieldRequired') : '';
+  $: imageError = attempted && !imageFiles.length ? t(dict, 'common.fieldRequired') : '';
+
+  function say(text: string, tone: 'info' | 'ok' | 'warn' | 'error' = 'info') {
+    status = text;
+    statusTone = tone;
+  }
 
   let imageFiles: File[] = [];
   let imageUrl: string | null = null;
@@ -40,12 +51,14 @@
   let password = '';
   let fileInput: HTMLInputElement;
   let status = '';
+  let statusTone: 'info' | 'ok' | 'warn' | 'error' = 'info';
+  let attempted = false;
+  let panelEl: HTMLElement;
   let mode: 'encode' | 'decode' = 'encode';
   let decodedMessage = '';
   let encodedImageUrl: string | null = null;
   let capacity = 0;
   let processing = false;
-  let batchCurrent = 0;
   let imgW = 0;
   let imgH = 0;
 
@@ -179,6 +192,7 @@
     imgW = 0;
     imgH = 0;
     status = '';
+    attempted = false;
     if (fileInput) fileInput.value = '';
   }
 
@@ -198,7 +212,7 @@
     if (mode === 'decode') {
       const f = picked[0];
       if (f.size > MAX_FILE) {
-        status = t(dict, 'tools.photoCipher.imageTooLarge');
+        say(t(dict, 'tools.photoCipher.imageTooLarge'), 'error');
         return;
       }
       try {
@@ -209,12 +223,12 @@
         imageUrl = norm.toDataURL('image/png');
         imageFiles = [f];
         capacity = maxChars(imgW, imgH);
-        status = t(dict, 'tools.photoCipher.imageLoaded')
+        say(t(dict, 'tools.photoCipher.imageLoaded')
           .replace('{w}', String(imgW))
           .replace('{h}', String(imgH))
-          .replace('{chars}', String(capacity));
+          .replace('{chars}', String(capacity)));
       } catch {
-        status = t(dict, 'tools.photoCipher.imageLoadFailed');
+        say(t(dict, 'tools.photoCipher.imageLoadFailed'), 'error');
       }
       return;
     }
@@ -226,7 +240,7 @@
       else ok.push(f);
     }
     if (!ok.length) {
-      status = t(dict, 'tools.photoCipher.imageTooLarge');
+      say(t(dict, 'tools.photoCipher.imageTooLarge'), 'error');
       return;
     }
     try {
@@ -237,15 +251,16 @@
       imageUrl = norm.toDataURL('image/png');
       imageFiles = ok;
       capacity = maxChars(imgW, imgH);
-      status = ok.length === 1
+      const loaded = ok.length === 1
         ? t(dict, 'tools.photoCipher.imageLoaded')
           .replace('{w}', String(imgW))
           .replace('{h}', String(imgH))
           .replace('{chars}', String(capacity))
         : t(dict, 'tools.photoCipher.batchSelected').replace('{count}', String(ok.length));
-      if (skipped) status = `${status} ${t(dict, 'tools.photoCipher.imageTooLarge')}`;
+      if (skipped) say(`${loaded} ${t(dict, 'tools.photoCipher.imageTooLarge')}`, 'warn');
+      else say(loaded);
     } catch {
-      status = t(dict, 'tools.photoCipher.imageLoadFailed');
+      say(t(dict, 'tools.photoCipher.imageLoadFailed'), 'error');
       imageFiles = [];
       capacity = 0;
     }
@@ -305,11 +320,10 @@
   }
 
   async function encode() {
-    if (!imageFiles.length || !message || !password) {
-      status = t(dict, 'tools.photoCipher.pleaseProvide'); return;
-    }
-    if (!passwordLongEnough(password)) {
-      status = t(dict, 'common.passwordTooShort'); return;
+    attempted = true;
+    if (!imageFiles.length || !message || !password || !passwordLongEnough(password)) {
+      void focusFirstInvalid(panelEl);
+      return;
     }
     processing = true;
     encodedImageUrl = null;
@@ -317,10 +331,9 @@
     let ok = 0;
     let failed = 0;
     for (let i = 0; i < total; i++) {
-      batchCurrent = i + 1;
-      status = t(dict, 'tools.photoCipher.batchProgress')
-        .replace('{current}', String(batchCurrent))
-        .replace('{total}', String(total));
+      say(t(dict, 'tools.photoCipher.batchProgress')
+        .replace('{current}', String(i + 1))
+        .replace('{total}', String(total)));
       try {
         const dataUrl = await encodeOne(imageFiles[i]);
         downloadDataUrl(dataUrl, outName(imageFiles[i], i));
@@ -330,30 +343,28 @@
         failed++;
         if (total === 1) {
           const msg = (e as Error)?.message;
-          status = msg === 'tooLong' || msg === 'Input too large'
+          say(msg === 'tooLong' || msg === 'Input too large'
             ? t(dict, 'tools.photoCipher.messageTooLong')
-            : t(dict, 'tools.photoCipher.encryptionFailed');
+            : t(dict, 'tools.photoCipher.encryptionFailed'), 'error');
           processing = false;
-          batchCurrent = 0;
           return;
         }
       }
       if (total > 1) await new Promise((r) => setTimeout(r, 120));
     }
     if (failed === 0) {
-      status = total === 1
+      say(total === 1
         ? t(dict, 'tools.photoCipher.messageHidden')
         : t(dict, 'tools.photoCipher.batchDone')
           .replace('{ok}', String(ok))
-          .replace('{total}', String(total));
+          .replace('{total}', String(total)), 'ok');
     } else {
-      status = t(dict, 'tools.photoCipher.batchPartial')
+      say(t(dict, 'tools.photoCipher.batchPartial')
         .replace('{ok}', String(ok))
         .replace('{total}', String(total))
-        .replace('{failed}', String(failed));
+        .replace('{failed}', String(failed)), 'warn');
     }
     processing = false;
-    batchCurrent = 0;
   }
 
   function downloadEncoded() {
@@ -363,8 +374,10 @@
   }
 
   async function decode() {
+    attempted = true;
     if (!imageUrl || !password) {
-      status = t(dict, 'tools.photoCipher.pleaseProvideImage'); return;
+      void focusFirstInvalid(panelEl);
+      return;
     }
     processing = true;
     try {
@@ -378,10 +391,10 @@
       const total = bxCount * byCount;
 
       if (total < HEADER_SIZE * 8 * REP) {
-        status = t(dict, 'tools.photoCipher.imageTooSmall'); processing = false; return;
+        say(t(dict, 'tools.photoCipher.imageTooSmall'), 'error'); processing = false; return;
       }
 
-      status = t(dict, 'tools.photoCipher.extracting');
+      say(t(dict, 'tools.photoCipher.extracting'));
       // The layout is public; password guesses must pass the envelope's Argon2id.
       const order = shuffledOrder(total, PUBLIC_SEED);
       const data: number[] = [];
@@ -395,101 +408,89 @@
       }
       const prefix = new TextDecoder().decode(bitsToBytes(data.slice(0, 32)));
       if (prefix !== MAGIC && prefix !== COMPACT_MAGIC) {
-        status = t(dict, 'tools.photoCipher.noHiddenMessage'); processing = false; return;
+        say(t(dict, 'tools.photoCipher.noHiddenMessage'), 'error'); processing = false; return;
       }
 
       const lenBytes = bitsToBytes(data.slice(32, 64));
       const payloadLen = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
       if (payloadLen <= 0 || 64 + payloadLen * 8 > data.length) {
-        status = t(dict, 'tools.photoCipher.corrupted'); processing = false; return;
+        say(t(dict, 'tools.photoCipher.corrupted'), 'error'); processing = false; return;
       }
 
       const cipherBytes = bitsToBytes(data.slice(64, 64 + payloadLen * 8));
-      status = t(dict, 'tools.photoCipher.decrypting');
+      say(t(dict, 'tools.photoCipher.decrypting'));
       if (prefix === COMPACT_MAGIC) {
         decodedMessage = new TextDecoder().decode(await openPassword(restoreFixedHeader(cipherBytes, true), password));
       } else {
         decodedMessage = new TextDecoder().decode(await openPassword(cipherBytes, password));
       }
-      status = t(dict, 'tools.photoCipher.decryptSuccess');
+      say(t(dict, 'tools.photoCipher.decryptSuccess'), 'ok');
     } catch {
-      status = t(dict, 'tools.photoCipher.decryptFailed');
+      say(t(dict, 'tools.photoCipher.decryptFailed'), 'error');
       decodedMessage = '';
     }
     processing = false;
   }
 </script>
-<div class="stack">
-  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.photoCipher.encode') }, { id: 'decode', label: t(dict, 'tools.photoCipher.decode') }]} value={mode} label={t(dict, 'tools.photoCipher.h1')} idBase="photo" panelClass="grid gap-6 md:grid-cols-2" onchange={setMode}>
+<div class="stack" bind:this={panelEl}>
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.photoCipher.encode') }, { id: 'decode', label: t(dict, 'tools.photoCipher.decode') }]} value={mode} label={t(dict, 'tools.photoCipher.h1')} idBase="photo" panelClass="grid items-start gap-6 md:grid-cols-2" onchange={setMode}>
     <div class="stack">
-      <div class="field">
-        <span class="label">{t(dict, 'tools.photoCipher.sourceImage')}</span>
-        <label class="dropzone aspect-video" class:dropzone--active={!!imageUrl} for="photo-file">
-          {#if encodedImageUrl && !multiEncode}
-            <img src={encodedImageUrl} alt={t(dict, 'tools.photoCipher.encodedAlt')} />
-          {:else if imageUrl}
-            <img src={imageUrl} alt={t(dict, 'tools.photoCipher.previewAlt')} />
-          {:else}
-            <Icon name="camera" size={20} />
-            <span class="dropzone__title">{t(dict, 'tools.photoCipher.sourceImage')}</span>
-            <span>{mode === 'encode' ? t(dict, 'tools.photoCipher.batchHint') : t(dict, 'tools.photoCipher.anyFormat')}</span>
-          {/if}
-          <input id="photo-file" bind:this={fileInput} type="file" accept="image/*" multiple={mode === 'encode'} on:change={handleImageFile} class="sr-only" />
-        </label>
-        <p class="hint">{t(dict, 'tools.photoCipher.robustBadge')}</p>
-        {#if multiEncode}
-          <p class="hint">{t(dict, 'tools.photoCipher.batchSelected').replace('{count}', String(imageFiles.length))}</p>
-        {/if}
-      </div>
+      <Field label={t(dict, 'tools.photoCipher.sourceImage')} hint={t(dict, 'tools.photoCipher.robustBadge')} error={imageError} required>
+        {#snippet children(control)}
+          <div class="dropzone aspect-video" class:dropzone--active={!!imageUrl}>
+            {#if encodedImageUrl && !multiEncode}
+              <img src={encodedImageUrl} alt={t(dict, 'tools.photoCipher.encodedAlt')} />
+            {:else if imageUrl}
+              <img src={imageUrl} alt={t(dict, 'tools.photoCipher.previewAlt')} />
+            {:else}
+              <Icon name="camera" size={20} />
+              <span class="dropzone__title">{t(dict, 'tools.photoCipher.sourceImage')}</span>
+              <span>{mode === 'encode' ? t(dict, 'tools.photoCipher.batchHint') : t(dict, 'tools.photoCipher.anyFormat')}</span>
+            {/if}
+            <input {...control} bind:this={fileInput} type="file" accept="image/*" multiple={mode === 'encode'} on:change={handleImageFile} class="sr-only" />
+            <label class="absolute inset-0 cursor-pointer" for={control.id} aria-hidden="true"></label>
+          </div>
+        {/snippet}
+      </Field>
+      {#if multiEncode}
+        <p class="hint">{t(dict, 'tools.photoCipher.batchSelected').replace('{count}', String(imageFiles.length))}</p>
+      {/if}
       {#if capacity > 0 && mode === 'encode' && !multiEncode}
         <p class="hint">{t(dict, 'tools.photoCipher.capacityLabel')} <span class="font-mono text-text">~{capacity}</span> {t(dict, 'tools.photoCipher.chars')}</p>
       {/if}
       {#if status}
-        <p class="status" class:status--busy={processing} role="status">{status}</p>
+        <ToolStatus tone={processing ? 'busy' : statusTone}>{status}</ToolStatus>
       {/if}
     </div>
 
-    <div class="stack">
+    <form class="stack" novalidate on:submit|preventDefault={mode === 'encode' ? encode : decode}>
       {#if mode === 'encode'}
-        <div class="field">
-          <label class="label" for="photo-message">{t(dict, 'tools.photoCipher.secretMessage')}</label>
-          <textarea id="photo-message" bind:value={message} placeholder={t(dict, 'tools.photoCipher.messagePlaceholder')} class="input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
-        </div>
-        <div class="field">
-          <label class="label" for="photo-password">{t(dict, 'tools.photoCipher.securityPassword')}</label>
-          <PassphraseField {dict} id="photo-password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.encPasswordPlaceholder')} describedby="photo-password-rules" generate={generatePassphrase} />
-          <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules}  {dict}/>
-        </div>
-        <button type="button" on:click={encode} class="btn btn-block" disabled={processing}>
-          {#if processing && imageFiles.length > 1}
-            {t(dict, 'tools.photoCipher.batchProgress').replace('{current}', String(batchCurrent)).replace('{total}', String(imageFiles.length))}
-          {:else if processing}
-            {t(dict, 'tools.photoCipher.embedding')}
-          {:else}
-            {t(dict, 'tools.photoCipher.burnIntoPixels')}
-          {/if}
-        </button>
+        <Field label={t(dict, 'tools.photoCipher.secretMessage')} error={messageError} required>
+          {#snippet children(control)}
+            <textarea {...control} bind:value={message} placeholder={t(dict, 'tools.photoCipher.messagePlaceholder')} class="input" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          {/snippet}
+        </Field>
+        <Field label={t(dict, 'tools.photoCipher.securityPassword')} error={passwordError} required>
+          {#snippet children(control)}
+            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.photoCipher.encPasswordPlaceholder')} describedby={[control['aria-describedby'], 'photo-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
+            <PasswordChecklist id="photo-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+          {/snippet}
+        </Field>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.photoCipher.burnIntoPixels')}</Button>
         {#if encodedImageUrl && !multiEncode}
-          <button type="button" on:click={downloadEncoded} class="btn-secondary btn-block">{t(dict, 'tools.photoCipher.downloadEncoded')}</button>
+          <Button variant="secondary" block icon="download" onclick={downloadEncoded}>{t(dict, 'tools.photoCipher.downloadEncoded')}</Button>
         {/if}
       {:else}
-        <div class="field">
-          <label class="label" for="photo-password">{t(dict, 'tools.photoCipher.securityPassword')}</label>
-          <input id="photo-password" type="password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
-        </div>
-        <button type="button" on:click={decode} class="btn btn-block" disabled={processing}>
-          {processing ? t(dict, 'tools.photoCipher.extracting') : t(dict, 'tools.photoCipher.extractFromPixels')}
-        </button>
+        <Field label={t(dict, 'tools.photoCipher.securityPassword')} error={passwordError} required>
+          {#snippet children(control)}
+            <input {...control} type="password" bind:value={password} placeholder={t(dict, 'tools.photoCipher.decPasswordPlaceholder')} class="input" autocomplete="current-password" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore />
+          {/snippet}
+        </Field>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.photoCipher.extractFromPixels')}</Button>
         {#if decodedMessage}
-          <div class="field">
-            <div class="output-head">
-              <span class="label" id="photo-out-label">{t(dict, 'tools.photoCipher.foundMessage')}</span>
-              <CopyButton text={decodedMessage} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
-            </div>
-            <output class="output output--ok min-h-32 break-words" aria-labelledby="photo-out-label" aria-live="polite">{decodedMessage}</output>
-          </div>
+          <ToolResult {dict} id="photo-out" label={t(dict, 'tools.photoCipher.foundMessage')} text={decodedMessage} prose class="min-h-32" />
         {/if}
       {/if}
-    </div>
+    </form>
   </Tabs>
 </div>

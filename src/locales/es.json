@@ -2,6 +2,7 @@
   "meta.defaultTitle": "Encrypt.click | Cifra archivos y mensajes en tu navegador",
   "meta.defaultDescription": "Herramientas de código abierto. La criptografía se ejecuta en tu navegador. Al compartir, chatear o subir archivos, solo salen de tu dispositivo el texto cifrado y los metadatos necesarios.",
   "common.working": "Trabajando…",
+  "common.fieldRequired": "Este campo es obligatorio.",
   "common.copy": "Copiar",
   "common.copied": "Copiado",
   "common.shared": "Compartido",

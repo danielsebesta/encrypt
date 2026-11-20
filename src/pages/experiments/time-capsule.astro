@@ -19,7 +19,7 @@ const clientDict = toolClientDict(dict, 'tools.timeCapsule');
       <p class="page-lead">{t(dict, 'tools.timeCapsule.subtitle')}</p>
     </header>
     <div class="panel">
-      <TimeCapsuleView client:idle locale={locale} dict={clientDict} />
+      <TimeCapsuleView client:idle dict={clientDict} />
     </div>
     <ToolAbout dict={dict} prefix="tools.timeCapsule" />
   </div>

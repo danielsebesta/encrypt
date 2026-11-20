@@ -64,10 +64,6 @@ const COLOUR_ALLOW: Record<string, { literals: string[]; why: string }> = {
     literals: ['#ffffff'],
     why: 'transparent pixels are flattened onto white before encoding; it is part of the image data, not a theme colour',
   },
-  'src/components/tools/Whiteboard.svelte': {
-    literals: ['rgba(', '#ffffff'],
-    why: "rgba( compares a computed style with 'rgba(0, 0, 0, 0)'; #ffffff is --wb-on-peer, text on the fixed alias colours from src/lib/alias.ts (pending a token, see docs/design-system.md)",
-  },
 };
 
 test('no hardcoded colours in components, pages and layouts', () => {
@@ -132,7 +128,6 @@ const PENDING: Record<string, string[]> = {
   ],
   'src/components/tools/ChatVoiceMessage.svelte': ['voice-msg__rate'],
   'src/components/tools/ChatVoiceRecorder.svelte': ['voice-rec-app__cancel', 'voice-rec-app__send'],
-  'src/components/tools/Whiteboard.svelte': ['wb-btn', 'wb-color', 'wb-key-warn', 'wb-people-trigger'],
 };
 
 /** Markup written into another document (the call Picture-in-Picture window), where global.css does not exist. */

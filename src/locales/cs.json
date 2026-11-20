@@ -2,6 +2,7 @@
   "meta.defaultTitle": "Encrypt.click | Šifrování souborů a zpráv v prohlížeči",
   "meta.defaultDescription": "Open-source nástroje. Kryptografie běží v prohlížeči. Při sdílení, chatu nebo nahrávání zařízení opouští jen šifrovaný text a nutná metadata.",
   "common.working": "Pracuji…",
+  "common.fieldRequired": "Toto pole je povinné.",
   "common.copy": "Kopírovat",
   "common.copied": "Zkopírováno",
   "common.shared": "Sdíleno",

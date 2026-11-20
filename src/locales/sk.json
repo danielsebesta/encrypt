@@ -2,6 +2,7 @@
   "meta.defaultTitle": "Encrypt.click | Šifrovanie súborov a správ v prehliadači",
   "meta.defaultDescription": "Open-source nástroje. Kryptografia beží v prehliadači. Pri zdieľaní, četovaní alebo nahrávaní opúšťajú zariadenie len šifrovaný text a nevyhnutné metadáta.",
   "common.working": "Pracujem…",
+  "common.fieldRequired": "Toto pole je povinné.",
   "common.copy": "Kopírovať",
   "common.copied": "Skopírované",
   "common.shared": "Zdieľané",

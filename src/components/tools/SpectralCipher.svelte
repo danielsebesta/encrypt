@@ -1,27 +1,35 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import Button from '../ui/Button.svelte';
+  import Field from '../ui/Field.svelte';
   import Tabs from '../ui/Tabs.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import ToolStatus from './ToolStatus.svelte';
 
-  export let locale = 'en';
   export let dict: Record<string, string>;
 
-  import { onMount } from 'svelte';
-
   let mode: 'encode' | 'decode' = 'encode';
-  let imageFile: File | null = null;
   let imageUrl: string | null = null;
   let carrierBuffer: ArrayBuffer | null = null;
-  let carrierName = 'encrypt-carrier.wav';
   let carrierLoaded = false;
   let audioFile: File | null = null;
   let audioFileName = '';
   let imageStrength = 1.0;
   let status = '';
+  let statusTone: 'info' | 'ok' | 'error' = 'info';
   let processing = false;
+  let attempted = false;
+  let panelEl: HTMLElement;
 
-  let imageInput: HTMLInputElement;
-  let audioInput: HTMLInputElement;
+  $: sourceError = attempted && !(mode === 'encode' ? imageUrl : audioFile) ? t(dict, 'common.fieldRequired') : '';
+
+  function say(text: string, tone: 'info' | 'ok' | 'error' = 'info') {
+    status = text;
+    statusTone = tone;
+  }
+
   let offscreenCanvas: HTMLCanvasElement;
   let spectrogramCanvas: HTMLCanvasElement;
 
@@ -39,7 +47,7 @@
   let extractedImageUrl: string | null = null;
 
   const FFT_SIZE = 2048;
-  const HOP_SIZE = FFT_SIZE; // no overlap = each column is independent = sharper image
+  const HOP_SIZE = FFT_SIZE;
   const SAMPLE_RATE = 44100;
   const MIN_FREQ = 300;
   const MAX_FREQ = 14000;
@@ -83,10 +91,6 @@
     for (let i = 0; i < n; i++) im[i] = -im[i];
     fft(re, im);
     for (let i = 0; i < n; i++) { re[i] /= n; im[i] = -im[i] / n; }
-  }
-
-  function hann(i: number, n: number): number {
-    return 0.5 * (1 - Math.cos(2 * Math.PI * i / n));
   }
 
   function encodeWav(samples: Float32Array, sr: number): Blob {
@@ -143,9 +147,10 @@
   }
 
   async function encodeImage() {
-    if (!imageUrl) { status = t(dict, 'tools.spectralCipher.pleaseProvide'); return; }
+    attempted = true;
+    if (!imageUrl) { void focusFirstInvalid(panelEl); return; }
     processing = true;
-    status = t(dict, 'tools.spectralCipher.encoding');
+    say(t(dict, 'tools.spectralCipher.encoding'));
 
     await new Promise(r => setTimeout(r, 0));
 
@@ -181,7 +186,6 @@
             const bin = minBin + Math.round(row * usableBins / h);
             if (bin >= FFT_SIZE / 2) continue;
             const amplitude = grayscale[(h - 1 - row) * w + col] / 255;
-            // Zero phase (pure cosine) - produces cleanest spectrogram
             re[bin] = amplitude;
             im[bin] = 0;
             if (bin > 0 && bin < FFT_SIZE / 2) {
@@ -224,8 +228,8 @@
             }
           }
 
-          const carrierGain = 1 - imageStrength * 0.7; // carrier fades but never fully gone
-          const imageGain = imageStrength * 3; // image signal boosted significantly
+          const carrierGain = 1 - imageStrength * 0.7;
+          const imageGain = imageStrength * 3;
 
           const outLen = Math.max(carrier.samples.length, imageSignal.length);
           finalAudio = new Float32Array(outLen);
@@ -246,12 +250,16 @@
 
         renderSpectrogram(finalAudio, finalRate);
 
-        status = t(dict, 'tools.spectralCipher.encoded');
+        say(t(dict, 'tools.spectralCipher.encoded'), 'ok');
         processing = false;
       } catch (e) {
-        status = t(dict, 'tools.spectralCipher.encryptionFailed');
+        say(t(dict, 'tools.spectralCipher.encryptionFailed'), 'error');
         processing = false;
       }
+    };
+    img.onerror = () => {
+      say(t(dict, 'tools.spectralCipher.encryptionFailed'), 'error');
+      processing = false;
     };
     img.src = imageUrl;
   }
@@ -277,9 +285,10 @@
   }
 
   async function decodeAudio() {
-    if (!audioFile) { status = t(dict, 'tools.spectralCipher.pleaseProvideAudio'); return; }
+    attempted = true;
+    if (!audioFile) { void focusFirstInvalid(panelEl); return; }
     processing = true;
-    status = t(dict, 'tools.spectralCipher.decoding');
+    say(t(dict, 'tools.spectralCipher.decoding'));
 
     await new Promise(r => setTimeout(r, 0));
 
@@ -326,10 +335,10 @@
 
       renderExtractedImage(pixels, imgW, imgH);
       renderSpectrogram(samples instanceof Float32Array ? samples : new Float32Array(samples), sampleRate);
-      status = t(dict, 'tools.spectralCipher.decoded');
+      say(t(dict, 'tools.spectralCipher.decoded'), 'ok');
       processing = false;
     } catch (e) {
-      status = t(dict, 'tools.spectralCipher.decodeFailed');
+      say(t(dict, 'tools.spectralCipher.decodeFailed'), 'error');
       processing = false;
     }
   }
@@ -405,13 +414,18 @@
   function handleImageFile(e: Event) {
     const target = e.target as HTMLInputElement;
     if (target.files?.[0]) {
-      imageFile = target.files[0];
-      imageUrl = URL.createObjectURL(imageFile);
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      imageUrl = URL.createObjectURL(target.files[0]);
       wavBlobUrl = null;
       status = '';
     }
   }
 
+  function setMode(next: 'encode' | 'decode') {
+    mode = next;
+    status = '';
+    attempted = false;
+  }
 
   function handleAudioFile(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -439,68 +453,68 @@
     a.click();
   }
 </script>
-<div class="stack">
-  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.spectralCipher.encode') }, { id: 'decode', label: t(dict, 'tools.spectralCipher.decode') }]} value={mode} label={t(dict, 'tools.spectralCipher.h1')} idBase="spectral" panelClass="grid gap-6 md:grid-cols-2" onchange={(next) => (mode = next)}>
+<div class="stack" bind:this={panelEl}>
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.spectralCipher.encode') }, { id: 'decode', label: t(dict, 'tools.spectralCipher.decode') }]} value={mode} label={t(dict, 'tools.spectralCipher.h1')} idBase="spectral" panelClass="grid items-start gap-6 md:grid-cols-2" onchange={setMode}>
     <div class="stack">
       {#if mode === 'encode'}
-        <div class="field">
-          <span class="label">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
-          <label class="dropzone aspect-video" class:dropzone--active={!!imageUrl} for="spectral-image">
-            {#if imageUrl}
-              <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} />
-            {:else}
-              <Icon name="image" size={20} />
-              <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
-            {/if}
-            <input id="spectral-image" bind:this={imageInput} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
-          </label>
-        </div>
+        <Field label={t(dict, 'tools.spectralCipher.sourceImage')} error={sourceError} required>
+          {#snippet children(control)}
+            <div class="dropzone aspect-video" class:dropzone--active={!!imageUrl}>
+              {#if imageUrl}
+                <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} />
+              {:else}
+                <Icon name="image" size={20} />
+                <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
+              {/if}
+              <input {...control} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
+              <label class="absolute inset-0 cursor-pointer" for={control.id} aria-hidden="true"></label>
+            </div>
+          {/snippet}
+        </Field>
       {:else}
-        <div class="field">
-          <span class="label">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
-          <label class="dropzone aspect-video" class:dropzone--active={!!audioFileName} for="spectral-audio">
-            <Icon name="audio-lines" size={20} />
-            {#if audioFileName}
-              <span class="dropzone__title max-w-full truncate">{audioFileName}</span>
-            {:else}
-              <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
-              <span>.wav</span>
-            {/if}
-            <input id="spectral-audio" bind:this={audioInput} type="file" accept=".wav,audio/wav" on:change={handleAudioFile} class="sr-only" />
-          </label>
-        </div>
+        <Field label={t(dict, 'tools.spectralCipher.sourceAudio')} error={sourceError} required>
+          {#snippet children(control)}
+            <div class="dropzone aspect-video" class:dropzone--active={!!audioFileName}>
+              <Icon name="audio-lines" size={20} />
+              {#if audioFileName}
+                <span class="dropzone__title max-w-full truncate">{audioFileName}</span>
+              {:else}
+                <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
+                <span>.wav</span>
+              {/if}
+              <input {...control} type="file" accept=".wav,audio/wav" on:change={handleAudioFile} class="sr-only" />
+              <label class="absolute inset-0 cursor-pointer" for={control.id} aria-hidden="true"></label>
+            </div>
+          {/snippet}
+        </Field>
       {/if}
-      <canvas bind:this={spectrogramCanvas} class="w-full rounded-lg border border-line-soft {wavBlobUrl || extractedImageUrl ? '' : 'hidden'}" style="image-rendering: pixelated;"></canvas>
+      <canvas bind:this={spectrogramCanvas} class="w-full rounded-lg border border-line-soft {wavBlobUrl || extractedImageUrl ? '' : 'hidden'}" style="image-rendering: pixelated" aria-hidden="true"></canvas>
       {#if status}
-        <p class="status" role="status">{status}</p>
+        <ToolStatus tone={processing ? 'busy' : statusTone}>{status}</ToolStatus>
       {/if}
     </div>
 
-    <div class="stack">
+    <form class="stack" novalidate on:submit|preventDefault={mode === 'encode' ? encodeImage : decodeAudio}>
       {#if mode === 'encode'}
         {#if carrierLoaded}
-          <div class="field">
-            <label class="label" for="spectral-strength">{t(dict, 'tools.spectralCipher.imageStrength')}: {Math.round(imageStrength * 100)}%</label>
-            <input id="spectral-strength" type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} aria-describedby="spectral-strength-hint" />
-            <p id="spectral-strength-hint" class="hint">{t(dict, 'tools.spectralCipher.strengthHint')}</p>
-          </div>
+          <Field label={`${t(dict, 'tools.spectralCipher.imageStrength')}: ${Math.round(imageStrength * 100)}%`} hint={t(dict, 'tools.spectralCipher.strengthHint')}>
+            {#snippet children(control)}
+              <input {...control} type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} />
+            {/snippet}
+          </Field>
         {/if}
-        <button type="button" on:click={encodeImage} class="btn btn-block" disabled={processing || !imageUrl}>
-          {t(dict, 'tools.spectralCipher.encodeButton')}
-        </button>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.spectralCipher.encodeButton')}</Button>
         {#if wavBlobUrl}
           <audio src={wavBlobUrl} controls class="w-full"></audio>
-          <button type="button" on:click={downloadWav} class="btn-secondary btn-block">{t(dict, 'tools.spectralCipher.downloadWav')}</button>
+          <Button variant="secondary" block icon="download" onclick={downloadWav}>{t(dict, 'tools.spectralCipher.downloadWav')}</Button>
         {/if}
       {:else}
-        <button type="button" on:click={decodeAudio} class="btn btn-block" disabled={processing || !audioFile}>
-          {t(dict, 'tools.spectralCipher.decodeButton')}
-        </button>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.spectralCipher.decodeButton')}</Button>
         {#if extractedImageUrl}
-          <button type="button" on:click={downloadImage} class="btn-secondary btn-block">{t(dict, 'tools.spectralCipher.downloadImage')}</button>
+          <Button variant="secondary" block icon="download" onclick={downloadImage}>{t(dict, 'tools.spectralCipher.downloadImage')}</Button>
         {/if}
       {/if}
-    </div>
+    </form>
   </Tabs>
   <canvas bind:this={offscreenCanvas} class="hidden"></canvas>
 </div>

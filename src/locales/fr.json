@@ -2,6 +2,7 @@
   "meta.defaultTitle": "Encrypt.click | Chiffrez des fichiers et des messages dans votre navigateur",
   "meta.defaultDescription": "Outils open source. La cryptographie s’exécute dans votre navigateur. Lors d’un partage, d’un chat ou d’un téléversement, seuls le texte chiffré et les métadonnées nécessaires quittent votre appareil.",
   "common.working": "Traitement…",
+  "common.fieldRequired": "Ce champ est obligatoire.",
   "common.copy": "Copier",
   "common.copied": "Copié",
   "common.shared": "Partagé",
