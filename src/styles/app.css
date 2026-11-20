@@ -2434,6 +2434,17 @@ html[data-app-platform] ::selection {
         font-size: 14px;
     }
 }
+@media (max-height: 700px) {
+    .app-empty {
+        padding-top: 0.75rem;
+        padding-bottom: 0;
+    }
+    .app-empty > :first-child {
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: 0.75rem;
+    }
+}
 
 .app-saved-icon { color: var(--app-tint); }
 

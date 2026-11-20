@@ -602,6 +602,21 @@
     }
     .chat-sender {
         font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--app-label);
+    }
+    .chat-sender::before {
+        content: "";
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: var(--sender-color, var(--app-label-2));
+    }
+    .chat-kmsg--mine .chat-sender::before {
+        display: none;
     }
     .chat-mode-badge {
         border: none;
@@ -1348,8 +1363,18 @@
     border-radius: 9999px;
     padding: 5px 6px;
 }
+:root[data-app-platform="ios"] .app-tonal-btn {
+    color: var(--app-on-tint-container);
+}
 :root[data-app-platform="ios"] .app-filter .app-seg {
     display: block;
+}
+@media (max-width: 360px) {
+    :root[data-app-platform="ios"] .app-filter button {
+        padding-inline: 2px;
+        font-size: 13px;
+        letter-spacing: -0.01em;
+    }
 }
 :root[data-app-platform="ios"] .k-searchbar > button[style*="margin-right: -"] {
     visibility: hidden;

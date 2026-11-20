@@ -233,12 +233,27 @@
   function labelSearchButtons(node: HTMLElement, labels: { cancel: string; clear: string }) {
     const apply = () => {
       for (const button of node.querySelectorAll<HTMLButtonElement>('.k-searchbar button')) {
-        const label = button.parentElement?.classList.contains('k-searchbar') ? labels.cancel : labels.clear;
+        const cancel = button.parentElement?.classList.contains('k-searchbar');
+        const label = cancel ? labels.cancel : labels.clear;
         if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+        if (cancel) syncCancel(button);
       }
     };
+    const collapsed = (button: HTMLButtonElement) => /margin-right:\s*-/.test(button.getAttribute('style') ?? '');
+    const syncCancel = (button: HTMLButtonElement) => {
+      if (collapsed(button)) {
+        button.tabIndex = -1;
+        return;
+      }
+      if (button.tabIndex !== -1 || button.dataset.appRevealing) return;
+      button.dataset.appRevealing = '1';
+      setTimeout(() => {
+        delete button.dataset.appRevealing;
+        if (!collapsed(button)) button.removeAttribute('tabindex');
+      }, 360);
+    };
     const observer = new MutationObserver(apply);
-    observer.observe(node, { childList: true, subtree: true });
+    observer.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
     apply();
     return {
       update(next: { cancel: string; clear: string }) { labels = next; apply(); },
@@ -1993,16 +2008,16 @@
       {@const showPlus = platform === 'ios' && (activeTab === 'chats' || activeTab === 'boards')}
       <main class="flex-1 overflow-y-auto min-h-0 app-scroll" class:app-scroll--scrolled={hubScrolled} bind:this={scroller} onscroll={() => { hubScrolled = (scroller?.scrollTop ?? 0) > 2; }}>
         {#if showPlus}
-          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40" role="banner">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
             {#snippet right()}{@render hubPlus()}{/snippet}
           </Navbar>
         {:else if platform === 'ios'}
-          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40" role="banner">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {:else}
-          <Navbar class="app-bar app-hub-bar z-40" role="banner">
+          <Navbar class="app-bar app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {/if}
@@ -2053,13 +2068,13 @@
                 {t(dict, filtered ? (chatFilter === 'pinned' ? 'app.empty.noPinnedHint' : 'app.empty.noTtlHint') : 'app.empty.noResultsHint')}
               </p>
               {#if filtered}
-                <Button rounded tonal class="app-hit-btn px-5 w-auto! whitespace-nowrap mt-6" onClick={() => { chatFilter = 'all'; triggerHaptic('light'); }}>
+                <Button rounded tonal class="app-hit-btn app-tonal-btn px-5 w-auto! whitespace-nowrap mt-6" onClick={() => { chatFilter = 'all'; triggerHaptic('light'); }}>
                   {t(dict, 'app.filter.showAll')}
                 </Button>
               {/if}
             </div>
           {:else}
-            <div class="px-8 py-16 text-center flex flex-col items-center">
+            <div class="app-empty px-6 py-16 text-center flex flex-col items-center">
               <div class="w-16 h-16 rounded-lg mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
                 <AppIcons name={activeTab === 'boards' ? 'whiteboard' : 'chat'} size={30} />
               </div>
@@ -2074,7 +2089,7 @@
                   <span class="app-btn-label"><AppIcons name="plus" size={16} />{t(dict, 'app.empty.new')}</span>
                 </Button>
                 {#if activeTab === 'chats'}
-                  <Button rounded tonal class="app-hit-btn px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
+                  <Button rounded tonal class="app-hit-btn app-tonal-btn px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
                     <span class="app-btn-label"><AppIcons name="join" size={16} />{t(dict, 'app.empty.join')}</span>
                   </Button>
                 {/if}
@@ -2448,7 +2463,7 @@
 
     {#if ready && mountedRoomId}
       {#key mountedRoomId}
-        <div class="app-room-wrapper" class:app-room-wrapper--hidden={activeView !== 'room'} inert={activeView !== 'room' || undefined}>
+        <div class="app-room-wrapper" class:app-room-wrapper--hidden={activeView !== 'room'} role={activeView === 'room' ? 'main' : undefined} inert={activeView !== 'room' || undefined}>
           <ChatRoom
             roomId={mountedRoomId}
             roomLabel={activeView === 'room' ? activeRoomLabel : (callRoom?.label ?? activeRoomLabel)}
@@ -2482,7 +2497,7 @@
       opened={newRoomSheetOpen}
       inert={!newRoomSheetOpen}
       onBackdropClick={() => closeNewRoomSheet()}
-      class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      class="app-sheet {platform === 'ios' ? '' : 'app-sheet--tall '}pb-[env(safe-area-inset-bottom)]"
       data-app-overlay="newRoom"
       role="dialog"
       aria-modal="true"
@@ -2662,7 +2677,7 @@
       opened={joinRoomSheetOpen}
       inert={!joinRoomSheetOpen}
       onBackdropClick={() => closeJoinRoomSheet()}
-      class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      class="app-sheet {platform === 'ios' ? '' : 'app-sheet--tall '}pb-[env(safe-area-inset-bottom)]"
       data-app-overlay="join"
       role="dialog"
       aria-modal="true"

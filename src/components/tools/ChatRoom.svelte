@@ -6243,7 +6243,7 @@
         {#snippet bubbleMeta()}
           <div class="chat-sender-row">
             {#if !msg.mine && groupStart}
-              <span class="chat-sender" style="color: {safeColor(msg.color)}">{msg.sender}</span>
+              <span class="chat-sender" style="--sender-color: {safeColor(msg.color)}">{msg.sender}</span>
             {/if}
             {#if msg.once}
               <span class="chat-once-badge" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
