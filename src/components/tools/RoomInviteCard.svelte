@@ -293,6 +293,25 @@
     margin-bottom: 0.5rem;
     max-width: 100%;
   }
+  @media (min-width: 640px) and (min-height: 480px) {
+    .invite-card.panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 1.25rem;
+      align-content: start;
+    }
+    .invite-card.panel > * {
+      grid-column: 1;
+    }
+    .invite-card.panel > .invite-card__head {
+      grid-column: 1 / -1;
+    }
+    .invite-card.panel > .invite-card__qr {
+      grid-column: 2;
+      grid-row: 2 / span 4;
+      margin: 0;
+    }
+  }
   @media (max-width: 399px), (max-height: 479px) {
     .invite-card.panel {
       display: flex;
