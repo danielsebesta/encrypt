@@ -82,6 +82,7 @@
   import ChatVoiceMessage from './ChatVoiceMessage.svelte';
   import ChatComposer from './ChatComposer.svelte';
   import EmojiPicker from './EmojiPicker.svelte';
+  import { mountCallPip } from './callPipWindow.svelte';
   import ChatCall from './ChatCall.svelte';
   import { formatClock, validVoiceDuration, voiceFileName, voiceTypeOf, type VoiceRecording } from '../../lib/voiceMessage';
   import { buildChatHistoryExport, chatHistoryExportJson, chatHistoryFileName } from '../../lib/chatHistoryExport';
@@ -599,6 +600,7 @@
   let pipSupported = false;
   let pipWindow: Window | null = null;
   let pipVideo: HTMLVideoElement | null = null;
+  let pipHandle: ReturnType<typeof mountCallPip> | null = null;
   let callErrorTimer: ReturnType<typeof setTimeout> | undefined;
   $: if (callActive && callError) {
     clearTimeout(callErrorTimer);
@@ -612,55 +614,23 @@
   }
 
   function closeCallPip() {
+    pipHandle?.destroy();
+    pipHandle = null;
     try { pipWindow?.close(); } catch {}
     pipWindow = null;
     if (typeof document !== 'undefined' && document.pictureInPictureElement) void document.exitPictureInPicture().catch(() => {});
     if (pipVideo) { pipVideo.srcObject = null; pipVideo.remove(); pipVideo = null; }
   }
 
-  function applyPipTheme(doc: Document) {
-    const from = getComputedStyle(document.documentElement);
-    for (const name of ['--bg', '--surface', '--surface-2', '--line', '--text', '--muted', '--accent', '--on-accent', '--danger', '--font-sans']) {
-      doc.documentElement.style.setProperty(name, from.getPropertyValue(name).trim());
-    }
-  }
-
-  function renderPip() {
-    const w = pipWindow;
-    if (!w) return;
-    const d = w.document;
-    applyPipTheme(d);
-    const stream = pipStream();
+  function pipView() {
     const speaking = callPeers.find((peer) => peer.speaking && !peer.muted);
-    let video = d.querySelector('video');
-    const stage = d.getElementById('stage')!;
-    if (stream) {
-      if (!video) {
-        stage.textContent = '';
-        video = d.createElement('video');
-        video.autoplay = true; video.muted = true; video.playsInline = true;
-        video.style.cssText = 'width:100%;height:100%;object-fit:contain;background:var(--bg);border-radius:8px';
-        stage.append(video);
-      }
-      if (video.srcObject !== stream) { video.srcObject = stream; void video.play().catch(() => {}); }
-    } else {
-      if (video) video.remove();
-      stage.textContent = '';
-      const row = d.createElement('div');
-      row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center';
-      const people = [{ name: identity.name, bg: aliasGradient(alias, identity.name), on: localSpeaking && !micMuted }, ...callPeers.slice(0, 4).map((peer) => ({ name: peer.name, bg: gradientFor(peer.alias, peer.name), on: peer.speaking && !peer.muted }))];
-      for (const person of people) {
-        const dot = d.createElement('span');
-        dot.title = person.name;
-        dot.style.cssText = `width:44px;height:44px;border-radius:50%;background:${person.bg};outline:${person.on ? '2px solid var(--accent)' : 'none'};outline-offset:2px`;
-        row.append(dot);
-      }
-      stage.append(row);
-    }
-    d.getElementById('label')!.textContent = speaking ? t(dict, 'chat.callNameSpeaking').replace('{name}', speaking.name) : `${t(dict, 'chat.callInCall')} · ${callPeers.length + 1}`;
-    const mic = d.getElementById('mic') as HTMLButtonElement;
-    mic.textContent = micMuted ? t(dict, 'chat.callUnmute') : t(dict, 'chat.callMute');
-    mic.style.color = micMuted ? 'var(--danger)' : 'var(--text)';
+    return {
+      stream: pipStream(),
+      people: [{ name: identity.name, bg: aliasGradient(alias, identity.name), on: localSpeaking && !micMuted }, ...callPeers.slice(0, 4).map((peer) => ({ name: peer.name, bg: gradientFor(peer.alias, peer.name), on: peer.speaking && !peer.muted }))],
+      label: speaking ? t(dict, 'chat.callNameSpeaking').replace('{name}', speaking.name) : `${t(dict, 'chat.callInCall')} · ${callPeers.length + 1}`,
+      micMuted,
+      cameraOff,
+    };
   }
 
   async function openCallPip() {
@@ -669,22 +639,20 @@
     if (dpip) {
       if (pipWindow) { pipWindow.focus(); return; }
       try {
-        const w = await dpip.requestWindow({ width: 340, height: 220 });
+        const w = await dpip.requestWindow({ width: 360, height: 260 });
         pipWindow = w;
-        const d = w.document;
-        applyPipTheme(d);
-        d.title = roomLabel || roomId;
-        d.body.style.cssText = 'margin:0;height:100vh;display:flex;flex-direction:column;gap:8px;padding:8px;box-sizing:border-box;background:var(--bg);color:var(--text);font-size:13px;line-height:1.3;font-family:var(--font-sans)';
-        const btn = 'flex:1;min-height:36px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text);font-weight:600;font-size:13px;font-family:var(--font-sans);cursor:pointer';
-        d.body.innerHTML = `<div id="stage" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center"></div><div id="label" style="text-align:center;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div style="display:flex;gap:6px"><button id="mic" type="button" style="${btn}"></button><button id="back" type="button" style="${btn}"></button><button id="end" type="button" style="${btn};background:var(--danger);color:var(--on-accent);border-color:var(--danger)"></button></div>`;
-        (d.getElementById('back') as HTMLButtonElement).textContent = t(dict, 'chat.callReturn');
-        (d.getElementById('end') as HTMLButtonElement).textContent = t(dict, 'chat.callHangUp');
-        d.getElementById('mic')!.addEventListener('click', () => void toggleMic());
-        d.getElementById('back')!.addEventListener('click', () => { window.focus(); callMinimized = false; closeCallPip(); });
-        d.getElementById('end')!.addEventListener('click', () => { closeCallPip(); void endCall(true); });
-        w.addEventListener('pagehide', () => { pipWindow = null; });
-        renderPip();
+        w.document.title = roomLabel || roomId;
+        pipHandle = mountCallPip(w, {
+          dict,
+          ...pipView(),
+          onmic: () => void toggleMic(),
+          oncamera: () => void toggleCamera(),
+          onreturn: () => { window.focus(); callMinimized = false; closeCallPip(); },
+          onend: () => { closeCallPip(); void endCall(true); },
+        });
+        w.addEventListener('pagehide', () => { pipHandle?.destroy(); pipHandle = null; pipWindow = null; });
       } catch {
+        pipHandle = null;
         pipWindow = null;
       }
       return;
@@ -704,7 +672,7 @@
     } catch {}
   }
 
-  $: if (pipWindow) { void callPeers; void micMuted; void localSpeaking; renderPip(); }
+  $: if (pipHandle) { void callPeers; void micMuted; void cameraOff; void localSpeaking; pipHandle.update(pipView()); }
   $: if (!callActive && (pipWindow || pipVideo)) closeCallPip();
 
   function setupCallMediaSession(active: boolean) {
