@@ -40,7 +40,7 @@
     <label class="label" for={id}>{label}</label>
     <div class="flex items-center gap-1">
       {#if qrSvg}
-        <button type="button" class="btn-ghost btn-sm" aria-pressed={showQr} on:click={() => (showQr = !showQr)}>
+        <button type="button" class="btn-ghost btn-sm" aria-expanded={showQr} aria-controls="{id}-qr" on:click={() => (showQr = !showQr)}>
           <Icon name="qr-code" />
           {qrLabel}
         </button>

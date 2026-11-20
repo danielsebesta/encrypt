@@ -115,8 +115,6 @@ const COMPUTED_CLASS: Record<string, string> = {
   'src/components/ui/Button.svelte': 'class={cls} from buttonClass()',
   'src/components/ui/Menu.svelte': 'trigger class from buttonClass()',
   'src/components/ui/Tabs.svelte': 'renders class="tab"',
-  'src/components/CopyButton.svelte': "baseClass is 'btn' or 'btn-ghost btn-sm'",
-  'src/components/ShareLinkButton.svelte': "className defaults to 'btn-ghost btn-sm'; callers pass a canonical variant",
   'src/components/tools/ChatMembers.svelte': "btn() returns 'btn btn-sm' / 'btn-secondary btn-sm' outside /app",
 };
 

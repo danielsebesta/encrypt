@@ -474,6 +474,16 @@
   let viewBackButton: HTMLButtonElement | undefined;
 
   $: hasPayloadSource = hasHash || !!encryptedFile || !!stegoFile;
+  $: passwordError = [
+    t(dict, 'tools.ultimateDecrypt.errorPasswordRequired'),
+    t(dict, 'tools.ultimateDecrypt.errorDecryptFailed'),
+    t(dict, 'tools.ultimateDecrypt.passkeyMiss'),
+  ].includes(error) ? error : '';
+  $: resultAnnouncement = [
+    openedText && !openedFileName ? t(dict, 'tools.ultimateDecrypt.progressReadyText') : '',
+    openedFileName ? t(dict, 'tools.ultimateDecrypt.progressReadyFile') : '',
+    burnedNotice,
+  ].filter(Boolean).join(' ');
 
   function setProgress(title: string, detail = '') {
     progressTitle = title;
@@ -698,6 +708,7 @@
   }
 
   async function handleDecrypt() {
+    if (loading) return;
     error = '';
     resetOpenResult();
     setProgress('', '');
@@ -997,8 +1008,8 @@
       <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} unlock={unlockTime} />
     {/if}
   {:else if entryMode === 'pick'}
-    <p class="label">{t(dict, 'tools.ultimateDecrypt.empty.title')}</p>
-    <div class="ud-entry">
+    <p class="label" id="ud-entry-label">{t(dict, 'tools.ultimateDecrypt.empty.title')}</p>
+    <div class="ud-entry" role="group" aria-labelledby="ud-entry-label">
       <button type="button" class="dropzone" bind:this={pickLinkEntry} on:click={() => chooseEntry('link')}>
         <Icon name="link" size={20} />
         <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.linkTitle')}</span>
@@ -1024,42 +1035,41 @@
       </button>
     </div>
   {:else if entryMode === 'link'}
-    <button type="button" class="btn-ghost btn-sm self-start" on:click={backToPick}>{t(dict, 'common.back')}</button>
-    <div class="field">
-      <label class="label" for="ud-link">{t(dict, 'tools.ultimateDecrypt.empty.linkLabel')}</label>
-      <input
-        id="ud-link"
-        class="input input--mono"
-        type="text"
-        bind:value={linkDraft}
-        placeholder={t(dict, 'tools.ultimateDecrypt.empty.linkPlaceholder')}
-        autocomplete="off"
-        spellcheck="false"
-        aria-invalid={linkError ? 'true' : undefined}
-        aria-describedby={linkError ? 'ud-link-error' : undefined}
-        on:keydown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            applyLinkDraft();
-          }
-        }}
-      />
-      {#if linkError}
-        <p id="ud-link-error" class="field-error" role="alert">{linkError}</p>
-      {/if}
-      <button type="button" class="btn btn-block" on:click={applyLinkDraft}>{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
-    </div>
+    <button type="button" class="btn-ghost btn-sm justify-self-start" on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <form class="stack" on:submit|preventDefault={applyLinkDraft}>
+      <div class="field">
+        <label class="label" for="ud-link">{t(dict, 'tools.ultimateDecrypt.empty.linkLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+        <input
+          id="ud-link"
+          class="input input--mono"
+          type="text"
+          bind:value={linkDraft}
+          placeholder={t(dict, 'tools.ultimateDecrypt.empty.linkPlaceholder')}
+          autocomplete="off"
+          spellcheck="false"
+          aria-required="true"
+          aria-invalid={linkError ? 'true' : undefined}
+          aria-describedby={linkError ? 'ud-link-error' : undefined}
+          aria-errormessage={linkError ? 'ud-link-error' : undefined}
+          on:input={() => { linkError = ''; }}
+        />
+        {#if linkError}
+          <p id="ud-link-error" class="field-error" role="alert">{linkError}</p>
+        {/if}
+      </div>
+      <button type="submit" class="btn btn-block">{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
+    </form>
   {:else if entryMode === 'scan'}
-    <button type="button" class="btn-ghost btn-sm self-start" bind:this={viewBackButton} on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={backToPick}>{t(dict, 'common.back')}</button>
     <QrScanner {dict} />
   {:else}
-    <button type="button" class="btn-ghost btn-sm self-start" bind:this={viewBackButton} on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}>{t(dict, 'common.back')}</button>
+    <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}>{t(dict, 'common.back')}</button>
     <div class="grid gap-3 sm:grid-cols-2">
       {#if encryptedFile}
         <div class="dropzone dropzone--active">
           <Icon name="circle-check-big" size={20} class="text-accent" />
           <span class="dropzone__title max-w-full truncate">{encryptedFile.name}</span>
-          <span>{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
+          <span class="font-mono tabular-nums">{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
           <button type="button" class="btn-ghost btn-sm" on:click={() => encryptedFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
         </div>
       {:else}
@@ -1088,46 +1098,40 @@
   {/if}
 
   {#if burnedNotice}
-    <p class="status status--warn" role="status">{burnedNotice}</p>
+    <p class="status status--warn">{burnedNotice}</p>
   {/if}
+  <p class="sr-only" role="status">{resultAnnouncement}</p>
 
   {#if hasPayloadSource}
-    <div class="field">
-      <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}</label>
-      <input
-        id="ud-pass"
-        type="password"
-        class="input"
-        bind:value={password}
-        autocomplete="off"
-        data-lpignore="true"
-        data-1p-ignore
-        data-bwignore="true"
-        placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
-        aria-invalid={error ? 'true' : undefined}
-        aria-describedby={error ? 'ud-pass-error' : undefined}
-        on:keydown={(e) => {
-          if (e.key === 'Enter' && !loading && hasPayloadSource) {
-            e.preventDefault();
-            void handleDecrypt();
-          }
-        }}
-      />
-      {#if hasHash}
-        <button type="button" class="btn-ghost btn-sm mt-2" disabled={passkeyLoading || loading} on:click={fillPasswordFromPasskey}>
-          {passkeyLoading ? t(dict, 'tools.ultimateDecrypt.passkeyLoading') : t(dict, 'tools.ultimateDecrypt.passkeyUnlock')}
-        </button>
-      {/if}
-    </div>
+    <form class="stack" on:submit|preventDefault={handleDecrypt}>
+      <div class="field">
+        <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+        <input
+          id="ud-pass"
+          type="password"
+          class="input"
+          bind:value={password}
+          autocomplete="off"
+          data-lpignore="true"
+          data-1p-ignore
+          data-bwignore="true"
+          placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
+          aria-required="true"
+          aria-invalid={passwordError ? 'true' : undefined}
+          aria-describedby={passwordError ? 'ud-pass-error' : undefined}
+          aria-errormessage={passwordError ? 'ud-pass-error' : undefined}
+          on:input={() => { if (passwordError) error = ''; }}
+        />
+        {#if passwordError}
+          <p id="ud-pass-error" class="field-error" role="alert">{passwordError}</p>
+        {/if}
+        {#if hasHash}
+          <button type="button" class="btn-ghost btn-sm justify-self-start" aria-busy={passkeyLoading} disabled={loading} on:click={fillPasswordFromPasskey}><Icon name="key" />{t(dict, 'tools.ultimateDecrypt.passkeyUnlock')}</button>
+        {/if}
+      </div>
 
-    <button
-      class="btn btn-block"
-      type="button"
-      on:click={handleDecrypt}
-      disabled={loading || !hasPayloadSource}
-    >
-      {loading ? t(dict, 'tools.ultimateDecrypt.decrypting') : t(dict, 'tools.ultimateDecrypt.decrypt')}
-    </button>
+      <button class="btn btn-block" type="submit" aria-busy={loading}>{t(dict, 'tools.ultimateDecrypt.decrypt')}</button>
+    </form>
   {/if}
 
   {#if loading}
@@ -1139,12 +1143,12 @@
       transferLine={transferLine}
     />
   {/if}
-  {#if error}
-    <p id="ud-pass-error" class="status status--error" role="alert">{error}</p>
+  {#if error && !passwordError}
+    <p class="status status--error" role="alert">{error}</p>
   {/if}
 
   {#if openedText}
-    <div class="field" role="status">
+    <div class="field">
       <div class="output-head">
         <span class="label">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</span>
         <CopyButton text={openedText} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
@@ -1157,7 +1161,7 @@
   {/if}
 
   {#if openedFileName}
-    <div class="stack" role="status">
+    <div class="stack">
       <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.fileDecrypted')} {openedFileName}</p>
       {#if previewType === 'image'}
         <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-lg border border-line-soft" />
@@ -1170,7 +1174,7 @@
           <audio controls class="w-full" use:loadMedia={openedFileUrl}></audio>
         {/key}
       {:else if previewType === 'pdf'}
-        <iframe sandbox src={openedFileUrl} title={openedFileName} class="h-[70vh] w-full rounded-lg border border-line-soft"></iframe>
+        <iframe sandbox="" src={openedFileUrl} title={openedFileName} class="h-[70vh] w-full rounded-lg border border-line-soft"></iframe>
       {:else if previewType === 'zip' && zipTree.length > 0}
         <div class="ud-preview">
           <div class="ud-preview__head">
@@ -1215,14 +1219,11 @@
                     type="button"
                     class="btn-ghost btn-sm btn-icon shrink-0"
                     on:click={() => { openedEnvEntries[i].visible = !openedEnvEntries[i].visible; openedEnvEntries = openedEnvEntries; }}
-                    aria-label={entry.visible ? t(dict, 'tools.ultimateDecrypt.hideSecret') : t(dict, 'tools.ultimateDecrypt.showSecret')}
+                    aria-label={`${t(dict, 'tools.ultimateDecrypt.showSecret')}: ${entry.key}`}
                     aria-pressed={entry.visible}
+                    title={t(dict, entry.visible ? 'tools.ultimateDecrypt.hideSecret' : 'tools.ultimateDecrypt.showSecret')}
                   >
-                    {#if entry.visible}
-                      <Icon name="eye-off" />
-                    {:else}
-                      <Icon name="eye" />
-                    {/if}
+                    <Icon name={entry.visible ? 'eye-off' : 'eye'} />
                   </button>
                 </div>
               {/if}
@@ -1266,9 +1267,9 @@
         {/if}
       {/if}
       {#if openedFileUrl}
-        <button type="button" class="btn-secondary" on:click={downloadFile}>
-          {t(dict, 'tools.ultimateDecrypt.download')} {openedFileName}
-        </button>
+        <div class="actions max-sm:flex-col max-sm:items-stretch">
+          <button type="button" class="btn max-w-full min-w-0" on:click={downloadFile}><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.ultimateDecrypt.download')} {openedFileName}</span></button>
+        </div>
       {/if}
     </div>
   {/if}

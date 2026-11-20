@@ -10,6 +10,7 @@
   export let placeholder = '';
   export let describedby: string | undefined = undefined;
   export let invalid = false;
+  export let required = false;
   export let generate: () => string;
 
   export let revealed = false;
@@ -88,27 +89,28 @@
 
 <div class="passphrase">
   <div class="passphrase__field">
-  <input
-    {id}
-    class="input"
-    class:passphrase__input--decoding={decoding}
-    type={revealed ? 'text' : 'password'}
-    bind:value
-    on:input
-    on:input={hideWhileEditing}
-    {placeholder}
-    autocomplete="off"
-    autocapitalize="off"
-    spellcheck="false"
-    data-lpignore="true"
-    data-1p-ignore
-    data-bwignore="true"
-    aria-describedby={describedby}
-    aria-invalid={invalid ? 'true' : undefined}
-  />
-  {#if decoding}
-    <span class="passphrase__decode" aria-hidden="true">{scrambled}</span>
-  {/if}
+    <input
+      {id}
+      class="input"
+      class:passphrase__input--decoding={decoding}
+      type={revealed ? 'text' : 'password'}
+      bind:value
+      on:input
+      on:input={hideWhileEditing}
+      {placeholder}
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      data-lpignore="true"
+      data-1p-ignore
+      data-bwignore="true"
+      aria-describedby={describedby}
+      aria-invalid={invalid ? 'true' : undefined}
+      aria-required={required || undefined}
+    />
+    {#if decoding}
+      <span class="passphrase__decode" aria-hidden="true">{scrambled}</span>
+    {/if}
   </div>
   <button
     type="button"
@@ -119,26 +121,19 @@
     aria-controls={id}
     title={t(dict, revealed ? 'common.hidePassword' : 'common.showPassword')}
   >
-    {#if revealed}
-      <Icon name="eye-off" />
-    {:else}
-      <Icon name="eye" />
-    {/if}
+    <Icon name={revealed ? 'eye-off' : 'eye'} />
   </button>
   <button
     type="button"
     class="btn-ghost btn-sm btn-icon"
     disabled={!value}
     on:click={copyValue}
-    aria-label={t(dict, copied ? 'common.copied' : 'common.copy')}
+    aria-label={t(dict, 'common.copy')}
     title={t(dict, copied ? 'common.copied' : 'common.copy')}
   >
-    {#if copied}
-      <Icon name="check" />
-    {:else}
-      <Icon name="copy" />
-    {/if}
+    <Icon name={copied ? 'check' : 'copy'} />
   </button>
+  <span class="sr-only" role="status">{copied ? t(dict, 'common.copied') : ''}</span>
   <button
     type="button"
     class="btn-ghost btn-sm btn-icon"

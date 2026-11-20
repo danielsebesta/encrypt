@@ -22,6 +22,7 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   $: cameraOpen = status === 'starting' || status === 'scanning';
+  $: liveText = status === 'idle' ? '' : [t(dict, key(status === 'scanning' ? 'aim' : status)), notice ? t(dict, key(notice)) : ''].filter(Boolean).join(' ');
 
   function cameraFailure(name: string | undefined): string {
     if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied';
@@ -158,29 +159,28 @@
       muted
       aria-label={t(dict, key('preview'))}
     ></video>
-    <p class="hint text-center" role="status">{t(dict, key(status === 'starting' ? 'starting' : 'aim'))}</p>
+    <p class="hint text-center">{t(dict, key(status === 'starting' ? 'starting' : 'aim'))}</p>
     {#if notice}
       <p class="status status--warn">{t(dict, key(notice))}</p>
     {/if}
     <button bind:this={closeButton} type="button" class="btn-secondary btn-block" on:click={close}>{t(dict, key('close'))}</button>
   {:else}
-    <div class="actions">
+    <div class="actions max-sm:flex-col max-sm:items-stretch">
       <button bind:this={openButton} type="button" class="btn-secondary" on:click={openCamera} disabled={status !== 'idle'}>
-        <Icon name="scan" size={20} />
+        <Icon name="scan" />
         {t(dict, key('open'))}
       </button>
-      <button type="button" class="btn-ghost" on:click={() => fileInput.click()} disabled={status !== 'idle'}>
-        <Icon name="image" size={20} />
+      <button type="button" class="btn-ghost" aria-busy={status === 'reading'} on:click={() => { if (status === 'idle') fileInput.click(); }} disabled={status === 'opening'}>
+        <Icon name="image" />
         {t(dict, key('image'))}
       </button>
     </div>
-    {#if status === 'reading'}
-      <p class="hint" role="status">{t(dict, key('reading'))}</p>
-    {:else if status === 'opening'}
-      <p class="status status--ok" role="status">{t(dict, key('opening'))}</p>
+    {#if status === 'opening'}
+      <p class="status status--ok">{t(dict, key('opening'))}</p>
     {/if}
   {/if}
-  <input bind:this={fileInput} type="file" accept="image/*" class="sr-only" aria-label={t(dict, key('image'))} on:change={scanImage} />
+  <p class="sr-only" role="status">{liveText}</p>
+  <input bind:this={fileInput} type="file" accept="image/*" class="sr-only" tabindex="-1" aria-hidden="true" on:change={scanImage} />
   {#if error}
     <p class="status status--error" role="alert">{t(dict, key(error))}</p>
   {/if}

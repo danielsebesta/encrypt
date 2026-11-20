@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { RETENTIONS, latestUploadUnlock, type Retention } from '../../lib/retention';
   import { t } from '../../lib/t';
+  import Field from '../ui/Field.svelte';
 
   export let dict: Record<string, string>;
   export let mode: 'link' | 'ghost' | 'local' = 'link';
@@ -17,6 +18,8 @@
   export let unlockAt = '';
   /** Retention the upload will really get once the unlock time is taken into account; null when none is long enough. */
   export let effectiveRetention: Retention | null = retention;
+  /** Error from the last submit attempt about the unlock time. */
+  export let unlockError = '';
 
   $: if (!unlockAt) deadMan = false;
 
@@ -34,50 +37,59 @@
   });
 
   $: upload = mode === 'ghost';
-  $: raised = upload && unlockAt && effectiveRetention && effectiveRetention !== retention;
-  $: tooFar = upload && unlockAt && !effectiveRetention;
+  $: raised = upload && !!unlockAt && !!effectiveRetention && effectiveRetention !== retention;
+  $: tooFar = upload && !!unlockAt && !effectiveRetention;
 </script>
 
 {#if mode !== 'local'}
-  <div class="grid gap-x-4 gap-y-2 sm:grid-cols-2 sm:items-end">
+  <div class="grid gap-5">
     {#if upload}
-      <div class="field">
-        <label class="label" for="ue-retention">{t(dict, 'tools.ultimateEncrypt.options.retention')}</label>
-        <select id="ue-retention" class="input" bind:value={retention}>
-          {#each RETENTIONS as option}
-            <option value={option}>{t(dict, `tools.ultimateEncrypt.options.retention${option}`)}</option>
-          {/each}
-        </select>
+      <Field label={t(dict, 'tools.ultimateEncrypt.options.retention')} id="ue-retention" class="sm:max-w-xs">
+        {#snippet children(control)}
+          <select class="input" bind:value={retention} {...control}>
+            {#each RETENTIONS as option}
+              <option value={option}>{t(dict, `tools.ultimateEncrypt.options.retention${option}`)}</option>
+            {/each}
+          </select>
+        {/snippet}
+      </Field>
+    {/if}
+
+    <div class="grid">
+      <label class="check">
+        <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" disabled={burnUnavailable} />
+        <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
+      </label>
+      <div id="ue-burn-hint" class="grid gap-1">
+        <p class="hint">{t(dict, burnUnavailable ? 'tools.ultimateEncrypt.options.burnUnavailable' : 'tools.ultimateEncrypt.options.burnHint')}</p>
+        {#if short}
+          <p class="hint">{t(dict, burn ? 'tools.ultimateEncrypt.options.burnStoredHint' : 'tools.ultimateEncrypt.options.inlineHint')}</p>
+        {/if}
       </div>
-    {/if}
-    <label class="check" class:opacity-60={burnUnavailable}>
-      <input type="checkbox" bind:checked={burn} aria-describedby="ue-burn-hint" disabled={burnUnavailable} />
-      <span>{t(dict, 'tools.ultimateEncrypt.options.burn')}</span>
-    </label>
-  </div>
-  <div id="ue-burn-hint" class="-mt-2 grid gap-1">
-    <p class="hint">{t(dict, burnUnavailable ? 'tools.ultimateEncrypt.options.burnUnavailable' : 'tools.ultimateEncrypt.options.burnHint')}</p>
-    {#if short}
-      <p class="hint">{t(dict, burn ? 'tools.ultimateEncrypt.options.burnStoredHint' : 'tools.ultimateEncrypt.options.inlineHint')}</p>
-    {/if}
-  </div>
+    </div>
 
-  <div class="field">
-    <label class="label" for="ue-unlock">{t(dict, 'tools.ultimateEncrypt.options.unlockAfter')}</label>
-    <input id="ue-unlock" type="datetime-local" class="input" bind:value={unlockAt} {min} max={upload ? max : undefined} aria-describedby={tooFar ? 'ue-unlock-hint ue-unlock-error' : 'ue-unlock-hint'} aria-invalid={tooFar ? 'true' : undefined} />
-    <p id="ue-unlock-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.unlockHint')}</p>
-    {#if raised && effectiveRetention}
-      <p class="status" role="status">{t(dict, 'tools.ultimateEncrypt.options.retentionRaised').replace('{retention}', t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention}`))}</p>
-    {:else if tooFar}
-      <p id="ue-unlock-error" class="field-error" role="alert">{t(dict, 'tools.ultimateEncrypt.options.unlockTooFar')}</p>
-    {/if}
-  </div>
+    <div class="grid gap-1.5">
+      <Field
+        label={t(dict, 'tools.ultimateEncrypt.options.unlockAfter')}
+        hint={t(dict, 'tools.ultimateEncrypt.options.unlockHint')}
+        error={tooFar ? t(dict, 'tools.ultimateEncrypt.options.unlockTooFar') : unlockError}
+        id="ue-unlock"
+      >
+        {#snippet children(control)}
+          <input type="datetime-local" class="input sm:max-w-xs" bind:value={unlockAt} {min} max={upload ? max : undefined} {...control} />
+        {/snippet}
+      </Field>
+      {#if raised && effectiveRetention}
+        <p class="status" role="status">{t(dict, 'tools.ultimateEncrypt.options.retentionRaised').replace('{retention}', t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention}`))}</p>
+      {/if}
+    </div>
 
-  <div class="grid gap-1">
-    <label class="check" class:opacity-60={!unlockAt}>
-      <input type="checkbox" bind:checked={deadMan} aria-describedby="ue-dead-man-hint" disabled={!unlockAt} />
-      <span>{t(dict, 'tools.ultimateEncrypt.options.deadMan')}</span>
-    </label>
-    <p id="ue-dead-man-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
+    <div class="grid">
+      <label class="check">
+        <input type="checkbox" bind:checked={deadMan} aria-describedby="ue-dead-man-hint" disabled={!unlockAt} />
+        <span>{t(dict, 'tools.ultimateEncrypt.options.deadMan')}</span>
+      </label>
+      <p id="ue-dead-man-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
+    </div>
   </div>
 {/if}
