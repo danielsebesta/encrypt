@@ -73,6 +73,12 @@
   let countdownDisplay = '';
   let countdownInterval: ReturnType<typeof setInterval> | null = null;
 
+  const pageLang = () => document.documentElement.lang || undefined;
+
+  function unlockLabel(unlockUnix: number): string {
+    return new Date(unlockUnix * 1000).toLocaleString(pageLang(), { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
   function startCountdown(unlockUnix: number) {
     countdownTarget = unlockUnix;
     decryptError = '';
@@ -90,12 +96,8 @@
       const h = Math.floor((diff % 86400) / 3600);
       const m = Math.floor((diff % 3600) / 60);
       const s = diff % 60;
-      const parts: string[] = [];
-      if (d > 0) parts.push(`${d}d`);
-      parts.push(`${String(h).padStart(2, '0')}h`);
-      parts.push(`${String(m).padStart(2, '0')}m`);
-      parts.push(`${String(s).padStart(2, '0')}s`);
-      countdownDisplay = parts.join(' ');
+      const unit = (value: number, name: string) => new Intl.NumberFormat(pageLang(), { style: 'unit', unit: name, unitDisplay: 'narrow', minimumIntegerDigits: name === 'day' ? 1 : 2 }).format(value);
+      countdownDisplay = [d > 0 ? unit(d, 'day') : '', unit(h, 'hour'), unit(m, 'minute'), unit(s, 'second')].filter(Boolean).join(' ');
     }
     tick();
     countdownInterval = setInterval(tick, 1000);
@@ -446,11 +448,10 @@
           <ToolStatus tone="error">{decryptError}</ToolStatus>
         {/if}
         {#if countdownTarget}
-          <div class="status status--warn" role="status">
+          <div class="status status--warn">
             <div>
-              <p class="status__title">{t(dict, 'tools.timeCapsule.tooEarly').split('{time}')[0].replace(/\.?\s*$/, '')}</p>
-              <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-text">{countdownDisplay}</p>
-              <p class="status__detail">{new Date(countdownTarget * 1000).toLocaleString()}</p>
+              <p class="status__title" role="status">{t(dict, 'tools.timeCapsule.tooEarly').replace('{time}', unlockLabel(countdownTarget))}</p>
+              <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-text" role="timer">{countdownDisplay}</p>
             </div>
           </div>
         {/if}
