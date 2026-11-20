@@ -2156,12 +2156,13 @@
   .wb-btn--text {
     min-width: 3.25rem;
     padding-inline: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 0.875rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  .wb-btn--font { font-size: 0.95rem; }
+  .wb-btn--font { font-size: 0.875rem; }
   .wb-btn--solo {
+    border-radius: 6px;
     pointer-events: auto;
   }
 
@@ -2175,7 +2176,7 @@
 
   .wb-pop { pointer-events: auto; }
   .wb-menu-panel {
-    min-width: 14rem;
+    min-width: 16rem;
     max-width: calc(100cqw - 1rem);
     max-height: calc(var(--wb-stage-h, 70dvh) - 4.25rem);
     overflow-y: auto;
