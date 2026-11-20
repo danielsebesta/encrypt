@@ -100,12 +100,12 @@
     --warn-weak: #ffeee0;
     --danger: #ba1a1a;
     --danger-weak: #ffedea;
-    --call-bg: #0c0f09;
-    --call-surface: #1a1d16;
-    --call-surface-2: #282b24;
-    --call-line: #44483e;
-    --call-text: #e2e3d9;
-    --call-muted: #c4c8ba;
+    --call-bg: #edefe4;
+    --call-surface: #e2e3d9;
+    --call-surface-2: #d9dbd0;
+    --call-line: #c4c8ba;
+    --call-text: #1a1d16;
+    --call-muted: #44483e;
     /* palette:end */
     --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.18);
     --ring: color-mix(in srgb, var(--accent) 35%, transparent);

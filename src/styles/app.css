@@ -1525,7 +1525,7 @@ html[data-app-platform] ::selection {
     background: var(--app-surface);
 }
 :root[data-app-platform] .call__tile--speaking {
-    box-shadow: 0 0 0 2px var(--app-tint);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-tint) calc(45% + min(1, var(--voice, 0.5) * 2) * 55%), transparent);
 }
 :root[data-app-platform] .call__btn:focus-visible {
     outline: 2px solid var(--app-tint);

@@ -31,12 +31,12 @@ function build(seed, dark) {
     '--warn-weak': pal(warn, 95, 12),
     '--danger': role('error'),
     '--danger-weak': pal(s.errorPalette, 95, 15),
-    '--call-bg': nrole('surfaceContainerLowest'),
-    '--call-surface': nrole('surfaceContainerLow'),
-    '--call-surface-2': nrole('surfaceContainerHigh'),
-    '--call-line': nrole('outlineVariant'),
-    '--call-text': nrole('onSurface'),
-    '--call-muted': nrole('onSurfaceVariant'),
+    '--call-bg': dark ? nrole('surfaceContainerLowest') : role('surfaceContainer'),
+    '--call-surface': dark ? nrole('surfaceContainerLow') : role('surfaceContainerHighest'),
+    '--call-surface-2': dark ? nrole('surfaceContainerHigh') : role('surfaceDim'),
+    '--call-line': dark ? nrole('outlineVariant') : role('outlineVariant'),
+    '--call-text': dark ? nrole('onSurface') : role('onSurface'),
+    '--call-muted': dark ? nrole('onSurfaceVariant') : role('onSurfaceVariant'),
   };
 }
 

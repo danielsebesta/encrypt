@@ -358,6 +358,8 @@
     peerId?: string;
     speaking: boolean;
     lastUiAt: number;
+    level: number;
+    heardAt: number;
   };
 
   let ws: PartySocket | null = null;
@@ -1319,6 +1321,8 @@
         peerId,
         speaking: false,
         lastUiAt: 0,
+        level: 0,
+        heardAt: 0,
       };
       monitor.frame = requestAnimationFrame(() => tickAudioLevel(monitor));
       return monitor;
@@ -1327,12 +1331,22 @@
     }
   }
 
+  // The level rises with the voice at once and fades out slowly, and speaking holds across the gaps between syllables,
+  // so the ring breathes with the voice instead of flickering.
+  const VOICE_ON = 0.12;
+  const VOICE_OFF = 0.06;
+  const VOICE_HOLD_MS = 450;
+
   function tickAudioLevel(monitor: AudioLevelMonitor) {
     monitor.analyser.getByteTimeDomainData(monitor.data);
-    const level = calculateAudioLevel(monitor.data);
-    const speaking = level > 0.12;
+    const raw = calculateAudioLevel(monitor.data);
+    const eased = monitor.level + (raw - monitor.level) * (raw > monitor.level ? 0.5 : 0.08);
+    const level = eased < 0.004 ? 0 : eased;
     const now = performance.now();
-    const shouldUpdate = now - monitor.lastUiAt > 90 || speaking !== monitor.speaking || level === 0;
+    if (level > VOICE_ON) monitor.heardAt = now;
+    const speaking = monitor.speaking ? level > VOICE_OFF || now - monitor.heardAt < VOICE_HOLD_MS : level > VOICE_ON;
+    const shouldUpdate = now - monitor.lastUiAt > 66 || speaking !== monitor.speaking || (level === 0 && monitor.level !== 0);
+    monitor.level = level;
     monitor.speaking = speaking;
 
     if (shouldUpdate) {

@@ -346,7 +346,7 @@
             </div>
 
             <div class="call__grid" use:fitTiles={{ count: callPeers.length + 1, ratio: 16 / 10, max: callHasVideo ? 1280 : 280 }}>
-              <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurWhenAway && blurred}>
+              <div class="call__tile" class:call__tile--speaking={localSpeaking && !micMuted} class:call__tile--blurred={blurWhenAway && blurred} style:--voice={micMuted ? 0 : localAudioLevel}>
                 {#if localDisplayStream && localHasVisibleVideo}
                   <video
                     class="call__video"
@@ -382,7 +382,7 @@
               </div>
 
               {#each callPeers as peer (peer.id)}
-                <div class="call__tile" class:call__tile--speaking={peer.speaking && !peer.muted} class:call__tile--blurred={blurWhenAway && blurred}>
+                <div class="call__tile" class:call__tile--speaking={peer.speaking && !peer.muted} class:call__tile--blurred={blurWhenAway && blurred} style:--voice={peer.muted ? 0 : peer.audioLevel}>
                   {#if peer.stream && peer.stream.getVideoTracks().length && (peer.screenSharing || !peer.cameraOff)}
                     <video
                       class="call__video"
@@ -725,7 +725,7 @@
   .call-mini__avatar {
     width: 30px; height: 30px; border-radius: 50%; flex: none;
     border: 2px solid var(--surface-2);
-    transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+    transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-slow) var(--ease-out);
   }
   .call-mini__avatar + .call-mini__avatar { margin-left: -8px; }
   .call-mini__avatar--speaking { box-shadow: 0 0 0 2px var(--accent); }
@@ -804,10 +804,10 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 0 0 2px transparent;
-    transition: box-shadow var(--duration-fast) var(--ease-out);
+    transition: box-shadow var(--duration-slow) var(--ease-out);
   }
   .call__tile--speaking {
-    box-shadow: 0 0 0 2px var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) calc(45% + min(1, var(--voice, 0.5) * 2) * 55%), transparent);
   }
   .call__tile--blurred .call__video {
     opacity: 0;
@@ -884,7 +884,7 @@
     height: 100%;
     width: calc(var(--level, 0) * 100%);
     background: var(--accent);
-    transition: width var(--duration-fast) linear;
+    transition: width var(--duration-base) var(--ease-out);
   }
   .call__expand {
     position: absolute;
