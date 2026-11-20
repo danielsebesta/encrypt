@@ -6021,9 +6021,9 @@
     {/if}
 
     {#if safetyPrompt}
-      <div class="chat-call-banner chat-safety-banner" role="dialog" aria-label={t(dict, 'chat.safetyCompareTitle')}>
+      <section class="chat-call-banner chat-safety-banner" aria-labelledby="chat-safety-title">
         <div class="chat-call-banner__meta">
-          <p class="chat-call-banner__title">{t(dict, 'chat.safetyCompareTitle')}</p>
+          <p id="chat-safety-title" class="chat-call-banner__title">{t(dict, 'chat.safetyCompareTitle')}</p>
           <p class="chat-call-banner__name">{safetyPrompt.name}</p>
           <p class="chat-member__emoji chat-member__safety">{#each safetyPrompt.safety.split(' ') as group}<span>{group}</span>{/each}</p>
           <p class="hint">{t(dict, 'chat.safetyCompareHint')}</p>
@@ -6034,7 +6034,7 @@
           {/if}
           <button type="button" class="btn-ghost btn-sm" on:click={dismissSafetyPrompt}>{t(dict, 'chat.safetyCompareDismiss')}</button>
         </div>
-      </div>
+      </section>
     {/if}
 
     {#if burnConfirmMsg}
