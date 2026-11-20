@@ -432,7 +432,7 @@
   "chat.password": "Hasło",
   "chat.roomNameRequired": "Wprowadź nazwę pokoju",
   "chat.modeLiveTitle": "Zachowaj historię",
-  "chat.modeLiveHint": "Tryb domyślny. Wiadomości są zapisywane tylko w przeglądarkach uczestników i synchronizowane między osobami będącymi online.",
+  "chat.modeLiveHint": "Tryb domyślny. Każdy uczestnik przechowuje historię zaszyfrowaną we własnej przeglądarce, a gdy dołączysz, osoby online wyślą ci to, co cię ominęło. Serwer niczego nie zapisuje.",
   "chat.modeLabelLive": "Historia lokalna",
   "chat.modeTtlTitle": "Znikające wiadomości",
   "chat.modeTtlHint": "Dostarczane na żywo i znikające ze wszystkich ekranów po wybranym czasie. Nic nie jest nigdzie zapisywane.",

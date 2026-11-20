@@ -432,7 +432,7 @@
   "chat.password": "Contraseña",
   "chat.roomNameRequired": "Introduce un nombre de sala",
   "chat.modeLiveTitle": "Guardar historial",
-  "chat.modeLiveHint": "Opción predeterminada. Los mensajes solo se guardan en los navegadores de los participantes y se sincronizan entre quienes están en línea.",
+  "chat.modeLiveHint": "Opción predeterminada. Cada participante guarda el historial cifrado en su propio navegador y, cuando entras, quien esté en línea te envía lo que te perdiste. El servidor no guarda nada.",
   "chat.modeLabelLive": "Historial local",
   "chat.modeTtlTitle": "Mensajes que desaparecen",
   "chat.modeTtlHint": "Se entregan en directo y desaparecen de todas las pantallas pasado el tiempo que elijas. No se guarda nada en ningún sitio.",

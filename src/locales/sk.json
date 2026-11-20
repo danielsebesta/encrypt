@@ -432,7 +432,7 @@
   "chat.password": "Heslo",
   "chat.roomNameRequired": "Zadaj názov miestnosti",
   "chat.modeLiveTitle": "Nechať históriu",
-  "chat.modeLiveHint": "Predvolený režim. Správy sa ukladajú iba v prehliadačoch účastníkov a pripojení účastníci si ich synchronizujú.",
+  "chat.modeLiveHint": "Predvolený režim. Každý účastník má históriu zašifrovanú vo svojom prehliadači a po pripojení ti chýbajúce správy pošle ten, kto je práve online. Server nič neukladá.",
   "chat.modeLabelLive": "Lokálna história",
   "chat.modeTtlTitle": "Miznúce správy",
   "chat.modeTtlHint": "Doručia sa živo a po zvolenom čase zmiznú zo všetkých obrazoviek. Nikde sa nič neukladá.",

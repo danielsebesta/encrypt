@@ -432,7 +432,7 @@
   "chat.password": "Password",
   "chat.roomNameRequired": "Enter a room name",
   "chat.modeLiveTitle": "Keep history",
-  "chat.modeLiveHint": "Default. Messages are stored only in participant browsers and synced by online peers.",
+  "chat.modeLiveHint": "Default. Each member keeps the history encrypted in their own browser, and when you join, whoever is online sends you what you missed. The server stores nothing.",
   "chat.modeLabelLive": "Local history",
   "chat.modeTtlTitle": "Disappearing messages",
   "chat.modeTtlHint": "Delivered live and gone from every screen after the time you pick. Nothing is kept anywhere.",

@@ -432,7 +432,7 @@
   "chat.password": "Passwort",
   "chat.roomNameRequired": "Gib einen Raumnamen ein",
   "chat.modeLiveTitle": "Historie behalten",
-  "chat.modeLiveHint": "Standard. Nachrichten werden nur in Teilnehmer-Browsern gespeichert und von Online-Peers synchronisiert.",
+  "chat.modeLiveHint": "Standard. Jedes Mitglied speichert den Verlauf verschlüsselt im eigenen Browser, und wenn du beitrittst, schickt dir, wer gerade online ist, was du verpasst hast. Der Server speichert nichts.",
   "chat.modeLabelLive": "Lokale Historie",
   "chat.modeTtlTitle": "Verschwindende Nachrichten",
   "chat.modeTtlHint": "Werden live zugestellt und verschwinden nach der gewählten Zeit von jedem Bildschirm. Nirgends wird etwas gespeichert.",

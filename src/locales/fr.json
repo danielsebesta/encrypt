@@ -432,7 +432,7 @@
   "chat.password": "Mot de passe",
   "chat.roomNameRequired": "Entrez un nom de salon",
   "chat.modeLiveTitle": "Garder l'historique",
-  "chat.modeLiveHint": "Par défaut. Les messages sont stockés seulement dans les navigateurs des participants et synchronisés par les pairs en ligne.",
+  "chat.modeLiveHint": "Par défaut. Chaque membre garde l’historique chiffré dans son propre navigateur et, quand vous rejoignez la salle, ceux qui sont en ligne vous envoient ce que vous avez manqué. Le serveur ne garde rien.",
   "chat.modeLabelLive": "Historique local",
   "chat.modeTtlTitle": "Messages éphémères",
   "chat.modeTtlHint": "Livrés en direct et effacés de tous les écrans après le délai choisi. Rien n’est conservé nulle part.",
