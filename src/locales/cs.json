@@ -724,6 +724,7 @@
   "chat.callExitFullscreen": "Ukončit celou obrazovku",
   "chat.callSettings": "Nastavení hovoru",
   "chat.callAudioAndDevices": "Zvuk a zařízení",
+  "chat.callControls": "Ovládání hovoru",
   "chat.callMuteMicrophone": "Ztlumit mikrofon",
   "chat.callMuteAllAudio": "Ztlumit všechny zvuky",
   "chat.callUnmuteAllAudio": "Zapnout všechny zvuky",

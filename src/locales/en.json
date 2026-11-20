@@ -724,6 +724,7 @@
   "chat.callExitFullscreen": "Exit fullscreen",
   "chat.callSettings": "Call settings",
   "chat.callAudioAndDevices": "Audio & devices",
+  "chat.callControls": "Call controls",
   "chat.callMuteMicrophone": "Mute microphone",
   "chat.callMuteAllAudio": "Mute all sound",
   "chat.callUnmuteAllAudio": "Unmute all sound",

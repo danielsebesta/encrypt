@@ -28,6 +28,7 @@
   import Modal from '../Modal.svelte';
   import Field from '../ui/Field.svelte';
   import { menu } from '../ui/menu';
+  import { roving } from '../ui/roving';
   import { focusFirstInvalid } from '../../lib/focusInvalid';
   import ToolStatus from './ToolStatus.svelte';
 
@@ -944,48 +945,6 @@
     const ro = new ResizeObserver(() => node.style.setProperty('--wb-stage-h', `${node.clientHeight}px`));
     ro.observe(node);
     return { destroy: () => ro.disconnect() };
-  }
-
-  function roving(node: HTMLElement, options: { columns?: number } = {}) {
-    const items = () => [...node.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
-    let last: HTMLElement | null = null;
-    const sync = () => {
-      const list = items();
-      const current = (last && list.includes(last as HTMLButtonElement) ? last : null) ?? list.find((el) => el.getAttribute('aria-pressed') === 'true') ?? list[0];
-      for (const el of list) el.tabIndex = el === current ? 0 : -1;
-    };
-    const onFocusin = (e: FocusEvent) => {
-      const el = (e.target as HTMLElement).closest('button');
-      if (el && node.contains(el)) { last = el; sync(); }
-    };
-    const onKeydown = (e: KeyboardEvent) => {
-      const list = items();
-      const at = list.indexOf(document.activeElement as HTMLButtonElement);
-      if (at < 0 || e.ctrlKey || e.metaKey || e.altKey) return;
-      const cols = options.columns ?? 0;
-      let next = -1;
-      if (e.key === 'ArrowRight' || (e.key === 'ArrowDown' && !cols)) next = (at + 1) % list.length;
-      else if (e.key === 'ArrowLeft' || (e.key === 'ArrowUp' && !cols)) next = (at - 1 + list.length) % list.length;
-      else if (e.key === 'ArrowDown') next = at + cols < list.length ? at + cols : at;
-      else if (e.key === 'ArrowUp') next = at - cols >= 0 ? at - cols : at;
-      else if (e.key === 'Home') next = 0;
-      else if (e.key === 'End') next = list.length - 1;
-      else return;
-      e.preventDefault();
-      list[next]?.focus();
-    };
-    node.addEventListener('focusin', onFocusin);
-    node.addEventListener('keydown', onKeydown);
-    const mo = new MutationObserver(sync);
-    mo.observe(node, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed', 'disabled'] });
-    sync();
-    return {
-      destroy() {
-        node.removeEventListener('focusin', onFocusin);
-        node.removeEventListener('keydown', onKeydown);
-        mo.disconnect();
-      },
-    };
   }
 
   function scrollEdges(node: HTMLElement) {

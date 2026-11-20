@@ -2,6 +2,7 @@
   import { t, tApp } from '../../lib/t';
   import { aliasGradient, gradientFor, type Alias } from '../../lib/alias';
   import Icon from '../Icon.svelte';
+  import { roving } from '../ui/roving';
 
   export type ChatCallPeer = {
     id: string;
@@ -455,7 +456,7 @@
               </button>
             </div>
           {:else}
-            <div class="call__bar" inert={minimized || undefined}>
+            <div class="call__bar" inert={minimized || undefined} role="toolbar" aria-label={t(dict, 'chat.callControls')} use:roving>
               <button type="button" class="btn-secondary btn-icon" title={t(dict, 'chat.callMute')} aria-label={t(dict, 'chat.callMute')} aria-pressed={micMuted} on:click={ontogglemic}>
                 <Icon name={micMuted ? 'mic-off' : 'mic'} />
               </button>

@@ -724,6 +724,7 @@
   "chat.callExitFullscreen": "Zamknij pełny ekran",
   "chat.callSettings": "Ustawienia połączenia",
   "chat.callAudioAndDevices": "Audio i urządzenia",
+  "chat.callControls": "Sterowanie połączeniem",
   "chat.callMuteMicrophone": "Wycisz mikrofon",
   "chat.callMuteAllAudio": "Wycisz wszystkie dźwięki",
   "chat.callUnmuteAllAudio": "Włącz wszystkie dźwięki",
