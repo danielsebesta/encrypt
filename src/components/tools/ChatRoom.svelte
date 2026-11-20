@@ -6758,9 +6758,6 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  .chat-header-menu__panel :global(.menu__item) {
-    min-height: 2.75rem;
-  }
   :global(.chat-header-menu__icon) {
     width: 1rem;
     height: 1rem;
@@ -6893,7 +6890,7 @@
   @keyframes chat-emoji-pop-in { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .chat-emoji-pop { animation: none; } }
   .chat-react-btn--more { color: var(--muted); }
-  .chat-me-pill { max-width: 14rem; padding-inline: 0.25rem 0.625rem; }
+  .chat-me-pill { max-width: 14rem; padding-block: 0; padding-inline: 0.25rem 0.625rem; }
   .chat-me-pill[aria-expanded="true"] { --btn-fg: var(--text); background: var(--surface-2); }
   .chat-me-pill__name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chat-me { display: grid; gap: 0.875rem; padding: 0.875rem; border-radius: 8px; background: var(--surface-2); }

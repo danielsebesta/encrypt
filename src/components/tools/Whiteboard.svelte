@@ -2547,6 +2547,7 @@
   }
   .wb-avatar--warn { border-color: var(--warn); }
   .wb-people-trigger {
+    padding-block: 0;
     padding-inline: 0.25rem;
   }
   .wb-people-trigger[aria-expanded="true"] { background: var(--surface-2); }
