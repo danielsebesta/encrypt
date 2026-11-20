@@ -243,7 +243,7 @@
               <Icon name="check" size={20} />
             {/if}{/snippet}
           </ListItem>
-          <ListItem link linkComponent="button" linkProps={{ type: 'button', disabled: !inputText.trim() }} title={t(dict, 'chat.schedule')} onClick={() => { scheduleMenuOpen = true; }}>
+          <ListItem link chevronMaterial={false} linkComponent="button" linkProps={{ type: 'button', disabled: !inputText.trim() }} title={t(dict, 'chat.schedule')} onClick={() => { scheduleMenuOpen = true; }}>
             {#snippet media()}
               <span class="attach-badge attach-badge--schedule"><Icon name="clock" size={20} /></span>
             {/snippet}

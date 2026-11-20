@@ -9,8 +9,6 @@
     | 'upload'
     | 'whiteboard'
     | 'trash'
-    | 'shield'
-    | 'install'
     | 'haptic'
     | 'globe'
     | 'key'
@@ -27,8 +25,6 @@
     | 'pencil'
     | 'hash'
     | 'join'
-    | 'list'
-    | 'home'
     | 'refresh'
     | 'update'
     | 'palette'
@@ -38,12 +34,14 @@
     | 'smartphone'
     | 'bell'
     | 'bell-off'
-    | 'eraser'
     | 'database'
     | 'close'
     | 'more-h'
     | 'share-android'
-    | 'pin-off';
+    | 'pin-off'
+    | 'accessible'
+    | 'contrast'
+    | 'lightbulb';
 </script>
 
 <script lang="ts">
@@ -60,8 +58,6 @@
     upload: 'upload',
     whiteboard: 'pen-tool',
     trash: 'trash',
-    shield: 'shield-check',
-    install: 'download',
     haptic: 'vibrate',
     globe: 'globe',
     key: 'key',
@@ -78,8 +74,6 @@
     pencil: 'pencil',
     hash: 'hash',
     join: 'log-in',
-    list: 'list',
-    home: 'house',
     refresh: 'refresh-cw',
     update: 'cloud-download',
     palette: 'palette',
@@ -89,12 +83,14 @@
     smartphone: 'smartphone',
     bell: 'bell',
     'bell-off': 'bell-off',
-    eraser: 'eraser',
     database: 'database-x',
     close: 'x',
     'more-h': 'ellipsis',
     'share-android': 'share-2',
     'pin-off': 'pin-off',
+    accessible: 'accessibility',
+    contrast: 'contrast',
+    lightbulb: 'lightbulb',
   };
 
   let {

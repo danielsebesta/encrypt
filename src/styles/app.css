@@ -389,13 +389,6 @@ html[data-app-platform] .k-app {
     text-align: center;
     overflow: hidden;
 }
-:root[data-app-platform] .k-navbar .k-navbar-inner {
-    align-items: center;
-    min-height: 3.5rem;
-}
-:root[data-app-platform] .k-navbar.app-room-bar .k-navbar-inner > .k-glass:last-child {
-    margin-left: auto;
-}
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
     position: absolute;
     top: 50%;
@@ -455,11 +448,8 @@ html[data-app-platform] .k-app {
     letter-spacing: 0.01em;
 }
 
-/* Native feel: nothing is selectable or draggable; messages are copied through their action sheet */
-html[data-app-platform] body *:not(input):not(textarea):not([contenteditable="true"]) {
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    -webkit-touch-callout: none !important;
+html[data-app-platform] body {
+    -webkit-touch-callout: none;
 }
 /* Long-press highlight on the full-width row content (not a shrink-wrapped button). */
 .k-list-item.app-row-press > :is(a, button, label) {
@@ -478,9 +468,14 @@ html[data-app-platform] body *:not(input):not(textarea):not([contenteditable="tr
 }
 /* Native feel: chrome is not selectable/draggable, content stays selectable */
 html[data-app-platform] button,
+html[data-app-platform] label,
 html[data-app-platform] [role="button"],
 html[data-app-platform] [role="tab"],
+html[data-app-platform] [role="menuitem"],
+html[data-app-platform] [role="navigation"],
 html[data-app-platform] nav,
+html[data-app-platform] .k-navbar,
+html[data-app-platform] .k-block-title,
 html[data-app-platform] .k-list-item > a {
     -webkit-user-select: none;
     user-select: none;
@@ -909,11 +904,6 @@ html[data-app-platform] ::selection {
     animation: app-spin 320ms var(--ease-move) infinite;
     will-change: transform;
     backface-visibility: hidden;
-}
-.app-spinner--lg {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-width: 2.5px;
 }
 @keyframes app-spin {
     from { transform: rotate(0deg); }
@@ -1395,10 +1385,6 @@ html[data-app-platform] ::selection {
         align-items: center;
         gap: 6px;
     }
-    .k-message-avatar .chat-avatar {
-        width: 100%;
-        height: 100%;
-    }
     .chat-kmsg--mine .chat-text,
     .chat-kmsg--mine .chat-file__name,
     .chat-kmsg--mine .chat-once-note,
@@ -1468,10 +1454,6 @@ html[data-app-platform] ::selection {
     .chat-key-warn {
         background: var(--app-warn-weak);
         color: var(--app-on-warn-weak);
-    }
-    .chat-member--warn {
-        background: var(--app-warn-weak);
-        border-radius: 8px;
     }
     .chat-jump-latest {
         color: var(--app-tint);
@@ -1617,8 +1599,7 @@ html[data-app-platform] ::selection {
             background: var(--app-fill);
         }
     }
-    .wb-btn[aria-pressed="true"],
-    .wb-btn--active {
+    .wb-btn[aria-pressed="true"] {
         color: var(--app-tint);
     }
     .wb-share-banner {
@@ -1955,10 +1936,6 @@ html[data-app-platform] ::selection {
         align-items: center;
         gap: 6px;
     }
-    .k-message-avatar .chat-avatar {
-        width: 100%;
-        height: 100%;
-    }
     .chat-kmsg--mine .chat-text,
     .chat-kmsg--mine .chat-file__name,
     .chat-kmsg--mine .chat-once-note,
@@ -2033,10 +2010,6 @@ html[data-app-platform] ::selection {
     .chat-key-warn {
         background: var(--app-warn-weak);
         color: var(--app-on-warn-weak);
-    }
-    .chat-member--warn {
-        background: var(--app-warn-weak);
-        border-radius: 8px;
     }
     .chat-jump-latest {
         border: none;
@@ -2172,8 +2145,7 @@ html[data-app-platform] ::selection {
             background: color-mix(in srgb, var(--app-label) 8%, transparent);
         }
     }
-    .wb-btn[aria-pressed="true"],
-    .wb-btn--active {
+    .wb-btn[aria-pressed="true"] {
         color: var(--app-tint);
     }
     .wb-share-banner {
@@ -2270,11 +2242,6 @@ html[data-app-platform] ::selection {
 :root[data-app-platform] .k-navbar-back-link:focus-visible {
     outline: 2px solid var(--app-tint);
     outline-offset: 2px;
-}
-:root[data-app-platform] .k-segmented-button:focus-visible {
-    outline: 2px solid var(--app-tint);
-    outline-offset: 2px;
-    z-index: 1;
 }
 @media (prefers-reduced-motion: reduce) {
     :root[data-app-platform="ios"] .k-navbar-back-link {
@@ -2382,8 +2349,7 @@ html[data-app-platform] ::selection {
 }
 /* 44px touch targets for composer icon buttons (base styles are ~30px desktop) */
 .app-composer .chat-attach-btn,
-.app-composer .chat-send-btn,
-.app-composer .voice-rec__btn {
+.app-composer .chat-send-btn {
     min-width: 44px;
     min-height: 44px;
     align-self: center;
@@ -3176,7 +3142,6 @@ html[data-app-platform] ::selection {
    the left/right insets so controls never sit under the sensor housing. */
 @media (orientation: landscape) {
     :root[data-app-platform] .app-room-bar,
-    :root[data-app-platform] .k-navbar .k-navbar-inner,
     :root[data-app-platform] .app-content,
     :root[data-app-platform] .app-room-wrapper,
     :root[data-app-platform] .app-wb-wrapper {
@@ -3300,19 +3265,6 @@ html[data-app-platform] ::selection {
 .app-icon-btn:active {
     background: var(--app-fill);
     color: var(--app-label);
-}
-.app-room-info .chat-members .chat-profile__pop--inline {
-    position: static;
-    width: 100%;
-    margin-block: 0.35rem;
-    box-shadow: none;
-    background: var(--app-surface-2);
-    border-color: var(--app-separator);
-}
-.app-room-info .chat-members .chat-profile__pop--inline .chat-profile__avatar {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
 }
 
 /* Window Controls Overlay (desktop PWA): the caption buttons strip lives inside
@@ -3895,14 +3847,6 @@ html[data-app-platform] ::selection {
     white-space: nowrap;
 }
 
-@keyframes app-spin {
-    to { transform: rotate(360deg); }
-}
-.app-spin-once {
-    display: inline-flex;
-    animation: app-spin 320ms var(--ease-move) infinite;
-}
-
 /* Update available — floating card above the tabbar / room chrome */
 .app-update-banner {
     position: fixed;
@@ -4059,22 +4003,10 @@ html[data-app-platform] ::selection {
     background: var(--tile);
     color: var(--app-on-tint);
 }
-.app-icon-tile--blue { --tile: var(--app-tint); }
-.app-icon-tile--indigo { --tile: var(--app-tint); }
-.app-icon-tile--teal { --tile: var(--app-tint); }
-.app-icon-tile--green { --tile: var(--app-tint); }
-.app-icon-tile--orange { --tile: var(--app-warn); }
-.app-icon-tile--red,
-.app-icon-tile--pink { --tile: var(--app-error); color: var(--app-on-error); }
-.app-icon-tile--gray { --tile: var(--app-outline); color: var(--app-label); }
-:root[data-app-scheme="dark"] .app-icon-tile--blue { --tile: var(--app-tint); }
-:root[data-app-scheme="dark"] .app-icon-tile--indigo { --tile: var(--app-tint); }
-:root[data-app-scheme="dark"] .app-icon-tile--teal { --tile: var(--app-tint); }
-:root[data-app-scheme="dark"] .app-icon-tile--green { --tile: var(--app-tint); }
-:root[data-app-scheme="dark"] .app-icon-tile--orange { --tile: var(--app-warn); }
-:root[data-app-scheme="dark"] .app-icon-tile--red,
-:root[data-app-scheme="dark"] .app-icon-tile--pink { --tile: var(--app-error); color: var(--app-on-error); }
-:root[data-app-scheme="dark"] .app-icon-tile--gray { --tile: var(--app-outline); color: var(--app-label); }
+.app-icon-tile--accent { --tile: var(--app-tint); }
+.app-icon-tile--warn { --tile: var(--app-warn); }
+.app-icon-tile--danger { --tile: var(--app-error); color: var(--app-on-error); }
+.app-icon-tile--neutral { --tile: var(--app-outline); color: var(--app-label); }
 .app-icon-plain {
     display: grid;
     place-items: center;
@@ -5203,4 +5135,36 @@ html[data-app-platform] ::selection {
 :root[data-app-reduce-motion="1"] .app-slide .app-slide__fill,
 :root[data-app-reduce-motion="1"] .app-slide .app-slide__label {
     transition: none !important;
+}
+
+/* P3: shared functional and accessibility fixes (platform-neutral; skins style on top). */
+.app-form .k-list-input > div > div {
+    min-width: 0;
+}
+.app-content .k-searchbar .k-glass:has(input:focus-visible) {
+    outline: 2px solid var(--app-tint);
+    outline-offset: -2px;
+}
+:root[data-app-platform] .k-navbar.app-room-bar .app-nav-title:focus-visible {
+    outline: 2px solid var(--app-tint);
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+.app-settings .k-list-item .font-semibold {
+    font-weight: inherit;
+}
+.app-lock:focus {
+    outline: none;
+}
+.app-seed-swatch {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    border: 1px solid var(--app-separator);
+}
+label:has(> input[role="switch"]:focus-visible) {
+    outline: 2px solid var(--app-tint);
+    outline-offset: 2px;
+    border-radius: 999px;
 }
