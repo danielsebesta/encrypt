@@ -43,6 +43,7 @@ Platform-specific APIs (`cloudflare:workers`, Durable Objects, R2, `node:*`, `ws
 - `src/lib/alias.ts` - language-neutral participant aliases and colors for rooms
 - `src/lib/ghost/` and `src/pages/api/ghost/` - encrypted upload crypto, stego, Send upload relay and fetch
 - `party/` - chat and whiteboard room logic, written against `RoomHost`/`RoomStorage` so it runs on both targets (`party/server.ts` is the Cloudflare glue)
+- `workers/shortener/` - the separate Worker behind `l.encrypt.click`, deployed by `deploy.yml` after the site; only `/api/shorten` with `SHORTENER_TOKEN` creates links, which expire with their share (`src/server/shortLink.ts`)
 - `src/server/` - platform-neutral request handling: `app.ts` (routing, cross-site and rate-limit guards), `upload.ts` (same-origin `/upload` and `/dl/<id>`), `budget.ts` (rate limits and quotas on SQLite), `pow.ts` (proof-of-work challenges)
 - `src/platform/` - the `Platform` contract every target implements, and the runtime env shared with Astro endpoints
 - `src/adapters/cloudflare/` and `src/adapters/node/` - one implementation of that contract per target

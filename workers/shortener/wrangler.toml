@@ -1,0 +1,30 @@
+# The short link service at l.encrypt.click. Deployed by .github/workflows/deploy.yml after the site;
+# set SHORTENER_TOKEN on this Worker and on encrypt-click with the same value.
+name = "lencrypt"
+main = "src/index.ts"
+compatibility_date = "2026-10-07"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "l.encrypt.click", custom_domain = true }
+]
+logpush = false
+
+[observability]
+enabled = false
+
+[vars]
+TARGET_ORIGIN = "https://encrypt.click"
+
+[[kv_namespaces]]
+binding = "URLS"
+id = "d15bc981e3974bcfa84fd5f481f80281"
+
+# Opening links, per client address and Cloudflare location.
+[[ratelimits]]
+name = "LOOKUPS"
+namespace_id = "7301"
+
+  [ratelimits.simple]
+  limit = 30
+  period = 60

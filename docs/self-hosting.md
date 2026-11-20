@@ -70,7 +70,7 @@ Everything is set with environment variables.
 | `UPLOAD_DAILY_GB` | `100` | Upload volume per day for everyone. Uploads are kept for 1 hour, 24 hours or 7 days, as the sender chooses, and every upload counts once for each day it is kept (a 7-day upload counts seven times its size), so this is roughly the disk space uploads can take. |
 | `UPLOAD_CLIENT_DAILY_GB` | `5` | Upload volume per day for one client (IPv4 address or IPv6 /64), counted the same way. |
 | `UPLOAD_MONTHLY_GB`, `UPLOAD_MONTHLY_FILES` | `1000`, `500000` | Monthly upload ceilings. |
-| `SHORTENER_URL` | none | HTTPS endpoint of a Shlink-style shortener for receive links. Without it links stay long. |
+| `SHORTENER_URL`, `SHORTENER_TOKEN` | none | The `/api/shorten` endpoint of a deployed [`workers/shortener`](../workers/shortener/src/index.ts) and the token it expects. Without them links stay long. |
 | `SITE_NAME` | `encrypt.click` | Optional white-label display name for page titles, meta, PWA name and UI copy. The navbar and footer still show **encrypt.click** (the product). Crypto protocol labels stay `encrypt.click/…` so shares and rooms stay compatible. Leave unset on the official deploy. |
 | `SITE_CONTACT_EMAIL` | `security@$host` when `SITE_NAME` is set, else `security@encrypt.click` | Address shown in the security disclosure text and `security.txt`. |
 | `SITE_HELLO_EMAIL` | `hello@$host` when `SITE_NAME` is set, else `hello@encrypt.click` | General contact address (footer, `llms.txt`). |

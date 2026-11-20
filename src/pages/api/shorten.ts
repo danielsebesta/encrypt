@@ -1,6 +1,7 @@
 import { fetchNoRedirect, readJsonLimited } from '../../lib/httpLimits';
 import type { APIRoute } from 'astro';
 import { envString } from '../../platform/env';
+import { shortLinkTtl } from '../../server/shortLink';
 
 export const prerender = false;
 
@@ -8,12 +9,13 @@ function json(data: unknown, status: number): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-// SHORTENER_URL points at a Shlink-style service that answers { short_url } on its own origin; without it links stay long.
-async function shortenShrink(api: string, urlToShorten: string, signal: AbortSignal): Promise<string | null> {
+// SHORTENER_URL points at workers/shortener (or a service with the same API) and SHORTENER_TOKEN authorizes us there;
+// without them links stay long.
+async function shortenShrink(api: string, token: string, urlToShorten: string, ttl: number, signal: AbortSignal): Promise<string | null> {
   const res = await fetchNoRedirect(api, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'User-Agent': 'encrypt.click/1' },
-    body: JSON.stringify({ url: urlToShorten }),
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'encrypt.click/1', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ url: urlToShorten, ttl }),
     signal
   });
   if (!res.ok) return null;
@@ -25,7 +27,8 @@ async function shortenShrink(api: string, urlToShorten: string, signal: AbortSig
 
 export const POST: APIRoute = async ({ request }) => {
   const api = envString('SHORTENER_URL');
-  if (!api.startsWith('https://')) return json({ error: 'Shortening is not configured' }, 404);
+  const token = envString('SHORTENER_TOKEN');
+  if (!api.startsWith('https://') || !token) return json({ error: 'Shortening is not configured' }, 404);
   if (request.headers.get('Content-Type')?.includes('application/json') !== true) {
     return json({ error: 'Content-Type must be application/json' }, 400);
   }
@@ -57,13 +60,14 @@ export const POST: APIRoute = async ({ request }) => {
   if (!/^\/u\/?$/.test(parsed.pathname) || !parsed.searchParams.get('p')) {
     return json({ error: 'Only receive links can be shortened' }, 400);
   }
-
+  const ttl = shortLinkTtl(parsed.searchParams.get('p') ?? '');
+  if (ttl === null) return json({ error: 'Only receive links can be shortened' }, 400);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   let shorturl: string | null;
   try {
-    shorturl = await shortenShrink(api, targetUrl, controller.signal);
+    shorturl = await shortenShrink(api, token, targetUrl, ttl, controller.signal);
   } catch {
     shorturl = null;
   }

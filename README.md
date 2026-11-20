@@ -170,7 +170,7 @@ The button copies this repository to your GitHub account, creates the R2 bucket 
 2. Press the button and fill in `ROOM_TURN_SECRET`, `RATE_LIMIT_SECRET` and `UPLOAD_PASS_SECRET` with random strings, for example from `openssl rand -hex 32`.
 3. For calls, create a TURN key under Realtime → TURN Server and fill in `CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN`. Calls always go through the relay, so without the key the rest works and calls do not.
 
-Expired uploads are deleted by an hourly cron in the Worker, so the bucket needs no lifecycle rules. A custom domain goes under the Worker's Settings → Domains & Routes. Short links stay off unless you set `SHORTENER_URL`.
+Expired uploads are deleted by an hourly cron in the Worker, so the bucket needs no lifecycle rules. A custom domain goes under the Worker's Settings → Domains & Routes. Short links stay off unless you also deploy the [shortener](#short-links) and set `SHORTENER_URL` and `SHORTENER_TOKEN`.
 
 ### encrypt.click
 
@@ -180,7 +180,7 @@ Repository secrets for the workflow:
 
 | Secret | Purpose |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | API token from the "Edit Cloudflare Workers" template, with R2 access for the upload bucket |
+| `CLOUDFLARE_API_TOKEN` | API token from the "Edit Cloudflare Workers" template, with R2 access for the upload bucket and Workers KV access for the shortener |
 | `CLOUDFLARE_ACCOUNT_ID` | Account id |
 
 Worker secrets:
@@ -192,11 +192,12 @@ Worker secrets:
 | `CLOUDFLARE_TURN_TOKEN_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Cloudflare Realtime TURN key |
 | `RATE_LIMIT_SECRET` | Optional, separate key for request budget hashing |
 | `UPLOAD_PASS_SECRET` | Optional, separate key for upload passes and proof-of-work challenges; otherwise derived from the keys above |
+| `SHORTENER_TOKEN` | Random, at least 32 bytes, the same value as on the shortener Worker. Authorizes `/api/shorten` to create short links. |
 | `STATUS_TOKEN` | Optional. When set, `GET /status` (upload usage against the quotas, whether TURN is configured, build and uptime; aggregates only) requires `Authorization: Bearer <token>`; otherwise it is public. `BUILD_COMMIT_SHA`, as a plain variable, names the build it reports. |
 
 Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
 
-Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main|whiteboard/<room>`; they relay encrypted envelopes and keep at most a small room config, never a message), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction (pass `--jurisdiction eu` to every `wrangler r2` command). Uploads are stored under one key prefix per retention class, `t1h/`, `t1d/` and `t7d/`, with the expiry time and the one-time flag in the object's custom metadata; the Worker refuses anything past its expiry, an hourly cron deletes it, and one lifecycle rule per prefix catches anything the cron missed. `SHORTENER_URL` in `wrangler.production.json` enables short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
+Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main|whiteboard/<room>`; they relay encrypted envelopes and keep at most a small room config, never a message), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction (pass `--jurisdiction eu` to every `wrangler r2` command). Uploads are stored under one key prefix per retention class, `t1h/`, `t1d/` and `t7d/`, with the expiry time and the one-time flag in the object's custom metadata; the Worker refuses anything past its expiry, an hourly cron deletes it, and one lifecycle rule per prefix catches anything the cron missed. `SHORTENER_URL` in `wrangler.production.json` and the `SHORTENER_TOKEN` secret enable short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
 
 Lifecycle rules for the upload bucket. R2 counts in whole days, so the 1-hour class is deleted after a day while the Worker already refuses it after an hour. Uploads from before the retention classes sit under their bare UUID; the rules for the prefixes `0` to `f` delete those after a day and can be removed two days after the deploy. Add the new rules first, then remove the old rule that covered the whole bucket (its name is in the `list` output), then deploy:
 
@@ -208,6 +209,18 @@ pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-7d t7d/ --expire-d
 for p in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-legacy-$p $p --expire-days 1 --jurisdiction eu --force; done
 pnpm exec wrangler r2 bucket lifecycle remove encrypt-r2 --name <old whole-bucket rule> --jurisdiction eu
 ```
+
+### Short links
+
+[`workers/shortener`](workers/shortener/src/index.ts) is the Worker behind `l.encrypt.click`, deployed by the same workflow right after the site (`wrangler deploy --config workers/shortener/wrangler.toml`). It only accepts receive links (`https://encrypt.click/u?p=…`) and only from encrypt.click's `/api/shorten`, which sends `SHORTENER_TOKEN`, so nobody can fill its KV namespace directly. Slugs are eight pronounceable letters (`badokemu`, about 41 million combinations) drawn without bias from `crypto.getRandomValues`. Each link is stored in KV with an expiry: until the upload expires, or 7 days for a message carried in the link (7 days after it unlocks when time-locked), computed in `src/server/shortLink.ts`. Opening a link is rate limited to 30 a minute per client and location, so slugs cannot be walked, and the redirect is a `302` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Set the same random `SHORTENER_TOKEN` on both Workers:
+
+```bash
+openssl rand -hex 32   # copy the value
+pnpm exec wrangler secret put SHORTENER_TOKEN --name lencrypt
+pnpm exec wrangler secret put SHORTENER_TOKEN --name encrypt-click
+```
+
+For your own instance, change `name`, the domain, the KV namespace id and `TARGET_ORIGIN` in [`workers/shortener/wrangler.toml`](workers/shortener/wrangler.toml), and point `SHORTENER_URL` at `https://<your short domain>/api/shorten`.
 
 ### Self-host with Docker
 

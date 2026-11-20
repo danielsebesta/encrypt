@@ -142,14 +142,22 @@ test('link shortening is off unless configured and only wraps receive links on t
   setRuntimeEnv({});
   assert.equal((await call('https://self.example/u/?p=abc')).status, 404);
   setRuntimeEnv({ SHORTENER_URL: 'https://short.example/api/shorten' });
+  assert.equal((await call('https://self.example/u/?p=abc')).status, 404);
+  setRuntimeEnv({ SHORTENER_URL: 'https://short.example/api/shorten', SHORTENER_TOKEN: 'token' });
   assert.equal((await call('https://other.example/u/?p=abc')).status, 400);
   assert.equal((await call('https://self.example/chat/x?p=abc')).status, 400);
+  assert.equal((await call('https://self.example/u/?p=v%3D2%26x%3D1000%26p%3Dabc')).status, 400);
   const original = globalThis.fetch;
-  globalThis.fetch = (async () => Response.json({ short_url: 'https://short.example/xyz' })) as typeof fetch;
+  let sent: { auth: string | null; body: { url: string; ttl: number } } | null = null;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    sent = { auth: new Headers(init?.headers).get('Authorization'), body: JSON.parse(String(init?.body)) };
+    return Response.json({ short_url: 'https://short.example/xyz' });
+  }) as typeof fetch;
   try {
     const res = await call('https://self.example/u/?p=abc');
     assert.equal(res.status, 200);
     assert.equal((await res.json() as { shorturl: string }).shorturl, 'https://short.example/xyz');
+    assert.deepEqual(sent, { auth: 'Bearer token', body: { url: 'https://self.example/u/?p=abc', ttl: 7 * 86400 } });
   } finally {
     globalThis.fetch = original;
     setRuntimeEnv({});
