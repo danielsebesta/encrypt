@@ -843,11 +843,21 @@ html.dark {
     }
 
     .tabs--slide .tab {
-        @apply mb-0 rounded-md border-b-0 pb-1.5;
+        @apply mb-0 rounded-md border-b-0;
     }
 
     .tabs--slide .tab[aria-selected="true"] {
         @apply bg-surface-2 text-text;
+    }
+
+    .tabs--slide .tab[aria-selected="true"]::after,
+    .tabs--glide .tabs__thumb::after {
+        @apply pointer-events-none absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-accent;
+        content: "";
+    }
+
+    .tabs--glide .tab[aria-selected="true"]::after {
+        content: none;
     }
 
     @media (max-width: 24rem) {
