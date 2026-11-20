@@ -1929,19 +1929,6 @@ html.dark {
         @apply mt-0 text-lg;
     }
 
-    .home-facts {
-        @apply m-0 mt-2 grid list-none grid-cols-3 gap-6 border-t border-line p-0 pt-5;
-    }
-
-    .home-facts li {
-        @apply grid content-start gap-1.5 text-xs leading-snug text-muted;
-    }
-
-    .home-facts__value {
-        @apply font-mono text-xl font-medium leading-none text-text;
-        white-space: nowrap;
-    }
-
     .home-hero__form {
         @apply min-w-0;
     }
