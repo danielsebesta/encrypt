@@ -1428,6 +1428,21 @@
     .chat-sender {
         font: var(--md-type-label-medium);
         letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--app-label);
+    }
+    .chat-sender::before {
+        content: "";
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 9999px;
+        background: var(--sender-color, var(--app-label-2));
+    }
+    .chat-kmsg--mine .chat-sender::before {
+        display: none;
     }
     .chat-mode-badge {
         border: none;
