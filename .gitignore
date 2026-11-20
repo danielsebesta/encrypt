@@ -27,6 +27,10 @@ pnpm-debug.log*
 .idea/
 .vscode/
 
+# python bytecode
+__pycache__/
+*.pyc
+
 # temp / backup files
 tmp/
 *.bak
