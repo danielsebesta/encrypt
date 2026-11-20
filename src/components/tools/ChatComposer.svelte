@@ -337,9 +337,9 @@
             on:keydown={onkeyComposer}
             disabled={(!connected && !allowQueue) || uploading}
             autocomplete="off"
-            autocorrect="off"
+            autocorrect="on"
             autocapitalize="sentences"
-            spellcheck="false"
+            spellcheck="true"
             enterkeyhint="send"
             inputmode="text"
             data-form-type="other"
@@ -372,9 +372,9 @@
       on:focus={closeMenus}
       disabled={(!connected && !allowQueue) || uploading}
       autocomplete="off"
-      autocorrect="off"
+      autocorrect="on"
       autocapitalize="sentences"
-      spellcheck="false"
+      spellcheck="true"
       enterkeyhint="send"
       inputmode="text"
       data-form-type="other"
