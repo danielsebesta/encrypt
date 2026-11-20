@@ -9,6 +9,7 @@
   import MyRooms from './MyRooms.svelte';
   import Field from '../ui/Field.svelte';
   import { focusFirstInvalid } from '../../lib/focusInvalid';
+  import { roving } from '../ui/roving';
 
   export let locale = 'en';
   export let dict: Record<string, string>;
@@ -78,14 +79,12 @@
   $: roomError = roomAttempted && !roomId ? t(dict, 'chat.roomNameRequired') : '';
   $: passwordError = passwordAttempted && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
   $: retentionSeconds = RETENTION_SECONDS[retentionIndex];
-  $: retentionTime = formatDuration(retentionSeconds, locale);
-  $: retentionLabel = t(dict, 'chat.retentionTtl').replace('{time}', retentionTime);
   $: stepText = t(dict, 'common.wizardStep').replace('{current}', String(step)).replace('{total}', String(steps));
 
   async function goTo(next: number) {
     step = next;
     await tick();
-    stepEl?.querySelector<HTMLElement>('input:not([type=radio]), button')?.focus();
+    stepEl?.querySelector<HTMLElement>('input:not([type=radio]), button:not([role=radio])')?.focus();
   }
 
   function submitKeep() {
@@ -133,32 +132,29 @@
               <span class="choice__hint">{t(dict, 'chat.modeLiveHint')}</span>
             </span>
           </label>
-          <label class="choice" class:choice--active={keep === 'ttl'}>
-            <input type="radio" name="chat-keep" value="ttl" bind:group={keep} />
-            <span class="min-w-0 flex-1">
-              <span class="choice__title">{t(dict, 'chat.modeTtlTitle')}</span>
-              <span class="choice__hint">{t(dict, 'chat.modeTtlHint')}</span>
-              {#if keep === 'ttl'}
-                <span class="retention-picker">
-                  <span class="retention-value" aria-hidden="true">{retentionLabel}</span>
-                  <input
-                    id="chat-retention"
-                    type="range"
-                    min="0"
-                    max={RETENTION_SECONDS.length - 1}
-                    step="1"
-                    bind:value={retentionIndex}
-                    aria-label={t(dict, 'chat.retention')}
-                    aria-valuetext={retentionLabel}
-                  />
-                  <span class="retention-scale" aria-hidden="true">
-                    <span>{formatDuration(RETENTION_SECONDS[0], locale, 'short')}</span>
-                    <span>{formatDuration(RETENTION_SECONDS[RETENTION_SECONDS.length - 1], locale, 'short')}</span>
-                  </span>
-                </span>
-              {/if}
-            </span>
-          </label>
+          <div class="choice flex-col" class:choice--active={keep === 'ttl'}>
+            <label class="flex w-full cursor-pointer items-start gap-3">
+              <input type="radio" name="chat-keep" value="ttl" bind:group={keep} />
+              <span class="min-w-0 flex-1">
+                <span id="chat-ttl-title" class="choice__title">{t(dict, 'chat.modeTtlTitle')}</span>
+                <span class="choice__hint">{t(dict, 'chat.modeTtlHint')}</span>
+              </span>
+            </label>
+            {#if keep === 'ttl'}
+              <div class="ml-7 flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby="chat-ttl-title" use:roving>
+                {#each RETENTION_SECONDS as seconds, i (seconds)}
+                  <button
+                    type="button"
+                    class="chip aria-checked:border-accent aria-checked:bg-accent aria-checked:text-on-accent"
+                    role="radio"
+                    aria-checked={retentionIndex === i}
+                    on:click={() => (retentionIndex = i)}
+                    on:focus={() => (retentionIndex = i)}
+                  >{formatDuration(seconds, locale, 'short')}</button>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </div>
       </fieldset>
       <button class="btn btn-block" type="submit">{t(dict, 'common.continue')}</button>
@@ -207,21 +203,3 @@
   <MyRooms {dict} {locale} kind="chat" />
 </div>
 
-<style>
-  .retention-picker {
-    display: grid;
-    gap: 0.25rem;
-    margin-top: 0.5rem;
-  }
-  .retention-value {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text);
-  }
-  .retention-scale {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-</style>
