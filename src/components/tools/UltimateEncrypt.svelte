@@ -972,10 +972,10 @@
         <div class="hint grid gap-1.5">
           <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
           <p class="flex flex-wrap gap-x-4 gap-y-1">
-            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.sendInstances')}</a>
-            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.swissTransfer')}</a>
+            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline">{t(dict, 'tools.ultimateEncrypt.confirm.sendInstances')}</a>
+            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline">{t(dict, 'tools.ultimateEncrypt.confirm.swissTransfer')}</a>
           </p>
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline underline-offset-2">{t(dict, 'tools.ultimateEncrypt.confirm.decryptPath')}</a></p>
+          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline">{t(dict, 'tools.ultimateEncrypt.confirm.decryptPath')}</a></p>
         </div>
       {/if}
       <div class="actions max-sm:flex-col max-sm:items-stretch">
@@ -994,7 +994,7 @@
       <div class="status status--warn">
         <div>
           <p class="status__title">{t(dict, 'tools.ultimateEncrypt.fallback.title')}</p>
-          <p>{fallbackBody[0]}{#if sendInstance}<a href="https://{sendInstance.host}" target="_blank" rel="noopener noreferrer" class="font-semibold underline underline-offset-2">{sendInstance.host}</a>{#if sendInstance.country}{' '}({countryName(sendInstance.country)}){/if}{/if}{fallbackBody[1] ?? ''}</p>
+          <p>{fallbackBody[0]}{#if sendInstance}<a href="https://{sendInstance.host}" target="_blank" rel="noopener noreferrer" class="font-semibold underline">{sendInstance.host}</a>{#if sendInstance.country}{' '}({countryName(sendInstance.country)}){/if}{/if}{fallbackBody[1] ?? ''}</p>
         </div>
       </div>
       {#if error}

@@ -202,6 +202,20 @@ html.dark {
         background: var(--bg);
         color: var(--text);
         -webkit-text-size-adjust: 100%;
+        text-underline-offset: 0.3em;
+    }
+
+    :where(*) {
+        text-decoration-thickness: max(1.5px, 0.1em);
+    }
+
+    a {
+        text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+        transition: text-decoration-color var(--duration-fast) var(--ease-out);
+    }
+
+    a:hover {
+        text-decoration-color: currentColor;
     }
 
     body {
@@ -284,7 +298,7 @@ html.dark {
 
     .btn-link {
         --btn-fg: var(--accent);
-        @apply px-0 underline-offset-4;
+        @apply px-0;
         background: transparent;
     }
 
@@ -1737,7 +1751,7 @@ html.dark {
     }
 
     .pwa-notice__cta {
-        @apply w-fit text-sm font-medium text-text underline underline-offset-2;
+        @apply w-fit text-sm font-medium text-text underline;
     }
 
     .pwa-notice.hidden,
@@ -1846,7 +1860,7 @@ html.dark {
     }
 
     .site-footer__nav a {
-        @apply inline-flex min-h-11 items-center gap-1.5 underline-offset-4 hover:underline;
+        @apply inline-flex min-h-11 items-center gap-1.5 hover:underline;
     }
 
     .site-footer__legal {
@@ -1854,7 +1868,7 @@ html.dark {
     }
 
     .site-footer__legal a {
-        @apply inline-flex min-h-6 items-center text-muted underline-offset-4 hover:text-text hover:underline;
+        @apply inline-flex min-h-6 items-center text-muted hover:text-text hover:underline;
     }
 
     .site-footer__stars {
@@ -1943,7 +1957,7 @@ html.dark {
     }
 
     .home-hero__points a {
-        @apply underline decoration-line underline-offset-4 hover:decoration-accent;
+        @apply underline;
     }
 
     .home-hero__stack {
@@ -2572,7 +2586,7 @@ html.dark {
     /* ── Article ── */
 
     .link {
-        @apply text-accent-strong underline decoration-current/40 underline-offset-4 hover:decoration-current;
+        @apply text-accent-strong underline;
     }
 
     .article section {
@@ -2631,7 +2645,7 @@ html.dark {
     }
 
     .sec-toc a {
-        @apply grid min-h-8 grid-cols-[1.75rem_minmax(0,1fr)] content-center items-baseline py-1 text-muted underline-offset-4 hover:text-accent-strong hover:underline;
+        @apply grid min-h-8 grid-cols-[1.75rem_minmax(0,1fr)] content-center items-baseline py-1 text-muted hover:text-accent-strong hover:underline;
     }
 
     .sec-toc a::before {
@@ -2751,7 +2765,7 @@ html.dark {
     }
 
     .integrity-alert__links a {
-        @apply underline decoration-current/40 underline-offset-4 hover:decoration-current;
+        @apply underline;
     }
 
     .ud-code-comment {
@@ -2801,8 +2815,7 @@ html.dark {
     }
 
     .chat-md u {
-        text-decoration: underline;
-        text-underline-offset: 0.15em;
+        text-decoration-line: underline;
     }
 
     .chat-md del {
@@ -2918,9 +2931,7 @@ html.dark {
 
     .chat-md .chat-link {
         color: var(--accent-strong);
-        text-decoration: underline;
-        text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
-        text-underline-offset: 0.15em;
+        text-decoration-line: underline;
         overflow-wrap: anywhere;
     }
 
