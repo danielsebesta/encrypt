@@ -2401,7 +2401,6 @@
       {/if}
 
       <Tabbar
-        role="navigation"
         labels={true}
         icons={true}
         role="navigation"
