@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
+  CACHE_VERSION,
   CONTRAST_PAIRS,
   SEED_PRESETS,
   cachedVars,
@@ -64,4 +66,9 @@ test('cache carries both schemes and rejects other versions', () => {
   assert.ok(out.dark['--md-sys-color-on-primary']);
   ls.setItem('encrypt-app-mdvars', JSON.stringify({ ...out, v: 1 }));
   assert.equal(cachedVars(), null);
+});
+
+test('the /app boot script only applies a theme cache of the current version', () => {
+  const boot = readFileSync(new URL('../src/pages/app/index.astro', import.meta.url), 'utf8');
+  assert.ok(boot.includes(`cached.v !== ${CACHE_VERSION}`), 'index.astro boot script must check CACHE_VERSION');
 });

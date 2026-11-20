@@ -41,7 +41,7 @@ const WARN = {
 
 const AMOLED_BLACK = '#000000';
 
-const CACHE_VERSION = 2;
+export const CACHE_VERSION = 2;
 
 const LS_MD_VARS = 'encrypt-app-mdvars';
 const LS_PLATFORM = 'encrypt-app-platform';

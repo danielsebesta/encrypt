@@ -79,6 +79,9 @@ const dict = getTranslations(locale);
             var raw = ls.getItem('encrypt-app-mdvars');
             if (raw) {
               cached = JSON.parse(raw);
+              if (!cached || cached.v !== 2) cached = null;
+            }
+            if (cached) {
               var apply = function (vars) {
                 for (var k in vars) root.style.setProperty(k, vars[k]);
               };
