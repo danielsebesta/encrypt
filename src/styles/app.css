@@ -482,6 +482,9 @@ html[data-app-platform] ::selection {
     border-radius: 6px;
 }
 :root[data-app-platform] .attach-badge svg { display: block; }
+.app-pass-rules {
+    padding: 0 1rem;
+}
 .app-pass-row .app-passphrase {
     display: flex;
     align-items: center;

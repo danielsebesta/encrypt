@@ -350,27 +350,27 @@
     }
   }
 
-  $: passwordError = [t(dict, 'tools.ultimateEncrypt.errorPasswordRequired'), t(dict, 'common.passwordWeak')].includes(error) ? error : '';
-  function isUnlockError(message: string) {
-    return [
-      t(dict, 'tools.ultimateEncrypt.options.unlockPast'),
-      t(dict, 'tools.ultimateEncrypt.options.unlockTooFar'),
-      t(dict, 'tools.ultimateEncrypt.options.lockFailed'),
-    ].includes(message);
-  }
-  $: unlockError = isUnlockError(error) ? error : '';
-  $: formError = passwordError || unlockError ? '' : error;
+  // Field errors appear after the first submit and then follow every edit; `error` holds only failures that belong to no field.
+  let attempted = false;
 
-  let seenUnlockAt = unlockAt;
-  function unlockChanged(value: string) {
-    if (value === seenUnlockAt) return;
-    seenUnlockAt = value;
-    if (unlockError) error = '';
+  function passwordProblem(value: string, checks: typeof passwordChecks): string {
+    if (!value) return t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
+    if (!checks.length || !checks.variety || !checks.strength) return t(dict, 'common.passwordWeak');
+    return '';
   }
-  $: unlockChanged(unlockAt);
+
+  function unlockProblem(at: string, ms: number | null, mode: typeof deliveryMode, keep: Retention): string {
+    if (mode === 'local' || !at) return '';
+    if (ms === null || ms <= Date.now() + 5000) return t(dict, 'tools.ultimateEncrypt.options.unlockPast');
+    if (mode === 'ghost' && !retentionForUnlock(keep, ms)) return t(dict, 'tools.ultimateEncrypt.options.unlockTooFar');
+    return '';
+  }
+
+  $: passwordError = attempted ? passwordProblem(password, passwordChecks) : '';
+  $: unlockError = attempted ? unlockProblem(unlockAt, unlockMs, deliveryMode, retention) : '';
 
   async function focusEncryptError() {
-    const unlock = isUnlockError(error);
+    const unlock = !passwordProblem(password, passwordChecks) && !!unlockProblem(unlockAt, unlockMs, deliveryMode, retention);
     if (unlock) optionsOpen = true;
     await tick();
     document.getElementById(unlock ? 'ue-unlock' : 'ue-pass')?.focus();
@@ -411,37 +411,14 @@
     setProgress('', '');
     debugLog = [];
 
-    const trimmed = textInput.trim();
     pushDebug(`Start encrypt: mode=${deliveryMode}, file=${file ? file.name : 'none'}, payloadSize=${payloadSize} bytes`);
-    if (files.length === 0 && !trimmed) {
-      error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
-      pushDebug('Validation failed: empty input');
-      await focusEncryptError();
-      return;
-    }
-    if (!password) {
-      error = t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
-      pushDebug('Validation failed: missing password');
-      await focusEncryptError();
-      return;
-    }
-    if (!passwordChecks.length || !passwordChecks.variety || !passwordChecks.strength) {
-      error = t(dict, 'common.passwordWeak');
-      pushDebug('Validation failed: weak password');
+    attempted = true;
+    if (passwordProblem(password, passwordChecks) || unlockProblem(unlockAt, unlockMs, deliveryMode, retention)) {
+      pushDebug('Validation failed');
       await focusEncryptError();
       return;
     }
     const locking = deliveryMode !== 'local' && unlockAt !== '';
-    if (locking && (unlockMs === null || unlockMs <= Date.now() + 5000)) {
-      error = t(dict, 'tools.ultimateEncrypt.options.unlockPast');
-      await focusEncryptError();
-      return;
-    }
-    if (locking && deliveryMode === 'ghost' && !retentionForUnlock(retention, unlockMs)) {
-      error = t(dict, 'tools.ultimateEncrypt.options.unlockTooFar');
-      await focusEncryptError();
-      return;
-    }
 
     step = 'processing';
 
@@ -802,6 +779,7 @@
 
   async function reset() {
     step = 'input';
+    attempted = false;
     resultPasswordVisible = false;
     qrOpen = false;
     textInput = '';
@@ -934,8 +912,7 @@
             describedby={passwordError ? 'ue-pass-error ue-pass-rules ue-pass-hint' : 'ue-pass-rules ue-pass-hint'}
             invalid={!!passwordError}
             required
-            on:input={() => { if (passwordError) error = ''; }}
-            generate={() => { error = ''; return generatePassphrase(); }}
+            generate={generatePassphrase}
           />
           {#if passwordError}
             <p id="ue-pass-error" class="field-error" role="alert">{passwordError}</p>
@@ -969,8 +946,8 @@
         </dl>
       {/if}
 
-      {#if formError}
-        <p class="status status--error" role="alert">{formError}</p>
+      {#if error}
+        <p class="status status--error" role="alert">{error}</p>
       {/if}
 
       <button class="btn btn-block" type="submit" disabled={!hasContent} aria-describedby={hasContent ? undefined : 'ue-empty-hint'}>{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>

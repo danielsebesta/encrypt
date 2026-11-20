@@ -1163,6 +1163,12 @@
 :root[data-app-platform="ios"][data-app-scheme="dark"] .app-danger-text {
     color: color-mix(in srgb, var(--app-on-error-weak) 80%, var(--app-label));
 }
+:root[data-app-platform="ios"] .password-rules {
+    --danger: var(--app-on-error-weak);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] .password-rules {
+    --danger: color-mix(in srgb, var(--app-on-error-weak) 80%, var(--app-label));
+}
 :root[data-app-platform="ios"][data-app-scheme="dark"] .chat-me {
     --muted: color-mix(in srgb, var(--app-label) 72%, transparent);
 }

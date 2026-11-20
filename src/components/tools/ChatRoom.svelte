@@ -542,6 +542,8 @@
   let previewAlias: Alias = alias;
 
   let nickError = '';
+  $: if (nickError && (!nickInput.trim() || NICKNAME_RE.test(nickInput.trim()))) nickError = '';
+  $: if (passwordError === t(dict, 'chat.errorEnterPassword') && passwordInput.trim()) passwordError = '';
   let historyReady = false;
   let clock = Date.now();
   const FILE_LIFETIME_MS = 24 * 60 * 60 * 1000;

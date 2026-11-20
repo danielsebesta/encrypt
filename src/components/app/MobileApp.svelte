@@ -66,7 +66,9 @@
   import { asButton, asFieldError, asMenu, asSlider, asSwitch } from '../../lib/konstaA11y';
   import { identiconBackground } from '../../lib/identicon';
   import { copyText } from '../../lib/clipboard';
-  import { passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
+  import { checkRoomPassword, passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
+  import PasswordChecklist, { type PasswordRule } from '../PasswordChecklist.svelte';
+  import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import { languages, locales, type Locale } from '../../lib/languages';
   import { t } from '../../lib/t';
@@ -202,9 +204,16 @@
   let newRoomName = $state('');
   let newRoomPassword = $state('');
   let newRoomKind = $state<'chat' | 'whiteboard'>('chat');
-  let newRoomNameError = $state(false);
-  let newRoomPwError = $state(false);
-  const newPwInvalid = $derived(newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)));
+  let newRoomAttempted = $state(false);
+  const newRoomNameError = $derived(newRoomAttempted && !normalizeRoomId(newRoomName));
+  const newPwInvalid = $derived(newRoomAttempted && !passwordLongEnough(newRoomPassword.trim()));
+  const newPwChecks = $derived(checkRoomPassword(newRoomPassword, normalizeRoomId(newRoomName)));
+  const newPwRules = $derived<PasswordRule[]>([
+    { ok: newPwChecks.length, label: t(dict, 'common.passwordRuleLength') },
+    { ok: newPwChecks.variety, label: t(dict, 'common.passwordRuleVariety'), recommended: true },
+    { ok: newPwChecks.strength, label: t(dict, 'common.passwordRuleStrength'), recommended: true },
+    { ok: newPwChecks.distinct, label: t(dict, 'common.passwordRuleDistinct'), recommended: true },
+  ]);
   const fieldColors = { errorText: 'app-danger-text', errorBorder: 'border-[var(--app-error)]' };
   let newRoomMode = $state<'live' | 'ttl'>('live');
   let retentionIndex = $state(RETENTION_SECONDS.indexOf(3600));
@@ -216,6 +225,8 @@
   const retentionLabel = $derived(t(dict, 'chat.retentionTtl').replace('{time}', formatDuration(retentionSeconds, locale)));
   let joinRoomId = $state('');
   let joinRoomPassword = $state('');
+  let joinAttempted = $state(false);
+  const joinIdError = $derived(joinAttempted && !normalizeRoomId(joinRoomId));
   let roomEnteredViaPush = $state(false);
   // A lightweight history entry kept while an overlay is open so the first
   // system-back press dismisses the overlay instead of leaving /app.
@@ -620,8 +631,7 @@
     newRoomSheetOpen = false;
     newRoomName = '';
     newRoomPassword = '';
-    newRoomNameError = false;
-    newRoomPwError = false;
+    newRoomAttempted = false;
     newRoomMode = defaultRoomMode;
     showNewPw = false;
     newPwShownByUser = false;
@@ -826,6 +836,7 @@
     joinRoomSheetOpen = false;
     joinRoomId = '';
     joinRoomPassword = '';
+    joinAttempted = false;
     joiningRoom = false;
     if (popGuard) consumeOverlayGuard();
   }
@@ -1089,21 +1100,15 @@
     return room.mode === 'live' ? t(dict, 'rooms.mode.live') : t(dict, 'rooms.mode.ttl');
   }
 
-  const canCreateRoom = $derived(Boolean(normalizeRoomId(newRoomName)) && passwordLongEnough(newRoomPassword.trim()));
-
   let creatingRoom = false;
   async function handleCreateRoom() {
     if (creatingRoom) return;
     const id = normalizeRoomId(newRoomName);
     const password = newRoomPassword.trim();
-    if (!id) {
-      newRoomNameError = true;
+    newRoomAttempted = true;
+    if (!id || !passwordLongEnough(password)) {
       triggerHaptic('warning');
-      return;
-    }
-    if (!passwordLongEnough(password)) {
-      newRoomPwError = true;
-      triggerHaptic('warning');
+      void focusFirstInvalid(document.querySelector('[data-app-overlay="newRoom"]'));
       return;
     }
     creatingRoom = true;
@@ -1133,7 +1138,6 @@
     newRoomPassword = genRoomPassphrase();
     showNewPw = true;
     newPwShownByUser = false;
-    newRoomPwError = false;
     triggerHaptic('light');
   }
 
@@ -1184,9 +1188,14 @@
   let joiningRoom = false;
   function handleJoinRoom() {
     if (joiningRoom) return;
-    triggerHaptic('medium');
     const id = normalizeRoomId(joinRoomId);
-    if (!id) return;
+    joinAttempted = true;
+    if (!id) {
+      triggerHaptic('warning');
+      void focusFirstInvalid(document.querySelector('[data-app-overlay="join"]'));
+      return;
+    }
+    triggerHaptic('medium');
     joiningRoom = true;
     if (joinRoomPassword) {
       try {
@@ -1782,6 +1791,7 @@
 {#snippet joinIdLabel()}<label for="app-join-id">{t(dict, 'app.join.id')}</label>{/snippet}
 {#snippet joinPwLabel()}<label for="app-join-pw">{t(dict, 'app.join.password')}</label>{/snippet}
 {#snippet newNameError()}<span id="app-new-name-error">{t(dict, 'chat.roomNameRequired')}</span>{/snippet}
+{#snippet joinIdErrorText()}<span id="app-join-id-error">{t(dict, 'app.join.idRequired')}</span>{/snippet}
 {#snippet newPwError()}<span id="app-new-pw-error">{t(dict, 'app.new.passwordShort')}</span>{/snippet}
 
 {#snippet toastDismiss()}
@@ -2538,7 +2548,7 @@
         {@render sheetHeader(
           t(dict, newRoomKind === 'whiteboard' ? 'app.new.titleBoard' : 'app.new.titleChat'),
           () => closeNewRoomSheet(),
-          { label: t(dict, 'app.new.open'), disabled: !canCreateRoom, run: handleCreateRoom },
+          { label: t(dict, 'app.new.open'), disabled: false, run: handleCreateRoom },
           'app-new-title',
         )}
         <List strong inset class="m-0! app-form">
@@ -2555,7 +2565,6 @@
             error={newRoomNameError ? newNameError : undefined}
             colors={fieldColors}
             {@attach asFieldError(newRoomNameError ? 'app-new-name-error' : null)}
-            onInput={() => (newRoomNameError = false)}
             enterkeyhint="next"
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); newPwInput?.focus(); } }}
           >
@@ -2589,9 +2598,8 @@
                   data-1p-ignore
                   data-bwignore="true"
                   aria-invalid={newPwInvalid ? 'true' : undefined}
-                  aria-describedby={newPwInvalid ? 'app-new-pw-error' : undefined}
+                  aria-describedby={newPwInvalid ? 'app-new-pw-error app-new-pw-rules' : 'app-new-pw-rules'}
                   oninput={() => {
-                    newRoomPwError = false;
                     if (!newPwShownByUser) showNewPw = false;
                   }}
                   onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleCreateRoom(); }}
@@ -2632,6 +2640,9 @@
             {/snippet}
           </ListInput>
         </List>
+        <div class="app-pass-rules">
+          <PasswordChecklist id="app-new-pw-rules" label={t(dict, 'common.passwordRules')} rules={newPwRules} {dict} invalid={newPwInvalid} />
+        </div>
         {#if newRoomKind === 'chat'}
           <List strong inset class="m-0! app-choices" role="radiogroup" aria-label={t(dict, 'chat.retention')} onkeydown={onNewRoomModeKeys}>
             <ListItem
@@ -2701,7 +2712,7 @@
           {/if}
         {/if}
         {#if platform === 'material'}
-          <Button large rounded class="w-full" disabled={!canCreateRoom} onClick={handleCreateRoom}>
+          <Button large rounded class="w-full" onClick={handleCreateRoom}>
             {t(dict, 'app.new.open')}
           </Button>
         {/if}
@@ -2724,7 +2735,7 @@
       <div class="app-sheet-body">
         {@render sheetHeader(t(dict, 'app.join.title'), () => closeJoinRoomSheet(), {
           label: t(dict, 'app.join.connect'),
-          disabled: !joinRoomId.trim(),
+          disabled: false,
           run: handleJoinRoom,
         }, 'app-join-title')}
         <List strong inset class="m-0! app-form">
@@ -2734,6 +2745,9 @@
             label={joinIdLabel}
             placeholder={t(dict, 'app.join.idPlaceholder')}
             bind:value={joinRoomId}
+            error={joinIdError ? joinIdErrorText : undefined}
+            colors={fieldColors}
+            {@attach asFieldError(joinIdError ? 'app-join-id-error' : null)}
             autocapitalize="none"
             autocorrect="off"
             spellcheck={false}
@@ -2753,7 +2767,7 @@
             bind:value={joinRoomPassword}
             autocomplete="current-password"
             enterkeyhint="go"
-            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' && joinRoomId.trim()) handleJoinRoom(); }}
+            onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleJoinRoom(); }}
           >
             {#snippet media()}
               <span class="text-[var(--app-label-3)]"><AppIcons name="lock" size={18} /></span>
@@ -2761,7 +2775,7 @@
           </ListInput>
         </List>
         {#if platform === 'material'}
-          <Button large rounded class="w-full" disabled={!joinRoomId.trim()} onClick={handleJoinRoom}>
+          <Button large rounded class="w-full" onClick={handleJoinRoom}>
             {t(dict, 'app.join.connect')}
           </Button>
         {/if}

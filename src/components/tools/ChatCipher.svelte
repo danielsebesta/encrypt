@@ -59,8 +59,8 @@
   $: passwordChecks = checkRoomPassword(password, '');
   $: passwordRules = [
     { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
-    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
-    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety'), recommended: true },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength'), recommended: true },
   ];
 
   onMount(() => {
@@ -239,8 +239,7 @@
       <Field label={t(dict, 'tools.chatCipher.password')} error={passwordError} required>
         {#snippet children(control)}
           {#if mode === 'encrypt'}
-            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')} describedby={[control['aria-describedby'], 'chat-cipher-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
-            <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.chatCipher.passwordPlaceholder')} describedby={[control['aria-describedby'], 'chat-cipher-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} required generate={generatePassphrase} />
           {:else}
             <input
               {...control}
@@ -255,6 +254,11 @@
               data-1p-ignore
               disabled={busy}
             />
+          {/if}
+        {/snippet}
+        {#snippet below()}
+          {#if mode === 'encrypt'}
+            <PasswordChecklist id="chat-cipher-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} invalid={!!passwordError} />
           {/if}
         {/snippet}
       </Field>
