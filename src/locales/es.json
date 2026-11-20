@@ -3,6 +3,7 @@
   "meta.defaultDescription": "Herramientas de código abierto. La criptografía se ejecuta en tu navegador. Al compartir, chatear o subir archivos, solo salen de tu dispositivo el texto cifrado y los metadatos necesarios.",
   "common.working": "Trabajando…",
   "common.fieldRequired": "Este campo es obligatorio.",
+  "common.dropOrChoose": "Suelta aquí o elige un archivo",
   "common.copy": "Copiar",
   "common.copied": "Copiado",
   "common.shared": "Compartido",

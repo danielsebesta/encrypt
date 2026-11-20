@@ -6,6 +6,7 @@
   import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import { dropFiles } from './dropFiles';
   import ToolStatus from './ToolStatus.svelte';
 
   export let dict: Record<string, string>;
@@ -459,12 +460,12 @@
       {#if mode === 'encode'}
         <Field label={t(dict, 'tools.spectralCipher.sourceImage')} error={sourceError} required>
           {#snippet children(control)}
-            <div class="dropzone aspect-video" class:dropzone--active={!!imageUrl}>
+            <div class="dropzone aspect-video" use:dropFiles class:dropzone--active={!!imageUrl}>
               {#if imageUrl}
                 <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} />
               {:else}
                 <Icon name="image" size={20} />
-                <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceImage')}</span>
+                <span class="dropzone__title">{t(dict, 'common.dropOrChoose')}</span>
               {/if}
               <input {...control} type="file" accept="image/*" on:change={handleImageFile} class="sr-only" />
               <label class="absolute inset-0 cursor-pointer" for={control.id} aria-hidden="true"></label>
@@ -474,12 +475,12 @@
       {:else}
         <Field label={t(dict, 'tools.spectralCipher.sourceAudio')} error={sourceError} required>
           {#snippet children(control)}
-            <div class="dropzone aspect-video" class:dropzone--active={!!audioFileName}>
+            <div class="dropzone aspect-video" use:dropFiles class:dropzone--active={!!audioFileName}>
               <Icon name="audio-lines" size={20} />
               {#if audioFileName}
                 <span class="dropzone__title max-w-full truncate">{audioFileName}</span>
               {:else}
-                <span class="dropzone__title">{t(dict, 'tools.spectralCipher.sourceAudio')}</span>
+                <span class="dropzone__title">{t(dict, 'common.dropOrChoose')}</span>
                 <span>.wav</span>
               {/if}
               <input {...control} type="file" accept=".wav,audio/wav" on:change={handleAudioFile} class="sr-only" />
@@ -497,9 +498,12 @@
     <form class="stack" novalidate on:submit|preventDefault={mode === 'encode' ? encodeImage : decodeAudio}>
       {#if mode === 'encode'}
         {#if carrierLoaded}
-          <Field label={`${t(dict, 'tools.spectralCipher.imageStrength')}: ${Math.round(imageStrength * 100)}%`} hint={t(dict, 'tools.spectralCipher.strengthHint')}>
+          <Field id="spectral-strength" label={t(dict, 'tools.spectralCipher.imageStrength')} hint={t(dict, 'tools.spectralCipher.strengthHint')}>
+            {#snippet aside()}
+              <output class="font-mono text-sm tabular-nums text-text" for="spectral-strength">{Math.round(imageStrength * 100)}%</output>
+            {/snippet}
             {#snippet children(control)}
-              <input {...control} type="range" min="0.1" max="1" step="0.05" bind:value={imageStrength} />
+              <input {...control} type="range" min="0.1" max="1" step="0.05" aria-valuetext={`${Math.round(imageStrength * 100)}%`} bind:value={imageStrength} />
             {/snippet}
           </Field>
         {/if}

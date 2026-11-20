@@ -954,7 +954,7 @@
         <dl class="review" aria-label={t(dict, 'tools.ultimateEncrypt.review.title')}>
           <div class="review__row">
             <dt>{t(dict, 'tools.ultimateEncrypt.review.sending')}</dt>
-            <dd class="review__value">{reviewWhat}</dd>
+            <dd class:review__value={files.length === 1}>{reviewWhat}</dd>
           </div>
           <div class="review__row">
             <dt>{t(dict, 'tools.ultimateEncrypt.review.where')}</dt>
@@ -963,7 +963,7 @@
           {#if deliveryMode === 'ghost'}
             <div class="review__row">
               <dt>{t(dict, 'tools.ultimateEncrypt.review.expires')}</dt>
-              <dd class="review__value">{t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention ?? retention}`)}</dd>
+              <dd>{t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention ?? retention}`)}</dd>
             </div>
           {/if}
         </dl>
