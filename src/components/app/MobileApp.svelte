@@ -2068,13 +2068,13 @@
                 {t(dict, filtered ? (chatFilter === 'pinned' ? 'app.empty.noPinnedHint' : 'app.empty.noTtlHint') : 'app.empty.noResultsHint')}
               </p>
               {#if filtered}
-                <Button rounded tonal class="app-hit-btn px-5 w-auto! whitespace-nowrap mt-6" onClick={() => { chatFilter = 'all'; triggerHaptic('light'); }}>
+                <Button rounded tonal class="app-hit-btn app-tonal-btn px-5 w-auto! whitespace-nowrap mt-6" onClick={() => { chatFilter = 'all'; triggerHaptic('light'); }}>
                   {t(dict, 'app.filter.showAll')}
                 </Button>
               {/if}
             </div>
           {:else}
-            <div class="px-8 py-16 text-center flex flex-col items-center">
+            <div class="app-empty px-6 py-16 text-center flex flex-col items-center">
               <div class="w-16 h-16 rounded-lg mb-4 flex items-center justify-center bg-[var(--app-fill)] text-[var(--app-label-3)]">
                 <AppIcons name={activeTab === 'boards' ? 'whiteboard' : 'chat'} size={30} />
               </div>
@@ -2089,7 +2089,7 @@
                   <span class="app-btn-label"><AppIcons name="plus" size={16} />{t(dict, 'app.empty.new')}</span>
                 </Button>
                 {#if activeTab === 'chats'}
-                  <Button rounded tonal class="app-hit-btn px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
+                  <Button rounded tonal class="app-hit-btn app-tonal-btn px-5 w-auto! whitespace-nowrap" onClick={() => { joinRoomSheetOpen = true; }}>
                     <span class="app-btn-label"><AppIcons name="join" size={16} />{t(dict, 'app.empty.join')}</span>
                   </Button>
                 {/if}
