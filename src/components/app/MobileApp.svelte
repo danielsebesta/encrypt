@@ -334,7 +334,7 @@
     const inerted: [HTMLElement, boolean][] = [];
     for (let edge: HTMLElement | null = overlay, host = edge.parentElement; host && host !== document.body; edge = host, host = host.parentElement) {
       for (const sib of host.children) {
-        if (!(sib instanceof HTMLElement) || sib === edge) continue;
+        if (!(sib instanceof HTMLElement) || sib === edge || sib.hasAttribute('data-app-overlay')) continue;
         if (edge === overlay && sib === edge.previousElementSibling) continue;
         inerted.push([sib, sib.inert]);
         sib.inert = true;
