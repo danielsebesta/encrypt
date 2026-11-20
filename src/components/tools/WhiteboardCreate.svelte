@@ -151,7 +151,7 @@
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={openBoard}>
       <Field label={t(dict, 'whiteboard.password')} hint={t(dict, 'whiteboard.createDescription')} error={passwordError} required>
         {#snippet children(control)}
-          <PassphraseField {dict} id={control.id} bind:value={password} bind:revealed={passwordRevealed} placeholder={t(dict, 'whiteboard.roomPasswordPlaceholder')} describedby={[control['aria-describedby'], 'wb-pass-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
+          <PassphraseField {dict} id={control.id} bind:value={password} bind:revealed={passwordRevealed} describedby={[control['aria-describedby'], 'wb-pass-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={() => { passwordError = ''; return genPassphrase(); }} />
           <PasswordChecklist id="wb-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
         {/snippet}
       </Field>

@@ -189,7 +189,7 @@
     <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={startChat}>
       <div class="field">
         <label class="label" for="chat-pass">{t(dict, 'chat.password')}</label>
-        <PassphraseField {dict} id="chat-pass" bind:value={password} placeholder={t(dict, 'chat.roomPasswordPlaceholder')} describedby={passwordError ? 'chat-pass-error chat-pass-rules chat-pass-hint' : 'chat-pass-rules chat-pass-hint'} invalid={!!passwordError} generate={() => { passwordError = ''; return genRoomPassphrase(); }} />
+        <PassphraseField {dict} id="chat-pass" bind:value={password} describedby={passwordError ? 'chat-pass-error chat-pass-rules chat-pass-hint' : 'chat-pass-rules chat-pass-hint'} invalid={!!passwordError} generate={() => { passwordError = ''; return genRoomPassphrase(); }} />
         <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
         {#if passwordError}
           <p id="chat-pass-error" class="sr-only" role="alert">{passwordError}</p>

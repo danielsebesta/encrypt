@@ -48,6 +48,7 @@
   } from '../../lib/transferProgress';
   import { t, tApp } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import { menu } from '../ui/menu';
   import Modal from '../Modal.svelte';
   import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
@@ -919,6 +920,7 @@
     if (actionMenuFor && !target?.closest?.('.msg-actions, .chat-msg-sheet')) actionMenuFor = null;
   }
   let roomMenuEl: HTMLDivElement | undefined;
+  let roomMenuTriggerEl: HTMLButtonElement | undefined;
   const OVERLAY_FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
   function overlayFocusables(root: HTMLElement | undefined | null): HTMLElement[] {
     return root ? [...root.querySelectorAll<HTMLElement>(OVERLAY_FOCUSABLE)].filter((el) => el.offsetParent !== null) : [];
@@ -5446,21 +5448,6 @@
     document.getElementById('chat-room-menu-trigger')?.focus();
   }
 
-  function onRoomMenuKeydown(event: KeyboardEvent) {
-    const items = [...(roomMenuEl?.querySelectorAll<HTMLElement>('.menu__item') ?? [])].filter((el) => !(el as HTMLButtonElement).disabled);
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      event.preventDefault();
-      items[(at + 1) % items.length]?.focus();
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      items[(at - 1 + items.length) % items.length]?.focus();
-    } else if (event.key === 'Home' || event.key === 'End') {
-      event.preventDefault();
-      items[event.key === 'Home' ? 0 : items.length - 1]?.focus();
-    }
-  }
-
   async function applyProfile() {
     const next = nickInput.trim();
     if (next && !NICKNAME_RE.test(next)) {
@@ -5888,6 +5875,7 @@
         <div class="chat-header-menu relative" data-chat-menu>
           <button
             id="chat-room-menu-trigger"
+            bind:this={roomMenuTriggerEl}
             type="button"
             class="btn-ghost btn-sm btn-icon"
             title={t(dict, 'chat.roomMenu')}
@@ -5899,7 +5887,7 @@
           >
             <Icon name="ellipsis-vertical" />
           </button>
-          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" bind:this={roomMenuEl} on:keydown={onRoomMenuKeydown}>
+          <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" aria-label={t(dict, 'chat.roomMenu')} bind:this={roomMenuEl} use:menu={{ open: headerMenuOpen, onclose: closeHeaderMenu, trigger: roomMenuTriggerEl, autofocus: false }}>
             <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
               <Icon name="link" class="chat-header-menu__icon" />
               {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
