@@ -107,7 +107,7 @@
     --call-text: #e2e3d9;
     --call-muted: #c4c8ba;
     /* palette:end */
-    --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.18), 0 0 0 1px var(--line);
+    --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.18);
     --ring: color-mix(in srgb, var(--accent) 35%, transparent);
     --ring-danger: color-mix(in srgb, var(--danger) 30%, transparent);
     --on-danger: var(--danger-weak);
@@ -140,7 +140,7 @@ html.dark {
     --call-text: #e2e3d9;
     --call-muted: #c4c8ba;
     /* palette:end */
-    --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6), 0 0 0 1px var(--line);
+    --shadow-float: 0 8px 24px -8px rgb(0 0 0 / 0.6);
 }
 
 @theme {
@@ -1218,8 +1218,10 @@ html.dark {
     /* ── Toast ── */
 
     .toast {
-        @apply fixed left-1/2 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-lg border border-line bg-surface px-4 py-3 text-sm leading-snug text-text;
+        @apply fixed left-1/2 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-lg px-4 py-3 text-sm leading-snug text-text;
         bottom: calc(1rem + env(safe-area-inset-bottom));
+        border: 1px solid var(--line);
+        background: var(--surface);
         box-shadow: var(--shadow-float);
         z-index: var(--z-toast);
         animation: toast-enter var(--duration-base) var(--ease-out) both;
@@ -1462,10 +1464,18 @@ html.dark {
         @apply relative inline-flex;
     }
 
+    .popover,
     .menu {
-        @apply absolute left-0 top-full mt-2 min-w-56 gap-0.5 rounded-lg border border-line bg-bg p-1.5;
-        display: none;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
         box-shadow: var(--shadow-float);
+    }
+
+    .menu {
+        @apply absolute left-0 top-full mt-2 min-w-56 gap-0.5 p-1.5;
+        display: none;
         z-index: var(--z-menu);
     }
 
@@ -1580,10 +1590,6 @@ html.dark {
         .nav__burger {
             display: none;
         }
-
-        html.dark .menu {
-            @apply bg-surface;
-        }
     }
 
     @media (min-width: 1024px) {
@@ -1594,8 +1600,12 @@ html.dark {
 
     @media (max-width: 1023px) {
         .nav--open .nav__links {
-            @apply absolute inset-x-0 top-full mt-2 flex flex-col gap-0.5 overflow-y-auto rounded-lg border border-line bg-bg p-3;
+            @apply absolute inset-x-0 top-full mt-2 flex flex-col gap-0.5 overflow-y-auto p-3;
             max-height: calc(100dvh - 6rem);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: var(--surface);
+            box-shadow: var(--shadow-float);
         }
 
         .nav__links .nav__link {

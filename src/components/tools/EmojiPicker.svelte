@@ -587,10 +587,10 @@
   }
 
   .ep--web {
-    --ep-bg: var(--bg);
+    --ep-bg: var(--surface);
     --ep-text: var(--text);
     --ep-muted: var(--muted);
-    --ep-line: var(--line-soft);
+    --ep-line: var(--line);
     --ep-hover: var(--surface-2);
     --ep-press: color-mix(in srgb, var(--surface-2), var(--text) 8%);
     --ep-accent: var(--accent);

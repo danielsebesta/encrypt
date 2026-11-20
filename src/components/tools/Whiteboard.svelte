@@ -1842,7 +1842,7 @@
       </div>
 
       {#if chatOpen}
-        <section id="wb-chat" class="wb-chat" aria-labelledby="wb-chat-title">
+        <section id="wb-chat" class="wb-chat popover" aria-labelledby="wb-chat-title">
           <header class="wb-chat__head">
             <h2 id="wb-chat-title" class="wb-chat__title">{t(dict, 'whiteboard.chat')}</h2>
             <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={toggleChat} aria-label={t(dict, 'whiteboard.chatClose')} title={t(dict, 'whiteboard.chatClose')}>
@@ -1889,7 +1889,7 @@
       {/if}
 
       {#if peopleOpen}
-        <section id="wb-people" class="wb-chat wb-people" aria-labelledby="wb-people-title">
+        <section id="wb-people" class="wb-chat wb-people popover" aria-labelledby="wb-people-title">
           <header class="wb-chat__head">
             <h2 id="wb-people-title" class="wb-chat__title">{t(dict, 'whiteboard.people')}</h2>
             <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={togglePeople} aria-label={t(dict, 'whiteboard.peopleClose')} title={t(dict, 'whiteboard.peopleClose')}>
@@ -2151,8 +2151,8 @@
     gap: 2px;
     padding: 3px;
     border-radius: 8px;
-    background: var(--bg);
-    border: 1px solid var(--line-soft);
+    background: var(--surface);
+    border: 1px solid var(--line);
   }
   .wb-anchor {
     position: relative;
@@ -2339,10 +2339,6 @@
     width: min(20rem, calc(100% - 1rem));
     display: flex;
     flex-direction: column;
-    border-radius: 8px;
-    border: 1px solid var(--line-soft);
-    background: var(--bg);
-    box-shadow: var(--shadow-float);
     z-index: 4;
     overflow: hidden;
   }

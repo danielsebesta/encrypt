@@ -5854,7 +5854,7 @@
               <Icon name="pencil" />
             </button>
             {#if profileOpen}
-              <div id="chat-profile-pop" class="chat-profile__pop">
+              <div id="chat-profile-pop" class="chat-profile__pop popover">
                 {@render identityCard()}
               </div>
             {/if}
@@ -6683,7 +6683,7 @@
   </Sheet>
 {:else if emojiTarget}
   <div
-    class="chat-emoji-pop"
+    class="chat-emoji-pop popover"
     role="dialog"
     aria-label={t(dict, 'emoji.label')}
     bind:this={emojiPopEl}
@@ -6775,10 +6775,6 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    box-shadow: var(--shadow-float);
   }
   @media (max-width: 30rem) {
     .chat-header { position: relative; }
@@ -6874,11 +6870,7 @@
   .chat-emoji-pop {
     position: fixed;
     z-index: 60;
-    border-radius: 8px;
     overflow: hidden;
-    background: var(--bg);
-    border: 1px solid var(--line-soft);
-    box-shadow: var(--shadow-float);
     animation: chat-emoji-pop-in var(--duration-fast) var(--ease-out);
   }
   @keyframes chat-emoji-pop-in { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }

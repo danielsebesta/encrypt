@@ -19,7 +19,7 @@ Colour tokens live in `:root` (light) and `html.dark` between the `palette:start
 | `--warn`, `--warn-weak`, `--danger`, `--danger-weak` | warning and error text and tints |
 | `--on-danger` | text on a filled danger button (alias of `--danger-weak`) |
 | `--ring`, `--ring-danger` | 3 px focus ring of fields |
-| `--shadow-float` | the only shadow: menus, modals, toasts |
+| `--shadow-float` | the only shadow: menus, popovers, modals, toasts (soft drop shadow only; the edge is the 1 px border) |
 | `--call-*` | the always-dark call screen |
 
 Every token has a Tailwind utility (`bg-surface`, `text-muted`, `border-line`, `text-on-danger`, …). Components and pages use only these. Colour literals (`#hex`, `rgb()`, `hsl()`, `oklch()`, Tailwind palette colours such as `bg-white`) are rejected by the guard test, except:
@@ -183,9 +183,11 @@ A group of related buttons (editor tools, swatches, call controls, emoji categor
 
 Segmented sets inside a labelled `role="group"` (the whiteboard style panel) use the same action. Radio groups with arrow-to-select semantics (`role="radiogroup"`) and tab lists (`Tabs.svelte`) keep their own handlers.
 
-## Menus
+## Menus and popovers
 
-`.menu` (panel, `--shadow-float`, 8 px radius), `.menu--open`, `.menu--end` (right-aligned), `.menu__item` (40 px, 44 px coarse, `text-sm` medium), `.menu__item--danger`, `.menu__sep`, `.menu-anchor` (positioning wrapper). Items with `aria-checked="true"` are toggles.
+Every floating layer has the same surface: `--surface` fill, 1 px `--line` border, 8 px radius and `--shadow-float`. `.popover` is that surface on its own (profile card, emoji picker, whiteboard chat and people panels); `.menu` adds the menu layout on top of it. The navigation dropdowns, the burger panel, `.modal` and `.toast` use the same values. Do not give a floating layer a different fill or border; the call screen (`--call-*` tokens) and the `/app` skins are the only exceptions.
+
+`.menu` (popover surface, 8 px radius), `.menu--open`, `.menu--end` (right-aligned), `.menu__item` (40 px, 44 px coarse, `text-sm` medium), `.menu__item--danger`, `.menu__sep`, `.menu-anchor` (positioning wrapper). Items with `aria-checked="true"` are toggles.
 
 Keyboard and focus come from the `menu` action in `src/components/ui/menu.ts`: ArrowUp/ArrowDown wrap, Home/End, Escape closes and returns focus to the trigger, Tab closes, a pointer press outside closes, and the first item takes focus on open (`autofocus: 'last'` for the last item, `false` when the caller already moves focus). The trigger carries `aria-haspopup="menu"`, `aria-expanded` and `aria-controls`; on `Menu.svelte` ArrowDown/ArrowUp on the trigger open the menu on the first/last item.
 
