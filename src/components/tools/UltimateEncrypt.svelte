@@ -858,7 +858,7 @@
 </script>
 <div class="stack text-left">
   {#if step === 'input'}
-    <form class="stack" method="dialog" on:submit|preventDefault={handleEncrypt} on:paste={handlePaste}>
+    <form class="stack" method="dialog" novalidate on:submit|preventDefault={handleEncrypt} on:paste={handlePaste}>
       <p class="hint">{t(dict, 'tools.ultimateEncrypt.transferClaim')}</p>
 
       <div class="grid gap-4 md:grid-cols-2">
