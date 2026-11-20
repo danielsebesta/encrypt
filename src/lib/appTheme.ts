@@ -16,6 +16,19 @@ export type AppAppearance = 'system' | AppScheme;
 // fixes the primary/secondary/tertiary chroma, so the seed's hue is what sets the tint.
 export const DEFAULT_SEED = '#5b6472';
 
+// Material You seeds offered in Settings. SchemeTonalSpot keeps the chroma in check, so each
+// seed only picks the hue family of the generated roles.
+export const SEED_OPTIONS = [
+  { id: 'default', hex: DEFAULT_SEED },
+  { id: 'red', hex: '#b3423a' },
+  { id: 'orange', hex: '#b5652a' },
+  { id: 'yellow', hex: '#9a7b1c' },
+  { id: 'green', hex: '#4c8a3c' },
+  { id: 'teal', hex: '#2f8a87' },
+  { id: 'purple', hex: '#7656b0' },
+  { id: 'pink', hex: '#b04a7a' },
+] as const;
+
 const LS_MD_VARS = 'encrypt-app-mdvars';
 const LS_PLATFORM = 'encrypt-app-platform';
 const LS_APPEARANCE = 'encrypt-app-appearance';

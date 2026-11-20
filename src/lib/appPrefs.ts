@@ -13,6 +13,7 @@ const LS_LOCK_TIMEOUT = 'encrypt-app-lock-timeout';
 const LS_KEEP_AWAKE = 'encrypt-app-keep-awake';
 const LS_DEFAULT_ROOM = 'encrypt-app-default-room-mode';
 const LS_REDUCE_MOTION = 'encrypt-app-reduce-motion';
+const LS_REDUCE_TRANSPARENCY = 'encrypt-app-reduce-transparency';
 
 function read(key: string): string | null {
   try {
@@ -79,6 +80,30 @@ export function saveReduceMotion(on: boolean) {
 export function applyReduceMotion(on: boolean) {
   if (typeof document === 'undefined') return;
   document.documentElement.dataset.appReduceMotion = on ? '1' : '0';
+}
+
+/** Stored choice, or null to follow the system setting. */
+export function loadReduceTransparency(): boolean | null {
+  const stored = read(LS_REDUCE_TRANSPARENCY);
+  return stored === '1' ? true : stored === '0' ? false : null;
+}
+
+export function saveReduceTransparency(on: boolean) {
+  write(LS_REDUCE_TRANSPARENCY, on ? '1' : '0');
+}
+
+export function systemReducedTransparency(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.matchMedia('(prefers-reduced-transparency: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+export function applyReduceTransparency(on: boolean) {
+  if (typeof document === 'undefined') return;
+  document.documentElement.dataset.appReduceTransparency = on ? '1' : '0';
 }
 
 export function prefersReducedMotion(): boolean {
