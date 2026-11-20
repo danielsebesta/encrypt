@@ -1,7 +1,8 @@
 // Regenerates every brand icon from one color: `--color-brand` in src/styles/global.css.
 // Usage: pnpm run build:brand-icons
-// Favicons / "any" icons stay transparent. Maskable + Apple touch use a circular disc
-// so home-screen masks stay intentional without a square plate.
+// Favicons / "any" icons stay transparent. Maskable and Apple touch icons are full-bleed
+// squares: the launcher or iOS applies its own mask, and transparent corners would show
+// as white plates. The monochrome icon is for themed (Material You) launchers.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -42,24 +43,27 @@ async function bare(size) {
     .toBuffer();
 }
 
-/**
- * Transparent canvas + circular dark disc + glyph. Used where a plate is required
- * (Apple touch, maskable). Corners stay transparent; launchers that circle-crop look right.
- * Glyph stays inside the maskable safe zone (~80% of the disc).
- */
-async function circle(size, scale = 0.58) {
+/** Full-bleed dark square with the glyph centred; `scale` keeps it inside the mask safe zone. */
+async function plate(size, scale) {
   const inner = Math.round(size * scale);
   const mark = await sharp(Buffer.from(iconFor(BRAND)), { density: 384 })
     .resize(inner, inner, { fit: 'contain', background: '#00000000' })
     .png()
     .toBuffer();
-  const disc = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
-      `<circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}" fill="${DARK_BG}"/>` +
-      `</svg>`,
-  );
-  return sharp(disc)
+  return sharp({ create: { width: size, height: size, channels: 3, background: DARK_BG } })
+    .composite([{ input: mark, gravity: 'center' }])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+/** White glyph on transparent, inside the safe zone; the system tints it. */
+async function monochrome(size) {
+  const inner = Math.round(size * 0.5);
+  const mark = await sharp(Buffer.from(iconFor('#ffffff')), { density: 384 })
+    .resize(inner, inner, { fit: 'contain', background: '#00000000' })
     .png()
+    .toBuffer();
+  return sharp({ create: { width: size, height: size, channels: 4, background: '#00000000' } })
     .composite([{ input: mark, gravity: 'center' }])
     .png({ compressionLevel: 9 })
     .toBuffer();
@@ -67,9 +71,10 @@ async function circle(size, scale = 0.58) {
 
 const out = {
   'public/favicon-96x96.png': await bare(96),
-  'public/apple-touch-icon.png': await circle(180, 0.62),
-  'public/web-app-manifest-192x192.png': await circle(192, 0.58),
-  'public/web-app-manifest-512x512.png': await circle(512, 0.58),
+  'public/apple-touch-icon.png': await plate(180, 0.6),
+  'public/web-app-manifest-192x192.png': await plate(192, 0.5),
+  'public/web-app-manifest-512x512.png': await plate(512, 0.5),
+  'public/web-app-manifest-monochrome-512x512.png': await monochrome(512),
   'public/web-app-manifest-192x192-any.png': await bare(192),
   'public/web-app-manifest-512x512-any.png': await bare(512),
 };
@@ -106,39 +111,9 @@ manifest.icons = [
   { src: '/web-app-manifest-512x512-any.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
   { src: '/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
   { src: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+  { src: '/web-app-manifest-monochrome-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'monochrome' },
   { src: '/favicon-96x96.png', sizes: '96x96', type: 'image/png', purpose: 'any' },
   { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
-];
-// PNGs come from `node scripts/capture-app-screenshots.mjs` (real /app?shots=1 captures).
-manifest.screenshots = [
-  {
-    src: '/screenshot-wide.png',
-    sizes: '1920x1080',
-    type: 'image/png',
-    form_factor: 'wide',
-    label: 'Encrypted chat in the Encrypt app',
-  },
-  {
-    src: '/screenshot-narrow.png',
-    sizes: '1179x1980',
-    type: 'image/png',
-    form_factor: 'narrow',
-    label: 'Encrypted chat with people, files and reactions',
-  },
-  {
-    src: '/screenshot-hub-chats.png',
-    sizes: '1179x1980',
-    type: 'image/png',
-    form_factor: 'narrow',
-    label: 'Saved encrypted chat rooms',
-  },
-  {
-    src: '/screenshot-hub-boards.png',
-    sizes: '1179x1980',
-    type: 'image/png',
-    form_factor: 'narrow',
-    label: 'Encrypted whiteboard rooms',
-  },
 ];
 for (const shortcut of manifest.shortcuts ?? []) {
   shortcut.icons = [
@@ -147,4 +122,4 @@ for (const shortcut of manifest.shortcuts ?? []) {
 }
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-console.log(`Icons rebuilt with ${BRAND}; transparent any + circular ${DARK_BG} plates`);
+console.log(`Icons rebuilt with ${BRAND}; transparent any, full-bleed ${DARK_BG} plates, monochrome`);
