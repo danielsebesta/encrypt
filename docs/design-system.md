@@ -25,7 +25,7 @@ Colour tokens live in `:root` (light) and `html.dark` between the `palette:start
 Every token has a Tailwind utility (`bg-surface`, `text-muted`, `border-line`, `text-on-danger`, …). Components and pages use only these. Colour literals (`#hex`, `rgb()`, `hsl()`, `oklch()`, Tailwind palette colours such as `bg-white`) are rejected by the guard test, except:
 
 - `src/lib/qrColors.ts`: QR codes stay black on white in both themes. Their frames (`.ue-qr`, `.home-app__qr-code`, `.install-now__qr`) use `bg-white` in `global.css` for the same reason.
-- Emoji skin-tone swatches, the white matte PhotoCipher puts behind transparent images before encoding, and Whiteboard's `--wb-on-peer` (text on the fixed alias colours from `src/lib/alias.ts`). Each is listed with its reason in `COLOUR_ALLOW` in the test.
+- Emoji skin-tone swatches and the white matte PhotoCipher puts behind transparent images before encoding. Each is listed with its reason in `COLOUR_ALLOW` in the test.
 - The `theme-color` meta tags in `Layout.astro`, which the test pins to `--bg`.
 
 When a canvas or library needs a colour, read the token at runtime with `getComputedStyle(document.documentElement).getPropertyValue('--accent')`.
@@ -160,6 +160,8 @@ Props: `label`, `hint`, `error`, `required`, `hideLabel` (keeps the label for as
 </Tabs>
 ```
 
+Props: `items` (`id`, `label`, optional `icon`), `value` (bindable), `label` (name of the tab list), `idBase`, `variant` (`line` | `segmented`), `class`, `panelClass`, `onchange`, and either `children` (one panel) or `panel` (one per tab).
+
 Ids are `<idBase>-tab-<id>` and `<idBase>-panel` (single panel) or `<idBase>-panel-<id>` (per-tab panels). Tabs are 40 px tall, 44 px on coarse pointers.
 
 ## Toolbars and roving focus
@@ -197,6 +199,8 @@ Keyboard and focus come from the `menu` action in `src/components/ui/menu.ts`: A
 </Menu>
 ```
 
+Props of `Menu.svelte`: `label` (required, names the menu and the icon-only trigger), `icon` (default `ellipsis-vertical`), `text` (turns the trigger into a labelled button), `variant` (default `ghost`), `size` (default `sm`), `align` (`start` | `end`, default `end`), `open` (bindable), `class`.
+
 The site navigation dropdowns in `Layout.astro` are disclosure navigation (links, driven by `public/ui.js`), not ARIA menus, and share only the `.menu` styling.
 
 ## Dialogs
@@ -228,7 +232,7 @@ The site navigation dropdowns in `Layout.astro` are disclosure navigation (links
 - `.panel`: the card. 8 px radius, `--line` border, `--surface` fill, 16/24 px padding. `.panel--flush` drops the padding and clips the content, for lists and media that run edge to edge.
 - `.icon-tile`: 40 px square, 6 px radius, `--surface-2` fill, `--line` border, muted icon; leads a card or row. `.icon-tile--accent` uses the accent tint to mark the emphasised item. Decorative: an `<Icon>` without a label is already `aria-hidden`.
 - `.empty` + `.empty__icon` + `.empty__title`: centred empty state, muted text.
-- `details.more`: disclosure with a rotating chevron and `.more__body`. `ToolAbout.astro` renders the expandable "How it works" section with a `btn-link` toggle that keeps `aria-expanded` in sync.
+- `details.more`: disclosure with a rotating chevron and `.more__body`; the summary is 40 px tall, 44 px on coarse pointers. `ToolAbout.astro` renders the expandable "How it works" section with a `btn-link` toggle that keeps `aria-expanded` in sync.
 - Tooltips: no custom component. Icon-only buttons repeat their `aria-label` in `title`.
 
 ## Icons

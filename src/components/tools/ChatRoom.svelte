@@ -6223,7 +6223,7 @@
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
         <div class="chat-messages-shell">
-        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite">
+        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite" tabindex="0">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
           {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="message-circle" size={20} /></span>{/if}
@@ -6988,6 +6988,11 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chat-call-banner__actions { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
+  .chat-safety-banner { flex-wrap: wrap; }
+  .chat-safety-banner .chat-call-banner__meta { flex: 1 1 16rem; flex-wrap: wrap; row-gap: 0.25rem; }
+  @media (max-width: 639px) {
+    .chat-safety-banner .hint { flex-basis: 100%; }
+  }
   .chat-loader {
     display: block;
     width: 1.5rem;

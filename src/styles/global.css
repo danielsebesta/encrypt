@@ -1244,6 +1244,12 @@ html.dark {
         @apply text-text;
     }
 
+    @media (pointer: coarse) {
+        .more > summary {
+            @apply min-h-11;
+        }
+    }
+
     .more__body {
         @apply mt-3 grid gap-4;
     }
