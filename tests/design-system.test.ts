@@ -244,10 +244,33 @@ test('busy, disabled, pressed and forced-colors states exist for buttons', () =>
 });
 
 test('one class per pattern: badge, chip, toast, field-error, progress, empty, panel', () => {
-  for (const selector of ['.badge', '.chip', '.toast', '.field-error', '.progress', '.empty', '.panel', '.spinner', '.menu__item', '.tab']) {
+  for (const selector of ['.badge', '.chip', '.toast', '.field-error', '.progress', '.empty', '.panel', '.spinner', '.menu__item', '.tab', '.link']) {
     assert.ok(new RegExp(`\\${selector}\\s*\\{`).test(css), `${selector} missing from global.css`);
   }
   for (const legacy of ['.btn-outline', '.btn-lg', '.tab-btn', '.tab-bar', '.result-box', '.error-box', '.status__bar', '.card {']) {
     assert.ok(!css.includes(legacy), `legacy ${legacy} is back in global.css`);
   }
+});
+
+test('no text below 12 px', () => {
+  const problems: string[] = [];
+  for (const m of css.matchAll(/font-size:\s*([\d.]+)(px|rem|em)\b/g)) {
+    const value = Number(m[1]);
+    const small = m[2] === 'em' ? value < 1 : value * (m[2] === 'rem' ? 16 : 1) < 12;
+    if (small) problems.push(`global.css:${lineOf(css, m.index!)} ${m[0]}${m[2] === 'em' ? ' (use max(0.75rem, …))' : ''}`);
+  }
+  for (const file of files) {
+    for (const m of file.text.matchAll(/text-\[([\d.]+)(px|rem)\]/g)) {
+      if (Number(m[1]) * (m[2] === 'rem' ? 16 : 1) < 12) problems.push(`${file.path}:${lineOf(file.text, m.index!)} ${m[0]}`);
+    }
+  }
+  assert.deepEqual(problems, []);
+});
+
+test('status, field errors, selects and current navigation stay visible in forced colors', () => {
+  const forced = css.split('@media (forced-colors: active)').slice(1).map((block) => block.slice(0, block.indexOf('\n    }\n'))).join('\n');
+  assert.match(forced, /\.status \{\s*outline: 1px solid CanvasText/);
+  assert.match(forced, /\.status--error::before \{\s*forced-color-adjust: none;\s*background-color: CanvasText/);
+  assert.match(forced, /\.nav__link\[aria-current="page"\]/);
+  assert.match(forced, /select\.input \{\s*appearance: auto/);
 });

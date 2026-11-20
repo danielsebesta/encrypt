@@ -33,7 +33,7 @@ When a canvas or library needs a colour, read the token at runtime with `getComp
 ## Typography
 
 - **Allo** (`font-sans`) for all UI text. **Commit Mono** (`font-mono`, `<code>`, `.input--mono`, `.badge--mono`) for keys, hashes, sizes and other technical values.
-- Sizes are Tailwind's: controls, labels, hints and menus use `text-sm` (14 px), body text `text-base` (16 px), page titles `.page-title` (fluid, 28–40 px). Nothing is set below `text-xs` (12 px).
+- Sizes are Tailwind's: controls, labels, hints and menus use `text-sm` (14 px), body text `text-base` (16 px), page titles `.page-title` (fluid, 28–40 px). Nothing is set below `text-xs` (12 px); relative `em` sizes under 1em are floored with `max(0.75rem, …)`. The guard test checks both.
 - Weights: 400 body, 500 controls and labels, 600 headings and titles.
 
 ## Spacing, radius, motion, layers
@@ -104,7 +104,7 @@ Do not use `w-full` on buttons (use `btn-block`), combine two variants, or make 
 <Button href="/share" variant="secondary">{t(dict, 'nav.share')}</Button>
 ```
 
-Props: `variant` (`primary` | `secondary` | `ghost` | `danger` | `link`), `size` (`md` | `sm`), `block`, `icon`, `iconEnd`, `label`, `busy`, `pressed`, `disabled`, `href`, `type` (defaults to `button`), plus any native attribute. Without children it becomes an icon button and uses `label` as `aria-label` and `title`.
+Props: `variant` (`primary` | `secondary` | `ghost` | `danger` | `link`), `size` (`md` | `sm`), `block`, `icon`, `iconEnd`, `label`, `busy`, `pressed`, `disabled`, `href`, `type` (defaults to `button`), plus any native attribute. Without children it becomes an icon button and uses `label` as `aria-label` and `title`. A disabled link renders `<a role="link" aria-disabled="true">` without `href`. A caller's `aria-disabled="true"` is kept and, like `disabled` and `busy`, swallows clicks while the control stays focusable.
 
 Legacy (`export let`) components that build class strings call `buttonClass({ variant, size, icon, block })` from `src/components/ui/button.ts`.
 
@@ -116,7 +116,7 @@ Legacy (`export let`) components that build class strings call `buttonClass({ va
 | `.label` | `text-sm` medium. `.label__required` is the red asterisk |
 | `.hint` | `text-sm` muted help text |
 | `.input` | text inputs, `textarea.input`, `select.input`. Exactly 40 px tall (1 px border, 6 px vertical padding, 24 px line), 44 px on coarse pointers, the same as a default button. `textarea.input` starts at 128 px with 8 px padding. `.input--mono` for keys |
-| `select.input` | chevron drawn with `--muted` gradients, so it follows the theme |
+| `select.input` | chevron drawn with `--muted` gradients, so it follows the theme; `forced-colors` falls back to the native arrow |
 | `.input` on `date`, `time`, `datetime-local` | native pickers; the focus ring also shows while focus is on the calendar indicator (`:focus-within`) |
 | `.passphrase` | input plus inline icon buttons in one bordered box, 40 px tall like `.input` |
 | `.check` | label row for a checkbox or switch (44 px tall) |
@@ -187,7 +187,7 @@ Segmented sets inside a labelled `role="group"` (the whiteboard style panel) use
 
 `.menu` (panel, `--shadow-float`, 8 px radius), `.menu--open`, `.menu--end` (right-aligned), `.menu__item` (40 px, 44 px coarse, `text-sm` medium), `.menu__item--danger`, `.menu__sep`, `.menu-anchor` (positioning wrapper). Items with `aria-checked="true"` are toggles.
 
-Keyboard and focus come from the `menu` action in `src/components/ui/menu.ts`: ArrowUp/ArrowDown wrap, Home/End, Escape closes and returns focus to the trigger, Tab closes, a pointer press outside closes, and the first item takes focus on open (`autofocus: false` when the caller already moves focus). The trigger carries `aria-haspopup="menu"`, `aria-expanded` and `aria-controls`.
+Keyboard and focus come from the `menu` action in `src/components/ui/menu.ts`: ArrowUp/ArrowDown wrap, Home/End, Escape closes and returns focus to the trigger, Tab closes, a pointer press outside closes, and the first item takes focus on open (`autofocus: 'last'` for the last item, `false` when the caller already moves focus). The trigger carries `aria-haspopup="menu"`, `aria-expanded` and `aria-controls`; on `Menu.svelte` ArrowDown/ArrowUp on the trigger open the menu on the first/last item.
 
 ```svelte
 <Menu label={t(dict, 'chat.roomMenu')}>
@@ -201,7 +201,7 @@ Keyboard and focus come from the `menu` action in `src/components/ui/menu.ts`: A
 
 Props of `Menu.svelte`: `label` (required, names the menu and the icon-only trigger), `icon` (default `ellipsis-vertical`), `text` (turns the trigger into a labelled button), `variant` (default `ghost`), `size` (default `sm`), `align` (`start` | `end`, default `end`), `open` (bindable), `class`.
 
-The site navigation dropdowns in `Layout.astro` are disclosure navigation (links, driven by `public/ui.js`), not ARIA menus, and share only the `.menu` styling.
+The site navigation dropdowns in `Layout.astro` are disclosure navigation (links, driven by `public/ui.js`), not ARIA menus, and share only the `.menu` styling. The current page (`aria-current="page"`) and the current language (`aria-current="true"`) get the `--surface-2` fill; in `forced-colors` they are underlined. Under 1024 px the dropdowns open inline in the burger panel, indented under a 1 px guide line.
 
 ## Dialogs
 
@@ -218,7 +218,7 @@ The site navigation dropdowns in `Layout.astro` are disclosure navigation (links
 
 ## Status, alerts, progress, toasts
 
-- `.status` box (`--surface-2`), with `.status--ok`, `.status--warn`, `.status--error` (alert icon) and `.status--busy` (spinner). Use `role="status"` for progress and results that can wait, `role="alert"` only for errors the user must act on now.
+- `.status` box (`--surface-2`), with `.status--ok`, `.status--warn`, `.status--error` (alert icon) and `.status--busy` (spinner). In `forced-colors` the box gets a 1 px `CanvasText` outline and the alert icon is painted `CanvasText`, since the tints disappear there. Use `role="status"` for progress and results that can wait, `role="alert"` only for errors the user must act on now.
 - `src/components/tools/ToolStatus.svelte` renders that box for tools: `<ToolStatus tone="error" id="x-error">…</ToolStatus>` with `tone` `info` | `ok` | `warn` | `error` | `busy`, and picks `role="alert"` for errors, `role="status"` otherwise.
 - `ProgressPulse.svelte` renders the `.status__ring` progress card. `.progress` styles a native `<progress>` bar (8 px, accent fill).
 - `.spinner` is the 16 px inline spinner, the same one busy buttons show.
@@ -229,7 +229,8 @@ The site navigation dropdowns in `Layout.astro` are disclosure navigation (links
 
 - `.badge`: 20 px, `text-xs` medium, 6 px radius, neutral. `.badge--accent`, `.badge--warn`, `.badge--danger`, `.badge--mono`. Not interactive.
 - `.chip`: 32 px interactive token (filters, reactions, choices) on a `<button>`. Selection is `aria-pressed="true"` or `aria-checked="true"` with the accent tint.
-- `.panel`: the card. 8 px radius, `--line` border, `--surface` fill, 16/24 px padding. `.panel--flush` drops the padding and clips the content, for lists and media that run edge to edge.
+- `.panel`: the card. 8 px radius, `--line` border, `--surface` fill, 16/24 px padding. `.panel--flush` drops the padding and clips the content, for lists and media that run edge to edge; focus rings inside it are drawn inset (`outline-offset: -2px`) so the clip does not cut them.
+- `.link`: inline text link in prose (`--accent-strong`, underline that darkens on hover). Add `text-current` inside a tinted `.status`.
 - `.icon-tile`: 40 px square, 6 px radius, `--surface-2` fill, `--line` border, muted icon; leads a card or row. `.icon-tile--accent` uses the accent tint to mark the emphasised item. Decorative: an `<Icon>` without a label is already `aria-hidden`.
 - `.empty` + `.empty__icon` + `.empty__title`: centred empty state, muted text.
 - `details.more`: disclosure with a rotating chevron and `.more__body`; the summary is 40 px tall, 44 px on coarse pointers. `ToolAbout.astro` renders the expandable "How it works" section with a `btn-link` toggle that keeps `aria-expanded` in sync.
