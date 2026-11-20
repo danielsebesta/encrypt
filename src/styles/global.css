@@ -1213,10 +1213,6 @@ html.dark {
         max-width: min(26rem, calc(100% - 2rem));
     }
 
-    .toast--error {
-        @apply border-danger text-danger;
-    }
-
     @keyframes toast-enter {
         from {
             opacity: 0;

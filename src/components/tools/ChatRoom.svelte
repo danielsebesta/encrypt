@@ -6290,7 +6290,6 @@
               {:else if msg.file && msg.previewState === 'loading'}
                 <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
               {:else if msg.file && appMode && msg.previewState === 'ready' && msg.preview?.type === 'image'}
-                <!-- the picture alone: tap it for the detail view -->
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
@@ -6469,7 +6468,6 @@
               {:else if msg.file && msg.previewState === 'loading'}
                 <div class="chat-preview-skeleton" class:chat-preview-skeleton--text={!IMAGE_EXTS.has(getFileExt(msg.file.name))} aria-busy="true" aria-label={msg.file.name}></div>
               {:else if msg.file && appMode && msg.previewState === 'ready' && msg.preview?.type === 'image'}
-                <!-- the picture alone: tap it for the detail view -->
               {:else if msg.file}
                 {@const gone = !msg.pending && fileGone(msg)}
                 <div class="chat-file" class:chat-file--error={gone}>
