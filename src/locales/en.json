@@ -870,7 +870,6 @@
   "whiteboard.grid": "Grid",
   "whiteboard.fullscreen": "Full screen",
   "whiteboard.exitFullscreen": "Exit full screen",
-  "whiteboard.locked": "Room locked",
   "whiteboard.lockHint": "Lock the room so no one new can join",
   "whiteboard.unlockHint": "Unlock the room so others can join again",
   "nav.whiteboard": "Whiteboard",

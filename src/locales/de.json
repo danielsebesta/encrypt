@@ -870,7 +870,6 @@
   "whiteboard.grid": "Raster",
   "whiteboard.fullscreen": "Vollbild",
   "whiteboard.exitFullscreen": "Vollbild beenden",
-  "whiteboard.locked": "Raum gesperrt",
   "whiteboard.lockHint": "Raum sperren, damit niemand Neues beitreten kann",
   "whiteboard.unlockHint": "Raum entsperren, damit wieder andere beitreten können",
   "nav.whiteboard": "Whiteboard",
