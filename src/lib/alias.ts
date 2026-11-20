@@ -67,8 +67,6 @@ export function saveAlias(room: string, alias: Alias): void {
   } catch {}
 }
 
-export const PROFILE_HUES = [0, 28, 48, 140, 175, 215, 270, 325];
-
 export const NICKNAME_RE = /^[A-Za-z0-9_-]{1,24}$/;
 const NICKNAME_PREFIX = 'encrypt.click:nick:';
 

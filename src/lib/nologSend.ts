@@ -355,10 +355,6 @@ function encryptStream(input: ReadableStream<Uint8Array>, key: Uint8Array, rs = 
   return transformStream(transformStream(input, new StreamSlicer(rs, 'encrypt')), new ECETransformer('encrypt', key, rs));
 }
 
-function decryptStream(input: ReadableStream<Uint8Array>, key: Uint8Array, rs = ECE_RECORD_SIZE) {
-  return transformStream(transformStream(input, new StreamSlicer(rs, 'decrypt')), new ECETransformer('decrypt', key, rs));
-}
-
 async function encryptSendBytes(data: Uint8Array, key: Uint8Array) {
   const encryptedStream = encryptStream(new Blob([bytesToArrayBuffer(data)]).stream() as ReadableStream<Uint8Array>, key);
   return streamToUint8Array(encryptedStream);
@@ -645,17 +641,6 @@ export async function decryptSendBlob(encryptedBytes: Uint8Array, urlString: str
   const key = b64ToArray(secret);
   onDebug?.(`Send ${baseUrl}: decrypting ECE blob client-side (${encryptedBytes.byteLength} bytes)`);
   const decryptedBytes = await decryptEceBytes(encryptedBytes, key, onDebug);
-  onDebug?.(`Send ${baseUrl}: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
-  return decryptedBytes;
-}
-
-export async function downloadFromSendUrl(urlString: string, onDebug?: DebugFn) {
-  const { baseUrl, id, secret } = parseSendDownloadUrl(urlString);
-  const keychain = new NologSendKeychain(secret);
-  onDebug?.(`Send ${baseUrl}: resolving download ${id}`);
-  const encryptedBytes = await fetchSendBlob(baseUrl, id, keychain, onDebug);
-  const decryptedStream = decryptStream(new Blob([bytesToArrayBuffer(encryptedBytes)]).stream() as ReadableStream<Uint8Array>, keychain.rawSecret);
-  const decryptedBytes = await streamToUint8Array(decryptedStream);
   onDebug?.(`Send ${baseUrl}: outer Send layer decrypted (${decryptedBytes.byteLength} bytes)`);
   return decryptedBytes;
 }

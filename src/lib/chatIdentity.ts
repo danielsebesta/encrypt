@@ -69,10 +69,6 @@ export function saveTrustTable(room: string, table: TrustTable) {
   try { localStorage.setItem(`${TRUST_PREFIX}${room}`, JSON.stringify(table)); } catch {}
 }
 
-export function forgetTrustTable(room: string) {
-  try { localStorage.removeItem(`${TRUST_PREFIX}${room}`); } catch {}
-}
-
 /** Drops every per-room signing identity kept on this device. */
 export async function forgetChatIdentity(): Promise<void> {
   await deleteIdbDatabase(DB_NAME);
