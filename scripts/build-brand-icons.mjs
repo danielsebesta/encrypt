@@ -1,26 +1,30 @@
-// Regenerates every brand icon from one color: `--color-brand` in src/styles/global.css.
-// Usage: pnpm run build:brand-icons
+// Regenerates every brand icon from the palette in src/styles/global.css: the light and dark `--accent`
+// for the favicon and the nav mark, the dark `--accent` on the dark `--bg` for app icons.
+// Usage: pnpm run build:brand-icons (tsx, the colour utilities ship extensionless ESM imports)
 // Favicons / "any" icons stay transparent. Maskable and Apple touch icons are full-bleed
 // squares: the launcher or iOS applies its own mask, and transparent corners would show
 // as white plates. The monochrome icon is for themed (Material You) launchers.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { argbFromHex, hexFromArgb, Hct, SchemeTonalSpot } from '@material/material-color-utilities';
 
 const root = new URL('../', import.meta.url);
 const file = (p) => fileURLToPath(new URL(p, root));
 const css = readFileSync(file('src/styles/global.css'), 'utf8');
-const BRAND = css.match(/--color-brand:\s*(#[0-9a-f]{6})/i)?.[1];
+const LIGHT_ACCENT = css.match(/:root\s*\{[^}]*?--accent:\s*(#[0-9a-f]{6})/is)?.[1];
+const DARK_ACCENT = css.match(/html\.dark\s*\{[^}]*?--accent:\s*(#[0-9a-f]{6})/is)?.[1];
 const DARK_BG = css.match(/html\.dark\s*\{[^}]*?--bg:\s*(#[0-9a-f]{6})/is)?.[1];
-if (!BRAND || !DARK_BG) throw new Error('Could not read --color-brand and the dark --bg from global.css');
+const SEED = css.match(/--color-brand:\s*(#[0-9a-f]{6})/i)?.[1];
+if (!LIGHT_ACCENT || !DARK_ACCENT || !DARK_BG || !SEED) throw new Error('Could not read the accents, the dark --bg and --color-brand from global.css');
+const MID = hexFromArgb(new SchemeTonalSpot(Hct.fromInt(argbFromHex(SEED)), false, 0).primaryPalette.tone(55)).toLowerCase();
 
-const DARK_ACCENT = css.match(/html\.dark\s*\{[^}]*?--accent:\s*(#[0-9a-f]{6})/is)?.[1] ?? BRAND;
 const glyphPath = readFileSync(file('public/favicon.svg'), 'utf8').match(/\sd="([^"]+)"/)[1];
 const VIEWBOX = '1.7 1.9 60.6 60.6';
 const iconFor = (fill) => `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="${VIEWBOX}"><path fill="${fill}" fill-rule="evenodd" d="${glyphPath}"/></svg>`;
-const icon = iconFor(BRAND);
+const icon = iconFor(MID);
 
-writeFileSync(file('public/favicon.svg'), `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="${VIEWBOX}"><style>path{fill:${BRAND}}@media (prefers-color-scheme:dark){path{fill:${DARK_ACCENT}}}</style><path fill-rule="evenodd" d="${glyphPath}"/></svg>
+writeFileSync(file('public/favicon.svg'), `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="${VIEWBOX}"><style>path{fill:${LIGHT_ACCENT}}@media (prefers-color-scheme:dark){path{fill:${DARK_ACCENT}}}</style><path fill-rule="evenodd" d="${glyphPath}"/></svg>
 `);
 
 const big = readFileSync(file('public/encryptclick_icon.svg'), 'utf8');
@@ -28,12 +32,12 @@ const bigPath = big.match(/\sd="([^"]+)"/)[1];
 const bigView = big.match(/viewBox="([^"]+)"/)?.[1] ?? '117 45 278 423';
 writeFileSync(
   file('public/encryptclick_icon.svg'),
-  `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="${bigView}"><style>path{fill:${BRAND}}@media (prefers-color-scheme:dark){path{fill:${DARK_ACCENT}}}</style><path fill="${BRAND}" fill-rule="evenodd" d="${bigPath}"/></svg>
+  `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="${bigView}"><style>path{fill:${LIGHT_ACCENT}}@media (prefers-color-scheme:dark){path{fill:${DARK_ACCENT}}}</style><path fill="${LIGHT_ACCENT}" fill-rule="evenodd" d="${bigPath}"/></svg>
 `,
 );
 
 const logo = readFileSync(file('public/encryptclick.svg'), 'utf8');
-writeFileSync(file('public/encryptclick.svg'), logo.replace(/stroke:#[0-9a-f]{6}/gi, `stroke:${BRAND}`).replace(/fill:#00bc7d/gi, `fill:${BRAND}`));
+writeFileSync(file('public/encryptclick.svg'), logo.replace(/stroke:#[0-9a-f]{6}/gi, `stroke:${LIGHT_ACCENT}`).replace(/fill:#[0-9a-f]{6}/gi, `fill:${LIGHT_ACCENT}`));
 
 /** Transparent square with the brand glyph. */
 async function bare(size) {
@@ -46,7 +50,7 @@ async function bare(size) {
 /** Full-bleed dark square with the glyph centred; `scale` keeps it inside the mask safe zone. */
 async function plate(size, scale) {
   const inner = Math.round(size * scale);
-  const mark = await sharp(Buffer.from(iconFor(BRAND)), { density: 384 })
+  const mark = await sharp(Buffer.from(iconFor(DARK_ACCENT)), { density: 384 })
     .resize(inner, inner, { fit: 'contain', background: '#00000000' })
     .png()
     .toBuffer();
@@ -122,4 +126,4 @@ for (const shortcut of manifest.shortcuts ?? []) {
 }
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-console.log(`Icons rebuilt with ${BRAND}; transparent any, full-bleed ${DARK_BG} plates, monochrome`);
+console.log(`Icons rebuilt: favicon ${LIGHT_ACCENT}/${DARK_ACCENT}, transparent ${MID}, ${DARK_ACCENT} on ${DARK_BG} plates, monochrome`);

@@ -1414,6 +1414,19 @@ html.dark {
         @apply mr-auto;
     }
 
+    .nav__mark {
+        @apply block h-9 shrink-0 bg-accent;
+        aspect-ratio: 278 / 423;
+        mask: url('/encryptclick_icon.svg') center / contain no-repeat;
+    }
+
+    @media (forced-colors: active) {
+        .nav__mark {
+            forced-color-adjust: none;
+            background-color: CanvasText;
+        }
+    }
+
     .nav__links {
         display: none;
         gap: 0.25rem;

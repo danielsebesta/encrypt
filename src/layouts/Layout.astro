@@ -140,10 +140,10 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<meta name="theme-color" content="#11140e" media="(prefers-color-scheme: dark)" />
 		<meta name="color-scheme" content="light dark" />
 		<meta name="robots" content={robots} />
-		<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
-		<link rel="shortcut icon" href="/favicon.ico" />
-		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<link rel="icon" type="image/png" href="/favicon-96x96.png?v=2" sizes="96x96" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" sizes="any" />
+		<link rel="shortcut icon" href="/favicon.ico?v=2" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
 		<meta name="apple-mobile-web-app-title" content={brand} />
 		<link rel="manifest" href="/site.webmanifest" />
 		<link rel="describedby" href="/llms.txt" />
@@ -200,7 +200,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 
 			<nav id="site-nav" class="nav" aria-label={t(dict, 'nav.menu')}>
 				<a href={homeHref} class="nav__brand">
-					<img src="/encryptclick_icon.svg" alt="" width="24" height="36" class="h-9 w-auto" decoding="async" />
+					<span class="nav__mark" aria-hidden="true"></span>
 					<span class="nav__brand-name">{PRODUCT_NAME}</span>
 				</a>
 
