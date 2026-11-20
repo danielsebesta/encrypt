@@ -232,7 +232,7 @@ The site navigation dropdowns in `Layout.astro` are disclosure navigation (links
 - `.panel`: the card. 8 px radius, `--line` border, `--surface` fill, 16/24 px padding. `.panel--flush` drops the padding and clips the content, for lists and media that run edge to edge.
 - `.icon-tile`: 40 px square, 6 px radius, `--surface-2` fill, `--line` border, muted icon; leads a card or row. `.icon-tile--accent` uses the accent tint to mark the emphasised item. Decorative: an `<Icon>` without a label is already `aria-hidden`.
 - `.empty` + `.empty__icon` + `.empty__title`: centred empty state, muted text.
-- `details.more`: disclosure with a rotating chevron and `.more__body`. `ToolAbout.astro` renders the expandable "How it works" section with a `btn-link` toggle that keeps `aria-expanded` in sync.
+- `details.more`: disclosure with a rotating chevron and `.more__body`; the summary is 40 px tall, 44 px on coarse pointers. `ToolAbout.astro` renders the expandable "How it works" section with a `btn-link` toggle that keeps `aria-expanded` in sync.
 - Tooltips: no custom component. Icon-only buttons repeat their `aria-label` in `title`.
 
 ## Icons
