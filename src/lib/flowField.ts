@@ -9,6 +9,8 @@ export interface FlowOptions {
   perTile?: number;
   /** Minimum distance between two lines, in px. */
   gap?: number;
+  /** `classic` keeps the original current and only varies its phases; `seeded` lets the seed reshape it. */
+  shape?: 'classic' | 'seeded';
 }
 
 const TILE = 900;
@@ -37,20 +39,42 @@ function random(seed: number) {
 
 /**
  * Streamlines of one smooth, mostly downward flow field, kept to the left and right edges.
- * The field's shape is fixed; the seed only shifts its phases slightly and picks the start points,
- * so every seed looks like the same current drawn a little differently.
+ * The seed sets the current's tilt, the angle and scale of its waves, how far it swings, the line
+ * density and weight, and the start points, so every page draws its own variation of the same idea.
  * Lines are traced tile by tile from the top, so a taller page only adds lines below the old ones.
  */
 export function flowLines(seed: number, width: number, height: number, options: FlowOptions = {}): FlowLine[] {
-  const { perTile = 18, gap = 22 } = options;
   const rnd = random(seed);
-  const p1 = (rnd() - 0.5) * 1.2;
-  const p2 = 1.7 + (rnd() - 0.5) * 1.2;
-  const f = 0.9 + rnd() * 0.2;
-  const angle = (x: number, y: number) =>
-    Math.PI / 2 + 0.9 * Math.sin((x * 0.0055 + y * 0.0036) * f + p1) + 0.5 * Math.sin((y * 0.01 - x * 0.003) * f + p2);
+  const span = (a: number, b: number) => a + rnd() * (b - a);
+  const classic = options.shape === 'classic';
+  let angle: (x: number, y: number) => number;
+  if (classic) {
+    const p1 = span(-0.6, 0.6);
+    const p2 = span(1.1, 2.3);
+    const f = span(0.9, 1.1);
+    angle = (x, y) => Math.PI / 2 + 0.9 * Math.sin((x * 0.0055 + y * 0.0036) * f + p1) + 0.5 * Math.sin((y * 0.01 - x * 0.003) * f + p2);
+  } else {
+    const tilt = span(-0.32, 0.32);
+    const turn = span(-0.7, 0.7);
+    const cos = Math.cos(turn);
+    const sin = Math.sin(turn);
+    const a1 = span(0.65, 1.15);
+    const a2 = span(0.3, 0.7);
+    const f1 = span(0.0042, 0.0068);
+    const f2 = span(0.0075, 0.0125);
+    const p1 = span(0, Math.PI * 2);
+    const p2 = span(0, Math.PI * 2);
+    angle = (x, y) => {
+      const u = x * cos + y * sin;
+      const v = y * cos - x * sin;
+      return Math.PI / 2 + tilt + a1 * Math.sin((u * 0.84 + v * 0.55) * f1 + p1) + a2 * Math.sin((v - u * 0.3) * f2 + p2);
+    };
+  }
+  const perTile = options.perTile ?? Math.round(span(24, 32));
+  const gap = options.gap ?? span(15, 19);
+  const weight = span(1.7, 2.1);
 
-  const band = Math.min(width * 0.28, 560);
+  const band = classic ? Math.min(width * 0.28, 560) : Math.min(width * span(0.28, 0.36), span(560, 700));
   const cell = gap;
   const cols = Math.ceil(width / cell) + 2;
   const rows = Math.ceil(height / cell) + 2;
@@ -100,7 +124,7 @@ export function flowLines(seed: number, width: number, height: number, options: 
       const edge = Math.min(x0, width - x0);
       const fade = Math.max(0, Math.min(1, 1.15 - edge / band));
       if (fade < 0.1) continue;
-      out.push({ d: spline(pts), opacity: +(fade * (0.35 + shade * 0.65)).toFixed(2), width: +(1.4 + thick * 1.3).toFixed(1) });
+      out.push({ d: spline(pts), opacity: +(fade * (0.35 + shade * 0.65)).toFixed(2), width: +(weight + thick * 1.5).toFixed(1) });
     }
   }
   return out;

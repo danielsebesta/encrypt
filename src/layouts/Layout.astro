@@ -16,7 +16,7 @@ type Props = {
   ogImage?: string;
   canonical?: string;
   mainClass?: string;
-  background?: boolean;
+  background?: boolean | 'classic';
   robots?: string;
 };
 
@@ -170,7 +170,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		</script>
 	</head>
 	<body>
-		{background && <FlowBackground />}
+		{background && <FlowBackground classic={background === 'classic'} />}
 		<a href="#main" class="skip-link">{t(dict, 'nav.skip')}</a>
 		<header class="site-header">
 			<div

@@ -1,4 +1,8 @@
-<div class="flow-bg" aria-hidden="true">
+---
+const { classic = false } = Astro.props as { classic?: boolean };
+---
+
+<div class="flow-bg" data-shape={classic ? 'classic' : 'seeded'} aria-hidden="true">
   <svg class="flow-bg__art" focusable="false" xmlns="http://www.w3.org/2000/svg"></svg>
 </div>
 
@@ -21,7 +25,7 @@
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
       svg.setAttribute('width', String(width));
       svg.setAttribute('height', String(height));
-      svg.replaceChildren(...flowLines(seed, width, height).map(({ d, opacity, width: stroke }) => {
+      svg.replaceChildren(...flowLines(seed, width, height, { shape: box.dataset.shape === 'classic' ? 'classic' : 'seeded' }).map(({ d, opacity, width: stroke }) => {
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', d);
         path.setAttribute('stroke-opacity', String(opacity));
