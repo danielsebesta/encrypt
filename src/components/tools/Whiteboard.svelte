@@ -171,7 +171,7 @@
 
   let sharePassword = '';
   let shareDismissed = false;
-  let shareOpen = false;
+  let shareOpen = true;
   let backupOpen = false;
   let clearConfirmOpen = false;
   let pendingClear: (() => void) | null = null;
@@ -1697,7 +1697,7 @@
         <button
           id="wb-chat-trigger"
           type="button"
-          class="btn-secondary btn-icon wb-btn wb-btn--solo wb-chat-trigger"
+          class="wb-pill btn-secondary btn-icon wb-btn wb-btn--solo wb-chat-trigger"
           aria-expanded={chatOpen}
           aria-controls="wb-chat"
           aria-label={chatUnread ? `${t(dict, 'whiteboard.chat')} (${t(dict, 'whiteboard.chatUnread').replace('{n}', String(chatUnread))})` : t(dict, 'whiteboard.chat')}
@@ -1711,7 +1711,7 @@
           <button
             id="wb-style-trigger"
             type="button"
-            class="btn-secondary btn-icon wb-btn wb-btn--solo"
+            class="wb-pill btn-secondary btn-icon wb-btn wb-btn--solo"
             aria-expanded={styleOpen}
             aria-controls="wb-style-panel"
             aria-label={t(dict, 'whiteboard.style')}
@@ -1783,7 +1783,7 @@
             bind:this={wbMenuEl}
             id="wb-menu-trigger"
             type="button"
-            class="btn-secondary btn-icon wb-btn wb-btn--solo"
+            class="wb-pill btn-secondary btn-icon wb-btn wb-btn--solo"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls="wb-menu"
@@ -1893,7 +1893,7 @@
                 <span class="wb-chat__name">
                   <span class="wb-chat__swatch" style="background: {m.color}" aria-hidden="true"></span>
                   {m.name}
-                  {#if m.warn}<span class="badge badge--warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
+                  {#if m.warn}<button type="button" class="badge badge--warn" title={t(dict, 'whiteboard.keyNewHint')} aria-describedby="wb-key-hint-{m.id}" on:click={togglePeople}>{t(dict, 'whiteboard.keyNew')}</button><span id="wb-key-hint-{m.id}" class="sr-only">{t(dict, 'whiteboard.keyNewHint')}</span>{/if}
                 </span>
                 <div class="wb-chat__text chat-md">{@html m.html}</div>
                 {#if m.expiresAt}
@@ -2204,7 +2204,6 @@
   .wb-btn--font { font-size: 0.95rem; }
   .wb-btn--solo {
     pointer-events: auto;
-    box-shadow: var(--shadow-float);
   }
 
   .wb-swatch {
@@ -2434,6 +2433,7 @@
     font-weight: 700;
     color: var(--text);
   }
+  button.badge { min-height: 1.5rem; cursor: pointer; }
   .wb-chat__swatch {
     width: 0.625rem;
     height: 0.625rem;

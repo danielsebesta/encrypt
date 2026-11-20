@@ -347,11 +347,14 @@
   }
 
   $: passwordError = [t(dict, 'tools.ultimateEncrypt.errorPasswordRequired'), t(dict, 'common.passwordWeak')].includes(error) ? error : '';
-  $: unlockError = [
-    t(dict, 'tools.ultimateEncrypt.options.unlockPast'),
-    t(dict, 'tools.ultimateEncrypt.options.unlockTooFar'),
-    t(dict, 'tools.ultimateEncrypt.options.lockFailed'),
-  ].includes(error) ? error : '';
+  function isUnlockError(message: string) {
+    return [
+      t(dict, 'tools.ultimateEncrypt.options.unlockPast'),
+      t(dict, 'tools.ultimateEncrypt.options.unlockTooFar'),
+      t(dict, 'tools.ultimateEncrypt.options.lockFailed'),
+    ].includes(message);
+  }
+  $: unlockError = isUnlockError(error) ? error : '';
   $: formError = passwordError || unlockError ? '' : error;
 
   let seenUnlockAt = unlockAt;
@@ -363,9 +366,10 @@
   $: unlockChanged(unlockAt);
 
   async function focusEncryptError() {
-    if (unlockError) optionsOpen = true;
+    const unlock = isUnlockError(error);
+    if (unlock) optionsOpen = true;
     await tick();
-    document.getElementById(unlockError ? 'ue-unlock' : 'ue-pass')?.focus();
+    document.getElementById(unlock ? 'ue-unlock' : 'ue-pass')?.focus();
   }
 
   let orbDone = false;

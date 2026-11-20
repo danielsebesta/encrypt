@@ -6037,7 +6037,7 @@
         </div>
         <div class="chat-call-banner__actions">
           {#if !safetyPrompt.trusted}
-            <button type="button" class="btn-secondary btn-sm" on:click={() => trustKey(safetyPrompt!.pk)}>{t(dict, 'chat.keyTrust')}</button>
+            <button type="button" class={appMode ? 'btn-outline btn-sm' : 'btn-secondary btn-sm'} on:click={() => trustKey(safetyPrompt!.pk)}>{t(dict, 'chat.keyTrust')}</button>
           {/if}
           <button type="button" class="btn-ghost btn-sm" on:click={dismissSafetyPrompt}>{t(dict, 'chat.safetyCompareDismiss')}</button>
         </div>
