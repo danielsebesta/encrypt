@@ -233,12 +233,27 @@
   function labelSearchButtons(node: HTMLElement, labels: { cancel: string; clear: string }) {
     const apply = () => {
       for (const button of node.querySelectorAll<HTMLButtonElement>('.k-searchbar button')) {
-        const label = button.parentElement?.classList.contains('k-searchbar') ? labels.cancel : labels.clear;
+        const cancel = button.parentElement?.classList.contains('k-searchbar');
+        const label = cancel ? labels.cancel : labels.clear;
         if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
+        if (cancel) syncCancel(button);
       }
     };
+    const collapsed = (button: HTMLButtonElement) => /margin-right:\s*-/.test(button.getAttribute('style') ?? '');
+    const syncCancel = (button: HTMLButtonElement) => {
+      if (collapsed(button)) {
+        button.tabIndex = -1;
+        return;
+      }
+      if (button.tabIndex !== -1 || button.dataset.appRevealing) return;
+      button.dataset.appRevealing = '1';
+      setTimeout(() => {
+        delete button.dataset.appRevealing;
+        if (!collapsed(button)) button.removeAttribute('tabindex');
+      }, 360);
+    };
     const observer = new MutationObserver(apply);
-    observer.observe(node, { childList: true, subtree: true });
+    observer.observe(node, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
     apply();
     return {
       update(next: { cancel: string; clear: string }) { labels = next; apply(); },
