@@ -88,3 +88,11 @@ test('without the service worker the server drops the shared body and sends the 
   assert.equal(rendered, false);
   assert.equal(budgeted, false);
 });
+
+test('the installed app opens .enc files on the receive page and follows the device orientation', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../public/site.webmanifest', import.meta.url), 'utf8'));
+  assert.deepEqual(manifest.file_handlers.map((h: { action: string; accept: Record<string, string[]> }) => [h.action, h.accept]), [['/u', { 'application/octet-stream': ['.enc'] }]]);
+  assert.equal(manifest.orientation, undefined);
+  const decrypt = readFileSync(new URL('../src/components/tools/UltimateDecrypt.svelte', import.meta.url), 'utf8');
+  assert.match(decrypt, /launchQueue\?\.setConsumer/);
+});

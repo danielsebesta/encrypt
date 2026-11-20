@@ -533,6 +533,8 @@ export async function saveRoom(
     const stored = await sealEntry(entry, result === 'saved' ? secret : null, sessionKey);
     if (!stored.secret && existing?.secret && options.preserveSecret !== false) stored.secret = existing.secret;
     await withStore(ROOMS, 'readwrite', (s) => s.put(stored));
+    // Saved rooms should survive the browser clearing storage under pressure; the panic wipe still removes them.
+    void globalThis.navigator?.storage?.persist?.().catch(() => false);
     return result;
   } catch {
     return 'failed';

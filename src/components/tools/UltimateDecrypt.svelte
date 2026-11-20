@@ -575,6 +575,12 @@
 
   onMount(() => {
     window.addEventListener('hashchange', openLinkFromHash);
+    // An installed app opens .enc files from the system file manager here (manifest file_handlers).
+    const launchQueue = (window as { launchQueue?: { setConsumer(consumer: (params: { files?: readonly FileSystemFileHandle[] }) => void): void } }).launchQueue;
+    launchQueue?.setConsumer(async ({ files }) => {
+      const handle = files?.[0];
+      if (handle) await acceptDroppedPickFile(await handle.getFile());
+    });
     return () => window.removeEventListener('hashchange', openLinkFromHash);
   });
 
