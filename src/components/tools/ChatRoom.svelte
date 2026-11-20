@@ -2973,6 +2973,8 @@
       addOnlineUser(acker);
       noteMember(signer, acker);
       clientArrived(signer, parsed.clientId);
+      // Sync runs both ways: whoever comes back hands over what they wrote while the others were away.
+      if (fsSession && member) void sendLiveHistorySync(member);
       return true;
     }
 
