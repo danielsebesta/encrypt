@@ -198,11 +198,11 @@
           <p>{t(dict, 'rooms.searchEmptyHint')}</p>
         </div>
       {:else}
-        <ul class="grid gap-2">
+        <ul class="panel panel--flush">
           {#each filtered as room, i (room.id)}
-            <li class="panel grid gap-3">
+            <li class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft px-4 py-3 first:border-t-0">
               {#if renaming === room.id}
-                <form class="field" onsubmit={(event) => { event.preventDefault(); void finishRename(room, i, true); }}>
+                <form class="field basis-full" onsubmit={(event) => { event.preventDefault(); void finishRename(room, i, true); }}>
                   <label class="label" for="my-room-{i}-input">{t(dict, 'rooms.renameLabel')}</label>
                   <input id="my-room-{i}-input" class="input" type="text" maxlength={LABEL_MAX} bind:value={renameValue} autocomplete="off" spellcheck="false" onkeydown={(event) => { if (event.key === 'Escape') { event.preventDefault(); void finishRename(room, i, false); } }} />
                   <div class="actions mt-1">
@@ -211,7 +211,7 @@
                   </div>
                 </form>
               {:else}
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1 basis-48">
                   <p id="my-room-{i}-label" class="font-semibold text-text break-words">
                     {#if room.pinned}
                       <span class="mr-1.5 inline-flex align-middle text-accent-strong" title={t(dict, 'rooms.pinned')}>
@@ -221,19 +221,20 @@
                     {/if}
                     {room.label}
                   </p>
-                  <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+                  <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
                     <span class="badge">{t(dict, `rooms.kind.${room.kind}`)}</span>
                     <span>{modeLabel(room)}</span>
                     <span aria-hidden="true">·</span>
                     <span>{visited(room)}</span>
-                  </p>
-                  <p class="mt-1 flex items-center gap-1.5 text-sm" class:text-accent-strong={Boolean(room.secret)} class:text-muted={!room.secret}>
-                    <Icon name={room.secret ? 'check' : 'x'} />
-                    {secretLabel(room)}
+                    <span aria-hidden="true">·</span>
+                    <span class="inline-flex items-center gap-1" class:text-accent-strong={Boolean(room.secret)}>
+                      <Icon name={room.secret ? 'check' : 'x'} />
+                      {secretLabel(room)}
+                    </span>
                   </p>
                 </div>
                 {#if confirming === room.id}
-                  <div class="grid gap-2">
+                  <div class="grid basis-full gap-2">
                     <p class="text-sm text-text">{t(dict, 'rooms.forgetConfirm').replace('{name}', room.label)}</p>
                     <div class="actions">
                       <button type="button" class="btn-secondary btn-sm text-danger" onclick={() => forget(room)}>{t(dict, 'rooms.forget')}</button>
@@ -241,17 +242,19 @@
                     </div>
                   </div>
                 {:else}
-                  <div class="actions gap-2">
-                    <button type="button" class="btn btn-sm" aria-describedby="my-room-{i}-label" onclick={() => open(room)} disabled={busy && opening !== room.id} aria-busy={opening === room.id ? 'true' : undefined}>{t(dict, 'rooms.open')}</button>
+                  <div class="ml-auto flex shrink-0 items-center gap-1">
                     <button
                       type="button"
-                      class="btn-ghost btn-sm"
+                      class="btn-ghost btn-sm btn-icon"
+                      aria-label={t(dict, room.pinned ? 'rooms.unpin' : 'rooms.pin')}
+                      title={t(dict, room.pinned ? 'rooms.unpin' : 'rooms.pin')}
                       aria-describedby="my-room-{i}-label"
                       aria-pressed={Boolean(room.pinned)}
                       onclick={() => togglePin(room)}
-                    >{t(dict, room.pinned ? 'rooms.unpin' : 'rooms.pin')}</button>
-                    <button type="button" id="my-room-{i}-rename" class="btn-ghost btn-sm" aria-describedby="my-room-{i}-label" onclick={() => startRename(room, i)}>{t(dict, 'rooms.rename')}</button>
-                    <button type="button" class="btn-ghost btn-sm text-danger" aria-describedby="my-room-{i}-label" onclick={() => { renaming = null; confirming = room.id; }}>{t(dict, 'rooms.forget')}</button>
+                    ><Icon name={room.pinned ? 'pin-off' : 'pin'} /></button>
+                    <button type="button" id="my-room-{i}-rename" class="btn-ghost btn-sm btn-icon" aria-label={t(dict, 'rooms.rename')} title={t(dict, 'rooms.rename')} aria-describedby="my-room-{i}-label" onclick={() => startRename(room, i)}><Icon name="pencil" /></button>
+                    <button type="button" class="btn-ghost btn-sm btn-icon text-danger" aria-label={t(dict, 'rooms.forget')} title={t(dict, 'rooms.forget')} aria-describedby="my-room-{i}-label" onclick={() => { renaming = null; confirming = room.id; }}><Icon name="trash" /></button>
+                    <button type="button" class="btn btn-sm btn-icon ml-1" aria-label={t(dict, 'rooms.open')} title={t(dict, 'rooms.open')} aria-describedby="my-room-{i}-label" onclick={() => open(room)} disabled={busy && opening !== room.id} aria-busy={opening === room.id ? 'true' : undefined}><Icon name="log-in" /></button>
                   </div>
                 {/if}
               {/if}
