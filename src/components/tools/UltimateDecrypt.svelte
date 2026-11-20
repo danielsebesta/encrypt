@@ -1035,7 +1035,7 @@
       </button>
     </div>
   {:else if entryMode === 'link'}
-    <button type="button" class="btn-ghost btn-sm justify-self-start" on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <button type="button" class="btn-ghost btn-sm justify-self-start" on:click={backToPick}><Icon name="chevron-left" />{t(dict, 'common.back')}</button>
     <form class="stack" on:submit|preventDefault={applyLinkDraft}>
       <div class="field">
         <label class="label" for="ud-link">{t(dict, 'tools.ultimateDecrypt.empty.linkLabel')}<span class="label__required" aria-hidden="true">*</span></label>
@@ -1060,11 +1060,11 @@
       <button type="submit" class="btn btn-block">{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
     </form>
   {:else if entryMode === 'scan'}
-    <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={backToPick}>{t(dict, 'common.back')}</button>
+    <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={backToPick}><Icon name="chevron-left" />{t(dict, 'common.back')}</button>
     <QrScanner {dict} />
   {:else}
-    <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}>{t(dict, 'common.back')}</button>
-    <div class="grid gap-3 sm:grid-cols-2">
+    <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={() => { encryptedFile = null; stegoFile = null; backToPick(); }}><Icon name="chevron-left" />{t(dict, 'common.back')}</button>
+    <div class="grid gap-3 *:min-w-0 sm:grid-cols-2">
       {#if encryptedFile}
         <div class="dropzone dropzone--active">
           <Icon name="circle-check-big" size={20} class="text-accent" />
@@ -1147,7 +1147,7 @@
     <p class="status status--error" role="alert">{error}</p>
   {/if}
 
-  {#if openedText}
+  {#if openedText && !openedFileName}
     <div class="field">
       <div class="output-head">
         <span class="label">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</span>
@@ -1181,20 +1181,20 @@
             <Icon name="folder" />
             <span>{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.ultimateDecrypt.upload.files')}</span>
           </div>
-          <div class="ud-preview__body font-mono text-sm">
+          <ul class="ud-preview__body m-0 list-none p-0 font-mono text-sm">
             {#each zipTree as node}
-              <div class="flex items-center gap-1.5 py-1 pr-3" style="padding-left: {12 + node.depth * 16}px">
+              <li class="flex items-center gap-1.5 py-1 pr-3" style="padding-left: {12 + node.depth * 16}px">
                 {#if node.isDir}
                   <Icon name="folder" class="shrink-0 text-warn" />
-                  <span class="font-bold text-text">{node.label}</span>
+                  <span class="font-semibold text-text">{node.label}</span>
                 {:else}
                   <Icon name="file" class="shrink-0 text-muted" />
                   <span class="flex-1 truncate text-text">{node.label}</span>
                   <span class="shrink-0 text-xs text-muted tabular-nums">{node.size < 1024 ? `${node.size} B` : node.size < 1048576 ? `${(node.size / 1024).toFixed(1)} KB` : `${(node.size / 1048576).toFixed(1)} MB`}</span>
                 {/if}
-              </div>
+              </li>
             {/each}
-          </div>
+          </ul>
         </div>
       {:else if previewType === 'env' && openedEnvEntries.length > 0}
         <div class="ud-preview">
@@ -1208,7 +1208,7 @@
                 <div class="px-4 py-1 text-muted">{entry.key}</div>
               {:else}
                 <div class="flex items-center">
-                  <span class="shrink-0 px-4 py-1.5 font-bold text-accent">{entry.key}</span>
+                  <span class="shrink-0 px-4 py-1.5 font-semibold text-accent">{entry.key}</span>
                   <span class="text-muted">=</span>
                   {#if entry.visible}
                     <span class="flex-1 break-all px-2 py-1.5 text-text">{entry.value}</span>
@@ -1234,9 +1234,18 @@
         <div class="ud-preview">
           <div class="ud-preview__body">
             <table class="min-w-full text-sm">
+              {#if openedCsvRows.length}
+                <thead>
+                  <tr class="bg-surface-2">
+                    {#each openedCsvRows[0] as cell}
+                      <th scope="col" class="max-w-[240px] whitespace-pre-wrap break-words px-3 py-2 text-left align-top font-mono font-semibold text-text">{cell}</th>
+                    {/each}
+                  </tr>
+                </thead>
+              {/if}
               <tbody>
-                {#each openedCsvRows as row, rowIndex}
-                  <tr class={rowIndex === 0 ? 'bg-surface-2 font-bold' : 'border-t border-line-soft'}>
+                {#each openedCsvRows.slice(1) as row}
+                  <tr class="border-t border-line-soft">
                     {#each row as cell}
                       <td class="max-w-[240px] whitespace-pre-wrap break-words px-3 py-2 align-top font-mono text-text">{cell}</td>
                     {/each}
