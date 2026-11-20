@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Dialog, DialogButton, List, ListItem, MenuList, MenuListItem, Message, Popover, Progressbar, Sheet } from 'konsta/svelte';
+  import { Button, Dialog, DialogButton, List, ListItem, MenuList, MenuListItem, Message, Popover, Progressbar, Sheet } from 'konsta/svelte';
   import { isContent, relayedContentOk, stampPayload, validPayload } from '../../lib/chatProtocol';
   import {
     MEMBER_LEAVE_GRACE_MS,
@@ -423,7 +423,8 @@
     if (profileOpen) { profileOpen = false; return true; }
     if (callSettingsOpen) { callSettingsOpen = false; return true; }
     if (membersOpen) { membersOpen = false; nameEditing = false; return true; }
-    if (sharePassword && !shareDismissed) { shareDismissed = true; return true; }
+    if (inviteOpen) { inviteOpen = false; return true; }
+    if (inviteHint) { inviteHint = false; return true; }
     if (activeCallNotice && !callActive) { dismissCallNotice(); return true; }
     return false;
   };
@@ -523,7 +524,8 @@
   let fileInputEl: HTMLInputElement | undefined;
   let sharePassword = '';
   let shareCopiedLink = false;
-  let shareDismissed = false;
+  let inviteHint = false;
+  let inviteOpen = false;
   let exportFlash = false;
   let exportFlashTimer: ReturnType<typeof setTimeout> | null = null;
   let clientId = '';
@@ -902,7 +904,7 @@
   let sheetMsg: Message | undefined;
   $: if (appMode && actionMenuFor) sheetMsg = messageIndex.get(actionMenuFor) ?? sheetMsg;
   let openOverlays: Record<string, boolean> = {};
-  $: syncOverlays({ emoji: emojiTarget !== null, header: headerMenuOpen, profile: profileOpen, composer: composerMenuOpen, action: actionMenuFor !== null, call: callSettingsOpen, members: membersOpen, invite: Boolean(sharePassword) && !shareDismissed });
+  $: syncOverlays({ emoji: emojiTarget !== null, header: headerMenuOpen, profile: profileOpen, composer: composerMenuOpen, action: actionMenuFor !== null, call: callSettingsOpen, members: membersOpen, invite: inviteOpen, hint: inviteHint });
   $: if (!composerMenuOpen) scheduleMenuOpen = false;
   $: if (appMode) onOverlayChange?.(Object.values(openOverlays).some(Boolean) || Boolean(lightbox) || Boolean(activeCallNotice && !callActive));
   function syncOverlays(now: Record<string, boolean>) {
@@ -915,7 +917,8 @@
       if (keep !== 'action') actionMenuFor = null;
       if (keep !== 'call') callSettingsOpen = false;
       if (keep !== 'members') membersOpen = false;
-      if (keep !== 'invite') shareDismissed = true;
+      if (keep !== 'invite') inviteOpen = false;
+      if (keep !== 'hint') inviteHint = false;
       openOverlays = { [keep]: true };
     } else openOverlays = now;
   }
@@ -2428,6 +2431,7 @@
     const sharePass = sessionStorage.getItem('chat-share-password');
     if (sharePass) {
       sharePassword = sharePass;
+      inviteHint = true;
       sessionStorage.removeItem('chat-share-password');
     }
     const stored = sessionStorage.getItem('chat-password');
@@ -5447,7 +5451,28 @@
     membersBtnEl?.focus();
   }
 
+  function openInvite() {
+    closeHeaderMenu();
+    if (!appMode) document.getElementById('chat-room-menu-trigger')?.focus({ preventScroll: true });
+    inviteHint = false;
+    inviteOpen = true;
+  }
+
+  function keepInView(node: HTMLElement) {
+    const place = () => {
+      node.style.translate = '';
+      const rect = node.getBoundingClientRect();
+      const edge = 8;
+      const shift = rect.left < edge ? edge - rect.left : rect.right > innerWidth - edge ? innerWidth - edge - rect.right : 0;
+      if (shift) node.style.translate = `${shift}px 0`;
+    };
+    place();
+    addEventListener('resize', place);
+    return { destroy() { removeEventListener('resize', place); } };
+  }
+
   function closeHeaderMenuOnEscape(event: KeyboardEvent) {
+    if (event.key === 'Escape' && inviteHint && !appMode) inviteHint = false;
     if (event.key !== 'Escape' || !headerMenuOpen) return;
     headerMenuOpen = false;
     document.getElementById('chat-room-menu-trigger')?.focus();
@@ -5890,11 +5915,25 @@
             aria-haspopup="menu"
             aria-expanded={headerMenuOpen}
             aria-controls="chat-room-menu"
+            aria-describedby={inviteHint ? 'chat-invite-hint' : undefined}
             on:click={() => { headerMenuOpen = !headerMenuOpen; membersOpen = false; burnConfirmMsg = null; profileOpen = false; }}
           >
             <Icon name="ellipsis-vertical" />
           </button>
+          {#if inviteHint}
+            <div id="chat-invite-hint" class="popover chat-invite-hint" role="note" use:keepInView>
+              <p>{t(dict, 'chat.inviteHint')}</p>
+              <div class="chat-invite-hint__actions">
+                <button type="button" class="btn-ghost btn-sm" on:click={() => { inviteHint = false; }}>{t(dict, 'chat.inviteHintDismiss')}</button>
+                <button type="button" class="btn btn-sm" on:click={openInvite}>{t(dict, 'chat.invite')}</button>
+              </div>
+            </div>
+          {/if}
           <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" aria-label={t(dict, 'chat.roomMenu')} bind:this={roomMenuEl} use:menu={{ open: headerMenuOpen, onclose: closeHeaderMenu, trigger: roomMenuTriggerEl, autofocus: false }}>
+            <button type="button" class="menu__item" role="menuitem" on:click={openInvite}>
+              <Icon name="share-2" />
+              {t(dict, 'chat.invite')}
+            </button>
             <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
               <Icon name="link" />
               {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
@@ -5929,6 +5968,11 @@
     {#if appMode}
       <Popover class="w-72!" opened={headerMenuOpen} inert={!headerMenuOpen} target="#chat-room-menu-trigger" angle onBackdropClick={closeHeaderMenu} id="chat-room-menu" role="dialog" aria-modal="true" aria-label={t(dict, 'chat.roomMenu')} onkeydown={(e) => trapOverlayTab(e, e.currentTarget as HTMLElement)}>
         <MenuList>
+          <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'chat.invite')} onClick={openInvite}>
+            {#snippet media()}
+              <Icon name="share-2" size={20} />
+            {/snippet}
+          </MenuListItem>
           {#if onShareApp}
             <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button' }} title={t(dict, 'common.shareLink')} onClick={() => { closeHeaderMenu(); onShareApp(); }}>
               {#snippet media()}
@@ -6094,34 +6138,41 @@
       </Sheet>
     {/if}
 
-    {#if sharePassword && !shareDismissed}
-      {#if appMode}
-        <Sheet opened onBackdropClick={() => { shareDismissed = true; }} class="app-sheet pb-safe">
-          <div class="app-sheet__handle"></div>
-          <div class="app-invite-sheet">
-            <RoomInviteCard
-              {dict}
-              {appMode}
-              title={roomId}
-              url={shareUrl}
-              password={sharePassword}
-              warning={t(dict, 'chat.sharePasswordWarning')}
-              onDismiss={() => { shareDismissed = true; }}
-            />
+    {#if appMode}
+      <Popover class="w-72!" opened={inviteHint} inert={!inviteHint} target="#chat-room-menu-trigger" angle backdrop={false} role="note" aria-label={t(dict, 'chat.invite')}>
+        <div class="app-invite-hint">
+          <p>{t(dict, 'chat.inviteHint')}</p>
+          <div class="app-invite-hint__actions">
+            <Button small rounded tonal class="flex-1" onClick={() => { inviteHint = false; }}>{t(dict, 'chat.inviteHintDismiss')}</Button>
+            <Button small rounded class="flex-1" onClick={openInvite}>{t(dict, 'chat.invite')}</Button>
           </div>
-        </Sheet>
-      {:else}
-        <div class="chat-share-banner">
+        </div>
+      </Popover>
+      <Sheet opened={inviteOpen} inert={!inviteOpen} onBackdropClick={() => { inviteOpen = false; }} class="app-sheet pb-safe">
+        <div class="app-sheet__handle"></div>
+        <div class="app-invite-sheet">
           <RoomInviteCard
             {dict}
+            {appMode}
             title={roomId}
             url={shareUrl}
             password={sharePassword}
-            warning={t(dict, 'chat.sharePasswordWarning')}
-            onDismiss={() => { shareDismissed = true; }}
+            warning={sharePassword ? t(dict, 'chat.sharePasswordWarning') : ''}
+            onDismiss={() => { inviteOpen = false; }}
           />
         </div>
-      {/if}
+      </Sheet>
+    {:else if inviteOpen}
+      <Modal
+        open
+        {dict}
+        icon="share-2"
+        title={t(dict, 'chat.invite')}
+        description={sharePassword ? t(dict, 'chat.sharePasswordWarning') : t(dict, 'chat.inviteNoPassword')}
+        onclose={() => { inviteOpen = false; }}
+      >
+        <RoomInviteCard {dict} plain url={shareUrl} password={sharePassword} />
+      </Modal>
     {/if}
 
     {#if appMode}
@@ -6850,10 +6901,23 @@
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
   }
-  .chat-share-banner {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--accent-line);
-    background: var(--accent-weak);
+  .chat-invite-hint {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: var(--z-menu);
+    width: min(18rem, calc(100vw - 2rem));
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    text-align: left;
+  }
+  .chat-invite-hint__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
   }
   .chat-room-chips {
     display: inline-flex;

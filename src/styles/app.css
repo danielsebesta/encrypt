@@ -1325,6 +1325,17 @@ html[data-app-platform] ::selection {
 .app-invite-sheet {
     padding: 0.25rem 1rem 1rem;
 }
+.app-invite-hint {
+    padding: 0.875rem 1rem 1rem;
+    color: var(--app-label);
+    font-size: 0.9375rem;
+    line-height: 1.35;
+}
+.app-invite-hint__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.875rem;
+}
 .app-invite-sheet .invite-card--app {
     padding: 0;
     background: transparent;

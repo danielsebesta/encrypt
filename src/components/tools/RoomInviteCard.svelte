@@ -11,6 +11,7 @@
   export let warning = '';
   export let onDismiss: (() => void) | null = null;
   export let appMode = false;
+  export let plain = false;
 
   let qrSvg = '';
   let qrFor = '';
@@ -98,7 +99,8 @@
   }
 </script>
 
-<div class="invite-card" class:panel={!appMode} class:invite-card--app={appMode}>
+<div class="invite-card" class:panel={!appMode && !plain} class:invite-card--web={!appMode} class:invite-card--plain={plain} class:invite-card--app={appMode}>
+  {#if title || warning || onDismiss}
   <div class="invite-card__head">
     <div class="min-w-0 flex-1">
       {#if title}
@@ -116,6 +118,7 @@
       </div>
     {/if}
   </div>
+  {/if}
 
   {#if qrSvg}
     {#if !appMode}
@@ -187,8 +190,12 @@
 
 <style>
   .invite-card {
+    min-width: 0;
     padding: 0.75rem;
     text-align: left;
+  }
+  .invite-card--plain {
+    padding: 0 0 1.25rem;
   }
   .invite-card__head {
     display: flex;
@@ -224,11 +231,11 @@
     gap: 0.375rem;
     margin-bottom: 0.375rem;
   }
-  .invite-card.panel .invite-card__row {
+  .invite-card--web .invite-card__row {
     gap: 0.25rem;
     margin-bottom: 0.25rem;
   }
-  .invite-card.panel .invite-card__label {
+  .invite-card--web .invite-card__label {
     min-width: 4.5rem;
   }
   .invite-card__label {
@@ -284,7 +291,7 @@
     flex: 1 1 12rem;
     min-width: 0;
   }
-  .invite-card.panel .invite-card__share-label {
+  .invite-card--web .invite-card__share-label {
     min-width: 0;
     overflow-wrap: anywhere;
     text-wrap: balance;
@@ -295,43 +302,43 @@
     max-width: 100%;
   }
   @media (min-width: 640px) and (min-height: 480px) {
-    .invite-card.panel {
+    .invite-card--web {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       column-gap: 1.25rem;
       align-content: start;
     }
-    .invite-card.panel > * {
+    .invite-card--web > * {
       grid-column: 1;
     }
-    .invite-card.panel > .invite-card__head {
+    .invite-card--web > .invite-card__head {
       grid-column: 1 / -1;
     }
-    .invite-card.panel > .invite-card__qr {
+    .invite-card--web > .invite-card__qr {
       grid-column: 2;
       grid-row: 2 / span 4;
       margin: 0;
     }
   }
   @media (max-width: 399px), (max-height: 479px) {
-    .invite-card.panel {
+    .invite-card--web {
       display: flex;
       flex-direction: column;
     }
-    .invite-card.panel .invite-card__qr-toggle {
+    .invite-card--web .invite-card__qr-toggle {
       display: inline-flex;
       order: 1;
       align-self: flex-start;
       margin: 0.25rem 0 0;
     }
-    .invite-card.panel .invite-card__qr {
+    .invite-card--web .invite-card__qr {
       order: 1;
       margin: 0.5rem 0 0;
     }
-    .invite-card.panel .invite-card__qr--folded {
+    .invite-card--web .invite-card__qr--folded {
       display: none;
     }
-    .invite-card.panel .invite-card__share {
+    .invite-card--web .invite-card__share {
       order: 2;
     }
   }

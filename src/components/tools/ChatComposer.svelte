@@ -407,7 +407,7 @@
     color: var(--muted); transition: color var(--duration-fast) var(--ease-out);
   }
   .chat-attach-menu { position: relative; flex-shrink: 0; }
-  @media (max-width: 24rem) {
+  @media (max-width: 30rem) {
     .chat-input--site { flex-wrap: wrap; padding: 0.5rem 0.75rem; }
     .chat-input--site .chat-input-field { order: -1; flex-basis: 100%; }
     .chat-input--site .chat-attach-menu { margin-inline-end: auto; }
