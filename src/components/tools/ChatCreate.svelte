@@ -20,8 +20,8 @@
   let customRoomId = '';
   let password = '';
   let retentionIndex = RETENTION_SECONDS.indexOf(3600);
-  let roomError = '';
-  let passwordError = '';
+  let roomAttempted = false;
+  let passwordAttempted = false;
   let stepEl: HTMLFormElement;
 
   const DIACRITICS: Record<string, string> = {
@@ -71,10 +71,12 @@
   $: checks = checkRoomPassword(password, roomId);
   $: rules = [
     { ok: checks.length, label: t(dict, 'common.passwordRuleLength') },
-    { ok: checks.variety, label: t(dict, 'common.passwordRuleVariety') },
-    { ok: checks.strength, label: t(dict, 'common.passwordRuleStrength') },
-    { ok: checks.distinct, label: t(dict, 'common.passwordRuleDistinct') },
+    { ok: checks.variety, label: t(dict, 'common.passwordRuleVariety'), recommended: true },
+    { ok: checks.strength, label: t(dict, 'common.passwordRuleStrength'), recommended: true },
+    { ok: checks.distinct, label: t(dict, 'common.passwordRuleDistinct'), recommended: true },
   ];
+  $: roomError = roomAttempted && !roomId ? t(dict, 'chat.roomNameRequired') : '';
+  $: passwordError = passwordAttempted && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
   $: retentionSeconds = RETENTION_SECONDS[retentionIndex];
   $: retentionTime = formatDuration(retentionSeconds, locale);
   $: retentionLabel = t(dict, 'chat.retentionTtl').replace('{time}', retentionTime);
@@ -91,9 +93,8 @@
   }
 
   function submitRoom() {
-    roomError = '';
+    roomAttempted = true;
     if (!roomId) {
-      roomError = t(dict, 'chat.roomNameRequired');
       void focusFirstInvalid(stepEl);
       return;
     }
@@ -102,10 +103,10 @@
   }
 
   function startChat() {
-    passwordError = '';
     if (!roomId) return goTo(2);
+    passwordAttempted = true;
     if (!passwordLongEnough(password)) {
-      passwordError = t(dict, 'common.passwordTooShort');
+      void focusFirstInvalid(stepEl);
       return;
     }
     const typedPassword = password.trim();
@@ -188,16 +189,15 @@
       </div>
     </form>
   {:else}
-    <form class="stack" method="dialog" bind:this={stepEl} on:submit|preventDefault={startChat}>
-      <div class="field">
-        <label class="label" for="chat-pass">{t(dict, 'chat.password')}</label>
-        <PassphraseField {dict} id="chat-pass" bind:value={password} describedby={passwordError ? 'chat-pass-error chat-pass-rules chat-pass-hint' : 'chat-pass-rules chat-pass-hint'} invalid={!!passwordError} generate={() => { passwordError = ''; return genRoomPassphrase(); }} />
-        <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
-        {#if passwordError}
-          <p id="chat-pass-error" class="sr-only" role="alert">{passwordError}</p>
-        {/if}
-        <p id="chat-pass-hint" class="hint">{t(dict, 'chat.createDescription')}</p>
-      </div>
+    <form class="stack" method="dialog" novalidate bind:this={stepEl} on:submit|preventDefault={startChat}>
+      <Field id="chat-pass" label={t(dict, 'chat.password')} hint={t(dict, 'chat.createDescription')} error={passwordError} required>
+        {#snippet children(control)}
+          <PassphraseField {dict} id={control.id} bind:value={password} describedby={[control['aria-describedby'], 'chat-pass-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} required generate={genRoomPassphrase} />
+        {/snippet}
+        {#snippet below()}
+          <PasswordChecklist id="chat-pass-rules" label={t(dict, 'common.passwordRules')} {rules} {dict} invalid={!!passwordError} />
+        {/snippet}
+      </Field>
       <div class="wizard-actions">
         <button class="btn-secondary" type="button" on:click={() => goTo(2)}>{t(dict, 'common.back')}</button>
         <button class="btn" type="submit">{t(dict, 'chat.createRoom')}</button>

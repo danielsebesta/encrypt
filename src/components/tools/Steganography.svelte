@@ -36,8 +36,8 @@
   $: passwordChecks = checkRoomPassword(password, '');
   $: passwordRules = [
     { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
-    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
-    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety'), recommended: true },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength'), recommended: true },
   ];
   $: multiEncode = mode === 'encode' && imageFiles.length > 1;
   $: passwordError = attempted && !password ? t(dict, 'common.fieldRequired') : attempted && mode === 'encode' && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
@@ -326,8 +326,10 @@
         </Field>
         <Field label={t(dict, 'tools.steganography.securityPassword')} error={passwordError} required>
           {#snippet children(control)}
-            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby={[control['aria-describedby'], 'stego-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
-            <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+            <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.steganography.encPasswordPlaceholder')} describedby={[control['aria-describedby'], 'stego-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} required generate={generatePassphrase} />
+          {/snippet}
+          {#snippet below()}
+            <PasswordChecklist id="stego-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} invalid={!!passwordError} />
           {/snippet}
         </Field>
         <Button type="submit" block busy={processing}>{t(dict, 'tools.steganography.injectPixels')}</Button>

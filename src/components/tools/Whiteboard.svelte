@@ -27,6 +27,7 @@
   import Icon from '../Icon.svelte';
   import Modal from '../Modal.svelte';
   import Field from '../ui/Field.svelte';
+  import PasswordChecklist from '../PasswordChecklist.svelte';
   import { menu } from '../ui/menu';
   import { roving } from '../ui/roving';
   import { focusFirstInvalid } from '../../lib/focusInvalid';
@@ -164,6 +165,7 @@
   let needsPassword = false;
   let passwordInput = '';
   let passwordError = '';
+  $: if (passwordError === t(dict, 'whiteboard.errorEnterPassword') && passwordInput.trim()) passwordError = '';
   let passwordEl: HTMLInputElement | undefined;
   let serverPresence = 0;
 
@@ -181,8 +183,11 @@
   let backupPassword = '';
   let backupPasswordConfirm = '';
   let backupError = '';
-  let backupPasswordError = '';
-  let backupConfirmError = '';
+  let backupAttempted = false;
+  let backupWrongPassword = false;
+  $: backupPasswordError = !backupAttempted ? '' : !backupPassword.trim() ? t(dict, 'whiteboard.encryptedPasswordRequired') : backupWrongPassword ? t(dict, 'whiteboard.encryptedWrongPassword') : '';
+  $: backupConfirmError = backupAttempted && backupMode === 'export' && backupPassword.trim() !== backupPasswordConfirm.trim() ? t(dict, 'whiteboard.encryptedPasswordMismatch') : '';
+  $: backupRules = [{ ok: !!backupPasswordConfirm.trim() && backupPassword.trim() === backupPasswordConfirm.trim(), label: t(dict, 'common.passwordRuleMatch') }];
   let backupFieldsEl: HTMLElement | undefined;
   let backupBusy = false;
   let pendingEncryptedImport = '';
@@ -1155,8 +1160,8 @@
     backupPassword = '';
     backupPasswordConfirm = '';
     backupError = '';
-    backupPasswordError = '';
-    backupConfirmError = '';
+    backupAttempted = false;
+    backupWrongPassword = false;
     backupBusy = false;
     backupOpen = true;
   }
@@ -1166,8 +1171,8 @@
     backupPassword = '';
     backupPasswordConfirm = '';
     backupError = '';
-    backupPasswordError = '';
-    backupConfirmError = '';
+    backupAttempted = false;
+    backupWrongPassword = false;
     backupBusy = false;
     pendingEncryptedImport = '';
     wbMenuEl?.focus();
@@ -1233,17 +1238,15 @@
   async function confirmBackupPassword() {
     if (backupBusy) return;
     backupError = '';
-    backupPasswordError = '';
-    backupConfirmError = '';
+    backupAttempted = true;
+    backupWrongPassword = false;
     const password = backupPassword.trim();
     if (!password) {
-      backupPasswordError = t(dict, 'whiteboard.encryptedPasswordRequired');
       void focusFirstInvalid(backupFieldsEl);
       return;
     }
     if (backupMode === 'export') {
       if (password !== backupPasswordConfirm.trim()) {
-        backupConfirmError = t(dict, 'whiteboard.encryptedPasswordMismatch');
         void focusFirstInvalid(backupFieldsEl);
         return;
       }
@@ -1273,7 +1276,7 @@
       if (message === 'too-large') {
         backupError = t(dict, 'whiteboard.importTooLarge').replace('{size}', String(BOARD_BACKUP_MAX_BYTES / 1024 / 1024));
       } else if (message === 'Wrong password') {
-        backupPasswordError = t(dict, 'whiteboard.encryptedWrongPassword');
+        backupWrongPassword = true;
         void focusFirstInvalid(backupFieldsEl);
       } else {
         backupError = t(dict, 'whiteboard.encryptedImportInvalid');
@@ -1946,13 +1949,16 @@
         <div class="stack" bind:this={backupFieldsEl}>
           <Field label={t(dict, 'whiteboard.password')} error={backupPasswordError} required>
             {#snippet children(control)}
-              <input {...control} class="input" type="password" bind:value={backupPassword} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+              <input {...control} class="input" type="password" bind:value={backupPassword} on:input={() => (backupWrongPassword = false)} autocomplete={backupMode === 'export' ? 'new-password' : 'current-password'} spellcheck="false" disabled={backupBusy} />
             {/snippet}
           </Field>
           {#if backupMode === 'export'}
             <Field label={t(dict, 'whiteboard.passwordConfirm')} error={backupConfirmError} required>
               {#snippet children(control)}
-                <input {...control} class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+                <input {...control} aria-describedby={[control['aria-describedby'], 'wb-backup-rules'].filter(Boolean).join(' ')} class="input" type="password" bind:value={backupPasswordConfirm} autocomplete="new-password" spellcheck="false" disabled={backupBusy} />
+              {/snippet}
+              {#snippet below()}
+                <PasswordChecklist id="wb-backup-rules" label={t(dict, 'common.passwordRules')} rules={backupRules} {dict} invalid={!!backupConfirmError} />
               {/snippet}
             </Field>
           {/if}

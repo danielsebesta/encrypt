@@ -34,16 +34,13 @@
   $: passwordChecks = checkRoomPassword(password, '');
   $: passwordRules = [
     { ok: passwordChecks.length, label: t(dict, 'common.passwordRuleLength') },
-    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety') },
-    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
+    { ok: passwordChecks.variety, label: t(dict, 'common.passwordRuleVariety'), recommended: true },
+    { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength'), recommended: true },
   ];
 
   let error = '';
   let decryptError = '';
-  let messageError = '';
-  let passwordError = '';
-  let dateError = '';
-  let unixError = '';
+  let attempted = false;
   let pasteError = '';
   let openPasswordError = '';
   let advancedOpen = false;
@@ -51,9 +48,34 @@
   let loading = false;
   let decryptLoading = false;
 
-  $: if (message.trim()) messageError = '';
-  $: if (!password || passwordLongEnough(password)) passwordError = '';
-  $: if (targetLocal || useManualUnix || manualUnix) { dateError = ''; unixError = ''; }
+  function encryptProblems(text: string, pass: string, local: string, manualOn: boolean, manualRaw: unknown) {
+    const out = { message: '', password: '', date: '', unix: '', timeMs: NaN };
+    if (!text.trim()) out.message = t(dict, 'tools.timeCapsule.errorMessage');
+    if (pass && !passwordLongEnough(pass)) out.password = t(dict, 'common.passwordTooShort');
+    const manual = String(manualRaw ?? '').trim();
+    const usesUnix = manualOn && !!manual;
+    if (usesUnix) {
+      const unix = Number(manual);
+      if (!Number.isFinite(unix) || unix <= 0) out.unix = t(dict, 'tools.timeCapsule.errorInvalidUnix');
+      else out.timeMs = unix * 1000;
+    } else if (!local) {
+      out.date = t(dict, 'tools.timeCapsule.errorUnlockTime');
+    } else {
+      out.timeMs = new Date(local).getTime();
+    }
+    if (!out.unix && !out.date) {
+      const timeError = !Number.isFinite(out.timeMs) ? t(dict, 'tools.timeCapsule.errorInvalidDate') : out.timeMs <= Date.now() ? t(dict, 'tools.timeCapsule.errorFuture') : '';
+      if (usesUnix) out.unix = timeError;
+      else out.date = timeError;
+    }
+    return out;
+  }
+
+  $: problems = encryptProblems(message, password, targetLocal, useManualUnix, manualUnix);
+  $: messageError = attempted ? problems.message : '';
+  $: passwordError = attempted ? problems.password : '';
+  $: dateError = attempted ? problems.date : '';
+  $: unixError = attempted ? problems.unix : '';
   $: if (decryptInput.trim()) pasteError = '';
   $: if (openPassword) openPasswordError = '';
 
@@ -213,30 +235,11 @@
     ciphertext = '';
     capsuleLink = '';
     decrypted = '';
-    messageError = message.trim() ? '' : t(dict, 'tools.timeCapsule.errorMessage');
-    passwordError = password && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
-    dateError = '';
-    unixError = '';
-
-    let timeMs = NaN;
-    const manual = String(manualUnix ?? '').trim();
-    const usesUnix = useManualUnix && !!manual;
-    const timeError = (text: string) => { if (usesUnix) unixError = text; else dateError = text; };
-    if (usesUnix) {
-      const unix = Number(manual);
-      if (!Number.isFinite(unix) || unix <= 0) unixError = t(dict, 'tools.timeCapsule.errorInvalidUnix');
-      else timeMs = unix * 1000;
-    } else if (!targetLocal) {
-      dateError = t(dict, 'tools.timeCapsule.errorUnlockTime');
-    } else {
-      timeMs = new Date(targetLocal).getTime();
-    }
-    if (!unixError && !dateError) {
-      if (!Number.isFinite(timeMs)) timeError(t(dict, 'tools.timeCapsule.errorInvalidDate'));
-      else if (timeMs <= Date.now()) timeError(t(dict, 'tools.timeCapsule.errorFuture'));
-    }
-    if (messageError || passwordError || dateError || unixError) {
-      if (unixError) advancedOpen = true;
+    attempted = true;
+    const found = encryptProblems(message, password, targetLocal, useManualUnix, manualUnix);
+    const timeMs = found.timeMs;
+    if (found.message || found.password || found.date || found.unix) {
+      if (found.unix) advancedOpen = true;
       void focusFirstInvalid(panelEl);
       return;
     }
@@ -371,8 +374,10 @@
         <Field label={t(dict, 'tools.timeCapsule.passwordLabel')} hint={t(dict, 'tools.timeCapsule.passwordHint')} error={passwordError}>
           {#snippet children(control)}
             <PassphraseField {dict} id={control.id} bind:value={password} placeholder={t(dict, 'tools.timeCapsule.passwordPlaceholder')} describedby={[control['aria-describedby'], password && 'tc-password-rules'].filter(Boolean).join(' ')} invalid={!!passwordError} generate={generatePassphrase} />
+          {/snippet}
+          {#snippet below()}
             {#if password}
-              <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} />
+              <PasswordChecklist id="tc-password-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} invalid={!!passwordError} />
             {/if}
           {/snippet}
         </Field>
