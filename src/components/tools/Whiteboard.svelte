@@ -1425,6 +1425,7 @@
   $: swatch = THEMES[themeId].colors[(activeColor ?? 'black') as keyof typeof THEMES.light.colors].stroke;
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 });
   $: zoomLabel = percent.format(zoom);
+  const seconds = new Intl.NumberFormat(locale, { style: 'unit', unit: 'second', unitDisplay: 'narrow' });
 
   function beforeUnloadHandler(e: BeforeUnloadEvent) {
     e.preventDefault();
@@ -1527,7 +1528,7 @@
       <form class="stack w-full max-w-xs" novalidate on:submit|preventDefault={submitPassword}>
         <div class="space-y-2 text-center">
           {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="lock-keyhole" size={20} /></span>{/if}
-          <p class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</p>
+          <h2 class="text-base font-bold text-text">{t(dict, 'whiteboard.roomRequiresPassword')}</h2>
           <p class="hint">{t(dict, 'whiteboard.roomPasswordHint')}</p>
         </div>
         {#if boardMissing}
@@ -1608,7 +1609,7 @@
           {@const s = toScreen(c.x, c.y, camTick)}
           <div class="wb-cursor" style="transform: translate({s.x}px, {s.y}px); --wb-peer: {c.color}" aria-hidden="true">
             <svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1v17l4.5-4 3 7 3-1.4-3-6.6H15z" stroke-width="1.4" stroke-linejoin="round"/></svg>
-            <span class="wb-cursor__name">{c.name}{#if c.warn}<span class="wb-key-mark">!</span>{/if}</span>
+            <span class="wb-cursor__name">{c.name}{#if c.warn}<Icon name="triangle-exclamation-point" class="wb-key-mark" />{/if}</span>
           </div>
         {/if}
       {/each}
@@ -1626,7 +1627,7 @@
           <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => zoomBy(0.8)} aria-label={t(dict, 'whiteboard.zoomOut')} title={t(dict, 'whiteboard.zoomOut')}>
             <Icon name="zoom-out" size={20} />
           </button>
-          <button type="button" class="btn-ghost wb-btn wb-btn--text" on:click={zoomReset} aria-label={`${t(dict, 'whiteboard.zoomReset')} (${zoomLabel})`} title={t(dict, 'whiteboard.zoomReset')}>{zoomLabel}</button>
+          <button type="button" class="btn-ghost wb-btn wb-btn--text" on:click={zoomReset} aria-label={`${zoomLabel}, ${t(dict, 'whiteboard.zoomReset')}`} title={t(dict, 'whiteboard.zoomReset')}>{zoomLabel}</button>
           <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => zoomBy(1.25)} aria-label={t(dict, 'whiteboard.zoomIn')} title={t(dict, 'whiteboard.zoomIn')}>
             <Icon name="zoom-in" size={20} />
           </button>
@@ -1645,7 +1646,7 @@
             <button type="button" class="btn-ghost btn-icon wb-btn" on:click={() => editor?.sendToBack()} aria-label={t(dict, 'whiteboard.sendToBack')} title={`${t(dict, 'whiteboard.sendToBack')} ([)`}>
               <Icon name="send-to-back" size={20} />
             </button>
-            <button type="button" class="btn-ghost btn-icon wb-btn wb-btn--danger" on:click={deleteSelected} aria-label={t(dict, 'whiteboard.delete')} title={`${t(dict, 'whiteboard.delete')} (Del)`}>
+            <button type="button" class="btn-ghost btn-icon wb-btn text-danger" on:click={deleteSelected} aria-label={t(dict, 'whiteboard.delete')} title={`${t(dict, 'whiteboard.delete')} (Del)`}>
               <Icon name="trash" size={20} />
             </button>
           </div>
@@ -1653,6 +1654,7 @@
       </div>
 
       <div class="wb-bar wb-bar--end">
+        <span class="wb-anchor">
         <button
           id="wb-chat-trigger"
           type="button"
@@ -1664,8 +1666,9 @@
           on:click={toggleChat}
         >
           <Icon name="message-square" size={20} />
-          {#if chatUnread}<span class="badge badge--danger wb-chat-badge" aria-hidden="true">{chatUnread > 9 ? '9+' : chatUnread}</span>{/if}
         </button>
+        {#if chatUnread}<span class="badge badge--danger wb-chat-badge" aria-hidden="true">{chatUnread > 9 ? '9+' : chatUnread}</span>{/if}
+        </span>
         <div class="wb-pop" data-wb-style>
           <button
             id="wb-style-trigger"
@@ -1681,7 +1684,7 @@
           </button>
           <div id="wb-style-panel" class="menu menu--end wb-menu-panel wb-panel" class:menu--open={styleOpen} role="group" aria-label={t(dict, 'whiteboard.style')}>
             <div class="wb-field" role="group" aria-labelledby="wb-color-label">
-              <span id="wb-color-label" class="wb-legend">{t(dict, 'whiteboard.color')}</span>
+              <span id="wb-color-label" class="label wb-legend">{t(dict, 'whiteboard.color')}</span>
               <div class="wb-colors" use:roving={{ columns: 6 }}>
                 {#each COLOR_IDS as c}
                   <button
@@ -1697,7 +1700,7 @@
               </div>
             </div>
             <div class="wb-field" role="group" aria-labelledby="wb-size-label">
-              <span id="wb-size-label" class="wb-legend">{t(dict, 'whiteboard.size')}</span>
+              <span id="wb-size-label" class="label wb-legend">{t(dict, 'whiteboard.size')}</span>
               <div class="wb-seg" use:roving>
                 {#each SIZE_IDS as s, i}
                   <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.size === s} aria-label={t(dict, `whiteboard.sizes.${s}`)} title={t(dict, `whiteboard.sizes.${s}`)} on:click={() => setStyle('size', s)}>
@@ -1707,7 +1710,7 @@
               </div>
             </div>
             <div class="wb-field" role="group" aria-labelledby="wb-dash-label">
-              <span id="wb-dash-label" class="wb-legend">{t(dict, 'whiteboard.dash')}</span>
+              <span id="wb-dash-label" class="label wb-legend">{t(dict, 'whiteboard.dash')}</span>
               <div class="wb-seg" use:roving>
                 {#each DASH_IDS as d}
                   <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.dash === d} aria-label={t(dict, `whiteboard.dashes.${d}`)} title={t(dict, `whiteboard.dashes.${d}`)} on:click={() => setStyle('dash', d)}>
@@ -1717,7 +1720,7 @@
               </div>
             </div>
             <div class="wb-field" role="group" aria-labelledby="wb-fill-label">
-              <span id="wb-fill-label" class="wb-legend">{t(dict, 'whiteboard.fill')}</span>
+              <span id="wb-fill-label" class="label wb-legend">{t(dict, 'whiteboard.fill')}</span>
               <div class="wb-seg" use:roving>
                 {#each FILL_IDS as f}
                   <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.fill === f} aria-label={t(dict, `whiteboard.fills.${f}`)} title={t(dict, `whiteboard.fills.${f}`)} on:click={() => setStyle('fill', f)}>
@@ -1727,10 +1730,10 @@
               </div>
             </div>
             <div class="wb-field" role="group" aria-labelledby="wb-font-label">
-              <span id="wb-font-label" class="wb-legend">{t(dict, 'whiteboard.font')}</span>
+              <span id="wb-font-label" class="label wb-legend">{t(dict, 'whiteboard.font')}</span>
               <div class="wb-seg" use:roving>
                 {#each Object.keys(FONTS) as f}
-                  <button type="button" class="btn-ghost btn-icon wb-btn wb-btn--font" aria-pressed={styles.font === f} aria-label={t(dict, `whiteboard.fonts.${f}`)} title={t(dict, `whiteboard.fonts.${f}`)} style="font-family: {FONTS[f as keyof typeof FONTS]}" on:click={() => setStyle('font', f as Styles['font'])}>Aa</button>
+                  <button type="button" class="btn-ghost btn-icon wb-btn" aria-pressed={styles.font === f} aria-label={t(dict, `whiteboard.fonts.${f}`)} title={t(dict, `whiteboard.fonts.${f}`)} style="font-family: {FONTS[f as keyof typeof FONTS]}" on:click={() => setStyle('font', f as Styles['font'])}>Aa</button>
                 {/each}
               </div>
             </div>
@@ -1839,24 +1842,25 @@
       </div>
 
       {#if chatOpen}
-        <section id="wb-chat" class="wb-chat" aria-label={t(dict, 'whiteboard.chat')}>
+        <section id="wb-chat" class="wb-chat" aria-labelledby="wb-chat-title">
           <header class="wb-chat__head">
-            <h2 class="wb-chat__title">{t(dict, 'whiteboard.chat')}</h2>
+            <h2 id="wb-chat-title" class="wb-chat__title">{t(dict, 'whiteboard.chat')}</h2>
             <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={toggleChat} aria-label={t(dict, 'whiteboard.chatClose')} title={t(dict, 'whiteboard.chatClose')}>
               <Icon name="x" size={16} />
             </button>
           </header>
-          <ol class="wb-chat__list" bind:this={chatListEl} use:revealSpoilers aria-live="polite" tabindex="0">
+          <ol class="wb-chat__list" bind:this={chatListEl} use:revealSpoilers aria-live="polite" aria-labelledby="wb-chat-title" tabindex="0">
             {#each chatView as m (m.id)}
               <li class="wb-chat__msg" class:wb-chat__msg--mine={m.mine}>
                 <span class="wb-chat__name">
                   <span class="wb-chat__swatch" style="background: {m.color}" aria-hidden="true"></span>
                   {m.name}
-                  {#if m.warn}<button type="button" class="badge badge--warn" title={t(dict, 'whiteboard.keyNewHint')} aria-describedby="wb-key-hint-{m.id}" on:click={togglePeople}>{t(dict, 'whiteboard.keyNew')}</button><span id="wb-key-hint-{m.id}" class="sr-only">{t(dict, 'whiteboard.keyNewHint')}</span>{/if}
+                  {#if m.warn}<button type="button" class="btn-ghost btn-sm text-warn wb-key-btn" title={t(dict, 'whiteboard.keyNewHint')} aria-describedby="wb-key-hint-{m.id}" on:click={togglePeople}><Icon name="triangle-exclamation-point" />{t(dict, 'whiteboard.keyNew')}</button><span id="wb-key-hint-{m.id}" class="sr-only">{t(dict, 'whiteboard.keyNewHint')}</span>{/if}
                 </span>
                 <div class="wb-chat__text chat-md">{@html m.html}</div>
                 {#if m.expiresAt}
-                  <span class="wb-chat__timer" title={t(dict, 'whiteboard.chatDisappears')}>{Math.max(0, Math.ceil((m.expiresAt - chatNow) / 1000))} s</span>
+                  <span class="sr-only">{t(dict, 'whiteboard.chatDisappears')}</span>
+                  <span class="wb-chat__timer" title={t(dict, 'whiteboard.chatDisappears')} aria-hidden="true">{seconds.format(Math.max(0, Math.ceil((m.expiresAt - chatNow) / 1000)))}</span>
                 {/if}
               </li>
             {:else}
@@ -1885,19 +1889,20 @@
       {/if}
 
       {#if peopleOpen}
-        <section id="wb-people" class="wb-chat wb-people" aria-label={t(dict, 'whiteboard.people')}>
+        <section id="wb-people" class="wb-chat wb-people" aria-labelledby="wb-people-title">
           <header class="wb-chat__head">
-            <h2 class="wb-chat__title">{t(dict, 'whiteboard.people')}</h2>
+            <h2 id="wb-people-title" class="wb-chat__title">{t(dict, 'whiteboard.people')}</h2>
             <button type="button" class="btn-ghost btn-icon btn-sm wb-btn" on:click={togglePeople} aria-label={t(dict, 'whiteboard.peopleClose')} title={t(dict, 'whiteboard.peopleClose')}>
               <Icon name="x" size={16} />
             </button>
           </header>
-          <ul class="wb-chat__list" tabindex="0">
+          <div class="wb-chat__list" role="group" aria-labelledby="wb-people-title" tabindex="0">
+          <ul class="wb-people__list">
             <li class="wb-member">
               <span class="wb-avatar" style="background: {aliasGradient(alias, identity.name)}" aria-hidden="true"></span>
               <div class="min-w-0 flex-1">
                 <p class="wb-member__name">{identity.name} <span class="text-muted">· {t(dict, 'whiteboard.you')}</span></p>
-                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={myKeyCode}>{myKeyCode}</span></p>
+                <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji">{myKeyCode}</span></p>
               </div>
             </li>
             {#each memberList as member (member.pk)}
@@ -1908,8 +1913,8 @@
                     {member.name}
                     {#if !member.trusted}<span class="badge badge--warn">{t(dict, 'whiteboard.keyNew')}</span>{/if}
                   </p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji" aria-label={memberCodes[member.pk]?.code ?? ''}>{memberCodes[member.pk]?.code ?? ''}</span></p>
-                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><span class="wb-member__emoji wb-member__safety" aria-label={memberCodes[member.pk]?.safety ?? ''}>{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</span></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.keyCode')}</span><span class="wb-member__emoji">{memberCodes[member.pk]?.code ?? ''}</span></p>
+                  <p class="wb-member__line"><span class="hint">{t(dict, 'whiteboard.safetyNumber')}</span><span class="wb-member__emoji wb-member__safety">{#each (memberCodes[member.pk]?.safety ?? '').split(' ') as group}<span>{group}</span>{/each}</span></p>
                   {#if !member.trusted}
                     <p class="hint">{t(dict, 'whiteboard.keyNewHint')}</p>
                     <button type="button" class="btn-secondary btn-sm" on:click={() => trustMember(member.pk)}>{t(dict, 'whiteboard.keyTrust')}</button>
@@ -1920,7 +1925,8 @@
               <li class="empty wb-chat__empty">{t(dict, 'whiteboard.noPeopleYet')}</li>
             {/each}
           </ul>
-          <p class="hint wb-people__hint">{t(dict, 'whiteboard.safetyNumberHint')}</p>
+          <p class="hint">{t(dict, 'whiteboard.safetyNumberHint')}</p>
+          </div>
         </section>
       {/if}
 
@@ -1987,7 +1993,7 @@
 
       <div class="wb-dock-wrap">
         {#if tool === 'geo'}
-          <div class="wb-pill wb-geo" role="group" aria-label={t(dict, 'whiteboard.geoKinds')}>
+          <div class="wb-pill wb-geo" role="toolbar" aria-label={t(dict, 'whiteboard.geoKinds')}>
             <div class="wb-track" use:scrollEdges use:roving>
               {#each GEO_IDS as g}
                 {@const label = t(dict, `whiteboard.geo.${g}`)}
@@ -2004,7 +2010,7 @@
             </div>
           </div>
         {/if}
-        <div class="wb-pill wb-dock" role="toolbar" aria-label={t(dict, 'whiteboard.toolbar')} aria-orientation="horizontal">
+        <div class="wb-pill wb-dock" role="toolbar" aria-label={t(dict, 'whiteboard.toolbar')}>
           <div class="wb-track" use:scrollEdges use:roving>
             {#each TOOLS as item}
               {@const label = t(dict, `whiteboard.tool.${item.id}`)}
@@ -2055,7 +2061,7 @@
               <span class="wb-avatar" class:wb-avatar--warn={user.warn} style="background: {gradientFor(user.alias, user.name)}"></span>
             {/each}
           </span>
-          {#if keyWarnings}<span class="wb-key-mark" aria-hidden="true">!</span>{/if}
+          {#if keyWarnings}<Icon name="triangle-exclamation-point" class="wb-key-mark" />{/if}
         </button>
         <span class="wb-counter">{t(dict, 'whiteboard.shapes')}: {shapeCount}</span>
         {#if syncProgress}
@@ -2070,7 +2076,7 @@
         on:click={toggleLock}
       >
         <Icon name={roomLocked ? 'lock' : 'lock-open'} />
-        <span class="wb-lock__text">{t(dict, roomLocked ? 'whiteboard.locked' : 'whiteboard.lock')}</span>
+        <span class="wb-lock__text">{t(dict, 'whiteboard.lock')}</span>
       </button>
     </div>
   {/if}
@@ -2136,6 +2142,10 @@
   .wb-bar--end { right: 0.5rem; z-index: 3; }
 
   .wb-pill {
+    box-shadow: var(--shadow-float);
+    pointer-events: auto;
+  }
+  .wb-pill:not(.wb-btn--solo) {
     display: flex;
     align-items: center;
     gap: 2px;
@@ -2143,7 +2153,9 @@
     border-radius: 8px;
     background: var(--bg);
     border: 1px solid var(--line-soft);
-    box-shadow: var(--shadow-float);
+  }
+  .wb-anchor {
+    position: relative;
     pointer-events: auto;
   }
 
@@ -2152,18 +2164,10 @@
   .wb-btn :global(svg.wb-fill-none path) { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
   .wb-btn :global(svg.wb-fill-semi path) { fill: currentColor; fill-opacity: 0.35; }
   .wb-btn :global(svg.wb-fill-solid path) { fill: currentColor; fill-opacity: 1; }
-  .wb-btn--danger:not(:disabled):hover { --btn-fg: var(--danger); background: var(--danger-weak); }
   .wb-btn--text {
     min-width: 3.25rem;
     padding-inline: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 600;
     font-variant-numeric: tabular-nums;
-  }
-  .wb-btn--font { font-size: 0.875rem; }
-  .wb-btn--solo {
-    border-radius: 6px;
-    pointer-events: auto;
   }
 
   .wb-swatch {
@@ -2202,9 +2206,6 @@
   .wb-legend {
     display: block;
     margin-bottom: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--muted);
   }
   .wb-colors {
     display: grid;
@@ -2312,7 +2313,7 @@
     box-shadow: inset 3px 0 0 var(--wb-peer);
     color: var(--text);
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
     white-space: nowrap;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -2354,7 +2355,7 @@
   }
   .wb-chat__title {
     font-size: 0.875rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
   }
   .wb-chat__list {
@@ -2390,10 +2391,10 @@
     align-items: center;
     gap: 0.25rem;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text);
   }
-  button.badge { min-height: 1.5rem; cursor: pointer; }
+  .wb-chat__name .wb-key-btn { padding-inline: 0.5rem; }
   .wb-chat__swatch {
     width: 0.625rem;
     height: 0.625rem;
@@ -2404,8 +2405,8 @@
   }
   .wb-chat__timer {
     justify-self: end;
-    font-size: 0.6875rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 500;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
@@ -2413,19 +2414,11 @@
     margin: auto 0;
     padding: 0;
   }
-  .wb-key-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
+  :global(.wb-key-mark) {
+    flex: none;
     margin-left: 4px;
-    border-radius: 50%;
-    background: var(--warn);
-    color: var(--bg);
-    font-size: 0.625rem;
-    font-weight: 700;
-    line-height: 1;
+    color: var(--warn);
+    vertical-align: -3px;
   }
   .wb-chat.wb-people {
     top: auto;
@@ -2448,7 +2441,7 @@
   }
   .wb-member > div { display: grid; gap: 0.25rem; }
   .wb-member__name {
-    font-weight: 700;
+    font-weight: 600;
     word-break: break-word;
   }
   .wb-member__line {
@@ -2472,9 +2465,9 @@
     gap: 0.25rem;
   }
   .wb-member .btn-secondary { justify-self: start; }
-  .wb-people__hint {
-    padding: 0.5rem 0.75rem;
-    border-top: 1px solid var(--line-soft);
+  .wb-people__list {
+    display: grid;
+    gap: 0.5rem;
   }
   .wb-chat__form {
     display: flex;
@@ -2489,7 +2482,7 @@
   }
 
   @container (max-width: 560px) {
-    .wb-zoom { display: none; }
+    .wb-pill.wb-zoom { display: none; }
     .wb-chat { bottom: 7rem; }
   }
 
@@ -2576,5 +2569,23 @@
   }
   @media (max-width: 479px) and (pointer: coarse) {
     .wb-lock { width: 2.75rem; }
+  }
+
+  @media (forced-colors: active) {
+    .wb-swatch,
+    .wb-color::before,
+    .wb-chat__swatch,
+    .wb-avatar,
+    .wb-dot,
+    .wb-link-dot {
+      forced-color-adjust: none;
+    }
+    .wb-chat-trigger[aria-expanded="true"],
+    .wb-people-trigger[aria-expanded="true"] {
+      forced-color-adjust: none;
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+    }
   }
 </style>

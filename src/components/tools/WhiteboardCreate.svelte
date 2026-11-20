@@ -64,7 +64,6 @@
 
   function genPassphrase(): string {
     const count = 8;
-    const arr = crypto.getRandomValues(new Uint8Array(count * 2 + 2));
     const words: string[] = [];
     for (let i = 0; i < count; i++) {
       const idx = randomIndex(WORDS.length);
