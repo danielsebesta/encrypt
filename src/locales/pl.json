@@ -406,6 +406,8 @@
   "chat.schedule.1h": "Za 1 godzinę",
   "chat.inviteCard.dismiss": "Zamknij zaproszenie",
   "chat.inviteCard.qrAlt": "Kod QR linku do pokoju",
+  "chat.inviteCard.showQr": "Pokaż kod QR",
+  "chat.inviteCard.hideQr": "Ukryj kod QR",
   "chat.inviteCard.link": "Link",
   "chat.inviteCard.password": "Hasło",
   "chat.inviteCard.copyLink": "Kopiuj link",

@@ -16,6 +16,7 @@
   let qrFor = '';
   let showPassword = false;
   let canShare = false;
+  let qrOpen = false;
   let copiedLink = false;
   let copiedPass = false;
   let copyTimers: ReturnType<typeof setTimeout>[] = [];
@@ -117,7 +118,13 @@
   </div>
 
   {#if qrSvg}
-    <div class="ue-qr invite-card__qr" role="img" aria-label={t(dict, 'chat.inviteCard.qrAlt')}>{@html qrSvg}</div>
+    {#if !appMode}
+      <button type="button" class="btn-secondary btn-sm invite-card__qr-toggle" aria-expanded={qrOpen} aria-controls="invite-card-qr" on:click={() => { qrOpen = !qrOpen; }}>
+        <Icon name="qr-code" />
+        <span class="truncate">{t(dict, qrOpen ? 'chat.inviteCard.hideQr' : 'chat.inviteCard.showQr')}</span>
+      </button>
+    {/if}
+    <div id="invite-card-qr" class="ue-qr invite-card__qr" class:invite-card__qr--folded={!appMode && !qrOpen} role="img" aria-label={t(dict, 'chat.inviteCard.qrAlt')}>{@html qrSvg}</div>
   {/if}
 
   <div class="invite-card__row">
@@ -162,16 +169,16 @@
     {#if canShare}
       <button type="button" class={appMode ? 'app-sheet-btn w-full' : 'btn btn-sm btn-block'} on:click={share} disabled={!url}>
         <Icon name="share-2" />
-        <span>{t(dict, 'chat.inviteCard.share')}</span>
+        <span class="invite-card__share-label">{t(dict, 'chat.inviteCard.share')}</span>
       </button>
     {/if}
     <div class="invite-card__share-row">
-      <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : canShare ? 'btn-secondary btn-sm invite-card__share-btn' : 'btn btn-sm invite-card__share-btn'} on:click={() => copy(url, 'link')} disabled={!url}>
-        {copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}
+      <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : canShare ? 'btn-secondary btn-sm invite-card__share-btn' : 'btn btn-sm invite-card__share-btn'} on:click={() => copy(url, 'link')} disabled={!url} title={t(dict, 'chat.inviteCard.copyLink')}>
+        <span class="invite-card__share-label">{copiedLink ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLink')}</span>
       </button>
       {#if password}
-        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm invite-card__share-btn'} on:click={() => copy(password, 'pass')}>
-          {copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}
+        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm invite-card__share-btn'} on:click={() => copy(password, 'pass')} title={t(dict, 'chat.inviteCard.copyPasswordSeparate')}>
+          <span class="invite-card__share-label">{copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}</span>
         </button>
       {/if}
     </div>
@@ -273,5 +280,39 @@
   }
   .invite-card__share-btn {
     flex: 1 1 12rem;
+    min-width: 0;
+  }
+  .invite-card.panel .invite-card__share-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .invite-card__qr-toggle {
+    display: none;
+    margin-bottom: 0.5rem;
+    max-width: 100%;
+  }
+  @media (max-width: 399px), (max-height: 479px) {
+    .invite-card.panel {
+      display: flex;
+      flex-direction: column;
+    }
+    .invite-card.panel .invite-card__qr-toggle {
+      display: inline-flex;
+      order: 1;
+      align-self: flex-start;
+      margin: 0.25rem 0 0;
+    }
+    .invite-card.panel .invite-card__qr {
+      order: 1;
+      margin: 0.5rem 0 0;
+    }
+    .invite-card.panel .invite-card__qr--folded {
+      display: none;
+    }
+    .invite-card.panel .invite-card__share {
+      order: 2;
+    }
   }
 </style>

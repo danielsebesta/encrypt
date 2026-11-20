@@ -1462,6 +1462,8 @@ html.dark {
         left: auto;
         right: 0;
         min-width: 11rem;
+        width: max-content;
+        max-width: calc(100vw - 1.5rem);
     }
 
     .menu__item {
