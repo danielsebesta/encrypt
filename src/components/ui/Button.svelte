@@ -42,7 +42,8 @@
 
   const iconOnly = $derived(!children);
   const cls = $derived(buttonClass({ variant, size, icon: iconOnly, block, class: className }));
-  const inert = $derived(Boolean(disabled) || busy);
+  const ariaDisabled = $derived((rest as HTMLButtonAttributes)['aria-disabled']);
+  const inert = $derived(Boolean(disabled) || busy || ariaDisabled === true || ariaDisabled === 'true');
 
   $effect(() => {
     if (iconOnly && !label) console.error('Button: icon-only buttons need a label');
@@ -69,9 +70,10 @@
     {...rest as HTMLAnchorAttributes}
     class={cls}
     href={disabled ? undefined : href}
+    role={disabled ? 'link' : (rest as HTMLAnchorAttributes).role}
     aria-label={iconOnly ? label : (rest as HTMLAnchorAttributes)['aria-label']}
     title={iconOnly ? label : (rest as HTMLAnchorAttributes).title}
-    aria-disabled={disabled || undefined}
+    aria-disabled={disabled || ariaDisabled || undefined}
     aria-busy={busy || undefined}
     onclick={guard}
   >{@render content()}</a>
@@ -85,7 +87,7 @@
     title={iconOnly ? label : (rest as HTMLButtonAttributes).title}
     aria-pressed={pressed === undefined ? undefined : pressed}
     aria-busy={busy || undefined}
-    aria-disabled={busy || undefined}
+    aria-disabled={busy || ariaDisabled || undefined}
     onclick={guard}
   >{@render content()}</button>
 {/if}

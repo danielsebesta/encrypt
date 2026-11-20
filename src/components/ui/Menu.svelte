@@ -25,8 +25,21 @@
   const autoId = $props.id();
   const menuId = `menu-${autoId}`;
   let trigger = $state<HTMLButtonElement>();
+  let focusAt = $state<'first' | 'last'>('first');
 
   const close = () => { open = false; };
+
+  function onkeydown(event: KeyboardEvent) {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    focusAt = event.key === 'ArrowUp' ? 'last' : 'first';
+    if (!open) {
+      open = true;
+      return;
+    }
+    const list = [...(document.getElementById(menuId)?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
+    (focusAt === 'last' ? list.at(-1) : list[0])?.focus();
+  }
 </script>
 
 <div class="menu-anchor {className}">
@@ -39,7 +52,8 @@
     aria-haspopup="menu"
     aria-expanded={open}
     aria-controls={menuId}
-    onclick={() => { open = !open; }}
+    onclick={() => { focusAt = 'first'; open = !open; }}
+    {onkeydown}
   >
     <Icon name={icon} size={!text && size === 'md' ? 20 : 16} />
     {#if text}<span>{text}</span>{/if}
@@ -52,7 +66,7 @@
     role="menu"
     tabindex="-1"
     aria-label={label}
-    use:menu={{ open, onclose: close, trigger }}
+    use:menu={{ open, onclose: close, trigger, autofocus: focusAt }}
   >
     {@render children(close)}
   </div>

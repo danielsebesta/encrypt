@@ -3,8 +3,8 @@ export interface MenuOptions {
   onclose: () => void;
   /** The button that opens the menu; focus returns to it on close and clicks on it do not count as outside. */
   trigger?: HTMLElement | null;
-  /** Focus the first item when the menu opens. */
-  autofocus?: boolean;
+  /** Item to focus when the menu opens: the first (default, `true`), the last, or none (`false`). */
+  autofocus?: boolean | 'first' | 'last';
 }
 
 const ITEM = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
@@ -69,7 +69,13 @@ export function menu(node: HTMLElement, options: MenuOptions) {
   }
 
   function sync() {
-    if (opts.open && !wasOpen && opts.autofocus !== false) queueMicrotask(() => items(node)[0]?.focus());
+    if (opts.open && !wasOpen && opts.autofocus !== false) {
+      const last = opts.autofocus === 'last';
+      queueMicrotask(() => {
+        const list = items(node);
+        list[last ? list.length - 1 : 0]?.focus();
+      });
+    }
     if (!opts.open && wasOpen && node.contains(document.activeElement)) opts.trigger?.focus({ preventScroll: true });
     wasOpen = opts.open;
   }
