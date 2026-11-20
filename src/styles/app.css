@@ -472,7 +472,7 @@ html[data-app-platform] ::selection {
 .app-upload-wrapper {
     padding: 0.75rem 1rem 1rem;
 }
-:root[data-app-platform] .app-main-tabbar .k-tabbar-link-icon > span {
+:root[data-app-platform="material"] .app-main-tabbar .k-tabbar-link-icon > span {
     border-radius: 8px;
     box-shadow: none;
 }
@@ -919,22 +919,6 @@ html[data-app-platform] ::selection {
         font-size: 13px;
     }
 }
-:root[data-app-platform="ios"] .k-navbar .k-glass {
-    border-radius: 8px;
-    overflow: hidden;
-    transition: transform 180ms var(--ease-move);
-}
-:root[data-app-platform="ios"] .k-navbar .k-glass .k-navbar-back-link,
-:root[data-app-platform="ios"] .k-navbar .k-glass .k-link,
-:root[data-app-platform="ios"] .k-navbar .k-glass button {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    border: none;
-    background: transparent;
-    border-radius: inherit;
-    transform: none !important;
-}
 :root[data-app-platform] .k-navbar-back-link:focus-visible {
     outline: 2px solid var(--app-tint);
     outline-offset: 2px;
@@ -943,18 +927,6 @@ html[data-app-platform] ::selection {
     outline: 2px solid var(--app-tint);
     outline-offset: 2px;
     z-index: 1;
-}
-
-/* iOS 26 Liquid Glass lives on the control layer only: dialogs, popovers,
-   action sheets. Modal sheets carry content, so they stay opaque. */
-:root[data-app-platform="ios"] .k-dialog,
-:root[data-app-platform="ios"] .k-popover .k-glass,
-:root[data-app-platform="ios"] .k-actions .k-actions-group {
-    background: var(--app-surface);
-    border: 1px solid var(--app-outline);
-    box-shadow: var(--shadow-float);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
 }
 
 /* Native 44pt touch targets on dialog/action buttons */
@@ -2647,24 +2619,12 @@ html[data-app-platform] ::selection {
 
 /* P0: shared flat overrides — P1/P2 split */
 /* Solid chrome. Konsta frost layers stay inside the bar and do not blur. */
-:root[data-app-platform] :is(.k-glass, .k-navbar, .k-toolbar, .k-toolbar-pane, .k-dialog, .k-sheet, .k-popover, .k-actions, .app-main-tabbar, .k-tabbar) {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-:root[data-app-platform="ios"] .k-navbar > div:nth-child(1),
-:root[data-app-platform="ios"] .k-navbar > div:nth-child(2) {
-    background-color: var(--app-bar);
-    background-image: none;
-    opacity: 1;
-    mask-image: none;
-    -webkit-mask-image: none;
-    bottom: 0;
-    height: 100%;
+:root[data-app-platform="material"] :is(.k-glass, .k-navbar, .k-toolbar, .k-toolbar-pane, .k-dialog, .k-sheet, .k-popover, .k-actions, .app-main-tabbar, .k-tabbar) {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 }
 /* Full-width bar. The selected tab is an 8px tint wash, not a floating capsule. */
-:root[data-app-platform] .app-main-tabbar {
+:root[data-app-platform="material"] .app-main-tabbar {
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     background: var(--app-surface);
@@ -2673,69 +2633,58 @@ html[data-app-platform] ::selection {
     border-radius: 0;
     box-shadow: none;
 }
-:root[data-app-platform] :is(.app-main-tabbar, .k-tabbar) :is(.k-toolbar-pane, .k-glass) {
+:root[data-app-platform="material"] :is(.app-main-tabbar, .k-tabbar) :is(.k-toolbar-pane, .k-glass) {
     background: var(--app-surface);
     background-image: none;
     border: 0;
     border-radius: 0;
     box-shadow: none;
 }
-:root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute,
-:root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute > span {
-    border-radius: 8px;
-    box-shadow: none;
-}
-:root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute > span:first-child {
-    background: var(--app-tint-container);
-}
-:root[data-app-platform] :is(.k-navbar, .k-toolbar, .app-main-tabbar) .bg-gradient-to-t {
+:root[data-app-platform="material"] :is(.k-navbar, .k-toolbar, .app-main-tabbar) .bg-gradient-to-t {
     background-image: none;
 }
-:root[data-app-platform] :is(.k-dialog, .k-popover .k-glass, .k-actions .k-actions-group) {
+:root[data-app-platform="material"] :is(.k-dialog, .k-popover .k-glass, .k-actions .k-actions-group) {
     border-radius: 8px;
 }
-:root[data-app-platform] .k-sheet {
+:root[data-app-platform="material"] .k-sheet {
     border-radius: 8px 8px 0 0;
 }
-:root[data-app-platform] .k-segmented {
+:root[data-app-platform="material"] .k-segmented {
     border-radius: 8px;
     box-shadow: none;
 }
-:root[data-app-platform] .k-segmented > span,
-:root[data-app-platform] .k-segmented .k-button {
+:root[data-app-platform="material"] .k-segmented > span,
+:root[data-app-platform="material"] .k-segmented .k-button {
     border-radius: 6px;
     box-shadow: none;
 }
-:root[data-app-platform] .k-searchbar .k-glass {
+:root[data-app-platform="material"] .k-searchbar .k-glass {
     border-radius: 8px;
     background-image: none;
     box-shadow: none;
-}
-:root[data-app-platform="ios"] .k-searchbar > .k-glass:not(button) {
-    border: 1px solid var(--app-outline);
 }
 :root[data-app-platform="material"] .k-searchbar input {
     border-radius: 8px;
     border: 1px solid var(--app-outline);
     box-shadow: none;
 }
-:root[data-app-platform] .k-searchbar > button.k-glass {
+:root[data-app-platform="material"] .k-searchbar > button.k-glass {
     border-radius: 8px;
 }
-:root[data-app-platform] .k-fab {
+:root[data-app-platform="material"] .k-fab {
     border-radius: 8px;
     box-shadow: none;
     background-image: none;
 }
-:root[data-app-platform] .k-navbar .k-glass {
+:root[data-app-platform="material"] .k-navbar .k-glass {
     background: var(--app-fill);
     background-image: none;
     border-radius: 8px;
     box-shadow: none;
 }
-:root[data-app-platform] .duration-300 {
+:root[data-app-platform="material"] .duration-300 {
     transition-duration: 180ms;
 }
-:root[data-app-platform] .duration-600 {
+:root[data-app-platform="material"] .duration-600 {
     transition-duration: 320ms;
 }
