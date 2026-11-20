@@ -63,7 +63,7 @@
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { PANIC_FLAG, wipeRoomStorage } from '../../lib/appWipe';
-  import { asButton, asSwitch } from '../../lib/konstaA11y';
+  import { asButton, asMenu, asSwitch } from '../../lib/konstaA11y';
   import { identiconBackground } from '../../lib/identicon';
   import { copyText } from '../../lib/clipboard';
   import { passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
@@ -2911,7 +2911,7 @@
 
     <!-- ROOM ROW CONTEXT MENU -->
     <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop} data-app-overlay="actions" tabindex="-1">
-      <MenuList role="menu" aria-label={actionTarget?.label || actionTarget?.roomId} onkeydown={onRowMenuKeys}>
+      <MenuList {@attach asMenu} aria-label={actionTarget?.label || actionTarget?.roomId} onkeydown={onRowMenuKeys}>
         {#each [
           { key: 'pin', title: t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin'), icon: (actionTarget?.pinned ? 'pin-off' : 'pin') as IconName, run: togglePin, danger: false },
           ...(actionTarget && actionTarget.kind !== 'whiteboard' ? [{ key: 'notify', title: t(dict, notifyRooms.has(actionTarget.roomId) ? 'app.row.notifyOff' : 'app.row.notifyOn'), icon: (notifyRooms.has(actionTarget.roomId) ? 'bell-off' : 'bell') as IconName, run: toggleRowNotify, danger: false }] : []),
