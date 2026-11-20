@@ -1867,18 +1867,20 @@
       <NavbarBackLink component="button" type="button" {@attach asButton} text={backLabel} showText={false} iconOnly onClick={leaveRoom} aria-label={`${t(dict, 'common.back')}: ${backLabel}`} />
     {/snippet}
     {#snippet title()}
-      {#if activeView === 'room'}
-        <button
-          type="button"
-          class="app-nav-title block truncate w-full text-center"
-          onclick={() => roomInfo?.()}
-          aria-label={`${activeRoomLabel || activeRoomId}, ${t(dict, 'chat.members')}`}
-        >
-          {activeRoomLabel || activeRoomId}
-        </button>
-      {:else}
-        <span class="block truncate w-full text-center">{activeRoomLabel || activeRoomId}</span>
-      {/if}
+      <h1 class="app-room-heading">
+        {#if activeView === 'room'}
+          <button
+            type="button"
+            class="app-nav-title block truncate w-full text-center"
+            onclick={() => roomInfo?.()}
+            aria-label={`${activeRoomLabel || activeRoomId}, ${t(dict, 'chat.members')}`}
+          >
+            {activeRoomLabel || activeRoomId}
+          </button>
+        {:else}
+          <span class="block truncate w-full text-center">{activeRoomLabel || activeRoomId}</span>
+        {/if}
+      </h1>
     {/snippet}
     {#snippet subtitle()}
       {#if roomConn === 'offline'}

@@ -2613,3 +2613,10 @@ label:has(> input[role="switch"]:focus-visible) {
     outline-offset: 2px;
     border-radius: 999px;
 }
+.app-room-heading {
+    margin: 0;
+    min-width: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+}
