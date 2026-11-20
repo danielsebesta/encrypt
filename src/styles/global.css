@@ -1930,6 +1930,30 @@ html.dark {
         text-wrap: balance;
     }
 
+    .home-hero__points {
+        @apply hidden gap-2.5 border-t border-line-soft pt-5 text-text lg:grid;
+    }
+
+    .home-hero__points li {
+        @apply flex items-center gap-2.5;
+    }
+
+    .home-hero__points .icon {
+        @apply shrink-0 text-accent;
+    }
+
+    .home-hero__points a {
+        @apply underline decoration-line underline-offset-4 hover:decoration-accent;
+    }
+
+    .home-hero__stack {
+        @apply hidden flex-wrap items-center gap-1.5 text-sm text-muted lg:flex;
+    }
+
+    .home-hero__stack > span:first-child {
+        @apply mr-1;
+    }
+
     .home-hero__form {
         @apply min-w-0;
     }

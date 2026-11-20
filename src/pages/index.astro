@@ -21,6 +21,8 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
 const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+/).map((line) => (line.split(/\s+/).length > 3 ? line.replace(/\s+(\S+)$/, '\u00a0$1') : line));
 const tagline = sentences('home.tagline.1');
 const lead = sentences('landing.hero.subtitle');
+const heroPoints = [[1, 'shield-keyhole', null], [2, 'badge-check', null], [3, 'package', `${REPO_URL}/blob/main/docs/self-hosting.md`]] as const;
+const stack = ['AES-256-GCM', 'Argon2id', 'ML-KEM-768', 'Ed25519', 'WebRTC'];
 ---
 
 <Layout title={t(dict, 'meta.defaultTitle')} description={t(dict, 'meta.defaultDescription')} background="classic">
@@ -29,6 +31,18 @@ const lead = sentences('landing.hero.subtitle');
       <div class="home-hero__copy">
         <h1 id="home-hero-title" class="page-title home-hero__title">{tagline.map((line) => <span class="block">{line}</span>)}</h1>
         <p class="page-lead">{lead.map((line) => <span class="block">{line}</span>)}</p>
+        <ul class="home-hero__points">
+          {heroPoints.map(([n, icon, href]) => (
+            <li>
+              <Icon name={icon} size={20} />
+              {href ? <a href={href}>{t(dict, `home.hero.point.${n}`)}</a> : <span>{t(dict, `home.hero.point.${n}`)}</span>}
+            </li>
+          ))}
+        </ul>
+        <div class="home-hero__stack">
+          <span>{t(dict, 'home.hero.stack')}</span>
+          {stack.map((name) => <span class="badge badge--mono">{name}</span>)}
+        </div>
       </div>
       <div class="home-hero__form panel" id="try">
         <HomeTry client:visible locale={locale} dict={tryDict} />
