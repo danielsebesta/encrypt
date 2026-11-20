@@ -42,7 +42,7 @@
     starting = true;
     // iOS 18.4+/26: haptic must run sync inside the tap grant — before getUserMedia await.
     if (appMode) haptic('medium');
-    const next = new VoiceRecorder(() => void stop(), appMode);
+    const next = new VoiceRecorder(() => void stop(), true);
     try {
       await next.start();
     } catch (error) {
@@ -55,10 +55,8 @@
     elapsed = 0;
     recording = true;
     ticker = setInterval(() => { elapsed = (recorder?.elapsedMs ?? 0) / 1000; }, 250);
-    if (appMode) {
-      levels = Array(WAVE_BARS).fill(0);
-      meterTimer = setInterval(() => { levels = [...levels.slice(1), recorder?.level ?? 0]; }, 70);
-    }
+    levels = Array(WAVE_BARS).fill(0);
+    meterTimer = setInterval(() => { levels = [...levels.slice(1), recorder?.level ?? 0]; }, 70);
     await tick();
     stopEl?.focus();
   }
@@ -107,16 +105,21 @@
       <Icon name="arrow-up" size={20} />
     </button>
   {:else if recording}
-    <div class="voice-rec" role="status">
+    <div class="input voice-rec" role="status">
       <span class="voice-rec__dot" aria-hidden="true"></span>
-      <span class="voice-rec__label">{t(dict, 'chat.voiceRecording')}</span>
+      <span class="sr-only">{t(dict, 'chat.voiceRecording')}</span>
       <span class="voice-rec__time" role="timer" aria-live="off">{formatClock(elapsed)} / {formatClock(MAX_VOICE_SECONDS)}</span>
+      <span class="voice-rec__wave" aria-hidden="true">
+        {#each levels as level, i (i)}
+          <span style:height="{Math.round(14 + Math.min(1, level) * 86)}%"></span>
+        {/each}
+      </span>
     </div>
     <button type="button" class="btn-ghost btn-icon" onclick={cancel} aria-label={t(dict, 'chat.voiceCancel')} title={t(dict, 'chat.voiceCancel')}>
       <Icon name="trash" />
     </button>
-    <button type="button" class="btn-danger btn-icon" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.voiceStop')} title={t(dict, 'chat.voiceStop')}>
-      <Icon name="square" />
+    <button type="button" class="btn btn-icon" bind:this={stopEl} onclick={stop} aria-label={t(dict, 'chat.voiceStop')} title={t(dict, 'chat.voiceStop')}>
+      <Icon name="send" size={20} />
     </button>
   {:else}
     <button type="button" class={appMode ? 'voice-rec-app__mic' : 'btn-ghost btn-icon'} use:hapticTap={'medium'} bind:this={micEl} onclick={start} disabled={disabled || starting} aria-label={t(dict, 'chat.voiceRecord')} title={t(dict, 'chat.voiceRecord')}>
@@ -127,36 +130,50 @@
 
 <style>
   .voice-rec {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 0;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.625rem;
+    width: auto;
     font-size: 0.875rem;
   }
   .voice-rec__dot {
-    width: 0.6rem;
-    height: 0.6rem;
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
     border-radius: 50%;
     background: var(--danger);
     animation: voice-pulse calc(var(--duration-slow) * 4) var(--ease-move) infinite;
   }
-  .voice-rec__label {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .voice-rec__time {
-    margin-left: auto;
-    color: var(--muted);
+    flex: none;
+    color: var(--text);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+  .voice-rec__wave {
+    flex: 1;
+    min-width: 0;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .voice-rec__wave > span {
+    flex: 0 0 2px;
+    min-height: 2px;
+    border-radius: 1px;
+    background: var(--muted);
   }
   @keyframes voice-pulse {
     50% { opacity: 0.35; }
   }
   @media (prefers-reduced-motion: reduce) {
     .voice-rec__dot { animation: none; }
+  }
+  @media (forced-colors: active) {
+    .voice-rec__dot,
+    .voice-rec__wave > span { background: CanvasText; }
   }
 </style>

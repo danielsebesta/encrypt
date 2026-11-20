@@ -7155,6 +7155,12 @@
   .chat-bubble--mine :global(.voice-msg__meta) {
     color: var(--on-accent);
   }
+  .chat-bubble--mine :global(.voice-msg) {
+    --voice-on: var(--on-accent);
+  }
+  .chat-bubble--mine :global(.voice-msg__rate) {
+    --btn-fg: var(--on-accent);
+  }
   .chat-timer {
     position: relative; width: 32px; height: 32px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;

@@ -519,6 +519,7 @@
   "chat.voicePlay": "Reproducir mensaje de voz",
   "chat.voicePause": "Pausar",
   "chat.voiceProgress": "Posición de reproducción",
+  "chat.voiceSpeed": "Velocidad de reproducción",
   "chat.voiceUnavailable": "no se ha podido cargar",
   "chat.exportHistory": "Exportar historial",
   "chat.exportDownloaded": "Historial descargado",

@@ -519,6 +519,7 @@
   "chat.voicePlay": "Sprachnachricht abspielen",
   "chat.voicePause": "Pausieren",
   "chat.voiceProgress": "Wiedergabeposition",
+  "chat.voiceSpeed": "Wiedergabegeschwindigkeit",
   "chat.voiceUnavailable": "konnte nicht geladen werden",
   "chat.exportHistory": "Verlauf exportieren",
   "chat.exportDownloaded": "Verlauf heruntergeladen",

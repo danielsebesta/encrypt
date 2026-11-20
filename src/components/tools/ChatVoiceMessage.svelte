@@ -54,14 +54,9 @@
       audio.src = url;
       audio.defaultPlaybackRate = rate;
       audio.playbackRate = rate;
-      if (appMode) void voicePeaks(blob, seconds).then((value) => { if (value) measured = value; });
+      void voicePeaks(blob, seconds).then((value) => { if (value) measured = value; });
     }
     await audio.play().catch(() => { failed = true; });
-  }
-
-  function seek(event: Event) {
-    if (!audio || !url) return;
-    audio.currentTime = Number((event.target as HTMLInputElement).value);
   }
 
   function jump(to: number) {
@@ -135,48 +130,36 @@
     {@render playIcon()}
   </button>
   <div class="voice-msg__body">
-    {#if appMode}
-      <div
-        class="voice-msg__wave"
-        role="slider"
-        tabindex={gone || !url ? -1 : 0}
-        aria-label={t(dict, 'chat.voiceProgress')}
-        aria-valuemin={0}
-        aria-valuemax={Math.round(total) || 1}
-        aria-valuenow={Math.round(position)}
-        aria-valuetext={`${formatClock(position)} / ${formatClock(total)}`}
-        aria-disabled={gone || !url}
-        onpointerdown={wavedown}
-        onpointermove={wavemove}
-        onpointerup={waveup}
-        onpointercancel={waveup}
-        onkeydown={wavekey}
-      >
-        {#each peaks as peak, i (i)}
-          <span class:voice-msg__tick--on={(i + 0.5) / VOICE_BARS <= progress} style:height="{Math.round(peak * 100)}%"></span>
-        {/each}
-      </div>
-    {:else}
-      <input
-        type="range"
-        class="voice-msg__bar"
-        min="0"
-        max={total || 1}
-        step="0.1"
-        value={position}
-        oninput={seek}
-        disabled={gone || !url}
-        aria-label={t(dict, 'chat.voiceProgress')}
-        aria-valuetext={`${formatClock(position)} / ${formatClock(total)}`}
-      />
-    {/if}
+    <div
+      class="voice-msg__wave"
+      role="slider"
+      tabindex={gone || !url ? -1 : 0}
+      aria-label={t(dict, 'chat.voiceProgress')}
+      aria-valuemin={0}
+      aria-valuemax={Math.round(total) || 1}
+      aria-valuenow={Math.round(position)}
+      aria-valuetext={`${formatClock(position)} / ${formatClock(total)}`}
+      aria-disabled={gone || !url}
+      onpointerdown={wavedown}
+      onpointermove={wavemove}
+      onpointerup={waveup}
+      onpointercancel={waveup}
+      onkeydown={wavekey}
+    >
+      {#each peaks as peak, i (i)}
+        <span class:voice-msg__tick--on={(i + 0.5) / VOICE_BARS <= progress} style:height="{Math.round(peak * 100)}%"></span>
+      {/each}
+    </div>
     <span class="voice-msg__meta">
       <span class="voice-msg__time">{playing || position ? formatClock(position) : formatClock(total)}</span>
-      <span>· {failed ? t(dict, 'chat.voiceUnavailable') : note}</span>
+      <span class="voice-msg__note"><span class="voice-msg__sep" aria-hidden="true">· </span>{failed ? t(dict, 'chat.voiceUnavailable') : note}</span>
+      {#if !appMode}
+        <button type="button" class="btn-link btn-sm voice-msg__rate" onclick={cycleRate} disabled={gone} aria-label={`${t(dict, 'chat.voiceSpeed')} ${rate}×`} title={t(dict, 'chat.voiceSpeed')}>{rate}×</button>
+      {/if}
     </span>
   </div>
   {#if appMode && url}
-    <button type="button" class="voice-msg__rate" onclick={cycleRate} aria-label={t(dict, 'app.voice.speed')} title={t(dict, 'app.voice.speed')}>{rate}×</button>
+    <button type="button" class="voice-msg__rate" onclick={cycleRate} aria-label={`${t(dict, 'app.voice.speed')} ${rate}×`} title={t(dict, 'app.voice.speed')}>{rate}×</button>
   {/if}
   <audio
     bind:this={audio}
@@ -217,9 +200,6 @@
     display: grid;
     gap: 0.15rem;
   }
-  .voice-msg__bar {
-    width: 100%;
-  }
   .voice-msg__meta {
     display: flex;
     gap: 0.3rem;
@@ -233,13 +213,94 @@
     font-variant-numeric: tabular-nums;
   }
   .voice-msg:not(.voice-msg--app) {
-    width: 15rem;
+    --voice-on: var(--accent);
+    container-type: inline-size;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: 16rem;
     min-width: 0;
     max-width: 100%;
   }
+  .voice-msg:not(.voice-msg--app) .voice-msg__body {
+    gap: 0.25rem;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__wave {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1px;
+    height: 2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__wave > span {
+    flex: 1 1 0;
+    min-width: 1px;
+    max-width: 3px;
+    min-height: 3px;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.35;
+    transition: opacity var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__wave > span.voice-msg__tick--on {
+    background: var(--voice-on);
+    opacity: 1;
+  }
   .voice-msg:not(.voice-msg--app) .voice-msg__meta {
-    flex-wrap: wrap;
-    column-gap: 0.3rem;
-    white-space: normal;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "time note rate";
+    align-items: center;
+    column-gap: 0.5rem;
+    overflow: visible;
+    line-height: 1rem;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__time {
+    grid-area: time;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__note {
+    grid-area: note;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__sep {
+    display: none;
+  }
+  @container (max-width: 15rem) {
+    .voice-msg:not(.voice-msg--app) .voice-msg__meta {
+      grid-template-areas: "time . rate" "note note note";
+    }
+    .voice-msg:not(.voice-msg--app) .voice-msg__note {
+      white-space: normal;
+    }
+  }
+  .voice-msg__time {
+    flex: none;
+  }
+  .voice-msg__note {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .voice-msg:not(.voice-msg--app) .voice-msg__rate {
+    grid-area: rate;
+    min-width: 2rem;
+    min-height: 1.5rem;
+    padding: 0 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .voice-msg--gone:not(.voice-msg--app) .voice-msg__wave {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  @media (forced-colors: active) {
+    .voice-msg:not(.voice-msg--app) .voice-msg__wave > span {
+      background: CanvasText;
+    }
+    .voice-msg:not(.voice-msg--app) .voice-msg__wave > span.voice-msg__tick--on {
+      background: Highlight;
+    }
   }
 </style>

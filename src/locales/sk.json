@@ -519,6 +519,7 @@
   "chat.voicePlay": "Prehrať hlasovú správu",
   "chat.voicePause": "Pozastaviť",
   "chat.voiceProgress": "Pozícia prehrávania",
+  "chat.voiceSpeed": "Rýchlosť prehrávania",
   "chat.voiceUnavailable": "nedá sa načítať",
   "chat.exportHistory": "Exportovať históriu",
   "chat.exportDownloaded": "História stiahnutá",
