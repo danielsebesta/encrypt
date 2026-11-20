@@ -1,5 +1,8 @@
 export const RETENTION_SECONDS = [5, 10, 30, 60, 300, 900, 3600, 86400] as const;
 
+// Offered for new rooms; 5 s stays in RETENTION_SECONDS so rooms created with it still open.
+export const RETENTION_CHOICES = RETENTION_SECONDS.filter((seconds) => seconds !== 5);
+
 export type ChatMode = 'live' | `ttl-${number}`;
 
 // The old saved-room mode no longer exists; a stored value of "persistent" reads as a live room everywhere.

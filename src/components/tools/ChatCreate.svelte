@@ -4,7 +4,7 @@
   import PassphraseField from '../PassphraseField.svelte';
   import WizardProgress from '../WizardProgress.svelte';
   import PasswordChecklist from '../PasswordChecklist.svelte';
-  import { RETENTION_SECONDS, checkRoomPassword, passwordLongEnough, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
+  import { RETENTION_CHOICES, checkRoomPassword, passwordLongEnough, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
   import MyRooms from './MyRooms.svelte';
   import Field from '../ui/Field.svelte';
@@ -20,7 +20,7 @@
   let keep: Keep = 'local';
   let customRoomId = '';
   let password = '';
-  let retentionIndex = RETENTION_SECONDS.indexOf(3600);
+  let retentionIndex = RETENTION_CHOICES.indexOf(3600);
   let roomAttempted = false;
   let passwordAttempted = false;
   let stepEl: HTMLFormElement;
@@ -78,7 +78,7 @@
   ];
   $: roomError = roomAttempted && !roomId ? t(dict, 'chat.roomNameRequired') : '';
   $: passwordError = passwordAttempted && !passwordLongEnough(password) ? t(dict, 'common.passwordTooShort') : '';
-  $: retentionSeconds = RETENTION_SECONDS[retentionIndex];
+  $: retentionSeconds = RETENTION_CHOICES[retentionIndex];
   $: stepText = t(dict, 'common.wizardStep').replace('{current}', String(step)).replace('{total}', String(steps));
 
   async function goTo(next: number) {
@@ -142,7 +142,7 @@
             </label>
             {#if keep === 'ttl'}
               <div class="ml-7 flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby="chat-ttl-title" use:roving>
-                {#each RETENTION_SECONDS as seconds, i (seconds)}
+                {#each RETENTION_CHOICES as seconds, i (seconds)}
                   <button
                     type="button"
                     class="chip aria-checked:border-accent aria-checked:bg-accent aria-checked:text-on-accent"

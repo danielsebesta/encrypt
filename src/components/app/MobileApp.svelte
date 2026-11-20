@@ -68,7 +68,7 @@
   import { asButton, asFieldError, asMenu, asSlider, asSwitch } from '../../lib/konstaA11y';
   import { identiconBackground } from '../../lib/identicon';
   import { copyText } from '../../lib/clipboard';
-  import { checkRoomPassword, passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
+  import { checkRoomPassword, passwordLongEnough, RETENTION_CHOICES, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
   import PasswordChecklist, { type PasswordRule } from '../PasswordChecklist.svelte';
   import { focusFirstInvalid } from '../../lib/focusInvalid';
   import { genRoomPassphrase } from '../../lib/roomPassphrase';
@@ -221,12 +221,12 @@
   ]);
   const fieldColors = { errorText: 'app-danger-text', errorBorder: 'border-[var(--app-error)]' };
   let newRoomMode = $state<'live' | 'ttl'>('live');
-  let retentionIndex = $state(RETENTION_SECONDS.indexOf(3600));
+  let retentionIndex = $state(RETENTION_CHOICES.indexOf(3600));
   let showNewPw = $state(false);
   let newPwShownByUser = $state(false);
   let newPwCopied = $state(false);
   let newPwCopiedTimer: ReturnType<typeof setTimeout> | undefined;
-  const retentionSeconds = $derived(RETENTION_SECONDS[retentionIndex] ?? 3600);
+  const retentionSeconds = $derived(RETENTION_CHOICES[retentionIndex] ?? 3600);
   const retentionLabel = $derived(t(dict, 'chat.retentionTtl').replace('{time}', formatDuration(retentionSeconds, locale)));
   let joinRoomId = $state('');
   let joinRoomPassword = $state('');
@@ -646,7 +646,7 @@
     newRoomMode = defaultRoomMode;
     showNewPw = false;
     newPwShownByUser = false;
-    retentionIndex = RETENTION_SECONDS.indexOf(3600);
+    retentionIndex = RETENTION_CHOICES.indexOf(3600);
     creatingRoom = false;
     if (popGuard) consumeOverlayGuard();
   }
@@ -2853,15 +2853,15 @@
                   </div>
                   <Range
                     min={0}
-                    max={RETENTION_SECONDS.length - 1}
+                    max={RETENTION_CHOICES.length - 1}
                     step={1}
                     bind:value={retentionIndex}
                     inputId="app-retention"
                     {@attach asSlider(retentionLabel)}
                   />
                   <div class="flex justify-between text-[12px] text-[var(--app-label-2)]" aria-hidden="true">
-                    <span>{formatDuration(RETENTION_SECONDS[0], locale, 'short')}</span>
-                    <span>{formatDuration(RETENTION_SECONDS[RETENTION_SECONDS.length - 1], locale, 'short')}</span>
+                    <span>{formatDuration(RETENTION_CHOICES[0], locale, 'short')}</span>
+                    <span>{formatDuration(RETENTION_CHOICES[RETENTION_CHOICES.length - 1], locale, 'short')}</span>
                   </div>
                 </div>
               </ListItem>
