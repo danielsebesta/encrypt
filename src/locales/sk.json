@@ -495,7 +495,7 @@
   "chat.copyMessage": "Kopírovať správu",
   "chat.reactWith": "Reagovať {emoji}",
   "chat.reactMore": "Ďalšie reakcie",
-  "chat.reactionBy": "{emoji} od: {names}",
+  "chat.reactionBy": "{emoji} {count} od: {names}",
   "chat.replyingTo": "Odpoveď pre {name}",
   "chat.replyCancel": "Zrušiť odpoveď",
   "chat.replyUnavailable": "Pôvodná správa tu už nie je",

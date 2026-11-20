@@ -495,7 +495,7 @@
   "chat.copyMessage": "Copier le message",
   "chat.reactWith": "Réagir avec {emoji}",
   "chat.reactMore": "Plus de réactions",
-  "chat.reactionBy": "{emoji} de {names}",
+  "chat.reactionBy": "{emoji} {count} de {names}",
   "chat.replyingTo": "Réponse à {name}",
   "chat.replyCancel": "Annuler la réponse",
   "chat.replyUnavailable": "Le message d’origine n’est plus là",
