@@ -5933,9 +5933,7 @@
               <Icon name="link" size={20} />
             {/snippet}
           </MenuListItem>
-          <div on:click={closeHeaderMenu} role="presentation">
-            <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="konsta" />
-          </div>
+          <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="konsta" onopen={closeHeaderMenu} />
           <MenuListItem link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'switch', 'aria-checked': blurWhenAway }} title={t(dict, 'chat.blurWhenAway')} onClick={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
             {#snippet media()}
               <Icon name="eye" size={20} />
@@ -6240,7 +6238,7 @@
         {@const groupStart = !messages[i - 1]?.sender || messages[i - 1]?.sender !== msg.sender}
         {@const groupEnd = !messages[i + 1] || messages[i + 1]?.sender !== msg.sender}
         {#snippet bubbleAvatar()}
-          <div class="chat-avatar" style="background: {gradientFor(msg.alias, msg.sender)}" title={msg.sender} aria-label={msg.sender}></div>
+          <div class="chat-avatar" role="img" style="background: {gradientFor(msg.alias, msg.sender)}" title={msg.sender} aria-label={msg.sender}></div>
         {/snippet}
         {#snippet bubbleMeta()}
           <div class="chat-sender-row">
