@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
+import { REPO_URL } from '../lib/repo';
 
 interface Props {
   code: '403' | '404' | '500';
@@ -19,7 +20,7 @@ const homeHref = '/';
     <p class="page-lead mx-auto">{t(dict, `${code}.text`)}</p>
     <div class="actions mt-8 justify-center">
       <a href={homeHref} class="btn">{t(dict, `${code}.ctaPrimary`)}</a>
-      <a href="https://github.com/danielsebesta/encrypt/issues" target="_blank" rel="noopener noreferrer" class="btn-secondary">{t(dict, `${code}.ctaSecondary`)}</a>
+      <a href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer" class="btn-secondary">{t(dict, `${code}.ctaSecondary`)}</a>
     </div>
   </div>
 </Layout>

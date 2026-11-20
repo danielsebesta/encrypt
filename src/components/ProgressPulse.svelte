@@ -48,7 +48,7 @@
     {#if ratio != null || transferLine}
       <div class="status__transfer">
         {#if ratio != null}
-          <progress class="progress" class:sr-only={!bar} max="1" value={ratio}></progress>
+          <progress class="progress" class:sr-only={!bar} max="1" value={ratio} aria-label={title}></progress>
         {/if}
         {#if transferLine}
           <p class="status__transfer-line">{transferLine}</p>

@@ -2,7 +2,6 @@
 import Layout from '../layouts/Layout.astro';
 import Icon from '../components/Icon.astro';
 import HomeTry from '../components/home/HomeTry.svelte';
-import HeroTagline from '../components/home/HeroTagline.svelte';
 import HomeTools from '../components/home/HomeTools.astro';
 import HomeBento from '../components/home/HomeBento.astro';
 import AppQr from '../components/home/AppQr.svelte';
@@ -13,7 +12,6 @@ const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
 const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing']);
 
-const taglines = [1, 2, 3, 4].map((n) => t(dict, `home.tagline.${n}`));
 const facts = [1, 2];
 const steps = [[1, 'file-lock'], [2, 'link'], [3, 'lock-open']] as const;
 const deviceItems = [[1, 'file-text'], [2, 'key'], [3, 'shield-keyhole']] as const;
@@ -26,7 +24,7 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
   <div class="page home">
     <section class="home-hero" aria-labelledby="home-hero-title">
       <div class="home-hero__copy">
-        <HeroTagline client:visible id="home-hero-title" lines={taglines} />
+        <h1 id="home-hero-title" class="page-title home-hero__title">{t(dict, 'home.tagline.1')}</h1>
         <p class="page-lead">{t(dict, 'landing.hero.subtitle')}</p>
         <ul class="home-facts">
           {facts.map((n) => (
