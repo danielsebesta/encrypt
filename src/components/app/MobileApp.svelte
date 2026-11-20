@@ -2008,16 +2008,16 @@
       {@const showPlus = platform === 'ios' && (activeTab === 'chats' || activeTab === 'boards')}
       <main class="flex-1 overflow-y-auto min-h-0 app-scroll" class:app-scroll--scrolled={hubScrolled} bind:this={scroller} onscroll={() => { hubScrolled = (scroller?.scrollTop ?? 0) > 2; }}>
         {#if showPlus}
-          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40" role="banner">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
             {#snippet right()}{@render hubPlus()}{/snippet}
           </Navbar>
         {:else if platform === 'ios'}
-          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40" role="banner">
+          <Navbar large={!shotsMode} transparent class="app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {:else}
-          <Navbar class="app-bar app-hub-bar z-40" role="banner">
+          <Navbar class="app-bar app-hub-bar z-40">
             {#snippet title()}{@render hubTitle()}{/snippet}
           </Navbar>
         {/if}
@@ -2463,7 +2463,7 @@
 
     {#if ready && mountedRoomId}
       {#key mountedRoomId}
-        <div class="app-room-wrapper" class:app-room-wrapper--hidden={activeView !== 'room'} inert={activeView !== 'room' || undefined}>
+        <div class="app-room-wrapper" class:app-room-wrapper--hidden={activeView !== 'room'} role={activeView === 'room' ? 'main' : undefined} inert={activeView !== 'room' || undefined}>
           <ChatRoom
             roomId={mountedRoomId}
             roomLabel={activeView === 'room' ? activeRoomLabel : (callRoom?.label ?? activeRoomLabel)}
