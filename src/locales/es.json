@@ -703,6 +703,7 @@
   "chat.callVolume": "Volumen de llamada",
   "chat.callParticipantAudio": "Audio de los participantes",
   "chat.callReturn": "Volver a la llamada",
+  "chat.callResize": "Cambiar el tamaño de la llamada y el chat",
   "chat.callInCall": "En llamada",
   "chat.callNameSpeaking": "{name} está hablando",
   "chat.callPopOut": "Abrir llamada en ventana",

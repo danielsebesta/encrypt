@@ -1141,11 +1141,6 @@
       flex: 1 1 auto;
       min-height: 0;
     }
-    :global(.chat-body--call > .chat-thread) {
-      flex: 0 0 clamp(280px, 34%, 380px);
-      min-height: 0;
-      border-left: 1px solid var(--line-soft);
-    }
   }
   @media (hover: none) {
     .call__expand,

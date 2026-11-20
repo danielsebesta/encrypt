@@ -703,6 +703,7 @@
   "chat.callVolume": "Hlasitosť hovoru",
   "chat.callParticipantAudio": "Zvuk účastníkov",
   "chat.callReturn": "Späť do hovoru",
+  "chat.callResize": "Zmeniť veľkosť hovoru a chatu",
   "chat.callInCall": "V hovore",
   "chat.callNameSpeaking": "Hovorí {name}",
   "chat.callPopOut": "Otvoriť hovor v okne",

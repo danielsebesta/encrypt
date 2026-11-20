@@ -596,6 +596,68 @@
   $: callWide = chatBodyWidth >= 760;
   $: if (!callActive) callMinimized = false;
   $: callChatVisible = !callActive || callMinimized || (callWide && callChatOpen);
+
+  // The divider between the call and the chat when they sit side by side.
+  const CALL_SPLIT_KEY = 'encrypt-call-split';
+  const SPLIT_CHAT_MIN = 260;
+  const SPLIT_CALL_MIN = 320;
+  let chatBodyEl: HTMLDivElement | undefined;
+  let splitWidth: number | null = (() => {
+    try {
+      const saved = Number(JSON.parse(localStorage.getItem(CALL_SPLIT_KEY) || '{}').w);
+      return Number.isFinite(saved) && saved > 0 ? saved : null;
+    } catch {
+      return null;
+    }
+  })();
+  $: splitShown = callActive && !callMinimized && callWide && callChatVisible;
+  $: splitDefaultW = Math.min(Math.max(chatBodyWidth * 0.34, 280), 380);
+  $: splitChatW = splitWidth === null ? null : Math.round(Math.min(Math.max(splitWidth, SPLIT_CHAT_MIN), Math.max(SPLIT_CHAT_MIN, chatBodyWidth - SPLIT_CALL_MIN)));
+  $: splitCallShare = Math.min(80, Math.max(20, Math.round(100 - ((splitChatW ?? splitDefaultW) / Math.max(1, chatBodyWidth)) * 100)));
+
+  function saveCallSplit(width: number | null) {
+    splitWidth = width === null ? null : Math.round(width);
+    try {
+      if (splitWidth === null) localStorage.removeItem(CALL_SPLIT_KEY);
+      else localStorage.setItem(CALL_SPLIT_KEY, JSON.stringify({ w: splitWidth }));
+    } catch {}
+  }
+
+  function splitTo(clientX: number) {
+    const rect = chatBodyEl?.getBoundingClientRect();
+    if (rect) saveCallSplit(Math.min(Math.max(rect.right - clientX, SPLIT_CHAT_MIN), Math.max(SPLIT_CHAT_MIN, rect.width - SPLIT_CALL_MIN)));
+  }
+
+  function startSplitDrag(event: PointerEvent) {
+    if (event.button !== 0) return;
+    const handle = event.currentTarget as HTMLElement;
+    handle.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    const move = (e: PointerEvent) => splitTo(e.clientX);
+    const stop = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', stop);
+      handle.removeEventListener('pointercancel', stop);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', stop);
+    handle.addEventListener('pointercancel', stop);
+  }
+
+  // Arrows move the divider the way they point; Home gives the chat the most room, End the call, Enter resets.
+  function splitKey(event: KeyboardEvent) {
+    const max = Math.max(SPLIT_CHAT_MIN, chatBodyWidth - SPLIT_CALL_MIN);
+    const current = splitChatW ?? splitDefaultW;
+    const next = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? current + 32
+      : event.key === 'ArrowRight' || event.key === 'ArrowDown' ? current - 32
+      : event.key === 'Home' ? max
+      : event.key === 'End' ? SPLIT_CHAT_MIN
+      : event.key === 'Enter' ? null
+      : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    saveCallSplit(next === null ? null : Math.min(Math.max(next, SPLIT_CHAT_MIN), max));
+  }
   let screenShareSupported = false;
   let pipSupported = false;
   let pipWindow: Window | null = null;
@@ -6219,7 +6281,7 @@
       </div>
     {/if}
 
-    <div class="chat-body" bind:clientWidth={chatBodyWidth} class:chat-body--call={callActive} class:chat-body--call-mini={callActive && callMinimized} class:chat-body--chat-hidden={callActive && !callChatVisible}>
+    <div class="chat-body" bind:this={chatBodyEl} bind:clientWidth={chatBodyWidth} style:--call-chat-w={splitChatW !== null ? `${splitChatW}px` : null} class:chat-body--call={callActive} class:chat-body--call-mini={callActive && callMinimized} class:chat-body--chat-hidden={callActive && !callChatVisible}>
       <ChatCall
         {dict}
         {appMode}
@@ -6281,6 +6343,22 @@
         {pipSupported}
         onpip={openCallPip}
       />
+
+      {#if splitShown}
+        <div
+          class="chat-split"
+          role="separator"
+          tabindex="0"
+          aria-orientation="vertical"
+          aria-label={t(dict, 'chat.callResize')}
+          aria-valuemin={20}
+          aria-valuemax={80}
+          aria-valuenow={splitCallShare}
+          on:pointerdown={startSplitDrag}
+          on:keydown={splitKey}
+          on:dblclick={() => saveCallSplit(null)}
+        ></div>
+      {/if}
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
         <div class="chat-messages-shell">
@@ -6841,6 +6919,45 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+  }
+  .chat-split {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    width: 1px;
+    background: var(--line-soft);
+    cursor: col-resize;
+    touch-action: none;
+    transition: background-color var(--duration-fast) var(--ease-out);
+  }
+  .chat-split::before {
+    content: "";
+    position: absolute;
+    inset: 0 -6px;
+  }
+  @container chat-body (min-width: 760px) {
+    :global(.chat-body--call:not(.chat-body--call-mini)) > .chat-thread {
+      flex: 0 0 var(--call-chat-w, clamp(280px, 34%, 380px));
+      min-width: 260px;
+      max-width: calc(100% - 320px);
+    }
+  }
+  .chat-split:hover,
+  .chat-split:active,
+  .chat-split:focus-visible {
+    background: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  @media (pointer: coarse) {
+    .chat-split::before { inset: 0 -11px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat-split { transition: none; }
+  }
+  @media (forced-colors: active) {
+    .chat-split { background: CanvasText; }
+    .chat-split:focus-visible { outline: 2px solid Highlight; }
   }
   .chat-thread {
     flex: 1;
