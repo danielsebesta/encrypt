@@ -23,10 +23,12 @@
     class?: string;
     /** Extra content on the label row, such as a counter or a link. */
     aside?: Snippet;
+    /** Rendered between the error and the hint, such as a password checklist. */
+    below?: Snippet;
     children: Snippet<[FieldControl]>;
   }
 
-  let { label, hint = '', error = '', required = false, hideLabel = false, id, class: className = '', aside, children }: Props = $props();
+  let { label, hint = '', error = '', required = false, hideLabel = false, id, class: className = '', aside, below, children }: Props = $props();
 
   const autoId = $props.id();
   const controlId = $derived(id ?? `field-${autoId}`);
@@ -35,7 +37,7 @@
 
   const control = $derived<FieldControl>({
     id: controlId,
-    'aria-describedby': [hint && hintId, error && errorId].filter(Boolean).join(' ') || undefined,
+    'aria-describedby': [error && errorId, hint && hintId].filter(Boolean).join(' ') || undefined,
     'aria-invalid': error ? 'true' : undefined,
     'aria-errormessage': error ? errorId : undefined,
     required: required || undefined,
@@ -52,6 +54,7 @@
     <label class="label" class:sr-only={hideLabel} for={controlId}>{label}{#if required}<span class="label__required" aria-hidden="true">*</span>{/if}</label>
   {/if}
   {@render children(control)}
-  {#if hint}<p id={hintId} class="hint">{hint}</p>{/if}
   {#if error}<p id={errorId} class="field-error">{error}</p>{/if}
+  {@render below?.()}
+  {#if hint}<p id={hintId} class="hint">{hint}</p>{/if}
 </div>

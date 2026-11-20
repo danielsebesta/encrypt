@@ -112,7 +112,7 @@ Legacy (`export let`) components that build class strings call `buttonClass({ va
 
 | Class | Use |
 | --- | --- |
-| `.field` | grid wrapper: label, control, hint, error (6 px gap). `.field--fill` lets a textarea or dropzone fill the height |
+| `.field` | grid wrapper: label, control, error, hint (6 px gap). `.field--fill` lets a textarea or dropzone fill the height |
 | `.label` | `text-sm` medium. `.label__required` is the red asterisk |
 | `.hint` | `text-sm` muted help text |
 | `.input` | text inputs, `textarea.input`, `select.input`. Exactly 40 px tall (1 px border, 6 px vertical padding, 24 px line), 44 px on coarse pointers, the same as a default button. `textarea.input` starts at 128 px with 8 px padding. `.input--mono` for keys |
@@ -131,6 +131,12 @@ Error contract: the control gets `aria-invalid="true"` and `aria-describedby` th
 
 On a failed submit, call `focusFirstInvalid(formEl)` from `src/lib/focusInvalid.ts`: it waits a tick for the error state to render, then focuses the first `[aria-invalid="true"]` control inside the root.
 
+No field error shows before the first submit. After it, keep a submitted flag and derive each error from the current values, so an error updates or disappears on the edit that fixes it (`$: passwordError = attempted ? problem(password) : ''`). Errors the client cannot re-check (wrong password) clear on the next edit of that field. Every field problem lives under its field; a box or toast is only for failures that belong to no field (network, server, decrypt). Keep submit enabled while fields are invalid, so a refused submit can point at the field instead of leaving a dead button.
+
+### Password rules
+
+Every form where someone chooses a password renders `src/components/PasswordChecklist.svelte` under the field (not where an existing password is entered). It takes `{ ok, label, recommended? }` rules derived from the form's own validation (`checkRoomPassword`), `dict` and `invalid`. While typing each rule shows a check in `--accent` when met and an empty ring when not yet; after a refused submit unmet required rules turn `--danger` with an x. Rules the form does not enforce carry `recommended: true`, read "(recommended)" and never turn danger. Each item states "Met" or "Not met" in its text and the list is in the field's `aria-describedby`; it is never a live region. In `Field`, pass the checklist as the `below` snippet so it sits between the error and the hint. In `/app` the same component renders under the Konsta group and picks up the skin colours through the bridged tokens.
+
 ### `Field.svelte`
 
 `src/components/ui/Field.svelte` generates the ids and wires `for`, `aria-describedby`, `aria-invalid`, `aria-errormessage` and `required`:
@@ -143,7 +149,7 @@ On a failed submit, call `focusFirstInvalid(formEl)` from `src/lib/focusInvalid.
 </Field>
 ```
 
-Props: `label`, `hint`, `error`, `required`, `hideLabel` (keeps the label for assistive tech only), `id` (otherwise generated), `class`, `aside` (snippet next to the label).
+Props: `label`, `hint`, `error`, `required`, `hideLabel` (keeps the label for assistive tech only), `id` (otherwise generated), `class`, `aside` (snippet next to the label), `below` (snippet between the error and the hint, such as a password checklist).
 
 ## Tabs and segmented control
 
