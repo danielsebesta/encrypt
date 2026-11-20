@@ -21,7 +21,7 @@ const retention = ['retention1h', 'retention1d', 'retention7d'];
 const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+/).map((line) => (line.split(/\s+/).length > 3 ? line.replace(/\s+(\S+)$/, '\u00a0$1') : line));
 const tagline = sentences('home.tagline.1');
 const lead = sentences('landing.hero.subtitle');
-const heroPoints = [[1, 'shield-keyhole', null], [2, 'key', null], [3, 'badge-check', `${REPO_URL}#verify-what-is-served`], [4, 'package', `${REPO_URL}/blob/main/docs/self-hosting.md`]] as const;
+const heroPoints = [[1, 'shield-keyhole', null], [2, 'key', null], [3, 'package', `${REPO_URL}/blob/main/docs/self-hosting.md`]] as const;
 const stack = ['AES-256-GCM', 'ECDH P-256', 'ML-KEM-768', 'Ed25519', 'Argon2id', 'HKDF', 'drand'];
 ---
 

@@ -197,7 +197,23 @@ pnpm exec wrangler r2 bucket lifecycle remove encrypt-r2 --name <old whole-bucke
 
 ### Self-host with Docker
 
-The same code also runs as a single Node.js server. `pnpm run build:node` builds it into `dist/`, and the [`Dockerfile`](Dockerfile) packs it with Caddy for HTTPS and coturn for call relays, so one `docker run` with `DOMAIN` set is a complete instance. See [`docs/self-hosting.md`](docs/self-hosting.md).
+The same code also runs as a single Node.js server. The [`Dockerfile`](Dockerfile) packs it with Caddy for HTTPS and coturn for call relays, so one container is a complete instance: pages, uploads, chat and whiteboard rooms and calls.
+
+Try it on your own machine, no domain needed:
+
+```bash
+git clone https://github.com/danielsebesta/encrypt.git && cd encrypt
+docker build -t encrypt-click .
+docker run --rm -p 8080:8080 encrypt-click
+```
+
+Then open http://localhost:8080. Calls need the TURN relay, which turns on with a domain. For a public instance, point a domain at a Linux host and run:
+
+```bash
+docker run -d --name encrypt --restart unless-stopped --network host   -e DOMAIN=encrypt.example.com -e ACME_EMAIL=admin@example.com   -v encrypt-data:/data encrypt-click
+```
+
+Caddy fetches the certificate on the first request, secrets are generated into the volume on the first start, and coturn listens on port 3478. `docker compose up -d --build` does the same with [`docker-compose.yml`](docker-compose.yml). Configuration, ports, backups and upgrades are in [`docs/self-hosting.md`](docs/self-hosting.md).
 
 ## Verify what is served
 
