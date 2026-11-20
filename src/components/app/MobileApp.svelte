@@ -558,7 +558,6 @@
             sessionStorage.setItem(`wb-pw:${room.roomId}`, secret.value);
           } else {
             sessionStorage.setItem('chat-password', secret.value);
-            sessionStorage.setItem('chat-share-password', secret.value);
             sessionStorage.setItem(`chat-pw:${room.roomId}`, secret.value);
           }
         } catch {}

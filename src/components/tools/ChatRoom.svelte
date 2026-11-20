@@ -2450,6 +2450,7 @@
     }
   }
 
+  $: invitePassword = sharePassword || passwordInput.trim();
   $: shareUrl = typeof window === 'undefined' ? '' : appMode
     ? `${location.origin}${getLocalePrefix()}/app?room=${encodeURIComponent(roomId)}`
     : `${location.origin}${location.pathname}`;
@@ -6165,8 +6166,8 @@
             {appMode}
             title={roomId}
             url={shareUrl}
-            password={sharePassword}
-            warning={sharePassword ? t(dict, 'chat.sharePasswordWarning') : ''}
+            password={invitePassword}
+            warning={invitePassword ? t(dict, 'chat.sharePasswordWarning') : ''}
             onDismiss={() => { inviteOpen = false; }}
           />
         </div>
@@ -6177,10 +6178,10 @@
         {dict}
         icon="share-2"
         title={t(dict, 'chat.invite')}
-        description={sharePassword ? t(dict, 'chat.sharePasswordWarning') : t(dict, 'chat.inviteNoPassword')}
+        description={invitePassword ? t(dict, 'chat.sharePasswordWarning') : t(dict, 'chat.inviteNoPassword')}
         onclose={() => { inviteOpen = false; }}
       >
-        <RoomInviteCard {dict} plain url={shareUrl} password={sharePassword} />
+        <RoomInviteCard {dict} plain url={shareUrl} password={invitePassword} />
       </Modal>
     {/if}
 
