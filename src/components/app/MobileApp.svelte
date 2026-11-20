@@ -63,7 +63,7 @@
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { PANIC_FLAG, wipeRoomStorage } from '../../lib/appWipe';
-  import { asButton, asMenu, asSwitch } from '../../lib/konstaA11y';
+  import { asButton, asFieldError, asMenu, asSlider, asSwitch } from '../../lib/konstaA11y';
   import { identiconBackground } from '../../lib/identicon';
   import { copyText } from '../../lib/clipboard';
   import { passwordLongEnough, RETENTION_SECONDS, formatDuration, type ChatMode } from '../../lib/chatRoomSettings';
@@ -204,6 +204,8 @@
   let newRoomKind = $state<'chat' | 'whiteboard'>('chat');
   let newRoomNameError = $state(false);
   let newRoomPwError = $state(false);
+  const newPwInvalid = $derived(newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)));
+  const fieldColors = { errorText: 'app-danger-text', errorBorder: 'border-[var(--app-error)]' };
   let newRoomMode = $state<'live' | 'ttl'>('live');
   let retentionIndex = $state(RETENTION_SECONDS.indexOf(3600));
   let showNewPw = $state(false);
@@ -641,6 +643,7 @@
   }
 
   function onNewRoomModeKeys(e: KeyboardEvent) {
+    if ((e.target as Element).getAttribute('role') !== 'radio') return;
     if (e.key === 'Home' || e.key === 'End') {
       e.preventDefault();
       pickNewRoomMode(e.key === 'Home' ? 'live' : 'ttl');
@@ -1778,6 +1781,8 @@
 {#snippet newPwLabel()}<label for="app-new-pw">{t(dict, 'app.new.password')}</label>{/snippet}
 {#snippet joinIdLabel()}<label for="app-join-id">{t(dict, 'app.join.id')}</label>{/snippet}
 {#snippet joinPwLabel()}<label for="app-join-pw">{t(dict, 'app.join.password')}</label>{/snippet}
+{#snippet newNameError()}<span id="app-new-name-error">{t(dict, 'chat.roomNameRequired')}</span>{/snippet}
+{#snippet newPwError()}<span id="app-new-pw-error">{t(dict, 'app.new.passwordShort')}</span>{/snippet}
 
 {#snippet toastDismiss()}
   <button type="button" class="app-toast__close" tabindex={toastOpen ? 0 : -1} onclick={() => (toastOpen = false)} aria-label={t(dict, 'app.close')}>
@@ -2398,6 +2403,28 @@
           </List>
         </div>
       {/if}
+
+      <!-- ROOM ROW CONTEXT MENU -->
+      <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop} data-app-overlay="actions" tabindex="-1">
+        <MenuList {@attach asMenu} aria-label={actionTarget?.label || actionTarget?.roomId} onkeydown={onRowMenuKeys}>
+          {#each [
+            { key: 'pin', title: t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin'), icon: (actionTarget?.pinned ? 'pin-off' : 'pin') as IconName, run: togglePin, danger: false },
+            ...(actionTarget && actionTarget.kind !== 'whiteboard' ? [{ key: 'notify', title: t(dict, notifyRooms.has(actionTarget.roomId) ? 'app.row.notifyOff' : 'app.row.notifyOn'), icon: (notifyRooms.has(actionTarget.roomId) ? 'bell-off' : 'bell') as IconName, run: toggleRowNotify, danger: false }] : []),
+            { key: 'rename', title: t(dict, 'app.row.rename'), icon: 'pencil' as IconName, run: openRename, danger: false },
+            { key: 'remove', title: t(dict, 'app.row.remove'), icon: 'trash' as IconName, run: openDelete, danger: true },
+          ] as item (item.key)}
+            {#if platform === 'ios'}
+              <MenuListItem class={item.danger ? 'app-menu-danger' : ''} role="none" link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitem' }} title={item.title} onClick={item.run}>
+                {#snippet after()}<AppIcons name={item.icon} size={19} />{/snippet}
+              </MenuListItem>
+            {:else}
+              <MenuListItem class={item.danger ? 'app-menu-danger' : ''} role="none" link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitem' }} title={item.title} onClick={item.run}>
+                {#snippet media()}<AppIcons name={item.icon} size={22} />{/snippet}
+              </MenuListItem>
+            {/if}
+          {/each}
+        </MenuList>
+      </Popover>
       </main>
 
       {@render newRoomFab()}
@@ -2525,7 +2552,9 @@
             autocomplete="off"
             autocapitalize="off"
             spellcheck={false}
-            error={newRoomNameError ? t(dict, 'chat.roomNameRequired') : undefined}
+            error={newRoomNameError ? newNameError : undefined}
+            colors={fieldColors}
+            {@attach asFieldError(newRoomNameError ? 'app-new-name-error' : null)}
             onInput={() => (newRoomNameError = false)}
             enterkeyhint="next"
             onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); newPwInput?.focus(); } }}
@@ -2537,13 +2566,14 @@
           <ListInput
             class="app-pass-row"
             label={newPwLabel}
-            error={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)) ? t(dict, 'app.new.passwordShort') : undefined}
+            error={newPwInvalid ? newPwError : undefined}
+            colors={fieldColors}
           >
             {#snippet media()}
               <span class="text-[var(--app-label-3)]"><AppIcons name="lock" size={18} /></span>
             {/snippet}
             {#snippet input()}
-              <div class="app-passphrase" class:app-passphrase--invalid={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword))}>
+              <div class="app-passphrase">
                 <input
                   bind:this={newPwInput}
                   id="app-new-pw"
@@ -2558,7 +2588,8 @@
                   data-lpignore="true"
                   data-1p-ignore
                   data-bwignore="true"
-                  aria-invalid={newRoomPwError || (newRoomPassword.length > 0 && !passwordLongEnough(newRoomPassword)) ? 'true' : undefined}
+                  aria-invalid={newPwInvalid ? 'true' : undefined}
+                  aria-describedby={newPwInvalid ? 'app-new-pw-error' : undefined}
                   oninput={() => {
                     newRoomPwError = false;
                     if (!newPwShownByUser) showNewPw = false;
@@ -2643,11 +2674,13 @@
                 {/if}
               {/snippet}
             </ListItem>
-            {#if newRoomMode === 'ttl'}
+          </List>
+          {#if newRoomMode === 'ttl'}
+            <List strong inset class="m-0! app-choices">
               <ListItem>
                 <div class="app-retention">
                   <div class="flex items-baseline justify-between gap-3">
-                    <span class="text-[13px] text-[var(--app-label-2)]">{t(dict, 'chat.retention')}</span>
+                    <label for="app-retention" class="text-[13px] text-[var(--app-label-2)]">{t(dict, 'chat.retention')}</label>
                     <span class="text-[15px] font-semibold text-[var(--app-label)] tabular-nums">{retentionLabel}</span>
                   </div>
                   <Range
@@ -2655,16 +2688,17 @@
                     max={RETENTION_SECONDS.length - 1}
                     step={1}
                     bind:value={retentionIndex}
-                    aria-label={t(dict, 'chat.retention')}
+                    inputId="app-retention"
+                    {@attach asSlider(retentionLabel)}
                   />
-                  <div class="flex justify-between text-[11px] text-[var(--app-label-2)]">
+                  <div class="flex justify-between text-[12px] text-[var(--app-label-2)]" aria-hidden="true">
                     <span>{formatDuration(RETENTION_SECONDS[0], locale, 'short')}</span>
                     <span>{formatDuration(RETENTION_SECONDS[RETENTION_SECONDS.length - 1], locale, 'short')}</span>
                   </div>
                 </div>
               </ListItem>
-            {/if}
-          </List>
+            </List>
+          {/if}
         {/if}
         {#if platform === 'material'}
           <Button large rounded class="w-full" disabled={!canCreateRoom} onClick={handleCreateRoom}>
@@ -2926,27 +2960,6 @@
       {/snippet}
     </Dialog>
 
-    <!-- ROOM ROW CONTEXT MENU -->
-    <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop} data-app-overlay="actions" tabindex="-1">
-      <MenuList {@attach asMenu} aria-label={actionTarget?.label || actionTarget?.roomId} onkeydown={onRowMenuKeys}>
-        {#each [
-          { key: 'pin', title: t(dict, actionTarget?.pinned ? 'app.row.unpin' : 'app.row.pin'), icon: (actionTarget?.pinned ? 'pin-off' : 'pin') as IconName, run: togglePin, danger: false },
-          ...(actionTarget && actionTarget.kind !== 'whiteboard' ? [{ key: 'notify', title: t(dict, notifyRooms.has(actionTarget.roomId) ? 'app.row.notifyOff' : 'app.row.notifyOn'), icon: (notifyRooms.has(actionTarget.roomId) ? 'bell-off' : 'bell') as IconName, run: toggleRowNotify, danger: false }] : []),
-          { key: 'rename', title: t(dict, 'app.row.rename'), icon: 'pencil' as IconName, run: openRename, danger: false },
-          { key: 'remove', title: t(dict, 'app.row.remove'), icon: 'trash' as IconName, run: openDelete, danger: true },
-        ] as item (item.key)}
-          {#if platform === 'ios'}
-            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} role="none" link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitem' }} title={item.title} onClick={item.run}>
-              {#snippet after()}<AppIcons name={item.icon} size={19} />{/snippet}
-            </MenuListItem>
-          {:else}
-            <MenuListItem class={item.danger ? 'app-menu-danger' : ''} role="none" link chevron={false} linkComponent="button" linkProps={{ type: 'button', role: 'menuitem' }} title={item.title} onClick={item.run}>
-              {#snippet media()}<AppIcons name={item.icon} size={22} />{/snippet}
-            </MenuListItem>
-          {/if}
-        {/each}
-      </MenuList>
-    </Popover>
 
     <!-- RENAME DIALOG -->
     <Dialog
