@@ -188,7 +188,7 @@
     <div class="status status--warn">
       <div>
         <p>{t(dict, key('otherLink'))}</p>
-        <a href={otherLink} rel="noopener noreferrer" class="break-all font-semibold underline underline-offset-2">{otherLink}</a>
+        <a href={otherLink} rel="noopener noreferrer" class="link break-all font-semibold text-current">{otherLink}</a>
       </div>
     </div>
   {/if}

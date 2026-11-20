@@ -1,11 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getTranslations, t, type Locale } from '../lib/i18n';
+import { REPO_URL } from '../lib/repo';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-
-const linkClass = 'text-accent-strong underline decoration-current/30 underline-offset-4 hover:decoration-current';
 
 const links: Record<string, { href: string; key: string; external?: boolean }> = {
   license: {
@@ -46,7 +45,7 @@ const links: Record<string, { href: string; key: string; external?: boolean }> =
     key: 'licenses.link.oflApp',
   },
   repo: {
-    href: 'https://github.com/danielsebesta/encrypt',
+    href: REPO_URL,
     key: 'licenses.link.repo',
     external: true,
   },
@@ -79,9 +78,9 @@ const sections = [
             if (!link) return part;
             const label = t(dict, link.key);
             return link.external ? (
-              <a href={link.href} class={linkClass} target="_blank" rel="noopener noreferrer">{label}</a>
+              <a href={link.href} class="link" target="_blank" rel="noopener noreferrer">{label}</a>
             ) : (
-              <a href={link.href} class={linkClass}>{label}</a>
+              <a href={link.href} class="link">{label}</a>
             );
           })}
         </p>

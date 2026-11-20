@@ -205,12 +205,8 @@ html.dark {
     }
 
     body {
-        @apply min-h-screen flex flex-col;
+        @apply relative min-h-screen flex flex-col;
         min-height: 100dvh;
-    }
-
-    body {
-        position: relative;
     }
 
     h1, h2, h3, h4 {
@@ -537,8 +533,7 @@ html.dark {
     }
 
     input[type="checkbox"] {
-        @apply inline-grid place-content-center;
-        border-radius: 4px;
+        @apply inline-grid place-content-center rounded-xs;
     }
 
     input[type="radio"] {
@@ -637,6 +632,12 @@ html.dark {
 
         input[type="checkbox"]::before {
             content: none;
+        }
+
+        select.input {
+            appearance: auto;
+            padding-right: 0.75rem;
+            background-image: none;
         }
     }
 
@@ -759,6 +760,10 @@ html.dark {
 
     .panel--flush {
         @apply overflow-hidden p-0 md:p-0;
+    }
+
+    .panel--flush :focus-visible {
+        outline-offset: -2px;
     }
 
     .icon-tile {
@@ -971,6 +976,19 @@ html.dark {
         animation: none;
     }
 
+    @media (forced-colors: active) {
+        .status {
+            outline: 1px solid CanvasText;
+            outline-offset: -1px;
+        }
+
+        .field-error::before,
+        .status--error::before {
+            forced-color-adjust: none;
+            background-color: CanvasText;
+        }
+    }
+
     .status__title {
         @apply font-semibold;
     }
@@ -1168,7 +1186,7 @@ html.dark {
         transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
     }
 
-    button.chip:not(:disabled):hover {
+    button.chip:not(:disabled, [aria-disabled="true"]):hover {
         @apply bg-surface-2;
     }
 
@@ -1177,7 +1195,7 @@ html.dark {
         @apply border-accent-line bg-accent-weak text-accent-strong;
     }
 
-    .chip:disabled {
+    .chip:is(:disabled, [aria-disabled="true"]) {
         @apply cursor-not-allowed opacity-50;
     }
 
@@ -1261,18 +1279,14 @@ html.dark {
     }
 
     .about__body {
-        @apply mt-3 cursor-pointer overflow-hidden text-base leading-relaxed text-muted;
+        @apply mt-3 text-base leading-relaxed text-muted;
+    }
+
+    html.js .about:not(.about--open, .about--fits) .about__body {
+        @apply cursor-pointer overflow-hidden;
         max-height: 9.5rem;
         mask-image: linear-gradient(to bottom, #000 40%, transparent 88%);
         -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 88%);
-    }
-
-    .about--open .about__body,
-    .about--fits .about__body {
-        @apply cursor-auto;
-        max-height: none;
-        mask-image: none;
-        -webkit-mask-image: none;
     }
 
     .about__body h3 {
@@ -1295,6 +1309,7 @@ html.dark {
         @apply mt-1;
     }
 
+    html:not(.js) .about__toggle,
     .about--fits .about__toggle {
         display: none;
     }
@@ -1515,8 +1530,16 @@ html.dark {
         @apply my-1 h-px border-0 bg-line;
     }
 
-    .menu__item[aria-current="page"] {
+    .menu__item:is([aria-current="page"], [aria-current="true"]) {
         @apply bg-surface-2;
+    }
+
+    @media (forced-colors: active) {
+        .nav__link[aria-current="page"],
+        .menu__item:is([aria-current="page"], [aria-current="true"]) {
+            text-decoration: underline 2px;
+            text-underline-offset: 4px;
+        }
     }
 
     .menu__code {
@@ -1586,9 +1609,11 @@ html.dark {
         .nav__links .menu {
             display: none;
             position: static;
-            margin: 0;
+            margin: 0 0 0.25rem 1.25rem;
             min-width: 0;
-            padding: 0 0 0.25rem 0.5rem;
+            padding: 0 0 0 0.5rem;
+            border-width: 0 0 0 1px;
+            border-radius: 0;
             background: transparent;
             box-shadow: none;
         }
@@ -1759,11 +1784,7 @@ html.dark {
     }
 
     .site-footer__nav a {
-        @apply inline-flex min-h-11 items-center gap-1.5 transition-opacity hover:opacity-70;
-    }
-
-    .site-footer__nav a:hover {
-        @apply no-underline;
+        @apply inline-flex min-h-11 items-center gap-1.5 underline-offset-4 hover:underline;
     }
 
     .site-footer__legal {
@@ -1786,10 +1807,6 @@ html.dark {
 
     .home-hero {
         @apply grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16 lg:pt-4;
-    }
-
-    body {
-        position: relative;
     }
 
     .flow-bg {
@@ -2474,6 +2491,10 @@ html.dark {
 
     /* ── Article ── */
 
+    .link {
+        @apply text-accent-strong underline decoration-current/40 underline-offset-4 hover:decoration-current;
+    }
+
     .article section {
         @apply mt-8;
     }
@@ -2650,7 +2671,7 @@ html.dark {
     }
 
     .integrity-alert__links a {
-        @apply underline decoration-current/30 underline-offset-4 hover:decoration-current;
+        @apply underline decoration-current/40 underline-offset-4 hover:decoration-current;
     }
 
     .ud-code-comment {
@@ -2733,7 +2754,7 @@ html.dark {
 
     .chat-md .chat-subtext {
         display: block;
-        font-size: 0.8em;
+        font-size: max(0.75rem, 0.8em);
         line-height: 1.4;
         color: var(--muted);
     }
@@ -2777,7 +2798,7 @@ html.dark {
         border-radius: 0.3em;
         background: var(--surface-2);
         font-family: var(--font-mono);
-        font-size: 0.85em;
+        font-size: max(0.75rem, 0.85em);
         overflow-wrap: anywhere;
     }
 
@@ -2791,7 +2812,7 @@ html.dark {
         border-radius: 0.5rem;
         background: var(--surface-2);
         font-family: var(--font-mono);
-        font-size: 0.8125em;
+        font-size: max(0.75rem, 0.8125em);
         line-height: 1.5;
         white-space: pre;
         word-break: normal;
@@ -2809,7 +2830,7 @@ html.dark {
         display: block;
         margin-bottom: 0.25em;
         font-family: var(--font-sans);
-        font-size: 0.75em;
+        font-size: 0.75rem;
         font-weight: 700;
         color: var(--muted);
         user-select: none;
