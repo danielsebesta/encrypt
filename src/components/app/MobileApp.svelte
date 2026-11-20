@@ -2497,7 +2497,7 @@
       opened={newRoomSheetOpen}
       inert={!newRoomSheetOpen}
       onBackdropClick={() => closeNewRoomSheet()}
-      class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      class="app-sheet {platform === 'ios' ? '' : 'app-sheet--tall '}pb-[env(safe-area-inset-bottom)]"
       data-app-overlay="newRoom"
       role="dialog"
       aria-modal="true"
@@ -2677,7 +2677,7 @@
       opened={joinRoomSheetOpen}
       inert={!joinRoomSheetOpen}
       onBackdropClick={() => closeJoinRoomSheet()}
-      class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      class="app-sheet {platform === 'ios' ? '' : 'app-sheet--tall '}pb-[env(safe-area-inset-bottom)]"
       data-app-overlay="join"
       role="dialog"
       aria-modal="true"
