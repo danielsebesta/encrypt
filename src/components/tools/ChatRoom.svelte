@@ -6989,6 +6989,11 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chat-call-banner__actions { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
+  .chat-safety-banner { flex-wrap: wrap; }
+  .chat-safety-banner .chat-call-banner__meta { flex: 1 1 16rem; flex-wrap: wrap; row-gap: 0.25rem; }
+  @media (max-width: 639px) {
+    .chat-safety-banner .hint { flex-basis: 100%; }
+  }
   .chat-loader {
     display: block;
     width: 1.5rem;
