@@ -1072,6 +1072,9 @@
 :root[data-app-platform="ios"] .k-dialog .k-button {
     padding-inline: 0.875rem;
 }
+:root[data-app-platform="ios"] .k-button.bg-primary {
+    color: var(--app-on-tint);
+}
 :root[data-app-platform="ios"] .k-dialog.app-dialog--stack > div:has(> .k-button) {
     flex-direction: column-reverse;
     align-items: stretch;

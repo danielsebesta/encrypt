@@ -5,6 +5,12 @@ export const asButton: Attachment<HTMLElement> = (node) => {
   node.setAttribute('role', 'button');
 };
 
+/** Konsta's MenuList puts its items in a bare <ul>; inside a menu that list has to be presentational. */
+export const asMenu: Attachment<HTMLElement> = (node) => {
+  node.setAttribute('role', 'menu');
+  node.querySelector(':scope > ul')?.setAttribute('role', 'none');
+};
+
 /** Konsta's Toggle wraps an unnamed checkbox in a <label>; expose that input as a named switch. */
 export function asSwitch(name: string): Attachment<HTMLElement> {
   return (node) => {

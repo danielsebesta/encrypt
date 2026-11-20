@@ -963,6 +963,9 @@ html[data-app-platform] ::selection {
 .app-composer__input::placeholder {
     color: var(--app-label-3);
     line-height: 22px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .app-composer .btn-ghost {
     color: var(--app-label-2);
@@ -2023,6 +2026,7 @@ html[data-app-platform] ::selection {
 }
 .app-radio::after {
     content: '';
+    display: block;
     position: absolute;
     inset: 3px;
     border-radius: inherit;

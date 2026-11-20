@@ -17,6 +17,7 @@
     password = '',
     ready = false,
     variant = 'icon',
+    onopen,
   }: {
     dict: Record<string, string>;
     kind: RoomKind;
@@ -25,6 +26,7 @@
     password?: string;
     ready?: boolean;
     variant?: 'icon' | 'menu' | 'konsta';
+    onopen?: () => void;
   } = $props();
 
   let entry = $state<RoomEntry | null>(null);
@@ -60,6 +62,7 @@
   };
 
   async function openDialog() {
+    onopen?.();
     message = '';
     host = location.hostname;
     label = entry?.label ?? roomId;
