@@ -351,6 +351,7 @@
   "chat.typingAnd": "und",
   "chat.severalTyping": "Mehrere Personen schreiben",
   "chat.messagePlaceholder": "Nachricht eingeben...",
+  "chat.messagesLabel": "Nachrichten",
   "chat.customRoomId": "Raumname",
   "chat.customRoomIdPlaceholder": "z.B. wohnzimmer",
   "chat.customRoomIdHint": "Wer diesen Namen und dasselbe Passwort eingibt, trifft sich im gleichen Raum. Der Name ist nicht geheim.",

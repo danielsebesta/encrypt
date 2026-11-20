@@ -351,6 +351,7 @@
   "chat.typingAnd": "et",
   "chat.severalTyping": "Plusieurs personnes écrivent",
   "chat.messagePlaceholder": "Tapez un message...",
+  "chat.messagesLabel": "Messages du salon",
   "chat.customRoomId": "Nom du salon",
   "chat.customRoomIdPlaceholder": "ex. salon",
   "chat.customRoomIdHint": "Quiconque saisit ce nom et le même mot de passe se retrouvé dans le même salon. Le nom n’est pas secret.",

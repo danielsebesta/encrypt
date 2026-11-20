@@ -893,6 +893,12 @@
     if (emojiPopEl?.contains(el) || el?.closest?.('.chat-emoji-btn')) return;
     closeEmoji(false);
   }
+
+  function onEmojiFocusout(event: FocusEvent) {
+    const next = event.relatedTarget as Element | null;
+    if (!next || next === inputEl || emojiPopEl?.contains(next) || next.closest('.chat-emoji-btn')) return;
+    closeEmoji(false);
+  }
   let sheetMsg: Message | undefined;
   $: if (appMode && actionMenuFor) sheetMsg = messageIndex.get(actionMenuFor) ?? sheetMsg;
   let openOverlays: Record<string, boolean> = {};
@@ -5695,17 +5701,23 @@
       <div class="chat-me__text">
         <p class="chat-me__label">{t(dict, 'chat.youAppearAs')}</p>
         <p class="chat-me__name">{identity.name}</p>
-        {#if myKeyCode}<p class="chat-me__code" title={t(dict, 'chat.safetyNumberHint')}>{t(dict, 'chat.keyCode')} <span aria-label={myKeyCode}>{myKeyCode}</span></p>{/if}
+        {#if myKeyCode}<p class="chat-me__code" title={t(dict, 'chat.safetyNumberHint')}>{t(dict, 'chat.keyCode')} <span>{myKeyCode}</span></p>{/if}
       </div>
     </div>
     {#if nameEditing}
       <form class="chat-me__form" on:submit|preventDefault={saveName}>
-        <input class={appMode ? 'app-dialog-input chat-me__input' : 'input chat-me__input'} bind:this={nameInputEl} bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} aria-label={t(dict, 'chat.yourName')} autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-invalid={nickError ? 'true' : undefined} aria-describedby="chat-me-hint" on:keydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); cancelNameEdit(); } }} />
+        {#if !appMode}<label class="label" for="chat-me-input">{t(dict, 'chat.yourName')}</label>{/if}
+        <input id="chat-me-input" class={appMode ? 'app-dialog-input chat-me__input' : 'input chat-me__input'} bind:this={nameInputEl} bind:value={nickInput} maxlength="24" placeholder={aliasName(dict, alias)} aria-label={appMode ? t(dict, 'chat.yourName') : undefined} autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-invalid={nickError ? 'true' : undefined} aria-describedby="chat-me-hint" on:keydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); cancelNameEdit(); } }} />
+        {#if !appMode}
+          <p id="chat-me-hint" class={nickError ? 'field-error' : 'hint'} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
+        {/if}
         <div class="chat-me__actions">
           <button type="submit" class={appMode ? 'app-sheet-btn' : 'btn btn-sm'}>{t(dict, 'chat.nicknameSave')}</button>
           <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal' : 'btn-secondary btn-sm'} on:click={cancelNameEdit}>{t(dict, 'chat.cancel')}</button>
         </div>
-        <p id="chat-me-hint" class="chat-me__hint" class:chat-me__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
+        {#if appMode}
+          <p id="chat-me-hint" class="chat-me__hint" class:chat-me__hint--error={Boolean(nickError)} role={nickError ? 'alert' : undefined}>{nickError || t(dict, 'chat.nicknameHint')}</p>
+        {/if}
       </form>
     {:else}
       <div class="chat-me__actions">
@@ -5764,7 +5776,7 @@
     <div class="chat-center">
       <div class="space-y-4 max-w-xs w-full text-center">
         {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="search" size={20} /></span>{/if}
-        <p class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</p>
+        <h2 class="text-base font-bold text-text">{t(dict, 'chat.roomMissing')}</h2>
         <p class="hint">{t(dict, 'chat.roomMissingDetail')}</p>
         {#if appMode}
           <button type="button" class="btn btn-block" on:click={() => onExitApp?.()}>{t(dict, 'common.back')}</button>
@@ -5780,10 +5792,7 @@
       {@render chatSkeleton(t(dict, 'chat.opening'))}
     {:else}
     <div class="chat-center">
-      <div class="text-center space-y-2" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
-        <span class="chat-loader" aria-hidden="true"></span>
-        <p class="hint">{t(dict, 'common.working')}</p>
-      </div>
+      <p class="status status--busy" role="status">{t(dict, 'common.working')}</p>
     </div>
     {/if}
 
@@ -5792,32 +5801,34 @@
       <div class="space-y-4 max-w-xs w-full">
         <div class="text-center space-y-2">
           {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="lock-keyhole" size={20} /></span>{/if}
-          <p class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</p>
-          <p class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
+          <h2 class="text-base font-bold text-text">{t(dict, 'chat.roomRequiresPassword')}</h2>
+          <p id="chat-password-hint" class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
-        <div class="field">
-          <input
-            type="password"
-            class="input w-full"
-            aria-label={t(dict, 'chat.password')}
-            aria-invalid={passwordError ? 'true' : undefined}
-            aria-describedby={passwordError ? 'chat-password-error' : undefined}
-            placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
-            bind:value={passwordInput}
-            on:keydown={(e) => e.key === 'Enter' && submitPassword()}
-            autocomplete="off"
-            data-lpignore="true"
-            data-1p-ignore
-            data-bwignore="true"
-          />
-          {#if passwordError}
-            <p id="chat-password-error" class="field-error" role="alert">{passwordError}</p>
+        <form class="space-y-4" novalidate on:submit|preventDefault={submitPassword}>
+          <div class="field">
+            <label class="label" class:sr-only={appMode} for="chat-password">{t(dict, 'chat.password')}</label>
+            <input
+              id="chat-password"
+              type="password"
+              class="input w-full"
+              aria-invalid={passwordError ? 'true' : undefined}
+              aria-describedby={passwordError ? 'chat-password-error chat-password-hint' : 'chat-password-hint'}
+              placeholder={t(dict, 'chat.roomPasswordPlaceholder')}
+              bind:value={passwordInput}
+              autocomplete="off"
+              data-lpignore="true"
+              data-1p-ignore
+              data-bwignore="true"
+            />
+            {#if passwordError}
+              <p id="chat-password-error" class="field-error" role="alert">{passwordError}</p>
+            {/if}
+          </div>
+          <button type="submit" class="btn btn-block">{t(dict, 'chat.enterRoom')}</button>
+          {#if appMode && onSavedPassword}
+            <button type="button" class="btn-secondary btn-block" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
           {/if}
-        </div>
-        <button class="btn btn-block" on:click={submitPassword}>{t(dict, 'chat.enterRoom')}</button>
-        {#if appMode && onSavedPassword}
-          <button class="btn-secondary btn-block" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
-        {/if}
+        </form>
       </div>
     </div>
 
@@ -5826,10 +5837,7 @@
       {@render chatSkeleton(serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone'))}
     {:else}
     <div class="chat-center">
-      <div class="text-center space-y-2" role="status" aria-live="polite">
-        <span class="chat-loader" aria-hidden="true"></span>
-        <p class="hint">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
-      </div>
+      <p class="status status--busy max-w-xs" role="status">{serverPresence > 1 ? t(dict, 'chat.verifyingPassword') : t(dict, 'chat.verifyingAlone')}</p>
     </div>
     {/if}
 
@@ -5888,27 +5896,27 @@
           </button>
           <div id="chat-room-menu" class="menu menu--end chat-header-menu__panel" class:menu--open={headerMenuOpen} role="menu" tabindex="-1" aria-label={t(dict, 'chat.roomMenu')} bind:this={roomMenuEl} use:menu={{ open: headerMenuOpen, onclose: closeHeaderMenu, trigger: roomMenuTriggerEl, autofocus: false }}>
             <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); copyShareLink(); }}>
-              <Icon name="link" class="chat-header-menu__icon" />
+              <Icon name="link" />
               {shareCopiedLink ? t(dict, 'common.copied') : t(dict, 'chat.copyRoomLink')}
             </button>
             <div role="none" on:click={closeHeaderMenu}>
               <SaveRoomButton {dict} kind="chat" {roomId} mode={roomConfig.mode} password={passwordInput} ready={verified} variant="menu" />
             </div>
           <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={blurWhenAway} on:click={() => { setBlurWhenAway(!blurWhenAway); closeHeaderMenu(); }}>
-              <Icon name="eye" class="chat-header-menu__icon" />
+              <Icon name="eye" />
               {t(dict, 'chat.blurWhenAway')}
-              {#if blurWhenAway}<Icon name="check" class="chat-header-menu__check" />{/if}
+              {#if blurWhenAway}<Icon name="check" class="ml-auto text-accent" />{/if}
             </button>
             {#if notifySupported}
               <button type="button" class="menu__item" role="menuitemcheckbox" aria-checked={notifyOn} on:click={() => { void toggleNotifications(); closeHeaderMenu(); }}>
-                <Icon name="bell" class="chat-header-menu__icon" />
+                <Icon name="bell" />
                 {t(dict, 'chat.notifications')}
-                {#if notifyOn}<Icon name="check" class="chat-header-menu__check" />{/if}
+                {#if notifyOn}<Icon name="check" class="ml-auto text-accent" />{/if}
               </button>
             {/if}
             {#if shouldKeepParticipantHistory()}
               <button type="button" class="menu__item" role="menuitem" on:click={() => { closeHeaderMenu(); exportHistory(); }} disabled={!verified}>
-                <Icon name="download" class="chat-header-menu__icon" />
+                <Icon name="download" />
                 {exportFlash ? t(dict, 'chat.exportDownloaded') : t(dict, 'chat.exportHistory')}
               </button>
             {/if}
@@ -6017,7 +6025,7 @@
         <div class="chat-call-banner__meta">
           <p class="chat-call-banner__title">{t(dict, 'chat.safetyCompareTitle')}</p>
           <p class="chat-call-banner__name">{safetyPrompt.name}</p>
-          <p class="chat-member__emoji chat-member__safety" aria-label={safetyPrompt.safety}>{#each safetyPrompt.safety.split(' ') as group}<span>{group}</span>{/each}</p>
+          <p class="chat-member__emoji chat-member__safety">{#each safetyPrompt.safety.split(' ') as group}<span>{group}</span>{/each}</p>
           <p class="hint">{t(dict, 'chat.safetyCompareHint')}</p>
         </div>
         <div class="chat-call-banner__actions">
@@ -6066,7 +6074,7 @@
     {/if}
 
     {#if membersOpen && !appMode}
-      <div class="chat-members" id="chat-members">
+      <div class="chat-members chat-members--site" id="chat-members">
         {@render identityCard()}
         <ChatMembers {dict} members={memberList} online={onlinePks} verified={verifiedPks} self={mySignerId} ontrust={trustKey} onverify={setVerified} />
       </div>
@@ -6221,7 +6229,7 @@
 
       <div class="chat-thread" class:chat-thread--drop={dragDepth > 0} on:dragenter={handleDragEnter} on:dragover={handleDragOver} on:dragleave={handleDragLeave} on:drop={handleDrop}>
         <div class="chat-messages-shell">
-        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite" tabindex="0">
+        <div class="chat-messages" class:chat-messages--blurred={blurWhenAway && blurred} bind:this={messagesEl} on:scroll={updateStickToBottom} on:wheel={cancelPin} on:touchstart|passive={cancelPin} use:revealSpoilers role="log" aria-live="polite" aria-label={t(dict, 'chat.messagesLabel')} tabindex="0">
       {#if messages.length === 0 && historyReady}
         <div class="empty max-w-sm mx-auto my-auto">
           {#if appMode}<span class="app-state-glyph" aria-hidden="true"><Icon name="message-circle" size={20} /></span>{/if}
@@ -6421,7 +6429,7 @@
                   <span class="badge badge--accent" title={t(dict, 'chat.onceHint')}>{t(dict, 'chat.onceBadge')}</span>
                 {/if}
                 {#if msg.keyWarning}
-                  <button type="button" class="btn-ghost btn-sm chat-key-flag" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
+                  <button type="button" class="btn-secondary btn-sm text-warn" title={t(dict, 'chat.keyNewHint')} on:click={() => { membersOpen = true; burnConfirmMsg = null; headerMenuOpen = false; }}>{t(dict, 'chat.keyNew')}</button>
                 {/if}
                 {#if (msg.pending || msg.unacked) && msg.slow}
                   <span class="chat-send-state" role="status">
@@ -6429,7 +6437,7 @@
                     {t(dict, 'chat.queued')}
                   </span>
                 {:else if msg.failed}
-                  <button type="button" class="btn-secondary btn-sm chat-retry" on:click={() => retryQueued(msg)}>
+                  <button type="button" class="btn-secondary btn-sm text-danger" on:click={() => retryQueued(msg)}>
                     <Icon name="rotate-ccw-clock" />
                     {t(dict, 'chat.tryAgain')}
                   </button>
@@ -6529,8 +6537,8 @@
               <ChatReactions {dict} {appMode} items={reactionTick >= 0 ? reactionBook.summary(msg.id, mySignerId, t(dict, 'chat.you')) : []} ontoggle={(emoji) => toggleReaction(msg, emoji)} />
             </div>
             {#if msg.ttl > 0}
-              <div class="chat-timer" title="{Math.ceil(msg.remaining)}s">
-                <svg class="chat-timer__ring" viewBox="0 0 24 24">
+              <div class="chat-timer" title={formatDuration(Math.ceil(msg.remaining), locale)}>
+                <svg class="chat-timer__ring" viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.1" />
                   <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-dasharray="62.83"
@@ -6606,8 +6614,8 @@
           </div>
         {/if}
         {#if fileError}
-          <div class="chat-file-error" role="alert">
-            <span>{fileError}</span>
+          <div class={appMode ? 'chat-file-error' : 'status status--error chat-file-error--site'} role="alert">
+            <span class="flex-1">{fileError}</span>
             <button type="button" class="btn-ghost btn-sm btn-icon" on:click={() => { fileError = ''; }} aria-label={t(dict, 'chat.callDismiss')}>
               <Icon name="x" />
             </button>
@@ -6679,6 +6687,7 @@
     role="dialog"
     aria-label={t(dict, 'emoji.label')}
     bind:this={emojiPopEl}
+    on:focusout={onEmojiFocusout}
     style="left: {emojiPos.left}px; top: {emojiPos.top}px; width: {emojiPos.width}px; --emoji-picker-h: {emojiPos.height}px;"
   >
     <EmojiPicker {locale} {dict} skin="web" autofocus mode={emojiTarget.kind === 'react' ? 'reaction' : 'insert'} onpick={pickEmoji} onclose={() => closeEmoji()} />
@@ -6749,23 +6758,11 @@
     border-bottom: 1px solid var(--line-soft);
   }
   .chat-header-menu__panel {
-    min-width: 17rem;
-    max-width: min(22rem, calc(100vw - 2rem));
+    min-width: min(17rem, calc(100cqi - 2rem));
+    max-width: min(22rem, calc(100cqi - 2rem));
     max-height: min(70dvh, 28rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-  }
-  :global(.chat-header-menu__icon) {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-  :global(.chat-header-menu__check) {
-    width: 0.95rem;
-    height: 0.95rem;
-    margin-left: auto;
-    color: var(--accent);
-    flex-shrink: 0;
   }
   .chat-profile { position: relative; z-index: 3; }
   .chat-profile__pop {
@@ -6911,6 +6908,12 @@
     padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--line-soft);
   }
+  .chat-members--site {
+    flex: none;
+    max-height: 55%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
   .chat-member__emoji {
     display: inline-flex;
     flex-wrap: wrap;
@@ -6936,21 +6939,6 @@
     font-weight: 600;
     color: var(--warn);
     background: var(--surface);
-  }
-  .chat-key-flag {
-    --btn-fg: var(--warn);
-    min-height: 1.5rem;
-    padding-inline: 0.375rem;
-    border-color: color-mix(in srgb, var(--warn) 35%, transparent);
-    background: var(--surface);
-    font-size: 0.75rem;
-  }
-  .chat-retry {
-    --btn-fg: var(--danger);
-    min-height: 1.5rem;
-    gap: 0.25rem;
-    padding-inline: 0.375rem;
-    font-size: 0.75rem;
   }
   .chat-once-veil {
     display: block;
@@ -6990,22 +6978,6 @@
   .chat-safety-banner .chat-call-banner__meta { flex: 1 1 16rem; flex-wrap: wrap; row-gap: 0.25rem; }
   @media (max-width: 639px) {
     .chat-safety-banner .hint { flex-basis: 100%; }
-  }
-  .chat-loader {
-    display: block;
-    width: 1.5rem;
-    height: 1.5rem;
-    margin: 0 auto;
-    box-sizing: border-box;
-    border-radius: 50%;
-    border: 2.5px solid color-mix(in srgb, var(--accent) 25%, transparent);
-    border-top-color: var(--accent);
-    animation: chat-spin var(--duration-slow) linear infinite;
-    will-change: transform;
-    backface-visibility: hidden;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .chat-loader { animation: none; will-change: auto; opacity: 0.85; }
   }
   .chat-status {
     width: 8px; height: 8px; border-radius: 50%;
@@ -7245,6 +7217,12 @@
     background: color-mix(in srgb, var(--danger) 12%, var(--surface));
     color: var(--danger);
     font-size: 0.875rem;
+  }
+  .chat-file-error--site {
+    align-items: center;
+    margin: 0.5rem 0.75rem 0;
+    padding-block: 0.25rem;
+    padding-inline-end: 0.25rem;
   }
   .chat-upload-line {
     font-size: 11px;

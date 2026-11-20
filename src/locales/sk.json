@@ -351,6 +351,7 @@
   "chat.typingAnd": "a",
   "chat.severalTyping": "Píše niekoľko ľudí",
   "chat.messagePlaceholder": "Napíš správu...",
+  "chat.messagesLabel": "Správy",
   "chat.customRoomId": "Názov miestnosti",
   "chat.customRoomIdPlaceholder": "napr. obyvacka",
   "chat.customRoomIdHint": "Každý, kto zadá rovnaký názov a rovnaké heslo, vstúpi do tej istej miestnosti. Názov nie je tajný.",
