@@ -10,6 +10,7 @@
 
   const KEY_STEP = 0.25;
   const CONFIRM_AT = 0.92;
+  const TAP_SLOP = 4;
   const uid = $props.id();
   const hintId = `app-slide-hint-${uid}`;
 
@@ -71,6 +72,11 @@
     if (!dragging || event.pointerId !== pointerId) return;
     dragging = false;
     pointerId = null;
+    if (Math.abs(event.clientX - startX) < TAP_SLOP) {
+      progress = Math.min(1, startProgress + KEY_STEP);
+      if (progress >= 1) confirm();
+      return;
+    }
     settle();
   }
 

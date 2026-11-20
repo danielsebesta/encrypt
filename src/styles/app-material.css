@@ -657,8 +657,10 @@
     color: var(--md-sys-color-on-surface-variant);
 }
 :root[data-app-platform="material"] .k-dialog .k-button {
-    height: 40px;
-    min-height: 40px;
+    height: 48px;
+    min-height: 48px;
+    border-block: 4px solid transparent;
+    background-clip: padding-box;
     padding-inline: 12px;
     font: var(--md-type-label-large);
     letter-spacing: 0.1px;
@@ -671,7 +673,7 @@
 }
 :root[data-app-platform="material"] .k-dialog .k-button:focus-visible {
     outline: 3px solid var(--md-focus-ring);
-    outline-offset: 2px;
+    outline-offset: -2px;
 }
 :root[data-app-platform="material"] .k-dialog .app-dialog-destructive {
     color: var(--app-error) !important;
@@ -1164,6 +1166,9 @@
     .btn {
         background: var(--app-tint);
         color: var(--app-on-tint);
+    }
+    .btn-block {
+        min-height: 48px;
     }
     @media (hover: hover) {
         .btn:not(:disabled):hover {

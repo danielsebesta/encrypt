@@ -254,6 +254,34 @@
 :root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute > span:first-child {
     background: var(--app-glass-control);
 }
+/* Labels get the whole slot so long translations fit; a slot that is still too
+   narrow ellipsizes instead of running into its neighbour. */
+:root[data-app-platform="ios"] .app-main-tabbar {
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+}
+:root[data-app-platform="ios"] .app-main-tabbar .k-link {
+    min-width: 0;
+    padding-inline: 2px;
+}
+:root[data-app-platform="ios"] .app-main-tabbar .k-link > span {
+    max-width: 100%;
+}
+:root[data-app-platform="ios"] .app-main-tabbar .k-link .text-xs {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+@media (min-width: 768px) {
+    :root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane {
+        width: min(100vw - 20px, 30rem);
+    }
+    :root[data-app-platform="ios"] .app-main-tabbar .k-link {
+        flex: 1 1 0;
+    }
+}
 :root[data-app-platform="ios"] .app-main-tabbar .text-primary {
     color: var(--app-on-tint-container);
 }
@@ -337,6 +365,12 @@
             border-color: var(--app-tint);
             background: var(--app-tint-container);
         }
+    }
+    .btn,
+    .btn-secondary,
+    .btn-outline,
+    .btn-ghost {
+        border-radius: 9999px;
     }
     .btn-sm {
         border-radius: 9999px;
@@ -1119,6 +1153,18 @@
 }
 :root[data-app-platform="ios"] .k-dialog .app-dialog-destructive:active {
     filter: brightness(0.92);
+}
+:root[data-app-platform="ios"] .k-list-item [class~="min-h-7"] {
+    line-height: 1.3;
+}
+:root[data-app-platform="ios"] .app-danger-text {
+    color: var(--app-on-error-weak);
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] .app-danger-text {
+    color: color-mix(in srgb, var(--app-on-error-weak) 80%, var(--app-label));
+}
+:root[data-app-platform="ios"][data-app-scheme="dark"] .chat-me {
+    --muted: color-mix(in srgb, var(--app-label) 72%, transparent);
 }
 :root[data-app-platform="ios"] .app-row-menu .app-menu-danger,
 :root[data-app-platform="ios"] .app-row-menu .app-menu-danger :is(button, span, div, svg) {

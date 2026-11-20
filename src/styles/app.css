@@ -515,9 +515,9 @@ html[data-app-platform] ::selection {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    min-height: 44px;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-height: var(--app-hit, 44px);
     margin: 0;
     margin-inline-end: -0.25rem;
     padding: 0;
@@ -528,9 +528,6 @@ html[data-app-platform] ::selection {
 }
 .app-passphrase__btn:active {
     background: color-mix(in srgb, var(--app-label) 8%, transparent);
-}
-.app-passphrase--invalid .app-passphrase__input {
-    color: var(--app-error);
 }
 
 .app-seg,
@@ -553,7 +550,16 @@ html[data-app-platform] ::selection {
     min-width: 0;
     display: grid;
     gap: 0.375rem;
-    padding-block: 0.125rem;
+    padding: 0.75rem 1rem;
+}
+.app-scroll > :is(.k-popover.app-row-menu, div:has(+ .k-popover.app-row-menu)) {
+    z-index: 50;
+}
+.app-choices .line-clamp-2 {
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
 }
 .app-retention .k-range {
     width: 100%;
@@ -803,10 +809,16 @@ html[data-app-platform] ::selection {
         max-width: 44rem;
         margin-inline: auto;
     }
+    .k-navbar.app-hub-bar {
+        padding-inline: max(0px, (100% - 44rem) / 2);
+    }
 }
 @media (min-width: 1024px) {
     .app-content {
         max-width: 52rem;
+    }
+    .k-navbar.app-hub-bar {
+        padding-inline: max(0px, (100% - 52rem) / 2);
     }
 }
 
@@ -1369,7 +1381,7 @@ html[data-app-platform] ::selection {
     filter: brightness(0.92);
 }
 .app-sheet-btn--tonal {
-    color: var(--app-tint);
+    color: var(--app-on-tint-container);
     background: var(--app-tint-container);
 }
 .app-sheet-btn--tonal:active {
@@ -1894,6 +1906,9 @@ html[data-app-platform] ::selection {
     flex-direction: column;
     gap: 1rem;
     padding: 0.25rem 1rem 1.5rem;
+}
+.app-sheet-body > * {
+    flex-shrink: 0;
 }
 .app-sheet-body--list {
     gap: 0.5rem;
@@ -2464,6 +2479,7 @@ html[data-app-platform] ::selection {
 /* Touch targets: 44 pt hit region on iOS (HIG), 48 dp on Material (M3). Visuals keep their
    platform size; only the hit area grows. */
 :root[data-app-platform] { --app-hit: 44px; }
+:root[data-app-platform="material"] { --app-hit: 48px; }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
     min-height: var(--app-hit);
 }
@@ -2498,7 +2514,7 @@ html[data-app-platform] ::selection {
 }
 
 .app-slide {
-    --slide-thumb: 42px;
+    --slide-thumb: 44px;
     position: relative;
     display: flex;
     align-items: center;

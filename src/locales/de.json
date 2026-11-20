@@ -1378,7 +1378,7 @@
   "app.settings.wipeHint": "Löscht alle Räume und Schlüssel auf diesem Gerät",
   "app.settings.wipeBody": "Löscht jeden gespeicherten Raum, seine durch Passkey geschützten Geheimnisse und alle auf diesem Gerät gespeicherten Schlüssel. Dies kann nicht rückgängig gemacht werden.",
   "app.settings.wipeSlide": "Zum Löschen schieben",
-  "app.settings.wipeSlideHint": "Zum Löschen den Regler ganz nach rechts ziehen oder Ende drücken.",
+  "app.settings.wipeSlideHint": "Zum Löschen den Regler ganz nach rechts ziehen, viermal antippen oder Ende drücken.",
   "app.settings.wipeDone": "Alles auf diesem Gerät wurde gelöscht",
   "app.settings.wipeError": "Einige Daten konnten nicht gelöscht werden",
   "app.voice.speed": "Wiedergabegeschwindigkeit",

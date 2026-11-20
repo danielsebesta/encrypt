@@ -1388,7 +1388,7 @@
   "app.settings.wipeHint": "Erases all rooms and keys on this device",
   "app.settings.wipeBody": "This erases every saved room, its passkey-protected secrets and all keys stored on this device. This cannot be undone.",
   "app.settings.wipeSlide": "Slide to erase everything",
-  "app.settings.wipeSlideHint": "Drag the handle to the end, or press End, to erase everything.",
+  "app.settings.wipeSlideHint": "Drag the handle to the end, tap it four times, or press End to erase everything.",
   "app.settings.wipeDone": "Everything on this device was erased",
   "app.settings.wipeError": "Couldn't erase some data",
   "app.voice.speed": "Playback speed",

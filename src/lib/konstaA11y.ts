@@ -20,3 +20,25 @@ export function asSwitch(name: string): Attachment<HTMLElement> {
     input.setAttribute('aria-label', name);
   };
 }
+
+/** Konsta's Range spreads attributes on its wrapper; the native slider inside needs the spoken value. */
+export function asSlider(valueText: string): Attachment<HTMLElement> {
+  return (node) => {
+    node.querySelector('input[type="range"]')?.setAttribute('aria-valuetext', valueText);
+  };
+}
+
+/** Konsta's ListInput renders its own input and error line; tie them together while the error shows. */
+export function asFieldError(errorId: string | null): Attachment<HTMLElement> {
+  return (node) => {
+    const input = node.querySelector('input, textarea');
+    if (!input) return;
+    if (errorId) {
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', errorId);
+    } else {
+      input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-describedby');
+    }
+  };
+}
