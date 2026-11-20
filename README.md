@@ -1,170 +1,106 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/hero-dark.webp">
-  <img src="docs/readme/hero-light.webp" alt="encrypt.click: your privacy is just a click away" width="100%">
-</picture>
+# Encrypt.click
 
-<br>
+**Chat like nobody's watching. Because no one is.**
 
-**Free, open-source privacy tools that run in your browser.**<br>
-Share encrypted files, chat, draw and hide messages in images, audio or time. No account, no trackers.
+Files, chats and calls are encrypted in your browser before they leave.<br>
+Free, no account, open source, and you can run your own copy in one Docker container.
 
-<br>
+[**Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [Security](https://encrypt.click/security) &nbsp;·&nbsp; [Install the app](https://encrypt.click/install) &nbsp;·&nbsp; [Self-host](docs/self-hosting.md) &nbsp;·&nbsp; [Contribute](CONTRIBUTING.md)
 
-[**🌐 Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [🛡️ Security](https://encrypt.click/security) &nbsp;·&nbsp; [🚀 Run it locally](#-run-it-locally) &nbsp;·&nbsp; [🤝 Contribute](CONTRIBUTING.md)
-
-<br>
-
-![Live](https://img.shields.io/badge/encrypt.click-live-00bc7d?style=for-the-badge)
-![License](https://img.shields.io/badge/license-MIT-00bc7d?style=for-the-badge)
-![No account](https://img.shields.io/badge/no_account-no_trackers-18181b?style=for-the-badge)
-![Languages](https://img.shields.io/badge/languages-7-3cd292?style=for-the-badge)
-
-![Astro](https://img.shields.io/badge/Astro-BC52EE?style=flat-square&logo=astro&logoColor=white)
-![Svelte](https://img.shields.io/badge/Svelte_5-FF3E00?style=flat-square&logo=svelte&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat-square&logo=cloudflare&logoColor=white)
+![Live](https://img.shields.io/badge/encrypt.click-live-48672e?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-48672e?style=flat-square)
+![No account](https://img.shields.io/badge/no_account-no_trackers-1a1d16?style=flat-square)
+![Languages](https://img.shields.io/badge/languages-7-48672e?style=flat-square)
+![Post-quantum](https://img.shields.io/badge/key_exchange-ECDH_+_ML--KEM--768-1a1d16?style=flat-square)
 
 </div>
 
-<br>
-
-## ✨ What it does
-
-<table>
-<tr>
-<td width="25%" align="center" valign="top">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-share-dark.webp">
-  <img src="docs/readme/art-share-light.webp" alt="" height="120">
-</picture>
-<br><b>Share &amp; Decrypt</b><br>
-Encrypt a file or message in your browser, then send the link and the password separately. Up to 128&nbsp;MB. Recipients open <code>/u</code> (Decrypt) with the link, QR, PNG wrapper or <code>.enc</code> file.
-</td>
-<td width="25%" align="center" valign="top">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-chat-dark.webp">
-  <img src="docs/readme/art-chat-light.webp" alt="" height="120">
-</picture>
-<br><b>Chat</b><br>
-End-to-end encrypted rooms with calls, screen sharing and file drops. Live history stays on devices; disappearing modes keep nothing. The relay stores no message history.
-</td>
-<td width="25%" align="center" valign="top">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-whiteboard-dark.webp">
-  <img src="docs/readme/art-whiteboard-light.webp" alt="" height="120">
-</picture>
-<br><b>Whiteboard</b><br>
-A shared canvas, synced live and encrypted end to end. Pressure-sensitive pen, shapes, sticky notes and a laser pointer.
-</td>
-<td width="25%" align="center" valign="top">
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-tools-dark.webp">
-  <img src="docs/readme/art-tools-light.webp" alt="" height="120">
-</picture>
-<br><b>5 experiment tools</b><br>
-Chat cipher, time-lock capsules, steganography, photo and spectral ciphers. All of them run locally.
-</td>
-</tr>
-</table>
-
-## 📸 See it in action
-
-### Share a secret with a link and a password
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/home-dark.webp">
-  <img src="docs/readme/home-light.webp" alt="The home page after encrypting a message: a short link and a separate password" width="100%">
+  <img src="docs/readme/home-light.webp" alt="The Encrypt.click home page: the tagline, four security points, the crypto stack and the share form" width="100%">
 </picture>
 
-*Encryption happens in the browser. The link and the password travel by different routes, and the link cannot be opened without the password.*
+## What it does
 
-### Talk in a room that forgets
+| | |
+| --- | --- |
+| **Share and decrypt** | Encrypt a file or a message in your browser and share the link and the password separately. Files up to 128 MB, kept for 1 hour, 1 day or 7 days, or deleted after the first download. Short messages travel inside the link and nothing is stored. Recipients open [`/u`](https://encrypt.click/u) with the link, a QR code, a PNG wrapper or an `.enc` file. |
+| **Chat and calls** | End-to-end encrypted rooms with voice and video calls, screen sharing, files, voice messages, replies and reactions. Keep history (each member keeps it encrypted in their own browser and online members send you what you missed) or let every message disappear after 10 seconds to 1 day. The relay stores no messages. |
+| **Whiteboard** | A shared canvas, synced live through Yjs and encrypted end to end: pressure-sensitive pen, shapes, sticky notes, pictures, a laser pointer and a board chat. |
+| **My rooms** | Save rooms on this device to come back without the password or link. The secrets are wrapped under a key that only your passkey releases (WebAuthn PRF). |
+| **Experiments** | Chat cipher, time capsule, steganography, photo cipher and spectral cipher. All of them run locally. |
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/chat-dark.webp">
-  <img src="docs/readme/chat-light.webp" alt="An encrypted chat room with two participants using random aliases" width="100%">
-</picture>
+## Security at a glance
 
-*Participants get random aliases, shown in each viewer's own language. Messages disappear on a timer, or live only in participant browsers.*
-
-### Sketch together, privately
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/whiteboard-dark.webp">
-  <img src="docs/readme/whiteboard-light.webp" alt="The encrypted whiteboard with a hand-drawn heart, a sticky note, an arrow and two pressure-sensitive strokes" width="100%">
-</picture>
-
-*The heart and the two waves were drawn with a pen: line width follows pressure from a hairline to a bold stroke.*
-
-### Phone app (PWA)
-
-The `/app` shell is intentionally not in the website menu. Install it from the Home Screen for a native feel: passkey lock, saved rooms, panic wipe and system share into encrypted files. Guide: [Encrypt.click/install](https://encrypt.click/install).
-
-<p align="center">
-  <img src="public/screenshot-hub-chats.png" alt="Saved encrypted chat rooms in the app" height="360">
-  &nbsp;
-  <img src="public/screenshot-narrow.png" alt="Encrypted group chat with photos and voice" height="360">
-  &nbsp;
-  <img src="public/screenshot-hub-boards.png" alt="Encrypted whiteboard rooms in the app" height="360">
-</p>
-
-**Install on iPhone / iPad:** open the site in Safari → Share → Add to Home Screen → open Encrypt.click from that icon (a bookmark will not unlock the app shell).
-
-**Install on Android:** open in Chrome → browser menu → Install app / Add to Home Screen → open from the app icon.
-
-## 🛡️ Privacy model
+- **Hybrid post-quantum key exchange.** Room keys come from ECDH on P-256 and ML-KEM-768 (FIPS 203) together, mixed with the room secret. A recording made today stays closed unless both are broken, so a future quantum computer alone is not enough.
+- **Forward secrecy in every chat.** Each member holds ephemeral key pairs for the session and a sender chain: every message key is derived once with HKDF and wiped after use, so a key that leaks later does not open earlier messages.
+- **Signed messages.** Every chat message carries its author's Ed25519 signature, also when online members pass history on to someone who was away, so nobody can put words in someone else's mouth.
+- **Calls encrypted frame by frame.** Audio and video frames are encrypted in the browser with insertable streams before WebRTC sends them. Media always goes through a TURN relay, so participants never see each other's IP address, and the relay sees only ciphertext.
+- **Passwords that are slow to guess.** Passwords go through Argon2id with 64 MiB of memory and 3 passes. Room passwords need at least 16 characters and pass a strength check.
+- **AES-256-GCM everywhere.** Files, messages and board updates are sealed and authenticated in the browser.
+- **Time locks.** Time capsules use public randomness from the [drand](https://drand.love/) network through tlock, so nothing opens before the chosen time, not even for its author.
+- **Verifiable builds.** Every deploy publishes the commit and a hash of every file it serves, signed by GitHub Actions. You can rebuild it and compare (see [Verify what is served](#verify-what-is-served)).
 
 ```mermaid
 flowchart LR
-  A["📝 Your file or message"] -- "AES-256-GCM,<br/>in your browser" --> B["🔒 Ciphertext"]
-  P["🔑 Password<br/>stays on your device"] -. "derives the key" .-> B
-  B -- "upload" --> C[("☁️ Temporary storage<br/>deleted after 1 h to 7 days,<br/>or after one download")]
-  B -. "only if you approve" .-> S[("📦 Send instance<br/>run by a third party")]
-  C --> L["🔗 Link<br/>holds an encrypted pointer"]
+  A["Your file or message"] -- "AES-256-GCM,<br/>in your browser" --> B["Ciphertext"]
+  P["Password<br/>stays on your device"] -. "Argon2id derives the key" .-> B
+  B -- "upload" --> C[("Temporary storage<br/>deleted after 1 h to 7 days,<br/>or after one download")]
+  B -. "only if you approve" .-> S[("Send instance<br/>run by a third party")]
+  C --> L["Link<br/>holds an encrypted pointer"]
   S --> L
-  L --> R["👤 Recipient"]
+  L --> R["Recipient"]
   P -. "shared separately" .-> R
 
-  classDef brand fill:#e9fcf1,stroke:#007a4f,color:#00603d,stroke-width:2px;
-  classDef neutral fill:#f4f4f5,stroke:#71717a,color:#18181b;
+  classDef brand fill:#e0edce,stroke:#48672e,color:#26430e,stroke-width:2px;
+  classDef neutral fill:#f3f5ea,stroke:#74796d,color:#1a1d16;
   class A,B,L,R,P brand;
   class C,S neutral;
 ```
 
 | Runs in your browser | The server is involved |
 | --- | --- |
-| Encryption and decryption, key generation, every standalone tool | Ciphertext upload, short links, the drand proxy, realtime rooms, TURN credentials for calls |
+| Encryption and decryption, key generation and exchange, signatures, every experiment | Ciphertext upload, short links, the drand proxy, the realtime relay for rooms, TURN credentials for calls |
 
-- **No history on the server.** The default chat mode keeps encrypted envelopes in participant browsers; disappearing modes keep nothing.
-- **Calls never leak addresses.** Media runs over a TURN relay only, so participants never see each other's IP address.
-- **Names carry no information.** Participant names are random aliases rendered in each viewer's language, so a name never reveals which language someone uses.
-- **The share sheet and QR codes stay on your device.** Installed as an app, encrypt.click takes files, text and links from the system share sheet. The service worker hands them to the share form on the device, so the server never receives them. The receive page reads QR codes from the camera or a picture locally, too.
-- **Third-party hosting is named.** If encrypt.click's own storage is full, the share form names the exact Send instance and asks before it uploads anything. Chat falls back to Send on its own, for files up to 50 MB.
+- **No history on the server.** In the default chat mode members keep encrypted history in their own browsers; disappearing modes keep nothing anywhere.
+- **Names carry no information.** Participants get random aliases rendered in each viewer's own language, so a name never reveals which language someone uses.
+- **The share sheet and QR codes stay on your device.** Installed as an app, Encrypt.click takes files, text and links from the system share sheet; the service worker hands them to the share form on the device. The receive page reads QR codes from the camera or a picture locally, too.
+- **Third-party hosting is named.** If Encrypt.click's own storage is full, the share form names the exact Send instance and asks before it uploads anything. Chat falls back to Send on its own, for files up to 50 MB.
 
 The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security@encrypt.click](mailto:security@encrypt.click) · [security.txt](https://encrypt.click/.well-known/security.txt). Everything else: [hello@encrypt.click](mailto:hello@encrypt.click).
 
-## 🧰 Experiment tools
+## The app
 
-- **Chat cipher**: hide a message inside casual multilingual chat cover text
-- **Time capsule**: time-lock encryption with [drand](https://drand.love/)
-- **Steganography**: an encrypted message hidden in a PNG
-- **Photo cipher**: a hidden message that survives chat-app compression
-- **Spectral cipher**: an image hidden in a WAV spectrogram
+`/app` is an installable PWA that wraps your rooms, the share form and settings in a native-feeling shell, with an iOS skin (Liquid Glass controls) and a Material 3 skin whose colours are generated from the site palette. It adds a passkey or biometric lock, saved rooms, a panic wipe and system share into encrypted files. No App Store or Google Play: install it from the browser with the guide at [encrypt.click/install](https://encrypt.click/install).
 
-Decrypt a share at [Encrypt.click/u](https://encrypt.click/u) (also linked as **Decrypt** in the nav). `/decrypt` redirects there.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/app-dark.webp">
+  <img src="docs/readme/app-light.webp" alt="The app on three phones: saved chat rooms and an encrypted group chat in the iOS skin, and the same chat in the Material skin" width="100%">
+</picture>
 
-## 🌍 Languages
+- **iPhone and iPad:** open the site in Safari, then Share, Add to Home Screen, and open Encrypt.click from that icon.
+- **Android:** open it in Chrome, then the menu, Install app, and open it from the app icon.
 
-🇬🇧 English &nbsp;·&nbsp; 🇨🇿 Čeština &nbsp;·&nbsp; 🇩🇪 Deutsch &nbsp;·&nbsp; 🇪🇸 Español &nbsp;·&nbsp; 🇫🇷 Français &nbsp;·&nbsp; 🇸🇰 Slovenčina &nbsp;·&nbsp; 🇵🇱 Polski
+## Experiments
 
-## 🚀 Run it locally
+- **Chat cipher:** hide an encrypted message inside casual chat in Czech, English, German, Spanish, French, Slovak or Polish
+- **Time capsule:** time-lock encryption with drand
+- **Steganography:** an encrypted message hidden in a PNG
+- **Photo cipher:** a hidden message that survives chat-app compression
+- **Spectral cipher:** an image hidden in a WAV spectrogram
+
+## Languages
+
+English, Čeština, Deutsch, Español, Français, Slovenčina and Polski. The server picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one, so it works without JavaScript.
+
+## Run it locally
 
 Node 24.21 (`.nvmrc`) and pnpm 10 through corepack.
 
 ```bash
+corepack enable
 pnpm install
 pnpm dev          # the site at http://localhost:4321, without chat and whiteboard rooms
 pnpm build        # Cloudflare build
@@ -175,24 +111,24 @@ pnpm test         # unit tests
 pnpm check        # astro check
 ```
 
-## 🏗️ How it is built
+## How it is built
 
-Astro 7 pages, Svelte 5 for the interactive tools and Tailwind CSS 4. The same code deploys to Cloudflare Workers or to any long-running Node.js host, including a single Docker image: everything platform-specific sits behind one small interface.
+Astro 7 pages, Svelte 5 for everything interactive and Tailwind CSS 4. The same code deploys to Cloudflare Workers or to any long-running Node.js host, including a single Docker image: everything platform-specific sits behind one small interface.
 
 ```mermaid
 flowchart TB
-  subgraph Browser["🖥️ Your browser"]
-    UI["Astro pages + Svelte tools"] --> WC["Web Crypto + WebAssembly<br/>AES-GCM · Argon2id · HKDF · Ed25519"]
+  subgraph Browser["Your browser"]
+    UI["Astro pages + Svelte tools"] --> WC["Web Crypto + WebAssembly<br/>AES-GCM · ECDH · ML-KEM · Argon2id · HKDF · Ed25519"]
   end
-  subgraph Core["📦 Platform-neutral core"]
+  subgraph Core["Platform-neutral core"]
     APP["src/server: routing, guards,<br/>/upload, /dl, proof-of-work"]
     ROOMS["party: chat and whiteboard rooms"]
   end
-  subgraph CF["☁️ Cloudflare adapter"]
+  subgraph CF["Cloudflare adapter"]
     W["Worker"] --- DO[("Durable Objects<br/>rooms · budgets")]
     W --- R2[("R2, lifecycle per prefix")]
   end
-  subgraph NODE["🐳 Node adapter"]
+  subgraph NODE["Node adapter"]
     N["Node server + ws"] --- SQL[("SQLite<br/>rooms · budgets")]
     N --- FS[("Files, 1-day sweep")]
   end
@@ -201,26 +137,26 @@ flowchart TB
   APP --> N
   ROOMS --> DO
   ROOMS --> SQL
-  APP -. "with consent" .-> SEND["📦 Send instances"]
+  APP -. "with consent" .-> SEND["Send instances"]
 
-  classDef brand fill:#e9fcf1,stroke:#007a4f,color:#00603d,stroke-width:2px;
-  classDef neutral fill:#f4f4f5,stroke:#71717a,color:#18181b;
+  classDef brand fill:#e0edce,stroke:#48672e,color:#26430e,stroke-width:2px;
+  classDef neutral fill:#f3f5ea,stroke:#74796d,color:#1a1d16;
   class UI,WC,APP,ROOMS,W,N brand;
   class DO,R2,SQL,FS,SEND neutral;
-  style Browser fill:none,stroke:#71717a,stroke-dasharray:5 5
-  style Core fill:none,stroke:#71717a,stroke-dasharray:5 5
-  style CF fill:none,stroke:#71717a,stroke-dasharray:5 5
-  style NODE fill:none,stroke:#71717a,stroke-dasharray:5 5
+  style Browser fill:none,stroke:#74796d,stroke-dasharray:5 5
+  style Core fill:none,stroke:#74796d,stroke-dasharray:5 5
+  style CF fill:none,stroke:#74796d,stroke-dasharray:5 5
+  style NODE fill:none,stroke:#74796d,stroke-dasharray:5 5
 ```
 
 - **Platforms.** `src/platform/types.ts` is the contract: settings, the visitor's address, budgets on SQLite, blob storage and realtime rooms. `src/adapters/cloudflare/` implements it with Durable Objects and R2, `src/adapters/node/` with `ws`, `node:sqlite` and files on disk. Everything else, including every URL the browser uses, is the same on both.
-- **Design system.** Tokens and component classes live in `src/styles/global.css`. Every page uses only those.
-- **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. The server picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one in the menu, so it works without JavaScript. Shared links keep their language. All strings live in `src/locales/*.json`.
-- **Crypto.** `src/lib/passwordEnvelope.ts` (including the time-lock key mixing), `src/lib/timelock.ts` (drand rounds and tlock through the same-origin proxy), `src/lib/chatCrypto.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
-- **Whiteboard.** Drawing uses `@quickdrawjs/core` with a small patch in `patches/` that makes pen pressure drive the stroke width. The tests in `tests/pen-pressure.test.ts` fail if the patch is lost. Pictures are re-encoded in the browser and embedded in the encrypted Yjs document (`src/lib/whiteboardImages.ts`). The relay only forwards encrypted update envelopes between connected members and stores none of them; the document itself is synchronized peer-to-peer through Yjs, each browser keeps a sealed local snapshot under a key derived from the room password so leave/rejoin restores the board, and a member can also export the board (`party/whiteboard.ts`, tests in `tests/whiteboard.test.ts`).
-- **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. The sender picks how long it is kept (`X-Upload-Retention: 1h | 1d | 7d`, one day when absent) and whether it is deleted after the first download (`X-Upload-Burn: 1`); the id carries the retention class, and a one-time upload is claimed atomically in the budget database before its first byte is sent, then deleted. Only encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. The byte quotas count stored byte-days: an upload is charged its size once for every day it is kept, so a 7-day upload costs seven times a 1-day one and the storage bill stays where the defaults put it (about $1 a month on R2). Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
+- **Crypto.** Key handling lives in a few small files: `src/lib/aesGcm.ts`, `kdf.ts` (Argon2id and HKDF), `passwordEnvelope.ts` (including the time-lock key mixing), `hybridKem.ts` (ML-KEM-768 with ECDH), `chatCrypto.ts`, `chatRatchet.ts` (forward secrecy), `callCrypto.ts` and `callTransform.ts` (frame encryption for calls), `padding.ts`, `timelock.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
+- **Design system.** One palette generated from a single seed colour with Material colour utilities (`scripts/gen-palette.mjs`), which also writes the `/app` iOS accent and seeds its Material skin. Allo for text, Commit Mono for keys and hashes, filled Tabler icons. Tokens and component classes live in `src/styles/global.css`, the rules in [`docs/design-system.md`](docs/design-system.md), and `tests/design-system.test.ts` guards them.
+- **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. Shared links keep their language. All strings live in `src/locales/*.json`, kept in sync by `tests/locales.test.ts`.
+- **Whiteboard.** Drawing uses `@quickdrawjs/core` with a small patch in `patches/` that makes pen pressure drive the stroke width; `tests/pen-pressure.test.ts` fails if the patch is lost. Pictures are re-encoded in the browser and embedded in the encrypted Yjs document (`src/lib/whiteboardImages.ts`). The relay only forwards encrypted update envelopes between connected members and stores none of them; each browser keeps a sealed local snapshot under a key derived from the room password, so leaving and rejoining restores the board, and a member can export it (`party/whiteboard.ts`, tests in `tests/whiteboard.test.ts`).
+- **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. The sender picks how long it is kept (`X-Upload-Retention: 1h | 1d | 7d`, one day when absent) and whether it is deleted after the first download (`X-Upload-Burn: 1`); the id carries the retention class, and a one-time upload is claimed atomically in the budget database before its first byte is sent, then deleted. Only Encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. The byte quotas count stored byte-days: an upload is charged its size once for every day it is kept, so a 7-day upload costs seven times a 1-day one and the storage bill stays where the defaults put it (about $1 a month on R2). Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
 
-## ☁️ Deploy
+## Deploy
 
 ### Cloudflare
 
@@ -263,7 +199,7 @@ pnpm exec wrangler r2 bucket lifecycle remove encrypt-r2 --name <old whole-bucke
 
 The same code also runs as a single Node.js server. `pnpm run build:node` builds it into `dist/`, and the [`Dockerfile`](Dockerfile) packs it with Caddy for HTTPS and coturn for call relays, so one `docker run` with `DOMAIN` set is a complete instance. See [`docs/self-hosting.md`](docs/self-hosting.md).
 
-## 🔍 Verify what is served
+## Verify what is served
 
 Every build publishes `/build-integrity.json`: the commit it was built from and the SHA-256 of every file. `scripts/verify-deployment.mjs` rebuilds nothing; it compares a build you made yourself with what a site serves, file by file, plus the response headers (CSP included) and redirects.
 
@@ -287,29 +223,23 @@ gh attestation verify build-integrity.json --repo danielsebesta/encrypt
 
 The same goes for the `encrypt-click-dist` artifact of a deploy run (client files and Worker bundle) and for the Docker build in `node.yml`. The check covers every static file the site serves. It cannot cover API responses or what Cloudflare itself serves under `/cdn-cgi/`. See [`docs/self-hosting.md`](docs/self-hosting.md#verifying-a-build) for self-hosted instances.
 
-## 📝 Operational notes
+## Operational notes
 
 - Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires a password of at least 16 characters that passes a strength check. Every room works this way; a room URL carries no secret, so links can be shared through anything.
 - TURN credentials are valid for one hour and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
 - The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host; `scripts/verify-deployment.mjs` and the attestations above are the independent check. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
 - Empty chat rooms delete their stored configuration — the only thing a chat room ever stores — after seven days. A whiteboard room writes nothing to server storage: connected members relay encrypted updates, and each browser that has opened the board keeps a sealed local snapshot so the drawing survives leave/rejoin on that device.
 
-## 🤝 Contributing
+## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## 📄 License
+## License
 
 [MIT](LICENSE)
 
 <div align="center">
-<br>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/art-chat-dark.webp">
-  <img src="docs/readme/art-chat-light.webp" alt="" height="90">
-</picture>
-
-**Encrypt.click — your privacy is just a click away.**
+**Encrypt.click: your privacy is just a click away.**
 
 </div>
