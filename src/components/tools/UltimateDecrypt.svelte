@@ -549,6 +549,35 @@
     }
   });
 
+  // A second link opened in the same tab only changes the fragment, so the page is not loaded again.
+  function openLinkFromHash() {
+    const hash = window.location.hash;
+    if (isCapsuleFragment(hash.slice(1))) {
+      window.location.replace(`/experiments/time-capsule${hash}`);
+      return;
+    }
+    if (hash.length <= 1 || loading) return;
+    let next: string;
+    try { next = decodeURIComponent(hash.slice(1)); } catch { return; }
+    if (next === hashPayload) return;
+    resetOpenResult();
+    setProgress('', '');
+    error = '';
+    burnedNotice = '';
+    password = '';
+    encryptedFile = null;
+    stegoFile = null;
+    entryMode = 'pick';
+    hashPayload = next;
+    hasHash = true;
+    pushDebug(`Hash payload replaced (${next.length} chars)`);
+  }
+
+  onMount(() => {
+    window.addEventListener('hashchange', openLinkFromHash);
+    return () => window.removeEventListener('hashchange', openLinkFromHash);
+  });
+
   function handleStegoFile(e: Event) {
     const target = e.target as HTMLInputElement;
     stegoFile = target.files?.[0] ?? null;
