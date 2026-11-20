@@ -233,6 +233,10 @@ html.dark {
         cursor: pointer;
     }
 
+    main:focus {
+        outline: none;
+    }
+
     :focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
@@ -739,6 +743,18 @@ html.dark {
 
     .panel {
         @apply rounded-lg border border-line bg-surface p-4 md:p-6;
+    }
+
+    .panel--flush {
+        @apply overflow-hidden p-0 md:p-0;
+    }
+
+    .icon-tile {
+        @apply grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface-2 text-muted;
+    }
+
+    .icon-tile--accent {
+        @apply border-accent-line bg-accent-weak text-accent-strong;
     }
 
     .page {
@@ -1563,6 +1579,25 @@ html.dark {
         }
     }
 
+    html:not(.js) #theme-toggle,
+    html:not(.js) .nav__burger {
+        display: none;
+    }
+
+    html:not(.js) .nav__group:is(:hover, :focus-within) > .menu {
+        display: grid;
+    }
+
+    @media (max-width: 1023px) {
+        html:not(.js) .nav {
+            @apply h-auto flex-wrap py-2;
+        }
+
+        html:not(.js) .nav__links {
+            @apply order-last flex w-full flex-wrap gap-0.5 border-t border-line pt-2;
+        }
+    }
+
     .site-footer {
         @apply mt-auto border-t border-line;
     }
@@ -1662,7 +1697,7 @@ html.dark {
     }
 
     .install-guide {
-        @apply grid content-start gap-5 rounded-lg border border-line bg-surface p-5 md:p-6;
+        @apply grid content-start gap-5;
     }
 
     .install-guide__title {
@@ -1670,7 +1705,7 @@ html.dark {
     }
 
     .install-steps {
-        @apply m-0 grid list-none gap-3 p-0 text-[0.9375rem] leading-relaxed text-text;
+        @apply m-0 grid list-none gap-3 p-0 text-base leading-relaxed text-text;
         counter-reset: install-step;
     }
 
@@ -1689,7 +1724,7 @@ html.dark {
     }
 
     .install-more a {
-        @apply min-h-11 no-underline;
+        @apply no-underline;
     }
 
     .site-footer__inner {
@@ -1713,7 +1748,7 @@ html.dark {
     }
 
     .site-footer__legal a {
-        @apply text-muted underline-offset-4 hover:text-text hover:underline;
+        @apply inline-flex min-h-6 items-center text-muted underline-offset-4 hover:text-text hover:underline;
     }
 
     .site-footer__stars {
@@ -1741,9 +1776,9 @@ html.dark {
         overflow: hidden;
         color: var(--accent);
         opacity: 0.5;
-        -webkit-mask-image: linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 20%, rgb(0 0 0 / 0.2) 50%, rgb(0 0 0 / 0.75) 80%, #000 100%), linear-gradient(to bottom, #000 0, #000 calc(100% - 28rem), transparent calc(100% - 9rem));
+        -webkit-mask-image: linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 20%, rgb(0 0 0 / 0.2) 50%, rgb(0 0 0 / 0.75) 80%, #000 100%), linear-gradient(to bottom, #000 0, #000 16rem, rgb(0 0 0 / 0.35) 44rem, rgb(0 0 0 / 0.35) calc(100% - 28rem), transparent calc(100% - 9rem));
         -webkit-mask-composite: source-in;
-        mask-image: linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 20%, rgb(0 0 0 / 0.2) 50%, rgb(0 0 0 / 0.75) 80%, #000 100%), linear-gradient(to bottom, #000 0, #000 calc(100% - 28rem), transparent calc(100% - 9rem));
+        mask-image: linear-gradient(to right, #000 0%, rgb(0 0 0 / 0.75) 20%, rgb(0 0 0 / 0.2) 50%, rgb(0 0 0 / 0.75) 80%, #000 100%), linear-gradient(to bottom, #000 0, #000 16rem, rgb(0 0 0 / 0.35) 44rem, rgb(0 0 0 / 0.35) calc(100% - 28rem), transparent calc(100% - 9rem));
         mask-composite: intersect;
         pointer-events: none;
     }
@@ -1806,7 +1841,7 @@ html.dark {
     }
 
     .home-hero__form {
-        @apply min-w-0 rounded-lg border border-line bg-surface p-4 md:p-6;
+        @apply min-w-0;
     }
 
     .home-section__head {
@@ -1818,7 +1853,7 @@ html.dark {
     }
 
     .home-flow__side {
-        @apply grid min-w-0 content-start rounded-lg border border-line bg-surface;
+        @apply grid min-w-0 content-start;
     }
 
     .home-flow__side--server {
@@ -1827,14 +1862,6 @@ html.dark {
 
     .home-flow__head {
         @apply flex items-start gap-3.5 px-5 pb-4 pt-5;
-    }
-
-    .home-flow__badge {
-        @apply grid size-10 shrink-0 place-items-center rounded-md border border-line bg-surface-2 text-muted;
-    }
-
-    .home-flow__side--device .home-flow__badge {
-        @apply border-transparent bg-accent-weak text-accent-strong;
     }
 
     .home-flow__title {
@@ -1854,7 +1881,7 @@ html.dark {
     }
 
     .home-flow__list li {
-        @apply grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3.5 px-5 py-3 text-[0.9375rem] leading-snug text-text;
+        @apply grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3.5 px-5 py-3 text-base leading-snug text-text;
     }
 
     .home-flow__list li + li {
@@ -1870,43 +1897,31 @@ html.dark {
     }
 
     .home-flow__bridge {
-        @apply flex flex-col items-center justify-center gap-1.5 py-1 md:flex-row md:gap-0 md:px-0 md:py-0;
+        @apply flex flex-col items-center justify-center gap-1.5 py-1 md:flex-row md:gap-0 md:py-0;
     }
 
     .home-flow__line {
         @apply h-3 w-px bg-line md:h-px md:w-auto md:min-w-2 md:flex-1;
     }
 
-    .home-flow__chip {
-        @apply m-0 inline-flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 rounded-md border border-line bg-surface px-3 py-2 text-xs font-medium leading-tight text-text md:max-w-[6.75rem] md:flex-col md:px-2 md:text-center;
+    .home-flow__label {
+        @apply m-0 grid justify-items-center gap-1.5 px-2 text-center text-xs font-medium leading-snug text-text md:max-w-[7.5rem];
     }
 
-    .home-flow__chip svg {
-        @apply shrink-0 text-accent;
+    .home-flow__label .icon {
+        @apply text-accent;
     }
 
     .home-flow__arrow {
         @apply -mt-1.5 grid place-items-center text-muted md:-ml-1.5 md:mt-0;
     }
 
-    .home-flow__algo {
-        @apply font-mono text-[0.6875rem] tracking-wide text-muted;
-    }
-
     .home-expiry {
-        @apply mt-3 grid overflow-hidden rounded-lg border border-line bg-surface lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center;
+        @apply mt-3 grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center;
     }
 
     .home-expiry__chips {
         @apply m-0 flex list-none flex-wrap gap-2 px-5 pb-5 lg:justify-end lg:py-5 lg:pl-0;
-    }
-
-    .home-expiry__chips li {
-        @apply inline-flex min-h-9 items-center gap-1.5 rounded-md border border-line bg-bg px-3 text-sm font-medium text-text;
-    }
-
-    .home-expiry__chips li svg {
-        @apply text-muted;
     }
 
     .home-expiry__inline {
@@ -1922,7 +1937,7 @@ html.dark {
     }
 
     .home-trust__links a {
-        @apply min-h-11 no-underline;
+        @apply no-underline;
     }
 
     .home-steps {
@@ -1930,7 +1945,7 @@ html.dark {
     }
 
     .home-step {
-        @apply relative grid content-start gap-1.5 rounded-lg border border-line bg-surface p-5;
+        @apply relative grid content-start gap-1.5;
     }
 
     .home-step:not(:last-child)::after {
@@ -1946,20 +1961,16 @@ html.dark {
         @apply font-mono text-sm font-medium text-accent;
     }
 
-    .home-step__icon {
-        @apply text-text;
-    }
-
     .home-card__title {
         @apply text-base font-semibold text-text;
     }
 
     .home-step__text {
-        @apply m-0 text-[0.9375rem] leading-relaxed text-muted;
+        @apply m-0 text-base leading-relaxed text-muted;
     }
 
     .home-tools__grid {
-        @apply m-0 grid list-none overflow-hidden rounded-lg border border-line bg-surface p-0;
+        @apply m-0 grid list-none;
     }
 
     .home-tools__grid > li + li {
@@ -1989,7 +2000,7 @@ html.dark {
     }
 
     .home-tools__text {
-        @apply line-clamp-2 text-sm leading-snug text-muted md:line-clamp-1;
+        @apply text-sm leading-snug text-muted;
     }
 
     .home-tools__arrow {
@@ -2003,7 +2014,7 @@ html.dark {
     }
 
     .home-tools__tasks {
-        @apply mt-4 grid gap-1 rounded-lg border border-line bg-surface-2 px-4 py-3 md:px-5;
+        @apply mt-4 grid gap-1 bg-surface-2;
     }
 
     .home-tools__tasks-title {
@@ -2029,7 +2040,7 @@ html.dark {
     }
 
     .home-bento__card {
-        @apply relative flex min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-line bg-surface p-5 sm:col-span-2 md:p-6;
+        @apply relative flex min-w-0 flex-col gap-3 overflow-hidden sm:col-span-2;
     }
 
     .home-bento__card--third {
@@ -2061,8 +2072,7 @@ html.dark {
     }
 
     .home-bento__stat {
-        @apply my-4 inline-flex items-center justify-center border-2 border-accent-line px-6 py-5 font-mono text-3xl font-semibold whitespace-nowrap text-text sm:px-8 sm:text-4xl;
-        border-radius: 50%;
+        @apply my-2 font-mono text-4xl font-semibold leading-none whitespace-nowrap text-accent-strong;
     }
 
     .home-bento__visual {
@@ -2089,14 +2099,6 @@ html.dark {
         @apply flex items-center gap-2;
     }
 
-    .home-bento__chip {
-        @apply inline-flex items-center rounded-md border border-line bg-surface-2 px-2 py-1 font-mono text-xs text-text;
-    }
-
-    .home-bento__chip--accent {
-        @apply border-accent-line bg-accent-weak text-accent-strong;
-    }
-
     .home-bento__plus {
         @apply font-mono text-xs text-muted;
     }
@@ -2111,10 +2113,6 @@ html.dark {
 
     .home-bento__body {
         @apply grid gap-2;
-    }
-
-    .home-bento__badge {
-        @apply inline-flex h-10 w-10 items-center justify-center rounded-md border border-line bg-surface-2 text-accent;
     }
 
     .home-bento__files {
@@ -2140,53 +2138,20 @@ html.dark {
     }
 
     .home-bento__timeline {
-        @apply relative m-0 grid list-none content-center gap-5 p-0 py-2;
+        @apply relative m-0 grid list-none content-center gap-4 p-0 py-1;
     }
 
     .home-bento__timeline::before {
         content: '';
-        @apply absolute inset-y-0 left-1/2 w-px bg-line;
+        @apply absolute inset-y-0 left-[0.3125rem] w-px bg-line;
     }
 
     .home-bento__step {
-        @apply relative grid grid-cols-2 items-center;
-    }
-
-    .home-bento__step .home-bento__chip {
-        max-width: calc(100% - 1rem);
-        text-wrap: balance;
-    }
-
-    .home-bento__step--left .home-bento__chip {
-        @apply col-start-1 mr-4 justify-self-end text-right;
-    }
-
-    .home-bento__step--right .home-bento__chip {
-        @apply col-start-2 ml-4 justify-self-start;
-    }
-
-    @media (max-width: 30rem) {
-        .home-bento__timeline::before {
-            left: 0.3125rem;
-        }
-
-        .home-bento__step {
-            @apply grid-cols-1 pl-6;
-        }
-
-        .home-bento__step--left .home-bento__chip,
-        .home-bento__step--right .home-bento__chip {
-            @apply col-start-1 m-0 justify-self-start text-left;
-            max-width: 100%;
-        }
-
-        .home-bento__step .home-bento__dot {
-            left: 0.3125rem;
-        }
+        @apply relative flex items-center pl-7;
     }
 
     .home-bento__dot {
-        @apply absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-control-line bg-surface;
+        @apply absolute left-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-control-line bg-surface;
     }
 
     .home-bento__dot.is-on {
@@ -2223,11 +2188,11 @@ html.dark {
     }
 
     .home-app__grid {
-        @apply mx-auto grid w-full max-w-5xl gap-3 md:grid-cols-2 lg:grid-cols-3;
+        @apply grid gap-3 md:grid-cols-2 lg:grid-cols-3;
     }
 
     .home-app__card {
-        @apply grid grid-rows-[auto_1fr_auto] gap-2 rounded-lg border border-line bg-surface p-5;
+        @apply grid grid-rows-[auto_1fr_auto] gap-2;
     }
 
     .home-app__card--qr {
@@ -2250,10 +2215,6 @@ html.dark {
         @apply m-0 mb-3 text-sm leading-relaxed text-muted;
     }
 
-    .home-app__card .btn-secondary {
-        @apply w-full justify-center;
-    }
-
     .home-app__qr-code {
         @apply h-[5.5rem] w-[5.5rem] overflow-hidden rounded-md border border-line bg-white p-1;
     }
@@ -2263,19 +2224,15 @@ html.dark {
     }
 
     .install-now {
-        @apply grid gap-5 rounded-lg border border-line bg-surface p-5 md:p-6;
+        @apply grid gap-5;
     }
 
     .install-now__head {
         @apply flex items-start gap-3.5;
     }
 
-    .install-now__icon {
-        @apply grid size-10 shrink-0 place-items-center rounded-md bg-accent-weak text-accent-strong;
-    }
-
     .install-now__ready {
-        @apply m-0 text-[0.9375rem] text-text;
+        @apply m-0 text-base text-text;
     }
 
     .install-now__body {
@@ -2522,7 +2479,7 @@ html.dark {
     }
 
     .sec-glance__item {
-        @apply flex items-center gap-3 rounded-lg border border-line bg-surface p-3 text-sm font-semibold text-text;
+        @apply flex items-center gap-3 text-sm font-semibold text-text;
         margin-top: 0 !important;
     }
 
@@ -2531,7 +2488,7 @@ html.dark {
     }
 
     .sec-toc {
-        @apply mt-6 rounded-lg border border-line bg-surface p-4;
+        @apply mt-6;
     }
 
     .sec-toc__title {
@@ -2550,12 +2507,12 @@ html.dark {
     }
 
     .sec-toc a {
-        @apply text-muted underline-offset-4 hover:text-accent-strong hover:underline;
+        @apply grid min-h-8 grid-cols-[1.75rem_minmax(0,1fr)] content-center items-baseline py-1 text-muted underline-offset-4 hover:text-accent-strong hover:underline;
     }
 
     .sec-toc a::before {
         content: counter(sec) ".";
-        @apply mr-2 inline-block w-5 font-mono text-xs text-muted;
+        @apply font-mono text-xs text-muted;
     }
 
     .article .sec-block {
@@ -2565,10 +2522,6 @@ html.dark {
 
     .sec-block .more {
         @apply mt-3;
-    }
-
-    .sec-block .more > summary {
-        @apply -ml-2;
     }
 
     .sec-block .more__body p {
@@ -2911,15 +2864,15 @@ html.dark {
     :is(.chat-bubble--mine, .chat-kmsg--mine, .wb-chat__msg--mine) .chat-md li::marker {
         color: inherit;
     }
-}
 
-.error-code {
-    font-family: var(--font-mono);
-    font-size: clamp(5.5rem, 24vw, 10rem);
-    font-weight: 300;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    color: var(--text);
-    margin-bottom: 1rem;
+    .error-code {
+        font-family: var(--font-mono);
+        font-size: clamp(5.5rem, 24vw, 10rem);
+        font-weight: 300;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        color: var(--text);
+        margin-bottom: 1rem;
+    }
 }

@@ -6,7 +6,6 @@ import { getTranslations, pickDict, t, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const localePrefix = '';
 const guideDict = pickDict(dict, ['install.guide', 'common.copy', 'common.copied', 'common.uploadChallenge.retry']);
 const perks = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3], ['download', 4]] as const;
 const platforms = [
@@ -35,15 +34,15 @@ export const prerender = true;
       <img class="app-shot install-hero__shot" src="/screenshot-hub-chats.png?v=9" alt="" width="220" height="476" loading="eager" decoding="async" />
     </header>
 
-    <InstallGuide client:load dict={guideDict} appHref={`${localePrefix}/app`} />
+    <InstallGuide client:load dict={guideDict} appHref="/app" />
 
     <section class="install-manual" aria-labelledby="install-manual-title">
       <h2 id="install-manual-title" class="section-title">{t(dict, 'install.manual.title')}</h2>
       <div class="install-guides">
         {platforms.map(({ id, icon, prefix }) => (
-          <section class="install-guide" aria-labelledby={id}>
+          <section class="install-guide panel" aria-labelledby={id}>
             <h3 id={id} class="install-guide__title">
-              <span class="home-flow__badge"><Icon name={icon} size={20} /></span>
+              <span class="icon-tile"><Icon name={icon} size={20} /></span>
               {t(dict, `${prefix}.title`)}
             </h3>
             <ol class="install-steps">
@@ -55,8 +54,8 @@ export const prerender = true;
     </section>
 
     <nav class="install-more" aria-label={t(dict, 'install.more')}>
-      <a href={`${localePrefix}/share`} class="btn-secondary"><Icon name="lock" />{t(dict, 'install.cta.share')}</a>
-      <a href={`${localePrefix}/u`} class="btn-ghost"><Icon name="lock-open" />{t(dict, 'install.cta.decrypt')}</a>
+      <a href="/share" class="btn-secondary"><Icon name="lock" />{t(dict, 'install.cta.share')}</a>
+      <a href="/u" class="btn-ghost"><Icon name="lock-open" />{t(dict, 'install.cta.decrypt')}</a>
     </nav>
   </div>
 </Layout>

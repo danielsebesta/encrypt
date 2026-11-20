@@ -72,10 +72,10 @@
 </script>
 
 {#if device}
-  <section class="install-now" class:install-now--done={installed} aria-labelledby="install-now-title">
+  <section class="install-now panel" class:install-now--done={installed} aria-labelledby="install-now-title">
     {#if installed}
       <div class="install-now__head">
-        <span class="install-now__icon"><Icon name="check" size={20} /></span>
+        <span class="icon-tile icon-tile--accent"><Icon name="check" size={20} /></span>
         <div>
           <h2 id="install-now-title" class="section-title">{t(dict, 'install.guide.installedTitle')}</h2>
           <p class="hint">{t(dict, 'install.guide.installedText')}</p>
@@ -86,7 +86,7 @@
       </div>
     {:else}
       <div class="install-now__head">
-        <span class="install-now__icon"><Icon name={device === 'desktop' ? 'qr-code' : 'phone'} size={20} /></span>
+        <span class="icon-tile icon-tile--accent"><Icon name={device === 'desktop' ? 'qr-code' : 'phone'} size={20} /></span>
         <div>
           <h2 id="install-now-title" class="section-title">{t(dict, 'install.guide.title')}</h2>
           <p class="hint">{t(dict, 'install.guide.detected').replace('{device}', t(dict, `install.guide.device.${device}`))}</p>

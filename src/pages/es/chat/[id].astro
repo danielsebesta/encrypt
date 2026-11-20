@@ -1,24 +1,7 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import ChatRoom from '../../../components/tools/ChatRoom.svelte';
-import { getTranslations, t, pickDict, type Locale } from '../../../lib/i18n';
-
-const locale = (Astro.currentLocale ?? 'en') as Locale;
-const dict = getTranslations(locale);
-const clientDict = pickDict(dict, ['chat', 'emoji', 'whiteboard', 'common', 'rooms']);
-const { id } = Astro.params;
+import Room from '../../chat/[id].astro';
 
 export const prerender = false;
 ---
 
-<Layout
-  background={false}
-  title={t(dict, 'chat.meta.roomTitle')}
-  description={t(dict, 'chat.meta.roomDescription')}
-  robots="noindex, nofollow"
->
-  <div class="page pt-5 pb-8 md:pt-6">
-    <h1 class="section-title mb-3">{t(dict, 'chat.pageTitle')}</h1>
-    <ChatRoom client:idle roomId={id || 'default'} locale={locale} dict={clientDict} />
-  </div>
-</Layout>
+<Room />

@@ -61,7 +61,7 @@ const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u
 
     <ul class="sec-glance">
       {glance.map((g) => (
-        <li class="sec-glance__item">
+        <li class="sec-glance__item panel">
           <span class="sec-glance__icon" aria-hidden="true">
             <Icon name={g.icon} size={20} />
           </span>
@@ -70,7 +70,7 @@ const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+(?=\p{Lu})/u
       ))}
     </ul>
 
-    <nav class="sec-toc" aria-label={t(dict, 'security.toc')}>
+    <nav class="sec-toc panel" aria-label={t(dict, 'security.toc')}>
       <p class="sec-toc__title">{t(dict, 'security.toc')}</p>
       <ol>
         {sections.map((s) => <li><a href={`#${s.id}`}>{t(dict, s.title)}</a></li>)}

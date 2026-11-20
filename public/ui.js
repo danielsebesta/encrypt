@@ -3,12 +3,18 @@
 
   var themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
-    themeBtn.setAttribute('aria-pressed', document.documentElement.classList.contains('dark') ? 'true' : 'false');
+    var syncTheme = function () {
+      var label = themeBtn.getAttribute(document.documentElement.classList.contains('dark') ? 'data-label-light' : 'data-label-dark');
+      if (!label) return;
+      themeBtn.setAttribute('aria-label', label);
+      themeBtn.setAttribute('title', label);
+    };
+    syncTheme();
     themeBtn.addEventListener('click', function () {
       var root = document.documentElement;
       root.classList.add('theme-instant');
       var isDark = root.classList.toggle('dark');
-      themeBtn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+      syncTheme();
       root.style.colorScheme = isDark ? 'only dark' : 'only light';
       try {
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
