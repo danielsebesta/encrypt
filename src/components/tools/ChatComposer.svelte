@@ -115,6 +115,12 @@
   }
 
   function onScheduleItemKeys(e: KeyboardEvent) {
+    if (scheduleMenuOpen && (e.key === 'Escape' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeSchedule();
+      return;
+    }
     if (e.key !== 'ArrowRight' || scheduleMenuOpen || !inputText.trim()) return;
     e.preventDefault();
     openSchedule();

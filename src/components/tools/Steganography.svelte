@@ -238,27 +238,27 @@
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = async () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      let bitIdx = 0;
-      function readBits(count: number): Uint8Array {
-        const bytes = new Uint8Array(Math.ceil(count / 8));
-        for (let i = 0; i < count; i++) {
-          const pixelIdx = Math.floor(bitIdx / 3);
-          const channelIdx = bitIdx % 3;
-          const byteIdx = pixelIdx * 4 + channelIdx;
-          const bitVal = data[byteIdx] & 1;
-          const bytePos = Math.floor(i / 8);
-          const bitPos = 7 - (i % 8);
-          bytes[bytePos] |= (bitVal << bitPos);
-          bitIdx++;
-        }
-        return bytes;
-      }
       try {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        let bitIdx = 0;
+        function readBits(count: number): Uint8Array {
+          const bytes = new Uint8Array(Math.ceil(count / 8));
+          for (let i = 0; i < count; i++) {
+            const pixelIdx = Math.floor(bitIdx / 3);
+            const channelIdx = bitIdx % 3;
+            const byteIdx = pixelIdx * 4 + channelIdx;
+            const bitVal = data[byteIdx] & 1;
+            const bytePos = Math.floor(i / 8);
+            const bitPos = 7 - (i % 8);
+            bytes[bytePos] |= (bitVal << bitPos);
+            bitIdx++;
+          }
+          return bytes;
+        }
         const extractedMagic = new TextDecoder().decode(readBits(32));
         if (extractedMagic !== MAGIC) {
           say(t(dict, 'tools.steganography.noHiddenMessage'), 'error');

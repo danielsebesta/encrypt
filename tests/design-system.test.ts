@@ -101,10 +101,12 @@ test('theme-color meta tags match the --bg token of each theme', () => {
 const VARIANTS: readonly string[] = BUTTON_VARIANTS;
 const MODIFIERS: readonly string[] = BUTTON_MODIFIERS;
 /** Other canonical control classes a `<button>` may carry instead of a button variant. */
-const CONTROL_CLASSES = ['menu__item', 'chip', 'tab', 'nav__link', 'dropzone'];
+const CONTROL_CLASSES = ['menu__item', 'chip', 'badge', 'tab', 'nav__link', 'dropzone'];
 const CANONICAL = [...VARIANTS, ...CONTROL_CLASSES];
 /** Internal parts of CopyButton / ShareLinkButton feedback animation, not button styles. */
 const BTN_INTERNAL = /^btn-feedback(?:__|--|$)/;
+/** Button classes styled only by the /app skin (app-*.css), allowed in the named file behind an appMode branch. */
+const APP_ONLY_BTN: Record<string, string[]> = { 'src/components/tools/ChatRoom.svelte': ['btn-outline'] };
 
 /** Primitives whose class comes from buttonClass() or a prop; their callers are checked instead. */
 const COMPUTED_CLASS: Record<string, string> = {
@@ -179,10 +181,11 @@ test('btn-* classes are canonical, with exactly one variant', () => {
     for (const m of file.text.matchAll(/(["'`])([^"'`\n]*)\1/g)) {
       const words = tokens(m[2]);
       const btn = words.filter((w) => /^btn(-|$)/.test(w) && !BTN_INTERNAL.test(w));
+      const appOnly = APP_ONLY_BTN[file.path] ?? [];
       if (!btn.length) continue;
       const where = `${file.path}:${lineOf(file.text, m.index!)}`;
-      for (const w of btn) if (!VARIANTS.includes(w) && !MODIFIERS.includes(w)) problems.push(`${where} unknown ${w}`);
-      const variants = btn.filter((w) => VARIANTS.includes(w));
+      for (const w of btn) if (!VARIANTS.includes(w) && !MODIFIERS.includes(w) && !appOnly.includes(w)) problems.push(`${where} unknown ${w}`);
+      const variants = btn.filter((w) => VARIANTS.includes(w) || appOnly.includes(w));
       if (variants.length > 1) problems.push(`${where} several variants: ${variants.join(' ')}`);
       if (!variants.length && btn.some((w) => MODIFIERS.includes(w)) && !/^\s|\s$/.test(m[2])) problems.push(`${where} modifier without a variant: ${m[2]}`);
       if (variants.length && words.includes('w-full')) problems.push(`${where} use btn-block instead of w-full`);
