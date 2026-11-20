@@ -1164,8 +1164,6 @@
   "whiteboard.about.7": "Obrázok pretiahni na tabuľu, vlož zo schránky alebo použi Vložiť obrázok na paneli nástrojov. Prehliadač ho najprv prekreslí: najviac 1600 pixelov na dlhšej strane, znovu zakódovaný ako WebP, alebo JPEG tam, kde prehliadač WebP zapísať nevie, a najviac približne 400 KB, čím zmiznú aj metadáta, napríklad miesto, kde bola fotka urobená. Obrázok sa potom vloží priamo do tabule a putuje zašifrovaný a podpísaný ako každý ťah; nikdy nejde do služby na nahrávanie súborov. Tabuľa pojme až 12 MB obrázkov a exporty do PNG aj exporty tabule ich obsahujú.",
   "whiteboard.about.8.title": "Moje miestnosti",
   "whiteboard.about.8": "Keď si na tabuli, položka Uložiť do Mojich miestností v ponuke tabule ju pridá do zoznamu na tejto stránke a na stránke chatu. Zostáva v tomto prehliadači na tomto zariadení a nikdy sa nesynchronizuje ani nikam neodosiela. Názov tabule, tvoj popis a čas poslednej návštevy sa ukladajú tak, ako sú, podobne ako história prehliadača. Heslo sa ukladá len v zašifrovanej podobe (AES-256-GCM), pod kľúčom, ktorý HKDF-SHA256 odvodí z výstupu WebAuthn PRF prístupového kľúča vytvoreného pre tento zoznam, takže ho dokáže uvoľniť len tento prístupový kľúč odomknutý odtlačkom prsta, tvárou, PINom alebo bezpečnostným kľúčom; kľúč zostáva len v pamäti otvorenej stránky. Bez podpory PRF sa ukladajú len názvy. Zabudnúť odstráni jednu tabuľu; Zabudnúť všetko odstráni zoznam aj odkaz na prístupový kľúč, samotný prístupový kľúč vymažeš v zariadení alebo správcovi hesiel.",
-  "rooms.kind.chat": "Chat",
-  "rooms.kind.whiteboard": "Tabuľa",
   "rooms.mode.live": "Nechať históriu",
   "rooms.mode.ttl": "Miznúce správy",
   "rooms.title": "Moje miestnosti",

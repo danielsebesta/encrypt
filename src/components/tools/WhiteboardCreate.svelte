@@ -162,6 +162,6 @@
       </div>
     </form>
   {/if}
-  <MyRooms {dict} {locale} />
+  <MyRooms {dict} {locale} kind="whiteboard" />
 </div>
 

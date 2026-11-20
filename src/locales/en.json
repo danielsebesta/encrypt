@@ -1174,8 +1174,6 @@
   "whiteboard.about.7": "Drop a picture on the board, paste it or use Insert image in the toolbar. Your browser redraws it first: at most 1600 pixels on the long side, re-encoded as WebP, or JPEG where the browser cannot write WebP, at about 400 KB at most, which also strips metadata such as where a photo was taken. The picture is then embedded in the board itself and travels encrypted and signed like every stroke; it never goes to an upload service. A board holds up to 12 MB of pictures, and both PNG and board exports include them.",
   "whiteboard.about.8.title": "My rooms",
   "whiteboard.about.8": "Once you are on a board, Save to My rooms in the board menu adds it to a list shown on this page and on the chat page. It stays in this browser on this device and is never synced or sent anywhere. The board name, your label for it and the time of your last visit are stored as they are, like your browser history. The password is stored only encrypted with AES-256-GCM, under a key that HKDF-SHA256 derives from the WebAuthn PRF output of a passkey created for this list, so only that passkey, unlocked with your fingerprint, face, PIN or security key, can release it; the key stays in memory for the open page only. Without PRF support only names are kept. Forget removes one board; Forget everything removes the list and the passkey reference, while the passkey itself is deleted in your device or password manager.",
-  "rooms.kind.chat": "Chat",
-  "rooms.kind.whiteboard": "Whiteboard",
   "rooms.mode.live": "Keep history",
   "rooms.mode.ttl": "Disappearing messages",
   "rooms.title": "My rooms",

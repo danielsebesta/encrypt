@@ -8,7 +8,7 @@
   } from '../../lib/roomVault';
   import Icon from '../Icon.svelte';
 
-  let { dict, locale = 'en' }: { dict: Record<string, string>; locale?: string } = $props();
+  let { dict, locale = 'en', kind }: { dict: Record<string, string>; locale?: string; kind: RoomEntry['kind'] } = $props();
 
   let rooms = $state<RoomEntry[]>([]);
   let vault = $state<VaultState>('names');
@@ -35,7 +35,7 @@
   );
 
   async function refresh() {
-    rooms = await listRooms();
+    rooms = (await listRooms()).filter((room) => room.kind === kind);
     vault = await vaultState();
     now = Date.now();
     loaded = true;
@@ -222,7 +222,6 @@
                     {room.label}
                   </p>
                   <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-                    <span class="badge">{t(dict, `rooms.kind.${room.kind}`)}</span>
                     <span>{modeLabel(room)}</span>
                     <span aria-hidden="true">·</span>
                     <span>{visited(room)}</span>

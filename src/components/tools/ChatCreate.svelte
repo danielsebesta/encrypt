@@ -204,7 +204,7 @@
       </div>
     </form>
   {/if}
-  <MyRooms {dict} {locale} />
+  <MyRooms {dict} {locale} kind="chat" />
 </div>
 
 <style>

@@ -1164,8 +1164,6 @@
   "whiteboard.about.7": "Upuść obraz na tablicę, wklej go albo użyj Wstaw obraz na pasku narzędzi. Przeglądarka najpierw rysuje go od nowa: najwyżej 1600 pikseli na dłuższym boku, ponownie zakodowany jako WebP, albo JPEG tam, gdzie przeglądarka nie umie zapisać WebP, i najwyżej około 400 KB, co przy okazji usuwa metadane, takie jak miejsce zrobienia zdjęcia. Obraz zostaje potem osadzony w samej tablicy i podróżuje zaszyfrowany i podpisany jak każda kreska; nigdy nie trafia do usługi przesyłania plików. Tablica mieści do 12 MB obrazów, a zarówno eksporty PNG, jak i eksporty tablicy je zawierają.",
   "whiteboard.about.8.title": "Moje pokoje",
   "whiteboard.about.8": "Gdy jesteś na tablicy, pozycja Zapisz w Moich pokojach w menu tablicy dodaje ją do listy widocznej na tej stronie i na stronie czatu. Zostaje ona w tej przeglądarce na tym urządzeniu i nigdy nie jest synchronizowana ani nigdzie wysyłana. Nazwa tablicy, twoja etykieta i czas ostatniej wizyty są zapisane bez zmian, podobnie jak historia przeglądarki. Hasło jest zapisane tylko w postaci zaszyfrowanej AES-256-GCM, kluczem, który HKDF-SHA256 wyprowadza z wyniku WebAuthn PRF klucza dostępu utworzonego dla tej listy, więc uwolnić go może tylko ten klucz dostępu odblokowany odciskiem palca, twarzą, PIN-em lub kluczem bezpieczeństwa; klucz zostaje tylko w pamięci otwartej strony. Bez obsługi PRF zapisywane są tylko nazwy. Zapomnij usuwa jedną tablicę; Zapomnij wszystko usuwa listę i odwołanie do klucza dostępu, a sam klucz dostępu usuwa się w urządzeniu lub menedżerze haseł.",
-  "rooms.kind.chat": "Chat",
-  "rooms.kind.whiteboard": "Tablica",
   "rooms.mode.live": "Zachowaj historię",
   "rooms.mode.ttl": "Znikające wiadomości",
   "rooms.title": "Moje pokoje",
