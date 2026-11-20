@@ -6878,14 +6878,14 @@
     display: flex;
     flex-direction: column;
     container: chat-body / inline-size;
-    height: clamp(30rem, calc(100dvh - 8.5rem), 1200px);
+    height: clamp(22rem, calc(100dvh - 8.5rem), 1200px);
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--line-soft);
     background: var(--surface);
   }
   .chat-container:has(.chat-body--call) {
-    height: clamp(32rem, calc(100dvh - 6rem), 1300px);
+    height: clamp(24rem, calc(100dvh - 8.5rem), 1300px);
   }
   .chat-center {
     flex: 1;

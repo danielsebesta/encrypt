@@ -2104,8 +2104,7 @@
   .wb-container {
     display: flex;
     flex-direction: column;
-    height: clamp(30rem, calc(100dvh - 8.5rem), 1300px);
-    min-height: 420px;
+    height: clamp(22rem, calc(100dvh - 8.5rem), 1300px);
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--line-soft);
@@ -2518,6 +2517,11 @@
   @media (max-width: 399px), (max-height: 479px) {
     .wb-share-banner {
       max-height: min(60%, 16rem);
+    }
+  }
+  @media (min-width: 400px) and (min-height: 480px) and (max-height: 720px) {
+    .wb-share-banner {
+      max-height: min(42%, 16rem);
     }
   }
   .wb-share-banner__bar {
