@@ -7,11 +7,13 @@ import {
   loadKeepAwake,
   loadLockTimeoutMs,
   loadReduceMotion,
+  loadReduceTransparency,
   saveDefaultRoomMode,
   saveHapticsMode,
   saveKeepAwake,
   saveLockTimeoutMs,
   saveReduceMotion,
+  saveReduceTransparency,
 } from '../src/lib/appPrefs';
 
 function stubLocalStorage() {
@@ -58,5 +60,14 @@ describe('app prefs', () => {
     assert.equal(loadKeepAwake(), false);
     assert.equal(loadDefaultRoomMode(), 'ttl');
     assert.equal(loadReduceMotion(), true);
+  });
+
+  it('reduce transparency follows the system until the user picks a value', () => {
+    stubLocalStorage();
+    assert.equal(loadReduceTransparency(), null);
+    saveReduceTransparency(true);
+    assert.equal(loadReduceTransparency(), true);
+    saveReduceTransparency(false);
+    assert.equal(loadReduceTransparency(), false);
   });
 });

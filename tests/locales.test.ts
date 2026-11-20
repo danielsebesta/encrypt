@@ -12,7 +12,7 @@ const ALLOW_SAME_AS_EN = new Set([
   'install.guide.device.androidSamsung',
   'install.guide.device.androidFirefox',
   'emoji.label',
-  'app.new.kindChat',
+  'app.settings.seed.orange',
   'app.settings.app',
   'app.settings.designIos',
   'app.settings.designMaterial',

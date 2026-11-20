@@ -339,10 +339,6 @@
         align-items: center;
         gap: 6px;
     }
-    .k-message-avatar .chat-avatar {
-        width: 100%;
-        height: 100%;
-    }
     .chat-kmsg--mine .chat-text,
     .chat-kmsg--mine .chat-file__name,
     .chat-kmsg--mine .chat-once-note,
@@ -412,10 +408,6 @@
     .chat-key-warn {
         background: var(--app-warn-weak);
         color: var(--app-on-warn-weak);
-    }
-    .chat-member--warn {
-        background: var(--app-warn-weak);
-        border-radius: 8px;
     }
     .chat-jump-latest {
         color: var(--app-tint);
@@ -561,8 +553,7 @@
             background: var(--app-fill);
         }
     }
-    .wb-btn[aria-pressed="true"],
-    .wb-btn--active {
+    .wb-btn[aria-pressed="true"] {
         color: var(--app-tint);
     }
     .wb-share-banner {

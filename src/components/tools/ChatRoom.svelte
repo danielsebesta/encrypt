@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Dialog, DialogButton, List, ListItem, MenuList, MenuListItem, Popover, Sheet } from 'konsta/svelte';
+  import { Dialog, DialogButton, List, ListItem, MenuList, MenuListItem, Message, Popover, Progressbar, Sheet } from 'konsta/svelte';
   import { isContent, relayedContentOk, stampPayload, validPayload } from '../../lib/chatProtocol';
   import {
     MEMBER_LEAVE_GRACE_MS,
@@ -50,7 +50,6 @@
   import Icon from '../Icon.svelte';
   import { menu } from '../ui/menu';
   import Modal from '../Modal.svelte';
-  import { Message, Progressbar } from 'konsta/svelte';
   import ProgressPulse from '../ProgressPulse.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';

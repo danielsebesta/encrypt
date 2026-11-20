@@ -1,14 +1,17 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
 
-  let { label, active, onconfirm }: {
+  let { label, hint, active, onconfirm }: {
     label: string;
+    hint: string;
     active: boolean;
     onconfirm: () => void;
   } = $props();
 
   const KEY_STEP = 0.25;
   const CONFIRM_AT = 0.92;
+  const uid = $props.id();
+  const hintId = `app-slide-hint-${uid}`;
 
   let track: HTMLDivElement;
   let thumb: HTMLSpanElement;
@@ -110,6 +113,7 @@
     role="slider"
     tabindex={active ? 0 : -1}
     aria-label={label}
+    aria-describedby={hintId}
     aria-valuemin="0"
     aria-valuemax="100"
     aria-valuenow={Math.round(progress * 100)}
@@ -121,4 +125,5 @@
     {onkeydown}
     {onblur}
   ><Icon name="arrow-right" size={20} /></span>
+  <span id={hintId} class="sr-only">{hint}</span>
 </div>

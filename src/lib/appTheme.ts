@@ -17,15 +17,16 @@ export type AppAppearance = 'system' | AppScheme;
 // fixes the primary/secondary/tertiary chroma, so the seed's hue is what sets the tint.
 export const DEFAULT_SEED = '#5b6472';
 
+// Material You seeds offered in Settings; the scheme guard keeps every on-role at AA for any seed.
 export const SEED_PRESETS = [
-  { id: 'slate', hex: DEFAULT_SEED },
-  { id: 'blue', hex: '#4a6fd1' },
-  { id: 'teal', hex: '#00838f' },
-  { id: 'green', hex: '#3d8a3a' },
-  { id: 'yellow', hex: '#c49a00' },
-  { id: 'orange', hex: '#d0632b' },
-  { id: 'red', hex: '#c0392b' },
-  { id: 'purple', hex: '#8a4fbf' },
+  { id: 'default', hex: DEFAULT_SEED },
+  { id: 'red', hex: '#b3423a' },
+  { id: 'orange', hex: '#b5652a' },
+  { id: 'yellow', hex: '#9a7b1c' },
+  { id: 'green', hex: '#4c8a3c' },
+  { id: 'teal', hex: '#2f8a87' },
+  { id: 'purple', hex: '#7656b0' },
+  { id: 'pink', hex: '#b04a7a' },
 ] as const;
 
 export type SeedPresetId = (typeof SEED_PRESETS)[number]['id'];

@@ -71,6 +71,8 @@ const dict = getTranslations(locale);
           if (amoled) root.dataset.appAmoled = '';
           root.dataset.appPlatform = platform;
           root.dataset.appScheme = scheme;
+          var reduceTransparency = ls.getItem('encrypt-app-reduce-transparency');
+          root.dataset.appReduceTransparency = reduceTransparency === '1' || (reduceTransparency !== '0' && matchMedia('(prefers-reduced-transparency: reduce)').matches) ? '1' : '0';
           root.classList.toggle('dark', scheme === 'dark');
           var cached;
           if (platform === 'material') {
