@@ -14,6 +14,7 @@ const LS_KEEP_AWAKE = 'encrypt-app-keep-awake';
 const LS_DEFAULT_ROOM = 'encrypt-app-default-room-mode';
 const LS_REDUCE_MOTION = 'encrypt-app-reduce-motion';
 const LS_REDUCE_TRANSPARENCY = 'encrypt-app-reduce-transparency';
+const LS_REMEMBER_PASSWORDS = 'encrypt-app-remember-passwords';
 
 function read(key: string): string | null {
   try {
@@ -59,6 +60,16 @@ export function loadKeepAwake(): boolean {
 
 export function saveKeepAwake(on: boolean) {
   write(LS_KEEP_AWAKE, on ? '1' : '0');
+}
+
+/** null until the person has been asked once. */
+export function loadRememberPasswords(): boolean | null {
+  const value = read(LS_REMEMBER_PASSWORDS);
+  return value === '1' ? true : value === '0' ? false : null;
+}
+
+export function saveRememberPasswords(on: boolean) {
+  write(LS_REMEMBER_PASSWORDS, on ? '1' : '0');
 }
 
 export function loadDefaultRoomMode(): DefaultRoomMode {

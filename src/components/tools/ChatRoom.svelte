@@ -107,6 +107,8 @@
   export let onOpenBoardApp: ((roomId: string, password: string) => void) | undefined = undefined;
   export let onExitApp: (() => void) | undefined = undefined;
   export let onSavedPassword: (() => Promise<string | null>) | undefined = undefined;
+  export let savedPasswordReady = false;
+  export let onPasswordAccepted: ((password: string) => void) | undefined = undefined;
   export let onNotice: ((message: string) => void) | undefined = undefined;
   export let onConnStatus: ((status: 'connected' | 'connecting' | 'loading' | 'offline') => void) | undefined = undefined;
   export let requestReconnect = () => {};
@@ -2445,7 +2447,7 @@
     if (remembered) {
       passwordInput = remembered;
       await enterWithPassword(remembered);
-    } else if (!(await usePasskeyPassword(false))) {
+    } else if (!(savedPasswordReady && await usePasskeyPassword(false))) {
       checkingRoom = false; needsPassword = true;
     }
   }
@@ -2569,12 +2571,20 @@
     ws.send(JSON.stringify({ type: 'message', payload: verifyPayload, id: genId() }));
   }
 
+  let acceptedPassword = '';
+  let reportedPassword = '';
+  $: if (verified && acceptedPassword && acceptedPassword !== reportedPassword) {
+    reportedPassword = acceptedPassword;
+    onPasswordAccepted?.(acceptedPassword);
+  }
+
   async function enterWithPassword(pwd: string) {
     try {
       const secret = await roomSecret(pwd, roomId, 'chat');
       accessToken = secret.token; channelId = secret.channel;
       if (!(await setupIdentity(`chat:${channelId}`))) return;
       pendingSecret = secret;
+      acceptedPassword = pwd;
       needsPassword = false;
       try { sessionStorage.setItem(`chat-pw:${roomId}`, pwd); } catch {}
       checkingRoom = true;
@@ -5840,6 +5850,9 @@
           <p id="chat-password-hint" class="hint">{t(dict, 'chat.roomPasswordHint')}</p>
         </div>
         <form class="space-y-4" novalidate on:submit|preventDefault={submitPassword}>
+          {#if appMode && onSavedPassword && savedPasswordReady}
+            <button type="button" class="btn btn-block" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
+          {/if}
           <div class="field">
             <label class="label" class:sr-only={appMode} for="chat-password">{t(dict, 'chat.password')}</label>
             <input
@@ -5859,10 +5872,7 @@
               <p id="chat-password-error" class="field-error" role="alert">{passwordError}</p>
             {/if}
           </div>
-          <button type="submit" class="btn btn-block">{t(dict, 'chat.enterRoom')}</button>
-          {#if appMode && onSavedPassword}
-            <button type="button" class="btn-secondary btn-block" on:click={() => void usePasskeyPassword(true)}>{t(dict, 'rooms.unlock')}</button>
-          {/if}
+          <button type="submit" class={appMode && onSavedPassword && savedPasswordReady ? 'btn-secondary btn-block' : 'btn btn-block'}>{t(dict, 'chat.enterRoom')}</button>
         </form>
       </div>
     </div>

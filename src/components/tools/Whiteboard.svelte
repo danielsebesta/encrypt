@@ -39,6 +39,7 @@
   export let initialPassword = '';
   export let appMode = false;
   export let onExitApp: (() => void) | undefined = undefined;
+  export let onPasswordAccepted: ((password: string) => void) | undefined = undefined;
   export let onClearRequest: ((doClear: () => void) => void) | undefined = undefined;
   export let onConnStatus: ((status: 'connected' | 'connecting' | 'loading' | 'offline') => void) | undefined = undefined;
   export let onHaptic: ((type: 'light' | 'medium' | 'success' | 'warning') => void) | undefined = undefined;
@@ -299,6 +300,13 @@
     myKeyCode = await keyCode(myPk);
   }
 
+  let acceptedPassword = '';
+  let reportedPassword = '';
+  $: if (verified && acceptedPassword && acceptedPassword !== reportedPassword) {
+    reportedPassword = acceptedPassword;
+    onPasswordAccepted?.(acceptedPassword);
+  }
+
   async function enterWithPassword(pwd: string) {
     if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
     persistEpoch++;
@@ -311,6 +319,7 @@
       canCreate = passwordLongEnough(pwd);
       boardMissing = false;
       needsPassword = false;
+      acceptedPassword = pwd;
       try { sessionStorage.setItem(`wb-pw:${roomId}`, pwd); } catch {}
       localRestored = false;
       setupYjs();

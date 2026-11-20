@@ -54,6 +54,8 @@
     unlockVault,
     warmPasskeyRef,
     revealSecret,
+    createPasskey,
+    vaultSessionKey,
     type VaultState,
     type RoomEntry,
   } from '../../lib/roomVault';
@@ -103,6 +105,8 @@
     loadReduceTransparency,
     prefersReducedMotion,
     saveDefaultRoomMode,
+    loadRememberPasswords,
+    saveRememberPasswords,
     saveHapticsMode,
     saveKeepAwake,
     saveLockTimeoutMs,
@@ -307,6 +311,7 @@
       clearBoard: clearBoardDialogOpen,
       vaultExport: vaultExportOpen,
       vaultImport: vaultImportOpen,
+      remember: rememberOfferOpen,
       actions: actionsRoom !== null,
       rename: renameDialogOpen,
       del: deleteDialogOpen,
@@ -327,6 +332,7 @@
     if (keep !== 'clearBoard') clearBoardDialogOpen = false;
     if (keep !== 'vaultExport') vaultExportOpen = false;
     if (keep !== 'vaultImport') vaultImportOpen = false;
+    if (keep !== 'remember') rememberOfferOpen = false;
     if (keep !== 'actions') actionsRoom = null;
     if (keep !== 'rename') renameDialogOpen = false;
     if (keep !== 'del') deleteDialogOpen = false;
@@ -343,6 +349,7 @@
       : panicDialogOpen ? 'panic'
       : vaultExportOpen ? 'vaultExport'
       : vaultImportOpen ? 'vaultImport'
+      : rememberOfferOpen ? 'remember'
       : clearBoardDialogOpen ? 'clearBoard'
       : renameDialogOpen ? 'rename'
       : deleteDialogOpen ? 'del'
@@ -550,6 +557,7 @@
       try { sessionStorage.setItem('chat-room-config', JSON.stringify({ mode: room.mode, authMode: 'password', createdAt: Date.now(), v: 3 })); } catch {}
     }
     if (room.secret && (await unlockVault())) {
+      void flushPendingSecrets();
       const secret = await revealSecret(room);
       if (secret) {
         try {
@@ -567,8 +575,11 @@
   }
 
   async function savedRoomPassword(): Promise<string | null> {
+    if (!savedSecretIds.has(`chat:${activeRoomId}`)) return null;
+    if (!vaultSessionKey() && !(await unlockVault())) return null;
+    void flushPendingSecrets();
     const room = await getRoom('chat', activeRoomId).catch(() => null);
-    if (!room?.secret || !(await unlockVault())) return null;
+    if (!room?.secret) return null;
     return (await revealSecret(room))?.value ?? null;
   }
 
@@ -849,6 +860,7 @@
     if (vaultExportOpen) { vaultExportOpen = false; vaultExportPw = ''; consumeOverlayGuard(); return; }
     if (vaultImportOpen) { vaultImportOpen = false; vaultImportPw = ''; vaultImportError = ''; consumeOverlayGuard(); return; }
     if (clearBoardDialogOpen) { clearBoardDialogOpen = false; pendingClearBoard = null; consumeOverlayGuard(); return; }
+    if (rememberOfferOpen) { declineRemember(); return; }
     if (actionsRoom) { closeRowActions(); return; }
     if (renameDialogOpen) { renameDialogOpen = false; endRowInteraction(); consumeOverlayGuard(); return; }
     if (deleteDialogOpen) { deleteDialogOpen = false; endRowInteraction(); consumeOverlayGuard(); return; }
@@ -1184,6 +1196,108 @@
     })();
   }
 
+  // One passkey for every room: once turned on, each room's password is sealed under it as soon as the room opens.
+  let rememberPasswords = $state<boolean | null>(null);
+  let rememberOfferOpen = $state(false);
+  let rememberOfferDue = $state(false);
+  let rememberBusy = $state(false);
+  let rememberNeedsConfirm = $state(false);
+  const pendingSecrets = new Map<string, { kind: 'chat' | 'whiteboard'; roomId: string; password: string }>();
+  let savedSecretIds = $derived(new Set(rooms.filter((room) => room.secret).map((room) => room.id)));
+
+  function noteRoomPassword(kind: 'chat' | 'whiteboard', roomId: string, password: string) {
+    if (wiping || shotsMode || !password || !validRoomId(roomId) || rememberPasswords === false) return;
+    if (savedSecretIds.has(`${kind}:${roomId}`)) return;
+    pendingSecrets.set(`${kind}:${roomId}`, { kind, roomId, password });
+    if (rememberPasswords) void flushPendingSecrets();
+    else rememberOfferDue = true;
+  }
+
+  async function flushPendingSecrets() {
+    if (!rememberPasswords || !vaultSessionKey() || wiping || !pendingSecrets.size) return;
+    const epoch = wipeEpoch;
+    for (const [id, item] of [...pendingSecrets]) {
+      pendingSecrets.delete(id);
+      try {
+        const known = await getRoom(item.kind, item.roomId);
+        if (wiping || wipeEpoch !== epoch) return;
+        if (known?.secret) continue;
+        const mode = (item.kind === 'chat' && reportedModes.get(item.roomId)) || known?.mode || 'live';
+        const label = known?.label ?? labelForRoom(item.roomId, item.roomId, item.kind);
+        await saveRoom({ kind: item.kind, roomId: item.roomId, mode, label }, { type: 'password', value: item.password }, { withSecret: true, passkeyName: '' });
+      } catch {}
+    }
+    if (!wiping && wipeEpoch === epoch) await loadRooms();
+  }
+
+  $effect(() => {
+    if (!rememberOfferDue || activeView !== 'hub' || locked || openOverlayKey) return;
+    rememberOfferDue = false;
+    if (rememberPasswords !== null) return;
+    void vaultState().then((state) => {
+      vaultKnown = state;
+      if (state === 'names' || rememberPasswords !== null || activeView !== 'hub') return;
+      void warmPasskeyRef();
+      rememberNeedsConfirm = false;
+      rememberOfferOpen = true;
+    }).catch(() => {});
+  });
+
+  // Runs inside the tap: the passkey prompt has to start before any storage read, or iOS refuses it.
+  async function enableRemember(): Promise<boolean> {
+    if (vaultSessionKey()) return true;
+    if (vaultKnown === 'new' && !rememberNeedsConfirm) {
+      const created = await createPasskey('encrypt.click');
+      if (created === 'no-prf') { showToast(t(dict, 'app.remember.unsupported'), 'warning'); vaultKnown = 'names'; return false; }
+      if (created !== 'ok') { showToast(t(dict, 'app.remember.failed'), 'warning'); return false; }
+      vaultKnown = 'locked';
+      if (vaultSessionKey()) return true;
+      rememberNeedsConfirm = true;
+      return false;
+    }
+    if (await unlockVault()) return true;
+    showToast(t(dict, 'app.remember.failed'), 'warning');
+    return false;
+  }
+
+  async function acceptRemember() {
+    if (rememberBusy) return;
+    rememberBusy = true;
+    try {
+      if (!(await enableRemember())) return;
+      rememberPasswords = true;
+      saveRememberPasswords(true);
+      rememberNeedsConfirm = false;
+      if (rememberOfferOpen) { rememberOfferOpen = false; consumeOverlayGuard(); }
+      void vaultState().then((v) => { vaultKnown = v; }).catch(() => {});
+      await flushPendingSecrets();
+      triggerHaptic('success');
+      showToast(t(dict, 'app.remember.done'), 'success');
+    } finally {
+      rememberBusy = false;
+    }
+  }
+
+  function declineRemember() {
+    rememberPasswords = false;
+    saveRememberPasswords(false);
+    pendingSecrets.clear();
+    rememberNeedsConfirm = false;
+    if (rememberOfferOpen) { rememberOfferOpen = false; consumeOverlayGuard(); }
+  }
+
+  let rememberToggleKey = $state(0);
+  async function toggleRemember() {
+    if (rememberPasswords) {
+      rememberPasswords = false;
+      saveRememberPasswords(false);
+      pendingSecrets.clear();
+      return;
+    }
+    await acceptRemember();
+    if (!rememberPasswords) rememberToggleKey++;
+  }
+
   let joiningRoom = false;
   function handleJoinRoom() {
     if (joiningRoom) return;
@@ -1343,6 +1457,7 @@
       if (ok) {
         locked = false;
         triggerHaptic('success');
+        void flushPendingSecrets();
       } else {
         lockError = t(dict, 'app.lock.failed');
         triggerHaptic('warning');
@@ -1393,6 +1508,8 @@
 
   function wipeLocalSecrets() {
     reportedModes.clear();
+    pendingSecrets.clear();
+    rememberOfferDue = false;
     unlockAbort?.abort();
     unlockAbort = null;
     clearLock();
@@ -1519,6 +1636,7 @@
     keepAwake = loadKeepAwake();
     defaultRoomMode = loadDefaultRoomMode();
     lockTimeoutMs = loadLockTimeoutMs();
+    rememberPasswords = loadRememberPasswords();
     refreshNotifPermission();
     ready = true;
 
@@ -1526,6 +1644,7 @@
     if (lockEnabled) engageLock();
     void lockSupported().then((ok) => { lockAvailable = ok; });
     void vaultState().then((v) => { vaultKnown = v; }).catch(() => {});
+    void warmPasskeyRef();
 
     let hiddenAt = 0;
     const onVisibility = () => {
@@ -2008,6 +2127,7 @@
           {dict}
           appMode={true}
           initialPassword={boardSessionPassword(activeRoomId)}
+          onPasswordAccepted={(password) => noteRoomPassword('whiteboard', activeRoomId, password)}
           onExitApp={leaveRoom}
           onConnStatus={(s) => (roomConn = s)}
           onHaptic={triggerHaptic}
@@ -2349,6 +2469,15 @@
 
           <BlockTitle>{t(dict, 'app.settings.security')}</BlockTitle>
           <List strong inset class="app-group">
+            {#if vaultKnown && vaultKnown !== 'names'}
+              <ListItem title={t(dict, 'app.settings.remember')} subtitle={t(dict, 'app.settings.rememberHint')}>
+                {#snippet media()}{@render settingIcon('key')}{/snippet}
+                {#snippet after()}
+                  {#if rememberBusy}<span class="app-spinner me-3" aria-hidden="true"></span>{/if}
+                  {#key rememberToggleKey}<Toggle checked={rememberPasswords === true} {@attach asSwitch(t(dict, 'app.settings.remember'))} onChange={toggleRemember} />{/key}
+                {/snippet}
+              </ListItem>
+            {/if}
             <ListItem title={t(dict, 'app.settings.lock')} subtitle={t(dict, 'app.settings.lockHint')}>
               {#snippet media()}{@render settingIcon('lock')}{/snippet}
               {#snippet after()}
@@ -2511,6 +2640,8 @@
             onOpenBoardApp={openBoardInvite}
             onExitApp={leaveRoom}
             onSavedPassword={savedRoomPassword}
+            savedPasswordReady={savedSecretIds.has(`chat:${mountedRoomId}`)}
+            onPasswordAccepted={(password) => noteRoomPassword('chat', mountedRoomId, password)}
             onNotice={showToast}
             onConnStatus={(s) => (roomConn = s)}
             bind:requestReconnect={roomReconnect}
@@ -2920,6 +3051,16 @@
       {#snippet buttons()}
         <DialogButton class="app-dialog-cancel" onClick={() => { vaultExportOpen = false; vaultExportPw = ''; consumeOverlayGuard(); }}>{t(dict, 'app.cancel')}</DialogButton>
         <DialogButton strong={platform === 'ios'} class="app-dialog-primary" onClick={handleVaultExport} disabled={vaultExportBusy || !vaultExportPw.trim()}>{t(dict, 'app.backup.exportConfirm')}</DialogButton>
+      {/snippet}
+    </Dialog>
+
+    <!-- REMEMBER PASSWORDS OFFER -->
+    <Dialog class={dialogStack(t(dict, 'app.remember.later'), t(dict, 'app.remember.enable'))} opened={rememberOfferOpen} inert={!rememberOfferOpen} onBackdropClick={declineRemember} data-app-overlay="remember" role="dialog" aria-modal="true" aria-labelledby="app-remember-title" aria-describedby="app-remember-body" tabindex="-1">
+      {#snippet title()}<span id="app-remember-title">{t(dict, 'app.remember.title')}</span>{/snippet}
+      <span id="app-remember-body">{t(dict, rememberNeedsConfirm ? 'app.remember.confirmBody' : 'app.remember.body')}</span>
+      {#snippet buttons()}
+        <DialogButton class="app-dialog-cancel" onClick={declineRemember}>{t(dict, 'app.remember.later')}</DialogButton>
+        <DialogButton strong={platform === 'ios'} class="app-dialog-primary" onClick={() => void acceptRemember()} disabled={rememberBusy}>{t(dict, rememberNeedsConfirm ? 'app.remember.confirm' : 'app.remember.enable')}</DialogButton>
       {/snippet}
     </Dialog>
 
