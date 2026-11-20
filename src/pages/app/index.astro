@@ -37,7 +37,9 @@ const dict = getTranslations(locale);
           var q = new URLSearchParams(location.search);
           // Store-screenshot captures use ?shots=1 and never need the install gate.
           if (q.get('shots') === '1') installed = true;
-          if (!(mobile && installed)) {
+          // Offline, the service worker answers other pages with this shell; redirecting from there would loop.
+          var shellUrl = /^\/app\/?$/.test(location.pathname);
+          if (shellUrl && !(mobile && installed)) {
             var lang = document.documentElement.lang;
             var prefix = /^(cs|de|es|fr|sk|pl)$/.test(lang) ? '/' + lang : '';
             var room = q.get('room');
