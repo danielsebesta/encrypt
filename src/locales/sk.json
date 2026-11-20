@@ -1379,7 +1379,7 @@
   "app.settings.wipeHint": "Vymaže všetky miestnosti a kľúče v tomto zariadení",
   "app.settings.wipeBody": "Vymaže všetky uložené miestnosti, ich tajomstvá chránené prístupovým kľúčom a všetky kľúče uložené v tomto zariadení. Akcia je nevratná.",
   "app.settings.wipeSlide": "Posuň na vymazanie všetkého",
-  "app.settings.wipeSlideHint": "Na vymazanie všetkého potiahnite úchyt až na koniec alebo stlačte End.",
+  "app.settings.wipeSlideHint": "Na vymazanie všetkého potiahnite úchyt až na koniec, štyrikrát naň ťuknite alebo stlačte End.",
   "app.settings.wipeDone": "Všetko na tomto zariadení bolo vymazané",
   "app.settings.wipeError": "Niektoré údaje sa nepodarilo vymazať",
   "app.voice.speed": "Rýchlosť prehrávania",

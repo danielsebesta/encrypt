@@ -1379,7 +1379,7 @@
   "app.settings.wipeHint": "Efface tous les salons et clés de cet appareil",
   "app.settings.wipeBody": "Efface tous les salons enregistrés, leurs secrets protégés par clé d'accès et toutes les clés stockées sur cet appareil. Action irréversible.",
   "app.settings.wipeSlide": "Glisse pour tout effacer",
-  "app.settings.wipeSlideHint": "Faites glisser la poignée jusqu’au bout ou appuyez sur Fin pour tout effacer.",
+  "app.settings.wipeSlideHint": "Faites glisser la poignée jusqu’au bout, touchez-la quatre fois ou appuyez sur Fin pour tout effacer.",
   "app.settings.wipeDone": "Tout a été effacé de cet appareil",
   "app.settings.wipeError": "Certaines données n'ont pas pu être effacées",
   "app.voice.speed": "Vitesse de lecture",
