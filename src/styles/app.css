@@ -2023,6 +2023,7 @@ html[data-app-platform] ::selection {
 }
 .app-radio::after {
     content: '';
+    display: block;
     position: absolute;
     inset: 3px;
     border-radius: inherit;
