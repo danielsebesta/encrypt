@@ -21,6 +21,8 @@ const LICENSES_KEYS = [
   'licenses.link.fontsMono',
   'licenses.link.oflSans',
   'licenses.link.oflMono',
+  'licenses.link.fontsApp',
+  'licenses.link.oflApp',
   'licenses.link.repo',
 ] as const;
 
