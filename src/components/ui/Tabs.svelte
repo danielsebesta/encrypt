@@ -109,7 +109,6 @@
   class:tabs--glide={glide}
   role="tablist"
   aria-label={label}
-  {onkeydown}
 >
   {#if variant === 'segmented'}<span class="tabs__thumb" aria-hidden="true"></span>{/if}
   {#each items as item (item.id)}
@@ -122,6 +121,7 @@
       aria-controls={panelId(item.id)}
       tabindex={value === item.id ? 0 : -1}
       onclick={() => select(item.id)}
+      {onkeydown}
     >
       {#if item.icon}<Icon name={item.icon} />{/if}
       <span>{item.label}</span>

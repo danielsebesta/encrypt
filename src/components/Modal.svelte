@@ -68,9 +68,9 @@
   }: Props = $props();
 
   const autoId = $props.id();
-  const uid = id ?? `modal-${autoId}`;
-  const titleId = `${uid}-title`;
-  const descId = `${uid}-desc`;
+  const uid = $derived(id ?? `modal-${autoId}`);
+  const titleId = $derived(`${uid}-title`);
+  const descId = $derived(`${uid}-desc`);
 
   let dialog = $state<HTMLDialogElement>();
   let form = $state<HTMLFormElement>();
