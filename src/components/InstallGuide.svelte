@@ -71,7 +71,25 @@
   });
 </script>
 
-{#if device}
+{#if !device}
+  <section class="install-now panel install-now--pending" role="status" aria-busy="true" aria-label={t(dict, 'common.working')}>
+    <div class="install-now__head">
+      <span class="install-now-pending__tile" aria-hidden="true"></span>
+      <div class="install-now-pending__copy">
+        <span class="install-now-pending__line install-now-pending__line--title"></span>
+        <span class="install-now-pending__line"></span>
+      </div>
+    </div>
+    <div class="install-now__body">
+      <div class="install-now-pending__steps" aria-hidden="true">
+        <span class="install-now-pending__line"></span>
+        <span class="install-now-pending__line"></span>
+        <span class="install-now-pending__line install-now-pending__line--short"></span>
+      </div>
+      <div class="install-now__qr" aria-hidden="true"></div>
+    </div>
+  </section>
+{:else}
   <section class="install-now panel" class:install-now--done={installed} aria-labelledby="install-now-title">
     {#if installed}
       <div class="install-now__head">
@@ -109,8 +127,8 @@
             <li>{t(dict, key)}</li>
           {/each}
         </ol>
-        {#if device === 'desktop' && qrSvg}
-          <div class="install-now__qr" role="img" aria-label={t(dict, 'install.guide.qrAlt')}>{@html qrSvg}</div>
+        {#if device === 'desktop'}
+          <div class="install-now__qr" role="img" aria-label={t(dict, 'install.guide.qrAlt')} aria-busy={!qrSvg}>{@html qrSvg}</div>
         {/if}
       </div>
 

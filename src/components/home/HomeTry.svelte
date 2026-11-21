@@ -38,7 +38,14 @@
       {#if id === 'send'}
         <UltimateEncrypt {locale} {dict} />
       {:else}
-        {#await loaders[id]() then mod}
+        {#await loaders[id]()}
+          <div class="home-try-pending" role="status" aria-busy="true" aria-label={t(dict, 'common.working')}>
+            <span class="home-try-pending__line"></span>
+            <span class="home-try-pending__box"></span>
+            <span class="home-try-pending__line home-try-pending__line--short"></span>
+            <span class="home-try-pending__btn"></span>
+          </div>
+        {:then mod}
           <svelte:component this={mod.default} {locale} {dict} />
         {/await}
       {/if}

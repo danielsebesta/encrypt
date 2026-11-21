@@ -45,7 +45,8 @@
   const tabId = (id: T) => `${base}-tab-${id}`;
   const panelId = (id: T) => (panel ? `${base}-panel-${id}` : `${base}-panel`);
 
-  let visited = $state<Partial<Record<T, boolean>>>({});
+  // Seed the active tab so SSR / first paint already include the panel (effects do not run on the server).
+  let visited = $state<Partial<Record<T, boolean>>>({ [value]: true } as Partial<Record<T, boolean>>);
   $effect.pre(() => {
     if (!visited[value]) visited[value] = true;
   });
