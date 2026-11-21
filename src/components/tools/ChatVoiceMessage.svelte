@@ -3,8 +3,14 @@
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
   import { VOICE_BARS, formatClock, placeholderPeaks, voicePeaks } from '../../lib/voiceMessage';
+  import {
+    claimVoiceMediaSession,
+    releaseVoiceMediaSession,
+    updateVoiceMediaSession,
+  } from '../../lib/voiceMediaSession';
 
   const RATES = [1, 1.5, 2];
+  const sessionToken = Symbol('voice');
 
   let { dict, seconds, gone, note, load, appMode = false, seed = '' }: {
     dict: Record<string, string>;
@@ -30,8 +36,31 @@
   const peaks = $derived(measured ?? placeholderPeaks(seed || String(seconds)));
   const progress = $derived(total ? Math.min(1, position / total) : 0);
 
+  function bindMediaSession() {
+    claimVoiceMediaSession(sessionToken, t(dict, 'chat.voiceMessage'), {
+      play: () => { void audio?.play().catch(() => { failed = true; }); },
+      pause: () => { audio?.pause(); },
+      seekTo: (to) => jump(to),
+      seekBy: (delta) => jump(position + delta),
+      stop: () => {
+        audio?.pause();
+        jump(0);
+        releaseVoiceMediaSession(sessionToken);
+      },
+    });
+  }
+
+  $effect(() => {
+    if (url && playing) bindMediaSession();
+  });
+
+  $effect(() => {
+    updateVoiceMediaSession(sessionToken, playing, position, total);
+  });
+
   onDestroy(() => {
     audio?.pause();
+    releaseVoiceMediaSession(sessionToken);
     if (url) URL.revokeObjectURL(url);
   });
 
@@ -64,6 +93,7 @@
     const next = Math.max(0, Math.min(total, to));
     audio.currentTime = next;
     position = next;
+    updateVoiceMediaSession(sessionToken, playing, next, total);
   }
 
   function scrubTo(event: PointerEvent) {
@@ -164,9 +194,20 @@
   <audio
     bind:this={audio}
     preload="none"
-    onplay={() => { playing = true; }}
-    onpause={() => { playing = false; }}
-    onended={() => { playing = false; position = 0; }}
+    onplay={() => {
+      playing = true;
+      bindMediaSession();
+      updateVoiceMediaSession(sessionToken, true, position, total);
+    }}
+    onpause={() => {
+      playing = false;
+      updateVoiceMediaSession(sessionToken, false, position, total);
+    }}
+    onended={() => {
+      playing = false;
+      position = 0;
+      releaseVoiceMediaSession(sessionToken);
+    }}
     ontimeupdate={() => { if (!scrubbing) position = audio?.currentTime ?? 0; }}
     onloadedmetadata={() => { length = audio?.duration ?? 0; }}
   ></audio>
