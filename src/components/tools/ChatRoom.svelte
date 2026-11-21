@@ -7466,17 +7466,12 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      color-mix(in srgb, var(--text) 12%, transparent) 45%,
-      transparent 90%
-    );
-    transform: translateX(-100%);
-    animation: chat-skel-shimmer 1.6s var(--ease-move, ease) infinite;
+    background: color-mix(in srgb, var(--text) 10%, transparent);
+    animation: chat-skel-pulse 1.6s var(--ease-move, ease) infinite;
   }
-  @keyframes chat-skel-shimmer {
-    100% { transform: translateX(100%); }
+  @keyframes chat-skel-pulse {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     .chat-preview-skeleton::after { animation: none; opacity: 0; }

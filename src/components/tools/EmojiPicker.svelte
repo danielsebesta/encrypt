@@ -1142,13 +1142,13 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, currentColor 14%, transparent) 45%, transparent 90%);
+    background: color-mix(in srgb, currentColor 12%, transparent);
     color: var(--ep-muted);
-    transform: translateX(-100%);
-    animation: ep-skel-shimmer 1.6s ease infinite;
+    animation: ep-skel-pulse 1.6s ease infinite;
   }
-  @keyframes ep-skel-shimmer {
-    100% { transform: translateX(100%); }
+  @keyframes ep-skel-pulse {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
   }
   .ep--material .ep__skeleton-head,
   .ep--material .ep__skeleton-cell {
