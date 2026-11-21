@@ -2131,17 +2131,29 @@
   <Page class="app-page-bg h-full flex flex-col overflow-hidden" inert={locked || undefined}>
     {#if !ready}
       <div class="app-skel-hub" role="status" aria-live="polite" aria-label={t(dict, 'common.working')}>
-        <span class="app-skel app-skel--title"></span>
-        <span class="app-skel app-skel--search"></span>
-        {#each [64, 52, 70, 46, 58] as width, i (i)}
-          <div class="app-skel-row">
-            <span class="app-skel app-skel--avatar"></span>
-            <span class="app-skel-row__lines">
-              <span class="app-skel app-skel--line" style="width: {width}%"></span>
-              <span class="app-skel app-skel--line app-skel--sm" style="width: {width - 18}%"></span>
-            </span>
+        <div class="app-skel-hub__bar">
+          <span class="app-skel app-skel--title"></span>
+        </div>
+        <div class="app-skel-hub__tools">
+          <span class="app-skel app-skel--search"></span>
+          <div class="app-skel-hub__filter" aria-hidden="true">
+            <span class="app-skel app-skel--chip"></span>
+            <span class="app-skel app-skel--chip"></span>
+            <span class="app-skel app-skel--chip"></span>
           </div>
-        {/each}
+        </div>
+        <div class="app-skel-hub__list">
+          {#each [72, 58, 80, 48, 66] as width, i (i)}
+            <div class="app-skel-row">
+              <span class="app-skel app-skel--avatar"></span>
+              <span class="app-skel-row__lines">
+                <span class="app-skel app-skel--line" style="width: {width}%"></span>
+                <span class="app-skel app-skel--sm"></span>
+              </span>
+              <span class="app-skel app-skel--meta"></span>
+            </div>
+          {/each}
+        </div>
       </div>
     {:else if activeView === 'room'}
       {@render roomBar()}

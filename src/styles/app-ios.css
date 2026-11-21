@@ -210,6 +210,32 @@
         transform: none;
     }
 }
+/* Hub skeleton: one inset group like the real room list. */
+:root[data-app-platform="ios"] .app-skel-hub__bar {
+    min-height: 2.75rem;
+    padding-inline: 1rem;
+}
+:root[data-app-platform="ios"] .app-skel-hub__list {
+    margin-inline: 1rem;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--app-surface);
+}
+:root[data-app-platform="ios"] .app-skel-row {
+    min-height: 4rem;
+    border-radius: 0;
+    background: transparent;
+}
+:root[data-app-platform="ios"] .app-skel-row + .app-skel-row {
+    border-top: 0.5px solid var(--app-separator);
+}
+:root[data-app-platform="ios"] .app-skel--search {
+    height: 2.25rem;
+    border-radius: 10px;
+}
+:root[data-app-platform="ios"] .app-skel-hub__filter {
+    display: none;
+}
 :root[data-app-platform="ios"] .k-navbar.app-hub-bar > div:last-child .app-hub-label {
     letter-spacing: 0.01em;
 }

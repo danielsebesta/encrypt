@@ -5789,12 +5789,31 @@
 </script>
 
 {#snippet chatSkeleton(caption: string)}
-  <div class="app-skel-chat" role="status" aria-live="polite">
-    <span class="app-skel" style="width: 58%"></span>
-    <span class="app-skel" style="width: 36%"></span>
-    <span class="app-skel app-skel--mine" style="width: 46%"></span>
-    <span class="app-skel" style="width: 64%"></span>
-    <span class="app-skel app-skel--mine" style="width: 30%"></span>
+  <div class="app-skel-chat" role="status" aria-live="polite" aria-label={caption}>
+    <div class="app-skel-chat__bar" aria-hidden="true">
+      <span class="app-skel app-skel-chat__back"></span>
+      <span class="app-skel app-skel--title"></span>
+    </div>
+    <div class="app-skel-chat__messages" aria-hidden="true">
+      <div class="app-skel-chat__row">
+        <span class="app-skel app-skel-chat__face"></span>
+        <span class="app-skel app-skel-chat__bubble app-skel-chat__bubble--mid"></span>
+      </div>
+      <div class="app-skel-chat__row app-skel-chat__row--mine">
+        <span class="app-skel app-skel-chat__bubble app-skel-chat__bubble--long"></span>
+      </div>
+      <div class="app-skel-chat__row">
+        <span class="app-skel app-skel-chat__face"></span>
+        <span class="app-skel app-skel-chat__bubble app-skel-chat__bubble--long"></span>
+      </div>
+      <div class="app-skel-chat__row app-skel-chat__row--mine">
+        <span class="app-skel app-skel-chat__bubble app-skel-chat__bubble--short"></span>
+      </div>
+      <div class="app-skel-chat__row">
+        <span class="app-skel app-skel-chat__face"></span>
+        <span class="app-skel app-skel-chat__bubble app-skel-chat__bubble--mid"></span>
+      </div>
+    </div>
     <p class="app-skel-chat__caption">{caption}</p>
   </div>
 {/snippet}
@@ -7433,6 +7452,7 @@
   }
   .chat-preview-skeleton {
     position: relative;
+    overflow: hidden;
     width: 100%;
     max-width: min(300px, 70vw);
     aspect-ratio: 4 / 3;
@@ -7444,18 +7464,21 @@
   .chat-preview-skeleton::after {
     content: '';
     position: absolute;
-    inset: 50% auto auto 50%;
-    width: 1.25rem;
-    height: 1.25rem;
-    margin: -0.625rem 0 0 -0.625rem;
-    box-sizing: border-box;
-    border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
-    border-top-color: var(--accent);
-    animation: chat-spin var(--duration-slow) linear infinite;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--text) 12%, transparent) 45%,
+      transparent 90%
+    );
+    transform: translateX(-100%);
+    animation: chat-skel-shimmer 1.6s var(--ease-move, ease) infinite;
+  }
+  @keyframes chat-skel-shimmer {
+    100% { transform: translateX(100%); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .chat-preview-skeleton::after { animation: none; opacity: 0.85; }
+    .chat-preview-skeleton::after { animation: none; opacity: 0; }
   }
   .chat-preview-img {
     max-width: 100%; max-height: 240px;

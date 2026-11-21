@@ -474,9 +474,76 @@
     scale: 1;
     rotate: none;
 }
+/* Hub / room skeletons: same geometry as Navbar + Searchbar + filter + app-group rows. */
+:root[data-app-platform="material"] .app-skel-hub__bar {
+    min-height: 64px;
+    padding-inline: 1rem;
+    background: var(--md-sys-color-surface);
+}
+:root[data-app-platform="material"] .app-skel--title {
+    height: 1.75rem;
+    border-radius: var(--md-shape-xs);
+    background: var(--md-sys-color-surface-container-highest);
+}
 :root[data-app-platform="material"] .app-skel--search {
     height: 3.5rem;
     border-radius: var(--md-shape-full);
+    background: var(--md-sys-color-surface-container-high);
+}
+:root[data-app-platform="material"] .app-skel-hub__filter {
+    gap: 2px;
+}
+:root[data-app-platform="material"] .app-skel--chip {
+    height: 40px;
+    background: var(--md-sys-color-surface-container-highest);
+}
+:root[data-app-platform="material"] .app-skel--chip:first-child {
+    border-radius: var(--md-shape-full) var(--md-shape-sm) var(--md-shape-sm) var(--md-shape-full);
+}
+:root[data-app-platform="material"] .app-skel--chip:last-child {
+    border-radius: var(--md-shape-sm) var(--md-shape-full) var(--md-shape-full) var(--md-shape-sm);
+}
+:root[data-app-platform="material"] .app-skel--chip:not(:first-child):not(:last-child) {
+    border-radius: var(--md-shape-sm);
+}
+:root[data-app-platform="material"] .app-skel-hub__list {
+    margin-inline: 1rem;
+    gap: 2px;
+}
+:root[data-app-platform="material"] .app-skel-row {
+    min-height: 72px;
+    padding: 12px 16px;
+    background: var(--md-sys-color-surface-container);
+    border-radius: var(--md-shape-xs);
+}
+:root[data-app-platform="material"] .app-skel-row:first-child {
+    border-top-left-radius: var(--md-shape-lg);
+    border-top-right-radius: var(--md-shape-lg);
+}
+:root[data-app-platform="material"] .app-skel-row:last-child {
+    border-bottom-left-radius: var(--md-shape-lg);
+    border-bottom-right-radius: var(--md-shape-lg);
+}
+:root[data-app-platform="material"] .app-skel--avatar,
+:root[data-app-platform="material"] .app-skel--line,
+:root[data-app-platform="material"] .app-skel--sm,
+:root[data-app-platform="material"] .app-skel--meta,
+:root[data-app-platform="material"] .app-skel-chat__back,
+:root[data-app-platform="material"] .app-skel-chat__face {
+    background: var(--md-sys-color-surface-container-highest);
+}
+:root[data-app-platform="material"] .app-skel-chat__bar {
+    min-height: 64px;
+    padding-inline: 0.5rem 1rem;
+    background: var(--md-sys-color-surface-container);
+}
+:root[data-app-platform="material"] .app-skel-chat__bubble {
+    border-radius: var(--md-shape-lg-inc) var(--md-shape-lg-inc) var(--md-shape-lg-inc) var(--md-shape-xs);
+    background: var(--md-sys-color-surface-container-high);
+}
+:root[data-app-platform="material"] .app-skel-chat__row--mine .app-skel-chat__bubble {
+    border-radius: var(--md-shape-lg-inc) var(--md-shape-lg-inc) var(--md-shape-xs) var(--md-shape-lg-inc);
+    background: var(--md-sys-color-primary-container);
 }
 
 /* -- Filter: connected button group (replaces segmented) -------- */

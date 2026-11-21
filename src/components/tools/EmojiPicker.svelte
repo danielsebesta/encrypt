@@ -1119,26 +1119,43 @@
     font-size: 0.9375rem;
   }
 
-  .ep__skeleton-head {
+  .ep__skeleton-head,
+  .ep__skeleton-cell {
+    position: relative;
+    overflow: hidden;
     display: block;
+    border-radius: 6px;
+    background: var(--ep-hover);
+  }
+  .ep__skeleton-head {
     width: 6rem;
     height: 0.625rem;
     margin: 0.875rem 0.375rem 0.5rem;
-    border-radius: 6px;
-    background: var(--ep-hover);
   }
-
   .ep__skeleton-cell {
-    display: block;
     width: 60%;
     height: 60%;
     margin: auto;
-    border-radius: 6px;
-    background: var(--ep-hover);
   }
-
+  .ep__skeleton-head::after,
+  .ep__skeleton-cell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, currentColor 14%, transparent) 45%, transparent 90%);
+    color: var(--ep-muted);
+    transform: translateX(-100%);
+    animation: ep-skel-shimmer 1.6s ease infinite;
+  }
+  @keyframes ep-skel-shimmer {
+    100% { transform: translateX(100%); }
+  }
   .ep--material .ep__skeleton-head,
   .ep--material .ep__skeleton-cell {
     background: var(--ep-field);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ep__skeleton-head::after,
+    .ep__skeleton-cell::after { animation: none; opacity: 0; }
   }
 </style>
