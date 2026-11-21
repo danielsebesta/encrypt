@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { t } from '../../lib/t';
   import Icon from '../Icon.svelte';
+  import { withRoomKey } from '../../lib/roomLinkKey';
 
   export let dict: Record<string, string>;
   export let title = '';
@@ -20,6 +21,7 @@
   let qrOpen = false;
   let copiedLink = false;
   let copiedPass = false;
+  let copiedKeyed = false;
   let copyTimers: ReturnType<typeof setTimeout>[] = [];
 
   function sharePayload(): ShareData {
@@ -71,17 +73,19 @@
     copyTimers = [];
   });
 
-  function flash(which: 'link' | 'pass') {
+  function flash(which: 'link' | 'pass' | 'keyed') {
     if (which === 'link') copiedLink = true;
     if (which === 'pass') copiedPass = true;
+    if (which === 'keyed') copiedKeyed = true;
     const timer = setTimeout(() => {
       if (which === 'link') copiedLink = false;
       if (which === 'pass') copiedPass = false;
+      if (which === 'keyed') copiedKeyed = false;
     }, 1500);
     copyTimers.push(timer);
   }
 
-  async function copy(text: string, which: 'link' | 'pass') {
+  async function copy(text: string, which: 'link' | 'pass' | 'keyed') {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -166,7 +170,7 @@
     </div>
   {/if}
 
-  <span class="sr-only" role="status">{copiedLink || copiedPass ? t(dict, 'common.copied') : ''}</span>
+  <span class="sr-only" role="status">{copiedLink || copiedPass || copiedKeyed ? t(dict, 'common.copied') : ''}</span>
 
   <div class="invite-card__share">
     {#if canShare}
@@ -182,6 +186,9 @@
       {#if password}
         <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm invite-card__share-btn'} on:click={() => copy(password, 'pass')} title={t(dict, 'chat.inviteCard.copyPasswordSeparate')}>
           <span class="invite-card__share-label">{copiedPass ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyPasswordSeparate')}</span>
+        </button>
+        <button type="button" class={appMode ? 'app-sheet-btn app-sheet-btn--tonal flex-1' : 'btn-secondary btn-sm invite-card__share-btn'} on:click={() => copy(withRoomKey(url, password), 'keyed')} disabled={!url} title={t(dict, 'chat.inviteCard.copyLinkWithPassword')}>
+          <span class="invite-card__share-label">{copiedKeyed ? t(dict, 'common.copied') : t(dict, 'chat.inviteCard.copyLinkWithPassword')}</span>
         </button>
       {/if}
     </div>

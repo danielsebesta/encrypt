@@ -425,6 +425,7 @@
   "chat.inviteCard.password": "Mot de passe",
   "chat.inviteCard.copyLink": "Copier le lien",
   "chat.inviteCard.copyPasswordSeparate": "Copier le mot de passe séparément",
+  "chat.inviteCard.copyLinkWithPassword": "Copier le lien avec le mot de passe",
   "chat.inviteCard.share": "Partager l'invitation",
   "chat.inviteCard.shareText": "Rejoignez ce salon chiffré sur encrypt.click",
   "chat.inviteCard.shareTextPassword": "Rejoignez ce salon chiffré sur encrypt.click. Envoyez le mot de passe dans un message séparé.",

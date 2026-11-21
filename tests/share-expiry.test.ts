@@ -250,3 +250,11 @@ test('a link can carry its password, and older readers still see the payload', (
   assert.throws(() => formatShareFragment({ payload: 'abc', key: '' }));
   assert.equal(parseShareFragment(formatShareFragment({ payload: 'abc' }))!.key, undefined);
 });
+
+test('a room link carries its password after the hash and only parses back what it wrote', async () => {
+  const { withRoomKey, parseRoomKey } = await import('../src/lib/roomLinkKey');
+  const link = withRoomKey('https://x.test/chat/room-1#old', 'pässword with spaces ✓');
+  assert.match(link, /^https:\/\/x\.test\/chat\/room-1#pw=[A-Za-z0-9_-]+$/);
+  assert.equal(parseRoomKey(new URL(link).hash), 'pässword with spaces ✓');
+  for (const bad of ['', '#', '#pw=', '#pw=***', '#other=abc', '#pw=_w']) assert.equal(parseRoomKey(bad), null, bad);
+});

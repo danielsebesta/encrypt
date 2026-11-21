@@ -425,6 +425,7 @@
   "chat.inviteCard.password": "Password",
   "chat.inviteCard.copyLink": "Copy link",
   "chat.inviteCard.copyPasswordSeparate": "Copy password separately",
+  "chat.inviteCard.copyLinkWithPassword": "Copy link with password",
   "chat.inviteCard.share": "Share invite",
   "chat.inviteCard.shareText": "Join this encrypted room on encrypt.click",
   "chat.inviteCard.shareTextPassword": "Join this encrypted room on encrypt.click. Send the password in a separate message.",

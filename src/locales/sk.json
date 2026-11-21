@@ -425,6 +425,7 @@
   "chat.inviteCard.password": "Heslo",
   "chat.inviteCard.copyLink": "Kopírovať odkaz",
   "chat.inviteCard.copyPasswordSeparate": "Kopírovať heslo osobitne",
+  "chat.inviteCard.copyLinkWithPassword": "Kopírovať odkaz s heslom",
   "chat.inviteCard.share": "Zdieľať pozvánku",
   "chat.inviteCard.shareText": "Pripoj sa k tejto šifrovanej miestnosti na encrypt.click",
   "chat.inviteCard.shareTextPassword": "Pripoj sa k tejto šifrovanej miestnosti na encrypt.click. Heslo pošli v samostatnej správe.",

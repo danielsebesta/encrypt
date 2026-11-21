@@ -65,6 +65,7 @@
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
   import { PANIC_FLAG, wipeRoomStorage } from '../../lib/appWipe';
+  import { takeRoomKeyFromHash } from '../../lib/roomLinkKey';
   import { asButton, asFieldError, asMenu, asSlider, asSwitch } from '../../lib/konstaA11y';
   import { identiconBackground } from '../../lib/identicon';
   import { copyText } from '../../lib/clipboard';
@@ -1728,6 +1729,10 @@
     const params = new URLSearchParams(window.location.search);
     let roomParam = params.get('room');
     let kindParam = params.get('kind');
+    const linkKey = takeRoomKeyFromHash();
+    if (linkKey && roomParam) {
+      try { sessionStorage.setItem(`${kindParam === 'whiteboard' ? 'wb-pw' : 'chat-pw'}:${roomParam}`, linkKey); } catch {}
+    }
     let tabParam = params.get('tab');
     shotsMode = appShotsEnabled(window.location.search);
     if (shotsMode) {

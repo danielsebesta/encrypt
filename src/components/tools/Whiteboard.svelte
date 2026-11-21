@@ -24,6 +24,7 @@
   import type { IconName } from '../../lib/iconManifest';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
+  import { takeRoomKeyFromHash } from '../../lib/roomLinkKey';
   import Icon from '../Icon.svelte';
   import Modal from '../Modal.svelte';
   import Field from '../ui/Field.svelte';
@@ -270,7 +271,7 @@
       sharePassword = sharePass;
       sessionStorage.removeItem('whiteboard-share-password');
     }
-    const remembered = stored || sessionStorage.getItem(`wb-pw:${roomId}`);
+    const remembered = stored || takeRoomKeyFromHash() || sessionStorage.getItem(`wb-pw:${roomId}`);
     if (stored) sessionStorage.removeItem('whiteboard-password');
     if (remembered) {
       passwordInput = remembered;

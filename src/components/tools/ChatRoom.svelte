@@ -55,6 +55,7 @@
   import ProgressPulse from '../ProgressPulse.svelte';
   import SaveRoomButton from './SaveRoomButton.svelte';
   import RoomInviteCard from './RoomInviteCard.svelte';
+  import { takeRoomKeyFromHash } from '../../lib/roomLinkKey';
   import { normalizeChatMode, chatModeTtlSeconds, chatModeKeepsHistory, formatDuration, parseBurnSuffix, roomPasswordOk, configStamp, roomLookup, type ChatMode } from '../../lib/chatRoomSettings';
   import { parseMarkdown, plainSnippet, revealSpoilers } from '../../lib/chatMarkdown';
   import { ReactionBook, REACTION_EMOJI, validMessageRef, type ReactionEmoji } from '../../lib/chatReactions';
@@ -2489,7 +2490,7 @@
       sessionStorage.removeItem('chat-share-password');
     }
     const stored = sessionStorage.getItem('chat-password');
-    const remembered = stored || sessionStorage.getItem(`chat-pw:${roomId}`);
+    const remembered = stored || takeRoomKeyFromHash() || sessionStorage.getItem(`chat-pw:${roomId}`);
     if (stored) sessionStorage.removeItem('chat-password');
     if (remembered) {
       passwordInput = remembered;
