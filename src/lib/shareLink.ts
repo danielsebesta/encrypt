@@ -3,6 +3,7 @@ import type { TimeLock } from './timelock';
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const MAX_UNIX = 32503680000;
 const MAX_LOCK_BYTES = 4096;
+const MAX_KEY_CHARS = 1024;
 
 /**
  * What a receive link carries in its fragment. `payload` is the base64url password envelope; the rest is readable
@@ -14,6 +15,8 @@ export type ShareLink = {
   expires?: number;
   burn?: boolean;
   lock?: TimeLock;
+  /** The password itself (base64url of its UTF-8 bytes), when the sender chose to put it in the link. */
+  key?: string;
 };
 
 const unixOk = (value: number) => Number.isSafeInteger(value) && value > 0 && value < MAX_UNIX;
@@ -30,9 +33,23 @@ function fromBase64Url(text: string): Uint8Array | null {
   return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
 
+export function encodeShareKey(password: string): string {
+  return toBase64Url(new TextEncoder().encode(password));
+}
+
+export function decodeShareKey(key: string): string | null {
+  const bytes = fromBase64Url(key);
+  if (!bytes) return null;
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Version 1 is the bare payload. Version 2 is `v=2`, the optional `x` (expiry), `b=1` (one-time download), `r` and
- * `l` (drand round and the tlock ciphertext of the time secret), then `p` (payload) last; it is used only when there
+ * `l` (drand round and the tlock ciphertext of the time secret), `k` (the password, for links that carry it), then `p` (payload) last; it is used only when there
  * is something to say besides the payload.
  */
 export function formatShareFragment(link: ShareLink): string {
@@ -43,6 +60,10 @@ export function formatShareFragment(link: ShareLink): string {
     fields.push(`x=${link.expires}`);
   }
   if (link.burn) fields.push('b=1');
+  if (link.key !== undefined) {
+    if (!link.key || link.key.length > MAX_KEY_CHARS || !B64URL_RE.test(link.key)) throw new Error('Invalid key');
+    fields.push(`k=${link.key}`);
+  }
   if (link.lock) {
     if (!Number.isSafeInteger(link.lock.round) || link.lock.round < 1 || !link.lock.ciphertext.length || link.lock.ciphertext.length > MAX_LOCK_BYTES) throw new Error('Invalid time lock');
     fields.push(`r=${link.lock.round}`, `l=${toBase64Url(link.lock.ciphertext)}`);
@@ -74,6 +95,9 @@ export function parseShareFragment(fragment: string): ShareLink | null {
     } else if (name === 'b') {
       if (value !== '1') return null;
       link.burn = true;
+    } else if (name === 'k') {
+      if (!value || value.length > MAX_KEY_CHARS || !decodeShareKey(value)) return null;
+      link.key = value;
     }
   }
   if (fields.has('r') || fields.has('l')) {

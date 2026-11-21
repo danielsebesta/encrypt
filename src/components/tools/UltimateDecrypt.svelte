@@ -18,7 +18,7 @@
   import ProgressPulse from '../ProgressPulse.svelte';
   import { t } from '../../lib/t';
   import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
-  import { isCapsuleFragment, parseShareFragment, type ShareLink } from '../../lib/shareLink';
+  import { decodeShareKey, isCapsuleFragment, parseShareFragment, type ShareLink } from '../../lib/shareLink';
   import { parseShareDrop } from '../../lib/shareDrop';
   import { loadSharePassword } from '../../lib/sharePasswordVault';
   import { roundTime, unlockTimeSecret } from '../../lib/timelock';
@@ -43,6 +43,7 @@
   let hashPayload = '';
   let hasHash = false;
   $: shareLink = hashPayload ? parseShareFragment(hashPayload) : null;
+  $: if (shareLink?.key) password = decodeShareKey(shareLink.key) ?? '';
   $: unlockTime = shareLink?.lock ? roundTime(shareLink.lock.round) : undefined;
 
   function lockedMessage(unlock: number): string {
@@ -1038,7 +1039,7 @@
 </script>
 <div class="stack text-left">
   {#if hasHash}
-    <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.payloadFound')}</p>
+    <p class="status status--ok">{t(dict, shareLink?.key ? 'tools.ultimateDecrypt.payloadFoundKey' : 'tools.ultimateDecrypt.payloadFound')}</p>
     {#if shareLink}
       <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} unlock={unlockTime} />
     {/if}

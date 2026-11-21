@@ -6,7 +6,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { FileBlobStore } from '../src/adapters/node/blobs';
 import { BLOB_ID_RE, RETENTION_MS, blobId, retentionDays, retentionForUnlock, retentionOfId, uuidOfId, latestUploadUnlock, UNLOCK_MARGIN_MS } from '../src/lib/retention';
-import { formatShareFragment, parseShareFragment } from '../src/lib/shareLink';
+import { decodeShareKey, encodeShareKey, formatShareFragment, parseShareFragment } from '../src/lib/shareLink';
 import type { SqlLike } from '../src/lib/uploadPass';
 import { createApp } from '../src/server/app';
 import { runBudgetCommand } from '../src/server/budget';
@@ -234,4 +234,19 @@ test('the Node blob store keeps expiry and the one-time flag in SQLite and sweep
   assert.equal(await store.sweep(), 1);
   assert.equal(existsSync(path.join(dir, long)), false);
   assert.equal(meta.prepare('SELECT COUNT(*) AS n FROM blobs').get()!.n, 0);
+});
+
+test('a link can carry its password, and older readers still see the payload', () => {
+  const key = encodeShareKey('correct horse ünïcode ✓');
+  const fragment = formatShareFragment({ payload: 'AbC_-1', expires: 1999999999, key });
+  assert.match(fragment, /^v=2&x=1999999999&k=[A-Za-z0-9_-]+&p=AbC_-1$/);
+  const link = parseShareFragment(fragment)!;
+  assert.equal(link.payload, 'AbC_-1');
+  assert.equal(link.expires, 1999999999);
+  assert.equal(decodeShareKey(link.key!), 'correct horse ünïcode ✓');
+  assert.equal(parseShareFragment('v=2&k=%%%&p=abc'), null);
+  assert.equal(parseShareFragment('v=2&k=&p=abc'), null);
+  assert.equal(parseShareFragment('v=2&k=_w&p=abc'), null);
+  assert.throws(() => formatShareFragment({ payload: 'abc', key: '' }));
+  assert.equal(parseShareFragment(formatShareFragment({ payload: 'abc' }))!.key, undefined);
 });

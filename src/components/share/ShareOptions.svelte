@@ -8,6 +8,8 @@
   export let mode: 'link' | 'ghost' | 'local' = 'link';
   export let retention: Retention;
   export let burn = false;
+  /** Put the password in the link, so the receiver needs nothing else. */
+  export let keyInLink = false;
   /** Small enough to travel inside the link unless it has to burn after reading. */
   export let short = false;
   /** The server has no room for uploads, so nothing can be stored to burn. */
@@ -54,6 +56,14 @@
         {/snippet}
       </Field>
     {/if}
+
+    <div class="grid">
+      <label class="check">
+        <input type="checkbox" bind:checked={keyInLink} aria-describedby="ue-key-hint" />
+        <span>{t(dict, 'tools.ultimateEncrypt.options.keyInLink')}</span>
+      </label>
+      <p id="ue-key-hint" class="hint -mt-1.5">{t(dict, 'tools.ultimateEncrypt.options.keyInLinkHint')}</p>
+    </div>
 
     <div class="grid">
       <label class="check">

@@ -25,7 +25,7 @@
   import ShareOptions from '../share/ShareOptions.svelte';
   import ShareLinkFacts from '../share/ShareLinkFacts.svelte';
   import { DEFAULT_RETENTION, retentionForUnlock, type Retention } from '../../lib/retention';
-  import { formatShareFragment } from '../../lib/shareLink';
+  import { encodeShareKey, formatShareFragment } from '../../lib/shareLink';
   import { encodeShareDrop, shareDropFilename } from '../../lib/shareDrop';
   import { lockTimeSecret, roundTime, type TimeLock } from '../../lib/timelock';
 
@@ -73,6 +73,8 @@
   let retention: Retention = DEFAULT_RETENTION;
   let burn = false;
   let deadMan = false;
+  let keyInLink = false;
+  let resultKeyInLink = false;
   let resultExpires: number | undefined;
   let resultBurn = false;
   let unlockAt = '';
@@ -110,7 +112,7 @@
   $: resultPass = resultPassword || password;
   // The blurb carries only the link — sharing link and password in one message defeats the point of sharing them separately.
   $: resultBlurb = shareUrl && resultPass
-    ? t(dict, 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl)
+    ? t(dict, resultKeyInLink ? 'tools.ultimateEncrypt.result.blurbKey' : 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl)
     : '';
   $: if (step === 'result' && shareUrl) {
     void generateQr(shareUrl);
@@ -589,10 +591,11 @@
     pushDebug(`Inline payload encrypted (${encrypted.byteLength} bytes, encoded length ${encoded.length})`);
 
     const fragment = formatShareFragment({ payload: encoded, lock: pendingLock?.lock });
-    const urls = buildReceiveUrls(fragment);
+    const urls = buildReceiveUrls(keyInLink ? formatShareFragment({ payload: encoded, lock: pendingLock?.lock, key: encodeShareKey(encryptionPassword) }) : fragment);
+    resultKeyInLink = keyInLink;
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
-    shortenableUrl = urls.shortenable;
+    shortenableUrl = keyInLink ? '' : urls.shortenable;
     resultHasTemporaryUpload = false;
     resultExpires = undefined;
     resultBurn = false;
@@ -714,10 +717,11 @@
     const encoded = base64UrlEncode(encPayload);
 
     const fragment = formatShareFragment({ payload: encoded, expires, burn: burned, lock: pendingLock?.lock });
-    const urls = buildReceiveUrls(fragment);
+    const urls = buildReceiveUrls(keyInLink ? formatShareFragment({ payload: encoded, expires, burn: burned, lock: pendingLock?.lock, key: encodeShareKey(encryptionPassword) }) : fragment);
+    resultKeyInLink = keyInLink;
     resultUrl = urls.direct;
     resultPassword = encryptionPassword;
-    shortenableUrl = urls.shortenable;
+    shortenableUrl = keyInLink ? '' : urls.shortenable;
     resultHasTemporaryUpload = true;
     resultExpires = expires;
     resultBurn = burned;
@@ -797,6 +801,8 @@
     retention = DEFAULT_RETENTION;
     burn = false;
     deadMan = false;
+    keyInLink = false;
+    resultKeyInLink = false;
     resultExpires = undefined;
     resultBurn = false;
     unlockAt = '';
@@ -924,7 +930,7 @@
         <details class="more" bind:open={optionsOpen}>
           <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
           <div class="more__body">
-            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} {burnUnavailable} {unlockError} bind:retention bind:burn bind:deadMan bind:unlockAt {effectiveRetention} />
+            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} {burnUnavailable} {unlockError} bind:retention bind:burn bind:keyInLink bind:deadMan bind:unlockAt {effectiveRetention} />
           </div>
         </details>
 
@@ -1045,6 +1051,9 @@
         {/if}
       {/if}
 
+      {#if resultKeyInLink}
+        <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.result.keyInLinkNote')}</p>
+      {:else}
       <div class="field">
         <div class="output-head">
           <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
@@ -1066,6 +1075,7 @@
         </div>
         <p id="ue-result-pass-note" class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
       </div>
+      {/if}
 
       <div class="actions max-sm:flex-col max-sm:items-stretch">
         <CopyButton
