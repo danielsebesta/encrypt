@@ -108,6 +108,12 @@ async function serve(client: string, injectHtml: (html: string) => string = (htm
       const payload: string | Buffer = type.startsWith('text/html') ? injectHtml(body.toString()) : body;
       response.end(payload);
     };
+    const localized = /^\/(?:cs|de|es|fr|sk|pl)(?=\/|$)/.exec(pathname);
+    if (localized) {
+      response.writeHead(301, { location: pathname.slice(localized[0].length) || '/' });
+      response.end();
+      return;
+    }
     const redirect = redirects.get(pathname);
     if (redirect) {
       response.writeHead(redirect[1], { location: redirect[0] });
@@ -181,7 +187,7 @@ test('an identical deployment verifies', async () => {
   const result = await check(build.client, liveCopy(build, () => {}));
   assert.equal(result.status, 0, result.out);
   assert.match(result.out, /OK: http:\/\/127\.0\.0\.1:\d+ serves exactly this build/);
-  assert.match(result.out, /7 identical/);
+  assert.match(result.out, /6 identical/);
 });
 
 test('a different GitHub star count in the footer is the only HTML difference tolerated', async () => {
@@ -194,7 +200,7 @@ test('a different GitHub star count in the footer is the only HTML difference to
   });
   const result = await check(build.client, live);
   assert.equal(result.status, 0, result.out);
-  assert.match(result.out, /3 identical except the GitHub star count/);
+  assert.match(result.out, /2 identical except the GitHub star count/);
 
   const other = liveCopy(build, (client) => {
     const file = path.join(client, 'index.html');
@@ -238,7 +244,7 @@ test('the bot-detection script Cloudflare appends to pages is ignored, any other
 
   const cloudflare = await check(build.client, live, [], appended(cloudflareScript('/cdn-cgi/challenge-platform/scripts/jsd/main.js')));
   assert.equal(cloudflare.status, 0, cloudflare.out);
-  assert.match(cloudflare.out, /4 served with Cloudflare's bot-detection script appended/);
+  assert.match(cloudflare.out, /3 served with Cloudflare's bot-detection script appended/);
 
   const lookalike = await check(build.client, live, [], appended(cloudflareScript('//evil.example/main.js')));
   assert.equal(lookalike.status, 1, lookalike.out);
@@ -257,7 +263,7 @@ test('both forms of the Cloudflare loader are recognised, with their own path on
   for (const script of [cloudflareRayScript(loader), cloudflareRayScript(loader, 'a1EIa9d0WtFsn8iNfonZCtJJ563JHoyf')]) {
     const result = await check(build.client, live, [], appended(script));
     assert.equal(result.status, 0, result.out);
-    assert.match(result.out, /4 served with Cloudflare's bot-detection script appended/);
+    assert.match(result.out, /3 served with Cloudflare's bot-detection script appended/);
   }
 
   const lookalike = await check(build.client, live, [], appended(cloudflareRayScript('//evil.example/main.js?ray=a52dbd174e21d270')));
