@@ -307,7 +307,7 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 					<a href="/security">{t(dict, 'home.footer.security')}</a>
 					<a href="mailto:hello@encrypt.click">{t(dict, 'home.footer.contact')}</a>
 					<a href={repoUrl} target="_blank" rel="noopener noreferrer">
-						<Icon name="github" />GitHub
+						<Icon name="github" /><span class="site-footer__label">GitHub</span>
 						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
 						<Icon name="arrow-up-right" />
 					</a>

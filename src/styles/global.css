@@ -1863,6 +1863,14 @@ html.dark {
         @apply inline-flex min-h-11 items-center gap-1.5 hover:underline;
     }
 
+    .site-footer__nav a:has(.site-footer__label):hover {
+        @apply no-underline;
+    }
+
+    .site-footer__nav a:hover .site-footer__label {
+        @apply underline;
+    }
+
     .site-footer__legal {
         @apply pb-2 text-xs text-muted;
     }
