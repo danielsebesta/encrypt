@@ -32,6 +32,7 @@ for (const filePath of await walkHtml(DIST_DIR)) {
   for (const match of html.matchAll(INLINE_SCRIPT_RE)) {
     const body = match[2];
     if (!body.trim()) continue;
+    if (/type\s*=\s*["']?application\/(?:ld\+)?json/i.test(match[1])) continue;
     hashes.add(sha256Hash(body));
   }
 }
