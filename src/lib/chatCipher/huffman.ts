@@ -3,9 +3,10 @@ import type { CoverLang } from './coverTable';
 
 /**
  * Static canonical Huffman over bytes, per cover language. The model ships with the app, so a 46-byte message can
- * compress to ~26 bytes with no table in the payload; every byte keeps a weight of at least 1, so any input encodes.
- * Packed shape: u8 byte length, then the MSB-first bit stream, the final partial byte zero-padded. Longer inputs are
- * left to the deflate branch, which wins there anyway.
+ * compress to ~25 bytes with no table in the payload; every byte keeps a weight of at least 1, so any input encodes.
+ * Packed shape: the MSB-first bit stream only, the final partial byte filled with 1-bits. Those padding bits never
+ * form a code (the only all-ones codeword is 15 bits and padding is at most 7), so the unpacker stops when it hits
+ * them. Longer inputs are left to the deflate branch, which wins there anyway.
  */
 
 const MAX_LEN = 15;
@@ -101,9 +102,8 @@ function tablesFor(lang: CoverLang): Tables {
 export function huffmanPack(data: Uint8Array, lang: CoverLang): Uint8Array | null {
   if (data.length === 0 || data.length > MAX_PACKED) return null;
   const tables = tablesFor(lang);
-  const out = new Uint8Array(1 + Math.ceil((data.length * MAX_LEN) / 8));
-  out[0] = data.length;
-  let written = 8;
+  const out = new Uint8Array(Math.ceil((data.length * MAX_LEN) / 8));
+  let written = 0;
   for (const byte of data) {
     const code = tables.codes[byte];
     for (let bit = tables.lengths[byte] - 1; bit >= 0; bit--) {
@@ -111,34 +111,45 @@ export function huffmanPack(data: Uint8Array, lang: CoverLang): Uint8Array | nul
       written++;
     }
   }
-  const packed = 1 + (written + 7 >> 3);
-  if (packed - 1 >= data.length) return null;
+  // Fill the unused bits of the last byte with 1s so the unpacker can tell payload from padding.
+  while (written & 7) {
+    out[written >> 3] |= 1 << (7 - (written & 7));
+    written++;
+  }
+  const packed = written >> 3;
+  if (packed >= data.length) return null;
   return out.subarray(0, packed);
 }
 
 export function huffmanUnpack(payload: Uint8Array, lang: CoverLang): Uint8Array {
   if (payload.length < 1) throw new Error('Sealed content does not decompress');
-  const length = payload[0];
-  if (length === 0 || 1 + Math.ceil(length / 8) > payload.length) throw new Error('Sealed content does not decompress');
   const tables = tablesFor(lang);
-  const out = new Uint8Array(length);
-  const lastBit = (payload.length - 1) * 8;
+  const out: number[] = [];
+  const lastBit = payload.length * 8;
   let read = 0;
-  for (let at = 0; at < length; at++) {
+  while (read < lastBit) {
     let code = 0;
     let depth = 0;
+    let ones = true;
     for (;;) {
-      if (read >= lastBit) throw new Error('Sealed content does not decompress');
-      code = (code << 1) | ((payload[1 + (read >> 3)] >> (7 - (read & 7))) & 1);
+      if (read >= lastBit) {
+        // Incomplete trailing code: only the 1-bit pad is allowed here.
+        if (ones) return new Uint8Array(out);
+        throw new Error('Sealed content does not decompress');
+      }
+      const bit = (payload[read >> 3] >> (7 - (read & 7))) & 1;
       read++;
+      if (!bit) ones = false;
+      code = (code << 1) | bit;
       depth++;
       if (depth > MAX_LEN) throw new Error('Sealed content does not decompress');
       const first = tables.firstCode[depth];
       if (code >= first && code - first < tables.counts[depth]) {
-        out[at] = tables.sorted[tables.firstIndex[depth] + code - first];
+        out.push(tables.sorted[tables.firstIndex[depth] + code - first]);
+        if (out.length > MAX_PACKED) throw new Error('Sealed content does not decompress');
         break;
       }
     }
   }
-  return out;
+  return new Uint8Array(out);
 }

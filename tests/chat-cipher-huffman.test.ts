@@ -44,12 +44,12 @@ test('huffman refuses empty, oversized and malformed payloads', () => {
   assert.equal(huffmanPack(new Uint8Array(0), 'en'), null);
   assert.equal(huffmanPack(new Uint8Array(70000), 'en'), null);
   assert.throws(() => huffmanUnpack(new Uint8Array(0), 'en'), /decompress/);
-  assert.throws(() => huffmanUnpack(new Uint8Array([0, 1]), 'en'), /decompress/); // no bits at all
-  const lying = new Uint8Array([0xff, 0xaa, 0xaa]); // claims 255 bytes, has 16 bits
-  assert.throws(() => huffmanUnpack(lying, 'en'), /decompress/);
+  // Truncated after a 0 bit: incomplete code that is not the 1-bit pad.
+  assert.throws(() => huffmanUnpack(new Uint8Array([0x40]), 'en'), /decompress/);
   const packed = huffmanPack(new TextEncoder().encode('hello world, plans changed'), 'en')!;
   const genuine = huffmanUnpack(packed, 'en');
   assert.equal(new TextDecoder().decode(genuine), 'hello world, plans changed');
+  assert.ok(packed.length < genuine.length);
 });
 
 test('content picks the smallest packing: raw, deflate or static huffman', async () => {
