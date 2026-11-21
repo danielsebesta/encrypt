@@ -6,7 +6,7 @@ import { getTranslations, t, languages, locales, getLocalePath, type Locale } fr
 import { languageChoiceHref } from '../lib/locale';
 import { getNavCategories, chatIcon, sendIcon, decryptIcon, whiteboardIcon } from '../lib/tools';
 import Icon from '../components/Icon.astro';
-import { REPO_SLUG, REPO_URL } from '../lib/repo';
+import { DEPLOY_URL, REPO_SLUG, REPO_URL } from '../lib/repo';
 import { getGithubStars } from '../lib/githubStars';
 import { PRODUCT_NAME, siteName, siteOrigin } from '../lib/siteBrand';
 
@@ -310,6 +310,9 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						<Icon name="github" />GitHub
 						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
 						<Icon name="arrow-up-right" />
+					</a>
+					<a href={DEPLOY_URL} target="_blank" rel="noopener noreferrer">
+						<Icon name="package" />{t(dict, 'home.trust.deploy')}<Icon name="arrow-up-right" />
 					</a>
 				</nav>
 				<p class="site-footer__legal">
