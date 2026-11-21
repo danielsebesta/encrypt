@@ -17,6 +17,7 @@ run "pnpm build" on the commit named in the site's /build-integrity.json first.
 Exit status: 0 everything matches, 1 at least one mismatch, 2 the check could not run.`;
 
 const MANIFEST_NAME = 'build-integrity.json';
+const LOCALE_PREFIX = /^\/(?:cs|de|es|fr|sk|pl)(?=\/|$)/;
 const NOT_SERVED = new Set(['/_headers', '/_redirects', '/_routes.json', '/_worker.js', '/.assetsignore']);
 const MISSING_PAGE = '/__verify-deployment-missing-page';
 const STAR_BADGE = /(?<=GitHub)<span[^>]*>\xe2\x98\x85 [\d,]+<\/span>(?=<\/a>)/g;
@@ -327,6 +328,20 @@ async function main() {
 
   await mapLimit(toFetch, options.concurrency, async (file) => {
     const requestPath = routeFor(file, liveManifest.routes);
+    if (LOCALE_PREFIX.test(requestPath)) {
+      try {
+        const { response } = await request(`${origin}${encodePath(requestPath)}`, 'manual');
+        const location = response.headers.get('location');
+        const target = location ? new URL(location, origin) : null;
+        const clean = requestPath.replace(LOCALE_PREFIX, '') || '/';
+        if (response.status !== 301 || !target || target.origin !== origin || target.pathname.replace(/\/$/, '') !== clean.replace(/\/$/, '')) {
+          problem('redirect', file, [`${requestPath} should redirect permanently to ${clean}, got ${response.status}${location ? ` to ${location}` : ''}`]);
+        }
+      } catch (error) {
+        problem('unreachable', file, [`${requestPath}: ${error.cause?.code ?? error.message}`]);
+      }
+      return;
+    }
     let result;
     try {
       result = await request(`${origin}${encodePath(requestPath)}`);
@@ -408,10 +423,12 @@ async function main() {
       const location = response.headers.get('location');
       const target = location ? new URL(location, origin) : null;
       const wanted = new URL(to, origin);
+      const cleanFrom = from.replace(LOCALE_PREFIX, '') || '/';
       const redirected = response.status === status && target && target.origin === wanted.origin && target.pathname + target.search === wanted.pathname + wanted.search;
+      const toCleanPath = LOCALE_PREFIX.test(from) && response.status === 301 && target && target.origin === origin && target.pathname === cleanFrom;
       // Paths the Worker answers first never reach _redirects; a page that is listed in the manifest and served there is as intended.
       const servedPage = response.status === 200 && (from in (liveManifest.routes ?? {}) || `${from}/` in (liveManifest.routes ?? {}));
-      if (!redirected && !servedPage) {
+      if (!redirected && !toCleanPath && !servedPage) {
         problem('redirect rule', `${from} -> ${to}`, [`served ${response.status}${location ? ` to ${location}` : ''}, expected ${status}`]);
       }
     } catch (error) {
