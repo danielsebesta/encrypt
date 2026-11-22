@@ -36,129 +36,45 @@ Free, no account, open source, and you can run your own copy on Cloudflare in on
 
 ## Security at a glance
 
-- **Hybrid post-quantum key exchange.** Room keys come from ECDH on P-256 and ML-KEM-768 (FIPS 203) together, mixed with the room secret. A recording made today stays closed unless both are broken, so a future quantum computer alone is not enough.
-- **Forward secrecy in every chat.** Each member holds ephemeral key pairs for the session and a sender chain: every message key is derived once with HKDF and wiped after use, so a key that leaks later does not open earlier messages.
-- **Signed messages.** Every chat message carries its author's Ed25519 signature, also when online members pass history on to someone who was away, so nobody can put words in someone else's mouth.
-- **Calls encrypted frame by frame.** Audio and video frames are encrypted in the browser with insertable streams before WebRTC sends them. Media always goes through a TURN relay, so participants never see each other's IP address, and the relay sees only ciphertext.
-- **Passwords that are slow to guess.** Passwords go through Argon2id with 64 MiB of memory and 3 passes. Room passwords need at least 16 characters and pass a strength check.
-- **AES-256-GCM everywhere.** Files, messages and board updates are sealed and authenticated in the browser.
-- **Time locks.** Time capsules use public randomness from the [drand](https://drand.love/) network through tlock, so nothing opens before the chosen time, not even for its author.
-- **Verifiable builds.** Every deploy publishes the commit and a hash of every file it serves, signed by GitHub Actions. You can rebuild it and compare (see [Verify what is served](#verify-what-is-served)).
+- **Hybrid post-quantum key exchange.** Room keys come from ECDH on P-256 and ML-KEM-768 together, so a future quantum computer alone is not enough.
+- **Forward secrecy in every chat.** Message keys are derived once and wiped after use.
+- **Signed messages.** Every chat message carries its author's Ed25519 signature.
+- **Calls encrypted frame by frame**, always through a TURN relay, so participants never see each other's IP address.
+- **Slow-to-guess passwords** with Argon2id, and AES-256-GCM for files, messages and board updates.
+- **Verifiable builds.** Every deploy publishes the commit and a hash of every file it serves, signed by GitHub Actions. See [docs/deployment.md](docs/deployment.md#verify-what-is-served).
 
-```mermaid
-flowchart LR
-  A["Your file or message"] -- "AES-256-GCM,<br/>in your browser" --> B["Ciphertext"]
-  P["Password<br/>stays on your device"] -. "Argon2id derives the key" .-> B
-  B -- "upload" --> C[("Temporary storage<br/>deleted after 1 h to 7 days,<br/>or after one download")]
-  B -. "only if you approve" .-> S[("Send instance<br/>run by a third party")]
-  C --> L["Link<br/>holds an encrypted pointer"]
-  S --> L
-  L --> R["Recipient"]
-  P -. "shared separately" .-> R
-
-  classDef brand fill:#e0edce,stroke:#48672e,color:#26430e,stroke-width:2px;
-  classDef neutral fill:#f3f5ea,stroke:#74796d,color:#1a1d16;
-  class A,B,L,R,P brand;
-  class C,S neutral;
-```
-
-| Runs in your browser | The server is involved |
-| --- | --- |
-| Encryption and decryption, key generation and exchange, signatures, every experiment | Ciphertext upload, short links, the drand proxy, the realtime relay for rooms, TURN credentials for calls |
-
-- **No history on the server.** In the default chat mode members keep encrypted history in their own browsers; disappearing modes keep nothing anywhere.
-- **Names carry no information.** Participants get random aliases rendered in each viewer's own language, so a name never reveals which language someone uses.
-- **The share sheet and QR codes stay on your device.** Installed as an app, Encrypt.click takes files, text and links from the system share sheet; the service worker hands them to the share form on the device. The receive page reads QR codes from the camera or a picture locally, too.
-- **Third-party hosting is named.** If Encrypt.click's own storage is full, the share form names the exact Send instance and asks before it uploads anything. Chat falls back to Send on its own, for files up to 50 MB.
-
-The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security@encrypt.click](mailto:security@encrypt.click) · [security.txt](https://encrypt.click/.well-known/security.txt). Everything else: [hello@encrypt.click](mailto:hello@encrypt.click).
-
-## The app
-
-`/app` is an installable PWA that wraps your rooms, the share form and settings in a native-feeling shell, with an iOS skin (Liquid Glass controls) and a Material 3 skin whose colours are generated from the site palette. It adds a passkey or biometric lock, saved rooms, a panic wipe and system share into encrypted files. No App Store or Google Play: install it from the browser with the guide at [encrypt.click/install](https://encrypt.click/install).
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/app-dark.webp">
-  <img src="docs/readme/app-light.webp" alt="The app on three phones: saved chat rooms and an encrypted group chat in the iOS skin, and the same chat in the Material skin" width="100%">
-</picture>
-
-- **iPhone and iPad:** open the site in Safari, then Share, Add to Home Screen, and open Encrypt.click from that icon.
-- **Android:** open it in Chrome, then the menu, Install app, and open it from the app icon.
-
-## Experiments
-
-- **Chat cipher:** hide an encrypted message inside casual chat in Czech, English, German, Spanish, French, Slovak or Polish
-- **Time capsule:** time-lock encryption with drand
-- **Steganography:** an encrypted message hidden in a PNG
-- **Photo cipher:** a hidden message that survives chat-app compression
-- **Spectral cipher:** an image hidden in a WAV spectrogram
-
-## Languages
-
-English, Čeština, Deutsch, Español, Français, Slovenčina and Polski. The server picks the language from `Accept-Language` on the first visit and from the `ec-lang` cookie once you choose one, so it works without JavaScript.
+The full write-up is at [encrypt.click/security](https://encrypt.click/security). Security reports: [security@encrypt.click](mailto:security@encrypt.click). Everything else: [hello@encrypt.click](mailto:hello@encrypt.click).
 
 ## Run it locally
 
-Node 24.21 (`.nvmrc`) and pnpm 10 through corepack.
+Node 24 (see `.nvmrc`) and pnpm 10 through corepack.
 
 ```bash
+git clone https://github.com/danielsebesta/encrypt.git && cd encrypt
 corepack enable
 pnpm install
-pnpm dev          # the site at http://localhost:4321, without chat and whiteboard rooms
-pnpm build        # Cloudflare build
-pnpm preview      # the built Worker at http://localhost:4321, rooms included
-pnpm build:node   # Node build into dist/, server at dist/node/server.mjs
-pnpm start:node   # run the Node build (DATA_DIR=./data, PORT=8080)
-pnpm test         # unit tests
-pnpm check        # astro check
+pnpm dev
 ```
 
-## How it is built
+The site is at http://localhost:4321. `pnpm dev` runs without chat and whiteboard rooms; to try those, build and run the Worker locally:
 
-Astro 7 pages, Svelte 5 for everything interactive and Tailwind CSS 4. The same code deploys to Cloudflare Workers or to any long-running Node.js host, including a single Docker image: everything platform-specific sits behind one small interface.
-
-```mermaid
-flowchart TB
-  subgraph Browser["Your browser"]
-    UI["Astro pages + Svelte tools"] --> WC["Web Crypto + WebAssembly<br/>AES-GCM · ECDH · ML-KEM · Argon2id · HKDF · Ed25519"]
-  end
-  subgraph Core["Platform-neutral core"]
-    APP["src/server: routing, guards,<br/>/upload, /dl, proof-of-work"]
-    ROOMS["party: chat and whiteboard rooms"]
-  end
-  subgraph CF["Cloudflare adapter"]
-    W["Worker"] --- DO[("Durable Objects<br/>rooms · budgets")]
-    W --- R2[("R2, lifecycle per prefix")]
-  end
-  subgraph NODE["Node adapter"]
-    N["Node server + ws"] --- SQL[("SQLite<br/>rooms · budgets")]
-    N --- FS[("Files, 1-day sweep")]
-  end
-  WC -- "ciphertext only, same origin" --> APP
-  APP --> W
-  APP --> N
-  ROOMS --> DO
-  ROOMS --> SQL
-  APP -. "with consent" .-> SEND["Send instances"]
-
-  classDef brand fill:#e0edce,stroke:#48672e,color:#26430e,stroke-width:2px;
-  classDef neutral fill:#f3f5ea,stroke:#74796d,color:#1a1d16;
-  class UI,WC,APP,ROOMS,W,N brand;
-  class DO,R2,SQL,FS,SEND neutral;
-  style Browser fill:none,stroke:#74796d,stroke-dasharray:5 5
-  style Core fill:none,stroke:#74796d,stroke-dasharray:5 5
-  style CF fill:none,stroke:#74796d,stroke-dasharray:5 5
-  style NODE fill:none,stroke:#74796d,stroke-dasharray:5 5
+```bash
+pnpm build
+pnpm preview
 ```
 
-- **Platforms.** `src/platform/types.ts` is the contract: settings, the visitor's address, budgets on SQLite, blob storage and realtime rooms. `src/adapters/cloudflare/` implements it with Durable Objects and R2, `src/adapters/node/` with `ws`, `node:sqlite` and files on disk. Everything else, including every URL the browser uses, is the same on both.
-- **Crypto.** Key handling lives in a few small files: `src/lib/aesGcm.ts`, `kdf.ts` (Argon2id and HKDF), `passwordEnvelope.ts` (including the time-lock key mixing), `hybridKem.ts` (ML-KEM-768 with ECDH), `chatCrypto.ts`, `chatRatchet.ts` (forward secrecy), `callCrypto.ts` and `callTransform.ts` (frame encryption for calls), `padding.ts`, `timelock.ts`, `whiteboardProtocol.ts`, `src/lib/ghost/` and the room code in `party/`. Tests in `tests/`.
-- **Design system.** One palette generated from a single seed colour with Material colour utilities (`scripts/gen-palette.mjs`), which also writes the `/app` iOS accent and seeds its Material skin. Allo for text, Commit Mono for keys and hashes, filled Tabler icons. Tokens and component classes live in `src/styles/global.css`, the rules in [`docs/design-system.md`](docs/design-system.md), and `tests/design-system.test.ts` guards them.
-- **Languages.** English without a prefix, `cs`, `de`, `es`, `fr`, `sk` and `pl` under a path prefix. Shared links keep their language. All strings live in `src/locales/*.json`, kept in sync by `tests/locales.test.ts`.
-- **Whiteboard.** Drawing uses `@quickdrawjs/core` with a small patch in `patches/` that makes pen pressure drive the stroke width; `tests/pen-pressure.test.ts` fails if the patch is lost. Pictures are re-encoded in the browser and embedded in the encrypted Yjs document (`src/lib/whiteboardImages.ts`). The relay only forwards encrypted update envelopes between connected members and stores none of them; each browser keeps a sealed local snapshot under a key derived from the room password, so leaving and rejoining restores the board, and a member can export it (`party/whiteboard.ts`, tests in `tests/whiteboard.test.ts`).
-- **Uploads.** The browser posts ciphertext to `/upload` on the same origin and downloads it from `/dl/<id>`. The sender picks how long it is kept (`X-Upload-Retention: 1h | 1d | 7d`, one day when absent) and whether it is deleted after the first download (`X-Upload-Burn: 1`); the id carries the retention class, and a one-time upload is claimed atomically in the budget database before its first byte is sent, then deleted. Only Encrypt.click envelopes and stego PNGs are accepted, capacity is reserved before a byte is read (by default 1000 GB and 500 000 files a month, 100 GB a day, 5 GB a day per client, overridable with `UPLOAD_*` variables), and clients that look scripted have to solve a short proof-of-work puzzle in the browser first. Clients are told apart by a /64 hash with a salt that is deleted the next day. The byte quotas count stored byte-days: an upload is charged its size once for every day it is kept, so a 7-day upload costs seven times a 1-day one and the storage bill stays where the defaults put it (about $1 a month on R2). Upload sizes and timeouts live in `src/lib/httpLimits.ts`.
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Dev server with hot reload, without rooms |
+| `pnpm preview` | The built Worker, rooms included |
+| `pnpm build` | Cloudflare build |
+| `pnpm build:node` / `pnpm start:node` | Node build and server |
+| `pnpm test` | Unit tests |
+| `pnpm check` | Type check |
 
-## Deploy
+Copy `.dev.vars.example` to `.dev.vars` to set local secrets.
+
+## Self-host
 
 ### Your own copy on Cloudflare
 
@@ -168,65 +84,13 @@ The button copies this repository to your GitHub account, creates the R2 bucket 
 
 1. Enable R2 in the Cloudflare dashboard first. It asks for a payment method even on the free tier, and the deploy cannot create the bucket without it.
 2. Press the button and fill in `ROOM_TURN_SECRET`, `RATE_LIMIT_SECRET` and `UPLOAD_PASS_SECRET` with random strings, for example from `openssl rand -hex 32`.
-3. For calls, create a TURN key under Realtime → TURN Server and fill in `CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN`. Calls always go through the relay, so without the key the rest works and calls do not.
+3. For calls, create a TURN key under Realtime → TURN Server and fill in `CLOUDFLARE_TURN_TOKEN_ID` and `CLOUDFLARE_TURN_API_TOKEN`. Without it everything else works and calls do not.
 
-Expired uploads are deleted by an hourly cron in the Worker, so the bucket needs no lifecycle rules. A custom domain goes under the Worker's Settings → Domains & Routes. Short links stay off unless you also deploy the [shortener](#short-links) and set `SHORTENER_URL` and `SHORTENER_TOKEN`.
+A custom domain goes under the Worker's Settings → Domains & Routes.
 
-### encrypt.click
+### With Docker
 
-Production deploys from GitHub Actions on every push to `main` ([`deploy.yml`](.github/workflows/deploy.yml)), after tests, type check and build. `wrangler.toml` describes a fresh install; [`wrangler.production.json`](wrangler.production.json) adds what only encrypt.click has: the Worker name, the custom domains, the EU bucket and the variables for direct uploads to it, short links and the full Durable Object migration history. The build writes assets to `dist/client` and the Worker config to `dist/server/wrangler.json`; `scripts/merge-wrangler-routes.mjs` copies the `run_worker_first` patterns, the cron and the bucket from `wrangler.toml` into it and, given a file, lays that file over the result. The workflow passes `wrangler.production.json`, and `pnpm run deploy:production` does the same from a machine logged in with `wrangler login`; plain `pnpm run deploy` deploys a fresh install. Deploy assets and Worker together, because the CSP hashes in `_headers` are computed from the built scripts. A new Durable Object migration goes into both files, which `tests/r2-sweep.test.ts` checks.
-
-Repository secrets for the workflow:
-
-| Secret | Purpose |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | API token from the "Edit Cloudflare Workers" template, with R2 access for the upload bucket and Workers KV access for the shortener |
-| `CLOUDFLARE_ACCOUNT_ID` | Account id |
-
-Worker secrets:
-
-| Secret | Purpose |
-| --- | --- |
-| `ROOM_TURN_SECRET` | Random, at least 32 bytes. Signs the short-lived TURN grants issued to room participants and keys the per-client request budget hashes. Never expose it as a `PUBLIC_` variable. |
-| `TURN_PROVIDER` | `cloudflare` |
-| `CLOUDFLARE_TURN_TOKEN_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Cloudflare Realtime TURN key |
-| `RATE_LIMIT_SECRET` | Optional, separate key for request budget hashing |
-| `UPLOAD_PASS_SECRET` | Optional, separate key for upload passes and proof-of-work challenges; otherwise derived from the keys above |
-| `SHORTENER_TOKEN` | Random, at least 32 bytes, the same value as on the shortener Worker. Authorizes `/api/shorten` to create short links. |
-| `STATUS_TOKEN` | Optional. When set, `GET /status` (upload usage against the quotas, whether TURN is configured, build and uptime; aggregates only) requires `Authorization: Bearer <token>`; otherwise it is public. `BUILD_COMMIT_SHA`, as a plain variable, names the build it reports. |
-
-Wrangler loads `.env` automatically, so do not name a local variable `CF_API_TOKEN` or `CLOUDFLARE_API_TOKEN` unless it is the account token.
-
-Bindings: `SECURITY_BUDGET` (one Durable Object per budget scope: per-minute request ceilings, upload quotas, proof-of-work replay; the expensive routes fail closed if it is unreachable), `CHAT` and `WHITEBOARD` (rooms at `/parties/main|whiteboard/<room>`; they relay encrypted envelopes and keep at most a small room config, never a message), and `BUCKET`, the R2 bucket `encrypt-r2` in the EU jurisdiction (pass `--jurisdiction eu` to every `wrangler r2` command). Uploads are stored under one key prefix per retention class, `t1h/`, `t1d/` and `t7d/`, with the expiry time and the one-time flag in the object's custom metadata; the Worker refuses anything past its expiry, an hourly cron deletes it, and one lifecycle rule per prefix catches anything the cron missed. `SHORTENER_URL` in `wrangler.production.json` and the `SHORTENER_TOKEN` secret enable short links. The ceilings are in `src/server/app.ts`. `/api/*`, `/upload*`, `/dl/*` and `/parties/*` reject cross-site browser requests, and Worker logs are off.
-
-Lifecycle rules for the upload bucket. R2 counts in whole days, so the 1-hour class is deleted after a day while the Worker already refuses it after an hour. Uploads from before the retention classes sit under their bare UUID; the rules for the prefixes `0` to `f` delete those after a day and can be removed two days after the deploy. Add the new rules first, then remove the old rule that covered the whole bucket (its name is in the `list` output), then deploy:
-
-```bash
-pnpm exec wrangler r2 bucket lifecycle list encrypt-r2 --jurisdiction eu
-pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-1h t1h/ --expire-days 1 --jurisdiction eu --force
-pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-1d t1d/ --expire-days 1 --jurisdiction eu --force
-pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-7d t7d/ --expire-days 7 --jurisdiction eu --force
-for p in 0 1 2 3 4 5 6 7 8 9 a b c d e f; do pnpm exec wrangler r2 bucket lifecycle add encrypt-r2 uploads-legacy-$p $p --expire-days 1 --jurisdiction eu --force; done
-pnpm exec wrangler r2 bucket lifecycle remove encrypt-r2 --name <old whole-bucket rule> --jurisdiction eu
-```
-
-### Short links
-
-[`workers/shortener`](workers/shortener/src/index.ts) is the Worker behind `l.encrypt.click`, deployed by the same workflow right after the site (`wrangler deploy --config workers/shortener/wrangler.toml`). It only accepts receive links (`https://encrypt.click/u?p=…`) and only from encrypt.click's `/api/shorten`, which sends `SHORTENER_TOKEN`, so nobody can fill its KV namespace directly. Slugs are eight pronounceable letters (`badokemu`, about 41 million combinations) drawn without bias from `crypto.getRandomValues`. Each link is stored in KV with an expiry: until the upload expires, or 7 days for a message carried in the link (7 days after it unlocks when time-locked), computed in `src/server/shortLink.ts`. Opening a link is rate limited to 30 a minute per client and location, so slugs cannot be walked, and the redirect is a `302` with `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. Set the same random `SHORTENER_TOKEN` on both Workers:
-
-```bash
-openssl rand -hex 32   # copy the value
-pnpm exec wrangler secret put SHORTENER_TOKEN --name lencrypt
-pnpm exec wrangler secret put SHORTENER_TOKEN --name encrypt-click
-```
-
-For your own instance, change `name`, the domain, the KV namespace id and `TARGET_ORIGIN` in [`workers/shortener/wrangler.toml`](workers/shortener/wrangler.toml), and point `SHORTENER_URL` at `https://<your short domain>/api/shorten`.
-
-### Self-host with Docker
-
-The same code also runs as a single Node.js server. The [`Dockerfile`](Dockerfile) packs it with Caddy for HTTPS and coturn for call relays, so one container is a complete instance: pages, uploads, chat and whiteboard rooms and calls.
-
-Try it on your own machine, no domain needed:
+One container is a complete instance: pages, uploads, chat and whiteboard rooms and calls.
 
 ```bash
 git clone https://github.com/danielsebesta/encrypt.git && cd encrypt
@@ -234,55 +98,25 @@ docker build -t encrypt-click .
 docker run --rm -p 8080:8080 encrypt-click
 ```
 
-Then open http://localhost:8080. Calls need the TURN relay, which turns on with a domain. For a public instance, point a domain at a Linux host and run:
+Then open http://localhost:8080. For a public instance with HTTPS and call relays, point a domain at a Linux host:
 
 ```bash
 docker run -d --name encrypt --restart unless-stopped --network host   -e DOMAIN=encrypt.example.com -e ACME_EMAIL=admin@example.com   -v encrypt-data:/data encrypt-click
 ```
 
-Caddy fetches the certificate on the first request, secrets are generated into the volume on the first start, and coturn listens on port 3478. `docker compose up -d --build` does the same with [`docker-compose.yml`](docker-compose.yml). Configuration, ports, backups and upgrades are in [`docs/self-hosting.md`](docs/self-hosting.md).
+`docker compose up -d --build` does the same. Configuration, ports, backups and upgrades are in [docs/self-hosting.md](docs/self-hosting.md).
 
-## Verify what is served
+## Documentation
 
-Every build publishes `/build-integrity.json`: the commit it was built from and the SHA-256 of every file. `scripts/verify-deployment.mjs` rebuilds nothing; it compares a build you made yourself with what a site serves, file by file, plus the response headers (CSP included) and redirects.
-
-```bash
-git clone https://github.com/danielsebesta/encrypt.git && cd encrypt
-git checkout "$(curl -s https://encrypt.click/build-integrity.json | jq -r .commitSha)"
-corepack enable && pnpm install --frozen-lockfile && pnpm build
-node scripts/verify-deployment.mjs https://encrypt.click
-```
-
-It prints `OK` and exits 0, or lists every mismatch and exits 1. Use the Node version from `.nvmrc` and build on Linux (WSL or Docker on Windows): the same commit gives the same client files there, in any directory, apart from three harmless differences that the report names and ignores: the GitHub star count in the footer, Astro's island ids (they depend on the build path) and the bot-detection script Cloudflare appends to pages, which the CSP keeps from running.
-
-`.github/workflows/verify-live.yml` runs the same check from a fresh GitHub runner after every deploy and every six hours: it rebuilds the deployed commit from source and fails if the site serves anything else. It also fails when Cloudflare refuses the runner, because then nothing was compared, so a passing run always means a real comparison.
-
-The deploy workflow also signs the build. The manifest a site serves was produced by this repository's workflow if this succeeds:
-
-```bash
-curl -sO https://encrypt.click/build-integrity.json
-gh attestation verify build-integrity.json --repo danielsebesta/encrypt
-```
-
-The same goes for the `encrypt-click-dist` artifact of a deploy run (client files and Worker bundle) and for the Docker build in `node.yml`. The check covers every static file the site serves. It cannot cover API responses or what Cloudflare itself serves under `/cdn-cgi/`. See [`docs/self-hosting.md`](docs/self-hosting.md#verifying-a-build) for self-hosted instances.
-
-## Operational notes
-
-- Room passwords derive an authorization capability that the relay receives, so it could try to guess a weak password offline. Room creation therefore requires a password of at least 16 characters that passes a strength check. Every room works this way; a room URL carries no secret, so links can be shared through anything.
-- TURN credentials are valid for one hour and are only issued against a signed grant. Set bandwidth quotas and billing alerts at the TURN provider; a request budget cannot cap traffic on an already allocated relay.
-- The deployment manifest checked by `integrity-check.js` is a same-origin consistency check, not proof against a compromised host; `scripts/verify-deployment.mjs` and the attestations above are the independent check. Pages never contact GitHub from a visitor's browser; the star count is fetched at build time.
-- Empty chat rooms delete their stored configuration — the only thing a chat room ever stores — after seven days. A whiteboard room writes nothing to server storage: connected members relay encrypted updates, and each browser that has opened the board keeps a sealed local snapshot so the drawing survives leave/rejoin on that device.
+- [Self-hosting](docs/self-hosting.md)
+- [Design system](docs/design-system.md)
+- [Production deployment and verification](docs/deployment.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
 [MIT](LICENSE)
-
-<div align="center">
-
-**Encrypt.click: your privacy is just a click away.**
-
-</div>
