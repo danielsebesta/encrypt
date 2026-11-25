@@ -1,5 +1,6 @@
 // Regenerates every brand icon from the palette in src/styles/global.css: the light and dark `--accent`
-// for the favicon and the nav mark, the dark `--accent` on the dark `--bg` for app icons.
+// for the favicon, the nav mark and the wordmark (its name in `--text`), the dark `--accent` on the dark `--bg` for app icons.
+// The wordmark's name is Allo 600 outlined to a path, so changing the text or font means redrawing encryptclick.svg.
 // Usage: pnpm run build:brand-icons (tsx, the colour utilities ship extensionless ESM imports)
 // Favicons / "any" icons stay transparent. Maskable and Apple touch icons are full-bleed
 // squares: the launcher or iOS applies its own mask, and transparent corners would show
@@ -15,8 +16,10 @@ const css = readFileSync(file('src/styles/global.css'), 'utf8');
 const LIGHT_ACCENT = css.match(/:root\s*\{[^}]*?--accent:\s*(#[0-9a-f]{6})/is)?.[1];
 const DARK_ACCENT = css.match(/html\.dark\s*\{[^}]*?--accent:\s*(#[0-9a-f]{6})/is)?.[1];
 const DARK_BG = css.match(/html\.dark\s*\{[^}]*?--bg:\s*(#[0-9a-f]{6})/is)?.[1];
+const LIGHT_TEXT = css.match(/:root\s*\{[^}]*?--text:\s*(#[0-9a-f]{6})/is)?.[1];
+const DARK_TEXT = css.match(/html\.dark\s*\{[^}]*?--text:\s*(#[0-9a-f]{6})/is)?.[1];
 const SEED = css.match(/--color-brand:\s*(#[0-9a-f]{6})/i)?.[1];
-if (!LIGHT_ACCENT || !DARK_ACCENT || !DARK_BG || !SEED) throw new Error('Could not read the accents, the dark --bg and --color-brand from global.css');
+if (!LIGHT_ACCENT || !DARK_ACCENT || !DARK_BG || !LIGHT_TEXT || !DARK_TEXT || !SEED) throw new Error('Could not read the accents, the text colours, the dark --bg and --color-brand from global.css');
 const MID = hexFromArgb(new SchemeTonalSpot(Hct.fromInt(argbFromHex(SEED)), false, 0).primaryPalette.tone(55)).toLowerCase();
 
 const glyphPath = readFileSync(file('public/favicon.svg'), 'utf8').match(/\sd="([^"]+)"/)[1];
@@ -37,7 +40,13 @@ writeFileSync(
 );
 
 const logo = readFileSync(file('public/encryptclick.svg'), 'utf8');
-writeFileSync(file('public/encryptclick.svg'), logo.replace(/stroke:#[0-9a-f]{6}/gi, `stroke:${LIGHT_ACCENT}`).replace(/fill:#[0-9a-f]{6}/gi, `fill:${LIGHT_ACCENT}`));
+writeFileSync(
+  file('public/encryptclick.svg'),
+  logo
+    .replace(/<style>.*?<\/style>/s, `<style>.m{fill:${LIGHT_ACCENT}}.t{fill:${LIGHT_TEXT}}@media (prefers-color-scheme:dark){.m{fill:${DARK_ACCENT}}.t{fill:${DARK_TEXT}}}</style>`)
+    .replace(/<path class="m"[^>]*\/>/, `<path class="m" fill="${LIGHT_ACCENT}" fill-rule="evenodd" d="${bigPath}"/>`)
+    .replace(/(<path class="t" fill=")#[0-9a-f]{6}/i, `$1${LIGHT_TEXT}`),
+);
 
 /** Transparent square with the brand glyph. */
 async function bare(size) {
