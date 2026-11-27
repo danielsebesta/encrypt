@@ -1,13 +1,6 @@
 import { hkdfAesKey, hkdfBytes, hkdfKey } from './kdf';
 
-/**
- * ECK1: an envelope under a raw 256-bit key, for payloads whose key is not a password (chat attachments and voice,
- * whose key travels inside the room's encrypted message). HKDF replaces Argon2id — a random key is not guessable at
- * human rates, so the stretch costs six-digit milliseconds and buys nothing. Callers must never seal with a string a
- * person might type: the format has no slow KDF to protect it, so that would drop the cost of a guess by design.
- */
-const ECK1_MAGIC = new Uint8Array([0x45, 0x43, 0x4b, 0x31, 1]); // ECK1, layout 1
-/** Leading bytes of every raw-key envelope. */
+const ECK1_MAGIC = new Uint8Array([0x45, 0x43, 0x4b, 0x31, 1]);
 export const KEY_ENVELOPE_MAGIC: Readonly<Uint8Array> = ECK1_MAGIC;
 const SALT_BYTES = 8;
 const IV_BYTES = 12;
@@ -17,7 +10,6 @@ export const KEY_ENVELOPE_BYTES = 32;
 
 const startsWith = (data: Uint8Array, prefix: Uint8Array) => data.length >= prefix.length && prefix.every((byte, i) => data[i] === byte);
 
-/** True for a blob sealed with a raw key. */
 export function isKeyEnvelope(data: Uint8Array): boolean {
   return startsWith(data, ECK1_MAGIC);
 }

@@ -8,7 +8,6 @@
   export let copiedLabel = '';
   export let errorLabel = '';
   export let variant: ButtonVariant = 'ghost';
-  /** Defaults to small for the ghost variant (inline next to a label), regular otherwise. */
   export let size: ButtonSize | undefined = undefined;
   export let block = false;
 

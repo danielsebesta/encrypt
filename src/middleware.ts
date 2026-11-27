@@ -4,7 +4,6 @@ const SCRIPT_HASHES = '__CSP_SCRIPT_HASHES__';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
-  // Static HTML keeps the hash-only CSP from _headers.
   if (context.isPrerendered) return response;
   const headers = new Headers(response.headers);
   headers.set('X-Content-Type-Options', 'nosniff');

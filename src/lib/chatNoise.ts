@@ -6,7 +6,6 @@ export function cryptoRand(): number {
   return value[0] / 0x100000000;
 }
 
-/** Map letters that NFD does not turn into ASCII, so Polish/German/French covers still fold uniquely. */
 const LATIN_FOLD: Record<string, string> = {
   ł: 'l',
   ß: 'ss',

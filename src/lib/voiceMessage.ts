@@ -5,7 +5,6 @@ export const MAX_VOICE_SECONDS = MAX_VOICE_MS / 1000;
 const VOICE_TYPES = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm'];
 const EXTENSIONS: Record<string, string> = { webm: 'audio/webm', ogg: 'audio/ogg', m4a: 'audio/mp4' };
 
-/** Opus in WebM where the browser can record it, otherwise the first format it supports, or its own default. */
 export function pickVoiceType(supported: (type: string) => boolean): string {
   return VOICE_TYPES.find((type) => {
     try {
@@ -50,7 +49,6 @@ export function placeholderPeaks(seed: string, bars = VOICE_BARS): number[] {
   });
 }
 
-/** Loudness per slice of an already decrypted recording, for drawing the waveform. Null when the browser cannot decode it. */
 export async function voicePeaks(blob: Blob, seconds: number, bars = VOICE_BARS): Promise<number[] | null> {
   const Ctx = typeof window === 'undefined' ? undefined : window.AudioContext ?? (window as any).webkitAudioContext;
   if (!Ctx || seconds > PEAKS_MAX_SECONDS) return null;
@@ -74,10 +72,6 @@ export async function voicePeaks(blob: Blob, seconds: number, bars = VOICE_BARS)
   }
 }
 
-/**
- * One recording from the microphone. The microphone is released the moment recording stops or is cancelled, and a
- * recording that reaches the limit stops by itself.
- */
 export class VoiceRecorder {
   private recorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;

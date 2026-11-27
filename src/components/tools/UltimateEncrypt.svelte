@@ -106,11 +106,9 @@
   $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: isHuge = payloadSize > MAX_FILE;
-  // A link cannot forget itself, so a short message that must burn after reading is stored on the server instead.
   $: deliveryMode = (isHuge ? 'local' : isLarge || burn ? 'ghost' : 'link') as 'local' | 'ghost' | 'link';
   $: shareUrl = shortUrl || resultUrl;
   $: resultPass = resultPassword || password;
-  // The blurb carries only the link — sharing link and password in one message defeats the point of sharing them separately.
   $: resultBlurb = shareUrl && resultPass
     ? t(dict, resultKeyInLink ? 'tools.ultimateEncrypt.result.blurbKey' : 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl)
     : '';
@@ -192,7 +190,6 @@
     }
   }
 
-  // Store-only ZIP: the archive is encrypted afterwards, so compression would gain nothing.
   async function buildZip(entries: File[]): Promise<Uint8Array> {
     const enc = new TextEncoder();
     const centralHeaders: Uint8Array[] = [];
@@ -352,7 +349,6 @@
     }
   }
 
-  // Field errors appear after the first submit and then follow every edit; `error` holds only failures that belong to no field.
   let attempted = false;
 
   function passwordProblem(value: string, checks: typeof passwordChecks): string {
@@ -631,7 +627,6 @@
     pendingPayloadPassword = encryptionPassword;
     resultPassword = encryptionPassword;
 
-    // A time-locked file opens only through its link, so there is no copy to hand over by other means.
     if (localFileUrl) URL.revokeObjectURL(localFileUrl);
     localFileUrl = '';
     if (!pendingLock) {
@@ -740,12 +735,9 @@
       const body = encodeShareDrop(fragment);
       dropName = shareDropFilename();
       dropUrl = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
-    } catch {
-      /* fragment too large or invalid — skip offline drop file */
-    }
+    } catch {}
   }
 
-  // Runs automatically before the result is shown; this retry only appears when that attempt failed.
   async function shortenLink(): Promise<void> {
     const url = shortenableUrl;
     if (!url || shortening) return;

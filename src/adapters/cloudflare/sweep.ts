@@ -2,7 +2,6 @@ import { RETENTIONS, RETENTION_MS } from '../../lib/retention';
 
 type SweepBucket = Pick<R2Bucket, 'list' | 'delete'>;
 
-/** Deletes uploads past their expiry, so a bucket without lifecycle rules keeps nothing longer than promised. */
 export async function sweepExpiredUploads(bucket: SweepBucket, now = Date.now()): Promise<number> {
   let removed = 0;
   for (const retention of RETENTIONS) {

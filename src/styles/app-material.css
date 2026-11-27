@@ -1,12 +1,3 @@
-/* ============================================================
-   Material skin: Material 3 (Expressive where the web allows)
-   Colour roles come from appTheme.ts (SchemeTonalSpot, 2025 spec,
-   computed from the seed at runtime); the values below are the
-   default-seed fallback for first paint.
-   ============================================================ */
-
-/* Roboto Flex, self-hosted. Declared here so only /app downloads it,
-   and only when the Material skin renders text in it. */
 @font-face {
     font-display: swap;
     font-family: 'Roboto Flex';
@@ -24,8 +15,6 @@
     src: url('/fonts/roboto-flex-latin-ext.woff2') format('woff2');
     unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-
-/* -- Tokens: type, shape, state, motion, elevation ------------- */
 
 :root[data-app-platform="material"] {
     --font-sans: "Roboto Flex", Roboto, "Noto Sans", system-ui, sans-serif;
@@ -74,8 +63,6 @@
     --app-hit: 48px;
     --app-switch-w: 3.25rem;
 }
-
-/* -- Colour fallbacks (default seed, 2025 spec) ----------------- */
 
 :root[data-app-platform="material"][data-app-scheme="light"] {
     color-scheme: light;
@@ -161,7 +148,6 @@
     --app-on-warn-weak: #f7e3ab;
 }
 
-/* App roles derive from the system roles, so a fallback and a runtime scheme map the same way. */
 :root[data-app-platform="material"][data-app-scheme] {
     --app-bg: var(--md-sys-color-surface);
     --app-surface: var(--md-sys-color-surface-container-low);
@@ -243,22 +229,17 @@
     --k-color-brand-primary: var(--app-tint);
 }
 
-/* -- Chrome: glass-free, tonal surfaces ------------------------- */
-
 :root[data-app-platform="material"] :is(.k-glass, .k-navbar, .k-toolbar, .k-dialog, .k-sheet, .k-popover, .k-actions, .k-tabbar) {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 }
 
-/* Scrim: 32% of the scrim role behind sheets and dialogs; menus keep the page visible. */
 :root[data-app-platform="material"] .fixed[class~="bg-black/50"] {
     background-color: var(--app-scrim);
 }
 :root[data-app-platform="material"] .fixed[class~="bg-black/50"]:has(+ .k-popover) {
     background-color: transparent;
 }
-
-/* -- Navigation bar (M3 Expressive, 64dp) ----------------------- */
 
 :root[data-app-platform="material"] .app-main-tabbar.app-tabbar {
     padding-left: env(safe-area-inset-left, 0px);
@@ -342,9 +323,6 @@
     outline-offset: 2px;
 }
 
-/* -- Top app bars ----------------------------------------------- */
-
-/* Hub: small app bar, flat on the surface at rest, surface-container once content scrolls under it. */
 :root[data-app-platform="material"] .k-navbar.app-hub-bar {
     --app-bar: var(--md-sys-color-surface);
 }
@@ -359,7 +337,6 @@
     font: var(--md-type-title-large);
     letter-spacing: 0;
 }
-/* Room: centre-aligned bar; the conversation always scrolls under it, so it stays on surface-container. */
 :root[data-app-platform="material"] .k-navbar.app-room-bar > div:first-child {
     background-color: var(--md-sys-color-surface-container);
 }
@@ -370,7 +347,6 @@
     color: var(--md-sys-color-on-surface-variant);
 }
 
-/* App-bar icon buttons: no container, 48dp target, 40dp state-layer circle. */
 :root[data-app-platform="material"] .k-navbar .k-glass {
     background: transparent;
     background-image: none;
@@ -425,8 +401,6 @@
     display: none;
 }
 
-/* -- Search bar: 56dp full pill on surface-container-high -------- */
-
 :root[data-app-platform="material"] .k-searchbar {
     overflow: visible;
     padding-block: 4px;
@@ -474,7 +448,6 @@
     scale: 1;
     rotate: none;
 }
-/* Hub / room skeletons: same geometry as Navbar + Searchbar + filter + app-group rows. */
 :root[data-app-platform="material"] .app-skel-hub__bar {
     min-height: 64px;
     padding-inline: 1rem;
@@ -546,8 +519,6 @@
     background: var(--md-sys-color-primary-container);
 }
 
-/* -- Filter: connected button group (replaces segmented) -------- */
-
 :root[data-app-platform="material"] .k-segmented.app-filter {
     gap: 2px;
     padding: 0;
@@ -612,8 +583,6 @@
     display: none;
 }
 
-/* -- Extended FAB: 56dp, 16dp corners, primary-container, level 3 -- */
-
 :root[data-app-platform="material"] .k-fab {
     height: 56px;
     min-width: 80px;
@@ -652,12 +621,9 @@
     outline: 3px solid var(--md-focus-ring);
     outline-offset: 2px;
 }
-/* Snackbars sit above the FAB instead of covering it. */
 :root[data-app-platform="material"]:has(.k-fab) .app-toast {
     translate: 0 -48px;
 }
-
-/* -- Bottom sheets: 28dp top corners, surface-container-low ---- */
 
 :root[data-app-platform="material"] .k-sheet {
     border-radius: var(--md-shape-xl) var(--md-shape-xl) 0 0;
@@ -701,8 +667,6 @@
     outline: 3px solid var(--md-focus-ring);
     outline-offset: -3px;
 }
-
-/* -- Dialogs: 28dp on surface-container-high ------------------- */
 
 :root[data-app-platform="material"] .k-dialog {
     border-radius: var(--md-shape-xl);
@@ -759,8 +723,6 @@
     border-bottom: 3px solid var(--md-sys-color-primary);
     padding-bottom: 14px;
 }
-
-/* -- Menus (Expressive): 16dp, surface-container-low, level 2 ---- */
 
 :root[data-app-platform="material"] .k-popover > div:not(.k-glass) {
     display: none;
@@ -825,8 +787,6 @@
     background: transparent;
 }
 
-/* -- Snackbar: inverse-surface, 4dp corners -------------------- */
-
 :root[data-app-platform="material"] .app-toast {
     justify-content: stretch;
 }
@@ -871,8 +831,6 @@
 :root[data-app-platform="material"] .app-update-banner__now {
     border-radius: var(--md-shape-full);
 }
-
-/* -- Lists: segmented groups, 16dp outer / 4dp inner corners ---- */
 
 :root[data-app-platform="material"] .k-list.app-group {
     background: transparent !important;
@@ -969,8 +927,6 @@
     border-color: var(--app-tint);
 }
 
-/* -- Switch: 52x32 track, 16 -> 24 -> 28dp handle --------------- */
-
 :root[data-app-platform="material"] .k-toggle > span > span {
     transition:
         scale var(--md-motion-fast-spatial-duration) var(--md-motion-fast-spatial),
@@ -996,8 +952,6 @@
     }
 }
 
-/* -- Buttons and empty states ---------------------------------- */
-
 :root[data-app-platform="material"] .k-button.rounded-full {
     font: var(--md-type-label-large);
     letter-spacing: 0.1px;
@@ -1019,8 +973,6 @@
     letter-spacing: 0.25px;
 }
 
-/* -- Layout under the 64dp nav bar and the FAB ----------------- */
-
 :root[data-app-platform="material"] .app-scroll {
     padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
 }
@@ -1041,8 +993,6 @@
     background: var(--app-error);
     color: var(--app-on-error);
 }
-
-/* -- Attach sheet / composer ----------------------------------- */
 
 :root[data-app-platform="material"] .attach-badge { border-radius: var(--md-shape-full); }
 :root[data-app-platform="material"] .attach-badge--file { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
@@ -1211,10 +1161,6 @@
         background: color-mix(in srgb, var(--app-on-tint) 8%, var(--app-tint));
     }
 }
-
-/* ============================================================
-   Embedded site components in M3 shapes
-   ============================================================ */
 
 :root[data-app-platform="material"] {
     .btn,
@@ -1393,7 +1339,6 @@
         display: none;
     }
 
-    /* Message bubbles: large corners, the corner toward the sender squared off. */
     .chat-kmsg-wrap {
         display: flex;
         flex-direction: column;
@@ -1654,7 +1599,6 @@
         border-top-color: var(--app-tint);
     }
 
-    /* Whiteboard chrome: M3 Expressive floating toolbar. */
     .wb-pill {
         background: var(--md-sys-color-surface-container);
         border: none;
@@ -1823,8 +1767,6 @@
 }
 :root[data-app-platform="material"] .chat-kmsg--mine .msg-quote__name { color: var(--app-on-bubble-mine) !important; }
 
-/* The call stage is dark in both schemes: hang-up is the strongest control (filled error),
-   muted toggles an error container, active toggles a tinted container. */
 :root[data-app-platform="material"] .call__bar {
     gap: 0.625rem;
     padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
@@ -1954,10 +1896,6 @@
 :root[data-app-platform="material"] .app-invite-sheet .invite-card__qr svg {
     border-radius: var(--md-shape-lg);
 }
-
-/* ============================================================
-   Accessibility: forced colours and increased contrast
-   ============================================================ */
 
 @media (forced-colors: active) {
     :root[data-app-platform="material"] :is(.k-sheet, .k-dialog, .k-popover .k-glass, .app-toast > div, .app-update-banner, .k-fab, .app-call-return) {

@@ -4,7 +4,6 @@ const DOUBLE_TAP_MS = 300;
 const TAP_SLOP_PX = 10;
 const DISMISS_PX = 110;
 
-/** Pinch, double-tap, wheel and drag zoom for the first child of `node`; a tap beside it or a pull down at 1x calls `onDismiss`. */
 export function zoomPan(node: HTMLElement, options: Options = {}) {
   let opts = options;
   const target = () => node.firstElementChild as HTMLElement | null;

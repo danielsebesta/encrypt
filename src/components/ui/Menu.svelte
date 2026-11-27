@@ -6,9 +6,7 @@
   import { menu } from './menu';
 
   interface Props {
-    /** Accessible name of the trigger and the menu. */
     label: string;
-    /** Trigger icon; without `text` the trigger is icon-only. */
     icon?: IconName;
     text?: string;
     variant?: ButtonVariant;
@@ -16,7 +14,6 @@
     align?: 'start' | 'end';
     open?: boolean;
     class?: string;
-    /** Menu items: `<button role="menuitem" class="menu__item">`. Call `close()` after an action. */
     children: Snippet<[() => void]>;
   }
 

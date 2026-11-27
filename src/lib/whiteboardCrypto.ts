@@ -7,7 +7,6 @@ const IV = 12;
 
 export type BoardAccess = { token: string; channel: string; key: CryptoKey };
 
-/** One Argon2id run gives the access token and the base key; each message is then sealed under its own HKDF subkey. */
 export async function deriveBoardAccess(password: string, roomId: string): Promise<BoardAccess> {
   const { token, channel, base } = await roomSecret(password, roomId, 'whiteboard');
   return { token, channel, key: await boardMessageBase(base) };
@@ -17,7 +16,6 @@ export async function boardMessageBase(base: CryptoKey): Promise<CryptoKey> {
   return hkdfKey(await hkdfBytes(base, 'encrypt.click/whiteboard/v3/messages'));
 }
 
-/** Local sealed board snapshots use a subkey of the message base, never the wire message keys. */
 export function boardLocalKey(messageBase: CryptoKey): Promise<CryptoKey> {
   return hkdfAesKey(messageBase, 'encrypt.click/whiteboard/local-doc/v1');
 }
@@ -28,7 +26,6 @@ function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 const localContext = (channelId: string) => new TextEncoder().encode(`encrypt.click/whiteboard/local-doc/v1\n${channelId}`);
 
-/** Seals a Yjs update for IndexedDB under the board's local key; AAD binds it to this channel. */
 export async function sealLocalBoard(key: CryptoKey, channelId: string, update: Uint8Array): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(IV));
   const sealed = await crypto.subtle.encrypt(

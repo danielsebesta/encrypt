@@ -16,7 +16,6 @@ export type PipView = {
   onend: () => void;
 };
 
-/** The pop-out window starts empty: it gets the page's styles and theme so the call controls look the same there. */
 function adoptPage(target: Document) {
   for (const node of document.head.querySelectorAll('style, link[rel="stylesheet"]')) target.head.appendChild(node.cloneNode(true));
   const from = document.documentElement;

@@ -1,6 +1,3 @@
-// Regenerates src/lib/emoji/*.json from Unicode emoji-test.txt and CLDR annotations.
-// Usage: node scripts/build-emoji-data.mjs [rawDir]
-// Raw downloads are cached in rawDir (default: the system temp directory) so nothing untracked lands in the repo.
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +27,6 @@ const GROUPS = {
 const TONES = ['\u{1F3FB}', '\u{1F3FC}', '\u{1F3FD}', '\u{1F3FE}', '\u{1F3FF}'];
 const TONE_RE = /[\u{1F3FB}-\u{1F3FF}]/u;
 const BASELINE_VERSION = 12;
-// Search tie-breaker: the most used emoji, roughly in the order of Unicode's published emoji frequency ranking.
 const POPULAR = [
   '😂', '❤️', '🤣', '👍', '😭', '🙏', '😘', '🥰', '😍', '😊', '🎉', '😁', '💕', '🥺', '😅', '🔥', '☺️', '🤦', '♥️', '🤷',
   '🙄', '😆', '🤗', '😉', '🎂', '🤔', '👏', '🙂', '😳', '🥳', '😎', '👌', '💜', '😔', '💪', '✨', '💖', '👀', '😋', '😏',

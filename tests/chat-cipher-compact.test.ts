@@ -51,7 +51,7 @@ test('the compact envelope saves more than half of the full one', async () => {
 
 test('an empty message crosses with the smallest possible floor', async () => {
   const { sealed, body } = await compactSealed('', 'pw');
-  assert.equal(sealed.length, 29); // header 20 + flag 1 + tag 8
+  assert.equal(sealed.length, 29);
   assert.equal(body.length, 17);
   const cover = await codec.encode(body, seeded(3));
   assert.equal(await unpackContent(await openPasswordWithSurplus(restoreFixedHeader(await codec.decode(cover), true), 'pw')), '');

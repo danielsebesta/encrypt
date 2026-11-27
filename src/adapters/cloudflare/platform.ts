@@ -17,7 +17,6 @@ export class SecurityBudget extends DurableObject {
   }
 }
 
-// One key prefix per retention class, so a lifecycle rule per prefix deletes each class for free.
 const objectKey = (id: string) => `t${retentionOfId(id)}/${uuidOfId(id)}`;
 const partKey = (id: string, index: number) => `${objectKey(id)}/p/${index}`;
 const metaKey = (id: string) => `${objectKey(id)}/meta`;

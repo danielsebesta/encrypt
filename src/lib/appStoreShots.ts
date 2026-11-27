@@ -4,7 +4,6 @@ import type { Alias } from './alias';
 import { aliasColor, aliasName } from './alias';
 import type { ReactionEmoji } from './chatReactions';
 
-/** Query flag that fills /app with store-screenshot fixtures. Never reaches crypto or the network. */
 export const APP_SHOTS_PARAM = 'shots';
 
 export function appShotsEnabled(search = typeof window !== 'undefined' ? window.location.search : ''): boolean {
@@ -19,11 +18,9 @@ const now = Date.now();
 const hour = 60 * 60 * 1000;
 
 export const SHOT_CHAT_ROOM = 'fsociety';
-/** Separate Material store-shot room so Android marketing frames show a different thread. */
 export const SHOT_CHAT_ROOM_MATERIAL = 'allsafe';
 export const SHOT_BOARD_ROOM = 'network-map';
 
-/** Local shot photos (user-supplied stills under public/shots/). */
 export const SHOT_PHOTOS = {
   rack: '/shots/rack.jpg',
   stairs: '/shots/stairs.jpg',
@@ -154,7 +151,6 @@ function photo(
   });
 }
 
-/** iOS thread: fsociety, up the stairwell to the rack. */
 export function shotChatMessages(dict: Record<string, string>): ShotMessage[] {
   return [
     msg(dict, DARLENE, 'm1', 'Going up now. No cameras since the last audit.', 30 * 60_000),
@@ -165,7 +161,6 @@ export function shotChatMessages(dict: Record<string, string>): ShotMessage[] {
   ];
 }
 
-/** Android thread: Allsafe audit, site photos after a visit. */
 export function shotMaterialChatMessages(dict: Record<string, string>): ShotMessage[] {
   return [
     msg(dict, ELLIOT, 'a1', 'Allsafe audit notes from today.', 36 * 60_000),

@@ -20,7 +20,6 @@ function walk(dir: string, out: string[] = []): string[] {
 const files = walk(SRC).map((file) => ({ path: relative(SRC, file).split(sep).join('/'), text: readFileSync(file, 'utf8') }));
 const sourceText = files.map((f) => f.text).join('\n');
 
-/** Index of the closing quote of the string literal that opens at `start`. */
 function skipString(text: string, start: number): number {
   const quote = text[start];
   for (let i = start + 1; i < text.length; i++) {
@@ -30,7 +29,6 @@ function skipString(text: string, start: number): number {
   return text.length;
 }
 
-/** Source of the key argument (the second one) of a t()/tApp() call whose "(" sits at `open`. */
 function keyArg(text: string, open: number): string {
   const args: string[] = [];
   let depth = 0;
@@ -54,10 +52,6 @@ function keyArg(text: string, open: number): string {
 
 type Literal = { value: string; concatPrefix: boolean; concatSuffix: boolean };
 
-/**
- * Key-position literals at the top level of the key expression. Skipped: operands of comparisons
- * (`state === 'granted' ? key : other`) and anything inside a helper call (`key('preview')` builds a key from a suffix).
- */
 function literalsIn(expr: string): Literal[] {
   const out: Literal[] = [];
   let depth = 0;
@@ -102,18 +96,13 @@ for (const file of files) {
   }
 }
 
-// Keys built at runtime (`${prefix}.about.${n}`, `dict[`chat.alias.adj.${a}.f`]`) become patterns a key may match in full.
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-// Only templates that look like a key namespace count (e.g. `tools.ultimateDecrypt.scan.${name}`). The backtick pairing
-// is approximate, and an all-placeholder pattern would otherwise cover every key; file names and URLs are rejected here.
 const templatePieces = [...sourceText.matchAll(/`([^`\n]*\$\{[^`\n]*)`/g)].map((m) => m[1].split(/\$\{[^}]*\}/));
 const toPattern = (pieces: string[]) => new RegExp(`^${pieces.map(escapeRe).join("[^\\s'\"`]+")}$`);
 const keyShaped = (pieces: string[]) => pieces.every((piece) => /^[\w.]*$/.test(piece));
-// Loose: any key-shaped template may cover keys built at runtime (`${prefix}.about.${n}`).
 const templatePatterns = templatePieces
   .filter((pieces) => keyShaped(pieces) && pieces.join('').includes('.') && pieces.join('').length >= 3)
   .map(toPattern);
-// Strict: the template must open with a key namespace, so each family can be checked against en.json.
 const templateFamilies = templatePieces
   .filter((pieces) => /^[a-z][A-Za-z]{2,}(\.[A-Za-z0-9]+)*\.$/.test(pieces[0]) && keyShaped(pieces))
   .map((pieces) => ({ source: pieces.join('${…}'), pattern: toPattern(pieces) }));

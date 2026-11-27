@@ -43,7 +43,6 @@ test('chat files seal under their random key and open on the shared decrypt path
 });
 
 test('a human password can never reach the raw-key path', async () => {
-  // sealing takes bytes, so there is no way to store something a person types in the format with no slow KDF
   const sealed = await encryptDataWithKey(new TextEncoder().encode('file body'), fileKey(), 'a.bin');
   await assert.rejects(decryptData(sealed.slice(), 'correct horse'), /Invalid file key/);
   await assert.rejects(decryptData(sealed.slice(), 'p@ssw0rd!'), /Invalid file key/);

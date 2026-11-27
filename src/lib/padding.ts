@@ -1,4 +1,3 @@
-/** Padmé: rounds a length up so that at most O(log log n) bits of it remain, with under 12% overhead. */
 export function padme(length: number): number {
   if (!Number.isInteger(length) || length < 0 || length > 0xffffffff) throw new Error('Invalid length');
   if (length < 2) return length;

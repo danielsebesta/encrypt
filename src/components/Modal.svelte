@@ -17,30 +17,22 @@
     open?: boolean;
     dict: Record<string, string>;
     title: string;
-    /** Short line under the title; also the dialog's accessible description. */
     description?: string;
-    /** Small label above the title. */
     eyebrow?: string;
     icon?: IconName;
     tone?: 'default' | 'danger' | 'warn';
-    /** `alertdialog` for confirmations that interrupt the user and need an answer. */
     role?: 'dialog' | 'alertdialog';
     size?: 'sm' | 'md' | 'lg';
-    /** Escape, the close button and a click outside close it. */
     dismissible?: boolean;
     closeButton?: boolean;
-    /** While busy nothing closes the dialog and the panel reports aria-busy. */
     busy?: boolean;
-    /** Wraps the body and actions in a form: Enter in a field and Ctrl/Cmd+Enter anywhere submit it. */
     onsubmit?: (event: SubmitEvent) => void;
     onclose?: () => void;
-    /** Selector inside the dialog to focus on open; defaults to [autofocus], then the first field, then the panel. */
     initialFocus?: string;
     id?: string;
     class?: string;
     children?: Snippet;
     actions?: Snippet;
-    /** Content on the far side of the action row, such as a destructive secondary action. */
     footer?: Snippet;
   }
 

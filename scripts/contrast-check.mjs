@@ -1,4 +1,3 @@
-// WCAG AA check of the colour tokens in src/styles/global.css. Usage: node scripts/contrast-check.mjs
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../src/styles/global.css', import.meta.url), 'utf8');

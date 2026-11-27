@@ -1,8 +1,6 @@
 import { envString } from '../platform/env';
 
-/** Display product name in the navbar, footer and titles. */
 export const PRODUCT_NAME = 'Encrypt.click';
-/** Canonical hostname / protocol label prefix (always lowercase). */
 export const PRODUCT_HOST = 'encrypt.click';
 export const PRODUCT_ORIGIN = 'https://encrypt.click';
 
@@ -24,7 +22,6 @@ function cleanName(raw: string): string {
   return value;
 }
 
-/** Display brand for UI copy. Unset → Encrypt.click (no white-label). */
 export function siteName(): string {
   return cleanName(envString('SITE_NAME'));
 }
@@ -33,15 +30,12 @@ export function isWhitelabeled(): boolean {
   return siteName() !== PRODUCT_NAME;
 }
 
-/** Public origin for canonical/og links. Prefers PUBLIC_URL. */
 export function siteOrigin(fallback = PRODUCT_ORIGIN): string {
   const raw = envString('PUBLIC_URL');
   if (raw) {
     try {
       return new URL(raw).origin;
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }
   const domain = envString('DOMAIN');
   if (domain && /^[A-Za-z0-9.-]+$/.test(domain)) return `https://${domain}`;
@@ -56,7 +50,6 @@ export function siteHost(fallback = 'encrypt.click'): string {
   }
 }
 
-/** Security contact shown in disclosure copy and security.txt. */
 export function siteContact(): string {
   const email = envString('SITE_CONTACT_EMAIL').trim();
   if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 128) return email;
@@ -65,7 +58,6 @@ export function siteContact(): string {
   return 'security@encrypt.click';
 }
 
-/** General contact (support, press, hello). */
 export function siteHello(): string {
   const email = envString('SITE_HELLO_EMAIL').trim();
   if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 128) return email;
@@ -87,7 +79,6 @@ function shortenerHost(): string | null {
 // `l.encrypt.click` must match as a whole host label, not inside another name like `portal.encrypt.click`.
 const SHORTENER_HOST_RE = /(?<![A-Za-z0-9@._-])l\.encrypt\.click/g;
 
-/** Rewrite user-facing brand mentions. Leaves `encrypt.click/` and `encrypt.click:` protocol labels alone when used via brandHtml. */
 export function brandText(input: string): string {
   const name = siteName();
   if (name === PRODUCT_NAME) return input;
@@ -112,19 +103,13 @@ export function brandText(input: string): string {
 const PRODUCT_MARK = '\uE000PRODUCT\uE001';
 const PROTO_MARK = '\uE000PROTO\uE001';
 
-/**
- * Brand prerendered HTML/JSON while keeping the product name in the nav/footer
- * and leaving crypto / storage protocol labels (`encrypt.click/` and `encrypt.click:`) intact.
- */
 export function brandHtml(input: string): string {
   if (!isWhitelabeled()) return input;
   const host = siteHost();
   const shortHost = shortenerHost() ?? host;
   let out = input;
-  // Keep the product name in the nav/footer brand mark (both display and host casing).
   out = out.replaceAll(`>${PRODUCT_NAME}<`, `>${PRODUCT_MARK}<`);
   out = out.replaceAll(`>${PRODUCT_HOST}<`, `>${PRODUCT_MARK}<`);
-  // Rewrites that must run before protocol-label protection (those use encrypt.click/).
   out = out.replaceAll(PRODUCT_ORIGIN, siteOrigin());
   out = out.replaceAll('encrypt.click/u', `${host}/u`);
   out = out.replaceAll(SHORTENER_HOST_RE, shortHost);
@@ -140,7 +125,6 @@ function brandableType(type: string | null): 'html' | 'text' | null {
   if (!type) return null;
   const lower = type.toLowerCase();
   if (lower.includes('text/html')) return 'html';
-  // PWA manifest only — never rewrite API JSON or build-integrity.json.
   if (lower.includes('application/manifest') || lower.includes('webmanifest')) return 'text';
   return null;
 }
@@ -151,7 +135,6 @@ function weakEtag(body: string): string {
   return `W/"wl-${(hash >>> 0).toString(16)}"`;
 }
 
-/** Rewrite brandable response bodies when SITE_NAME is set. No-op otherwise. */
 export async function applySiteBrand(response: Response): Promise<Response> {
   if (!isWhitelabeled()) return response;
   if (response.status === 304 || response.status === 204) return response;

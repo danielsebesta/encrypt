@@ -26,7 +26,6 @@ export function t(dict: Record<string, string>, key: string): string {
   return dict[key] ?? dictionaries[defaultLocale]?.[key] ?? key;
 }
 
-/** Slim dict for client islands: keep only keys under the given prefixes (plus exact keys). */
 export function pickDict(
   dict: Record<string, string>,
   prefixes: string[],
@@ -44,7 +43,6 @@ export function pickDict(
   return out;
 }
 
-/** Client-facing messages for a tool page (tool strings + shared help chrome + common). */
 export function toolClientDict(dict: Record<string, string>, toolPrefix: string): Record<string, string> {
   return pickDict(dict, [toolPrefix, 'common']);
 }

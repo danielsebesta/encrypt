@@ -1,5 +1,3 @@
-// Generates src/lib/icons.ts from src/lib/iconManifest.ts and
-// @iconify-json/tabler. Prefers <name>-filled. Run: pnpm run build:icons
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ICONS, OUTLINE } from '../src/lib/iconManifest.ts';

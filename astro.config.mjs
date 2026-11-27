@@ -29,7 +29,6 @@ if (existsSync('.env')) process.loadEnvFile('.env');
 const target = process.env.DEPLOY_TARGET || 'cloudflare';
 if (target !== 'cloudflare' && target !== 'node') throw new Error(`Unknown DEPLOY_TARGET "${target}"`);
 
-// The Node server (src/adapters/node/server.ts) calls the Fetch-level renderer in astro-entry.ts itself.
 /** @type {import('astro').AstroIntegration} */
 const node = {
   name: 'encrypt-click-node',
@@ -47,13 +46,10 @@ export default defineConfig({
   session: false,
   adapter: target === 'node' ? node : cloudflare({ imageService: 'passthrough' }),
   ...(target === 'node' ? { image: { service: passthroughImageService() } } : {}),
-  // One HTML round-trip instead of a render-blocking Layout CSS request (PSI / Lighthouse).
   build: { inlineStylesheets: 'always' },
-  // Store screenshot captures must not bake the Astro inspector into PNGs.
   devToolbar: { enabled: process.env.ASTRO_SCREENSHOTS !== '1' },
 
   server: {
-    // Add explicitly trusted development hostnames here.
     allowedHosts: [],
   },
 
@@ -65,7 +61,6 @@ export default defineConfig({
     server: {
       allowedHosts: [],
     },
-    // The Node image ships without node_modules, so the server build carries its dependencies.
     ...(target === 'node' ? { environments: { ssr: { resolve: { noExternal: true } }, prerender: { resolve: { noExternal: true } } } } : {}),
     optimizeDeps: {
       include: ['lz-string', 'tlock-js'],

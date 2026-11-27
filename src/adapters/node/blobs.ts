@@ -13,11 +13,6 @@ const ID_RE = /^(?:t(?:1h|7d)-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-
 
 type Row = { expires: number; burn: number; parts: number; complete: number };
 
-/**
- * Ciphertext uploads as plain files: `<dir>/<id>`, written under `<dir>/.tmp` and renamed into place once complete.
- * Multipart uploads live in `<dir>/<id>.parts/<index>` until completed, then stay there and stream in order on get.
- * Expiry and the one-time flag sit in SQLite; files without a row expire a day after they were written.
- */
 export class FileBlobStore implements BlobStore {
   private readonly tmp: string;
 
@@ -34,8 +29,8 @@ export class FileBlobStore implements BlobStore {
       parts INTEGER NOT NULL DEFAULT 0,
       complete INTEGER NOT NULL DEFAULT 1
     ) WITHOUT ROWID`);
-    try { meta.exec('ALTER TABLE blobs ADD COLUMN parts INTEGER NOT NULL DEFAULT 0'); } catch { /* already present */ }
-    try { meta.exec('ALTER TABLE blobs ADD COLUMN complete INTEGER NOT NULL DEFAULT 1'); } catch { /* already present */ }
+    try { meta.exec('ALTER TABLE blobs ADD COLUMN parts INTEGER NOT NULL DEFAULT 0'); } catch {}
+    try { meta.exec('ALTER TABLE blobs ADD COLUMN complete INTEGER NOT NULL DEFAULT 1'); } catch {}
   }
 
   async init() {
@@ -154,7 +149,6 @@ export class FileBlobStore implements BlobStore {
     this.forget(id);
   }
 
-  /** Deletes expired uploads, abandoned partial writes and stale metadata; returns how many files went. */
   async sweep(): Promise<number> {
     let removed = 0;
     for (const dir of [this.dir, this.tmp]) {

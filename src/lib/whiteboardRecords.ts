@@ -39,7 +39,6 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
-/** Accepts only shape records the renderer can draw safely; an image shape names its picture by asset id. */
 export function validShapeRecord(rec: unknown, key: string): rec is ShapeRecord {
   if (!isPlainObject(rec) || rec.id !== key || typeof key !== 'string' || !ID_RE.test(key)) return false;
   if (rec.typeName !== 'shape' || !SHAPE_TYPES.includes(rec.type as any)) return false;
@@ -79,14 +78,12 @@ const IMAGE_MAX_BYTES = 512 * 1024;
 const IMAGE_MAGIC: Record<string, string> = { 'image/webp': 'UklGR', 'image/jpeg': '/9j/', 'image/png': 'iVBORw0KGgo' };
 const B64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 
-/** A picture embedded in the board document as base64, so it travels and is stored like any other encrypted edit. */
 export type BoardAsset = { mime: string; width: number; height: number; data: string };
 
 export function assetBytes(data: string): number {
   return Math.floor(data.length * 3 / 4) - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0);
 }
 
-/** Raster pictures only, at most IMAGE_MAX_EDGE on a side, whose bytes start like the type they claim. */
 export function validAssetRecord(value: unknown, key: string): value is BoardAsset {
   if (!isPlainObject(value) || typeof key !== 'string' || !ID_RE.test(key)) return false;
   if (Object.keys(value).some((k) => !['mime', 'width', 'height', 'data'].includes(k))) return false;
@@ -100,7 +97,6 @@ export function validAssetRecord(value: unknown, key: string): value is BoardAss
 const MAX_SCRIBBLES = 4;
 const MAX_SCRIBBLE_POINTS = 80;
 
-/** Trims laser trails for the wire and validates them on receipt. */
 export function sanitizeScribbles(list: unknown): ScribbleStroke[] {
   if (!Array.isArray(list)) return [];
   const out: ScribbleStroke[] = [];
@@ -123,7 +119,6 @@ export const BOARD_CHAT_KEEP = 200;
 export type BoardChatItem = { id: string; text: string; alias: [number, number, number]; at: number; ttl?: number; _pk: string; _sig: string };
 export type UnsignedBoardChatItem = Omit<BoardChatItem, '_pk' | '_sig'>;
 
-/** Board chat messages from peers: short ids, bounded text, a wire alias, a sane timestamp and the author's signature fields. */
 export function validBoardChatItem(value: unknown): value is BoardChatItem {
   if (!isPlainObject(value)) return false;
   const { id, text, alias, at, ttl, _pk, _sig } = value;

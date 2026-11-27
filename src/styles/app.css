@@ -3,18 +3,6 @@
 @source "../../node_modules/konsta";
 @import "konsta/svelte/theme.css";
 
-/* ============================================================
-   Encrypt App — platform-native design system
-   iOS: authentic Apple HIG tokens (system colors, fills, hairlines)
-   Material: real Material You scheme computed at runtime from a
-   seed via @material/material-color-utilities (JS sets --app-*
-   and --k-color-md-* inline; values below are the default-seed
-   fallback for first paint)
-   ============================================================ */
-
-/* Store / marketing captures (?shots=1): fill the frame edge-to-edge.
-   Large-title empty bands and floating tabbar gutters read as black bars
-   when the PNG sits on the marketing site. */
 :root[data-app-shots="1"] {
     --k-safe-area-top: 0px;
     --k-safe-area-bottom: 0px;
@@ -24,8 +12,6 @@
 :root[data-app-shots="1"] .k-navbar {
     padding-top: 0 !important;
 }
-/* Konsta leaves tall absolute blur/gradient layers even on compact bars;
-   they paint empty dark bands that read as letterboxing in store shots. */
 :root[data-app-shots="1"] .k-navbar > div:nth-child(1),
 :root[data-app-shots="1"] .k-navbar > div:nth-child(2) {
     display: none !important;
@@ -33,20 +19,16 @@
 :root[data-app-shots="1"] .k-navbar [class*="opacity-0"] {
     opacity: 1 !important;
 }
-/* Store captures: solid tab bar so the frame has no translucent hole. */
 :root[data-app-shots="1"] .app-main-tabbar {
     background: var(--app-surface) !important;
     background-image: none !important;
     border-top: 1px solid var(--app-outline);
 }
-/* Hub lists keep a short clearance under the solid tab bar. */
 :root[data-app-shots="1"] .app-scroll {
     padding-bottom: 2.75rem !important;
 }
 
 :root[data-app-platform] {
-    /* Bridge site tokens so embedded tool components pick up
-       platform colors automatically */
     --bg: var(--app-bg);
     --surface: var(--app-surface);
     --surface-2: var(--app-surface-2);
@@ -73,8 +55,6 @@
 :root[data-app-platform] body::before {
     display: none;
 }
-
-/* -- iOS tokens ------------------------------------------------- */
 
 :root[data-app-platform="ios"][data-app-scheme="light"] {
     color-scheme: light;
@@ -111,8 +91,6 @@
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Mono", monospace;
 
-    /* Align Konsta's iOS surfaces with the app palette so the navbar/tabbar
-       progressive gradients and grouped lists fade into the same background */
     --color-ios-light-surface: #f2f2f7;
     --color-ios-light-surface-1: #ffffff;
     --color-ios-light-surface-variant: #e5e5ea;
@@ -202,10 +180,6 @@
     --color-ios-dark-surface-variant: #3a3a3c;
 }
 
-/* ============================================================
-   Shared app chrome
-   ============================================================ */
-
 html[data-app-platform],
 html[data-app-platform] body {
     height: 100%;
@@ -219,7 +193,6 @@ html[data-app-platform] body {
     -webkit-text-size-adjust: 100%;
     touch-action: pan-y;
 }
-/* Pinned to the screen so iOS cannot pan the page when the keyboard opens or closes. */
 html[data-app-platform] body {
     position: fixed;
     inset: 0;
@@ -255,9 +228,6 @@ html[data-app-platform] .k-app {
     min-height: 100vh;
     min-height: 100dvh;
 }
-/* Room title: true screen-center, with side padding so text never paints under
-   the back chevron or the call/share/menu glass. Clear Tailwind v4 `translate`
-   (Konsta's -translate-x-1/2) — transform:none alone is not enough. */
 .app-room-title {
     display: flex;
     flex-direction: column;
@@ -271,9 +241,6 @@ html[data-app-platform] .k-app {
     position: absolute;
     top: 50%;
     bottom: auto;
-    /* True screen center: anchor on 50% and pull back by half the block. The
-       side insets are symmetric (the wider action cluster on both sides), so
-       the title stays centered instead of drifting toward the back chevron. */
     left: 50% !important;
     right: auto !important;
     width: auto !important;
@@ -296,8 +263,6 @@ html[data-app-platform] .k-app {
     pointer-events: auto;
     max-width: 100%;
 }
-/* Hub tab titles: Konsta sizes them per platform (iOS 34pt bold large title
-   collapsing to a 17pt inline title, M3 22sp title-large); only truncate here. */
 .app-hub-label {
     display: block;
     min-width: 0;
@@ -310,7 +275,6 @@ html[data-app-platform] .k-app {
 html[data-app-platform] body {
     -webkit-touch-callout: none;
 }
-/* Long-press highlight on the full-width row content (not a shrink-wrapped button). */
 .k-list-item.app-row-press > :is(a, button, label) {
     animation: app-row-hold 320ms var(--ease-move) 100ms forwards;
 }
@@ -325,7 +289,6 @@ html[data-app-platform] body {
         animation-duration: 0.01s;
     }
 }
-/* Native feel: chrome is not selectable/draggable, content stays selectable */
 html[data-app-platform] button,
 html[data-app-platform] label,
 html[data-app-platform] [role="button"],
@@ -339,7 +302,6 @@ html[data-app-platform] .k-list-item > a {
     -webkit-user-select: none;
     user-select: none;
 }
-/* ListItem link rows use <button>: stretch to the full row so press/ripple isn't a left stub */
 html[data-app-platform] .k-list-item > a,
 html[data-app-platform] .k-list-item > button,
 html[data-app-platform] .k-list-item > label {
@@ -372,20 +334,15 @@ html[data-app-platform] ::selection {
     color: var(--app-on-tint-container);
 }
 
-/* Bars */
 .app-bar {
     --k-hairline-color: var(--app-separator);
     background: var(--app-bar);
     color: var(--app-label);
 }
 
-/* Sheets */
 .app-sheet {
     background: var(--app-sheet) !important;
 }
-/* Konsta sheets are bottom-anchored and grow with content; on short viewports
-   they must not climb above the top edge — cap the panel and scroll the
-   content (the drag handle stays pinned). */
 .k-sheet {
     max-height: calc(100vh - env(safe-area-inset-top, 0px) - 0.5rem);
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem);
@@ -397,8 +354,6 @@ html[data-app-platform] ::selection {
     overflow-y: auto;
     overscroll-behavior: contain;
 }
-/* Form sheets open at one consistent large detent instead of ending at
-   whatever height their content happens to have. */
 .k-sheet.app-sheet--tall {
     height: calc(100vh - env(safe-area-inset-top, 0px) - 2.5rem);
     height: calc(100dvh - env(safe-area-inset-top, 0px) - 2.5rem);
@@ -420,7 +375,6 @@ html[data-app-platform] ::selection {
     cursor: grab;
     flex: 0 0 auto;
 }
-/* Full-width grab affordance above the title — dismiss also works from the body via sheetSwipe. */
 .app-sheet__handle::before {
     content: '';
     position: absolute;
@@ -430,10 +384,6 @@ html[data-app-platform] ::selection {
     bottom: -28px;
     width: min(100vw, 28rem);
 }
-/* Konsta popovers are fixed and unconstrained in height — a tall menu (e.g.
-   whiteboard tools) can overflow the viewport and Konsta clamps position
-   against document height, not the viewport. Cap the panel and scroll the
-   inner glass so every item stays reachable. */
 .k-popover {
     max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1rem);
     max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1rem);
@@ -442,13 +392,11 @@ html[data-app-platform] ::selection {
     overflow-y: auto;
     overscroll-behavior: contain;
 }
-/* Dialogs cap at max-h-full but clip overflow — let tall content scroll. */
 .k-dialog {
     overflow-y: auto;
     overscroll-behavior: contain;
 }
 
-/* Full-bleed embedded tools */
 .app-room-wrapper,
 .app-wb-wrapper {
     flex: 1;
@@ -463,8 +411,6 @@ html[data-app-platform] ::selection {
 .app-wb-wrapper .wb-container {
     height: 100% !important;
     max-height: 100% !important;
-    /* Desktop keeps a 420px floor for the page; in-app the shell owns the height
-       and landscape viewports under 420px must not push the dock offscreen. */
     min-height: 0 !important;
     border-radius: 0 !important;
     border: none !important;
@@ -477,8 +423,6 @@ html[data-app-platform] ::selection {
     flex: 1 !important;
     min-height: 0 !important;
 }
-/* The board owns every touch inside the canvas: the document-level pan-y
-   must not cancel pointermove strokes mid-draw. */
 .app-wb-wrapper .wb-board {
     touch-action: none;
 }
@@ -491,7 +435,6 @@ html[data-app-platform] ::selection {
     box-shadow: none;
 }
 
-/* Attachment-sheet icon badges — native colored containers (iMessage / M3) */
 :root[data-app-platform] .attach-badge {
     width: 36px;
     height: 36px;
@@ -565,8 +508,6 @@ html[data-app-platform] ::selection {
     gap: 0.4rem;
 }
 
-/* Retention picker inside a ListItem: the inner content is a flex row, so the
-   block must claim the row's full width for the Range track to stretch. */
 .app-retention {
     flex: 1;
     min-width: 0;
@@ -587,14 +528,10 @@ html[data-app-platform] ::selection {
     width: 100%;
 }
 
-/* Single source of truth for space under the fixed tab bar.
-   iOS floating labels tabbar is taller; keep the last list row fully clear. */
 .app-scroll {
     padding-bottom: calc(7.25rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Image preview fullscreen lightbox (app chat) */
-/* Queued-outbox bubbles: dimmed with a small status chip until the wire confirms */
 .chat-kmsg--photo > .flex-col > .break-words {
     padding: 3px !important;
     overflow: hidden;
@@ -686,7 +623,6 @@ html[data-app-platform] ::selection {
     .chat-lightbox { animation: none; }
 }
 
-/* Room-bar connection / boot loaders: quiet spinner, no pulsing pills. */
 .app-spinner {
     box-sizing: border-box;
     display: inline-block;
@@ -721,8 +657,6 @@ html[data-app-platform] ::selection {
     to { opacity: 1; }
 }
 
-/* Skeletons mirror the real hub / room chrome. A slow shimmer replaces the old
-   320 ms opacity pulse, which read as flicker on Android. */
 .app-skel {
     position: relative;
     display: block;
@@ -890,7 +824,6 @@ html[data-app-platform] ::selection {
     text-overflow: ellipsis;
 }
 
-/* Chat/whiteboard center loaders inside /app use the same spinner. */
 :root[data-app-platform] .chat-center .animate-spin,
 :root[data-app-platform] .wb-center .animate-spin {
     width: 1.5rem !important;
@@ -909,9 +842,6 @@ html[data-app-platform] ::selection {
     display: none;
 }
 
-/* Large screens read like native tablet layouts: bars stay full-width, content
-   settles into a centered column (M3 ~840dp body width). Tablets and unfolded
-   foldables get the column early so lists never stretch edge to edge. */
 @media (min-width: 768px) {
     .app-content {
         max-width: 44rem;
@@ -930,8 +860,6 @@ html[data-app-platform] ::selection {
     }
 }
 
-/* Alert-style text field inside dialogs (rename room). iOS: rounded fill;
-   Material: filled text field with accent underline. */
 .app-dialog-input {
     width: 100%;
     margin-top: 12px;
@@ -948,13 +876,7 @@ html[data-app-platform] ::selection {
     outline-offset: 1px;
 }
 
-/* ============================================================
-   iOS skin — Cupertino look for embedded site components
-   ============================================================ */
-
 :root[data-app-platform="ios"] {
-    /* Buttons: filled = tint, secondary = gray fill + tint text. iOS 26
-       content buttons are capsules. */
     .btn,
     .btn-secondary,
     .btn-ghost,
@@ -989,10 +911,6 @@ html[data-app-platform] ::selection {
         font-size: 13px;
     }
 }
-
-/* ============================================================
-   Material skin — MD3 look for embedded site components
-   ============================================================ */
 
 :root[data-app-platform="material"] {
     .btn-ghost {
@@ -1034,21 +952,16 @@ html[data-app-platform] ::selection {
     outline-offset: 2px;
 }
 
-/* Native 44pt touch targets on dialog/action buttons */
 .k-dialog .k-button,
 .k-actions .k-actions-button {
     min-height: 2.75rem;
 }
 
-/* Page background */
 .k-page,
 .app-page-bg {
     background: var(--app-bg);
 }
 
-/* ===== Custom chat pieces polished to match Konsta ===== */
-
-/* iOS — iMessage-level details */
 :root[data-app-platform="ios"] .chat-input {
     padding: 0.35rem 0.5rem calc(0.5rem + max(env(safe-area-inset-bottom, 0px), 1.75rem));
     border-top: none;
@@ -1059,7 +972,6 @@ html[data-app-platform] ::selection {
     border-top: none;
     gap: 0.4rem;
 }
-/* Native composer — pill field + circle buttons */
 .app-composer {
     display: flex;
     align-items: center;
@@ -1096,7 +1008,6 @@ html[data-app-platform] ::selection {
         color: var(--app-label);
     }
 }
-/* 44px touch targets for composer icon buttons (base styles are ~30px desktop) */
 .app-composer .chat-attach-btn,
 .app-composer .chat-send-btn {
     min-width: 44px;
@@ -1110,8 +1021,6 @@ html[data-app-platform] ::selection {
     align-items: center;
 }
 
-/* Expand small controls to ~44px hit areas without changing visuals
-   (::after trick — pseudo box is hit-tested as part of the element) */
 :root[data-app-platform] .chat-avatar--btn,
 :root[data-app-platform] .chat-file__dl,
 :root[data-app-platform] .chat-key-warn,
@@ -1128,7 +1037,6 @@ html[data-app-platform] ::selection {
     inset: -10px;
     border-radius: inherit;
 }
-/* Emoji buttons sit ~2px apart: cap expansion so edges can't steal a neighbor's tap */
 :root[data-app-platform] .msg-actions__react::after {
     content: '';
     position: absolute;
@@ -1140,7 +1048,6 @@ html[data-app-platform] ::selection {
     min-height: 44px;
 }
 
-/* Voice messages: playback in a bubble */
 :root[data-app-platform] .voice-msg--app {
     --voice-ctl: 44px;
     display: flex;
@@ -1246,7 +1153,6 @@ html[data-app-platform] ::selection {
     }
 }
 
-/* Voice messages: recording row in the composer */
 :root[data-app-platform] .voice-rec-app,
 :root[data-app-platform] .voice-rec-app__cancel,
 :root[data-app-platform] .voice-rec-app__send {
@@ -1322,7 +1228,6 @@ html[data-app-platform] ::selection {
         background: var(--app-tint-strong);
     }
 }
-/* Idle mic button — native circle, platform chrome, 44px hit area via ::after */
 :root[data-app-platform] .voice-rec-app__mic {
     position: relative;
     width: 36px;
@@ -1363,7 +1268,6 @@ html[data-app-platform] ::selection {
     :root[data-app-platform] .voice-rec-app__mic { transition: none; }
 }
 
-/* Composer circles keep native visual size; ::after stretches the hit area to 44px+ */
 :root[data-app-platform] .chat-input .chat-attach-btn,
 :root[data-app-platform] .chat-input .chat-send-btn {
     position: relative;
@@ -1386,8 +1290,6 @@ html[data-app-platform] ::selection {
     :root[data-app-platform] .voice-rec-app__send { transition: none; }
 }
 
-/* Landscape notch / camera-cutout safe areas — chrome and composer must clear
-   the left/right insets so controls never sit under the sensor housing. */
 @media (orientation: landscape) {
     :root[data-app-platform] .app-room-bar,
     :root[data-app-platform] .app-content,
@@ -1412,8 +1314,6 @@ html[data-app-platform] ::selection {
     opacity: 0.7;
 }
 
-/* Room info sheet (title tap) and invite sheet share one token remap so the
-   reused desktop member/invite markup picks up native colors. */
 .app-room-info,
 .app-invite-sheet {
     --text: var(--app-label);
@@ -1526,9 +1426,6 @@ html[data-app-platform] ::selection {
     color: var(--app-label);
 }
 
-/* Window Controls Overlay (desktop PWA): the caption buttons strip lives inside
-   the viewport; keep top chrome content out of it. titlebar-area-x is the free
-   region start, area-width its width — controls sit outside that span. */
 @media (display-mode: window-controls-overlay) {
     :root[data-app-platform] .k-navbar,
     :root[data-app-platform] .app-room-bar {
@@ -1547,7 +1444,6 @@ html[data-app-platform] ::selection {
 }
 
 
-/* Popovers: short fade with a slight scale. */
 :root[data-app-platform] .k-popover {
     transition-property: opacity, scale, visibility;
     transition-duration: 180ms;
@@ -1591,15 +1487,10 @@ html[data-app-platform] ::selection {
     max-width: none;
 }
 
-/* Konsta reserves at least 16px above the navbar content even without a status-bar inset; keep it
-   tight and let the real safe-area inset do the work on notched phones. */
 :root[data-app-platform] .k-navbar {
     padding-top: max(6px, var(--k-safe-area-top, 0px));
 }
 
-/* Calls: the call UI ships with the website palette (green-black, yellow text). Inside the app it
-   follows the platform: iOS FaceTime-style round controls, Material 3 tonal controls. The stage
-   stays dark in both color schemes, as video calls do. */
 :root[data-app-platform] .call {
     background: var(--app-bg);
     color: var(--app-label);
@@ -1648,8 +1539,6 @@ html[data-app-platform] ::selection {
     color: var(--app-error);
 }
 
-/* Konsta lists default to my-8 (32px above and below); inside a popover that doubles the menu's
-   height with empty padding. */
 :root[data-app-platform] .k-popover .k-list {
     margin-block: 0;
 }
@@ -1657,7 +1546,6 @@ html[data-app-platform] ::selection {
     padding-block: 0;
 }
 
-/* Message gestures: drag right to reply, long-press for the reaction sheet. */
 .app-room-wrapper .chat-kmsg-wrap {
     position: relative;
     touch-action: pan-y;
@@ -1748,7 +1636,6 @@ html[data-app-platform] ::selection {
     padding-bottom: 0.5rem;
 }
 
-/* Composer: the whole pill takes the tap, not just the thin line of text. */
 .app-composer__field {
     cursor: text;
 }
@@ -1812,7 +1699,6 @@ html[data-app-platform] ::selection {
 .app-incoming__btn--accept { background: var(--app-tint); }
 .app-incoming__btn--decline { background: var(--app-error); }
 
-/* Photos in chat: a rounded picture that fills the bubble, with the file row tucked underneath. */
 :root .app-room-wrapper .chat-preview-img-btn {
     width: 100%;
     margin-top: 2px;
@@ -1854,7 +1740,6 @@ html[data-app-platform] ::selection {
     font-size: 13px;
 }
 
-/* Received bubbles without their own avatar keep its place, so a run of messages lines up and the name sits above the same edge. */
 .chat-kmsg--gutter {
     padding-inline-start: 38px;
 }
@@ -1866,7 +1751,6 @@ html[data-app-platform] ::selection {
     white-space: nowrap;
 }
 
-/* Update available — floating card above the tabbar / room chrome */
 .app-update-banner {
     position: fixed;
     z-index: 80;
@@ -1964,7 +1848,6 @@ html[data-app-platform] ::selection {
     }
 }
 
-/* Forced reduce-motion (settings override) mirrors prefers-reduced-motion. */
 :root[data-app-reduce-motion="1"] *,
 :root[data-app-reduce-motion="1"] *::before,
 :root[data-app-reduce-motion="1"] *::after {
@@ -1974,9 +1857,6 @@ html[data-app-platform] ::selection {
     scroll-behavior: auto !important;
 }
 
-/* Settings icons. iOS: white glyph on a 29pt system-colour squircle, as in
-   Settings. Material: bare 24dp outline icon in on-surface-variant (M3 list
-   leading icon); colour is reserved for the destructive row. */
 .app-icon-tile {
     --tile: var(--app-outline);
     width: 29px;
@@ -2003,15 +1883,11 @@ html[data-app-platform] ::selection {
     color: var(--app-error);
 }
 
-/* List subtitles: Konsta leaves them in the primary label colour. Both
-   platforms show supporting text in the secondary role (iOS secondaryLabel,
-   M3 on-surface-variant body-medium). Settings hints drop to iOS footnote. */
 :root[data-app-platform] .k-list-item [class="text-sm"] {
     color: var(--app-label-2);
     line-height: 1.3;
 }
 
-/* Room rows: Messages-style trailing stamp with small status glyphs before it. */
 .app-row-meta {
     display: inline-flex;
     align-items: center;
@@ -2029,7 +1905,6 @@ html[data-app-platform] ::selection {
     gap: 0.375rem;
 }
 
-/* Sheet layout shared by every /app sheet. */
 .app-sheet-body {
     display: flex;
     flex-direction: column;
@@ -2043,7 +1918,6 @@ html[data-app-platform] ::selection {
     gap: 0.5rem;
     padding-bottom: 1.25rem;
 }
-/* Preference-sheet inline action (haptics self-test) */
 .app-pref-test {
     display: flex;
     justify-content: center;
@@ -2053,8 +1927,6 @@ html[data-app-platform] ::selection {
     min-width: 60%;
 }
 
-/* Sheet toolbar: leading close, tinted confirm, centered title.
-   Sticky inside the sheet scroller so it stays put over long forms. */
 .app-sheet-bar {
     position: sticky;
     top: 0;
@@ -2120,7 +1992,6 @@ html[data-app-platform] ::selection {
     .app-sheet-bar__btn { transition: none; }
 }
 
-/* M3 bottom sheet: optional headline (title-large 22sp) under the handle. */
 .app-sheet-headline-row {
     display: flex;
     align-items: center;
@@ -2157,7 +2028,6 @@ html[data-app-platform] ::selection {
     color: var(--app-label);
 }
 
-/* M3 radio button (20dp ring, 10dp dot) as row media in choice sheets. */
 .app-radio {
     position: relative;
     width: 20px;
@@ -2192,10 +2062,6 @@ html[data-app-platform] ::selection {
     background-color: var(--app-fill);
 }
 
-/* Files tab (share form inside /app): grouped-form look instead of a web form.
-   Section labels follow the platform list header, fields sit on the grouped
-   cell surface, the file picker is a solid tappable cell, not a dashed
-   desktop drop target. */
 .app-upload-wrapper textarea.input {
     resize: none;
 }
@@ -2236,7 +2102,6 @@ html[data-app-platform] ::selection {
     background: var(--app-tint-container) !important;
 }
 
-/* Room gates and empty states inside /app. */
 .app-state-glyph {
     width: 64px;
     height: 64px;
@@ -2289,7 +2154,6 @@ html[data-app-platform] ::selection {
     background: color-mix(in srgb, var(--app-inverse-on-surface) 12%, transparent);
 }
 
-/* Switches sit centred on the whole row (iOS Settings, M3 list items), and the text reserves their width. */
 .k-list-item div.relative:has(> div > div > .k-toggle) {
     padding-inline-end: calc(var(--app-switch-w) + 1.75rem + env(safe-area-inset-right, 0px));
 }
@@ -2300,7 +2164,6 @@ html[data-app-platform] ::selection {
     transform: translateY(-50%);
 }
 
-/* Mode descriptions in the new-room form are the explanation itself; never cut them off mid-sentence. */
 .app-form .k-list-item .line-clamp-2 {
     -webkit-line-clamp: unset;
     line-clamp: unset;
@@ -2308,7 +2171,6 @@ html[data-app-platform] ::selection {
     overflow: visible;
 }
 
-/* App lock: same glyph and type scale as the room gates, centred in the safe area. */
 .app-lock {
     position: fixed;
     inset: 0;
@@ -2353,7 +2215,6 @@ html[data-app-platform] ::selection {
     gap: 0.5rem;
 }
 
-/* Invite sheet: native type scale, quiet footnote instead of a bold accent warning, full-width stacked actions. */
 .app-invite-sheet .invite-card__head {
     margin-bottom: 1rem;
 }
@@ -2605,8 +2466,6 @@ html[data-app-platform] ::selection {
     }
 }
 
-/* Touch targets: 44 pt hit region on iOS (HIG), 48 dp on Material (M3). Visuals keep their
-   platform size; only the hit area grows. */
 :root[data-app-platform] { --app-hit: 44px; }
 :root[data-app-platform="material"] { --app-hit: 48px; }
 :root[data-app-platform] .k-navbar.app-room-bar .app-room-title {
@@ -2727,7 +2586,6 @@ html[data-app-platform] ::selection {
     transition: none !important;
 }
 
-/* P3: shared functional and accessibility fixes (platform-neutral; skins style on top). */
 .app-form .k-list-input > div > div {
     min-width: 0;
 }

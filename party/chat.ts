@@ -6,7 +6,6 @@ import {
 import { isPushEndpoint, normalizePushTarget, readVapidKeys, sendPush, type PushTarget } from "../src/lib/webPush";
 import { RoomAccess, type RoomConnection, type RoomHost } from "./access";
 
-// Password rooms are format version 3; the room keeps only this small config, never a message.
 type RoomConfig = { mode: ChatMode; authMode: "password"; createdAt: number; v: 3 };
 
 type RoomState = {
@@ -160,8 +159,6 @@ export default class ChatRoom {
         break;
       }
 
-      // A client from before the relay stopped storing may still ask for a stored ciphertext to be dropped;
-      // there is nothing to drop, so the request is ignored.
       case "forget":
         break;
 
@@ -236,7 +233,6 @@ export default class ChatRoom {
     return (Array.isArray(stored) ? stored : []).map(normalizePushTarget).filter((item): item is PushTarget => item !== null);
   }
 
-  // Devices that enabled notifications but have no open connection get a push; the ones still connected show their own.
   private async wakeSleepers() {
     const keys = readVapidKeys(this.host.env);
     const now = Date.now();

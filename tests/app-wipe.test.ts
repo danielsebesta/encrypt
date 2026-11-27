@@ -7,7 +7,6 @@ import { PANIC_FLAG, WIPE_LS_PREFIXES, WIPE_SS_KEYS, WIPE_SS_PREFIXES, wipeRoomS
 
 const SRC = fileURLToPath(new URL('../src', import.meta.url));
 
-// Namespaced colon-terminated literals that are crypto domain-separation labels, never storage keys.
 const NOT_STORAGE = new Set(['encrypt.click:', 'encrypt.click:safety-v3:']);
 
 function walk(dir: string, out: string[] = []): string[] {

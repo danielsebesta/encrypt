@@ -6,7 +6,6 @@ const dict = (locale: string) => JSON.parse(readFileSync(new URL(`../src/locales
 
 const LOCALES = ['cs', 'sk', 'de', 'es', 'fr', 'pl'] as const;
 
-/** Keys that may legitimately match English (brands, loanwords, cognates, technical labels). */
 const ALLOW_SAME_AS_EN = new Set([
   'install.android.title',
   'install.guide.device.androidSamsung',
@@ -65,7 +64,6 @@ const ALLOW_SAME_AS_EN = new Set([
 
 function mayMatchEnglish(key: string): boolean {
   if (ALLOW_SAME_AS_EN.has(key)) return true;
-  // Language-neutral room aliases intentionally reuse English adj/animal tokens.
   if (key.startsWith('chat.alias.adj.') || key.startsWith('chat.alias.animal.')) return true;
   return false;
 }

@@ -1,8 +1,5 @@
-/** Client-side scheduled send presets. The ciphertext leaves the device only at sendAt. */
-
 export type SchedulePreset = {
   id: string;
-  /** Offset from now in ms; 0 means custom / absolute. */
   offsetMs: number;
 };
 
@@ -111,7 +108,6 @@ export async function writeSealedDrafts(
   } catch {}
 }
 
-/** Reads v2 sealed drafts; a legacy plaintext array still parses and gets resealed on the next write. */
 export async function readSealedDrafts(
   storage: Storage,
   roomId: string,

@@ -11,7 +11,6 @@
     block?: boolean;
     icon?: IconName;
     iconEnd?: IconName;
-    /** Accessible name. Required for icon-only buttons, where it also becomes the tooltip. */
     label?: string;
     busy?: boolean;
     pressed?: boolean;

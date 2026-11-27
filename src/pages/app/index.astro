@@ -35,7 +35,6 @@ const dict = getTranslations(locale);
             matchMedia('(display-mode: fullscreen)').matches ||
             matchMedia('(display-mode: minimal-ui)').matches;
           var q = new URLSearchParams(location.search);
-          // Store-screenshot captures use ?shots=1 and never need the install gate.
           if (q.get('shots') === '1') installed = true;
           // Offline, the service worker answers other pages with this shell; redirecting from there would loop.
           var shellUrl = /^\/app\/?$/.test(location.pathname);

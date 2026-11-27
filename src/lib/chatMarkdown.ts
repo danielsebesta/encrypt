@@ -105,7 +105,6 @@ class Inline {
     return this.runStartArr[j];
   }
 
-  /** Whether a closer of this kind sits at j, treating `to` as the end of the text. */
   private closesAt(kind: Kind, j: number, to: number): boolean {
     const s = this.s;
     if (this.escaped[j]) return false;
@@ -143,7 +142,6 @@ class Inline {
     return arr;
   }
 
-  /** Nearest closer at or after `min` that ends inside the region. */
   private findCloser(kind: Kind, min: number, to: number): number {
     const width = KIND_WIDTH[kind];
     const arr = this.candidates(kind);
@@ -730,7 +728,6 @@ function emojiPattern(): RegExp {
   return emojiRe;
 }
 
-/** True for 1–3 emoji with nothing else but whitespace, the messages Discord shows enlarged. */
 export function isEmojiOnly(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 96) return false;
@@ -744,7 +741,6 @@ export function parseMarkdown(text: string): string {
   return new Blocks(src, { mode: 'html' }, false).run();
 }
 
-/** One line of plain text for quoting a message: markup removed and spoilers kept hidden. */
 export function plainSnippet(text: string, max = 140): string {
   if (!text) return '';
   const src = text.replace(/\r\n?/g, '\n');

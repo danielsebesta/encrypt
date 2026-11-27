@@ -1,14 +1,6 @@
 import { TEXT_MODELS } from './textModel';
 import type { CoverLang } from './coverTable';
 
-/**
- * Static canonical Huffman over bytes, per cover language. The model ships with the app, so a 46-byte message can
- * compress to ~25 bytes with no table in the payload; every byte keeps a weight of at least 1, so any input encodes.
- * Packed shape: the MSB-first bit stream only, the final partial byte filled with 1-bits. Those padding bits never
- * form a code (the only all-ones codeword is 15 bits and padding is at most 7), so the unpacker stops when it hits
- * them. Longer inputs are left to the deflate branch, which wins there anyway.
- */
-
 const MAX_LEN = 15;
 const MAX_PACKED = 0xff;
 
@@ -23,7 +15,6 @@ interface Tables {
 
 const cache = new Map<CoverLang, Tables>();
 
-/** Huffman depths for the 256 symbols, by the two-queue method over ascending weights. */
 function codeLengths(weights: Uint16Array): Uint8Array {
   const symbols = Array.from({ length: 256 }, (_, byte) => ({ byte, weight: weights[byte] > 0 ? weights[byte] : 1, depth: 0 }));
   symbols.sort((a, b) => a.weight - b.weight || a.byte - b.byte);
@@ -58,7 +49,6 @@ function codeLengths(weights: Uint16Array): Uint8Array {
   return lengths;
 }
 
-/** Deflates the weights until every code fits 15 bits; halving keeps the ratios. */
 function lengthsUnderCap(weights: Uint16Array): Uint8Array {
   const capped = Uint16Array.from(weights);
   for (;;) {
@@ -111,7 +101,6 @@ export function huffmanPack(data: Uint8Array, lang: CoverLang): Uint8Array | nul
       written++;
     }
   }
-  // Fill the unused bits of the last byte with 1s so the unpacker can tell payload from padding.
   while (written & 7) {
     out[written >> 3] |= 1 << (7 - (written & 7));
     written++;
@@ -133,7 +122,6 @@ export function huffmanUnpack(payload: Uint8Array, lang: CoverLang): Uint8Array 
     let ones = true;
     for (;;) {
       if (read >= lastBit) {
-        // Incomplete trailing code: only the 1-bit pad is allowed here.
         if (ones) return new Uint8Array(out);
         throw new Error('Sealed content does not decompress');
       }

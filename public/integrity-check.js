@@ -67,7 +67,6 @@
       }
 
       var url = new URL(node.getAttribute(attr), location.origin);
-      // Only verify files from this build. Skip Cloudflare (/cdn-cgi) and other injections.
       if (
         url.origin === location.origin &&
         files[url.pathname] &&

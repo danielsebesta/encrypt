@@ -6,13 +6,11 @@ const CHOICE_PREFIX = '/_lang/';
 
 const isLocale = (value: string): value is Locale => (locales as string[]).includes(value);
 
-/** Locale encoded in the first path segment, or null for the unprefixed default. */
 export function localeInPath(pathname: string): Locale | null {
   const first = pathname.split('/')[1] ?? '';
   return isLocale(first) ? first : null;
 }
 
-/** Best supported locale for an Accept-Language header, by q-value, matching on the primary subtag. */
 export function pickLocale(acceptLanguage: string | null | undefined): Locale {
   if (!acceptLanguage) return defaultLocale;
   const ranked = acceptLanguage
@@ -42,7 +40,6 @@ function langCookie(locale: Locale): string {
   return `${LANG_COOKIE}=${locale}; Path=/; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax; Secure; HttpOnly`;
 }
 
-/** True for navigations to HTML pages. Assets, APIs and realtime sockets are never redirected. */
 function isPageRequest(request: Request, pathname: string): boolean {
   if (request.method !== 'GET' && request.method !== 'HEAD') return false;
   if (pathname.startsWith('/api/') || pathname.startsWith('/parties/') || pathname.startsWith('/_astro/')) return false;
@@ -51,7 +48,6 @@ function isPageRequest(request: Request, pathname: string): boolean {
   return accept.includes('text/html') || accept === '*/*' || accept === '';
 }
 
-/** Link target that records a language choice and continues to `to`, with or without JavaScript. */
 export function languageChoiceHref(locale: Locale, to: string): string {
   return `${CHOICE_PREFIX}${locale}?to=${encodeURIComponent(to)}`;
 }
@@ -68,13 +64,6 @@ export function sameOriginTarget(to: string | null, origin: string): string {
   }
 }
 
-/**
- * Server-side language handling. The language is never part of a URL:
- * - `/_lang/<code>?to=<path>` stores the choice in a cookie and continues to the same-origin path;
- * - a page requested under a language prefix (`/cs/chat`) is permanently redirected to the same path without it;
- * - a page without a prefix is answered in the cookie language, or the browser language on the first visit, by
- *   rendering the prefixed page for that request (see `localizedRequest`). The address bar and shared links stay clean.
- */
 export function localeResponse(request: Request): Response | null {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -97,13 +86,11 @@ export function localeResponse(request: Request): Response | null {
   });
 }
 
-/** True when the answer to this unprefixed page request depends on the visitor's language settings. */
 export function varyByLanguage(request: Request): boolean {
   const path = new URL(request.url).pathname;
   return !localeInPath(path) && isPageRequest(request, path);
 }
 
-/** The request to render for an unprefixed page: the prefixed page of the visitor's language, or null for English. */
 export function localizedRequest(request: Request): Request | null {
   const url = new URL(request.url);
   if (!varyByLanguage(request)) return null;

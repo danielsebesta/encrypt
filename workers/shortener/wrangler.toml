@@ -20,7 +20,6 @@ TARGET_ORIGIN = "https://encrypt.click"
 binding = "URLS"
 id = "d15bc981e3974bcfa84fd5f481f80281"
 
-# Opening links, per client address and Cloudflare location.
 [[ratelimits]]
 name = "LOOKUPS"
 namespace_id = "7301"

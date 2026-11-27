@@ -136,11 +136,6 @@ export function pairContext(purpose: PairPurpose, channel: string, from: PairEnd
   return `${LABEL}/pair/${purpose}\n${channel}\n${from.pk}\n${from.pub}\n${to.pk}\n${to.pub}\n${id}`;
 }
 
-/**
- * Directional keys between this session's ephemeral keys and a peer's. The inputs are the ECDH shared secret, the room secret
- * and an ML-KEM secret, so neither a broken key exchange without the password, nor the password without the ephemeral keys,
- * nor a quantum computer that breaks P-256 alone is enough.
- */
 export class PairKeys {
   private bases = new Map<string, Promise<CryptoKey>>();
   private readonly secret: Uint8Array;
@@ -271,10 +266,6 @@ type ReceiveChain = {
 
 export type ReceiveLimits = { maxSkip: number; maxSkipped: number; skippedTtlMs: number; retiredMs: number };
 
-/**
- * Receiving chains per sender and per stream, with a bounded, expiring store of message keys skipped over for out-of-order
- * delivery. A stream is one connection of a sender: tabs of the same browser share the signing key but each runs its own chain.
- */
 export class ReceiveChains {
   private senders = new Map<string, Map<string, Map<string, ReceiveChain>>>();
   private byKey = new Map<string, ReceiveChain>();
@@ -295,7 +286,6 @@ export class ReceiveChains {
 ${keyId}`);
   }
 
-  /** A newer chain retires the older ones of the same stream: they stop deriving after a grace period, while skipped keys live on. */
   add(sender: string, stream: string, keyId: string, index: number, key: Uint8Array): boolean {
     const id = `${sender}
 ${keyId}`;
@@ -402,7 +392,6 @@ ${keyId}`);
     chain.skipped.clear();
   }
 
-  /** Wipes the chains of one stream, of one sender or of whichever sender ran it. */
   dropStream(stream: string, sender?: string) {
     for (const [pk, streams] of this.senders) {
       if (sender !== undefined && pk !== sender) continue;
@@ -439,10 +428,6 @@ export type FsSessionOptions = {
   now?: () => number;
 };
 
-/**
- * One member's forward secrecy state for one room session: the ephemeral key, its own sending chain, the members it has
- * handed that chain to and the chains it received. Nothing here is ever stored.
- */
 export class ForwardSecrecySession {
   readonly publicKey: string;
   readonly kemPublicKey: string;
@@ -565,7 +550,6 @@ export class ForwardSecrecySession {
     return entry;
   }
 
-  /** A member who answered a verify, answered the roll call or sent its own chain. */
   memberSeen(member: FsMember, wasHere = false): Promise<void> {
     return this.lock.run(async () => {
       const entry = this.upsertSeen(member, wasHere);
@@ -584,11 +568,6 @@ export class ForwardSecrecySession {
     });
   }
 
-  /**
-   * Someone left: move to a chain nobody holds yet and hand it only to members who answer the roll call that follows. When the
-   * relay names the connection that closed, that member is forgotten, so coming back with the same client id it counts as a
-   * newcomer and gets no chain from while it was away, and its own chains are wiped.
-   */
   memberLeft(gone?: string): Promise<void> {
     return this.lock.run(async () => {
       if (gone !== undefined && gone !== this.options.self.clientId) {
@@ -607,7 +586,6 @@ export class ForwardSecrecySession {
     });
   }
 
-  /** This browser's connection dropped and grants may have been lost: start a fresh chain for whoever answers the next verify. */
   reconnected(): Promise<void> {
     return this.lock.run(() => {
       void this.chain?.wipe();
@@ -633,7 +611,6 @@ export class ForwardSecrecySession {
     });
   }
 
-  /** The inner payload, PENDING while the sender's chain has not arrived yet, or null when it cannot be opened. */
   async open(sender: string, outer: unknown): Promise<string | typeof PENDING | null> {
     if (this.closed || !outer || typeof outer !== 'object') return null;
     const { k, n, c } = outer as Record<string, unknown>;
@@ -670,13 +647,11 @@ export class ForwardSecrecySession {
     }
   }
 
-  /** Senders whose messages are waiting for a chain key. */
   wanted(): string[] {
     this.prunePending();
     return [...new Set([...this.pending.values()].flat().map((item) => item.sender))];
   }
 
-  /** Takes a chain key addressed to this member and returns the messages that were waiting for it, oldest first. */
   async acceptGrant(sender: string, payload: unknown): Promise<{ sender: string; outer: FsSealed }[]> {
     if (this.closed || !payload || typeof payload !== 'object') return [];
     const { fs, k, keys, clientId } = payload as Record<string, unknown>;
@@ -707,7 +682,6 @@ export class ForwardSecrecySession {
     }
   }
 
-  /** History handed to one newcomer, sealed for that member alone under a fresh pairwise key. */
   async sealSync(to: FsMember, items: string[]): Promise<FsSyncPayload> {
     if (items.length > MAX_SYNC_ITEMS) throw new Error('Too many items');
     const k = newKeyId();

@@ -1,6 +1,4 @@
-/** How far the sheet must travel before release counts as a close. */
 export const CLOSE_PX = 44;
-/** Flick speed (px/ms) that closes even on a short drag. */
 export const CLOSE_VELOCITY = 0.28;
 const SLOP_PX = 6;
 
@@ -9,15 +7,11 @@ function scrollChild(sheet: HTMLElement): HTMLElement | null {
 }
 
 function allowStart(target: HTMLElement): boolean {
-  // Don't steal text-field caret / selection gestures.
   if (target.closest('input, textarea, select, [contenteditable="true"]')) return false;
-  // Only modal sheets — not action sheets (long-press menus). Swiping those
-  // races the opening pointer and dismisses as soon as the finger lifts.
   return Boolean(target.closest('.k-sheet'));
 }
 
 function applyDrag(el: HTMLElement, dy: number) {
-  // Open sheet sits at translate(0, -100%); pull down toward closed.
   el.style.translate = `0 calc(-100% + ${Math.max(0, dy)}px)`;
 }
 
@@ -26,7 +20,6 @@ function clearDrag(el: HTMLElement) {
   el.style.translate = '';
 }
 
-/** Lets touch users pull a Konsta sheet down from anywhere (not only the handle). */
 export function installSheetSwipe(): () => void {
   let panel: HTMLElement | null = null;
   let backdrop: HTMLElement | null = null;
@@ -45,8 +38,6 @@ export function installSheetSwipe(): () => void {
     const found = target.closest<HTMLElement>('.k-sheet');
     if (!found) return;
 
-    // Body drags only dismiss when the sheet's scrollable pane is at the top;
-    // the handle can always start a dismiss even if content is scrolled.
     const onHandle = Boolean(target.closest('.app-sheet__handle'));
     needsTopScroll = !onHandle;
     if (needsTopScroll) {

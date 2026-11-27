@@ -86,7 +86,6 @@
   let manualUnix: number | string | null = '';
   let useManualUnix = false;
 
-  // The capsule travels after #c=, which browsers keep to themselves; the page opens it from there.
   let capsuleLink = '';
   let fromLink = false;
   const CAPSULE_HASH_RE = /^#c=([A-Za-z0-9_-]+)$/;
@@ -184,7 +183,6 @@
     return readLimited(new Response(stream), 2 * 1024 * 1024);
   }
 
-  /** AES-256-GCM under the time secret alone, for capsules without a password: until the round lands, it is the only key. */
   async function sealWithTimeSecret(bytes: Uint8Array, secret: Uint8Array): Promise<Uint8Array> {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const key = await hkdfAesKey(await hkdfKey(secret), 'encrypt.click/time-capsule/v2/secret');
@@ -205,7 +203,6 @@
     ));
   }
 
-  /** v1 tokens kept the armored age text inside LZString'd JSON. v2 carries the binary lock and the envelope as b64url fields of gzipped JSON. */
   async function tryDecodeCapsule(input: string): Promise<{ v: 1; r?: number; t?: number; c: string } | { v: 2; r: number; t?: number; c: string; e: string } | null> {
     // A quarter of every v1 token ever made is a quarter-byte long — the LZString encoder left lengths that
     // no padding rule calls for — so nothing is rejected on shape beyond the alphabet. Standard base64 is
@@ -252,9 +249,6 @@
 
       const round = roundAt(timeMs);
 
-      // v2: only the 32-byte secret goes into the time lock. The message rides in a second envelope that needs both
-      // the secret and the password, so a broken lock still faces Argon2id and AES-256, while the lock itself stays
-      // the stripped binary age file — no armor, no base64 inside base64.
       const { secret, lock } = await lockTimeSecret(timeMs);
       const messageBytes = new TextEncoder().encode(message);
       const envelopeBytes = password
@@ -310,7 +304,6 @@
         secret = await unlockTimeSecret({ round: capsule.r, ciphertext: lockBytes });
         payloadBytes = envelopeBytes;
       } else {
-        // v1 locked the whole payload: the password envelope, or the bare utf8 message, comes back out.
         const { timelockDecrypt, client } = await getTlock();
         payloadBytes = new Uint8Array(await timelockDecrypt(capsule.c, client));
         secret = new Uint8Array(0);
@@ -344,7 +337,6 @@
             if (fromLink) setTimeout(() => document.getElementById('tc-open-password')?.focus(), 0);
           }
         } else {
-          // Bare utf8 only existed in v1; a v2 envelope without the magic is the time-secret GCM.
           decrypted = new TextDecoder().decode(await openWithTimeSecret(payloadBytes, secret));
         }
       } else if (!looksPasswordSealed) {

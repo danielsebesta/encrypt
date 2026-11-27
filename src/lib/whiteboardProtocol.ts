@@ -32,14 +32,12 @@ export function validEnvelope(value: unknown, kind: unknown, room: string, now =
   return true;
 }
 
-/** Stamp and pad, then sign with the member's board key, then encrypt under a fresh subkey of the room key. */
 export async function sealEnvelope(key: CryptoKey, identity: SigningIdentity, kind: WhiteboardKind, body: Record<string, unknown>, room: string): Promise<string> {
   return sealBoardMessage(key, await signPayload(identity, padPayload(JSON.stringify(stampEnvelope(kind, body, room)))));
 }
 
 export type OpenedEnvelope = { body: Record<string, unknown>; signer: string };
 
-/** Null for anything that fails to decrypt, carries a bad stamp or lacks a valid signature. */
 export async function openEnvelope(key: CryptoKey, payload: string, kind: unknown, room: string, now = Date.now()): Promise<OpenedEnvelope | null> {
   let body: unknown;
   try {
@@ -52,7 +50,6 @@ export async function openEnvelope(key: CryptoKey, payload: string, kind: unknow
   return signer ? { body, signer } : null;
 }
 
-/** Board chat items outlive their envelope inside the shared document, so each one carries its author's own signature. */
 export async function signBoardItem<T extends Record<string, unknown>>(identity: SigningIdentity, item: T, room: string): Promise<T & { _pk: string; _sig: string }> {
   const signed = JSON.parse(await signPayload(identity, JSON.stringify({ ...item, _room: room })));
   delete signed._room;
@@ -91,7 +88,6 @@ export function lookalike(name: string): string {
 export type BoardMember = { pk: string; key: string; name: string; trusted: boolean };
 type Self = { pk: string; key: string; name: string };
 
-/** The first key a label shows up with is trusted on sight; later keys, and new labels that look like a trusted name, stay flagged until accepted. */
 export class BoardTrust {
   readonly members = new Map<string, BoardMember>();
 

@@ -12,13 +12,10 @@ export type AppPlatform = 'ios' | 'material';
 export type AppScheme = 'light' | 'dark';
 export type AppAppearance = 'system' | AppScheme;
 
-// The site palette seed (SITE_SEED in scripts/gen-palette.mjs), so Material You matches the website.
 export const DEFAULT_SEED = '#5f8f36';
 
-// Earlier defaults and the retired green preset now resolve to the site seed.
 const LEGACY_SEEDS = ['#5b6472', '#4c8a3c'];
 
-// Material You seeds offered in Settings; the scheme guard keeps every on-role at AA for any seed.
 export const SEED_PRESETS = [
   { id: 'default', hex: DEFAULT_SEED },
   { id: 'red', hex: '#b3423a' },
@@ -33,7 +30,6 @@ export type SeedPresetId = (typeof SEED_PRESETS)[number]['id'];
 
 const SPEC_VERSION = '2025';
 
-// Warning roles are not part of the M3 scheme; one fixed amber pair per scheme.
 const WARN = {
   light: { warn: '#8a5a00', weak: '#f7e3ab', onWeak: '#554000' },
   dark: { warn: '#f2bf45', weak: '#443400', onWeak: '#f7e3ab' },
@@ -94,8 +90,6 @@ export type MdScheme = Record<MdRole, string>;
 
 const MD_COLOR_LOOKUP = MaterialDynamicColors as unknown as Record<MdRole, DynamicColor>;
 
-// Text-bearing pairs that must stay readable for every seed: [foreground, background, minimum ratio].
-// Backgrounds are the worst case of their family (highest container), so lower containers pass too.
 export const CONTRAST_PAIRS: readonly [MdRole, MdRole, number][] = [
   ['onSurface', 'surfaceContainerHighest', 4.5],
   ['onSurfaceVariant', 'surfaceContainerHighest', 4.5],
@@ -141,8 +135,6 @@ export function materialScheme(seedHex: string, dark: boolean): MdScheme {
 
 const kebab = (role: string) => role.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
-// Map a computed MD3 role palette onto the M3 system tokens, the app's semantic tokens
-// and the `--k-color-md-*` slots Konsta components consume.
 function mapScheme(r: MdScheme, dark: boolean): VarMap {
   const p = dark ? '--k-color-md-dark' : '--k-color-md-light';
   const warn = dark ? WARN.dark : WARN.light;
@@ -294,8 +286,6 @@ export function resolveScheme(appearance: AppAppearance): AppScheme {
   return 'dark';
 }
 
-// Compute both light and dark var sets for a seed and persist them so the
-// pre-hydration bootstrap can re-apply a custom seed without the MCU bundle.
 type CachedVars = { v: number; seed: string; light: VarMap; dark: VarMap; amoled: VarMap };
 
 export function computeAndCache(seedHex: string): CachedVars {

@@ -48,7 +48,6 @@ writeFileSync(
     .replace(/(<path class="t" fill=")#[0-9a-f]{6}/i, `$1${LIGHT_TEXT}`),
 );
 
-/** Transparent square with the brand glyph. */
 async function bare(size) {
   return sharp(Buffer.from(icon), { density: 384 })
     .resize(size, size, { fit: 'contain', background: '#00000000' })
@@ -56,7 +55,6 @@ async function bare(size) {
     .toBuffer();
 }
 
-/** Full-bleed dark square with the glyph centred; `scale` keeps it inside the mask safe zone. */
 async function plate(size, scale) {
   const inner = Math.round(size * scale);
   const mark = await sharp(Buffer.from(iconFor(DARK_ACCENT)), { density: 384 })
@@ -69,7 +67,6 @@ async function plate(size, scale) {
     .toBuffer();
 }
 
-/** White glyph on transparent, inside the safe zone; the system tints it. */
 async function monochrome(size) {
   const inner = Math.round(size * 0.5);
   const mark = await sharp(Buffer.from(iconFor('#ffffff')), { density: 384 })

@@ -34,7 +34,6 @@ function runtimeEnv(_locals: unknown): Record<string, unknown> {
   return platformEnv();
 }
 
-// A self-hosted coturn is reached at TURN_URLS, or on port 3478 of TURN_HOST over UDP and TCP.
 function coturnUrls(env: Record<string, unknown>): string[] {
   const listed = envString(env, 'TURN_URLS').split(',').map((url) => url.trim()).filter((url) => /^turns?:/.test(url));
   if (listed.length) return listed;

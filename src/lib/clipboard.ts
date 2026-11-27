@@ -1,8 +1,3 @@
-/**
- * Copy text to the clipboard with a legacy fallback for browsers or webviews
- * without the async clipboard API (or where it rejects outside a tight
- * user-gesture window).
- */
 export async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {

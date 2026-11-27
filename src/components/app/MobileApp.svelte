@@ -234,8 +234,6 @@
   let joinAttempted = $state(false);
   const joinIdError = $derived(joinAttempted && !normalizeRoomId(joinRoomId));
   let roomEnteredViaPush = $state(false);
-  // A lightweight history entry kept while an overlay is open so the first
-  // system-back press dismisses the overlay instead of leaving /app.
   let overlayGuard = $state(false);
   let scroller = $state<HTMLElement | null>(null);
   let hubScrolled = $state(false);
@@ -359,8 +357,6 @@
       : null,
   );
 
-  // Konsta overlays are bare positioned divs: focus the first control inside,
-  // inert the app behind the open one and hand focus back to its opener.
   $effect(() => {
     const key = openOverlayKey;
     if (!key) return;
@@ -381,7 +377,6 @@
       overlay.querySelector<HTMLElement>('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])') ??
       overlay.querySelector<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ??
       overlay;
-    // Konsta popovers only become focusable a few frames after opening.
     let frames = 0;
     let retry = 0;
     const settle = () => {
@@ -402,8 +397,6 @@
     };
   });
 
-  // ChatRoom owns the room-menu popover; mirror its open state (inert attr)
-  // so the app navbar trigger can expose aria-expanded and take focus back.
   $effect(() => {
     void mountedRoomId;
     const pop = document.querySelector<HTMLElement>('.app-room-wrapper .k-popover');
@@ -553,7 +546,6 @@
     if (bump && !shotsMode) void touchRoom(kind, id).then(loadRooms).catch(() => {});
   }
 
-  // A saved room opens with its passkey-sealed password and stored mode, so one that expired on the server is made again instead of showing a dead end.
   async function openSavedRoom(room: RoomEntry) {
     if (room.kind !== 'whiteboard') {
       try { sessionStorage.setItem('chat-room-config', JSON.stringify({ mode: room.mode, authMode: 'password', createdAt: Date.now(), v: 3 })); } catch {}
@@ -627,7 +619,6 @@
 
   function switchTab(tab: TabId) {
     if (tab === activeTab) {
-      // Native behavior: re-tapping the active tab scrolls its content to top.
       scroller?.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
       return;
     }
@@ -786,7 +777,6 @@
   const moreIcon = $derived<IconName>(platform === 'ios' ? 'more-h' : 'more');
 
   const DAY_MS = 24 * 60 * 60 * 1000;
-  // Messages-style row stamp: time today, "Yesterday", weekday this week, short date after.
   function rowStamp(ts: number | undefined): string {
     if (!ts || !Number.isFinite(ts)) return '';
     const now = new Date();
@@ -869,7 +859,6 @@
     if (childOverlay) closeChildOverlay();
   }
 
-  /** Swallow the backdrop tap that Android/iOS synthesizes when the long-press finger lifts. */
   let ignoreActionsBackdrop = false;
   let actionsBackdropTimer: ReturnType<typeof setTimeout> | undefined;
   let pendingActionsHaptic = false;
@@ -879,7 +868,6 @@
     actionTarget = room;
     actionsRoom = room;
     if (fromLongPress) {
-      // Finger is still down over the new backdrop — ignore dismiss until after lift.
       ignoreActionsBackdrop = true;
       clearTimeout(actionsBackdropTimer);
       actionsBackdropTimer = setTimeout(() => { ignoreActionsBackdrop = false; }, 450);
@@ -943,7 +931,6 @@
   function rowPressEnd() {
     clearTimeout(lpTimer);
     pressingId = '';
-    // iOS: switch-tick grant arrives on touchend — buzz now so long-press feedback lands.
     if (pendingActionsHaptic) {
       pendingActionsHaptic = false;
       triggerHaptic('medium');
@@ -1063,8 +1050,6 @@
     await loadRooms();
   }
 
-  // Keep every in-app link inside /app: same-origin links to other pages and
-  // external links open in a new browser view instead of navigating the PWA.
   function guardLinks(e: MouseEvent) {
     const anchor = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
     if (!anchor) return;
@@ -1198,7 +1183,6 @@
     })();
   }
 
-  // One passkey for every room: once turned on, each room's password is sealed under it as soon as the room opens.
   let rememberPasswords = $state<boolean | null>(null);
   let rememberOfferOpen = $state(false);
   let rememberOfferDue = $state(false);
@@ -1238,7 +1222,6 @@
     if (!wiping && wipeEpoch === epoch) await loadRooms();
   }
 
-  // Asked once after the first room; when it is on but the passkey has not been used yet this session, the same dialog asks for it.
   $effect(() => {
     if (!rememberOfferDue || activeView !== 'hub' || locked || openOverlayKey || callRoom || wiping) return;
     rememberOfferDue = false;
@@ -1300,7 +1283,6 @@
     dismissRemember();
   }
 
-  /** Back, Escape and the backdrop close the offer without answering it. */
   function dismissRemember() {
     pendingSecrets.clear();
     rememberNeedsConfirm = false;
@@ -1346,8 +1328,6 @@
     langSheetOpen = false;
     overlayGuard = false;
     const target = code === 'en' ? '/app' : `/${code}/app`;
-    // Retire the overlay-guard entry in place so Back after the reload lands
-    // on the hub, not on a phantom overlay entry.
     window.history.replaceState({ view: 'hub', tab: activeTab }, '', window.location.href);
     window.location.href = `/_lang/${code}?to=${encodeURIComponent(target)}`;
   }
@@ -1458,7 +1438,6 @@
     }
   });
 
-  /** Show the lock overlay and warm the passkey ref; never auto-prompt (needs a tap for WebAuthn). */
   function engageLock() {
     prepareLockScreen();
     locked = true;
@@ -1795,8 +1774,6 @@
       openOverlays = {};
       const state = e.state as { view?: ViewState; roomId?: string; kind?: string; label?: string; tab?: TabId; overlay?: boolean } | null;
       if (state?.overlay) {
-        // Landed on a stale overlay-guard entry (its overlay was already
-        // force-closed above): disarm it so a second Back skips cleanly.
         window.history.replaceState({ ...state, overlay: false }, '', window.location.href);
       }
       if (state?.view === 'room' || state?.view === 'board') {
@@ -2586,7 +2563,6 @@
         </div>
       {/if}
 
-      <!-- ROOM ROW CONTEXT MENU -->
       <Popover class="app-row-menu w-64!" opened={actionsRoom !== null} inert={actionsRoom === null} target={actionsAnchor ?? undefined} onBackdropClick={onActionsBackdrop} data-app-overlay="actions" tabindex="-1">
         <MenuList {@attach asMenu} aria-label={actionTarget?.label || actionTarget?.roomId} onkeydown={onRowMenuKeys}>
           {#each [
@@ -2705,7 +2681,6 @@
       {/key}
     {/if}
 
-    <!-- NEW ROOM SHEET (kind locked to the tab that opened it) -->
     <Sheet
       opened={newRoomSheetOpen}
       inert={!newRoomSheetOpen}
@@ -2893,7 +2868,6 @@
       </div>
     </Sheet>
 
-    <!-- JOIN ROOM SHEET -->
     <Sheet
       opened={joinRoomSheetOpen}
       inert={!joinRoomSheetOpen}
@@ -2956,7 +2930,6 @@
       </div>
     </Sheet>
 
-    <!-- LANGUAGE SHEET -->
     <Sheet
       class="app-sheet pb-[env(safe-area-inset-bottom)]"
       opened={langSheetOpen}
@@ -2979,7 +2952,6 @@
       </div>
     </Sheet>
 
-    <!-- PREFERENCE SHEET -->
     <Sheet
       class="app-sheet pb-[env(safe-area-inset-bottom)]"
       opened={prefSheetOpen}
@@ -3070,7 +3042,6 @@
       {/if}
     </Toast>
 
-    <!-- PANIC DIALOG -->
     <Dialog opened={panicDialogOpen} inert={!panicDialogOpen} onBackdropClick={() => { panicDialogOpen = false; consumeOverlayGuard(); }} data-app-overlay="panic" role="alertdialog" aria-modal="true" aria-labelledby="app-panic-title" aria-describedby="app-panic-body" tabindex="-1">
       {#snippet title()}<span id="app-panic-title">{t(dict, 'app.settings.wipe')}</span>{/snippet}
       <span id="app-panic-body">{t(dict, 'app.settings.wipeBody')}</span>
@@ -3080,7 +3051,6 @@
       {/snippet}
     </Dialog>
 
-    <!-- VAULT EXPORT DIALOG -->
     <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.backup.exportConfirm'))} opened={vaultExportOpen} inert={!vaultExportOpen} onBackdropClick={() => { vaultExportOpen = false; consumeOverlayGuard(); }} data-app-overlay="vaultExport" role="dialog" aria-modal="true" aria-labelledby="app-vault-export-title" tabindex="-1">
       {#snippet title()}<span id="app-vault-export-title">{t(dict, 'app.backup.export')}</span>{/snippet}
       <p class="m-0 mb-3 text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.backup.exportBody')}</p>
@@ -3098,7 +3068,6 @@
       {/snippet}
     </Dialog>
 
-    <!-- REMEMBER PASSWORDS OFFER -->
     <Dialog class={dialogStack(t(dict, 'app.remember.later'), t(dict, 'app.remember.enable'))} opened={rememberOfferOpen} inert={!rememberOfferOpen} onBackdropClick={dismissRemember} data-app-overlay="remember" role="dialog" aria-modal="true" aria-labelledby="app-remember-title" aria-describedby="app-remember-body" tabindex="-1">
       {#snippet title()}<span id="app-remember-title">{t(dict, 'app.remember.title')}</span>{/snippet}
       <span id="app-remember-body">{t(dict, rememberNeedsConfirm ? 'app.remember.confirmBody' : 'app.remember.body')}</span>
@@ -3108,7 +3077,6 @@
       {/snippet}
     </Dialog>
 
-    <!-- VAULT IMPORT DIALOG -->
     <Dialog opened={vaultImportOpen} inert={!vaultImportOpen} onBackdropClick={() => { vaultImportOpen = false; consumeOverlayGuard(); }} data-app-overlay="vaultImport" role="dialog" aria-modal="true" aria-labelledby="app-vault-import-title" tabindex="-1">
       {#snippet title()}<span id="app-vault-import-title">{t(dict, 'app.backup.import')}</span>{/snippet}
       <p class="m-0 mb-3 text-[14px] text-[var(--app-label-2)]">{t(dict, 'app.backup.importBody')}</p>
@@ -3137,7 +3105,6 @@
       {/snippet}
     </Dialog>
 
-    <!-- CLEAR BOARD DIALOG -->
     <Dialog class={dialogStack(t(dict, 'app.cancel'), t(dict, 'whiteboard.delete'))} opened={clearBoardDialogOpen} inert={!clearBoardDialogOpen} onBackdropClick={() => { clearBoardDialogOpen = false; consumeOverlayGuard(); }} data-app-overlay="clearBoard" data-restore="#wb-menu-trigger" role="alertdialog" aria-modal="true" aria-labelledby="app-clear-board-title" tabindex="-1">
       {#snippet title()}<span id="app-clear-board-title">{t(dict, 'whiteboard.delete')}</span>{/snippet}
       {t(dict, 'whiteboard.clearConfirm')}
@@ -3159,7 +3126,6 @@
     </Dialog>
 
 
-    <!-- RENAME DIALOG -->
     <Dialog
       class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.save'))}
       opened={renameDialogOpen}
@@ -3204,7 +3170,6 @@
       {/snippet}
     </Dialog>
 
-    <!-- DELETE ROOM DIALOG -->
     <Dialog
       class={dialogStack(t(dict, 'app.cancel'), t(dict, 'app.remove.confirm'))}
       opened={deleteDialogOpen}

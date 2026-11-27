@@ -14,16 +14,12 @@
   interface Props {
     label: string;
     hint?: string;
-    /** Shown under the control and linked through aria-errormessage; also marks the control invalid. */
     error?: string;
     required?: boolean;
-    /** Visually hides the label while keeping it as the accessible name. */
     hideLabel?: boolean;
     id?: string;
     class?: string;
-    /** Extra content on the label row, such as a counter or a link. */
     aside?: Snippet;
-    /** Rendered between the error and the hint, such as a password checklist. */
     below?: Snippet;
     children: Snippet<[FieldControl]>;
   }

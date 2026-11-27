@@ -4,9 +4,7 @@ export const PASS_TTL_MS = 60 * 60 * 1000;
 const GB = 1000 ** 3;
 const HOUR_MS = 60 * 60 * 1000;
 
-// Far above what a person sharing by hand reaches, so only scripted volume or an unusually busy day meets a challenge.
 export const SUSPICION = { hourlyUploads: 30, clientDayBytes: 1 * GB, globalDayShare: 0.5 };
-// Each solved challenge covers a bounded amount, so a farm of solvers still pays per gigabyte.
 export const PASS_ALLOWANCE = { uploads: 200, bytes: 2 * GB };
 export const RELAY_DAILY_BYTES_PER_CLIENT = 2 * GB;
 
@@ -94,7 +92,6 @@ export interface SqlLike {
 
 const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
 
-// Per-client usage in a Durable Object's SQLite: bytes per day (the hard cap), uploads per hour and what each pass has covered.
 export class ClientLedger {
   constructor(private sql: SqlLike, private table: string, private dailyCap: number) {
     sql.exec(`CREATE TABLE IF NOT EXISTS ${table} (day TEXT NOT NULL, client TEXT NOT NULL, bytes INTEGER NOT NULL, PRIMARY KEY (day, client))`);
@@ -140,7 +137,6 @@ export class ClientLedger {
     return this.sql.exec(`SELECT bytes FROM ${this.table} WHERE day = ? AND client = ?`, day, client).toArray()[0]?.bytes ?? 0;
   }
 
-  // Sliding estimate over the last 60 minutes: this hour plus the unexpired share of the previous one.
   private hourUploads(client: string, now: number): number {
     const hour = Math.floor(now / HOUR_MS);
     const rows = this.sql.exec(`SELECT hour, uploads FROM ${this.table}_hours WHERE client = ? AND hour >= ?`, client, hour - 1).toArray();

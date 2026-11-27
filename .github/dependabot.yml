@@ -11,12 +11,10 @@ updates:
     # Wait a week after a release before proposing it; compromised versions are usually pulled within days.
     cooldown:
       default-days: 7
-    # One pull request per week for minor and patch updates; majors stay separate for manual review.
     groups:
       npm-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
-  # Base images are pinned by digest; this keeps the digests moving with security updates.
   - package-ecosystem: docker
     directory: /
     schedule:

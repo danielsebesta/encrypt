@@ -1,11 +1,7 @@
-/** One voice player at a time owns the OS media session (lock screen / headset keys). */
-
 export type VoiceSessionControls = {
   play: () => void;
   pause: () => void;
-  /** Jump to an absolute time in seconds. */
   seekTo: (seconds: number) => void;
-  /** Move by a signed delta in seconds. */
   seekBy: (delta: number) => void;
   stop: () => void;
 };
@@ -20,9 +16,7 @@ function mediaSession(): MediaSession | null {
 function setAction(ms: MediaSession, action: MediaSessionAction, handler: MediaSessionActionHandler | null) {
   try {
     ms.setActionHandler(action, handler);
-  } catch {
-    /* unsupported action on this browser */
-  }
+  } catch {}
 }
 
 export function claimVoiceMediaSession(
@@ -38,9 +32,7 @@ export function claimVoiceMediaSession(
       title,
       artwork: [{ src: '/web-app-manifest-192x192-any.png', sizes: '192x192', type: 'image/png' }],
     });
-  } catch {
-    /* MediaMetadata missing */
-  }
+  } catch {}
   setAction(ms, 'play', () => controls.play());
   setAction(ms, 'pause', () => controls.pause());
   setAction(ms, 'stop', () => controls.stop());
@@ -68,9 +60,7 @@ export function updateVoiceMediaSession(
       position: Math.max(0, Math.min(duration, position)),
       playbackRate: 1,
     });
-  } catch {
-    /* setPositionState rejects bad ranges */
-  }
+  } catch {}
 }
 
 export function releaseVoiceMediaSession(token: symbol): void {
@@ -83,9 +73,7 @@ export function releaseVoiceMediaSession(token: symbol): void {
   }
   try {
     ms.metadata = null;
-  } catch {
-    /* ignore */
-  }
+  } catch {}
   ms.playbackState = 'none';
 }
 

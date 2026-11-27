@@ -1,5 +1,3 @@
-/** Map technical failures to stable Chat cipher locale keys. */
-
 export type ChatCipherErrorKey =
   | 'tools.chatCipher.errorGeneric'
   | 'tools.chatCipher.errorBoth'
@@ -50,7 +48,6 @@ export function chatCipherErrorKey(error: unknown): ChatCipherErrorKey {
   return 'tools.chatCipher.errorGeneric';
 }
 
-/** True when fetching the word table again might help. */
 export function chatCipherErrorRetryable(key: ChatCipherErrorKey): boolean {
   return key === 'tools.chatCipher.errorTable' || key === 'tools.chatCipher.errorTableChecksum';
 }

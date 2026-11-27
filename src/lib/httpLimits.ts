@@ -1,15 +1,9 @@
 export const MAX_TRANSFER_BYTES = 50 * 1024 * 1024;
-/** Largest share plaintext for first-party upload and chat attachments (one request, no chunking). */
 export const MAX_SINGLE_UPLOAD_BYTES = 128 * 1024 * 1024;
-/** Plaintext still accepted when opening a legacy chunked download (new uploads no longer create these). */
 export const MAX_LEGACY_CHUNKED_PLAIN_BYTES = 512 * 1024 * 1024;
-/** Plaintext bytes per chunk in legacy chunked downloads. */
 export const CHUNK_PLAIN_BYTES = 4 * 1024 * 1024;
-/** AES-GCM adds a 12-byte IV and 16-byte tag per legacy chunk. */
 export const CHUNK_CIPHER_OVERHEAD = 12 + 16;
-// First-party single-request ciphertext: plaintext cap plus encryption and ZIP overhead.
 export const MAX_FIRST_PARTY_BYTES = MAX_SINGLE_UPLOAD_BYTES + 1024 * 1024;
-// Largest envelope each upload path takes: first-party storage adds a 4-byte marker, Send its own encryption layer.
 export const FIRST_PARTY_ENVELOPE_LIMIT = MAX_FIRST_PARTY_BYTES - 4;
 export const SEND_ENVELOPE_LIMIT = MAX_TRANSFER_BYTES - 64 * 1024;
 export const SLOW_TRANSFER_TIMEOUT_MS = 120_000;

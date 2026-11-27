@@ -8,7 +8,6 @@ export function shortCommit(commit: string): string {
   return commit.slice(0, 7);
 }
 
-/** The newest deployed build, as the site itself names it. Never served from a cache, so it reflects what a reload would load. */
 export async function fetchLatestVersion(): Promise<AppVersion | null> {
   try {
     const response = await fetch('/build-integrity.json', { cache: 'no-store' });

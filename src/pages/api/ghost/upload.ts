@@ -42,7 +42,6 @@ function failedRecently(instance: SendInstance): boolean {
   return failedAt !== undefined && Date.now() - failedAt < FAILURE_COOLDOWN_MS;
 }
 
-// EU first, then the rest; instances that failed recently go last.
 function orderedSendInstances(fileSize: number, euOnly = false): SendInstance[] {
   const eligible = SEND_INSTANCES.filter(i => fileSize <= i.maxBytes && (!euOnly || i.region === 'eu'));
   const ordered = [...shuffle(eligible.filter(i => i.region === 'eu')), ...shuffle(eligible.filter(i => i.region !== 'eu'))];
@@ -85,7 +84,6 @@ function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-// Picks a reachable instance up front so the sender can see where the file will go.
 export const GET: APIRoute = async ({ url }) => {
   const size = Number(url.searchParams.get('size'));
   if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_TRANSFER_BYTES) return json({ error: 'Invalid size' }, 400);

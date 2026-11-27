@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-/**
- * Build a memorable passphrase word list from the EFF large wordlist.
- *
- * Filters out closed-class words, brands, common names/places, hard spellings,
- * confusable homophones, and near-duplicates (edit distance ≤ 1, shared prefixes).
- * Prefers words that also appear in the EFF short list or Google 10k English.
- *
- * Sources (download into tmp/ before running):
- *   https://www.eff.org/files/2016/07/18/eff_large_wordlist.txt
- *   https://www.eff.org/files/2016/09/08/eff_short_wordlist_1.txt
- *   https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-no-swears.txt
- *
- * EFF lists: Creative Commons Attribution 3.0 United States.
- */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -145,7 +131,6 @@ const CONFUSABLES = [
 ];
 
 function hardSpelling(word) {
-  // Prefer longer everyday words: short stubs are easy to mis-hear when dictating.
   if (!/^[a-z]{5,9}$/.test(word)) return true;
   if (/(.)\1\1/.test(word)) return true;
   if (/eous$|ious$|ough$|augh$|eau/.test(word)) return true;
@@ -199,7 +184,6 @@ for (const group of CONFUSABLES) {
 }
 pool = pool.filter((word) => !banned.has(word));
 
-// Everyday words only: EFF short or Google top ~9k.
 pool = pool.filter((word) => short.has(word) || (rank.has(word) && rank.get(word) < 9000));
 
 const kept = [];

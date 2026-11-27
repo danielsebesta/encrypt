@@ -7,7 +7,6 @@ export default class WhiteboardRoom {
   private queue = Promise.resolve();
 
   constructor(private host: RoomHost) {
-    // Live drawing and cursors send about 20 small messages a second per person.
     this.access = new RoomAccess(host, 300);
   }
 

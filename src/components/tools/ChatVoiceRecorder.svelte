@@ -40,7 +40,6 @@
   async function start() {
     if (recording || starting || disabled) return;
     starting = true;
-    // iOS 18.4+/26: haptic must run sync inside the tap grant — before getUserMedia await.
     if (appMode) haptic('medium');
     const next = new VoiceRecorder(() => void stop(), true);
     try {

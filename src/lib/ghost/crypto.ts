@@ -12,10 +12,8 @@ export function prependEclkMagic(data: Uint8Array): Uint8Array {
   return combined;
 }
 
-// Padding stops at the first upload limit the unpadded file still fits under, so it never costs a destination.
 const UPLOAD_CEILINGS = [SEND_ENVELOPE_LIMIT, FIRST_PARTY_ENVELOPE_LIMIT];
 
-/** [0 | metadata length (u32) | JSON metadata | file bytes], sealed in one password envelope. */
 export async function encryptData(data: Uint8Array, password: string, originalName = '', timeSecret?: Uint8Array): Promise<Uint8Array> {
   const meta = new TextEncoder().encode(JSON.stringify({ name: originalName, size: data.length }));
   if (meta.length > 65536) throw new Error('Metadata too large');
@@ -26,12 +24,6 @@ export async function encryptData(data: Uint8Array, password: string, originalNa
   return sealPassword([head, meta, data], password, { maxLength, timeSecret });
 }
 
-/**
- * The same payload under a raw 32-byte key (ECK1) instead of a password. For keys that travel inside an encrypted
- * message, a password envelope pays Argon2id per open and per send for nothing; this spends one HKDF in its place.
- * The key must come from the random source itself — the API takes bytes, so nothing a person types can be sealed
- * into the format that has no slow KDF behind it.
- */
 export async function encryptDataWithKey(data: Uint8Array, key: Uint8Array, originalName = ''): Promise<Uint8Array> {
   if (key.length !== KEY_ENVELOPE_BYTES) throw new Error('Invalid file key');
   const meta = new TextEncoder().encode(JSON.stringify({ name: originalName, size: data.length }));
@@ -66,11 +58,6 @@ async function decryptKeyFile(encrypted: Uint8Array, keyB64url: string): Promise
   return parseSealedPayload(await openWithKey(encrypted, key));
 }
 
-/**
- * Opens a raw-key upload (ECK1), a classic single-envelope upload, or a chunked first-party download (manifest
- * envelope + AES-GCM parts). The ECK1 magic tells the key path apart; what is left tries classic before chunked,
- * so existing links stay on the fast path and trailing chunk bytes make the classic open fail cleanly.
- */
 export async function decryptData(encrypted: Uint8Array, passwordOrKey: string, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
   if (isKeyEnvelope(encrypted)) {
     return decryptKeyFile(encrypted, passwordOrKey);

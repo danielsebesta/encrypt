@@ -10,7 +10,6 @@ const LOCALES = ['en', 'cs', 'de', 'es', 'fr', 'sk', 'pl'] as const;
 const dict = (locale: string) => JSON.parse(readFileSync(new URL(`../src/locales/${locale}.json`, import.meta.url), 'utf8')) as Record<string, string>;
 const EXPERIMENTS = fileURLToPath(new URL('../src/pages/experiments', import.meta.url));
 
-/** Experiment pages deliberately kept out of the navigation registry. */
 const UNREGISTERED_PAGES = new Set(['aes-words']);
 
 function toolKeys(tool: (typeof tools)[number]): string[] {

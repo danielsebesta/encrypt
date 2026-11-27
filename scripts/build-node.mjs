@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { build as bundle } from 'esbuild';
 
-// The Node target: Astro output in dist/client and dist/server, and the HTTP/WebSocket server in dist/node/server.mjs.
 process.env.DEPLOY_TARGET = 'node';
 rmSync('dist', { recursive: true, force: true });
 
@@ -13,7 +12,6 @@ for (const script of ['scripts/inject-csp-hashes.mjs', 'scripts/generate-integri
   execFileSync(process.execPath, [script], { stdio: 'inherit' });
 }
 
-// ws and a few CommonJS dependencies call require() for Node built-ins, which an ES module bundle has to provide.
 await bundle({
   entryPoints: ['src/adapters/node/server.ts'],
   outfile: 'dist/node/server.mjs',

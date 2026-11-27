@@ -1,4 +1,3 @@
-// Astro endpoints and the platform entry can be separate bundles, so the environment travels on globalThis.
 const KEY = '__encryptClickEnv';
 
 type EnvHolder = { [KEY]?: Record<string, string | undefined> };

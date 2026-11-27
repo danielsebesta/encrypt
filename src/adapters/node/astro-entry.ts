@@ -1,4 +1,3 @@
-// Server entry Astro builds for the Node target (dist/server/entry.mjs): a Fetch-level renderer the Node server calls.
 import { createApp } from 'astro/app/entrypoint';
 
 const app = createApp({ streaming: true });

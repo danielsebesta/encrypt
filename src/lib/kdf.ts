@@ -1,6 +1,5 @@
 export type Argon2Params = { memory: number; iterations: number; parallelism: number };
 
-/** Argon2id settings of format version 3. Rooms derive with exactly these; envelopes store theirs in the header. */
 export const ARGON2_V3: Readonly<Argon2Params> = Object.freeze({ memory: 65536, iterations: 3, parallelism: 1 });
 
 // Bounds for settings read from a header, so a crafted file can neither weaken nor stall the browser opening it.
@@ -79,10 +78,6 @@ async function deriveHere(password: string, salt: Uint8Array, params: Argon2Para
   }
 }
 
-/**
- * Argon2id runs in a dedicated worker in the browser so a 64 MiB derivation never freezes the page, and in the calling
- * thread everywhere else (Node, server rendering, tests) or when the worker cannot start.
- */
 export async function argon2id(password: string, salt: Uint8Array, params: Argon2Params = ARGON2_V3): Promise<Uint8Array> {
   if (!argon2ParamsOk(params) || salt.length < 16) throw new Error('Unsupported key derivation settings');
   const target = startWorker();

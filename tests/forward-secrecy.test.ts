@@ -96,7 +96,6 @@ test('a pairwise key needs the ephemeral key exchange, the ML-KEM secret and the
   assert.deepEqual(await unwrapChainKey(await bKeys.derive('chain', 'room', alice, bob, KID, kemSecret), wrapped, KID, 7), chainKey);
   assert.equal(await unwrapChainKey(keyA, wrapped, KID, 8), null);
 
-  // Someone who broke P-256 and knows the password holds everything except the ML-KEM secret, and that is not enough.
   assert.equal(await unwrapChainKey(await bKeys.derive('chain', 'room', alice, bob, KID, random()), wrapped, KID, 7), null);
   const otherPassword = await new PairKeys(b, random()).derive('chain', 'room', alice, bob, KID, kemSecret);
   assert.equal(await unwrapChainKey(otherPassword, wrapped, KID, 7), null);
@@ -144,7 +143,6 @@ type Peer = {
   pending: number;
 };
 
-// An in-order relay like the server: sends only queue, and flush delivers everything in arrival order.
 class Relay {
   online = new Set<Peer>();
   queue: { from: Peer; to: Peer; payload: any }[] = [];

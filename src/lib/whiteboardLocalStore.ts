@@ -10,12 +10,10 @@ export type LocalBoardRecord = { v: 1; sealed: string; at: number };
 let suppressed = false;
 let writeChain: Promise<void> = Promise.resolve();
 
-/** Blocks further local saves for this page lifetime (panic wipe / sibling-tab wipe). */
 export function suppressLocalBoards() {
   suppressed = true;
 }
 
-/** Re-enables local saves after a panic wipe finishes (flag must be cleared too). */
 export function allowLocalBoards() {
   suppressed = false;
 }
@@ -57,7 +55,6 @@ function validRecord(value: unknown): value is LocalBoardRecord {
   return v === RECORD_VERSION && typeof sealed === 'string' && sealed.length > 0 && typeof at === 'number' && Number.isFinite(at);
 }
 
-/** Loads the sealed Yjs snapshot for this access channel, if this browser still has one. */
 export async function loadLocalBoard(channelId: string): Promise<LocalBoardRecord | null> {
   if (!channelId || typeof indexedDB === 'undefined') return null;
   try {
@@ -73,7 +70,6 @@ export async function loadLocalBoard(channelId: string): Promise<LocalBoardRecor
   }
 }
 
-/** Overwrites the sealed snapshot for this channel. */
 export async function saveLocalBoard(channelId: string, sealed: string): Promise<void> {
   if (panicActive()) suppressed = true;
   if (suppressed || !channelId || !sealed || typeof indexedDB === 'undefined') return;
@@ -108,7 +104,6 @@ export async function clearLocalBoard(channelId: string): Promise<void> {
   });
 }
 
-/** Drops every sealed board snapshot kept on this device (panic wipe). */
 export async function forgetLocalBoards(): Promise<void> {
   suppressed = true;
   await enqueue(async () => {

@@ -50,7 +50,6 @@ if (!headers.includes(PLACEHOLDER)) {
 headers = headers.replace(PLACEHOLDER, sorted.join(' '));
 await writeFile(HEADERS_PATH, headers);
 
-// Server-rendered pages share the layout, so the middleware gets the same list instead of nonce-tagging every <script.
 async function walkJs(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = [];

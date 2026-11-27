@@ -115,7 +115,6 @@ test('chat rooms join, relay between connections and store nothing but the room 
   a.peer.message(JSON.stringify({ type: 'message', id: 'm1', payload: PAYLOAD }));
   await until(() => b.socket.sent.some(m => m.type === 'message'));
   assert.equal(b.socket.sent.find(m => m.type === 'message').payload, PAYLOAD);
-  // A client from before the relay stopped storing may still send forget; it is ignored.
   b.peer.message(JSON.stringify({ type: 'forget', target: 'm1', pin: 'x' }));
   assert.equal(rooms.size, 1);
 
@@ -124,7 +123,6 @@ test('chat rooms join, relay between connections and store nothing but the room 
   await until(() => rooms.size === 0);
   assert.ok(db.nextAlarm()! > Date.now());
 
-  // A late joiner gets no history back: the room keeps only its config, never a message.
   const late = await join();
   assert.deepEqual(late.socket.sent.filter(m => m.type === 'message').map((m: any) => m.id), []);
   late.peer.closed();

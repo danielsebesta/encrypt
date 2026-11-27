@@ -4,14 +4,10 @@
   export let title = '';
   export let detail = '';
   export let compact = false;
-  /** 0–1 when known; omit for indeterminate busy state. */
   export let ratio: number | null = null;
-  /** Secondary line: bytes, speed, ETA, online/offline. */
   export let transferLine = '';
   export let state: 'loading' | 'success' | 'error' = 'loading';
-  /** Set false when another element shows the progress: no ring, no spinner. */
   export let orb = true;
-  /** Set false to keep the progress value for screen readers only. */
   export let bar = true;
 
   let phaseKey = '';

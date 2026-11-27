@@ -9,7 +9,6 @@ import { ENCRYPT_PALETTES, type Palette } from './identiconPalettes';
 
 export { ENCRYPT_PALETTES, type Palette };
 
-/** Fast, dependency-free synchronous UTF-8 encoder */
 function utf8ToBytes(str: string): string {
   let res = '';
   for (let i = 0; i < str.length; i++) {
@@ -28,7 +27,6 @@ function utf8ToBytes(str: string): string {
   return res;
 }
 
-/** Synchronous, pure JS SHA-256 implementation producing 32 pseudo-random bytes */
 export function sha256Sync(input: string): Uint8Array {
   const ascii = utf8ToBytes(input);
   function rightRotate(value: number, amount: number) {
@@ -118,10 +116,6 @@ export function normalizeSeed(seed: IdenticonSeed): string {
 
 type Draw = (c: string) => string;
 
-/**
- * Side / corner tiles in a unit square. Drawn like Forgejo/Gitea blocks so 90° rotation
- * and left-right mirroring stay readable inside a circular crop.
- */
 export const SHAPES: readonly { name: string; draw: Draw }[] = [
   { name: 'tri-br', draw: (c) => `<path d="M0 1H1V0Z" fill="${c}"/>` },
   { name: 'tri-bl', draw: (c) => `<path d="M0 0V1H1Z" fill="${c}"/>` },
@@ -139,7 +133,6 @@ export const SHAPES: readonly { name: string; draw: Draw }[] = [
   { name: 'dot-row', draw: (c) => `<circle cx=".25" cy=".5" r=".18" fill="${c}"/><circle cx=".75" cy=".5" r=".18" fill="${c}"/>` },
 ];
 
-/** Center tiles: denser motifs that sit fully inside the circular crop. */
 export const CENTER_SHAPES: readonly { name: string; draw: Draw }[] = [
   { name: 'disk', draw: (c) => `<circle cx=".5" cy=".5" r=".42" fill="${c}"/>` },
   { name: 'ring', draw: (c) => `<circle cx=".5" cy=".5" r=".34" fill="none" stroke="${c}" stroke-width=".22"/>` },
@@ -191,7 +184,6 @@ function firstReadable(options: string[], against: string, min: number): string 
   return best;
 }
 
-/** Forgejo-style: one calm field + one strong ink, optionally a second ink for the center. */
 function pickColors(pal: Palette, b: Uint8Array): { bg: string; fg: string; accent: string } {
   const ranked = [...pal.colors].sort((a, c) => luminance(a) - luminance(c));
   const darkField = b[0] % 2 === 0;
@@ -208,11 +200,9 @@ function pickColors(pal: Palette, b: Uint8Array): { bg: string; fg: string; acce
 }
 
 const SIZE = 100;
-/** Keep tiles inside the inscribed circle so CSS `rounded-full` does not clip the motif away. */
 const PAD = 10;
 const GRID = SIZE - PAD * 2;
 const CELL = GRID / 3;
-/** Gap between tiles so the grid reads cleanly at 24–48px. */
 const TILE = CELL * 0.86;
 
 function placeTile(col: number, row: number, markup: string, angle: number, mirrorX = false): string {
@@ -223,10 +213,6 @@ function placeTile(col: number, row: number, markup: string, angle: number, mirr
   return `<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${angle * 90}) scale(${sx} ${sy}) translate(-0.5 -0.5)">${markup}</g>`;
 }
 
-/**
- * Forgejo/Gitea layout: 3×3 with a center motif, rotating side tiles, then a left-right mirror
- * so the face stays balanced after circular crop (no mid-cross seam from a 2×2 grid).
- */
 function renderGrid(b: Uint8Array, fg: string, accent: string): string {
   const sideA = SHAPES[b[3] % SHAPE_COUNT].draw(fg);
   const sideB = SHAPES[b[4] % SHAPE_COUNT].draw(fg);
@@ -239,7 +225,6 @@ function renderGrid(b: Uint8Array, fg: string, accent: string): string {
   const a2 = next(a1);
   const b2 = next(b1);
 
-  // Left + center columns, then mirror the left column (Forgejo left-right symmetry).
   return [
     placeTile(0, 0, sideA, a0),
     placeTile(1, 0, sideB, b0),
@@ -253,7 +238,6 @@ function renderGrid(b: Uint8Array, fg: string, accent: string): string {
   ].join('');
 }
 
-/** Circle-safe SVG: padded 3×3 motif on a solid field, ready for `rounded-full` CSS. */
 export function identiconSvg(seed: IdenticonSeed, size?: number): string {
   const bytes = sha256Sync(normalizeSeed(seed));
   const pal = ENCRYPT_PALETTES[((bytes[22] << 8) | bytes[23]) % ENCRYPT_PALETTES.length];
@@ -268,6 +252,5 @@ export function identiconDataUri(seed: IdenticonSeed): string {
 }
 
 export function identiconBackground(seed: IdenticonSeed): string {
-  // SVG is already circle-safe (padded 3×3). Fill the square element; CSS rounds the crop.
   return `url("${identiconDataUri(seed)}") center / 100% 100% no-repeat`;
 }

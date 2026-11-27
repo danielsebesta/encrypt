@@ -65,7 +65,6 @@ self.addEventListener('notificationclick', event => {
   }));
 });
 
-// What the device share sheet hands over stays on the device until the share form takes it out of the inbox.
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
@@ -76,9 +75,6 @@ self.addEventListener('fetch', event => {
   }
   if (request.method !== 'GET' || request.cache === 'no-store' || request.headers.has('range')) return;
   if (request.mode === 'navigate') {
-    // Online: only /app is network-first with shell cache. Offline: any
-    // same-origin navigation falls back to the cached start_url so audits
-    // that hit `/` still get a 200 and the installable app opens.
     if (url.pathname === '/app' || url.pathname === '/app/') {
       event.respondWith(appShell(request));
     } else {

@@ -11,7 +11,6 @@ function scriptTransformCtor(): ScriptTransformCtor | null {
   return typeof ctor === 'function' ? ctor : null;
 }
 
-/** RTCRtpScriptTransform (Safari, Firefox, current Chrome) first, then Chrome's older encoded insertable streams. */
 export function frameTransformMode(): FrameTransformMode | null {
   if (typeof Worker === 'undefined' || typeof RTCRtpSender === 'undefined' || typeof RTCRtpReceiver === 'undefined') return null;
   if (!globalThis.crypto?.subtle) return null;
@@ -36,7 +35,6 @@ export class CallFrameEncryption {
     this.worker.onerror = () => handlers.onError();
   }
 
-  /** The legacy Chrome path has to be switched on per connection; RTCRtpScriptTransform needs nothing. */
   peerConfig(): RTCConfiguration {
     return this.mode === 'streams' ? ({ encodedInsertableStreams: true } as RTCConfiguration) : {};
   }
@@ -66,7 +64,6 @@ export class CallFrameEncryption {
     return this.attach(receiver, { mode: 'decrypt', kind: receiver.track.kind === 'video' ? 'video' : 'audio', peerId });
   }
 
-  /** Puts the transforms on every sender and receiver of a connection and limits video to VP8 and VP9. */
   secure(pc: RTCPeerConnection, peerId: string) {
     for (const transceiver of pc.getTransceivers()) {
       if ((transceiver as RTCRtpTransceiver & { stopped?: boolean }).stopped || transceiver.currentDirection === 'stopped') continue;

@@ -143,7 +143,6 @@ export class RealtimeRooms {
     };
   }
 
-  /** Wires a `ws` socket to a room, with protocol pings so dead peers are noticed. */
   attach(party: string, name: string, ws: WebSocket) {
     const peer = this.connect(party, name, {
       send: data => ws.send(data),
@@ -169,7 +168,6 @@ export class RealtimeRooms {
     });
   }
 
-  /** Answers WebSocket upgrades on `server` after the app's cross-site and rate-limit guard. */
   listen(server: Server, toRequest: (req: IncomingMessage) => Request, guard: (request: Request) => Promise<Response | null>) {
     const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD_BYTES });
     server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {

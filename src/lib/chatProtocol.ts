@@ -19,7 +19,6 @@ export function isContent(value: any): boolean {
   return CONTENT_TYPES.has(value?.type);
 }
 
-/** In rooms with forward secrecy, content that arrives over the relay counts only when it came out of its sender's chain. */
 export function relayedContentOk(value: any, forwardSecrecy: boolean, fromChain: boolean): boolean {
   return !forwardSecrecy || fromChain || !isContent(value);
 }

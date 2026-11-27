@@ -1,6 +1,3 @@
-// Maps every semantic icon name to a Tabler base name (no "-filled" suffix).
-// scripts/build-icons.mjs prefers "<name>-filled" and falls back to the outline
-// name. OUTLINE forces the outline glyph even when a filled variant exists.
 export const ICONS = {
   'arrow-down': 'arrow-big-down',
   'arrow-right': 'arrow-big-right',
@@ -179,8 +176,6 @@ export const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-// Outline even when Tabler ships a filled variant. The build prints these
-// with every other outline fallback.
 export const OUTLINE: Partial<Record<IconName, string>> = {
   circle:
     'Unmet password rules and the ellipse tool use an empty ring. circle-filled would read as selected.',

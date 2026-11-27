@@ -99,9 +99,7 @@ function stripFromHtml(publicPath, buffer, pattern) {
 }
 
 const withoutCloudflare = (publicPath, buffer) => stripFromHtml(publicPath, buffer, CLOUDFLARE_INJECTION);
-// The footer shows the GitHub star count fetched while building, so builds made at different times differ in that one badge.
 const withoutStars = (publicPath, buffer) => stripFromHtml(publicPath, buffer, STAR_BADGE);
-// Astro derives each island's id from the absolute path of its component, so the same commit built in another directory gets other ids.
 const withoutUids = (publicPath, buffer) => stripFromHtml(publicPath, buffer, ISLAND_UID);
 const NORMALIZERS = { stars: withoutStars, uids: withoutUids };
 
@@ -426,7 +424,6 @@ async function main() {
       const cleanFrom = from.replace(LOCALE_PREFIX, '') || '/';
       const redirected = response.status === status && target && target.origin === wanted.origin && target.pathname + target.search === wanted.pathname + wanted.search;
       const toCleanPath = LOCALE_PREFIX.test(from) && response.status === 301 && target && target.origin === origin && target.pathname === cleanFrom;
-      // Paths the Worker answers first never reach _redirects; a page that is listed in the manifest and served there is as intended.
       const servedPage = response.status === 200 && (from in (liveManifest.routes ?? {}) || `${from}/` in (liveManifest.routes ?? {}));
       if (!redirected && !toCleanPath && !servedPage) {
         problem('redirect rule', `${from} -> ${to}`, [`served ${response.status}${location ? ` to ${location}` : ''}, expected ${status}`]);

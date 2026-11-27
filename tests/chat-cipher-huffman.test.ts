@@ -23,7 +23,7 @@ test('huffman round-trips every language, rare bytes, emoji and long text', () =
   for (const [lang, text] of samples) {
     const data = new TextEncoder().encode(text);
     const packed = huffmanPack(data, lang);
-    if (!packed) continue; // not every sample is worth a static model; packContent picks the best codec anyway
+    if (!packed) continue;
     const back = huffmanUnpack(packed, lang);
     assert.equal(new TextDecoder().decode(back), text, `${lang}: ${text.slice(0, 24)}`);
   }
@@ -44,7 +44,6 @@ test('huffman refuses empty, oversized and malformed payloads', () => {
   assert.equal(huffmanPack(new Uint8Array(0), 'en'), null);
   assert.equal(huffmanPack(new Uint8Array(70000), 'en'), null);
   assert.throws(() => huffmanUnpack(new Uint8Array(0), 'en'), /decompress/);
-  // Truncated after a 0 bit: incomplete code that is not the 1-bit pad.
   assert.throws(() => huffmanUnpack(new Uint8Array([0x40]), 'en'), /decompress/);
   const packed = huffmanPack(new TextEncoder().encode('hello world, plans changed'), 'en')!;
   const genuine = huffmanUnpack(packed, 'en');
@@ -53,7 +52,7 @@ test('huffman refuses empty, oversized and malformed payloads', () => {
 });
 
 test('content picks the smallest packing: raw, deflate or static huffman', async () => {
-  assert.equal((await packContent('', 'en'))[0], 0); // raw: nothing to beat
+  assert.equal((await packContent('', 'en'))[0], 0);
   const short = await packContent('meet me at the old station at nine, come alone', 'en');
   assert.equal(short[0], 2 + COVER_LANGS.indexOf('en'), `expected en huffman, got ${short[0]}`);
   assert.ok(short.length < new TextEncoder().encode('meet me at the old station at nine, come alone').length);
@@ -76,9 +75,7 @@ test('sealed content names its own language model, whatever cover carries it', a
     const content = await packContent(czech, packLang);
     const flag = content[0];
     if (flag >= 2) assert.equal(flag, 2 + COVER_LANGS.indexOf(packLang), `${packLang}: expected its own model id`);
-    // the receiver knows neither the pack language nor the cover language, and still gets the exact text
     assert.equal(await unpackContent(content), czech);
-    // a receiver that guesses the wrong cover language fares exactly the same: the model id is inside
     assert.equal(await unpackContent(await packContent('meet me at the old station', packLang)), 'meet me at the old station');
   }
   await assert.rejects(() => unpackContent(new Uint8Array([2 + COVER_LANGS.length, 0])), /Unsupported/);

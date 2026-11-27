@@ -4,7 +4,6 @@ const STORAGE_KEY = 'encrypt-app-lock';
 const VAULT_MARK = 'vault';
 const ID_RE = /^[A-Za-z0-9_-]{16,1024}$/;
 
-/** Default how long the app may stay in the background before it asks again. */
 export const LOCK_AFTER_MS = 30_000;
 
 export function shouldLock(hiddenAt: number, now: number, afterMs = LOCK_AFTER_MS): boolean {
@@ -25,7 +24,6 @@ export function fromBase64Url(value: string): Uint8Array {
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
-/** 'vault' = the room-vault passkey is the lock; otherwise a standalone passkey id; null = off. */
 export function storedLock(): string | null {
   try {
     const value = localStorage.getItem(STORAGE_KEY);
@@ -48,12 +46,6 @@ export type EnableResult = { ok: true } | { ok: false; detail: string };
 
 const describe = (error: unknown) => (error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 120) : 'unknown');
 
-/**
- * Turns the lock on. When the browser supports the passkey PRF extension, the room vault's passkey is the lock, so one
- * biometric check opens the app and unseals saved room secrets. Otherwise a standalone passkey acts as a screen lock only.
- * Pass the vault state read earlier: the passkey prompt must start right inside the tap, and iOS drops that permission
- * if storage is read first.
- */
 export async function enableLock(displayName: string, known: VaultState | null = null): Promise<EnableResult> {
   let detail = '';
   try {
@@ -138,7 +130,6 @@ export async function unlock(options: UnlockOptions = {}): Promise<boolean> {
   }
 }
 
-/** Always asks the device again, even when the vault key is already in memory. Used before the lock is turned off. */
 export async function confirmPresence(options: UnlockOptions = {}): Promise<boolean> {
   if (storedLock() !== VAULT_MARK) return unlock(options);
   try {
@@ -157,7 +148,6 @@ export async function confirmPresence(options: UnlockOptions = {}): Promise<bool
   }
 }
 
-/** Clear the in-memory vault key when the lock screen is shown so Unlock always re-prompts. */
 export function prepareLockScreen(): void {
   if (storedLock() === VAULT_MARK) lockVaultSession();
 }

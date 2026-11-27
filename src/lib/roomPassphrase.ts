@@ -4,7 +4,6 @@ const WORDS = 'able,acid,aged,area,army,away,baby,back,ball,band,bank,base,bath,
 
 const PASSPHRASE_WORDS = 8;
 
-/** Eight capitalized words joined by dashes with a two-digit number woven into a random slot. */
 export function genRoomPassphrase(): string {
   const words: string[] = [];
   for (let i = 0; i < PASSPHRASE_WORDS; i++) {

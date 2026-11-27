@@ -1,6 +1,3 @@
-// Proof-of-work challenges in the ALTCHA format: the browser finds the number that, appended to the salt, hashes to
-// the challenge. Nothing leaves our servers, and every extra challenge a visitor needs within an hour doubles the work.
-
 export interface PowChallenge {
   algorithm: 'SHA-256';
   challenge: string;
@@ -60,7 +57,6 @@ export function parseSolution(value: unknown): PowSolution | null {
   return s as unknown as PowSolution;
 }
 
-/** Returns the challenge expiry when the solution is genuine and unexpired; the caller still has to refuse reuse. */
 export async function verifySolution(secret: string, solution: PowSolution, now = Date.now()): Promise<number | null> {
   const expires = Number(solution.salt.split('?expires=')[1]) * 1000;
   if (!(expires > now) || expires > now + POW_TTL_MS + 60_000) return null;

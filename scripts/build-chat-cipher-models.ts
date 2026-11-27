@@ -1,12 +1,3 @@
-/**
- * Builds the per-language byte-frequency models for the chat cipher's static Huffman compression
- * (src/lib/chatCipher/textModel.ts). Run with: pnpm exec tsx scripts/build-chat-cipher-models.ts
- *
- * Sources: cleaned chat bursts in data/chat-cipher-<lang>/clean/all.clean.jsonl (en, de, es, fr, sk, pl).
- * Czech has no cleaned corpus in the repo, so its model comes from the cs word table: the unigram words
- * weighted by their shares, joined by spaces. Every byte keeps a weight of at least 1, so the coder can
- * always encode any payload, even text that does not fit the language.
- */
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';

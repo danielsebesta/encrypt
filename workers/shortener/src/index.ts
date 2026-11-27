@@ -1,6 +1,3 @@
-// Short links for encrypt.click receive links. Only encrypt.click's /api/shorten creates them, with SHORTENER_TOKEN;
-// each one expires with the share it points to, and opening one is rate limited so the slugs cannot be walked.
-
 export type ShortenerEnv = {
   URLS: Pick<KVNamespace, 'get' | 'put'>;
   LOOKUPS?: Pick<RateLimit, 'limit'>;
@@ -57,7 +54,6 @@ async function tokenMatches(header: string | null, token: string): Promise<boole
   return diff === 0;
 }
 
-/** Only receive links on the target origin: `/u?p=<fragment>` and nothing else. */
 export function isReceiveLink(value: string, targetOrigin: string): boolean {
   let url: URL;
   try {

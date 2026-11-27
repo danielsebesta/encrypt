@@ -57,9 +57,7 @@
           });
           if (qrFor === text) qrSvg = svg;
           return;
-        } catch {
-          /* too long for this level */
-        }
+        } catch {}
       }
     } catch {
       qrSvg = '';

@@ -8,19 +8,12 @@
   export let mode: 'link' | 'ghost' | 'local' = 'link';
   export let retention: Retention;
   export let burn = false;
-  /** Put the password in the link, so the receiver needs nothing else. */
   export let keyInLink = false;
-  /** Small enough to travel inside the link unless it has to burn after reading. */
   export let short = false;
-  /** The server has no room for uploads, so nothing can be stored to burn. */
   export let burnUnavailable = false;
-  /** Timelock + reminder copy: treat unlock as a dead-man's release window. */
   export let deadMan = false;
-  /** datetime-local value, empty for no time lock. */
   export let unlockAt = '';
-  /** Retention the upload will really get once the unlock time is taken into account; null when none is long enough. */
   export let effectiveRetention: Retention | null = retention;
-  /** Error from the last submit attempt about the unlock time. */
   export let unlockError = '';
 
   $: if (!unlockAt) deadMan = false;

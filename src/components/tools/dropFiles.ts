@@ -1,4 +1,3 @@
-/** Makes a `.dropzone` accept dropped files by handing them to its file input, so the input's own change handler runs. */
 export function dropFiles(node: HTMLElement) {
   const input = () => node.querySelector<HTMLInputElement>('input[type=file]');
   const over = (e: DragEvent) => {

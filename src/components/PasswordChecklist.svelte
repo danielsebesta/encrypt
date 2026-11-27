@@ -2,7 +2,6 @@
   export interface PasswordRule {
     ok: boolean;
     label: string;
-    /** Shown as advice only: the form submits without it, so it never turns danger. */
     recommended?: boolean;
   }
 </script>
@@ -16,7 +15,6 @@
     label: string;
     rules: PasswordRule[];
     dict: Record<string, string>;
-    /** A submit was refused: required rules that are still unmet turn danger. */
     invalid?: boolean;
   }
 

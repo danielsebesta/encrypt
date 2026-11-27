@@ -1,5 +1,3 @@
-/** App-level preferences persisted in localStorage (device-local only). */
-
 export type HapticsMode = 'off' | 'essential' | 'all';
 export type DefaultRoomMode = 'live' | 'ttl';
 export type LockTimeoutMs = 0 | 30_000 | 60_000 | 300_000;
@@ -62,7 +60,6 @@ export function saveKeepAwake(on: boolean) {
   write(LS_KEEP_AWAKE, on ? '1' : '0');
 }
 
-/** null until the person has been asked once. */
 export function loadRememberPasswords(): boolean | null {
   const value = read(LS_REMEMBER_PASSWORDS);
   return value === '1' ? true : value === '0' ? false : null;
@@ -99,7 +96,6 @@ export function applyReduceMotion(on: boolean) {
   document.documentElement.dataset.appReduceMotion = on ? '1' : '0';
 }
 
-/** Stored choice, or null to follow the system setting. */
 export function loadReduceTransparency(): boolean | null {
   const stored = read(LS_REDUCE_TRANSPARENCY);
   return stored === '1' ? true : stored === '0' ? false : null;
@@ -133,7 +129,6 @@ export function prefersReducedMotion(): boolean {
   }
 }
 
-/** Clears SW caches and unregisters workers — does not touch vault / room secrets. */
 export async function clearAppCaches(): Promise<boolean> {
   try {
     const reg = await navigator.serviceWorker?.getRegistration();

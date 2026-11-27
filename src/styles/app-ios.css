@@ -1,8 +1,3 @@
-/* ============================================================
-   iOS 26 Liquid Glass. Glass sits on the control layer only:
-   nav bar controls, tab bar, menus, alerts, partial sheets.
-   Content (rows, bubbles, cards) stays opaque.
-   ============================================================ */
 :root[data-app-platform="ios"] {
     --radius-xl: 0.75rem;
     --radius-2xl: 1rem;
@@ -100,7 +95,6 @@
         --app-glass-rim: 0 0 0 1px var(--app-outline);
     }
 }
-/* In-content controls are fills, never glass. */
 :root[data-app-platform="ios"] :is(.k-searchbar .k-glass, .k-segmented, .k-segmented .k-glass) {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -123,8 +117,6 @@
     }
 }
 
-/* Scroll edge effect instead of bar hairlines: a fade into the page
-   background where content passes under the bars, solid behind titles. */
 :root[data-app-platform="ios"] .k-navbar > div:nth-child(1) {
     -webkit-backdrop-filter: var(--app-edge-blur);
     backdrop-filter: var(--app-edge-blur);
@@ -143,7 +135,6 @@
     background-image: linear-gradient(to top, var(--app-edge) 0, var(--app-edge-soft) 45%, transparent 100%);
 }
 
-/* Bar controls: circular (single) or capsule (grouped) glass, monochrome glyphs. */
 :root[data-app-platform="ios"] .k-navbar .k-glass {
     min-width: 44px;
     height: 44px;
@@ -210,7 +201,6 @@
         transform: none;
     }
 }
-/* Hub skeleton: one inset group like the real room list. */
 :root[data-app-platform="ios"] .app-skel-hub__bar {
     min-height: 2.75rem;
     padding-inline: 1rem;
@@ -244,7 +234,6 @@
     padding-inline: 2px;
 }
 
-/* Chat thread scrolls under the room bar, as in Messages. */
 :root[data-app-platform="ios"] {
     --app-room-bar-h: calc(max(6px, var(--k-safe-area-top, 0px)) + 2.75rem);
 }
@@ -267,7 +256,6 @@
     border-radius: 9999px;
 }
 
-/* Menus open without an arrow and grow from their source. */
 :root[data-app-platform="ios"] .k-popover > div.pointer-events-none {
     display: none;
 }
@@ -275,13 +263,9 @@
     margin-inline: 6px;
 }
 
-/* Tab bar: Konsta's floating glass capsule. The selected tab sits on a light
-   fill with an on-tint-container glyph, which keeps AA over any content behind. */
 :root[data-app-platform="ios"] .app-main-tabbar .k-toolbar-pane > span.absolute > span:first-child {
     background: var(--app-glass-control);
 }
-/* Labels get the whole slot so long translations fit; a slot that is still too
-   narrow ellipsizes instead of running into its neighbour. */
 :root[data-app-platform="ios"] .app-main-tabbar {
     padding-left: max(10px, env(safe-area-inset-left));
     padding-right: max(10px, env(safe-area-inset-right));
@@ -320,7 +304,6 @@
     padding-bottom: calc(8.25rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Store captures keep the floating capsule and the scroll edge layers. */
 :root[data-app-platform="ios"][data-app-shots="1"] .k-navbar > :is(div:nth-child(1), div:nth-child(2)) {
     display: block !important;
 }
@@ -332,7 +315,6 @@
     padding-bottom: 8.25rem !important;
 }
 
-/* iOS 26: tab presses contract with a spring settle (Material uses ink ripple instead) */
 :root[data-app-platform="ios"] .k-toolbar .k-link {
     transition: transform 180ms var(--ease-move);
 }
@@ -349,10 +331,6 @@
 :root[data-app-platform="ios"] .attach-badge--board { background: var(--app-tint-strong); }
 :root[data-app-platform="ios"] .attach-badge--once { background: var(--app-warn); }
 :root[data-app-platform="ios"] .attach-badge--schedule { background: var(--app-fill); color: var(--app-label); }
-
-/* ============================================================
-   iOS skin — Cupertino look for embedded site components
-   ============================================================ */
 
 :root[data-app-platform="ios"] {
     .btn {
@@ -408,7 +386,6 @@
         min-height: 44px;
     }
 
-    /* Fields: filled gray, no border, 10px radius */
     .input {
         background: var(--app-fill);
         border: none;
@@ -444,7 +421,6 @@
         font-size: 15px;
     }
 
-    /* Grouped cards */
     .panel,
     .card {
         background: var(--app-surface);
@@ -453,7 +429,6 @@
         box-shadow: none;
     }
 
-    /* Dropzone */
     .dropzone {
         background: var(--app-fill);
         border: 1.5px dashed var(--app-outline);
@@ -469,7 +444,6 @@
         border-style: solid;
     }
 
-    /* Status banners */
     .status {
         border: none;
         border-radius: 12px;
@@ -516,7 +490,6 @@
             color: var(--app-label);
         }
     }
-    /* Chat chrome — solid bar. Menus paint above it. */
     .chat-header {
         background: transparent;
         border-bottom: none;
@@ -542,15 +515,12 @@
     }
     .chat-messages {
         scrollbar-width: none;
-        /* Extra top gap so the first messages clear the header's bottom edge
-           and its fade instead of sitting right under it. */
         padding: 1.4rem 0.75rem 0.75rem;
     }
     .chat-messages::-webkit-scrollbar {
         display: none;
     }
 
-    /* Konsta Message bubbles (iMessage-style) */
     .chat-messages {
         gap: 0;
     }
@@ -576,7 +546,6 @@
     .chat-kmsg {
         max-width: 85%;
     }
-    /* Tablets / foldables: cap bubbles so they never stretch into screen-wide bars. */
     @media (min-width: 768px) {
         .chat-kmsg {
             max-width: min(65%, 34rem);
@@ -589,7 +558,6 @@
     .chat-kmsg--mine > .flex-col > .break-words {
         border-radius: 18px 18px 6px 18px;
     }
-    /* actions float beside the bubble, hover/long-press reveals */
     .chat-kmsg-actions {
         position: absolute;
         top: 50%;
@@ -814,7 +782,6 @@
         border-top-color: var(--app-tint);
     }
 
-    /* Whiteboard chrome — solid bar, same stacking reason as .chat-header */
     .wb-pill {
         background: transparent;
         border: none;
@@ -863,7 +830,6 @@
         border-radius: 1.5rem !important;
     }
 
-    /* Checkboxes — iOS circular check */
     input[type="checkbox"] {
         border-radius: 6px;
         border-color: var(--app-label-3);
@@ -887,7 +853,6 @@
         box-shadow: none;
     }
 
-    /* Range — iOS slider */
     input[type="range"]::-webkit-slider-runnable-track {
         background: var(--app-fill-2);
     }
@@ -900,15 +865,10 @@
         margin-top: -9px;
     }
 
-    /* Empty state art */
     .empty__title {
         color: var(--app-label);
     }
 }
-
-/* ============================================================
-   Konsta tuning — finishing touches per platform
-   ============================================================ */
 
 :root[data-app-platform="ios"] .app-composer__field {
     flex: 1;
@@ -1126,8 +1086,6 @@
 }
 :root[data-app-platform="ios"] .chat-kmsg--mine .msg-quote__name { color: var(--app-on-bubble-mine) !important; }
 
-/* iOS alerts follow the app tint, as UIAlertController follows the window tintColor.
-   Konsta resolves --color-primary once on :root, so the --color-* tokens are overridden at this scope. */
 :root[data-app-platform="ios"] .k-dialog,
 :root[data-app-platform="ios"] .k-actions {
     --color-primary: var(--app-tint);
@@ -1166,8 +1124,6 @@
 :root[data-app-platform="ios"] .app-slide {
     border-color: transparent;
 }
-/* Destructive actions on glass: a filled red capsule in alerts, the deeper
-   on-error-weak red in menus, so both stay AA over whatever is behind. */
 :root[data-app-platform="ios"] .k-dialog .app-dialog-destructive {
     --color-primary: var(--app-error);
     --color-brand-primary: var(--app-error);
@@ -1204,7 +1160,6 @@
 }
 
 
-/* Konsta's menu/list glare is a 50% (light) / 30% (dark) white spotlight under the pointer. */
 :root[data-app-platform="ios"] {
     --color-ios-hover-highlight: color-mix(in srgb, var(--app-label) 12%, transparent);
 }
@@ -1289,7 +1244,6 @@
     border-radius: 0.625rem;
 }
 
-/* In-content search field and filter: 44pt capsules on a fill, as in Messages / Settings. */
 :root[data-app-platform="ios"] .app-content .k-searchbar .k-glass {
     background: var(--app-fill);
     box-shadow: none;
@@ -1330,22 +1284,17 @@
     font-size: 13px;
 }
 
-/* Grouped cells inside iOS dark sheets step up one surface or they vanish into the sheet. */
 :root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list ul,
 :root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list > div,
 :root[data-app-platform="ios"][data-app-scheme="dark"] .k-sheet .k-list {
     --color-ios-dark-surface-1: var(--app-surface-2);
 }
 
-/* iOS: the full-height form detent has no grabber (Calendar / Reminders);
-   pull-to-dismiss still works from the body. Partial sheets keep it. */
 :root[data-app-platform="ios"] .app-sheet--tall > .app-sheet__handle {
     height: 0;
     margin: 6px auto 0;
     visibility: hidden;
 }
-/* Partial sheets float inset as glass; at the full-height detent a form sheet
-   is opaque and edge-anchored. */
 :root[data-app-platform="ios"] .k-sheet.app-sheet {
     border-radius: 2rem 2rem 0 0;
     transition-timing-function: var(--ease-move);
@@ -1397,8 +1346,6 @@
     box-shadow: none;
 }
 
-/* Row context menu (long-press / right-click on a saved room). iOS dims the
-   row behind the menu. Material menus float without a scrim. */
 :root[data-app-platform="ios"] div:has(+ .k-popover.app-row-menu) {
     background: var(--app-scrim);
 }

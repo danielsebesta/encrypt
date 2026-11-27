@@ -1,5 +1,3 @@
-/** Byte / speed / ETA helpers for upload and download progress UI. */
-
 export type TransferSnapshot = {
   loaded: number;
   total: number;
@@ -44,7 +42,6 @@ export function transferRatio(snap: TransferSnapshot | null | undefined): number
   return Math.min(1, Math.max(0, snap.loaded / snap.total));
 }
 
-/** Builds the secondary status line from locale templates. */
 export function formatTransferLine(
   dict: Record<string, string>,
   t: (dict: Record<string, string>, key: string) => string,
@@ -67,10 +64,6 @@ export function formatTransferLine(
     .replace('{online}', online);
 }
 
-/**
- * Rolling throughput over recent samples. Call `report` from XHR / stream progress;
- * `online` tracks `navigator.onLine` when available.
- */
 export class TransferMeter {
   private samples: { at: number; loaded: number }[] = [];
   private online = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
@@ -100,7 +93,6 @@ export class TransferMeter {
     const at = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const safeLoaded = Math.max(0, loaded);
     this.samples.push({ at, loaded: safeLoaded });
-    // Keep roughly the last two seconds of samples for a stable speed reading.
     const cutoff = at - 2000;
     while (this.samples.length > 2 && this.samples[0].at < cutoff) this.samples.shift();
     let speed = 0;
@@ -119,7 +111,6 @@ export class TransferMeter {
   }
 }
 
-/** Runs up to `concurrency` async tasks from a work queue. */
 export async function mapPool<T>(
   count: number,
   concurrency: number,

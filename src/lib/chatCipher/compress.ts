@@ -1,16 +1,10 @@
-/**
- * Content of a compact chat-cipher envelope: one flag byte and the message, compressed when that comes out shorter.
- * The flag travels inside the encrypted body, so the compression never leaks anything about the message, and it names
- * the exact language model used, so unpacking never depends on the language of the cover or of the receiving client.
- */
-
 import { huffmanPack, huffmanUnpack } from './huffman';
 import { COVER_LANGS } from './coverTable';
 import type { CoverLang } from './coverTable';
 
 const RAW = 0;
 const DEFLATE = 1;
-const HUFFMAN = 2; // huffman flags are HUFFMAN + COVER_LANGS.indexOf(lang), so the model id travels inside the sealed body
+const HUFFMAN = 2;
 
 async function deflateRaw(data: Uint8Array): Promise<Uint8Array | null> {
   if (typeof CompressionStream === 'undefined') return null;

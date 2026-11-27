@@ -3,9 +3,6 @@
 @source "../../public";
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Fonts: Allo (UI, headings) and Commit Mono (keys, hashes, links). Self-hosted, SIL OFL 1.1, see /licenses.
-   Allo is pinned to roundness 50 and text optical size 14, keeping only the wght axis 400-700. */
-
 @font-face {
     font-display: swap;
     font-family: 'Allo';
@@ -77,8 +74,6 @@
     src: url('/fonts/commit-mono-latin-ext-700.woff2') format('woff2');
     unicode-range: U+0100-0130, U+0132-0151, U+0154-017F, U+0218-021B, U+1E9E, U+20A0-20AB, U+20AD-20C0;
 }
-
-/* ── Tokens ─────────────────────────────────────────────── */
 
 :root {
     color-scheme: only light;
@@ -193,8 +188,6 @@ html.dark {
     --color-on-danger: var(--on-danger);
 }
 
-/* ── Base ───────────────────────────────────────────────── */
-
 @layer base {
     html {
         @apply font-sans antialiased;
@@ -263,8 +256,6 @@ html.dark {
 }
 
 @layer components {
-    /* ── Buttons ── */
-
     .btn,
     .btn-secondary,
     .btn-ghost,
@@ -431,8 +422,6 @@ html.dark {
             border-right-color: transparent;
         }
     }
-
-    /* ── Fields ── */
 
     .field {
         @apply grid grid-cols-1 content-start gap-1.5;
@@ -766,8 +755,6 @@ html.dark {
         scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
     }
 
-    /* ── Panels and pages ── */
-
     .panel {
         @apply rounded-lg border border-line bg-surface p-4 md:p-6;
     }
@@ -825,8 +812,6 @@ html.dark {
     .wizard-actions {
         @apply grid grid-cols-[auto_1fr] gap-3;
     }
-
-    /* ── Tabs ── */
 
     .tabs {
         @apply relative flex gap-1 border-b border-line;
@@ -917,8 +902,6 @@ html.dark {
             transition: none;
         }
     }
-
-    /* ── Status ── */
 
     .status {
         @apply flex items-start gap-2.5 rounded-lg bg-surface-2 px-3.5 py-3 text-sm leading-snug text-text;
@@ -1060,8 +1043,6 @@ html.dark {
         }
     }
 
-    /* ── Output ── */
-
     .output {
         @apply block w-full rounded-lg border border-line-soft bg-surface p-4 font-mono text-sm leading-relaxed text-text whitespace-pre-wrap break-all select-text;
     }
@@ -1077,8 +1058,6 @@ html.dark {
     .output-head {
         @apply flex min-h-9 items-center justify-between gap-2;
     }
-
-    /* ── Dropzone ── */
 
     .btn-feedback__layer {
         transition: opacity var(--duration-fast) var(--ease-out);
@@ -1161,8 +1140,6 @@ html.dark {
         @apply max-h-full max-w-full object-contain;
     }
 
-    /* ── Empty state ── */
-
     .empty {
         @apply flex flex-col items-center justify-center gap-2 px-4 py-10 text-center text-sm text-muted;
     }
@@ -1174,8 +1151,6 @@ html.dark {
     .empty__icon {
         @apply text-muted;
     }
-
-    /* ── Badges and chips ── */
 
     .badge {
         @apply inline-flex min-h-5 shrink-0 items-center gap-1 rounded-sm border border-line bg-surface-2 px-1.5 text-xs font-medium leading-4 whitespace-nowrap text-muted;
@@ -1239,8 +1214,6 @@ html.dark {
         }
     }
 
-    /* ── Toast ── */
-
     .toast {
         @apply fixed left-1/2 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-lg px-4 py-3 text-sm leading-snug text-text;
         bottom: calc(1rem + env(safe-area-inset-bottom));
@@ -1263,8 +1236,6 @@ html.dark {
             transform: translateY(0.5rem);
         }
     }
-
-    /* ── Disclosure ── */
 
     .more > summary {
         @apply inline-flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg pr-2 text-sm font-semibold text-muted select-none;
@@ -1297,8 +1268,6 @@ html.dark {
     .more__body {
         @apply mt-3 grid gap-4;
     }
-
-    /* ── About ── */
 
     .about {
         @apply mt-10;
@@ -1340,8 +1309,6 @@ html.dark {
         display: none;
     }
 
-    /* ── Steps ── */
-
     .steps {
         @apply grid list-none gap-2.5 p-0 text-sm leading-snug text-muted;
         counter-reset: step;
@@ -1356,8 +1323,6 @@ html.dark {
         content: counter(step, decimal-leading-zero);
         @apply w-6 shrink-0 font-mono text-xs font-medium text-muted;
     }
-
-    /* ── Passphrase field (text + regenerate) ── */
 
     .passphrase {
         @apply flex items-center gap-1 rounded-md border border-control-line bg-transparent pr-1;
@@ -1398,8 +1363,6 @@ html.dark {
             margin-block: -1px;
         }
     }
-
-    /* ── Site chrome ── */
 
     .skip-link {
         @apply sr-only;
@@ -1697,7 +1660,6 @@ html.dark {
         @apply mt-auto border-t border-line;
     }
 
-    /* Clean product screenshots — no device chrome. */
     .app-shot {
         @apply block overflow-hidden rounded-lg border border-line bg-surface-2 object-cover object-top;
         aspect-ratio: 9 / 19.5;
@@ -1883,8 +1845,6 @@ html.dark {
         @apply inline-flex items-center gap-1 whitespace-nowrap font-mono text-xs text-muted;
     }
 
-    /* ── Home ── */
-
     .home {
         @apply grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-16 md:gap-24;
     }
@@ -2008,7 +1968,6 @@ html.dark {
 
     .home-hero__form {
         @apply min-w-0;
-        /* Reserve the share-form footprint so hydration / tab lazy-loads do not shove the page. */
         min-height: 28rem;
     }
 
@@ -2160,8 +2119,6 @@ html.dark {
     .install-now__qr svg {
         @apply h-full w-full;
     }
-
-    /* ── Modal (src/components/Modal.svelte) ── */
 
     html.modal-open {
         overflow: hidden;
@@ -2363,8 +2320,6 @@ html.dark {
         }
     }
 
-    /* ── Article ── */
-
     .link {
         @apply text-accent-strong underline;
     }
@@ -2451,8 +2406,6 @@ html.dark {
         margin-top: 2rem !important;
     }
 
-    /* ── Choice cards (radio) ── */
-
     .choice-list {
         @apply grid gap-2;
     }
@@ -2481,8 +2434,6 @@ html.dark {
     .choice__hint {
         @apply mt-0.5 block text-sm leading-snug text-muted;
     }
-
-    /* ── Share and decrypt ── */
 
     .ue-qr {
         @apply mx-auto w-full max-w-[220px] rounded-lg border border-line-soft bg-white p-3;
@@ -2570,8 +2521,6 @@ html.dark {
         color: var(--accent-strong);
         font-weight: 600;
     }
-
-    /* ── Chat markdown (output of src/lib/chatMarkdown.ts) ── */
 
     .chat-md {
         min-width: 0;

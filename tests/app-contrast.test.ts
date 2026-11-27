@@ -35,19 +35,16 @@ function luminance(color: Rgba): number {
 function contrast(fgValue: string, bgValue: string, pageValue: string): number {
   const fg = parseColor(fgValue)!;
   const page = parseColor(pageValue)!;
-  // Translucent surfaces are composited over the page background first.
   const bg = composite(parseColor(bgValue)!, page);
   const l1 = luminance(composite(fg, bg));
   const l2 = luminance(bg);
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
 
-// Foreground/background pairs every theme must keep readable.
 const TEXT_PAIRS: [string, string, number][] = [
   ['--app-label', '--app-bg', 4.5],
   ['--app-label', '--app-surface', 4.5],
   ['--app-label-2', '--app-bg', 4.5],
-  // Tertiary label only paints disabled controls and decorative icons — WCAG incidental, floored at 2:1.
   ['--app-label-3', '--app-bg', 2],
   ['--app-on-tint', '--app-tint', 4.5],
   ['--app-on-tint-container', '--app-tint-container', 4.5],

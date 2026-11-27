@@ -27,7 +27,6 @@ export function aliasKey(alias: Alias): string {
   return `${alias.a}-${alias.n}-${alias.h}`;
 }
 
-/** The adjective agrees with the animal's grammatical gender, and each locale sets the word order. */
 export function aliasName(dict: Record<string, string>, alias: Alias): string {
   const animal = t(dict, `chat.alias.animal.${alias.n}`);
   const feminine = dict[`chat.alias.animal.${alias.n}.g`] === 'f';
@@ -47,7 +46,6 @@ export function gradientFor(alias: Alias | undefined, name: string): string {
   return identiconBackground(alias ? `${aliasKey(alias)}:${name}` : name);
 }
 
-/** One alias per room, kept in this browser so a reload keeps the same name and color. */
 export function loadAlias(room: string): Alias {
   const key = `${STORAGE_PREFIX}${room}`;
   try {

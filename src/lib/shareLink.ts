@@ -5,17 +5,11 @@ const MAX_UNIX = 32503680000;
 const MAX_LOCK_BYTES = 4096;
 const MAX_KEY_CHARS = 1024;
 
-/**
- * What a receive link carries in its fragment. `payload` is the base64url password envelope; the rest is readable
- * before the password is entered: when the upload expires (Unix seconds), whether it is deleted after one download,
- * and the drand time lock whose secret is mixed into the payload's key.
- */
 export type ShareLink = {
   payload: string;
   expires?: number;
   burn?: boolean;
   lock?: TimeLock;
-  /** The password itself (base64url of its UTF-8 bytes), when the sender chose to put it in the link. */
   key?: string;
 };
 
@@ -47,11 +41,6 @@ export function decodeShareKey(key: string): string | null {
   }
 }
 
-/**
- * Version 1 is the bare payload. Version 2 is `v=2`, the optional `x` (expiry), `b=1` (one-time download), `r` and
- * `l` (drand round and the tlock ciphertext of the time secret), `k` (the password, for links that carry it), then `p` (payload) last; it is used only when there
- * is something to say besides the payload.
- */
 export function formatShareFragment(link: ShareLink): string {
   if (!B64URL_RE.test(link.payload)) throw new Error('Invalid payload');
   const fields: string[] = [];
@@ -72,7 +61,6 @@ export function formatShareFragment(link: ShareLink): string {
   return ['v=2', ...fields, `p=${link.payload}`].join('&');
 }
 
-/** The link in a fragment (without `#`, already percent-decoded), or null when it is not a share link. */
 export function parseShareFragment(fragment: string): ShareLink | null {
   if (B64URL_RE.test(fragment)) return { payload: fragment };
   if (!fragment.startsWith('v=2&')) return null;
@@ -109,7 +97,6 @@ export function parseShareFragment(fragment: string): ShareLink | null {
   return link;
 }
 
-/** Time capsule links (`c=<capsule>`) that reached the receive page; they belong to the time capsule tool. */
 export function isCapsuleFragment(fragment: string): boolean {
   return /^c=[A-Za-z0-9_-]+$/.test(fragment);
 }

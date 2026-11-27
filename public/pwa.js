@@ -1,7 +1,6 @@
 (function () {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-  // Deferred from boot.js so theme paint is not blocked by SW registration.
   if ('serviceWorker' in navigator) {
     var register = function () {
       navigator.serviceWorker.register('/sw.js').catch(function () {});

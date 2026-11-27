@@ -26,7 +26,6 @@ export abstract class RoomServer extends Server<RealtimeEnv> {
     };
   }
 
-  // Client keepalives are answered by the runtime without waking a hibernating room.
   onStart(): Promise<void> | void {
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"type":"ping"}', '{"type":"pong"}'));
     return this.room.onStart?.();

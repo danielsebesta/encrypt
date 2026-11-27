@@ -1,7 +1,6 @@
 import { siteOrigin } from './siteBrand';
 import { tools } from './tools';
 
-/** Indexable public paths without locale prefix (leading slash, no trailing slash except home). */
 export const SITEMAP_PATHS = [
   '/',
   '/share',
@@ -28,7 +27,6 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
-/** Sitemap of the public pages. Language is a visitor setting, not part of the URL, so there is one entry per page. */
 export function buildSitemapXml(origin = siteOrigin()): string {
   const base = origin.replace(/\/$/, '');
   const urls = SITEMAP_PATHS.map((path) => `  <url>\n    <loc>${escapeXml(absolute(base, path))}</loc>\n  </url>`);

@@ -5,7 +5,6 @@ const DB_NAME = 'encrypt.click:chat-identity';
 const STORE = 'rooms';
 const TRUST_PREFIX = 'encrypt.click:chat-trust:';
 
-/** Alias key to the public keys that name has been accepted under. */
 export type TrustTable = Record<string, string[]>;
 
 function openDb(): Promise<IDBDatabase> {
@@ -34,7 +33,6 @@ async function writeIdentity(db: IDBDatabase, room: string, identity: SigningIde
   await requestResult(db.transaction(STORE, 'readwrite').objectStore(STORE).put(identity, room));
 }
 
-/** One signing key per room per browser. Without IndexedDB (private windows) the key lasts for the page only. */
 export async function loadRoomIdentity(room: string): Promise<SigningIdentity> {
   let db: IDBDatabase | null = null;
   try {
@@ -69,7 +67,6 @@ export function saveTrustTable(room: string, table: TrustTable) {
   try { localStorage.setItem(`${TRUST_PREFIX}${room}`, JSON.stringify(table)); } catch {}
 }
 
-/** Drops every per-room signing identity kept on this device. */
 export async function forgetChatIdentity(): Promise<void> {
   await deleteIdbDatabase(DB_NAME);
 }

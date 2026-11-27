@@ -9,8 +9,6 @@ function json(data: unknown, status: number): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-// SHORTENER_URL points at workers/shortener (or a service with the same API) and SHORTENER_TOKEN authorizes us there;
-// without them links stay long.
 async function shortenShrink(api: string, token: string, urlToShorten: string, ttl: number, signal: AbortSignal): Promise<string | null> {
   const res = await fetchNoRedirect(api, {
     method: 'POST',

@@ -148,7 +148,6 @@ test('a full signed doc part still fits under the relay payload cap', async () =
 });
 
 test('boards opened from a chat invite get a password that may create them', () => {
-  // Mirrors genAutoPassword in ChatRoom.svelte, which draws again until the policy passes.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   const draw = () => {
     const bytes = crypto.getRandomValues(new Uint32Array(20));

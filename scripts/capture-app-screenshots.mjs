@@ -1,12 +1,3 @@
-/**
- * One-shot PWA store screenshots.
- *
- *   pnpm capture:screenshots
- *
- * Downloads CC0 Wikimedia photos into public/shots/, starts (or reuses) the
- * local Astro server, fills /app?shots=1, captures iPhone-sized PNGs, and
- * refreshes site.webmanifest screenshot entries.
- */
 import { chromium, devices } from 'playwright';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 import dns from 'node:dns';
 import { tmpdir } from 'node:os';
 
-// Windows Node often hangs on Wikimedia IPv6; prefer v4.
 dns.setDefaultResultOrder('ipv4first');
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,7 +15,6 @@ const DEFAULT_PORT = Number(process.env.SHOTS_PORT || 4331);
 const BASE = (process.argv[2] || `http://127.0.0.1:${DEFAULT_PORT}`).replace(/\/$/, '');
 const iosPhone = {
   ...devices['iPhone 17 Pro'],
-  // Standalone PWA viewport (stock Playwright height excludes browser chrome).
   viewport: { width: 402, height: 874 },
   deviceScaleFactor: 3,
 };
@@ -35,7 +24,6 @@ const androidPhone = {
   deviceScaleFactor: 3,
 };
 
-/** Curated CC0 / Public Domain Commons files — Mr. Robot–flavored store shots. */
 const COMMONS = [];
 
 const iosCaptures = [
@@ -101,7 +89,6 @@ function commonsThumb(title) {
   if (!/cc0|public domain|pd-/i.test(`${license} ${meta}`)) {
     throw new Error(`Refusing ${title}: license is "${license || 'unknown'}" (need CC0 / Public Domain)`);
   }
-  // Strip tracking query Commons sometimes appends.
   return String(info.thumburl || info.url).split('?')[0];
 }
 
@@ -148,8 +135,6 @@ function killPort(port) {
 
 async function ensureServer() {
   const port = Number(new URL(BASE).port || DEFAULT_PORT);
-  // Always start a dedicated Astro with the toolbar off — a reused `pnpm dev`
-  // still injects astro-dev-toolbar into every frame.
   if (await portOpen(port)) {
     console.log(`Stopping existing server on :${port} so screenshots run without the Astro toolbar…`);
     killPort(port);
@@ -246,9 +231,7 @@ async function captureSuite(browser, device, platform, shots, barBg, sizes, sche
     try {
       localStorage.setItem('encrypt-app-platform', skin);
       localStorage.setItem('encrypt-app-appearance', appearance);
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     Object.defineProperty(navigator, 'standalone', { get: () => true });
     if ('Notification' in window) Object.defineProperty(Notification, 'permission', { get: () => 'granted' });
     window.addEventListener(
@@ -318,7 +301,6 @@ async function captureAll() {
   await sharp(chatPath).png({ compressionLevel: 9 }).toFile(join(publicDir, 'screenshot-narrow.png'));
   await sharp(hubPath).png({ compressionLevel: 9 }).toFile(join(publicDir, 'screenshot-narrow-hub.png'));
 
-  // Wide: hub + chat side-by-side on the brand background (real store card, not a letterbox).
   const W = 1920;
   const H = 1080;
   const panelH = H - 80;
@@ -378,7 +360,6 @@ async function captureAll() {
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log('Updated site.webmanifest screenshots');
 
-  // Light versions of the showcase phones, then small WebP copies of both themes for the site pages.
   const tmp = join(tmpdir(), 'encrypt-showcase');
   mkdirSync(tmp, { recursive: true });
   const light = (list) => list.map((shot) => ({ ...shot, path: `${shot.path}&scheme=light`, file: join(tmp, `${shot.name}-light.png`) }));

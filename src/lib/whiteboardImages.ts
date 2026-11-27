@@ -33,11 +33,6 @@ function encode(canvas: HTMLCanvasElement, mime: string, quality: number): Promi
   return new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
 }
 
-/**
- * Re-encodes a picture on this device before it joins the board: at most IMAGE_MAX_EDGE on the long side, WebP where the
- * browser can write it and JPEG elsewhere, stepping quality and then size down until it fits IMAGE_TARGET_BYTES.
- * Redrawing also drops metadata such as EXIF location.
- */
 export async function encodeBoardImage(blob: Blob): Promise<BoardAsset> {
   const img = await decode(blob);
   const w = img.naturalWidth;

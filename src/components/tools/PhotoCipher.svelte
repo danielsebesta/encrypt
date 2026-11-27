@@ -23,8 +23,6 @@
   const COMPACT_MAGIC = 'PCP3';
   const PUBLIC_SEED = 0x50435032;
   const HEADER_SIZE = 8;
-  // A new seal also carries the ECP4 compact envelope with its fixed header stripped: 8 salt + 8 tag bytes survive
-  // on top of the message, where the full password envelope spent 92, so the same photo carries several times more.
   const CIPHER_OVERHEAD = 16;
   const MAX_FILE = 10 * 1024 * 1024;
   const MIN_DIM = 800;
@@ -277,8 +275,6 @@
     const by = norm.height / BLOCK;
     const total = bx * by;
 
-    // The compact envelope, with its fixed header stripped the way the chat cipher does it: blocks are the budget,
-    // and the 92-byte full envelope used to swallow what a photo could say.
     const cipher = await sealPassword(new TextEncoder().encode(message), password, { compact: true });
     const encoded = stripFixedHeader(cipher, true);
     const magic = new TextEncoder().encode(COMPACT_MAGIC);
@@ -396,7 +392,6 @@
       }
 
       say(t(dict, 'tools.photoCipher.extracting'));
-      // The layout is public; password guesses must pass the envelope's Argon2id.
       const order = shuffledOrder(total, PUBLIC_SEED);
       const data: number[] = [];
       for (let i = 0; i < Math.floor(total / REP); i++) {

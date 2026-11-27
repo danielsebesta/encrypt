@@ -46,12 +46,10 @@ const enableIntegrityCheck = import.meta.env.PROD;
 const integrityRepository = REPO_SLUG;
 const repoUrl = REPO_URL;
 const githubStars = await getGithubStars(integrityRepository);
-/** Display-cased site URL for social/search snippets; canonical stays lowercase. */
 const brandUrl = (() => {
 	try {
 		const u = new URL(canonicalUrl);
 		if (u.hostname.toLowerCase() !== 'encrypt.click') return u.href;
-		// URL.hostname always lowercases; build the string so snippets can show Encrypt.click.
 		return `https://Encrypt.click${u.pathname}${u.search}${u.hash}`;
 	} catch {
 		return canonicalUrl;
@@ -150,7 +148,6 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 		<script type="application/ld+json" set:html={JSON.stringify(siteJsonLd)} />
 		<link rel="preload" href="/fonts/allo-latin.woff2" as="font" type="font/woff2" crossorigin />
 		{enableIntegrityCheck && <script is:inline src="/integrity-check.js" defer></script>}
-		{/* Theme before first paint — inlined so it is not a render-blocking network request. */}
 		<script is:inline>
 			(function () {
 				var root = document.documentElement;

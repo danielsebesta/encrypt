@@ -12,18 +12,13 @@
   interface Props {
     items: Item[];
     value: T;
-    /** Accessible name of the tab list. */
     label: string;
-    /** Prefix for the tab and panel ids: `<idBase>-tab-<id>`, `<idBase>-panel` or `<idBase>-panel-<id>`. */
     idBase?: string;
-    /** `line` underlines the selected tab; `segmented` is a filled track with a sliding thumb. */
     variant?: 'line' | 'segmented';
     class?: string;
     panelClass?: string;
     onchange?: (value: T) => void;
-    /** One persistent panel labelled by the selected tab. */
     children?: Snippet<[T]>;
-    /** One panel per tab, mounted on first visit and kept mounted while hidden. */
     panel?: Snippet<[T]>;
   }
 
@@ -45,7 +40,6 @@
   const tabId = (id: T) => `${base}-tab-${id}`;
   const panelId = (id: T) => (panel ? `${base}-panel-${id}` : `${base}-panel`);
 
-  // Seed the active tab so SSR / first paint already include the panel (effects do not run on the server).
   let visited = $state<Partial<Record<T, boolean>>>({ [value]: true } as Partial<Record<T, boolean>>);
   $effect.pre(() => {
     if (!visited[value]) visited[value] = true;

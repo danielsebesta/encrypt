@@ -1,11 +1,5 @@
 import { cryptoRand, foldWord, typo, type Rand } from '../chatNoise';
 
-/**
- * Cover text from a word table: the ciphertext, read as one long number, is decoded by an arithmetic coder over the
- * probabilities of the next word, so it comes out as a sample of how people write. Integer math only, so both sides
- * always compute the same frequencies.
- */
-
 const EOL = 0;
 const TURN = 1;
 const TOTAL = 65536;
@@ -15,7 +9,6 @@ const GUARD_WINDOW = 40;
 const GUARD_SHIFT = 4;
 const SAFETY_WORDS = 8;
 const MAX_BYTES = 64 * 1024;
-/** Once the payload is written, the cover ends on the next line end, but never runs more than this many filler words. */
 const MAX_EXTRA_WORDS = 4;
 const YIELD_EVERY = 4096;
 
@@ -24,7 +17,6 @@ const HALF = 2 ** 31;
 const QUARTER = 2 ** 30;
 
 const MARKS = /[,.?!…;:\n\r]/;
-/** Lines that start or end with one of these words often get a question mark. Punctuation never carries data. */
 export interface QuestionWords {
   starts: readonly string[];
   ends: readonly string[];
@@ -56,7 +48,6 @@ export interface CoverCodec {
   chooseWords(data: Uint8Array, rand?: Rand, onProgress?: (done: number, total: number) => void): Promise<number[]>;
   encode(data: Uint8Array, rand?: Rand, onProgress?: (done: number, total: number) => void): Promise<string>;
   decode(text: string, onProgress?: (done: number, total: number) => void): Promise<Uint8Array>;
-  /** Share of the words in a text that this table spells exactly, from 0 to 1. */
   coverage(text: string): number;
 }
 
@@ -163,11 +154,6 @@ function randomStyle(rand: Rand): Style {
 
 const yieldToPage = () => new Promise<void>(resolve => setTimeout(resolve));
 
-/**
- * `keepShares` overrides the table's own blend decay: how much of every matched context row's mass is trusted before
- * the remainder falls through to shorter contexts. Both sides must pass the same value or covers stop matching, so
- * it belongs to the language pack, not the payload.
- */
 export function createCoverCodec(table: CoverTable, questions: QuestionWords = CZECH_QUESTIONS, keepShares?: number): CoverCodec {
   const { words, levels, unigramWords, unigramShares } = table;
   const keep = keepShares ?? table.keep;
@@ -206,7 +192,6 @@ export function createCoverCodec(table: CoverTable, questions: QuestionWords = C
     return -1;
   }
 
-  /** Blends every context length, longest first, into ascending word ids with integer frequencies summing to 2^16. */
   function distribution(history: number[]): { ids: number[]; cum: Int32Array } {
     let count = 0;
     let weight = TOTAL;
@@ -317,7 +302,6 @@ export function createCoverCodec(table: CoverTable, questions: QuestionWords = C
         code = code * 2 + next();
       }
       if (before >= total) {
-        // Everything is written: run on with random bits to the end of the sentence, whose line end needs no token.
         if (ids[lo] === EOL) {
           history.pop();
           break;
@@ -332,7 +316,6 @@ export function createCoverCodec(table: CoverTable, questions: QuestionWords = C
     return history.slice(1);
   }
 
-  /** Index of the word a typed token stands for among the candidates: exact, else the one close spelling. */
   function slotOf(token: string, ids: number[]): number {
     const exact = idOf.get(token);
     if (exact !== undefined) {
@@ -411,7 +394,6 @@ export function createCoverCodec(table: CoverTable, questions: QuestionWords = C
     return out;
   }
 
-  /** Words and line ends in order; any mark or line break between two words is one line end. */
   function parse(text: string): (string | null)[] {
     const out: (string | null)[] = [];
     for (const [piece] of text.matchAll(/\p{L}+|[^\p{L}]+/gu)) {

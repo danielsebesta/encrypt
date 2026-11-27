@@ -1,17 +1,10 @@
 export interface RovingOptions {
-  /** Lay the items out as a grid with this many columns: ArrowUp/ArrowDown then move by a row. */
   columns?: number;
-  /** Items taking part, matched inside the node. */
   selector?: string;
 }
 
 const CURRENT = '[aria-pressed="true"], [aria-checked="true"], [aria-current="true"]';
 
-/**
- * Roving tabindex for a group of buttons (`role="toolbar"`, a swatch grid, a segmented set): one Tab stop,
- * ArrowLeft/ArrowRight (and ArrowUp/ArrowDown without `columns`) wrap, Home and End jump to the ends.
- * The tab stop is the focused item, else the pressed/checked/current one, else the last focused, else the first.
- */
 export function roving(node: HTMLElement, options: RovingOptions = {}) {
   let opts = options;
   let last: HTMLElement | null = null;

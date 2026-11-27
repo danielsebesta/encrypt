@@ -8,11 +8,9 @@ type Dict = Record<string, string>;
 
 const TRANSIENT_RETRIES = 6;
 
-// Kept only in memory: a pass is worth one solved challenge for an hour on this network and nothing after a reload.
 let held: { pass: string; expires: number } | null = null;
 let challenging: Promise<string | null> | null = null;
 
-/** Edge / budget blips that are worth another try; not application errors. */
 export function isTransientUploadStatus(status: number): boolean {
   return status === 429 || status === 502 || status === 503 || status === 504;
 }
@@ -77,7 +75,6 @@ async function requestOnce(
     try {
       return await xhrRequest(url, { method: init.method, headers: init.headers, body: init.body }, onUploadProgress);
     } catch {
-      // Progress is best-effort; a failed XHR still has to deliver the bytes via fetch.
       return fetch(url, init);
     }
   }
@@ -125,10 +122,6 @@ export type UploadOptions = {
 
 export type FirstPartyUpload = { id: string; url: string; expires: number | null; burn: boolean };
 
-/**
- * Uploads ciphertext to this site's own storage; the download link lives on the same origin. Without options the
- * server keeps its default of one day and any number of downloads.
- */
 export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: UploadOptions): Promise<FirstPartyUpload | null> {
   try {
     const payload = prependEclkMagic(body);
@@ -162,9 +155,7 @@ export async function uploadFirstParty(body: Uint8Array, dict: Dict, options?: U
           }
         }
       }
-    } catch {
-      // Fall through to relay upload if direct route errors
-    }
+    } catch {}
 
     const res = await sendWithUploadPass('/upload', {
       method: 'POST',

@@ -5,11 +5,8 @@ export interface FlowLine {
 }
 
 export interface FlowOptions {
-  /** Lines started per side for every TILE pixels of height. */
   perTile?: number;
-  /** Minimum distance between two lines, in px. */
   gap?: number;
-  /** `classic` keeps the original current and only varies its phases; `seeded` lets the seed reshape it. */
   shape?: 'classic' | 'seeded';
 }
 
@@ -37,12 +34,6 @@ function random(seed: number) {
   };
 }
 
-/**
- * Streamlines of one smooth, mostly downward flow field, kept to the left and right edges.
- * The seed sets the current's tilt, the angle and scale of its waves, how far it swings, the line
- * density and weight, and the start points, so every page draws its own variation of the same idea.
- * Lines are traced tile by tile from the top, so a taller page only adds lines below the old ones.
- */
 export function flowLines(seed: number, width: number, height: number, options: FlowOptions = {}): FlowLine[] {
   const rnd = random(seed);
   const span = (a: number, b: number) => a + rnd() * (b - a);

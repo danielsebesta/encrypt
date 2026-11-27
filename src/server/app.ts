@@ -6,7 +6,6 @@ import type { Platform } from '../platform/types';
 import { handleStatus } from './status';
 import { challengeResponse, challengeSecret, handleUploadRoute } from './upload';
 
-// Per-client and global request ceilings per minute, kept per route in that route's own budget scope.
 const LIMITS: Record<string, [number, number]> = {
   '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120],
   '/api/turn': [12, 120], '/api/shorten': [20, 120], '/api/drand': [120, 1200], '/parties': [60, 600],
@@ -92,7 +91,6 @@ export function createApp(platform: Platform) {
     return null;
   }
 
-  // Relayed uploads leave through this server, so each /64 gets a daily byte cap and has to prove some work once it looks scripted.
   async function relayAllowance(request: Request): Promise<Response | null> {
     const bytes = Number(request.headers.get('Content-Length'));
     if (!request.headers.get('Content-Length') || !Number.isSafeInteger(bytes) || bytes <= 0) return new Response('Length required', { status: 411 });
@@ -113,7 +111,6 @@ export function createApp(platform: Platform) {
   return {
     async fetch(request: Request, render: (request: Request) => Promise<Response>): Promise<Response> {
       const url = new URL(request.url);
-      // One canonical host: www.* permanently redirects to the apex.
       if (url.hostname.startsWith('www.')) {
         url.hostname = url.hostname.slice(4);
         return new Response(null, {

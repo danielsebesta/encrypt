@@ -1,7 +1,6 @@
 import { createSHA256 } from 'hash-wasm';
 import type { PowChallenge, PowSolution } from '../server/pow';
 
-/** Searches for the number behind an ALTCHA-style challenge, yielding to the page every few thousand hashes. */
 export async function solvePow(challenge: PowChallenge, onProgress: (share: number) => void, signal: AbortSignal): Promise<PowSolution | null> {
   const hasher = await createSHA256();
   for (let number = 0; number <= challenge.maxnumber; number++) {

@@ -30,7 +30,6 @@ export const DOWNLOAD_SCOPE = 'downloads';
 const GB = 1000 ** 3;
 const MAGIC_BYTES = new Uint8Array([69, 67, 76, 75]);
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-// Everything our clients upload is a password envelope, a raw-key envelope, or, for small shares, a stego PNG that wraps one.
 const FORMATS = [PASSWORD_ENVELOPE_MAGIC, KEY_ENVELOPE_MAGIC, PNG_SIGNATURE];
 const HEAD_BYTES = MAGIC_BYTES.length + Math.max(...FORMATS.map(format => format.length));
 
@@ -75,7 +74,6 @@ async function clientId(platform: Platform, prefix: string): Promise<string> {
   return hex(await crypto.subtle.digest('SHA-256', enc.encode(`${saltCache.salt}:${prefix}`)));
 }
 
-/** What a client sees when it has to prove some work before the next upload, or a plain refusal without a secret. */
 export function challengeResponse(env: Platform['env']): Response {
   return challengeSecret(env)
     ? json({ challenge: 'pow' }, 428)
@@ -101,7 +99,6 @@ async function readHead(reader: ReadableStreamDefaultReader<Uint8Array>): Promis
   return head;
 }
 
-// Re-emits the bytes already read for the format check, then the rest, and fails if the body runs past its declared length.
 function exactly(head: Uint8Array, reader: ReadableStreamDefaultReader<Uint8Array>, length: number): ReadableStream<Uint8Array> {
   let sent = 0;
   let first = true;
@@ -121,7 +118,6 @@ function exactly(head: Uint8Array, reader: ReadableStreamDefaultReader<Uint8Arra
   });
 }
 
-/** Retention and one-time download from the request; requests without them keep the default of one day, many downloads. */
 export function uploadOptions(headers: Headers): { retention: Retention; burn: boolean } | null {
   const retention = headers.get(RETENTION_HEADER) ?? DEFAULT_RETENTION;
   const burn = headers.get(BURN_HEADER) ?? '0';
@@ -248,7 +244,6 @@ async function upload(request: Request, platform: Platform): Promise<Response> {
 
 const notFound = () => new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
 
-// Drops the four-byte magic marker and delivers the remaining ciphertext stream.
 function servedCiphertext(
   headRest: Uint8Array,
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -355,7 +350,6 @@ async function redeem(request: Request, platform: Platform): Promise<Response> {
   return json(await issuePass(secret, clientPrefix(platform.clientIp(request))));
 }
 
-/** Same-origin upload routes; null when the path is not one of them. */
 export async function handleUploadRoute(request: Request, path: string, platform: Platform): Promise<Response | null> {
   const method = request.method;
   if (path === '/upload') return method === 'POST' ? upload(request, platform) : json({ error: 'Method not allowed' }, 405, { Allow: 'POST' });

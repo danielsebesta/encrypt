@@ -9,7 +9,6 @@ const EDGE_PX = 24;
 
 type Options = { onreply: () => void; enabled?: boolean };
 
-/** Drag a message to the right to reply, the way iOS and Android messengers do. Touch and pen only. */
 export function swipeReply(node: HTMLElement, options: Options) {
   let opts = options;
   let start: { x: number; y: number; id: number } | null = null;
@@ -83,7 +82,6 @@ export function swipeReply(node: HTMLElement, options: Options) {
     intent = '';
     reset(true);
     if (fire) {
-      // iOS 26 only allows switch ticks inside the post-touchend grant — fire here, not mid-move.
       haptic('light');
       opts.onreply();
     }

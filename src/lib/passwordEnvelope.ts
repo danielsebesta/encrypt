@@ -1,8 +1,8 @@
 import { ARGON2_V3, argon2id, equalBytes, hkdfAesKey, hkdfBytes, hkdfKey, type Argon2Params } from './kdf';
 import { padme } from './padding';
 
-const ECP3_MAGIC = new Uint8Array([69, 67, 80, 51, 1]); // ECP3, header layout 1
-const ECP4_MAGIC = new Uint8Array([69, 67, 80, 52, 3]); // ECP4, compact layout 3: 8-byte salt, 64-bit tag, exact plaintext
+const ECP3_MAGIC = new Uint8Array([69, 67, 80, 51, 1]);
+const ECP4_MAGIC = new Uint8Array([69, 67, 80, 52, 3]);
 const HEADER = 72;
 const HEADER_COMPACT = 20;
 const TAG = 16;
@@ -11,36 +11,19 @@ const LENGTH_FULL = 4;
 const FIXED_HEADER = 12;
 const SALT_COMPACT = 8;
 
-/** Leading bytes of every password envelope. */
 export const PASSWORD_ENVELOPE_MAGIC: Readonly<Uint8Array> = ECP3_MAGIC;
-/** Fixed bytes an envelope adds to its plaintext, before padding. */
 export const PASSWORD_ENVELOPE_OVERHEAD = HEADER + LENGTH_FULL + TAG;
 
-/**
- * timeSecret: 32 random bytes released only by a drand time lock. They are mixed into the password-derived key, so
- * the envelope opens with both and with neither alone. Nothing in the envelope shows that it needs one.
- */
 export type SealOptions = { maxLength?: number; params?: Argon2Params; timeSecret?: Uint8Array; compact?: boolean };
 
-/**
- * compact: the ECP4 layout for carriers that pay per byte. An 8-byte salt and a 64-bit GCM tag instead of the 16 and
- * 128 byte defaults: the salt only has to make precomputation pointless and a forgery still needs 2^64 tries, while
- * failed decrypts run offline in the reader's browser, so there is no oracle to farm. The Argon2id salt is the salt
- * run through SHA-256 (argon2id wants 16 bytes), the IV is derived from the key material, so every message still gets
- * a fresh key and a unique IV, and the body is the plaintext itself, with no length prefix and no Padmé rounding: the
- * GCM tag already pins the exact end, and the surplus opener asks it at every candidate size.
- * NIST SP 800-38D permits 64-bit tags. The key commitment is dropped: the GCM tag reports a wrong password.
- */
 const TIME_SECRET_BYTES = 32;
 
-/** Total envelope size for a plaintext: Padmé over the length-prefixed data, never past maxLength when the data alone fits. */
 export function sealedLength(plaintext: number, maxLength = Infinity): number {
   const inner = LENGTH_FULL + plaintext;
   const ceiling = Math.max(inner, maxLength - HEADER - TAG);
   return HEADER + Math.min(padme(inner), ceiling) + TAG;
 }
 
-/** Total size of a compact envelope for a content payload. */
 export function sealedCompactLength(content: number): number {
   return HEADER_COMPACT + content + TAG_COMPACT;
 }
@@ -125,7 +108,6 @@ export async function sealPassword(data: Uint8Array | Uint8Array[], password: st
 
 const startsWith = (data: Uint8Array, prefix: Uint8Array) => data.length >= prefix.length && prefix.every((byte, i) => data[i] === byte);
 
-/** Header bytes shared by every envelope sealed with the default settings: magic, layout version and Argon2id settings. */
 function fixedHeader(compact: boolean): Uint8Array {
   const fixed = new Uint8Array(FIXED_HEADER);
   const view = new DataView(fixed.buffer);
@@ -136,7 +118,6 @@ function fixedHeader(compact: boolean): Uint8Array {
   return fixed;
 }
 
-/** What remains of a default envelope without its constant bytes. It looks random, so a carrier shows no repeating pattern. */
 export function stripFixedHeader(sealed: Uint8Array, compact = false): Uint8Array {
   if (!startsWith(sealed, fixedHeader(compact))) throw new Error('Unsupported encrypted data');
   return sealed.subarray(FIXED_HEADER);
@@ -170,7 +151,6 @@ async function openingLayout(data: Uint8Array, password: string, timeSecret?: Ui
   return { key, iv: compact ? iv! : header.slice(28, 40), headerLength, compact };
 }
 
-/** Full layout: Padmé-sized inner, 128-bit tag, u32 length over zero-padded data. */
 async function openFullBody(data: Uint8Array, end: number, opened: OpenedLayout): Promise<Uint8Array> {
   const plain = new Uint8Array(await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: opened.iv as BufferSource, additionalData: data.slice(0, opened.headerLength) },
@@ -182,7 +162,6 @@ async function openFullBody(data: Uint8Array, end: number, opened: OpenedLayout)
   return plain.subarray(LENGTH_FULL, LENGTH_FULL + length);
 }
 
-/** Compact layout: the plaintext as it is, 64-bit tag. The tag is the only length check. */
 async function openCompactBody(data: Uint8Array, end: number, opened: OpenedLayout): Promise<Uint8Array> {
   const plain = new Uint8Array(await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: opened.iv as BufferSource, additionalData: data.slice(0, opened.headerLength), tagLength: 64 as const },
@@ -199,10 +178,6 @@ export async function openPassword(data: Uint8Array, password: string, timeSecre
   return openBody(data, data.length, opened);
 }
 
-/**
- * Derives the envelope's keys once, letting a caller open several candidate ends without re-running Argon2id: the
- * key depends only on the header, so every Padmé candidate pays one GCM attempt, not another KDF.
- */
 export type PreparedPasswordOpen = {
   headerLength: number;
   compact: boolean;
@@ -238,9 +213,7 @@ export async function openPasswordWithSurplus(data: Uint8Array, password: string
     for (let end = data.length; end >= floor; end--) {
       try {
         return await openCompactBody(data, end, opened);
-      } catch {
-        /* not this size */
-      }
+      } catch {}
     }
     throw new Error('Wrong password');
   }
@@ -249,9 +222,7 @@ export async function openPasswordWithSurplus(data: Uint8Array, password: string
     if (padme(inner) !== inner) continue;
     try {
       return await openFullBody(data, end, opened);
-    } catch {
-      /* not this size */
-    }
+    } catch {}
   }
   throw new Error('Wrong password');
 }

@@ -3,14 +3,12 @@ import { hkdfAesKey, hkdfKey } from './kdf';
 import { preparePasswordOpen, sealPassword, PASSWORD_ENVELOPE_OVERHEAD, sealedLength } from './passwordEnvelope';
 import { padme } from './padding';
 
-/** Manifest layout marker: ECC1 + version byte. */
 export const CHUNK_MANIFEST_MAGIC = new Uint8Array([0x45, 0x43, 0x43, 0x31, 1]);
 export const FILE_KEY_BYTES = 32;
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const HEADER = 72;
 const LENGTH = 4;
-/** Manifest envelopes stay tiny; only search this far for the sealed prefix. */
 const MAX_ENVELOPE_BYTES = 16 * 1024;
 
 export type ChunkManifest = {
@@ -21,11 +19,8 @@ export type ChunkManifest = {
 };
 
 export type SealedChunked = {
-  /** Password envelope of the manifest (no ECLK marker). */
   envelope: Uint8Array;
-  /** Per-chunk ciphertext: IV || ciphertext+tag. */
   parts: Uint8Array[];
-  /** Total ciphertext bytes after the ECLK marker. */
   totalCipherBytes: number;
   manifest: ChunkManifest;
 };
@@ -123,17 +118,12 @@ function parseManifestPlain(plain: Uint8Array): { manifest: ChunkManifest; fileK
   };
 }
 
-/** True when a classic single-envelope seal would still fit under the first-party single-request limit. */
 export function fitsSingleEnvelope(plainSize: number, name = ''): boolean {
   const meta = enc.encode(JSON.stringify({ name, size: plainSize }));
   const inner = 5 + meta.length + plainSize;
   return inner + PASSWORD_ENVELOPE_OVERHEAD <= FIRST_PARTY_ENVELOPE_LIMIT;
 }
 
-/**
- * Seals a file as a password envelope of the chunk manifest plus independently authenticated ciphertext parts.
- * Memory stays near one chunk: callers should pass slices rather than one giant buffer when possible.
- */
 export async function sealChunkedFile(
   data: Uint8Array,
   password: string,
@@ -160,7 +150,6 @@ export async function sealChunkedFile(
   };
 }
 
-/** Seals one plaintext slice; used by streaming uploaders that never hold the whole file. */
 export async function sealFileChunk(fileKey: Uint8Array, index: number, plain: Uint8Array): Promise<Uint8Array> {
   return sealChunk(fileKey, index, plain);
 }
@@ -187,11 +176,6 @@ export function manifestPlainLength(name: string, size: number, chunkSize: numbe
   return CHUNK_MANIFEST_MAGIC.length + LENGTH + json.length + FILE_KEY_BYTES;
 }
 
-/**
- * Opens a downloaded chunked body (ECLK already stripped): sealed manifest envelope, then fixed-size cipher parts.
- * The envelope end is recovered by trying Padmé sizes within MAX_ENVELOPE_BYTES so the wire needs no length prefix
- * and part 0 still begins with a normal ECP3 magic the upload guard accepts.
- */
 export async function openChunkedFile(data: Uint8Array, password: string, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
   if (data.length < HEADER + LENGTH + TAG_BYTES + IV_BYTES + TAG_BYTES) throw new Error('Truncated chunked file');
   if (data[0] !== 0x45 || data[1] !== 0x43 || data[2] !== 0x50 || data[3] !== 0x33 || data[4] !== 1) {
@@ -211,9 +195,7 @@ export async function openChunkedFile(data: Uint8Array, password: string, timeSe
       const parsed = parseManifestPlain(plain);
       opened = { ...parsed, end };
       break;
-    } catch {
-      /* try shorter Padmé size */
-    }
+    } catch {}
   }
   if (!opened) throw new Error('Invalid chunked envelope');
 

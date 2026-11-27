@@ -16,7 +16,6 @@
   let qrSvg = '';
   let qrFor = '';
 
-  // Same look as the share form's code; long links drop to the lowest error correction rather than to no code at all.
   async function render(text: string) {
     qrFor = text;
     qrSvg = '';
@@ -26,9 +25,7 @@
         const svg = await QRCode.toString(text, { type: 'svg', errorCorrectionLevel, margin: 1, width: 320, color: QR_COLORS });
         if (qrFor === text) qrSvg = svg;
         return;
-      } catch {
-        /* too long for this level */
-      }
+      } catch {}
     }
   }
 

@@ -7,7 +7,6 @@ const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store
 
 const value = (env: Platform['env'], name: string) => env[name]?.trim() ?? '';
 
-/** TURN providers /api/turn can hand out credentials for, by the same settings it reads. */
 export function turnProviders(env: Platform['env']): string[] {
   const provider = value(env, 'TURN_PROVIDER').toLowerCase();
   const auto = !provider || provider === 'auto';
@@ -29,10 +28,6 @@ async function sameToken(given: string, expected: string): Promise<boolean> {
   return diff === 0;
 }
 
-/**
- * GET /status: aggregates for operators, never anything about a single client. Public unless STATUS_TOKEN is set,
- * then only with `Authorization: Bearer <token>`.
- */
 export async function handleStatus(request: Request, platform: Platform): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...headers, Allow: 'GET, HEAD' } });

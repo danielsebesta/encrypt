@@ -7,7 +7,7 @@
 Files, chats and calls are encrypted in your browser before they leave.<br>
 Free, no account, open source, and you can run your own copy on Cloudflare in one click or in one Docker container.
 
-[**Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [Security](https://encrypt.click/security) &nbsp;·&nbsp; [Install the app](https://encrypt.click/install) &nbsp;·&nbsp; [Self-host](docs/self-hosting.md) &nbsp;·&nbsp; [Contribute](CONTRIBUTING.md)
+[**Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [Security](https://encrypt.click/security) &nbsp;·&nbsp; [Install the app](https://encrypt.click/install) &nbsp;·&nbsp; [Self-host](docs/self-hosting.md)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt)
 
@@ -109,13 +109,11 @@ docker run -d --name encrypt --restart unless-stopped --network host   -e DOMAIN
 ## Documentation
 
 - [Self-hosting](docs/self-hosting.md)
-- [Design system](docs/design-system.md)
 - [Production deployment and verification](docs/deployment.md)
-- [Contributing](CONTRIBUTING.md)
 
 ## Contributing
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome. Run `pnpm test`, `pnpm check` and `pnpm build` before opening one. Every user-facing string goes into all files in `src/locales/`.
 
 ## License
 

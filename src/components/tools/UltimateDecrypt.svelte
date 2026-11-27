@@ -125,7 +125,6 @@
   function parseZipDirectory(bytes: Uint8Array): typeof openedZipEntries {
     const entries: typeof openedZipEntries = [];
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    // Find End of Central Directory (scan last 64KB max)
     let eocdOffset = -1;
     const searchStart = Math.max(0, bytes.length - 65557);
     for (let i = bytes.length - 22; i >= searchStart; i--) {
@@ -550,7 +549,6 @@
     }
   });
 
-  // A second link opened in the same tab only changes the fragment, so the page is not loaded again.
   function openLinkFromHash() {
     const hash = window.location.hash;
     if (isCapsuleFragment(hash.slice(1))) {
@@ -576,7 +574,6 @@
 
   onMount(() => {
     window.addEventListener('hashchange', openLinkFromHash);
-    // An installed app opens .enc files from the system file manager here (manifest file_handlers).
     const launchQueue = (window as { launchQueue?: { setConsumer(consumer: (params: { files?: readonly FileSystemFileHandle[] }) => void): void } }).launchQueue;
     launchQueue?.setConsumer(async ({ files }) => {
       const handle = files?.[0];
@@ -689,7 +686,7 @@
           const payload = receivePayload(url);
           if (payload && acceptFragment(payload)) return;
         }
-      } catch { /* fall through */ }
+      } catch {}
     }
     if (acceptFragment(stripped)) return;
     linkError = t(dict, 'tools.ultimateDecrypt.empty.linkInvalid');

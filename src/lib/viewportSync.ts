@@ -6,18 +6,13 @@ function isTextField(node: EventTarget | null): boolean {
   return node instanceof HTMLElement && (node.matches('input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=file]), textarea') || node.isContentEditable);
 }
 
-/** Tracks the visual viewport so the app can fit above the on-screen keyboard and its accessory bar. */
 export function installViewportSync(): () => void {
   const vv = window.visualViewport;
   if (!vv) return () => {};
   const root = document.documentElement;
   const timers = new Set<ReturnType<typeof setTimeout>>();
-  // Layout height with no keyboard up; re-baselined whenever the viewport is calm
-  // so rotation and browser-chrome changes are picked up.
   let fullHeight = window.innerHeight;
   const settle = () => {
-    // Scrolling the window while a field is focused dismisses the iOS keyboard and makes the
-    // composer jump. Only pin the page when nothing is being typed.
     if (isTextField(document.activeElement)) return;
     if (vv.offsetTop > 0 || vv.offsetLeft > 0 || window.scrollY > 0 || window.scrollX > 0) window.scrollTo(0, 0);
   };
@@ -37,8 +32,6 @@ export function installViewportSync(): () => void {
     const height = unreported
       ? Math.round(fullHeight * (1 - (window.innerWidth > window.innerHeight ? FALLBACK_KEYBOARD_RATIO_LANDSCAPE : FALLBACK_KEYBOARD_RATIO)))
       : Math.max(200, Math.round(vv.height));
-    // WebKit pans the visual viewport down to reveal the focused field; the app has to
-    // follow that pan or it ends up above the visible window (an empty void on iOS).
     const offset = unreported ? 0 : Math.max(0, Math.round(vv.offsetTop));
     root.style.setProperty('--app-vvh', `${height}px`);
     root.style.setProperty('--app-vvo', `${offset}px`);
@@ -55,7 +48,6 @@ export function installViewportSync(): () => void {
     later(350);
     later(700);
   };
-  // iOS 26 can leave the visual viewport panned for a moment after the keyboard closes.
   const onFocusOut = () => {
     later(50);
     later(350);

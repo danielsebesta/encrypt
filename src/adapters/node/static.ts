@@ -4,7 +4,6 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 
-// Files the Cloudflare asset layer reads as configuration and never serves.
 const RESERVED = new Set(['/_headers', '/_redirects', '/_routes.json', '/_worker.js', '/.assetsignore']);
 const DEFAULT_CACHE_CONTROL = 'public, max-age=0, must-revalidate';
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -44,7 +43,6 @@ export type HeaderRule = { pattern: RegExp; set: [string, string][]; detach: str
 export type RedirectRule = { pattern: RegExp; to: string; status: number };
 type Asset = { file: string; size: number; etag: string; type: string };
 
-/** `*` is a splat that may cross segments, `:name` one segment; both can be echoed in the target as `:splat` / `:name`. */
 function compilePattern(pattern: string): RegExp {
   let source = '';
   let splat = false;
@@ -79,7 +77,6 @@ export function parseHeaders(text: string): HeaderRule[] {
   return rules;
 }
 
-/** Every matching block applies; a header named again by a later block is joined with a comma, `! Name` removes it. */
 export function matchHeaders(rules: HeaderRule[], pathname: string, headers = new Headers()): Headers {
   const custom = new Set<string>();
   for (const rule of rules) {
@@ -120,7 +117,6 @@ export function matchRedirect(rules: RedirectRule[], url: URL): { location: stri
   return null;
 }
 
-/** Prerendered error documents keep their HTTP status when served as static assets, localized paths included. */
 export function htmlErrorStatus(file: string): number | undefined {
   const stem = file.replace(/\/index\.html$/, '').replace(/\.html$/, '');
   const leaf = stem.slice(stem.lastIndexOf('/'));
@@ -128,10 +124,6 @@ export function htmlErrorStatus(file: string): number | undefined {
   return undefined;
 }
 
-/**
- * Lookup with Cloudflare's default `auto-trailing-slash` HTML handling: `/page` serves `page.html`, `/dir/` serves
- * `dir/index.html`, and the other spellings of either redirect (307) to that canonical one.
- */
 export function resolveAsset(has: (file: string) => boolean, pathname: string): { file: string } | { redirect: string } | null {
   if (pathname.endsWith('/index.html')) return has(pathname) ? { redirect: pathname.slice(0, -'index.html'.length) } : null;
   if (pathname.endsWith('.html')) {
@@ -180,7 +172,6 @@ async function walk(dir: string, prefix = ''): Promise<string[]> {
   return files;
 }
 
-/** The built client directory served like Workers static assets. Only files indexed at startup are ever opened. */
 export class StaticSite {
   private constructor(private readonly assets: Map<string, Asset>, readonly headerRules: HeaderRule[], readonly redirectRules: RedirectRule[]) {}
 
@@ -202,7 +193,6 @@ export class StaticSite {
     return new StaticSite(assets, parseHeaders(await read('_headers')), parseRedirects(await read('_redirects')));
   }
 
-  /** The file at exactly `publicPath`, for prerendered error pages, with the headers that apply to `requestPath`. */
   read(publicPath: string, requestPath = publicPath): Response | null {
     const asset = this.assets.get(publicPath);
     if (!asset) return null;
@@ -213,7 +203,6 @@ export class StaticSite {
     });
   }
 
-  /** A redirect or file response, or null when the request belongs to the server-rendered app. */
   serve(request: Request): Response | null {
     const url = new URL(request.url);
     const redirect = matchRedirect(this.redirectRules, url);

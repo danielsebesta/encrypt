@@ -1,5 +1,3 @@
-/** Text messages that have not reached the relay yet survive a reload of the tab. Only sealed bytes touch session storage. */
-
 export const OUTBOX_STORAGE_PREFIX = 'encrypt.click:chat-outbox:v1:';
 export const OUTBOX_MAX_ENTRIES = 50;
 export const OUTBOX_MAX_AGE_MS = 24 * 60 * 60_000;
@@ -30,7 +28,6 @@ function isEntry(value: unknown): value is OutboxEntry {
     && (entry.replyTo === undefined || (typeof entry.replyTo === 'string' && ID_RE.test(entry.replyTo)));
 }
 
-/** Entries that are still worth sending: well formed, not older than a day and not past their own timer. */
 export function liveOutboxEntries(value: unknown, now = Date.now()): OutboxEntry[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();

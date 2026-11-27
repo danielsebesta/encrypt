@@ -106,7 +106,6 @@ export function readFrameHeader(data: Uint8Array): FrameHeader | null {
   return { keyId: data[at + 9], counter, prefixLength };
 }
 
-/** Returns the plain frame, or null when the frame was not sealed with this key exactly as received. */
 export async function decryptFrame(data: Uint8Array, header: FrameHeader, key: FrameKey): Promise<Uint8Array | null> {
   if (header.keyId !== key.id) return null;
   const at = data.length - FRAME_TRAILER_BYTES;
@@ -127,7 +126,6 @@ function newerKeyId(candidate: number, current: number): boolean {
   return ((candidate - current) & 0xff) < 128;
 }
 
-/** Receive keys per sender. A superseded key stays usable for a grace period so frames already in flight still decrypt. */
 export class FrameKeyring {
   private peers = new Map<string, Map<number, { key: FrameKey; expires: number }>>();
 
@@ -209,7 +207,6 @@ export class MediaKeySchedule {
     return next;
   }
 
-  /** The ticket for a member who joins now, and whether the key has to rotate before that member can be given one. */
   admit(): { ticket: number; rotate: boolean } {
     if (!this.latest || !this.shared) return { ticket: this.generation, rotate: false };
     return { ticket: this.generation + 1, rotate: true };
@@ -293,7 +290,6 @@ export async function unwrapMediaKey(wrapKey: CryptoKey, wrapped: unknown, conte
 const SAFE_VIDEO_CODECS = ['video/vp8', 'video/vp9'];
 const VIDEO_REPAIR_CODECS = ['video/rtx', 'video/red', 'video/ulpfec', 'video/flexfec-03'];
 
-/** VP8 and VP9 packetizers never parse the payload; H.264 and AV1 ones read NAL units or OBUs, which are ciphertext here. */
 export function safeVideoCodecs<T extends { mimeType: string }>(codecs: readonly T[]): T[] {
   const rank = (codec: T) => SAFE_VIDEO_CODECS.indexOf(codec.mimeType.toLowerCase());
   const video = codecs.filter((codec) => rank(codec) >= 0).sort((a, b) => rank(a) - rank(b));

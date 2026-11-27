@@ -141,8 +141,6 @@
   let netOffline = false;
   let lastConnStatus = '';
   function reportConn() {
-    // "connecting" only while a board key exists and the socket is coming up.
-    // Verify → loading spinner. Password prompt waits on the user (no spinner).
     const st = netOffline
       ? 'offline'
       : connected || needsPassword
@@ -430,7 +428,6 @@
     try { ws.send(message); return true; } catch { return false; }
   }
 
-  // Quickdraw edits land in the store on every pointer move; changed ids are written to Yjs in throttled batches.
   const dirty = new Set<string>();
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -483,7 +480,6 @@
     return match ? { mime: match[1], width: rec.w, height: rec.h, data: match[2] } : null;
   }
 
-  // A picture goes into the document with the first shape that shows it, and only while the board stays under its cap.
   function shareAsset(assetId: unknown, refused: Set<string>): boolean {
     if (typeof assetId !== 'string' || refused.has(assetId)) return false;
     if (yassets.has(assetId)) return true;
@@ -498,7 +494,6 @@
     return true;
   }
 
-  // The local copy stays in the store, so undo can bring the picture back.
   function releaseAsset(assetId: unknown) {
     if (typeof assetId !== 'string' || !yassets.has(assetId)) return;
     for (const r of yrecords.values()) if (r.type === 'image' && r.props.assetId === assetId) return;
@@ -622,7 +617,6 @@
     });
   }
 
-  // Doc messages go out in order and are paced to the relay's rate window, so a large board is split into parts instead of being dropped.
   let docQueue: Promise<void> = Promise.resolve();
   const assembler = new DocPartAssembler();
   let syncProgress: { received: number; total: number } | null = null;
@@ -721,7 +715,6 @@
 
     ws.addEventListener('message', handleServerMessage);
 
-    // Keepalive against idle timeouts on mobile and proxy paths; hidden tabs reconnect on return instead.
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
       if (pageHidden) return;
@@ -738,7 +731,6 @@
       serverPresence = data.presence;
       roomLocked = !!data.locked;
       if (verifying && serverPresence <= 1) {
-        // Nobody online: recreate only with a long enough password, or reopen a sealed local copy from this browser.
         if (!canCreate && !boardHasContent()) {
           verifying = false;
           boardMissing = true;
@@ -750,8 +742,6 @@
         verified = true;
         verifying = false;
       } else if (verifying && serverPresence > 1) {
-        // Peers on another password are on another channel. If nobody here
-        // decrypts in time, enter anyway; undecryptable envelopes are dropped.
         setTimeout(() => {
           if (verifying && !verified) {
             verified = true;
@@ -777,7 +767,6 @@
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data.payload));
     if (!replay.accept(Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join(''))) return;
 
-    // Decrypt, check the room, kind and age stamp, verify the signature, then hold the relay connection to its first key.
     const opened = await openEnvelope(cryptoKey, data.payload, data.kind, channelId);
     if (!opened || !replay.accept(opened.body._id as string) || !connectionKeys.bind(data.from, opened.signer)) return;
     const { body, signer } = opened;
@@ -1013,7 +1002,6 @@
     if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
   }
 
-  // Quickdraw zooms by exp(-deltaY * 0.012), so one mouse-wheel notch (deltaY ~100) shrinks the view to a third.
   function onBoardWheel(e: WheelEvent) {
     if (!editor || !(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
@@ -1024,7 +1012,6 @@
     editor.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-delta * 0.005));
   }
 
-  // Middle-button drag pans the board; without this the browser starts its own page autoscroll.
   function blockMiddleClick(e: MouseEvent) {
     if (e.button === 1) e.preventDefault();
   }
@@ -1033,7 +1020,6 @@
     syncBoardTheme();
     const ed = new Editor({ container: node, store, theme: themeId, grid: 'dots' });
     node.dataset.qdTheme = themeId;
-    // Pictures are re-encoded here and embedded in the encrypted document; nothing goes to an upload service.
     ed.importImageBlobs = insertImages;
     ed.pickImage = chooseImage;
     ed.setTool(tool);
@@ -1236,7 +1222,6 @@
     showNotice(t(dict, 'whiteboard.importDone'), false);
   }
 
-  // An export merges into the open board like any other edit, so it reaches everyone through the usual encrypted sync.
   async function importBoard() {
     const file = importInput?.files?.[0];
     if (importInput) importInput.value = '';

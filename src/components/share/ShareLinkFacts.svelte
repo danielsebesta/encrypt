@@ -4,10 +4,8 @@
 
   export let dict: Record<string, string>;
   export let locale = 'en';
-  /** Unix seconds. */
   export let expires: number | undefined = undefined;
   export let burn = false;
-  /** When the time lock opens, in milliseconds. */
   export let unlock: number | undefined = undefined;
 
   let now = Date.now();

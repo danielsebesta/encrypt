@@ -11,7 +11,6 @@ function error(message: string, status: number): Response {
   return new Response(JSON.stringify({ error: message }), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-// Takes a Send download URL without its fragment and the HMAC key Send checks; the content key never reaches this server.
 export const GET: APIRoute = async ({ url, request }) => {
   const targetUrl = url.searchParams.get('url');
   if (!targetUrl) return error('Missing url parameter', 400);

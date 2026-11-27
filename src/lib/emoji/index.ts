@@ -63,7 +63,6 @@ export function stripSkinTone(emoji: string): string {
   return emoji.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
 }
 
-/** Puts a single skin-tone modifier after the first code point, the way every single-person RGI sequence does. */
 export function applySkinTone(emoji: string, tone: SkinTone): string {
   const base = stripSkinTone(emoji);
   if (!tone) return base === emoji ? emoji : restoreVs(base);
@@ -114,7 +113,6 @@ function searchIndex(names: EmojiNames): Map<string, IndexEntry> {
   return index;
 }
 
-/** Builds the search index for a names table ahead of the first keystroke. */
 export function prepareSearch(names: EmojiNames): void {
   searchIndex(names);
 }
@@ -140,11 +138,6 @@ function score(entry: IndexEntry, phrase: string, tokens: string[]): number {
   return Math.max(1, total - 2 * extra);
 }
 
-/**
- * Word-prefix search over names and keywords. Every query word has to start some word of the name or keywords; the
- * first source is the user's language, later ones (English) only add emoji the earlier ones did not match. Results keep
- * the order of `candidates` among equal scores; `popular` (most used first) nudges common emoji up.
- */
 export function searchEmoji(
   query: string,
   candidates: readonly string[],
@@ -216,7 +209,6 @@ function rank(records: RecentRecord[], now: number): RecentRecord[] {
   return [...records].sort((a, b) => frecency(b, now) - frecency(a, now) || b.t - a.t);
 }
 
-/** Most used emoji first, with older uses fading over about a week. */
 export function getRecentEmoji(store: KeyValueStore | null = defaultStore(), now = Date.now()): string[] {
   return rank(readRecents(store), now).slice(0, RECENT_LIMIT).map((r) => r.e);
 }
@@ -273,16 +265,10 @@ const ELEMENT = '(?:[0-9#*]\\u{FE0F}\\u{20E3}'
 const PICTO = '(?:\\p{Emoji_Modifier_Base}\\u{FE0F}?\\p{Emoji_Modifier}|\\p{Emoji_Presentation}|\\p{Extended_Pictographic}\\u{FE0F}?)';
 const GRAMMAR_RE = compile(`^(?:${ELEMENT}|${PICTO}(?:\\u{200D}${PICTO}){1,3})$`, 'u') as RegExp;
 
-/** Structural fallback for engines without the `v` flag: one emoji element or a ZWJ sequence of up to four. */
 export function matchesEmojiGrammar(value: string): boolean {
   return value.length <= MAX_EMOJI_UNITS && GRAMMAR_RE.test(value);
 }
 
-/**
- * True when `value` is exactly one RGI emoji (incl. skin-tone, ZWJ, flag, keycap and tag sequences) and nothing else.
- * Safe for untrusted network input: synchronous, no dataset needed, capped at 32 UTF-16 code units. Single pictographs
- * the engine does not know yet are accepted so newer emoji from up-to-date senders still pass.
- */
 export function isEmoji(value: unknown): value is string {
   if (typeof value !== 'string' || !value || value.length > MAX_EMOJI_UNITS) return false;
   if (RGI_RE) return RGI_RE.test(value) || (FUTURE_RE?.test(value) ?? false);
@@ -296,7 +282,6 @@ const COUNTRY_FLAG_RE = /^\p{Regional_Indicator}{2}$|^\u{1F3F4}[\u{E0020}-\u{E00
 export type EmojiSupport = { version: (version: string) => boolean; flags: boolean };
 let supportCache: EmojiSupport | null = null;
 
-/** Probes the system emoji font once so the picker can hide emoji that would render as boxes or split sequences. */
 export function detectEmojiSupport(probes: Record<string, string>): EmojiSupport {
   if (supportCache) return supportCache;
   const all: EmojiSupport = { version: () => true, flags: true };
@@ -338,7 +323,6 @@ export function isCountryFlag(emoji: string): boolean {
   return COUNTRY_FLAG_RE.test(emoji);
 }
 
-/** Emoji the current system can draw, per group, keeping Unicode order. */
 export function visibleGroups(data: EmojiData, support: EmojiSupport): EmojiGroup[] {
   return data.groups
     .map((g) => ({ id: g.id, entries: g.entries.filter((e) => support.version(e.version) && (support.flags || !isCountryFlag(e.emoji))) }))

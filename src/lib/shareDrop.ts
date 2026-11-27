@@ -10,7 +10,6 @@ export type ShareDrop = {
   fragment: string;
 };
 
-/** Offline sealed share as a downloadable file (fragment only — password stays with the sender). */
 export function encodeShareDrop(fragment: string): string {
   if (!fragment || fragment.length > MAX_CHARS) throw new Error('Invalid fragment');
   if (!parseShareFragment(fragment)) throw new Error('Invalid fragment');

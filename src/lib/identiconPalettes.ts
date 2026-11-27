@@ -5,7 +5,6 @@ export interface Palette {
 
 const p = (name: string, ...colors: [string, string, string, string, string]): Palette => ({ name, colors });
 
-/** Editor themes, UI framework palettes and our own sets. Any of the five colors can be a tile background. */
 export const ENCRYPT_PALETTES: readonly Palette[] = [
   p("Emerald", "#0f100f", "#00bc7d", "#75e5ae", "#f4f4f5", "#154b33"),
   p("Mint signal", "#0a281a", "#3cd292", "#fbbf24", "#f4f4f5", "#007a4f"),

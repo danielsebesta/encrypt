@@ -17,7 +17,6 @@ function fromBase64Url(text: string): Uint8Array | null {
   return b64ToBytes(text.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(text.length / 4) * 4, '='));
 }
 
-/** Password-sealed board snapshot: `{ format, v, envelope }` where envelope is base64url(sealPassword(...)). */
 export async function encodeEncryptedBoardBackup(update: Uint8Array, password: string, options: SealOptions = {}): Promise<string> {
   if (update.length > BOARD_BACKUP_MAX_BYTES) throw new Error('too-large');
   if (!password) throw new Error('password-required');
@@ -29,7 +28,6 @@ export async function encodeEncryptedBoardBackup(update: Uint8Array, password: s
   });
 }
 
-/** Opens a sealed board backup and returns the Yjs update bytes. */
 export async function decodeEncryptedBoardBackup(text: string, password: string): Promise<Uint8Array> {
   if (!password) throw new Error('password-required');
   if (text.length > SEALED_MAX_CHARS) throw new Error('too-large');

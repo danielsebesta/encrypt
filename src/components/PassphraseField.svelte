@@ -15,7 +15,6 @@
 
   export let revealed = false;
 
-  // A generated passphrase is shown so it can be read out; editing it hides it unless the eye was used.
   let shownByUser = false;
   let copied = false;
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,7 +48,6 @@
     decodeTimer = setInterval(frame, 32);
   }
 
-  // Any password that appears without being typed (generate button, a parent filling it in) is revealed in full, all characters at once.
   $: if (typeof window !== 'undefined' && value !== seen) {
     const appeared = value && !typed;
     seen = value;

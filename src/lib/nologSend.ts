@@ -482,7 +482,6 @@ export async function prepareSendUpload(data: Uint8Array, filename: string, file
   };
 }
 
-// Returns the bare download URL; the caller appends its own Send secret as the fragment.
 export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Array, metadataB64: string, authHeader: string, onDebug?: DebugFn, timeLimit = DEFAULT_TIME_LIMIT, dlimit = DEFAULT_DOWNLOAD_LIMIT): Promise<string> {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   onDebug?.(`Send ${normalizedBaseUrl}: proxying pre-encrypted upload (${encryptedBytes.byteLength} bytes, timeLimit=${timeLimit}s, dlimit=${dlimit})`);
@@ -651,7 +650,6 @@ export function validSendAuthKey(value: string | null): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{86}$/.test(value);
 }
 
-/** A Send download URL with its fragment already removed, as the proxy receives it. */
 export function isBareSendUrl(urlString: string) {
   try {
     parseSendDownloadUrl(urlString, false);
@@ -661,7 +659,6 @@ export function isBareSendUrl(urlString: string) {
   }
 }
 
-// Files on this site's own storage are fetched directly; Send downloads go through the proxy.
 function sameOriginDownload(urlString: string): boolean {
   if (typeof location === 'undefined') return false;
   try {

@@ -61,7 +61,6 @@
   }
 
 
-  // A room page that found no room sends people here with its name, so creating always goes through this form.
   onMount(() => {
     const requested = new URLSearchParams(location.search).get('room');
     if (requested) customRoomId = sanitizeRoomId(requested, true);

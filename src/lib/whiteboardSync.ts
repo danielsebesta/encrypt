@@ -8,7 +8,6 @@ const VERSION = 1;
 const MAX_ASSEMBLIES = 8;
 const ASSEMBLY_TTL_MS = 120_000;
 
-/** Splits an update into `[version | syncId(8) | index u16 | total u16 | bytes]` parts, or null when it is too large to send. */
 export function splitDocUpdate(update: Uint8Array, partBytes = DOC_PART_BYTES): Uint8Array[] | null {
   const total = Math.ceil(update.length / partBytes);
   if (total < 2 || total > MAX_DOC_PARTS) return null;
@@ -30,7 +29,6 @@ export function splitDocUpdate(update: Uint8Array, partBytes = DOC_PART_BYTES): 
 
 type Assembly = { parts: (Uint8Array | undefined)[]; got: number; bytes: number; at: number };
 
-/** Reassembles parts per sender; returns the whole update once its last part arrives. */
 export class DocPartAssembler {
   private assemblies = new Map<string, Assembly>();
 
@@ -48,7 +46,6 @@ export class DocPartAssembler {
 
     let a = this.assemblies.get(key);
     if (!a) {
-      // One unfinished update per sender, and the stalest one makes room, so a member cannot stall everyone else's sync.
       this.drop(from);
       if (this.assemblies.size >= MAX_ASSEMBLIES) {
         let stalest: string | null = null;
@@ -77,7 +74,6 @@ export class DocPartAssembler {
     return { update, received: total, total };
   }
 
-  /** Updates still waiting for parts; a snapshot taken now would miss them. */
   get pending(): number {
     const now = this.now();
     let count = 0;
@@ -96,7 +92,6 @@ export const BOARD_BACKUP_MAX_BYTES = 16 * 1024 * 1024;
 const BACKUP_MAX_CHARS = Math.ceil(BOARD_BACKUP_MAX_BYTES / 3) * 4 + 1024;
 const B64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
 
-/** A local, unencrypted copy of the whole board: the Yjs state as one update. */
 export function encodeBoardBackup(update: Uint8Array): string {
   return JSON.stringify({ format: BOARD_BACKUP_FORMAT, v: BOARD_BACKUP_VERSION, update: bytesToB64(update) });
 }

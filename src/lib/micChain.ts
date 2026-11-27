@@ -2,7 +2,6 @@ export type MicChain = { track: MediaStreamTrack; context: AudioContext };
 
 export const MIC_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, autoGainControl: true } as const;
 
-/** Rumble filter, then a gentle compressor that evens out loudness and a limiter that caps an overdriven mic. */
 export function buildMicChain(raw: MediaStreamTrack): MicChain | null {
   const Ctor: typeof AudioContext | undefined = typeof window === 'undefined' ? undefined : window.AudioContext ?? (window as any).webkitAudioContext;
   if (!Ctor) return null;

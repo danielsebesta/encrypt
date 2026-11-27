@@ -10,7 +10,6 @@ export function titleWithUnread(base: string, unread: number): string {
 
 type PrefStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
-/** Only an on/off flag is kept, under the room name the address already shows, never a key or a password. */
 export function loadNotifyPref(storage: PrefStorage, room: string): boolean {
   try {
     return storage.getItem(`${NOTIFY_PREFIX}${room}`) === '1';
@@ -26,10 +25,6 @@ export function saveNotifyPref(storage: PrefStorage, room: string, on: boolean) 
   } catch {}
 }
 
-/**
- * Turns a burst of incoming messages into one notification: the first message waits a moment for the rest, and after a
- * notification the next one waits until a quiet gap has passed.
- */
 export class NotificationBurst {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private lastShown = -Infinity;

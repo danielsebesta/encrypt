@@ -1,5 +1,3 @@
-/** XHR helpers that expose upload and download byte progress (fetch cannot). */
-
 export type ByteProgress = (loaded: number, total: number) => void;
 
 function headersToObject(headers?: HeadersInit): Record<string, string> {
@@ -17,7 +15,6 @@ function headersToObject(headers?: HeadersInit): Record<string, string> {
   return { ...headers };
 }
 
-/** XHR is happiest with Blob/ArrayBuffer bodies; TypedArray views can confuse Content-Length in some engines. */
 function xhrBody(body: BodyInit | null | undefined): XMLHttpRequestBodyInit | null {
   if (body == null) return null;
   if (typeof body === 'string') return body;
@@ -42,10 +39,6 @@ function bodyLength(body: BodyInit | null | undefined): number {
   return 0;
 }
 
-/**
- * Same-origin / CORS request with upload progress. Returns a Fetch `Response` so callers
- * keep using `.json()` / `.arrayBuffer()` as today.
- */
 export function xhrRequest(
   url: string,
   init: {
@@ -106,7 +99,6 @@ export function xhrRequest(
   });
 }
 
-/** Reads a Response body while reporting download progress when Content-Length is known. */
 export async function readResponseProgress(
   res: Response,
   onProgress?: ByteProgress,

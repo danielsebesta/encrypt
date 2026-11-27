@@ -1,11 +1,9 @@
 export const RETENTION_SECONDS = [5, 10, 30, 60, 300, 900, 3600, 86400] as const;
 
-// Offered for new rooms; 5 s stays in RETENTION_SECONDS so rooms created with it still open.
 export const RETENTION_CHOICES = RETENTION_SECONDS.filter((seconds) => seconds !== 5);
 
 export type ChatMode = 'live' | `ttl-${number}`;
 
-// The old saved-room mode no longer exists; a stored value of "persistent" reads as a live room everywhere.
 export function normalizeChatMode(value: unknown): ChatMode {
   if (value === 'live' || value === 'persistent') return 'live';
   if (typeof value === 'string') {
@@ -31,10 +29,6 @@ export function configStamp(config: RoomVersionStamp): string {
 
 export type RoomLookup = 'open' | 'missing' | 'mismatch';
 
-/**
- * What a joiner does with the settings the server reports: a channel without settings holds no room, and a room whose
- * format or mode differs from what this browser saw there before is refused rather than joined.
- */
 export function roomLookup(config: RoomVersionStamp | null, remembered: string | null): RoomLookup {
   if (!config) return 'missing';
   if (config.v !== 3 || (remembered && remembered !== configStamp(config))) return 'mismatch';
@@ -68,14 +62,12 @@ function characterKinds(value: string): number {
   return [/\p{Ll}/u, /\p{Lu}/u, /\p{N}/u, /[^\p{L}\p{N}\s]/u].filter((re) => re.test(value)).length;
 }
 
-// A word is a lowercase or capitalized letter run; mixed case inside a run reads as random letters instead.
 const WORD_RE = /^\p{Lu}?\p{Ll}{2,}$/u;
 
 function passphraseWords(value: string): string[] {
   return value.split(/[^\p{L}]+/u).filter((word) => WORD_RE.test(word) || /^\p{Lu}{3,}$/u.test(word));
 }
 
-// Characters that only repeat or continue a run (aaa, abcd, 4321, qwer) add almost nothing for a guesser.
 function effectiveLength(value: string): number {
   const lower = value.toLowerCase();
   let length = 0;
@@ -100,7 +92,6 @@ function foldCase(value: string): string {
   return lower.length === value.length ? lower : value;
 }
 
-// Spelling a common password with symbols (P@ssw0rd, adm1n, we1come) hides it from nobody who is guessing.
 function withoutCommon(value: string): { rest: string; found: number } {
   const readings = (text: string) => {
     const lower = foldCase(text);
@@ -120,7 +111,6 @@ function withoutCommon(value: string): { rest: string; found: number } {
   return { rest, found };
 }
 
-// Whatever repeats something typed earlier, forwards or backwards and in any case, costs one back-reference however long it is.
 function withoutRepeats(value: string): { rest: string; repeats: number } {
   const lower = foldCase(value);
   let rest = '';
@@ -144,18 +134,12 @@ function withoutRepeats(value: string): { rest: string; repeats: number } {
   return { rest, repeats };
 }
 
-// Letters, digits and symbols read apart, which unmasks patterns woven together such as 1q2w3e4r or a1!b2@c3#.
 function strandBits(value: string): number {
   const strand = (re: RegExp) => effectiveLength([...value.matchAll(re)].map(([char]) => char).join('').replace(/(.)\1+/giu, '$1'));
   const pool = (/\p{Ll}/u.test(value) ? 26 : 0) + (/\p{Lu}/u.test(value) ? 26 : 0);
   return strand(/\p{L}/gu) * Math.log2(pool || 1) + strand(/\p{N}/gu) * Math.log2(10) + strand(/[^\p{L}\p{N}\s]/gu) * 5;
 }
 
-/**
- * A deliberately conservative guess-cost estimate: the lowest of several readings of the password. Words count as about
- * 12 bits however long they are, years, runs and repeats count as almost nothing, and only letters, digits and symbols
- * that look random earn full per-character credit.
- */
 export function passwordBits(password: string): number {
   const value = password.trim().slice(0, MAX_ANALYZED_CHARS);
   const { rest: uncommon, found } = withoutCommon(value);
@@ -209,15 +193,12 @@ export function roomPasswordOk(password: string, roomName: string): boolean {
   return checks.length && checks.variety && checks.strength && checks.distinct;
 }
 
-// Hard floor matches the length rule in checkRoomPassword / security copy.
 export const MIN_PASSWORD_LENGTH = MIN_ROOM_PASSWORD_LENGTH;
 
 export function passwordLongEnough(password: string): boolean {
   return password.trim().length >= MIN_PASSWORD_LENGTH;
 }
 
-// A trailing "!N" makes one message disappear after N seconds in any room mode. Out-of-range or
-// fractional values are clamped rather than ignored, so a typo never turns a private message permanent.
 const BURN_SUFFIX = /!(\d{1,9}(?:[.,]\d*)?)$/;
 const BURN_MAX_SECONDS = 3600;
 

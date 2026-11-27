@@ -39,10 +39,6 @@ export interface SignR2PutParams {
   date?: Date;
 }
 
-/**
- * Generates an AWS Signature Version 4 presigned PUT URL for Cloudflare R2 object storage.
- * Runs completely on Web Cryptography API without external dependencies.
- */
 export async function signR2PutUrl(params: SignR2PutParams): Promise<string> {
   const {
     accountId,
@@ -68,7 +64,6 @@ export async function signR2PutUrl(params: SignR2PutParams): Promise<string> {
 
   const encodedPath = `/${encodeURIComponent(bucketName)}/${key.split('/').map(encodeURIComponent).join('/')}`;
 
-  // Canonical headers must be lowercase, sorted, and include 'host'
   const headerMap = new Map<string, string>();
   headerMap.set('host', host);
   for (const [k, v] of Object.entries(headers)) {

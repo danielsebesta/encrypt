@@ -18,7 +18,6 @@ export function roomMessageKey(base: CryptoKey, mode: string): Promise<CryptoKey
   return hkdfAesKey(base, `encrypt.click/chat/v3/messages:${mode}`);
 }
 
-/** The secret forward secrecy mixes into every pairwise key, so a broken key exchange alone never opens a message. */
 export function roomForwardSecret(base: CryptoKey, mode: string): Promise<Uint8Array> {
   return hkdfBytes(base, `encrypt.click/chat/v3/forward-secrecy:${mode}`);
 }
@@ -30,7 +29,6 @@ export async function forwardLocalKey(secret: Uint8Array): Promise<CryptoKey> {
 
 const localContext = (id: string) => new TextEncoder().encode(`encrypt.click/chat/local-history/v1\n${id}`);
 
-/** Local history keeps the verified, signed plaintext under a key of its own, never a wire ciphertext. */
 export async function sealLocal(key: CryptoKey, id: string, text: string): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const sealed = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: bytesToArrayBuffer(iv), additionalData: bytesToArrayBuffer(localContext(id)) }, key, bytesToArrayBuffer(new TextEncoder().encode(text)));
@@ -88,7 +86,6 @@ function verifyKey(publicKey: string): Promise<CryptoKey> {
   return key;
 }
 
-/** Returns the signer's public key when the payload carries a valid signature, otherwise null. */
 export async function verifyPayload(value: unknown): Promise<string | null> {
   if (!value || typeof value !== 'object') return null;
   const { _sig, ...unsigned } = value as Record<string, unknown>;
@@ -102,7 +99,6 @@ export async function verifyPayload(value: unknown): Promise<string | null> {
   }
 }
 
-/** Curated 64 symbols (Matrix-style SAS). Easy to say aloud, no lookalikes. */
 const SAFETY_EMOJI = [
   '🐶', '🐱', '🦁', '🦊', '🐸', '🐵', '🦄', '🐼',
   '🐨', '🐯', '🐷', '🐮', '🐔', '🐧', '🐦', '🐤',
@@ -122,13 +118,11 @@ function emojiGroups(bytes: Uint8Array, count: number): string {
   return out.join(' ');
 }
 
-/** Same emoji string on both sides when each holds the other's real public key. */
 export async function safetyNumber(a: string, b: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-512', new TextEncoder().encode(`encrypt.click:safety-v3:${[a, b].sort().join(':')}`)));
   return emojiGroups(digest, 7);
 }
 
-/** Short emoji mark for one public key — tells apart two members with the same name. */
 export async function keyCode(publicKey: string): Promise<string> {
   return emojiGroups(await sha256Bytes(`encrypt.click:chat-key-v2:${publicKey}`), 4);
 }

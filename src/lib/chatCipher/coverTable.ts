@@ -5,12 +5,6 @@ export type CoverLang = 'cs' | 'de' | 'en' | 'es' | 'fr' | 'pl' | 'sk';
 
 export const COVER_LANGS: readonly CoverLang[] = ['cs', 'en', 'de', 'es', 'fr', 'sk', 'pl'];
 
-/**
- * Blend decay applied at table-read time instead of a table rebuild: every shipped table stores the untuned 65536,
- * so this is the one knob that also retunes the Czech table, whose corpus no longer exists to rebuild from. Lower
- * values trust each context less, flatten the word distribution and shorten covers; past roughly 40000 the shorter
- * text stops reading like the language. Overriding it breaks every cover made with another value.
- */
 const COVER_DENSITY: Record<CoverLang, number> = { cs: 46000, de: 46000, en: 46000, es: 46000, fr: 46000, pl: 46000, sk: 46000 };
 
 export const COVER_TABLES: Record<CoverLang, { url: string; sha256: string }> = {
@@ -71,7 +65,6 @@ const QUESTIONS: Partial<Record<CoverLang, QuestionWords>> = {
   },
 };
 
-/** Czech pack aliases kept for older imports and the golden cover fixture. */
 export const COVER_TABLE_URL = COVER_TABLES.cs.url;
 export const COVER_TABLE_SHA256 = COVER_TABLES.cs.sha256;
 
@@ -81,7 +74,6 @@ export function isCoverLang(value: string): value is CoverLang {
   return Object.hasOwn(COVER_TABLES, value);
 }
 
-/** The site language when the browser also lists it, otherwise the browser's first cover language, otherwise the site language. */
 export function preferredCoverLang(pageLang?: string | null, browserLangs: readonly string[] = []): CoverLang {
   const page = pageLang && isCoverLang(pageLang) ? pageLang : null;
   const browser = browserLangs.map(tag => tag.trim().toLowerCase().split('-')[0]).filter(isCoverLang);
@@ -89,7 +81,6 @@ export function preferredCoverLang(pageLang?: string | null, browserLangs: reado
   return browser[0] ?? page ?? 'cs';
 }
 
-/** Cover languages ordered by how much of the text each word table spells exactly; tables that cannot load are skipped. */
 export async function rankCoverLangs(cover: string, first: CoverLang): Promise<CoverLang[]> {
   const order = [first, ...COVER_LANGS.filter(lang => lang !== first)];
   const scored = await Promise.all(
@@ -106,7 +97,6 @@ export async function rankCoverLangs(cover: string, first: CoverLang): Promise<C
   return ranked.map(item => item.lang);
 }
 
-/** Builds the codec exactly the way the app loads it, so any pinned cover or test decodes as production does. */
 export function coverCodecFor(lang: CoverLang, table: CoverTable): CoverCodec {
   return createCoverCodec(table, QUESTIONS[lang], COVER_DENSITY[lang]);
 }
@@ -134,18 +124,15 @@ function load(lang: CoverLang, cache: RequestCache): Promise<CoverCodec> {
   return pending;
 }
 
-/** The word table for one cover language, fetched once per tab. */
 export function loadCoverCodec(lang: CoverLang = 'cs'): Promise<CoverCodec> {
   return load(lang, 'default');
 }
 
-/** Fetches past the HTTP cache, which would otherwise keep serving a damaged copy. */
 export function reloadCoverCodec(lang: CoverLang = 'cs'): Promise<CoverCodec> {
   loading.delete(lang);
   return load(lang, 'reload');
 }
 
-/** Frees what the earlier neural models left in this browser, up to about 140 MB. */
 export async function dropRetiredModels(): Promise<void> {
   if (typeof caches === 'undefined') return;
   for (const name of await caches.keys()) {

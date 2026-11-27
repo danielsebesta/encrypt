@@ -29,7 +29,6 @@ function contrast(a: string, b: string): number {
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
 
-/** Declarations between the palette markers of one scope, e.g. `:root {` or `html.dark {`. */
 function markedTokens(scope: RegExp): Palette {
   const rule = css.match(new RegExp(`${scope.source}\\s*\\{([\\s\\S]*?)\\n\\}`));
   assert.ok(rule, `rule ${scope.source} not found in global.css`);

@@ -3,7 +3,6 @@ import type { BudgetCommand, SqlLike, UploadLimits } from '../platform/types';
 
 export type Reservation = 'ok' | 'full' | Exclude<Charge, 'ok'>;
 
-/** Upload usage of today (UTC) and this month; bytes are stored byte-days, as the quotas count them. */
 export type UploadStatus = {
   available: boolean;
   maxFileSize: number;
@@ -29,7 +28,6 @@ function prepare(sql: SqlLike) {
   prepared.add(sql);
 }
 
-// Per-minute ceilings for one route: the visitor's own and everyone's together.
 function rate(sql: SqlLike, key: string, limit: number, globalLimit: number, now: number): boolean {
   const { minute } = periods(now);
   sql.exec('DELETE FROM rate WHERE minute < ?', minute);

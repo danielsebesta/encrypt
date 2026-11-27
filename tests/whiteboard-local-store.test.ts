@@ -9,7 +9,6 @@ import {
   suppressLocalBoards,
 } from '../src/lib/whiteboardLocalStore';
 
-/** Tiny in-memory IndexedDB stand-in so local board persistence can be tested in Node. */
 function installMemoryIdb() {
   const dbs = new Map<string, Map<string, unknown>>();
 

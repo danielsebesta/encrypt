@@ -1,4 +1,3 @@
-/** Shared content parked by public/sw.js; the names must match that file. */
 export const SHARE_INBOX = 'share-target-inbox';
 export const SHARE_META_PATH = '/share-target/meta';
 export const SHARE_FILE_PATH = '/share-target/file/';
@@ -25,7 +24,6 @@ export function safeFileName(name: string, index: number): string {
   return base && base !== '.' && base !== '..' ? base.slice(0, 255) : `shared-${index + 1}`;
 }
 
-/** The inbox metadata, or null when it is malformed or older than a few minutes. */
 export function parseSharedMeta(value: unknown, now = Date.now()): SharedMeta | null {
   if (!value || typeof value !== 'object') return null;
   const record = value as Record<string, unknown>;
@@ -40,7 +38,6 @@ export function parseSharedMeta(value: unknown, now = Date.now()): SharedMeta | 
   return { at, title: str(record.title), text: str(record.text), url: str(record.url), files };
 }
 
-/** Title, text and link joined into one message, leaving out a part that another part already contains. */
 export function composeSharedText(meta: Pick<SharedMeta, 'title' | 'text' | 'url'>): string {
   const parts = [meta.title, meta.text, meta.url].map((part) => part.trim()).filter(Boolean);
   return parts
@@ -48,7 +45,6 @@ export function composeSharedText(meta: Pick<SharedMeta, 'title' | 'text' | 'url
     .join('\n');
 }
 
-/** Takes pending shared content out of the local inbox and always empties it. */
 export async function takeSharedContent(): Promise<SharedContent | null> {
   try {
     if (typeof caches === 'undefined' || !(await caches.has(SHARE_INBOX))) return null;

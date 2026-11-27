@@ -16,13 +16,11 @@ function keyBytes(key: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(padded), char => char.charCodeAt(0));
 }
 
-/** The service worker shows this text for an empty push, so it stays in the language the user picked. */
 async function storeText(title: string, body: string) {
   const cache = await caches.open(TEXT_CACHE);
   await cache.put(TEXT_URL, new Response(JSON.stringify({ title, body }), { headers: { 'Content-Type': 'application/json' } }));
 }
 
-/** Subscribes this device with the relay's key and returns what the room needs to wake it, or null when push is unavailable. */
 export async function subscribeForPush(publicKey: string, title: string, body: string): Promise<PushSubscriptionInfo | null> {
   if (!pushSupported() || Notification.permission !== 'granted') return null;
   try {
@@ -49,7 +47,6 @@ function sameKey(a: Uint8Array, b: Uint8Array): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-/** A random tag per room and device. The relay only ever sees this tag; the device alone knows which room it stands for. */
 export function pushTagFor(roomId: string, storage: Storage = localStorage): string {
   const key = `${TAG_PREFIX}${roomId}`;
   try {
@@ -64,7 +61,6 @@ export function pushTagFor(roomId: string, storage: Storage = localStorage): str
   return tag;
 }
 
-/** Lets the service worker name the room and open it when a push with this tag arrives. */
 export async function rememberPushRoom(tag: string, room: { roomId: string; label: string; kind: 'chat' }): Promise<void> {
   if (typeof caches === 'undefined') return;
   const cache = await caches.open(PUSH_ROOMS_CACHE);

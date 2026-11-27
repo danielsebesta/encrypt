@@ -2,8 +2,6 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { createSocket } from 'node:dgram';
 import WebSocket from 'ws';
 
-// Usage: node scripts/smoke-node.mjs [base URL] [TURN host:port]. Checks a running Node or Docker deployment end to end;
-// with a TURN address it also allocates a relay there using the credentials /api/turn hands out.
 const base = new URL(process.argv[2] || 'http://localhost:8080');
 const turnAddress = process.argv[3];
 const wsBase = base.href.replace(/^http/, 'ws');
@@ -58,7 +56,6 @@ function stunAttributes(message) {
   return found;
 }
 
-// RFC 5766 Allocate over UDP: the first attempt is refused with a realm and nonce, the second carries the credential.
 async function turnAllocate(address, username, credential) {
   const [host, port] = [address.slice(0, address.lastIndexOf(':')), Number(address.slice(address.lastIndexOf(':') + 1))];
   const udp = createSocket(host.includes(':') ? 'udp6' : 'udp4');
@@ -121,7 +118,6 @@ try {
   a11ySmoke('/share/', share.body);
   const tool = await page('/experiments/chat-cipher/', 200);
   a11ySmoke('/experiments/chat-cipher/', tool.body);
-  // Cloudflare renders these through the Worker, the Node server redirects from its static rules; both end on the same page.
   await page('/chat', [200, 307]);
   await page('/privacy', [200, 301]);
   const missing = await page('/no-such-page', 404);
@@ -157,7 +153,6 @@ try {
   a.send({ type: 'join', token, config: { mode: 'live', authMode: 'password', v: 3 } });
   await a.next('room-config');
   b.send({ type: 'join', token });
-  // The first join's room-config also reaches sockets that have not joined yet, so wait until the room counts both.
   for (let presence = await a.next('presence'); presence.count < 2; presence = await a.next('presence'));
   const payload = randomBytes(48).toString('base64url');
   a.send({ type: 'message', id: 'smoke-1', payload });

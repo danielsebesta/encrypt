@@ -20,7 +20,6 @@ function statements(db: DatabaseSync) {
   };
 }
 
-/** The Durable Object `sql.exec` shape over node:sqlite. Several statements without bindings run as one batch. */
 export function sqlLike(db: DatabaseSync): SqlLike {
   const prepare = statements(db);
   return {

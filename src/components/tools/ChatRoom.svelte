@@ -14,7 +14,6 @@
   import { ForwardSecrecySession, MAX_SYNC_ITEMS, PENDING, validEphemeralKey, type FsMember } from '../../lib/chatRatchet';
   let verificationChallenge = '';
   let roomIdentity: SigningIdentity | null = null;
-  // Every payload is stamped and signed, so members can tell who in the room wrote it.
   async function signForRoom(payload: Record<string, unknown>, pad: boolean): Promise<string> {
     if (!roomIdentity) throw new Error('No room identity');
     const stamped = stampPayload(JSON.stringify(payload), channelId);
@@ -212,7 +211,6 @@
     from?: string;
   };
 
-  // Each entry holds the verified, signed plaintext sealed under the local key.
   type LocalHistoryEnvelope = { type: 'message'; id: string; v: 2; sealed: string; createdAt?: number };
 
   type Origin = 'local' | 'sync' | null;
@@ -256,7 +254,6 @@
     cameraOff: boolean;
     screenSharing: boolean;
     makingOffer: boolean;
-    /** Camera/mic toggles that hit glare must retry once signaling is free. */
     needsRenegotiation: boolean;
     restartTimer?: ReturnType<typeof setTimeout>;
     restartAttempts: number;
@@ -404,8 +401,6 @@
   }
   let lastConnStatus = '';
   function reportConn() {
-    // "connecting" only while a room key exists and the socket is coming up.
-    // Probe / verify → loading spinner. Password prompt waits on the user (no spinner).
     const st = netOffline
       ? 'offline'
       : connected || needsPassword
@@ -440,7 +435,6 @@
   const onNetChange = () => {
     const was = netOffline;
     netOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    // Back online: reconnect right away instead of waiting out the backoff delay.
     if (was && !netOffline) try { ws?.reconnect(); } catch {}
     reportConn();
   };
@@ -487,9 +481,6 @@
   let connected = false;
   let verified = false;
   let verifying = false;
-  /* Once a room has verified this session, brief reconnect re-verification keeps the
-     room view (and composer) mounted — sends queue into the outbox instead of
-     swapping the whole screen for a spinner. */
   let everVerified = false;
   let checkingRoom = false;
   let needsPassword = false;
@@ -600,7 +591,6 @@
   $: if (!callActive) callMinimized = false;
   $: callChatVisible = !callActive || callMinimized || (callWide && callChatOpen);
 
-  // The divider between the call and the chat when they sit side by side.
   const CALL_SPLIT_KEY = 'encrypt-call-split';
   const SPLIT_CHAT_MIN = 260;
   const SPLIT_CALL_MIN = 320;
@@ -647,7 +637,6 @@
     handle.addEventListener('pointercancel', stop);
   }
 
-  // Arrows move the divider the way they point; Home gives the chat the most room, End the call, Enter resets.
   function splitKey(event: KeyboardEvent) {
     const max = Math.max(SPLIT_CHAT_MIN, chatBodyWidth - SPLIT_CALL_MIN);
     const current = splitChatW ?? splitDefaultW;
@@ -776,9 +765,7 @@
     try { return localStorage.getItem(BLUR_WHEN_AWAY_STORAGE_KEY) !== '0'; } catch { return true; }
   })();
   let stickToBottom = true;
-  /** Messages that arrived while the user was scrolled away from the bottom. */
   let belowCount = 0;
-  /** About two to three bubbles: stay pinned here, leave the view alone farther up. */
   const NEAR_BOTTOM_PX = 180;
   let audioInputDevices: MediaDeviceInfo[] = [];
   let videoInputDevices: MediaDeviceInfo[] = [];
@@ -1086,7 +1073,6 @@
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   }
 
-  // The message list re-renders on every timer tick, so each message keeps its parsed HTML until its text changes.
   const markdownCache = new WeakMap<Message, { text: string; html: string }>();
 
   function messageHtml(msg: Message): string {
@@ -1102,9 +1088,6 @@
     return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight;
   }
 
-  // Off-screen bubbles skip rendering and only get their real height once scrolled into view, so the bottom keeps
-  // moving. Keep pinning until the height and the distance to the bottom stop changing, and let the user cancel by touching the list.
-  // Background tabs pause requestAnimationFrame, so pin once right after the DOM update too.
   let pinning = false;
 
   function scrollToBottom(force = false) {
@@ -1156,7 +1139,6 @@
     scrollToBottom(true);
   }
 
-  /** Own messages always follow; others only when near the bottom, otherwise show the jump chip. */
   function followIncoming(mine: boolean) {
     if (mine || stickToBottom) scrollToBottom(mine);
     else noteMessagesBelow();
@@ -1332,8 +1314,6 @@
     }
   }
 
-  // The level rises with the voice at once and fades out slowly, and speaking holds across the gaps between syllables,
-  // so the ring breathes with the voice instead of flickering.
   const VOICE_ON = 0.12;
   const VOICE_OFF = 0.06;
   const VOICE_HOLD_MS = 450;
@@ -2000,7 +1980,6 @@
     return '';
   }
 
-  // Password rooms are format version 3; anything else the server reports does not count.
   function normalizeRoomConfig(input: unknown): RoomConfig | null {
     if (!input || typeof input !== 'object') return null;
     const value = input as Partial<RoomConfig>;
@@ -2149,10 +2128,6 @@
     openWhiteboardNewTab(invite, child);
   }
 
-  /**
-   * Seals and sends one content payload. With forward secrecy on, the signed payload travels inside the sender's chain;
-   * otherwise it is only signed, padded and sealed under the room key.
-   */
   async function sendContent(payload: ChatPayload, createdAt: number): Promise<{ signed: string }> {
     const { signed, wire } = await buildContent(payload);
     transmit(wire, payload.id!, createdAt);
@@ -2178,11 +2153,6 @@
     }
   }
 
-  /* Outbox: payloads that could not reach the relay stay queued with their
-     pending bubble and flush on the next joined socket. The wire bytes are
-     rebuilt at flush time so forward-secrecy seals always match the live
-     session, and dedup on receivers (replay window + seenMessageIds) makes a
-     retransmitted id a no-op — never a duplicate. */
   let outbox: ChatPayload[] = [];
   let outboxFlush = false;
 
@@ -2307,8 +2277,6 @@
   type FileOutboxItem = { msgId: string; file: File; voiceSeconds?: number };
   let fileOutbox: FileOutboxItem[] = [];
 
-  // A file picked while offline renders as a pending bubble right away; the
-  // bytes upload when the room is joined again and the bubble swaps in place.
   function queueFileMessage(file: File, voiceSeconds?: number) {
     const msgId = genId();
     const createdAt = Date.now();
@@ -2342,7 +2310,6 @@
     void flushOutbox();
   }
 
-  // The ephemeral forward secrecy keys travel inside the signed room channel so others know which senders they can grant to.
   function presenceFields(): Record<string, unknown> {
     return {
       alias: aliasWire(alias), nick: nickname || undefined, clientId,
@@ -2363,7 +2330,6 @@
     }, 1500);
   }
 
-  // After someone leaves, everyone still here answers with a presence: that is the roll call for the new sender chains.
   async function onMemberLeft(gone?: string) {
     if (gone) clientDeparted(gone);
     if (fsSession) await fsSession.memberLeft(gone);
@@ -2513,7 +2479,6 @@
     } catch {}
   }
 
-  // A room saved with a passkey gets its password back from it, so coming back to the app never asks for it again.
   async function usePasskeyPassword(showFailure: boolean): Promise<boolean> {
     if (!appMode || !onSavedPassword) return false;
     const saved = await onSavedPassword().catch(() => null);
@@ -2576,8 +2541,6 @@
       return;
     }
 
-    // Same name + different password is already another channel. If peers on
-    // this channel do not ack in time, enter anyway; undecryptable traffic is dropped.
     verificationTimeout = setTimeout(() => {
       if (verifying && !verified) markVerified();
     }, 4000);
@@ -2591,7 +2554,6 @@
       return;
     }
 
-    // After a real leave window, this tab may announce join again; soft reconnects stay quiet.
     if (disconnectedAt && Date.now() - disconnectedAt >= MEMBER_LEAVE_GRACE_MS) {
       joinAnnounced = false;
       joinAfterAbsence = true;
@@ -2604,7 +2566,6 @@
     void syncPush();
     void flushOutbox();
 
-    // An empty room shows its own notice only after peers had a moment to hand their local copies over.
     historyReady = serverPresence <= 1;
     if (!historyReady) setTimeout(() => { historyReady = true; }, 1500);
 
@@ -2622,7 +2583,6 @@
 
   let acceptedPassword = '';
   let reportedPassword = '';
-  // An empty channel also counts as verified, so a mistyped password is only remembered once something proves it right.
   let passwordConfirmed = false;
   $: if (acceptedPassword && !passwordConfirmed && (sharePassword || messages.some((m) => !m.mine && !!m.pk && m.pk !== mySignerId))) passwordConfirmed = true;
   $: if (verified && passwordConfirmed && acceptedPassword && acceptedPassword !== reportedPassword) {
@@ -2650,7 +2610,6 @@
         await unlockRoom(pendingRoomConfig);
         return;
       }
-      // Everyone but the creator learns the room mode from the server first, because the key depends on it.
       ws?.close();
       ws = null;
       connectWs();
@@ -2669,12 +2628,10 @@
     try { return localStorage.getItem(`${MODE_PREFIX}${channelId}`); } catch { return null; }
   }
 
-  // Rooms are only ever created through the create form, with its password rules and an explicit mode.
   async function openWithConfig(config: RoomConfig | null) {
     if (!pendingSecret || cryptoKey) return;
     const next = roomLookup(config, rememberedMode());
     if (next === 'missing' && appMode) {
-      // In the app a name and password are the whole identity: nothing there yet means this is the first person to arrive.
       const remembered = rememberedMode()?.split(':')[1];
       const created: RoomConfig = { mode: normalizeChatMode(remembered ?? roomConfig.mode), authMode: 'password', createdAt: Date.now(), v: 3 };
       pendingRoomConfig = created;
@@ -2864,8 +2821,6 @@
         askForPassword();
         return;
       }
-      // The server reports only people who are already inside the chat. When
-      // that count is zero, there is nobody online to validate this password.
       if (verifying) {
         startPasswordVerification(serverPresence);
       }
@@ -2902,7 +2857,6 @@
     await processServerEnvelope(data as ServerEnvelope);
   }
 
-  // origin 'local' is this browser's own stored copy, 'sync' is history a peer handed over in a live room.
   async function processServerEnvelope(data: ServerEnvelope, fromHistory = false, origin: Origin = null): Promise<boolean> {
     if (!cryptoKey) return false;
     let plaintext: string;
@@ -2911,7 +2865,6 @@
       plaintext = await decryptMessage(cryptoKey, data.payload);
       parsed = JSON.parse(plaintext);
     } catch {
-      // Undecryptable traffic stays invisible; a different password is already another channel.
       return false;
     }
     try {
@@ -2943,7 +2896,6 @@
   async function processSigned(parsed: any, ctx: ProcessContext): Promise<boolean> {
     const { fromHistory, origin } = ctx;
     if (!validPayload(parsed, channelId, fromHistory)) return false;
-    // Every payload is signed; anything that fails the Ed25519 check is dropped.
     const auth = await authenticate(parsed);
     if (!auth) return false;
     const signer = auth.id;
@@ -3041,7 +2993,6 @@
       addOnlineUser(acker);
       noteMember(signer, acker);
       clientArrived(signer, parsed.clientId);
-      // Sync runs both ways: whoever comes back hands over what they wrote while the others were away.
       if (fsSession && member && parsed.clientId && Date.now() - (ackSyncAt.get(parsed.clientId) ?? 0) > ACK_SYNC_MIN_GAP_MS) {
         ackSyncAt.set(parsed.clientId, Date.now());
         void sendLiveHistorySync(member);
@@ -3068,7 +3019,6 @@
     if (parsed.type === 'call-signal') {
       if (fromHistory) return true;
       if (!bindClient(parsed.from, signer) || !noteMember(signer, senderInfo(parsed))) return true;
-      // Call signals keep their own order without holding up the chat while a call is being negotiated.
       callSignals = callSignals.then(() => handleCallSignal(parsed as CallSignal)).catch(() => {});
       return true;
     }
@@ -3144,7 +3094,6 @@
     return true;
   }
 
-  // A hidden tab counts what arrived in its title and app badge; a notification, when turned on, says only that something did.
   function noteUnread() {
     if (!document.hidden && document.hasFocus()) return;
     unread++;
@@ -3228,7 +3177,6 @@
     void syncPush();
   }
 
-  /** Sends `text` as a chat message without touching the composer input, so scheduled drafts and typed text never collide. */
   async function sendChatMessage(text: string, opts: { once?: boolean; replyTo?: string } = {}): Promise<boolean> {
     const trimmed = text.trim();
     if (!trimmed || !cryptoKey || !ws) return false;
@@ -3508,8 +3456,6 @@
     scheduleTimers.set(draft.id, setTimeout(() => { void flushScheduled(draft.id); }, delay));
   }
 
-  // A due draft retries until it sends or is ten minutes overdue; it never borrows the composer input,
-  // so whatever the member is typing survives, and nothing is dropped silently while the room is offline.
   async function flushScheduled(id: string) {
     const draft = scheduledDrafts.find((item) => item.id === id);
     clearScheduleTimer(id);
@@ -3553,7 +3499,6 @@
     scheduleMenuOpen = false;
   }
 
-  // Replies and reactions travel inside the signed, encrypted payload like any message, so the relay cannot tell them apart.
   function applyReaction(id: string, parsed: any, reactor: string, name: string, signed?: string) {
     const changed = reactionBook.apply({ id, target: parsed.target, emoji: parsed.emoji, remove: parsed.remove === true, reactor, name, at: parsed._sentAt });
     if (signed && !parsed.ttl) {
@@ -3739,13 +3684,10 @@
 
     try {
       const buffer = new Uint8Array(await file.arrayBuffer());
-      // Each file gets a random key that travels only inside the message, so it is exactly as protected as the message itself.
-      // The key bytes go straight into the raw-key envelope; the wire form is only for the message text.
       const fileKeyBytes = crypto.getRandomValues(new Uint8Array(32));
       const fileKey = arrayToB64url(fileKeyBytes);
       const encrypted = await encryptDataWithKey(buffer, fileKeyBytes, file.name);
 
-      // First-party R2 upload first; Send is the fallback.
       const uploadUrls: string[] = [];
       const once = onceEnabled;
       const burn = once && soleRecipient();
@@ -5211,8 +5153,6 @@
     return { width: img.naturalWidth, height: img.naturalHeight };
   }
 
-  // A preview is shown only once it is fetched, decrypted and decoded, so it appears whole instead of growing into place.
-  // `local` is the file itself for messages this device just sent, which skips the round trip through the relay.
   async function autoPreview(msg: Message, local?: Blob) {
     if (!msg.file || !isPreviewable(msg)) return;
     const ext = getFileExt(msg.file.name);
@@ -5250,9 +5190,6 @@
     await finish(data);
   }
 
-  // A person counts as present while any of their connections is, so a reconnect or a second tab never counts twice.
-  // A departure waits briefly: coming straight back, as a phone does after the app was in the background, announces nothing.
-  // Of the people still here, the one with the lowest key signs the notice, so it exists once and reaches everyone alike.
   const liveClients = new Map<string, Set<string>>();
   const leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const recentMemberNotices: { kind: string; subject: string; time: number }[] = [];
@@ -5342,9 +5279,7 @@
     }
   }
 
-  // Everyone gets one notice when a person arrives, not one per reconnect: skip it if this browser announced itself just now.
   let joinAnnounced = false;
-  // After a real absence the others have been told this person left, even if that notice has not reached this browser yet.
   let joinAfterAbsence = false;
   $: if (verified && !joinAnnounced && (roomConfig.mode !== 'live' || fsSession)) {
     joinAnnounced = true;
@@ -5374,7 +5309,6 @@
   // The first key a name shows up with is trusted on sight; later keys under the same name are flagged until accepted.
   const clientSigners = new Map<string, string>();
 
-  // The relay tags each connection in rooms without server history, so a departure names the member who left.
   const connClients = new Map<string, string>();
   const clientConns = new Map<string, string>();
 
@@ -5608,7 +5542,6 @@
     return hours ? `${hours}:${minutes}:${seconds}` : `${Number(minutes)}:${seconds}`;
   }
 
-  // A join, or our own start, pins the moment a call began; a presence from a call already running only says that one exists.
   function noteCallParticipant(id: string, name: string, started: boolean) {
     if (!callStartedAt) {
       callStartedAt = Date.now();
@@ -5639,7 +5572,6 @@
     if (safetyPrompt?.pk === pk) dismissSafetyPrompt();
   }
 
-  // Only what this tab has already decrypted: no server fetch and no attachment ciphertext or keys.
   function exportHistory() {
     if (!shouldKeepParticipantHistory()) return;
     if (messages.length === 0) {

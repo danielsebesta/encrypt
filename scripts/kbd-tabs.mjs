@@ -99,7 +99,6 @@ async function expectTab(page, path, want, how) {
 async function audit(page, path) {
   if (!(await structure(page, path))) return;
 
-  // Hydration probe: keep clicking until the listener flips selection.
   const selected = () => page.evaluate(() => document.querySelector('[role="tab"][aria-selected="true"]')?.id);
   let hydrated = false;
   for (let i = 0; i < 40 && !hydrated; i++) {
@@ -127,12 +126,10 @@ async function audit(page, path) {
   await page.keyboard.press('End');
   await expectTab(page, path, 'home-tab-whiteboard', 'End');
 
-  // Tab leaves the tablist and lands on the focusable panel.
   await page.keyboard.press('Tab');
   const afterTab = await page.evaluate(() => document.activeElement?.id ?? null);
   check(afterTab === 'home-panel-whiteboard', `${path}: Tab from active tab lands on its panel (on ${afterTab})`);
 
-  // Once the lazy panel content has mounted, Tab reaches inside it.
   try {
     await page.waitForSelector('#home-panel-whiteboard input', { timeout: 10000 });
   } catch {
@@ -148,7 +145,6 @@ async function audit(page, path) {
   const backOnTab = await page.evaluate(() => document.activeElement?.id ?? null);
   check(backOnTab === 'home-tab-whiteboard', `${path}: Shift+Tab returns to the active tab (on ${backOnTab})`);
 
-  // Modified keys must not drive the tablist.
   await page.keyboard.press('Control+Home');
   await page.keyboard.press('Shift+ArrowRight');
   await page.waitForTimeout(120);
@@ -156,7 +152,6 @@ async function audit(page, path) {
   check(s.selectedId === 'home-tab-whiteboard', `${path}: Ctrl+Home / Shift+ArrowRight ignored (selected ${s.selectedId})`);
   check(s.focusedId === 'home-tab-whiteboard', `${path}: modified keys do not move tab focus`);
 
-  // Enter and Space activate a programmatically focused (inactive) tab.
   await page.evaluate(() => document.getElementById('home-tab-send')?.focus());
   await page.keyboard.press('Enter');
   await expectTab(page, path, 'home-tab-send', 'Enter');
@@ -175,7 +170,6 @@ for (const path of paths) {
   await ctx.close();
 }
 
-// Reduced motion must keep the same keyboard contract on the plain pill.
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
   const page = await ctx.newPage();

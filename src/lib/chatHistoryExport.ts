@@ -1,5 +1,3 @@
-/** Local, unencrypted export of messages this browser has already decrypted. */
-
 export const CHAT_HISTORY_FORMAT = 'encrypt-click-chat-history';
 export const CHAT_HISTORY_VERSION = 1;
 
@@ -35,7 +33,6 @@ function attachmentOf(file: NonNullable<ChatHistoryMessageInput['file']>): ChatH
   return file.voice === true ? 'voice' : 'file';
 }
 
-/** Map in-memory decrypted messages to a JSON-safe export; never includes keys or download URLs. */
 export function buildChatHistoryExport(
   roomId: string,
   messages: readonly ChatHistoryMessageInput[],

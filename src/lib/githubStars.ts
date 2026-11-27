@@ -2,7 +2,6 @@ const CACHE_MS = 60 * 60 * 1000;
 
 let cache: { value: number | null; expiresAt: number } | null = null;
 
-// Fetched at build time or from the Worker, so visitors' browsers never contact GitHub.
 export async function getGithubStars(repo = 'danielsebesta/encrypt'): Promise<number | null> {
   const now = Date.now();
   if (cache && cache.expiresAt > now) return cache.value;

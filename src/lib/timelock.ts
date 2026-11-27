@@ -10,12 +10,10 @@ export const DRAND_CHAIN = {
 const PROXY_CHAIN_URL = `/api/drand/${DRAND_CHAIN.chainHash}`;
 export const TIME_SECRET_BYTES = 32;
 
-/** The last round published at or before a moment, so a lock opens at most one period before the chosen time. */
 export function roundAt(timeMs: number): number {
   return Math.floor((timeMs - DRAND_CHAIN.genesis * 1000) / (DRAND_CHAIN.period * 1000)) + 1;
 }
 
-/** When a round is published, in milliseconds. */
 export function roundTime(round: number): number {
   return (DRAND_CHAIN.genesis + (round - 1) * DRAND_CHAIN.period) * 1000;
 }
@@ -53,7 +51,6 @@ export async function lockTimeSecret(unlockMs: number): Promise<{ secret: Uint8A
   return { secret, lock: { round, ciphertext: Uint8Array.from(atob(body), c => c.charCodeAt(0)) } };
 }
 
-/** Fetches the beacon for the lock's round and opens the secret; fails before the round is published. */
 export async function unlockTimeSecret(lock: TimeLock): Promise<Uint8Array> {
   const { timelockDecrypt, client } = await tlock();
   let binary = '';

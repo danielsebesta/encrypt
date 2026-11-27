@@ -17,7 +17,6 @@ export {
 export { chatCipherErrorKey, chatCipherErrorRetryable } from './errors';
 export { dropRetiredModels, reloadCoverCodec };
 
-/** Readies the table so the first click is instant. A failure resurfaces on that click. */
 export async function warmCoverTable(lang: CoverLang = 'cs'): Promise<void> {
   await loadCoverCodec(lang).catch(() => {});
 }
@@ -60,7 +59,6 @@ export async function decryptFromChat(
 const WRONG_PASSWORD = /Wrong password/;
 const MAX_PASSWORD_TRIES = 3;
 
-/** Opens a cover without knowing its language: `first` is tried first, then the other tables that spell the text best. */
 export async function decryptFromChatAuto(
   cover: string,
   password: string,

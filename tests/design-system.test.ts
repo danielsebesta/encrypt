@@ -7,7 +7,6 @@ import { BUTTON_MODIFIERS, BUTTON_VARIANTS } from '../src/components/ui/button';
 const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const css = readFileSync(join(root, 'src/styles/global.css'), 'utf8');
 
-/** The /app PWA renders Konsta UI and is styled by src/styles/app.css; it has its own rules. */
 const OUT_OF_SCOPE = ['src/components/app/', 'src/pages/app/'];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -26,7 +25,6 @@ const files = ['src/components', 'src/pages', 'src/layouts']
 
 const lineOf = (text: string, index: number) => text.slice(0, index).split('\n').length;
 
-/** Reads an opening tag up to its closing `>`, skipping `>` inside quotes and `{…}` expressions. */
 function readTag(text: string, start: number): string {
   let depth = 0;
   let quote: string | null = null;
@@ -49,12 +47,9 @@ function classValue(tag: string): string | null {
   return m ? m[1] : null;
 }
 
-/* ── Colour literals ─────────────────────────────────────── */
-
 const COLOUR = /(?<![&\w-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/g;
 const TAILWIND_PALETTE = /(?<![\w-])(?:bg|text|border|ring|fill|stroke|outline|decoration|divide|placeholder|accent|caret|shadow|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})(?![\w-])/g;
 
-/** Literal colours that cannot come from tokens. Every entry names the exact literal and why. */
 const COLOUR_ALLOW: Record<string, { literals: string[]; why: string }> = {
   'src/components/tools/EmojiPicker.svelte': {
     literals: ['#ffc93a', '#f7d7c4', '#e5b48f', '#c68e62', '#9e6a43', '#5c4033'],
@@ -96,19 +91,13 @@ test('theme-color meta tags match the --bg token of each theme', () => {
   assert.match(layout, new RegExp(`theme-color" content="${token('html.dark {')}" media="\\(prefers-color-scheme: dark\\)"`));
 });
 
-/* ── Buttons ─────────────────────────────────────────────── */
-
 const VARIANTS: readonly string[] = BUTTON_VARIANTS;
 const MODIFIERS: readonly string[] = BUTTON_MODIFIERS;
-/** Other canonical control classes a `<button>` may carry instead of a button variant. */
 const CONTROL_CLASSES = ['menu__item', 'chip', 'badge', 'tab', 'nav__link', 'dropzone'];
 const CANONICAL = [...VARIANTS, ...CONTROL_CLASSES];
-/** Internal parts of CopyButton / ShareLinkButton feedback animation, not button styles. */
 const BTN_INTERNAL = /^btn-feedback(?:__|--|$)/;
-/** Button classes styled only by the /app skin (app-*.css), allowed in the named file behind an appMode branch. */
 const APP_ONLY_BTN: Record<string, string[]> = { 'src/components/tools/ChatRoom.svelte': ['btn-outline'] };
 
-/** Primitives whose class comes from buttonClass() or a prop; their callers are checked instead. */
 const COMPUTED_CLASS: Record<string, string> = {
   'src/components/ui/Button.svelte': 'class={cls} from buttonClass()',
   'src/components/ui/Menu.svelte': 'trigger class from buttonClass()',
@@ -118,10 +107,6 @@ const COMPUTED_CLASS: Record<string, string> = {
   'src/components/ShareLinkButton.svelte': "className defaults to 'btn-ghost btn-sm'; callers pass a canonical variant",
 };
 
-/**
- * One-off button classes that predate the design system. Wave-1 migration removes them file by file
- * (see docs/design-system.md, "Migration"). Do not add entries; remove them as files migrate.
- */
 const PENDING: Record<string, string[]> = {
   'src/components/tools/ChatCall.svelte': ['call-mini__btn', 'call__btn'],
   'src/components/tools/ChatRoom.svelte': [
@@ -132,7 +117,6 @@ const PENDING: Record<string, string[]> = {
   'src/components/tools/ChatVoiceRecorder.svelte': ['voice-rec-app__cancel', 'voice-rec-app__send'],
 };
 
-/** Markup written into another document (the call Picture-in-Picture window), where global.css does not exist. */
 const FOREIGN_DOCUMENT = { path: 'src/components/tools/ChatRoom.svelte', marker: 'd.body.innerHTML = `' };
 
 function buttons() {
@@ -216,8 +200,6 @@ test('icon-only buttons have an accessible name', () => {
   }
   assert.deepEqual(problems, [], 'icon-only buttons need aria-label (or label= on <Button>)');
 });
-
-/* ── Sizes and states ────────────────────────────────────── */
 
 function rule(selector: string): string {
   const start = css.indexOf(`${selector} {`);

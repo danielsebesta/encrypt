@@ -20,16 +20,15 @@ test('AES-GCM: a single flipped bit anywhere in the wire payload refuses to open
   const key = await roomKey();
   const payload = await encryptMessage(key, JSON.stringify({ type: 'chat-message', text: 'tajná zpráva' }));
   const mutations = [
-    flipChar(payload, 0),                      // IV
-    flipChar(payload, 16),                     // ciphertext
-    flipChar(payload, payload.length - 3),     // auth tag
-    payload.slice(0, -6),                      // truncation
-    payload + 'AA',                            // extension
+    flipChar(payload, 0),
+    flipChar(payload, 16),
+    flipChar(payload, payload.length - 3),
+    payload.slice(0, -6),
+    payload + 'AA',
   ];
   for (const bad of mutations) {
     await assert.rejects(decryptMessage(key, bad));
   }
-  // Decrypting under a different room key fails identically — never a partial read.
   await assert.rejects(decryptMessage(await roomKey(), payload));
 });
 
@@ -65,17 +64,11 @@ test('cross-room isolation: replayed traffic from room A dies at every layer in 
   const keyA = await roomKey();
   const keyB = await roomKey();
 
-  // Layer 1: room A ciphertext refuses to open under room B's key.
   const wire = await encryptMessage(keyA, await signPayload(me, stampPayload(JSON.stringify({ type: 'chat-message', text: 'secret' }), 'room-a')));
   await assert.rejects(decryptMessage(keyB, wire));
 
-  // Layer 2: even if it decoded, the signed _room is validated.
   const inner = JSON.parse(await signPayload(me, stampPayload(JSON.stringify({ type: 'chat-message', text: 'secret' }), 'room-a')));
   assert.equal(validPayload(inner, 'room-b'), false);
-  // And editing _room breaks the signature (verified above).
-
-  // Layer 3: channel binding — room keys derive from name+scope salt (roomAccess),
-  // so cross-room wire replay cannot reach this code path at all.
 });
 
 test('replay window: duplicates rejected, eviction keeps the window bounded', () => {
@@ -84,8 +77,8 @@ test('replay window: duplicates rejected, eviction keeps the window bounded', ()
   assert.equal(replay.accept('m1'), false);
   assert.equal(replay.accept('m2'), true);
   for (const id of ['m3', 'm4', 'm5']) replay.accept(id);
-  assert.equal(replay.accept('m1'), true); // evicted, accepts again — by then it is far past its age limit
-  assert.equal(replay.accept('m3'), false); // still inside the window
+  assert.equal(replay.accept('m1'), true);
+  assert.equal(replay.accept('m3'), false);
 });
 
 test('timestamps: future and stale payloads are refused', () => {
@@ -104,9 +97,9 @@ test('local history: sealed plaintext opens only under its own key and context i
   const key = await roomKey();
   const sealed = await sealLocal(key, 'msg-1', 'stored text');
   assert.equal(await openLocal(key, 'msg-1', sealed), 'stored text');
-  assert.equal(await openLocal(key, 'msg-2', sealed), null);        // wrong context id (AAD)
-  assert.equal(await openLocal(await roomKey(), 'msg-1', sealed), null); // wrong key
-  assert.equal(await openLocal(key, 'msg-1', flipChar(sealed, 20)), null); // bit-flip
+  assert.equal(await openLocal(key, 'msg-2', sealed), null);
+  assert.equal(await openLocal(await roomKey(), 'msg-1', sealed), null);
+  assert.equal(await openLocal(key, 'msg-1', flipChar(sealed, 20)), null);
   assert.equal(await openLocal(key, 'msg-1', 'garbage'), null);
 });
 

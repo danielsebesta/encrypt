@@ -29,10 +29,6 @@ type Mark = { on: boolean; at: number; id: string; name: string };
 
 export type ReactionSummary = { emoji: ReactionEmoji; count: number; mine: boolean; names: string[] };
 
-/**
- * Reactions folded per message, emoji and reactor. The latest event of a reactor wins, so applying the same events again or
- * in another order, as history replay and live delivery do, always ends in the same state.
- */
 export class ReactionBook {
   private targets = new Map<string, Map<ReactionEmoji, Map<string, Mark>>>();
 

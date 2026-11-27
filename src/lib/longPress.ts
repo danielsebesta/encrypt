@@ -1,7 +1,6 @@
 const HOLD_MS = 500;
 const SLOP_PX = 10;
 
-/** Calls back after a touch is held still on the node, the way touch screens open a context menu. */
 export function longPress(node: HTMLElement, callback: () => void) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let start: { x: number; y: number } | null = null;

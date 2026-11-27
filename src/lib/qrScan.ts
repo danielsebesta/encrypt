@@ -15,17 +15,12 @@ export function isReceivePath(pathname: string): boolean {
   return RECEIVE_PATH.test(pathname);
 }
 
-/** The payload of a receive link as the receive page reads it from the fragment, or '' when there is none. */
 export function receivePayload(url: URL): string {
   if (url.hash.length > 1) return url.hash.slice(1);
   const query = url.searchParams.get('p');
   return query ? encodeURIComponent(query) : '';
 }
 
-/**
- * A share link for this site opens on the current receive page with its payload in the fragment.
- * Any other web address is only offered to the user, and anything else is plain text.
- */
 export function classifyQrText(text: string, here: { origin: string; pathname: string }): QrTarget {
   let url: URL;
   try {
@@ -40,7 +35,6 @@ export function classifyQrText(text: string, here: { origin: string; pathname: s
   return { kind: 'link', url: url.href };
 }
 
-/** Pure-JS fallback decoder, loaded only when the browser has no native QR detector. */
 export async function decodePixels(pixels: QrPixels): Promise<string | null> {
   const { default: decodeQR } = await import('qr/decode.js');
   try {
@@ -69,7 +63,6 @@ function nativeDetector(): Promise<Detector | null> {
 
 let canvas: HTMLCanvasElement | undefined;
 
-/** Text of the first QR code in a video frame or image, or null. */
 export async function readQr(source: HTMLVideoElement | ImageBitmap, maxSide = 1024): Promise<string | null> {
   const detector = await nativeDetector();
   if (detector) {
@@ -92,7 +85,6 @@ export async function readQr(source: HTMLVideoElement | ImageBitmap, maxSide = 1
   return decodePixels(context.getImageData(0, 0, canvas.width, canvas.height));
 }
 
-/** Opens a same-page link with a new fragment as a fresh load; the fragment never reaches the server. */
 export function openReceiveLink(href: string): void {
   history.pushState(null, '', href);
   location.reload();

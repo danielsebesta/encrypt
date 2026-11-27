@@ -1,9 +1,7 @@
 export interface MenuOptions {
   open: boolean;
   onclose: () => void;
-  /** The button that opens the menu; focus returns to it on close and clicks on it do not count as outside. */
   trigger?: HTMLElement | null;
-  /** Item to focus when the menu opens: the first (default, `true`), the last, or none (`false`). */
   autofocus?: boolean | 'first' | 'last';
 }
 
@@ -15,10 +13,6 @@ function items(node: HTMLElement): HTMLElement[] {
   );
 }
 
-/**
- * Keyboard and focus behaviour for a `role="menu"` element: Arrow keys, Home and End move between items,
- * Escape closes and returns focus to the trigger, Tab closes, a press outside closes.
- */
 export function menu(node: HTMLElement, options: MenuOptions) {
   let opts = options;
   let wasOpen = false;

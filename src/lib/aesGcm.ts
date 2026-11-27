@@ -10,7 +10,6 @@ export async function decrypt(data: Uint8Array, password: string, timeSecret?: U
   return new TextDecoder().decode(await openPassword(data, password, timeSecret));
 }
 
-/** Prefixes a uint16 length, or zero followed by a uint32 for payloads over 65535 bytes. */
 export function to14BitChunks(data: Uint8Array): number[] {
   const length = data.byteLength;
   if (length > MAX_WORD_BYTES) throw new Error('Input too large');
@@ -43,7 +42,6 @@ export function to14BitChunks(data: Uint8Array): number[] {
   return chunks;
 }
 
-/** Recovers bytes from 14-bit chunks produced by to14BitChunks. */
 export function from14BitChunks(chunks: number[]): Uint8Array {
   if (chunks.length > 10_000_000 || chunks.some(c => !Number.isInteger(c) || c < 0 || c > 16383)) throw new Error('Invalid words');
   const bytes: number[] = [];
