@@ -44,7 +44,7 @@
     "svelte": "^5.57.3",
     "tailwindcss": "^4.3.5",
     "tlock-js": "^0.9.0",
-    "ws": "8.22.2",
+    "ws": "8.23.0",
     "yjs": "^13.6.33"
   },
   "packageManager": "pnpm@10.33.3+sha512.a19744364a7e248b92657a4ca5973f9354d21caf982579674b1c539f32c7420c47138ad8b1254df07aba9bc782d9b3029e3db34d5dbff974326eb74dac8ff489",
@@ -73,11 +73,11 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261109.1",
-    "@iconify-json/tabler": "^1.2.45",
+    "@iconify-json/tabler": "^1.2.46",
     "@types/node": "^26.6.6",
     "@types/qrcode": "^1.5.6",
     "@types/ws": "8.18.2",
-    "axe-core": "^4.14.0",
+    "axe-core": "^4.14.1",
     "esbuild": "0.28.2",
     "playwright": "^1.65.0",
     "sharp": "0.35.5",
