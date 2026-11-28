@@ -1833,6 +1833,15 @@ html.dark {
         @apply underline;
     }
 
+    .site-footer__deploy--dark,
+    html.dark .site-footer__deploy--light {
+        display: none;
+    }
+
+    html.dark .site-footer__deploy--dark {
+        display: block;
+    }
+
     .site-footer__legal {
         @apply pb-2 text-xs text-muted;
     }

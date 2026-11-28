@@ -9,7 +9,12 @@ Free, no account, open source, and you can run your own copy on Cloudflare in on
 
 [**Open Encrypt.click**](https://encrypt.click) &nbsp;·&nbsp; [Security](https://encrypt.click/security) &nbsp;·&nbsp; [Install the app](https://encrypt.click/install) &nbsp;·&nbsp; [Self-host](docs/self-hosting.md)
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt)
+<a href="https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/deploy-to-cloudflare.svg">
+    <img src="public/deploy-to-cloudflare-light.svg" width="184" height="39" alt="Deploy to Cloudflare">
+  </picture>
+</a>
 
 ![Live](https://img.shields.io/badge/encrypt.click-live-48672e?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-48672e?style=flat-square)
@@ -78,7 +83,12 @@ Copy `.dev.vars.example` to `.dev.vars` to set local secrets.
 
 ### Your own copy on Cloudflare
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt)
+<a href="https://deploy.workers.cloudflare.com/?url=https://github.com/danielsebesta/encrypt">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/deploy-to-cloudflare.svg">
+    <img src="public/deploy-to-cloudflare-light.svg" width="184" height="39" alt="Deploy to Cloudflare">
+  </picture>
+</a>
 
 The button copies this repository to your GitHub account, creates the R2 bucket and the Durable Objects, asks for the secrets, then builds and deploys to `<name>.<your-subdomain>.workers.dev`. Every push to your copy deploys again, and a small instance fits in the free plan.
 

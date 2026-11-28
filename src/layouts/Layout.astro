@@ -309,7 +309,10 @@ const isCurrent = (href: string) => path === href || path === `${href}/`;
 						{githubStars !== null && <span class="site-footer__stars"><Icon name="star" />{githubStars.toLocaleString('en')}</span>}
 						<Icon name="arrow-up-right" />
 					</a>
-					<a href={DEPLOY_URL} target="_blank" rel="noopener noreferrer"><img src="/deploy-to-cloudflare.svg" width="147" height="31" alt={t(dict, 'home.trust.deploy')} loading="lazy" decoding="async" /></a>
+					<a href={DEPLOY_URL} target="_blank" rel="noopener noreferrer">
+						<img class="site-footer__deploy--light" src="/deploy-to-cloudflare-light.svg" width="147" height="31" alt={t(dict, 'home.trust.deploy')} loading="lazy" decoding="async" />
+						<img class="site-footer__deploy--dark" src="/deploy-to-cloudflare.svg" width="147" height="31" alt={t(dict, 'home.trust.deploy')} loading="lazy" decoding="async" />
+					</a>
 				</nav>
 				<p class="site-footer__legal">
 					{t(dict, 'home.footer.builtBy')} <a href="https://sebesta.dev" target="_blank" rel="noopener noreferrer">Daniel Šebesta</a>
