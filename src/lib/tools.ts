@@ -1,6 +1,6 @@
 import type { IconName } from './iconManifest';
 
-export type ToolCategory = 'experiments';
+export type ToolCategory = 'tools';
 
 export type ToolDefinition = {
   slug: string;
@@ -11,7 +11,7 @@ export type ToolDefinition = {
 };
 
 const icons = {
-  flask: 'flask-conical',
+  apps: 'apps',
   chat: 'message-circle',
   clock: 'clock',
   image: 'image',
@@ -20,19 +20,19 @@ const icons = {
 } as const satisfies Record<string, IconName>;
 
 export const tools: ToolDefinition[] = [
-  { slug: 'chat-cipher',  i18nPrefix: 'tools.chatCipher',    navLabelKey: 'nav.tool.chatCipher',    category: 'experiments', icon: icons.chat },
-  { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'experiments', icon: icons.clock },
-  { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'experiments', icon: icons.image },
-  { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'experiments', icon: icons.camera },
-  { slug: 'spectral-cipher', i18nPrefix: 'tools.spectralCipher', navLabelKey: 'nav.tool.spectralCipher', category: 'experiments', icon: icons.audioWaveform },
+  { slug: 'chat-cipher',  i18nPrefix: 'tools.chatCipher',    navLabelKey: 'nav.tool.chatCipher',    category: 'tools', icon: icons.chat },
+  { slug: 'time-capsule', i18nPrefix: 'tools.timeCapsule',   navLabelKey: 'nav.tool.timeCapsule',   category: 'tools', icon: icons.clock },
+  { slug: 'steganography',  i18nPrefix: 'tools.steganography',  navLabelKey: 'nav.tool.steganography',  category: 'tools', icon: icons.image },
+  { slug: 'photo-cipher',  i18nPrefix: 'tools.photoCipher',    navLabelKey: 'nav.tool.photoCipher',    category: 'tools', icon: icons.camera },
+  { slug: 'image-in-sound', i18nPrefix: 'tools.imageInSound', navLabelKey: 'nav.tool.imageInSound', category: 'tools', icon: icons.audioWaveform },
 ];
 
 export const categoryI18nKeys: Record<ToolCategory, string> = {
-  experiments: 'nav.experiments',
+  tools: 'nav.tools',
 };
 
 export const categoryIcons: Record<ToolCategory, IconName> = {
-  experiments: icons.flask,
+  tools: icons.apps,
 };
 
 export const chatIcon = icons.chat;
@@ -41,7 +41,7 @@ export const decryptIcon: IconName = 'lock-keyhole-open';
 export const whiteboardIcon: IconName = 'presentation';
 
 export function getNavCategories(t: (dict: Record<string, string>, key: string) => string, dict: Record<string, string>) {
-  const categories: ToolCategory[] = ['experiments'];
+  const categories: ToolCategory[] = ['tools'];
 
   return categories.map(cat => ({
     name: t(dict, categoryI18nKeys[cat]),
@@ -50,7 +50,7 @@ export function getNavCategories(t: (dict: Record<string, string>, key: string) 
       .filter(tool => tool.category === cat)
       .map(tool => ({
         label: t(dict, tool.navLabelKey),
-        href: `/experiments/${tool.slug}`,
+        href: `/tools/${tool.slug}`,
         icon: tool.icon,
       })),
   }));

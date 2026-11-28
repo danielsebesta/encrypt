@@ -1,10 +1,10 @@
-import { openChunkedFile } from '../chunkedFile';
-import { b64urlToArray } from '../chatCrypto';
-import { KEY_ENVELOPE_BYTES, openWithKey, sealWithKey, isKeyEnvelope } from '../keyEnvelope';
-import { PASSWORD_ENVELOPE_OVERHEAD, sealPassword, openPassword } from '../passwordEnvelope';
-import { FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../httpLimits';
-import { isRecipientEnvelope, openRecipientEnvelope, recipientOverhead, sealForRecipients } from '../recipientEnvelope';
-import type { Card, Identity } from '../identity';
+import { openChunkedFile } from './chunkedFile';
+import { b64urlToArray } from './chatCrypto';
+import { KEY_ENVELOPE_BYTES, openWithKey, sealWithKey, isKeyEnvelope } from './keyEnvelope';
+import { PASSWORD_ENVELOPE_OVERHEAD, sealPassword, openPassword } from './passwordEnvelope';
+import { FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from './httpLimits';
+import { isRecipientEnvelope, openRecipientEnvelope, recipientOverhead, sealForRecipients } from './recipientEnvelope';
+import type { Card, Identity } from './identity';
 export const ECLK_MAGIC = new Uint8Array([0x45, 0x43, 0x4c, 0x4b]);
 
 export function prependEclkMagic(data: Uint8Array): Uint8Array {

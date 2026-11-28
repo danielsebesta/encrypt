@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '../../lib/t';
-  import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
+  import ShareForm from '../tools/ShareForm.svelte';
   import Tabs from '../ui/Tabs.svelte';
   import { sendIcon, chatIcon, whiteboardIcon } from '../../lib/tools';
   import type { IconName } from '../../lib/iconManifest';
@@ -36,14 +36,14 @@
       {@const tab = tabs.find((x) => x.id === id)!}
       <p class="hint">{t(dict, tab.text)}</p>
       {#if id === 'send'}
-        <UltimateEncrypt {locale} {dict} />
+        <ShareForm {locale} {dict} />
       {:else}
         {#await loaders[id]()}
-          <div class="home-try-pending" role="status" aria-busy="true" aria-label={t(dict, 'common.working')}>
-            <span class="home-try-pending__line"></span>
-            <span class="home-try-pending__box"></span>
-            <span class="home-try-pending__line home-try-pending__line--short"></span>
-            <span class="home-try-pending__btn"></span>
+          <div class="home-quickstart-pending" role="status" aria-busy="true" aria-label={t(dict, 'common.working')}>
+            <span class="home-quickstart-pending__line"></span>
+            <span class="home-quickstart-pending__box"></span>
+            <span class="home-quickstart-pending__line home-quickstart-pending__line--short"></span>
+            <span class="home-quickstart-pending__btn"></span>
           </div>
         {:then mod}
           <svelte:component this={mod.default} {locale} {dict} />

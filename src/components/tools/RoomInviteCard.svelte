@@ -129,7 +129,7 @@
         <span class="truncate">{t(dict, qrOpen ? 'chat.inviteCard.hideQr' : 'chat.inviteCard.showQr')}</span>
       </button>
     {/if}
-    <div id="invite-card-qr" class="ue-qr invite-card__qr" class:invite-card__qr--folded={!appMode && !qrOpen} role="img" aria-label={t(dict, 'chat.inviteCard.qrAlt')}>{@html qrSvg}</div>
+    <div id="invite-card-qr" class="share-qr invite-card__qr" class:invite-card__qr--folded={!appMode && !qrOpen} role="img" aria-label={t(dict, 'chat.inviteCard.qrAlt')}>{@html qrSvg}</div>
   {/if}
 
   <div class="invite-card__row">

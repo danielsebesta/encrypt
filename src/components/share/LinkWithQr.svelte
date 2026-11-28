@@ -50,6 +50,6 @@
     <p id="{id}-hint" class="hint">{hint}</p>
   {/if}
   {#if showQr && qrSvg}
-    <div id="{id}-qr" class="ue-qr" role="img" aria-label={qrAlt}>{@html qrSvg}</div>
+    <div id="{id}-qr" class="share-qr" role="img" aria-label={qrAlt}>{@html qrSvg}</div>
   {/if}
 </div>

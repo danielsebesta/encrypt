@@ -116,10 +116,9 @@ try {
   a11ySmoke('/chat/', chat.body);
   const share = await page('/share/', 200);
   a11ySmoke('/share/', share.body);
-  const tool = await page('/experiments/chat-cipher/', 200);
-  a11ySmoke('/experiments/chat-cipher/', tool.body);
+  const tool = await page('/tools/chat-cipher/', 200);
+  a11ySmoke('/tools/chat-cipher/', tool.body);
   await page('/chat', [200, 307]);
-  await page('/privacy', [200, 301]);
   const missing = await page('/no-such-page', 404);
   a11ySmoke('/no-such-page', missing.body);
   const forbidden = await page('/403/', 403);

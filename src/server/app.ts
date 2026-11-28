@@ -7,7 +7,7 @@ import { handleStatus } from './status';
 import { challengeResponse, challengeSecret, handleUploadRoute } from './upload';
 
 const LIMITS: Record<string, [number, number]> = {
-  '/api/ghost/upload': [10, 60], '/api/ghost/fetch': [30, 120],
+  '/api/send/upload': [10, 60], '/api/send/fetch': [30, 120],
   '/api/turn': [12, 120], '/api/shorten': [20, 120], '/api/drand': [120, 1200], '/parties': [60, 600],
   '/upload': [20, 120], '/upload/status': [30, 1200], '/upload/challenge': [10, 600], '/upload/pass': [10, 600],
   '/dl': [120, 1_000_000], '/status': [30, 600],
@@ -99,7 +99,7 @@ export function createApp(platform: Platform) {
       const prefix = clientPrefix(platform.clientIp(request) || 'local');
       const pass = await verifyPass(request.headers.get(PASS_HEADER), challengeSecret(env) || undefined, prefix);
       const client = await clientKey(request, `relay:${new Date().toISOString().slice(0, 10)}`);
-      const result = await platform.budget<Charge>('/api/ghost/upload:daily', {
+      const result = await platform.budget<Charge>('/api/send/upload:daily', {
         op: 'relay', client, bytes, browser: browserFetch(request.headers, ['same-origin']), pass, dailyCap: RELAY_DAILY_BYTES_PER_CLIENT,
       });
       if (result === 'ok') return null;
@@ -130,7 +130,7 @@ export function createApp(platform: Platform) {
         if (refused) return hardened(refused);
         if (route === '/parties') return platform.realtime(request);
         if (route === '/status') return hardened(await handleStatus(request, platform));
-        if (route === '/api/ghost/upload' && request.method === 'POST') {
+        if (route === '/api/send/upload' && request.method === 'POST') {
           const held = await relayAllowance(request);
           if (held) return hardened(held);
         }

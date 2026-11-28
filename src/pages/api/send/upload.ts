@@ -1,7 +1,7 @@
 import { readLimited, fetchNoRedirect, MAX_TRANSFER_BYTES, SLOW_TRANSFER_TIMEOUT_MS } from '../../../lib/httpLimits';
 import type { APIRoute } from 'astro';
-import type { SendInstance } from '../../../lib/nologSend';
-import { proxySendUpload } from '../../../lib/nologSend';
+import type { SendInstance } from '../../../lib/sendClient';
+import { proxySendUpload } from '../../../lib/sendClient';
 
 export const prerender = false;
 
@@ -112,13 +112,13 @@ export const POST: APIRoute = async ({ request }) => {
 
     try {
       const url = await uploadToSendNetwork(buffer, sendMetadataB64, sendAuth, pinned, euOnly);
-      return json({ results: [{ service: 'nologsend', url }] }, 200);
+      return json({ results: [{ service: 'send', url }] }, 200);
     } catch (e: any) {
       const message = e?.message || 'Upload failed';
       const details = message.startsWith('Send network failed (') && message.endsWith(')')
         ? message.slice('Send network failed ('.length, -1).split(' | ').filter(Boolean)
         : undefined;
-      return json({ results: [{ service: 'nologsend', url: null, error: message, details }] }, 200);
+      return json({ results: [{ service: 'send', url: null, error: message, details }] }, 200);
     }
   } catch (e: any) {
     return json({ error: e?.message || 'Internal server error' }, e?.message === 'Body too large' ? 413 : 502);

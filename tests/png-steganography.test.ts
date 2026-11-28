@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateSync, inflateSync } from 'node:zlib';
-import { createStegoImage, extractStego } from '../src/lib/ghost/steganography';
+import { createStegoImage, extractStego } from '../src/lib/pngSteganography';
 
 const random = (length: number) => {
   const out = new Uint8Array(length);

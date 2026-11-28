@@ -32,7 +32,7 @@ Free, no account, open source, and you can run your own copy on Cloudflare in on
 | **Chat and calls** | End-to-end encrypted rooms with voice and video calls, screen sharing, files, voice messages, replies and reactions. Keep history (each member keeps it encrypted in their own browser and online members send you what you missed) or let every message disappear after 10 seconds to 1 day. The relay stores no messages. |
 | **Whiteboard** | A shared canvas, synced live through Yjs and encrypted end to end: pressure-sensitive pen, shapes, sticky notes, pictures, a laser pointer and a board chat. |
 | **My rooms** | Save rooms on this device to come back without the password or link. The secrets are wrapped under a key that only your passkey releases (WebAuthn PRF). |
-| **Experiments** | Chat cipher, time capsule, steganography, photo cipher and spectral cipher. All of them run locally. |
+| **Tools** | Chat cipher, time capsule, steganography, photo cipher and image in sound. All of them run locally. |
 
 ## Security at a glance
 

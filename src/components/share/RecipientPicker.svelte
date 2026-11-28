@@ -44,18 +44,18 @@
 </script>
 
 <fieldset class="field" aria-describedby={error ? 'rp-error rp-count' : 'rp-count'}>
-  <legend class="label">{t(dict, 'tools.ultimateEncrypt.recipients.label')}<span class="label__required" aria-hidden="true">*</span></legend>
+  <legend class="label">{t(dict, 'tools.shareForm.recipients.label')}<span class="label__required" aria-hidden="true">*</span></legend>
   {#if !loaded}
     <p class="hint" role="status">{t(dict, 'common.working')}</p>
   {:else}
     {#if !contacts.length && !own}
-      <p class="hint">{t(dict, 'tools.ultimateEncrypt.recipients.empty')}</p>
+      <p class="hint">{t(dict, 'tools.shareForm.recipients.empty')}</p>
     {/if}
     <div class="grid gap-1">
       {#if own}
         <label class="check">
           <input type="checkbox" bind:checked={includeSelf} disabled={!includeSelf && full} />
-          <span>{t(dict, 'tools.ultimateEncrypt.recipients.self')}</span>
+          <span>{t(dict, 'tools.shareForm.recipients.self')}</span>
         </label>
       {/if}
       {#each contacts as contact (contact.id)}
@@ -67,20 +67,20 @@
         </label>
       {/each}
     </div>
-    <p id="rp-count" class="hint">{t(dict, 'tools.ultimateEncrypt.recipients.count').replace('{count}', String(count)).replace('{max}', String(RECIPIENT_SLOTS))}</p>
+    <p id="rp-count" class="hint">{t(dict, 'tools.shareForm.recipients.count').replace('{count}', String(count)).replace('{max}', String(RECIPIENT_SLOTS))}</p>
     {#if error}
       <p id="rp-error" class="field-error" role="alert">{error}</p>
     {/if}
     {#if unverified.length}
-      <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.recipients.unverified').replace('{names}', unverified.map((c) => c.name).join(', '))}</p>
+      <p class="status status--warn">{t(dict, 'tools.shareForm.recipients.unverified').replace('{names}', unverified.map((c) => c.name).join(', '))}</p>
     {/if}
 
     {#if own}
       <label class="check">
         <input type="checkbox" bind:checked={sign} />
-        <span>{t(dict, 'tools.ultimateEncrypt.recipients.sign').replace('{name}', own.card.name || '–')}</span>
+        <span>{t(dict, 'tools.shareForm.recipients.sign').replace('{name}', own.card.name || '–')}</span>
       </label>
-      <p class="hint">{t(dict, sign ? 'tools.ultimateEncrypt.recipients.signHint' : 'tools.ultimateEncrypt.recipients.anonymousHint')}</p>
+      <p class="hint">{t(dict, sign ? 'tools.shareForm.recipients.signHint' : 'tools.shareForm.recipients.anonymousHint')}</p>
       {#if sign && own.kind === 'password'}
         <div class="field">
           <label class="label" for="rp-key-password">{t(dict, 'keys.me.passwordLabel')}</label>
@@ -88,8 +88,8 @@
         </div>
       {/if}
     {:else}
-      <p class="hint">{t(dict, 'tools.ultimateEncrypt.recipients.noKey')}</p>
+      <p class="hint">{t(dict, 'tools.shareForm.recipients.noKey')}</p>
     {/if}
-    <a href="/keys" class="btn-link justify-self-start"><Icon name="user-key" />{t(dict, 'tools.ultimateEncrypt.recipients.manage')}</a>
+    <a href="/keys" class="btn-link justify-self-start"><Icon name="user-key" />{t(dict, 'tools.shareForm.recipients.manage')}</a>
   {/if}
 </fieldset>

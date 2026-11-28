@@ -12,7 +12,7 @@ export const SITEMAP_PATHS = [
   '/chat',
   '/whiteboard',
   '/app',
-  ...tools.map((tool) => `/experiments/${tool.slug}`),
+  ...tools.map((tool) => `/tools/${tool.slug}`),
 ] as const;
 
 function absolute(origin: string, path: string): string {

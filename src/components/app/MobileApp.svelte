@@ -33,7 +33,7 @@
   import AppIcons, { type IconName } from './AppIcons.svelte';
   import ChatRoom from '../tools/ChatRoom.svelte';
   import Whiteboard from '../tools/Whiteboard.svelte';
-  import UltimateEncrypt from '../tools/UltimateEncrypt.svelte';
+  import ShareForm from '../tools/ShareForm.svelte';
 
   import {
     listRooms,
@@ -2289,7 +2289,7 @@
         </div>
       {:else if activeTab === 'files'}
         <div class="app-upload-wrapper app-content">
-          <UltimateEncrypt {locale} {dict} appMode />
+          <ShareForm {locale} {dict} appMode />
         </div>
       {:else if activeTab === 'settings'}
         {@const ios = platform === 'ios'}

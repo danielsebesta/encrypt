@@ -20,15 +20,15 @@ test('cookie and path readers only accept supported codes', () => {
   assert.equal(localeFromCookie('theme=dark; ec-lang=pl'), 'pl');
   assert.equal(localeFromCookie('ec-lang=xx'), null);
   assert.equal(localeFromCookie(null), null);
-  assert.equal(localeInPath('/cs/tools/aes-words'), 'cs');
-  assert.equal(localeInPath('/tools/aes-words'), null);
+  assert.equal(localeInPath('/cs/tools/chat-cipher'), 'cs');
+  assert.equal(localeInPath('/tools/chat-cipher'), null);
   assert.equal(localeInPath('/'), null);
 });
 
 test('unprefixed pages are rendered in the browser language without changing the address', () => {
   assert.equal(localeResponse(page('/', { 'Accept-Language': 'cs-CZ,cs;q=0.9' })), null);
   assert.equal(localizedRequest(page('/', { 'Accept-Language': 'cs-CZ,cs;q=0.9' }))?.url, 'https://encrypt.click/cs/');
-  assert.equal(localizedRequest(page('/experiments/time-capsule?x=1', { 'Accept-Language': 'de' }))?.url, 'https://encrypt.click/de/experiments/time-capsule?x=1');
+  assert.equal(localizedRequest(page('/tools/time-capsule?x=1', { 'Accept-Language': 'de' }))?.url, 'https://encrypt.click/de/tools/time-capsule?x=1');
 });
 
 test('English browsers and English cookies are served the unprefixed page as it is', () => {
@@ -60,10 +60,10 @@ test('assets, APIs and non-GET requests are left alone', () => {
 });
 
 test('the choice endpoint sets the cookie and continues to a same-origin path only', () => {
-  assert.equal(languageChoiceHref('de', '/de/tools/aes-words'), '/_lang/de?to=%2Fde%2Ftools%2Faes-words');
-  const res = localeResponse(page('/_lang/de?to=%2Fde%2Ftools%2Faes-words'));
+  assert.equal(languageChoiceHref('de', '/de/tools/chat-cipher'), '/_lang/de?to=%2Fde%2Ftools%2Fchat-cipher');
+  const res = localeResponse(page('/_lang/de?to=%2Fde%2Ftools%2Fchat-cipher'));
   assert.equal(res?.status, 303);
-  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/de/tools/aes-words');
+  assert.equal(res?.headers.get('Location'), 'https://encrypt.click/de/tools/chat-cipher');
   assert.match(res?.headers.get('Set-Cookie') ?? '', /^ec-lang=de; Path=\/; Max-Age=\d+; SameSite=Lax; Secure; HttpOnly$/);
   const open = localeResponse(page('/_lang/de?to=https%3A%2F%2Fevil.example%2F'));
   assert.equal(open?.headers.get('Location'), 'https://encrypt.click/');

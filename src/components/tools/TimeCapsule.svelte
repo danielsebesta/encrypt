@@ -266,7 +266,7 @@
       const token = toB64Url(await gzipBytes(new TextEncoder().encode(JSON.stringify(packed))));
 
       ciphertext = token;
-      capsuleLink = `${location.origin}/experiments/time-capsule#c=${token}`;
+      capsuleLink = `${location.origin}/tools/time-capsule#c=${token}`;
       debugUtc = new Date(timeMs).toISOString();
       debugUnix = String(unix);
       debugRound = round > 0 ? round : null;

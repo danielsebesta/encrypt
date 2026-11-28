@@ -151,7 +151,7 @@
     attempted = true;
     if (!imageUrl) { void focusFirstInvalid(panelEl); return; }
     processing = true;
-    say(t(dict, 'tools.spectralCipher.encoding'));
+    say(t(dict, 'tools.imageInSound.encoding'));
 
     await new Promise(r => setTimeout(r, 0));
 
@@ -251,15 +251,15 @@
 
         renderSpectrogram(finalAudio, finalRate);
 
-        say(t(dict, 'tools.spectralCipher.encoded'), 'ok');
+        say(t(dict, 'tools.imageInSound.encoded'), 'ok');
         processing = false;
       } catch (e) {
-        say(t(dict, 'tools.spectralCipher.encryptionFailed'), 'error');
+        say(t(dict, 'tools.imageInSound.hideFailed'), 'error');
         processing = false;
       }
     };
     img.onerror = () => {
-      say(t(dict, 'tools.spectralCipher.encryptionFailed'), 'error');
+      say(t(dict, 'tools.imageInSound.hideFailed'), 'error');
       processing = false;
     };
     img.src = imageUrl;
@@ -289,7 +289,7 @@
     attempted = true;
     if (!audioFile) { void focusFirstInvalid(panelEl); return; }
     processing = true;
-    say(t(dict, 'tools.spectralCipher.decoding'));
+    say(t(dict, 'tools.imageInSound.decoding'));
 
     await new Promise(r => setTimeout(r, 0));
 
@@ -336,10 +336,10 @@
 
       renderExtractedImage(pixels, imgW, imgH);
       renderSpectrogram(samples instanceof Float32Array ? samples : new Float32Array(samples), sampleRate);
-      say(t(dict, 'tools.spectralCipher.decoded'), 'ok');
+      say(t(dict, 'tools.imageInSound.decoded'), 'ok');
       processing = false;
     } catch (e) {
-      say(t(dict, 'tools.spectralCipher.decodeFailed'), 'error');
+      say(t(dict, 'tools.imageInSound.decodeFailed'), 'error');
       processing = false;
     }
   }
@@ -442,7 +442,7 @@
     if (!wavBlobUrl) return;
     const a = document.createElement('a');
     a.href = wavBlobUrl;
-    a.download = 'spectral-cipher.wav';
+    a.download = 'image-in-sound.wav';
     a.click();
   }
 
@@ -450,19 +450,19 @@
     if (!extractedImageUrl) return;
     const a = document.createElement('a');
     a.href = extractedImageUrl;
-    a.download = 'spectral-extracted.png';
+    a.download = 'image-from-sound.png';
     a.click();
   }
 </script>
 <div class="stack" bind:this={panelEl}>
-  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.spectralCipher.encode') }, { id: 'decode', label: t(dict, 'tools.spectralCipher.decode') }]} value={mode} label={t(dict, 'tools.spectralCipher.h1')} idBase="spectral" panelClass="grid items-start gap-6 md:grid-cols-2" onchange={setMode}>
+  <Tabs items={[{ id: 'encode', label: t(dict, 'tools.imageInSound.encode') }, { id: 'decode', label: t(dict, 'tools.imageInSound.decode') }]} value={mode} label={t(dict, 'tools.imageInSound.h1')} idBase="spectral" panelClass="grid items-start gap-6 md:grid-cols-2" onchange={setMode}>
     <div class="stack">
       {#if mode === 'encode'}
-        <Field label={t(dict, 'tools.spectralCipher.sourceImage')} error={sourceError} required>
+        <Field label={t(dict, 'tools.imageInSound.sourceImage')} error={sourceError} required>
           {#snippet children(control)}
             <div class="dropzone aspect-video" use:dropFiles class:dropzone--active={!!imageUrl}>
               {#if imageUrl}
-                <img src={imageUrl} alt={t(dict, 'tools.spectralCipher.previewAlt')} />
+                <img src={imageUrl} alt={t(dict, 'tools.imageInSound.previewAlt')} />
               {:else}
                 <Icon name="image" size={20} />
                 <span class="dropzone__title">{t(dict, 'common.dropOrChoose')}</span>
@@ -473,7 +473,7 @@
           {/snippet}
         </Field>
       {:else}
-        <Field label={t(dict, 'tools.spectralCipher.sourceAudio')} error={sourceError} required>
+        <Field label={t(dict, 'tools.imageInSound.sourceAudio')} error={sourceError} required>
           {#snippet children(control)}
             <div class="dropzone aspect-video" use:dropFiles class:dropzone--active={!!audioFileName}>
               <Icon name="audio-lines" size={20} />
@@ -498,24 +498,24 @@
     <form class="stack" novalidate on:submit|preventDefault={mode === 'encode' ? encodeImage : decodeAudio}>
       {#if mode === 'encode'}
         {#if carrierLoaded}
-          <Field id="spectral-strength" label={t(dict, 'tools.spectralCipher.imageStrength')} hint={t(dict, 'tools.spectralCipher.strengthHint')}>
+          <Field id="sound-strength" label={t(dict, 'tools.imageInSound.imageStrength')} hint={t(dict, 'tools.imageInSound.strengthHint')}>
             {#snippet aside()}
-              <output class="font-mono text-sm tabular-nums text-text" for="spectral-strength">{Math.round(imageStrength * 100)}%</output>
+              <output class="font-mono text-sm tabular-nums text-text" for="sound-strength">{Math.round(imageStrength * 100)}%</output>
             {/snippet}
             {#snippet children(control)}
               <input {...control} type="range" min="0.1" max="1" step="0.05" aria-valuetext={`${Math.round(imageStrength * 100)}%`} bind:value={imageStrength} />
             {/snippet}
           </Field>
         {/if}
-        <Button type="submit" block busy={processing}>{t(dict, 'tools.spectralCipher.encodeButton')}</Button>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.imageInSound.encodeButton')}</Button>
         {#if wavBlobUrl}
           <audio src={wavBlobUrl} controls class="w-full"></audio>
-          <Button variant="secondary" block icon="download" onclick={downloadWav}>{t(dict, 'tools.spectralCipher.downloadWav')}</Button>
+          <Button variant="secondary" block icon="download" onclick={downloadWav}>{t(dict, 'tools.imageInSound.downloadWav')}</Button>
         {/if}
       {:else}
-        <Button type="submit" block busy={processing}>{t(dict, 'tools.spectralCipher.decodeButton')}</Button>
+        <Button type="submit" block busy={processing}>{t(dict, 'tools.imageInSound.decodeButton')}</Button>
         {#if extractedImageUrl}
-          <Button variant="secondary" block icon="download" onclick={downloadImage}>{t(dict, 'tools.spectralCipher.downloadImage')}</Button>
+          <Button variant="secondary" block icon="download" onclick={downloadImage}>{t(dict, 'tools.imageInSound.downloadImage')}</Button>
         {/if}
       {/if}
     </form>

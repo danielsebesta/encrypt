@@ -1,17 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { encrypt, decrypt, to14BitChunks, from14BitChunks } from '../src/lib/aesGcm';
-import { encryptData, decryptData } from '../src/lib/ghost/crypto';
+import { encryptData, decryptData } from '../src/lib/fileCrypto';
 import { accessChannel, safeColor, ReplayWindow } from '../src/lib/roomAccess';
-import { parseAllowedFetchUrl } from '../src/lib/ghost/allowedFetch';
+import { parseAllowedFetchUrl } from '../src/lib/sendAllowlist';
 import { readLimited } from '../src/lib/httpLimits';
 import { issueTurnGrant, verifyTurnGrant } from '../src/lib/turnGrant';
 import { stampPayload, validPayload } from '../src/lib/chatProtocol';
 import Chat from '../party/chat';
 import Whiteboard from '../party/whiteboard';
 import { RoomAccess, connectionRequest } from '../party/access';
-import { GET as fetchFile } from '../src/pages/api/ghost/fetch';
-import { SEND_AUTH_KEY_HEADER } from '../src/lib/nologSend';
+import { GET as fetchFile } from '../src/pages/api/send/fetch';
+import { SEND_AUTH_KEY_HEADER } from '../src/lib/sendClient';
 import { generateVapidKeys } from '../src/lib/webPush';
 
 test('new text encryption round trips Unicode, randomizes output and authenticates every part', async () => {
@@ -59,7 +59,7 @@ test('download proxy never serves active upstream content as a document', async 
   const original = globalThis.fetch;
   globalThis.fetch = async () => new Response('<svg onload="alert(1)"/>', { headers: { 'Content-Type': 'image/svg+xml' } });
   try {
-    const url = new URL(`https://encrypt.click/api/ghost/fetch?url=${encodeURIComponent('https://upload.nolog.cz/download/0123456789abcdef/')}`);
+    const url = new URL(`https://encrypt.click/api/send/fetch?url=${encodeURIComponent('https://upload.nolog.cz/download/0123456789abcdef/')}`);
     const response = await fetchFile({ url, request: new Request(url, { headers: { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) } }) } as any);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('Content-Type'), 'application/octet-stream');

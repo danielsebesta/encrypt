@@ -1971,24 +1971,24 @@ html.dark {
         min-height: 28rem;
     }
 
-    .home-try-pending {
+    .home-quickstart-pending {
         @apply grid content-start gap-4;
         min-height: 20rem;
     }
 
-    .home-try-pending__line {
+    .home-quickstart-pending__line {
         @apply h-4 max-w-md rounded-md bg-surface-2;
     }
 
-    .home-try-pending__line--short {
+    .home-quickstart-pending__line--short {
         @apply max-w-48;
     }
 
-    .home-try-pending__box {
+    .home-quickstart-pending__box {
         @apply min-h-36 w-full rounded-lg bg-surface-2;
     }
 
-    .home-try-pending__btn {
+    .home-quickstart-pending__btn {
         @apply h-10 w-full rounded-md bg-surface-2;
     }
 
@@ -1996,43 +1996,43 @@ html.dark {
         min-height: 26rem;
     }
 
-    .home-experiments {
+    .home-tools {
         @apply grid gap-6 border-t border-line-soft pt-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-start md:gap-12 md:pt-14;
     }
 
-    .home-experiments__copy {
+    .home-tools__copy {
         @apply grid max-w-xl gap-2;
     }
 
-    .home-experiments__list {
+    .home-tools__list {
         @apply m-0 grid list-none overflow-hidden rounded-lg border border-line bg-surface p-0;
     }
 
-    .home-experiments__list > li + li {
+    .home-tools__list > li + li {
         @apply border-t border-line;
     }
 
-    .home-experiments__link {
+    .home-tools__link {
         @apply flex min-h-11 items-center gap-3 px-4 py-3 text-sm font-medium text-text no-underline;
         transition: background-color var(--duration-fast) var(--ease-out);
     }
 
-    .home-experiments__link:hover,
-    .home-experiments__link:focus-visible {
+    .home-tools__link:hover,
+    .home-tools__link:focus-visible {
         @apply bg-surface-2;
     }
 
-    .home-experiments__link .icon:first-child {
+    .home-tools__link .icon:first-child {
         @apply shrink-0 text-muted;
     }
 
-    .home-experiments__arrow {
+    .home-tools__arrow {
         @apply ml-auto shrink-0 text-muted;
         transition: transform var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
     }
 
-    .home-experiments__link:hover .home-experiments__arrow,
-    .home-experiments__link:focus-visible .home-experiments__arrow {
+    .home-tools__link:hover .home-tools__arrow,
+    .home-tools__link:focus-visible .home-tools__arrow {
         @apply translate-x-0.5 text-text;
     }
 
@@ -2435,19 +2435,19 @@ html.dark {
         @apply mt-0.5 block text-sm leading-snug text-muted;
     }
 
-    .ue-qr {
+    .share-qr {
         @apply mx-auto w-full max-w-[220px] rounded-lg border border-line-soft bg-white p-3;
     }
 
-    .ue-qr svg {
+    .share-qr svg {
         @apply block h-auto w-full;
     }
 
-    .ue-result__ready {
+    .share-result__ready {
         @apply flex items-center gap-2 text-base font-semibold text-accent;
     }
 
-    .ud-entry {
+    .decrypt-entry {
         @apply grid gap-3 sm:grid-cols-3;
     }
 
@@ -2455,15 +2455,15 @@ html.dark {
         @apply font-sans font-normal;
     }
 
-    .ud-preview {
+    .decrypt-preview {
         @apply overflow-hidden rounded-lg border border-line-soft bg-surface;
     }
 
-    .ud-preview__head {
+    .decrypt-preview__head {
         @apply flex items-center gap-2 border-b border-line-soft bg-surface-2 px-4 py-2 text-sm font-semibold text-muted;
     }
 
-    .ud-preview__body {
+    .decrypt-preview__body {
         @apply max-h-[50vh] overflow-auto;
     }
 
@@ -2499,25 +2499,25 @@ html.dark {
         @apply underline;
     }
 
-    .ud-code-comment {
+    .decrypt-code-comment {
         color: var(--muted);
         font-style: italic;
     }
 
-    .ud-code-string {
+    .decrypt-code-string {
         color: var(--accent-strong);
     }
 
-    .ud-code-keyword {
+    .decrypt-code-keyword {
         color: var(--accent);
         font-weight: 600;
     }
 
-    .ud-code-number {
+    .decrypt-code-number {
         color: var(--warn);
     }
 
-    .ud-code-tag {
+    .decrypt-code-tag {
         color: var(--accent-strong);
         font-weight: 600;
     }

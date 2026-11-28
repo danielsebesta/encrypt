@@ -48,7 +48,7 @@ test('a password checklist names each rule state in its text, without a live reg
 });
 
 test('rules a form does not enforce are marked recommended, enforced ones are not', () => {
-  const share = read('src/components/tools/UltimateEncrypt.svelte');
+  const share = read('src/components/tools/ShareForm.svelte');
   assert.doesNotMatch(share, /recommended: true/, 'the share form refuses weak passwords, so every rule is required');
   for (const path of ['ChatCreate', 'WhiteboardCreate', 'ChatCipher', 'PhotoCipher', 'Steganography', 'TimeCapsule'].map((n) => `src/components/tools/${n}.svelte`)) {
     const text = read(path);
@@ -77,8 +77,8 @@ test('field errors are visible, sit under their control and are linked to it', (
 
 test('validation forms re-check live after the first submit instead of on the first keystroke', () => {
   const checks: [string, RegExp][] = [
-    ['src/components/tools/UltimateEncrypt.svelte', /\$: passwordError = attempted \?/],
-    ['src/components/tools/UltimateEncrypt.svelte', /\$: unlockError = attempted \?/],
+    ['src/components/tools/ShareForm.svelte', /\$: passwordError = attempted \?/],
+    ['src/components/tools/ShareForm.svelte', /\$: unlockError = attempted \?/],
     ['src/components/tools/ChatCreate.svelte', /\$: roomError = roomAttempted &&/],
     ['src/components/tools/ChatCreate.svelte', /\$: passwordError = passwordAttempted &&/],
     ['src/components/tools/WhiteboardCreate.svelte', /\$: passwordError = attempted &&/],

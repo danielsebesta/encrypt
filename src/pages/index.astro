@@ -2,13 +2,13 @@
 import Layout from '../layouts/Layout.astro';
 import AppShowcase from '../components/AppShowcase.astro';
 import Icon from '../components/Icon.astro';
-import HomeTry from '../components/home/HomeTry.svelte';
+import HomeQuickStart from '../components/home/HomeQuickStart.svelte';
 import { tools } from '../lib/tools';
 import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
 
 const locale = (Astro.currentLocale ?? 'en') as Locale;
 const dict = getTranslations(locale);
-const tryDict = pickDict(dict, ['tools.ultimateEncrypt', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing', 'keys.error', 'keys.contact', 'keys.fingerprint'], ['keys.me.passwordLabel']);
+const tryDict = pickDict(dict, ['tools.shareForm', 'shareLink', 'common', 'chat', 'whiteboard', 'rooms', 'nav', 'landing', 'keys.error', 'keys.contact', 'keys.fingerprint'], ['keys.me.passwordLabel']);
 
 const sentences = (key: string) => t(dict, key).split(/(?<=[.!?])\s+/).map((line) => (line.split(/\s+/).length > 3 ? line.replace(/\s+(\S+)$/, '\u00a0$1') : line));
 const tagline = sentences('home.tagline.1');
@@ -21,9 +21,9 @@ const uses = [
   [3, 'presentation', '/whiteboard'],
 ] as const;
 const appPerks = [['fingerprint-pattern', 1], ['bookmark', 2], ['share', 3]] as const;
-const experiments = tools.map((tool) => ({
+const toolLinks = tools.map((tool) => ({
   label: t(dict, tool.navLabelKey),
-  href: `/experiments/${tool.slug}`,
+  href: `/tools/${tool.slug}`,
   icon: tool.icon,
 }));
 ---
@@ -50,7 +50,7 @@ const experiments = tools.map((tool) => ({
         </div>
       </div>
       <div class="home-hero__form panel" id="try">
-        <HomeTry client:visible locale={locale} dict={tryDict} />
+        <HomeQuickStart client:visible locale={locale} dict={tryDict} />
       </div>
     </section>
 
@@ -85,18 +85,18 @@ const experiments = tools.map((tool) => ({
       <AppShowcase class="home-app__showcase" />
     </section>
 
-    <section class="home-experiments" aria-labelledby="home-experiments-title">
-      <div class="home-experiments__copy">
-        <h2 id="home-experiments-title" class="section-title">{t(dict, 'home.tools.title')}</h2>
+    <section class="home-tools" aria-labelledby="home-tools-title">
+      <div class="home-tools__copy">
+        <h2 id="home-tools-title" class="section-title">{t(dict, 'home.tools.title')}</h2>
         <p class="hint">{t(dict, 'home.tools.subtitle')}</p>
       </div>
-      <ul class="home-experiments__list">
-        {experiments.map((tool) => (
+      <ul class="home-tools__list">
+        {toolLinks.map((tool) => (
           <li>
-            <a href={tool.href} class="home-experiments__link">
+            <a href={tool.href} class="home-tools__link">
               <Icon name={tool.icon} size={20} />
               <span>{tool.label}</span>
-              <Icon name="arrow-right" class="home-experiments__arrow" />
+              <Icon name="arrow-right" class="home-tools__arrow" />
             </a>
           </li>
         ))}

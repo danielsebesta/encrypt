@@ -1,5 +1,5 @@
 import { mount, unmount } from 'svelte';
-import { prependEclkMagic } from './ghost/crypto';
+import { prependEclkMagic } from './fileCrypto';
 import { xhrRequest, type ByteProgress } from './httpProgress';
 import { BLOB_ID_RE, BURN_HEADER, RETENTION_HEADER, type Retention } from './retention';
 import { PASS_HEADER } from './uploadPass';

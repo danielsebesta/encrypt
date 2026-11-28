@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { fetchSendEncryptedBlob, isBareSendUrl, SEND_AUTH_KEY_HEADER, validSendAuthKey } from '../../../lib/nologSend';
+import { fetchSendEncryptedBlob, isBareSendUrl, SEND_AUTH_KEY_HEADER, validSendAuthKey } from '../../../lib/sendClient';
 
 export const prerender = false;
 

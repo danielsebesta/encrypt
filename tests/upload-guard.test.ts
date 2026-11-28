@@ -8,7 +8,7 @@ import { createChallenge, verifySolution, powDifficulty, type PowChallenge } fro
 import type { BlobMeta, BlobStore, Platform } from '../src/platform/types';
 import { sealPassword } from '../src/lib/passwordEnvelope';
 import { sealWithKey } from '../src/lib/keyEnvelope';
-import { prependEclkMagic } from '../src/lib/ghost/crypto';
+import { prependEclkMagic } from '../src/lib/fileCrypto';
 
 const SECRET = 'test-secret';
 const GB = 1000 ** 3;

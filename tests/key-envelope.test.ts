@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { arrayToB64url } from '../src/lib/chatCrypto';
-import { encryptDataWithKey, decryptData } from '../src/lib/ghost/crypto';
+import { encryptDataWithKey, decryptData } from '../src/lib/fileCrypto';
 import { KEY_ENVELOPE_BYTES, KEY_ENVELOPE_MAGIC, isKeyEnvelope, openWithKey, sealWithKey } from '../src/lib/keyEnvelope';
 import { openPasswordWithSurplus, preparePasswordOpen, sealPassword } from '../src/lib/passwordEnvelope';
 

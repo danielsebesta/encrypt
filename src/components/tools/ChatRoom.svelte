@@ -37,9 +37,9 @@
     signPayload, verifyPayload, safetyNumber, keyCode,
     roomForwardSecret, forwardLocalKey, sealLocal, openLocal, type SigningIdentity,
   } from '../../lib/chatCrypto';
-  import { encryptDataWithKey, decryptData } from '../../lib/ghost/crypto';
+  import { encryptDataWithKey, decryptData } from '../../lib/fileCrypto';
   import { uploadFirstParty, sendWithUploadPass } from '../../lib/firstPartyUpload';
-  import { prepareSendUpload } from '../../lib/nologSend';
+  import { prepareSendUpload } from '../../lib/sendClient';
   import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import {
     TransferMeter,
@@ -3703,7 +3703,7 @@
             return uploaded?.url ?? null;
           }
 
-          const res = await sendWithUploadPass('/api/ghost/upload', { method: 'POST', body, headers }, dict, onProgress);
+          const res = await sendWithUploadPass('/api/send/upload', { method: 'POST', body, headers }, dict, onProgress);
           if (!res.ok) return null;
           const data = await res.json();
           return data?.results?.[0]?.url || null;
@@ -3714,8 +3714,8 @@
       if (firstPartyUrl) uploadUrls.push(firstPartyUrl);
 
       if (uploadUrls.length === 0 && encrypted.length <= SEND_ENVELOPE_LIMIT) try {
-        const prepared = await prepareSendUpload(encrypted, 'ghost.bin', 'application/octet-stream');
-        const sendUrl = await tryHost('nologsend', prepared.encryptedBytes, {
+        const prepared = await prepareSendUpload(encrypted, 'share.bin', 'application/octet-stream');
+        const sendUrl = await tryHost('send', prepared.encryptedBytes, {
           'X-Send-Metadata': prepared.metadataB64,
           'X-Send-Auth': prepared.authHeader,
           'X-Send-Region': 'eu',
@@ -3806,10 +3806,10 @@
   async function openChatFile(msg: Message): Promise<{ data: Uint8Array; name: string } | null> {
     if (!msg.file) return null;
     if (msg.fileData) return msg.fileData;
-    const { isSendUrl, decryptSendBlob, ghostFetch } = await import('../../lib/nologSend');
+    const { isSendUrl, decryptSendBlob, fetchViaProxy } = await import('../../lib/sendClient');
     for (const fileUrl of msg.file.urls) {
       try {
-        const res = await ghostFetch(fileUrl);
+        const res = await fetchViaProxy(fileUrl);
         if (!res.ok) continue;
         let bytes = new Uint8Array(await res.arrayBuffer());
         if (isSendUrl(fileUrl)) bytes = await decryptSendBlob(bytes, fileUrl);

@@ -4,7 +4,7 @@
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
   import { sealPassword } from '../../lib/passwordEnvelope';
-  import { encryptData, encryptForRecipients } from '../../lib/ghost/crypto';
+  import { encryptData, encryptForRecipients } from '../../lib/fileCrypto';
   import RecipientPicker from '../share/RecipientPicker.svelte';
   import Tabs from '../ui/Tabs.svelte';
   import { unlockIdentity, type IdentityKind } from '../../lib/identityVault';
@@ -41,7 +41,7 @@
 
   type Step = 'input' | 'confirm' | 'fallback' | 'processing' | 'result';
   type Protection = 'password' | 'contacts';
-  type DeliveryMode = 'auto' | 'link' | 'ghost';
+  type DeliveryMode = 'auto' | 'link' | 'upload';
 
   let step: Step = 'input';
 
@@ -122,23 +122,23 @@
 
   $: FIRST_PARTY_HOST = {
     id: 'eclk',
-    name: t(dict, 'tools.ultimateEncrypt.firstPartyUpload'),
+    name: t(dict, 'tools.shareForm.firstPartyUpload'),
     maxBytes: FIRST_PARTY_ENVELOPE_LIMIT,
   } as HostInfo;
 
-  const SEND_HOST: HostInfo = { id: 'nologsend', name: 'Send network (E2E encrypted)', maxBytes: SEND_ENVELOPE_LIMIT };
+  const SEND_HOST: HostInfo = { id: 'send', name: 'Send network (E2E encrypted)', maxBytes: SEND_ENVELOPE_LIMIT };
 
   $: totalFileSize = files.reduce((s, f) => s + f.size, 0);
   $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: isHuge = payloadSize > MAX_FILE;
-  $: deliveryMode = (isHuge ? 'local' : isLarge || burn || forContacts ? 'ghost' : 'link') as 'local' | 'ghost' | 'link';
+  $: deliveryMode = (isHuge ? 'local' : isLarge || burn || forContacts ? 'upload' : 'link') as 'local' | 'upload' | 'link';
   $: shareUrl = shortUrl || resultUrl;
   $: resultPass = resultPassword || password;
   $: resultBlurb = shareUrl && resultRecipients.length
-    ? t(dict, 'tools.ultimateEncrypt.result.blurbRecipients').replace('{link}', shareUrl)
+    ? t(dict, 'tools.shareForm.result.blurbRecipients').replace('{link}', shareUrl)
     : shareUrl && resultPass
-    ? t(dict, resultKeyInLink ? 'tools.ultimateEncrypt.result.blurbKey' : 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl)
+    ? t(dict, resultKeyInLink ? 'tools.shareForm.result.blurbKey' : 'tools.shareForm.result.blurb').replace('{link}', shareUrl)
     : '';
   $: if (step === 'result' && shareUrl) {
     void generateQr(shareUrl);
@@ -300,7 +300,7 @@
   }
 
   function showServerBusy() {
-    progressDetail = t(dict, 'tools.ultimateEncrypt.serverBusy');
+    progressDetail = t(dict, 'tools.shareForm.serverBusy');
   }
 
   function onTransferProgress(loaded: number, total: number) {
@@ -357,8 +357,8 @@
     { ok: passwordChecks.strength, label: t(dict, 'common.passwordRuleStrength') },
   ];
   $: hasContent = files.length > 0 || textInput.trim().length > 0;
-  $: reviewWhat = files.length === 1 ? files[0].name : files.length > 1 ? `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}` : t(dict, 'tools.ultimateEncrypt.review.message').replace('{count}', String(textInput.trim().length));
-  $: reviewWhere = t(dict, deliveryMode === 'ghost' ? 'tools.ultimateEncrypt.review.whereGhost' : deliveryMode === 'link' ? 'tools.ultimateEncrypt.review.whereLink' : 'tools.ultimateEncrypt.review.whereLocal');
+  $: reviewWhat = files.length === 1 ? files[0].name : files.length > 1 ? `${files.length} ${t(dict, 'tools.shareForm.confirm.files')}` : t(dict, 'tools.shareForm.review.message').replace('{count}', String(textInput.trim().length));
+  $: reviewWhere = t(dict, deliveryMode === 'upload' ? 'tools.shareForm.review.whereUpload' : deliveryMode === 'link' ? 'tools.shareForm.review.whereLink' : 'tools.shareForm.review.whereLocal');
 
   let optionsOpen = false;
   let storageChecked = false;
@@ -380,20 +380,20 @@
   let attempted = false;
 
   function passwordProblem(value: string, checks: typeof passwordChecks): string {
-    if (!value) return t(dict, 'tools.ultimateEncrypt.errorPasswordRequired');
+    if (!value) return t(dict, 'tools.shareForm.errorPasswordRequired');
     if (!checks.length || !checks.variety || !checks.strength) return t(dict, 'common.passwordWeak');
     return '';
   }
 
   function unlockProblem(at: string, ms: number | null, mode: typeof deliveryMode, keep: Retention): string {
     if (mode === 'local' || !at) return '';
-    if (ms === null || ms <= Date.now() + 5000) return t(dict, 'tools.ultimateEncrypt.options.unlockPast');
-    if (mode === 'ghost' && !retentionForUnlock(keep, ms)) return t(dict, 'tools.ultimateEncrypt.options.unlockTooFar');
+    if (ms === null || ms <= Date.now() + 5000) return t(dict, 'tools.shareForm.options.unlockPast');
+    if (mode === 'upload' && !retentionForUnlock(keep, ms)) return t(dict, 'tools.shareForm.options.unlockTooFar');
     return '';
   }
 
   function recipientProblem(mode: Protection, count: number): string {
-    return mode === 'contacts' && count === 0 ? t(dict, 'tools.ultimateEncrypt.recipients.required') : '';
+    return mode === 'contacts' && count === 0 ? t(dict, 'tools.shareForm.recipients.required') : '';
   }
 
   $: passwordError = attempted ? passwordProblem(password, passwordChecks) : '';
@@ -404,13 +404,13 @@
     if (forContacts) {
       await tick();
       const target = recipientProblem(protection, recipientCount) ? document.querySelector<HTMLInputElement>('.rp-list input') : document.getElementById('rp-key-password');
-      (target ?? document.getElementById('ue-text'))?.focus();
+      (target ?? document.getElementById('share-text'))?.focus();
       return;
     }
     const unlock = !passwordProblem(password, passwordChecks) && !!unlockProblem(unlockAt, unlockMs, deliveryMode, retention);
     if (unlock) optionsOpen = true;
     await tick();
-    document.getElementById(unlock ? 'ue-unlock' : 'ue-pass')?.focus();
+    document.getElementById(unlock ? 'share-unlock' : 'share-pass')?.focus();
   }
 
   let orbDone = false;
@@ -427,7 +427,7 @@
     }
     step = 'result';
     await tick();
-    const link = document.getElementById('ue-result-link') as HTMLInputElement | null;
+    const link = document.getElementById('share-result-link') as HTMLInputElement | null;
     link?.focus();
     if (link) link.scrollLeft = 0;
   }
@@ -435,7 +435,7 @@
   async function handleEncrypt() {
     error = '';
     if (!hasContent) {
-      error = t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile');
+      error = t(dict, 'tools.shareForm.errorEnterMessageOrFile');
       return;
     }
     error = '';
@@ -474,8 +474,8 @@
     try {
       pendingLock = null;
       if (locking && unlockMs !== null) {
-        setProgress(t(dict, 'tools.ultimateEncrypt.progressLockingTitle'), t(dict, 'tools.ultimateEncrypt.progressLockingDetail'));
-        pendingLock = await lockTimeSecret(unlockMs).catch(() => { throw new Error(t(dict, 'tools.ultimateEncrypt.options.lockFailed')); });
+        setProgress(t(dict, 'tools.shareForm.progressLockingTitle'), t(dict, 'tools.shareForm.progressLockingDetail'));
+        pendingLock = await lockTimeSecret(unlockMs).catch(() => { throw new Error(t(dict, 'tools.shareForm.options.lockFailed')); });
         pushDebug(`Time lock set to drand round ${pendingLock.lock.round}`);
       }
       if (deliveryMode === 'local') {
@@ -486,11 +486,11 @@
         await encryptInline();
         await goToResult();
       } else {
-        await encryptGhostPrepare();
-        await uploadGhost(firstPartyHosts());
+        await prepareUpload();
+        await uploadToHosts(firstPartyHosts());
       }
     } catch (e: any) {
-      error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+      error = e?.message || t(dict, 'tools.shareForm.errorEncryptionFailed');
       pushDebug(`Encrypt failed: ${error}`);
       await holdError();
       step = 'input';
@@ -514,7 +514,7 @@
     }
     const chosen = pickerContacts.filter((c) => recipientIds.includes(c.id));
     pendingRecipients = [...chosen.map((c) => c.card.kemPub), ...(own && includeSelf ? [own.card.kemPub] : [])];
-    resultRecipients = [...chosen.map((c) => c.name), ...(own && includeSelf ? [t(dict, 'tools.ultimateEncrypt.recipients.you')] : [])];
+    resultRecipients = [...chosen.map((c) => c.name), ...(own && includeSelf ? [t(dict, 'tools.shareForm.recipients.you')] : [])];
     return true;
   }
 
@@ -532,25 +532,25 @@
   }
 
   const firstPartyHosts = () => pendingHosts.filter(h => h.id === 'eclk');
-  const sendHosts = () => pendingHosts.filter(h => h.id === 'nologsend');
+  const sendHosts = () => pendingHosts.filter(h => h.id === 'send');
 
   // Send is run by third parties, so it is only used after the sender agrees to a specific instance.
-  async function uploadGhost(hosts: HostInfo[]) {
+  async function uploadToHosts(hosts: HostInfo[]) {
     try {
-      await encryptGhostUpload(hosts);
+      await uploadAndBuildLink(hosts);
       showManualTransferHelp = false;
       await goToResult();
       return;
     } catch (e: any) {
-      error = e?.message || t(dict, 'tools.ultimateEncrypt.errorEncryptionFailed');
+      error = e?.message || t(dict, 'tools.shareForm.errorEncryptionFailed');
       pushDebug(`Upload failed: ${error}`);
       await holdError();
     }
 
-    const failedHost = hosts.some(h => h.id === 'nologsend') ? sendInstance?.host : undefined;
+    const failedHost = hosts.some(h => h.id === 'send') ? sendInstance?.host : undefined;
     if (failedHost) failedSendHosts = [...failedSendHosts, failedHost];
     if (sendAllowed && sendHosts().length > 0 && await pickSendInstance()) {
-      error = failedHost ? t(dict, 'tools.ultimateEncrypt.fallback.failed').replace('{host}', failedHost) : '';
+      error = failedHost ? t(dict, 'tools.shareForm.fallback.failed').replace('{host}', failedHost) : '';
       step = 'fallback';
       await tick();
       sendButtonEl?.focus();
@@ -564,7 +564,7 @@
     sendInstance = null;
     try {
       const params = new URLSearchParams({ size: String(pendingUploadBytes?.length ?? 0), exclude: failedSendHosts.join(',') });
-      const res = await fetch(`/api/ghost/upload?${params}`);
+      const res = await fetch(`/api/send/upload?${params}`);
       const data = await res.json().catch(() => null) as any;
       if (res.ok && typeof data?.instance?.host === 'string') {
         sendInstance = { host: data.instance.host, country: data.instance.country };
@@ -587,24 +587,24 @@
     }
   }
 
-  $: fallbackBody = t(dict, 'tools.ultimateEncrypt.fallback.body').split('{server}');
+  $: fallbackBody = t(dict, 'tools.shareForm.fallback.body').split('{server}');
 
   async function confirmUpload() {
     step = 'processing';
     error = '';
-    await uploadGhost(firstPartyHosts());
+    await uploadToHosts(firstPartyHosts());
   }
 
   async function uploadToSend() {
     step = 'processing';
     error = '';
-    await uploadGhost(sendHosts());
+    await uploadToHosts(sendHosts());
   }
 
   async function resolvePayload(): Promise<{ buffer: Uint8Array; filename: string }> {
     if (needsZip) {
       pushDebug(`Zipping ${files.length} files client-side...`);
-      setProgress(t(dict, 'tools.ultimateEncrypt.progressPreparingTitle'), t(dict, 'tools.ultimateEncrypt.progressZipDetail'));
+      setProgress(t(dict, 'tools.shareForm.progressPreparingTitle'), t(dict, 'tools.shareForm.progressZipDetail'));
       const buffer = await buildZip(files);
       const filename = zipName;
       pushDebug(`ZIP created: ${filename} (${buffer.byteLength} bytes)`);
@@ -619,10 +619,10 @@
   }
 
   async function encryptLocal() {
-    if (files.length === 0) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoFileSelected'));
+    if (files.length === 0) throw new Error(t(dict, 'tools.shareForm.errorNoFileSelected'));
     const encryptionPassword = pendingForRecipients ? '' : password;
     const { buffer, filename } = await resolvePayload();
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressEncryptingTitle'), t(dict, 'tools.shareForm.progressEncryptingDetail'));
     pushDebug(`Local encrypt: ${filename} (${buffer.byteLength} bytes)`);
 
     const encrypted = await sealContent(buffer, filename);
@@ -643,7 +643,7 @@
 
   async function encryptInline() {
     const encryptionPassword = password;
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressPreparingTitle'), t(dict, 'tools.ultimateEncrypt.progressPreparingDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressPreparingTitle'), t(dict, 'tools.shareForm.progressPreparingDetail'));
     let payload: any;
     if (files.length > 0) {
       const { buffer: bytes, filename } = await resolvePayload();
@@ -655,7 +655,7 @@
       pushDebug(`Inline payload prepared for text (${textInput.trim().length} chars)`);
     }
 
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressEncryptingTitle'), t(dict, 'tools.shareForm.progressEncryptingDetail'));
     const json = JSON.stringify(payload);
     const jsonBytes = new TextEncoder().encode(json);
     const compressed = await gzipBytes(jsonBytes);
@@ -679,29 +679,29 @@
     setDropFromFragment(fragment);
   }
 
-  async function encryptGhostPrepare() {
+  async function prepareUpload() {
     const encryptionPassword = pendingForRecipients ? '' : password;
     pendingUploadBytes = null;
 
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressReadingTitle'), t(dict, 'tools.shareForm.progressReadingDetail'));
     const { buffer, filename } = files.length > 0
       ? await resolvePayload()
       : { buffer: new TextEncoder().encode(textInput.trim()), filename: 'message.txt' };
     pushDebug(`Read payload ${filename} (${buffer.byteLength} bytes)`);
 
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressEncryptingTitle'), t(dict, 'tools.shareForm.progressEncryptingUploadDetail'));
     const encrypted = await sealContent(buffer, filename, pendingLock?.secret);
     pushDebug(`Encrypted (${encrypted.byteLength} bytes)`);
 
     let usedStego = false;
     if (encrypted.length <= STEGO_THRESHOLD) {
-      const { createStegoImage } = await import('../../lib/ghost/steganography');
+      const { createStegoImage } = await import('../../lib/pngSteganography');
       pendingUploadBytes = await createStegoImage(encrypted);
-      pendingUploadFilename = 'ghost.png';
+      pendingUploadFilename = 'share.png';
       usedStego = true;
     } else {
       pendingUploadBytes = encrypted;
-      pendingUploadFilename = 'ghost.bin';
+      pendingUploadFilename = 'share.bin';
     }
     pendingUsedStego = usedStego;
     pendingPayloadPassword = encryptionPassword;
@@ -720,18 +720,18 @@
     pushDebug(`Encrypted file ready. Hosts: ${pendingHosts.map(h => h.name).join(', ')}`);
   }
 
-  async function encryptGhostUpload(hosts: HostInfo[]) {
+  async function uploadAndBuildLink(hosts: HostInfo[]) {
     const encryptionPassword = pendingPayloadPassword || password;
     const usedStego = pendingUsedStego;
     transferMeter.reset();
     transferSnap = null;
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressSendingTitle'), t(dict, 'tools.ultimateEncrypt.progressSendingDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressSendingTitle'), t(dict, 'tools.shareForm.progressSendingDetail'));
     const uploadUrls: string[] = [];
     let expires: number | undefined;
     let burned = false;
     const kept = pendingLock ? retentionForUnlock(retention, roundTime(pendingLock.lock.round)) ?? retention : retention;
 
-    if (!pendingUploadBytes) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoEncryptedData'));
+    if (!pendingUploadBytes) throw new Error(t(dict, 'tools.shareForm.errorNoEncryptedData'));
     const uploadBytes = pendingUploadBytes;
     const uploadFilename = pendingUploadFilename;
 
@@ -752,9 +752,9 @@
           return uploaded?.url ?? null;
         }
 
-        const { prepareSendUpload } = await import('../../lib/nologSend');
+        const { prepareSendUpload } = await import('../../lib/sendClient');
         const prepared = await prepareSendUpload(uploadBytes, uploadFilename, uploadFilename.endsWith('.png') ? 'image/png' : 'application/octet-stream');
-        const res = await sendWithUploadPass('/api/ghost/upload', {
+        const res = await sendWithUploadPass('/api/send/upload', {
           method: 'POST',
           body: prepared.encryptedBytes,
           headers: {
@@ -778,11 +778,11 @@
       if (url) { uploadUrls.push(url); break; }
     }
     if (uploadUrls.length === 0) {
-      throw new Error(t(dict, 'tools.ultimateEncrypt.errorAllUploadHostsFailed'));
+      throw new Error(t(dict, 'tools.shareForm.errorAllUploadHostsFailed'));
     }
     pendingUploadBytes = null;
 
-    setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressFinalLinkDetail'));
+    setProgress(t(dict, 'tools.shareForm.progressLinkTitle'), t(dict, 'tools.shareForm.progressFinalLinkDetail'));
     if (pendingForRecipients) {
       const listed = await gzipBytes(new TextEncoder().encode(JSON.stringify({ v: 3, mode: 'recipients', urls: uploadUrls, stego: usedStego })));
       const fragment = formatShareFragment({ payload: base64UrlEncode(listed), expires, recipients: true });
@@ -799,8 +799,8 @@
       return;
     }
 
-    const ghostPayload = { v: 2, mode: 'ghost', urls: uploadUrls, stego: usedStego };
-    const payloadJson = JSON.stringify(ghostPayload);
+    const linkPayload = { v: 2, mode: 'upload', urls: uploadUrls, stego: usedStego };
+    const payloadJson = JSON.stringify(linkPayload);
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
     const encPayload = await sealPassword(compressed, encryptionPassword, { timeSecret: pendingLock?.secret });
@@ -911,7 +911,7 @@
     qrSvg = '';
     debugLog = [];
     await tick();
-    document.getElementById('ue-text')?.focus();
+    document.getElementById('share-text')?.focus();
   }
 
   onMount(() => {
@@ -940,16 +940,16 @@
 <div class="stack text-left">
   {#if step === 'input'}
     <form class="stack" method="dialog" novalidate on:submit|preventDefault={handleEncrypt} on:paste={handlePaste}>
-      <p class="hint">{t(dict, 'tools.ultimateEncrypt.transferClaim')}</p>
+      <p class="hint">{t(dict, 'tools.shareForm.transferClaim')}</p>
 
       <div class="grid gap-4 md:grid-cols-2">
         <div class="field field--fill">
-          <label class="label" for="ue-text">{t(dict, 'tools.ultimateEncrypt.messageLabel')}</label>
+          <label class="label" for="share-text">{t(dict, 'tools.shareForm.messageLabel')}</label>
           <textarea
-            id="ue-text"
+            id="share-text"
             class="input"
             bind:value={textInput}
-            placeholder={t(dict, 'tools.ultimateEncrypt.messagePlaceholder')}
+            placeholder={t(dict, 'tools.shareForm.messagePlaceholder')}
             spellcheck="false"
             autocomplete="off"
             autocapitalize="off"
@@ -958,20 +958,20 @@
         </div>
 
         <div class="field field--fill">
-          <span class="label" id="ue-file-label">{t(dict, 'tools.ultimateEncrypt.fileLabel')}</span>
+          <span class="label" id="share-file-label">{t(dict, 'tools.shareForm.fileLabel')}</span>
           {#if files.length > 0}
-            <div class="dropzone dropzone--active file-chip--enter" role="group" aria-labelledby="ue-file-label">
+            <div class="dropzone dropzone--active file-chip--enter" role="group" aria-labelledby="share-file-label">
               <Icon name="circle-check-big" size={20} class="text-accent" />
-              <span class="dropzone__title max-w-full truncate">{files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.ultimateEncrypt.confirm.files')}`}</span>
-              <span class="font-mono tabular-nums">{#if files.length > 1}{t(dict, 'tools.ultimateEncrypt.confirm.autoZipped')} · {/if}{formatSize(totalFileSize)}</span>
-              <button type="button" class="btn-ghost btn-sm" on:click={clearFile}>{t(dict, 'tools.ultimateEncrypt.remove')}</button>
+              <span class="dropzone__title max-w-full truncate">{files.length === 1 ? files[0].name : `${files.length} ${t(dict, 'tools.shareForm.confirm.files')}`}</span>
+              <span class="font-mono tabular-nums">{#if files.length > 1}{t(dict, 'tools.shareForm.confirm.autoZipped')} · {/if}{formatSize(totalFileSize)}</span>
+              <button type="button" class="btn-ghost btn-sm" on:click={clearFile}>{t(dict, 'tools.shareForm.remove')}</button>
             </div>
           {:else}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <label
               class="dropzone"
               class:dropzone--dragging={dragging}
-              for="ue-file"
+              for="share-file"
               on:drop={handleDrop}
               on:dragover={handleDragOver}
               on:dragleave={handleDragLeave}
@@ -982,9 +982,9 @@
                 <span class="dropzone__hint">{t(dict, 'app.files.chooseHint')}</span>
               {:else}
                 <Icon name="upload" size={20} />
-                <span class="dropzone__title">{t(dict, 'tools.ultimateEncrypt.confirm.dropPasteClick')}</span>
+                <span class="dropzone__title">{t(dict, 'tools.shareForm.confirm.dropPasteClick')}</span>
               {/if}
-              <input id="ue-file" type="file" multiple class="sr-only" aria-labelledby="ue-file-label" bind:this={fileInputEl} on:change={handleFileChange} />
+              <input id="share-file" type="file" multiple class="sr-only" aria-labelledby="share-file-label" bind:this={fileInputEl} on:change={handleFileChange} />
             </label>
           {/if}
         </div>
@@ -994,16 +994,16 @@
         {#if isHuge}
           <div class="status status--warn">
             <div>
-              <p class="status__title">{t(dict, 'tools.ultimateEncrypt.largeNotice.title')}</p>
-              <p>{t(dict, 'tools.ultimateEncrypt.largeNotice.desc')}</p>
+              <p class="status__title">{t(dict, 'tools.shareForm.largeNotice.title')}</p>
+              <p>{t(dict, 'tools.shareForm.largeNotice.desc')}</p>
             </div>
           </div>
         {/if}
         <Tabs
-          items={[{ id: 'password', label: t(dict, 'tools.ultimateEncrypt.protection.password'), icon: 'key' }, { id: 'contacts', label: t(dict, 'tools.ultimateEncrypt.protection.contacts'), icon: 'users' }]}
+          items={[{ id: 'password', label: t(dict, 'tools.shareForm.protection.password'), icon: 'key' }, { id: 'contacts', label: t(dict, 'tools.shareForm.protection.contacts'), icon: 'users' }]}
           bind:value={protection}
-          label={t(dict, 'tools.ultimateEncrypt.protection.label')}
-          idBase="ue-protection"
+          label={t(dict, 'tools.shareForm.protection.label')}
+          idBase="share-protection"
           variant="segmented"
         >
         {#if forContacts}
@@ -1012,53 +1012,53 @@
           </div>
         {:else}
         <div class="field">
-          <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+          <label class="label" for="share-pass">{t(dict, 'tools.shareForm.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
           <PassphraseField
             {dict}
-            id="ue-pass"
+            id="share-pass"
             bind:value={password}
             bind:revealed={passwordRevealed}
-            placeholder={t(dict, 'tools.ultimateEncrypt.passwordPlaceholder')}
-            describedby={passwordError ? 'ue-pass-error ue-pass-rules ue-pass-hint' : 'ue-pass-rules ue-pass-hint'}
+            placeholder={t(dict, 'tools.shareForm.passwordPlaceholder')}
+            describedby={passwordError ? 'share-pass-error share-pass-rules share-pass-hint' : 'share-pass-rules share-pass-hint'}
             invalid={!!passwordError}
             required
             generate={generatePassphrase}
           />
           {#if passwordError}
-            <p id="ue-pass-error" class="field-error" role="alert">{passwordError}</p>
+            <p id="share-pass-error" class="field-error" role="alert">{passwordError}</p>
           {/if}
-          <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} invalid={!!passwordError} />
-          <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
+          <PasswordChecklist id="share-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} invalid={!!passwordError} />
+          <p id="share-pass-hint" class="hint">{t(dict, 'tools.shareForm.passwordHint')}</p>
         </div>
         {/if}
         </Tabs>
 
         <details class="more" bind:open={optionsOpen}>
-          <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
+          <summary>{t(dict, 'tools.shareForm.options.title')}</summary>
           <div class="more__body">
             <ShareOptions {dict} mode={deliveryMode} short={!isLarge} {burnUnavailable} {unlockError} recipients={forContacts} bind:retention bind:burn bind:keyInLink bind:deadMan bind:unlockAt {effectiveRetention} />
           </div>
         </details>
 
-        <dl class="review" aria-label={t(dict, 'tools.ultimateEncrypt.review.title')}>
+        <dl class="review" aria-label={t(dict, 'tools.shareForm.review.title')}>
           <div class="review__row">
-            <dt>{t(dict, 'tools.ultimateEncrypt.review.sending')}</dt>
+            <dt>{t(dict, 'tools.shareForm.review.sending')}</dt>
             <dd class:review__value={files.length === 1}>{reviewWhat}</dd>
           </div>
           <div class="review__row">
-            <dt>{t(dict, 'tools.ultimateEncrypt.review.where')}</dt>
+            <dt>{t(dict, 'tools.shareForm.review.where')}</dt>
             <dd>{reviewWhere}</dd>
           </div>
           {#if forContacts}
             <div class="review__row">
-              <dt>{t(dict, 'tools.ultimateEncrypt.review.opens')}</dt>
-              <dd>{[...pickerContacts.filter((c) => recipientIds.includes(c.id)).map((c) => c.name), ...(pickerOwn && includeSelf ? [t(dict, 'tools.ultimateEncrypt.recipients.you')] : [])].join(', ') || '–'}</dd>
+              <dt>{t(dict, 'tools.shareForm.review.opens')}</dt>
+              <dd>{[...pickerContacts.filter((c) => recipientIds.includes(c.id)).map((c) => c.name), ...(pickerOwn && includeSelf ? [t(dict, 'tools.shareForm.recipients.you')] : [])].join(', ') || '–'}</dd>
             </div>
           {/if}
-          {#if deliveryMode === 'ghost'}
+          {#if deliveryMode === 'upload'}
             <div class="review__row">
-              <dt>{t(dict, 'tools.ultimateEncrypt.review.expires')}</dt>
-              <dd>{t(dict, `tools.ultimateEncrypt.options.retention${effectiveRetention ?? retention}`)}</dd>
+              <dt>{t(dict, 'tools.shareForm.review.expires')}</dt>
+              <dd>{t(dict, `tools.shareForm.options.retention${effectiveRetention ?? retention}`)}</dd>
             </div>
           {/if}
         </dl>
@@ -1068,9 +1068,9 @@
         <p class="status status--error" role="alert">{error}</p>
       {/if}
 
-      <button class="btn btn-block" type="submit" disabled={!hasContent} aria-describedby={hasContent ? undefined : 'ue-empty-hint'}>{t(dict, 'tools.ultimateEncrypt.encryptAndShare')}</button>
+      <button class="btn btn-block" type="submit" disabled={!hasContent} aria-describedby={hasContent ? undefined : 'share-empty-hint'}>{t(dict, 'tools.shareForm.encryptAndShare')}</button>
       {#if !hasContent}
-        <p id="ue-empty-hint" class="hint text-center">{t(dict, 'tools.ultimateEncrypt.errorEnterMessageOrFile')}</p>
+        <p id="share-empty-hint" class="hint text-center">{t(dict, 'tools.shareForm.errorEnterMessageOrFile')}</p>
       {/if}
     </form>
 
@@ -1078,32 +1078,32 @@
     <div class="stack">
       <div class="status status--warn">
         <div>
-          <p class="status__title">{t(dict, 'tools.ultimateEncrypt.confirm.title')}</p>
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.subtitle')}</p>
+          <p class="status__title">{t(dict, 'tools.shareForm.confirm.title')}</p>
+          <p>{t(dict, 'tools.shareForm.confirm.subtitle')}</p>
         </div>
       </div>
-      <p class="hint">{t(dict, 'tools.ultimateEncrypt.confirm.storageGuarantee')}</p>
+      <p class="hint">{t(dict, 'tools.shareForm.confirm.storageGuarantee')}</p>
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
       {/if}
       {#if localFileUrl}
         <div class="hint grid gap-1.5">
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.manualUploadHint')}</p>
+          <p>{t(dict, 'tools.shareForm.confirm.manualUploadHint')}</p>
           <p class="flex flex-wrap gap-x-4 gap-y-1">
-            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline">{t(dict, 'tools.ultimateEncrypt.confirm.sendInstances')}</a>
-            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline">{t(dict, 'tools.ultimateEncrypt.confirm.swissTransfer')}</a>
+            <a href="https://github.com/timvisee/send-instances/blob/master/README.md#instances" target="_blank" rel="noopener noreferrer" class="text-accent underline">{t(dict, 'tools.shareForm.confirm.sendInstances')}</a>
+            <a href="https://swisstransfer.com" target="_blank" rel="noopener noreferrer" class="text-accent underline">{t(dict, 'tools.shareForm.confirm.swissTransfer')}</a>
           </p>
-          <p>{t(dict, 'tools.ultimateEncrypt.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline">{t(dict, 'tools.ultimateEncrypt.confirm.decryptPath')}</a></p>
+          <p>{t(dict, 'tools.shareForm.confirm.recipientDecrypts')} <a href="/u" class="text-accent underline">{t(dict, 'tools.shareForm.confirm.decryptPath')}</a></p>
         </div>
       {/if}
       <div class="actions max-sm:flex-col max-sm:items-stretch">
         {#if localFileUrl}
-          <a href={localFileUrl} download={localFileName} class="btn max-w-full min-w-0"><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</span></a>
+          <a href={localFileUrl} download={localFileName} class="btn max-w-full min-w-0"><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.shareForm.confirm.downloadBtn')} · {localFileName}</span></a>
         {/if}
         {#if showManualTransferHelp && pendingHosts.length > 0}
-          <button class="btn-secondary" type="button" on:click={confirmUpload}>{t(dict, 'tools.ultimateEncrypt.confirm.retryUploadBtn')}</button>
+          <button class="btn-secondary" type="button" on:click={confirmUpload}>{t(dict, 'tools.shareForm.confirm.retryUploadBtn')}</button>
         {/if}
-        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.ultimateEncrypt.confirm.back')}</button>
+        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.shareForm.confirm.back')}</button>
       </div>
     </div>
 
@@ -1111,28 +1111,28 @@
     <div class="stack">
       <div class="status status--warn">
         <div>
-          <p class="status__title">{t(dict, 'tools.ultimateEncrypt.fallback.title')}</p>
+          <p class="status__title">{t(dict, 'tools.shareForm.fallback.title')}</p>
           <p>{fallbackBody[0]}{#if sendInstance}<a href="https://{sendInstance.host}" target="_blank" rel="noopener noreferrer" class="font-semibold underline">{sendInstance.host}</a>{#if sendInstance.country}{' '}({countryName(sendInstance.country)}){/if}{/if}{fallbackBody[1] ?? ''}</p>
         </div>
       </div>
       {#if error}
         <p class="status status--error" role="alert">{error}</p>
       {/if}
-      <p class="hint">{t(dict, 'tools.ultimateEncrypt.fallback.availability')}</p>
+      <p class="hint">{t(dict, 'tools.shareForm.fallback.availability')}</p>
       <div class="actions max-sm:flex-col max-sm:items-stretch">
-        <button class="btn" type="button" bind:this={sendButtonEl} on:click={uploadToSend}>{t(dict, 'tools.ultimateEncrypt.fallback.uploadBtn')}</button>
+        <button class="btn" type="button" bind:this={sendButtonEl} on:click={uploadToSend}>{t(dict, 'tools.shareForm.fallback.uploadBtn')}</button>
         {#if localFileUrl}
-          <a href={localFileUrl} download={localFileName} class="btn-secondary max-w-full min-w-0"><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.ultimateEncrypt.confirm.downloadBtn')} · {localFileName}</span></a>
+          <a href={localFileUrl} download={localFileName} class="btn-secondary max-w-full min-w-0"><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.shareForm.confirm.downloadBtn')} · {localFileName}</span></a>
         {/if}
-        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.ultimateEncrypt.fallback.cancelBtn')}</button>
+        <button type="button" class="btn-ghost" on:click={() => step = 'input'}>{t(dict, 'tools.shareForm.fallback.cancelBtn')}</button>
       </div>
     </div>
 
   {:else if step === 'processing'}
     <div class="stack">
       <ProgressPulse
-        title={progressTitle || t(dict, 'tools.ultimateEncrypt.progressDefaultTitle')}
-        detail={progressDetail || t(dict, 'tools.ultimateEncrypt.progressDefaultDetail')}
+        title={progressTitle || t(dict, 'tools.shareForm.progressDefaultTitle')}
+        detail={progressDetail || t(dict, 'tools.shareForm.progressDefaultDetail')}
         ratio={transferBar}
         transferLine={transferLine}
         state={error ? 'error' : orbDone ? 'success' : 'loading'}
@@ -1144,110 +1144,110 @@
 
   {:else if step === 'result'}
     <div class="stack">
-      <p class="ue-result__ready" role="status"><Icon name="check" size={20} />{t(dict, 'tools.ultimateEncrypt.result.readyTitle')}</p>
+      <p class="share-result__ready" role="status"><Icon name="check" size={20} />{t(dict, 'tools.shareForm.result.readyTitle')}</p>
 
       {#if shareUrl}
         <div class="field">
           <div class="output-head">
-            <label class="label" for="ue-result-link">{shortUrl ? t(dict, 'tools.ultimateEncrypt.shareThisLink') : t(dict, 'tools.ultimateEncrypt.encryptedLink')}</label>
+            <label class="label" for="share-result-link">{shortUrl ? t(dict, 'tools.shareForm.shareThisLink') : t(dict, 'tools.shareForm.encryptedLink')}</label>
             <CopyButton text={shareUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
           </div>
-          <input id="ue-result-link" class="input input--mono" type="text" readonly value={shareUrl} aria-describedby={resultHasTemporaryUpload ? 'ue-result-storage' : undefined} />
+          <input id="share-result-link" class="input input--mono" type="text" readonly value={shareUrl} aria-describedby={resultHasTemporaryUpload ? 'share-result-storage' : undefined} />
           {#if resultHasTemporaryUpload}
-            <p id="ue-result-storage" class="hint">{t(dict, 'tools.ultimateEncrypt.result.storageNote')}</p>
+            <p id="share-result-storage" class="hint">{t(dict, 'tools.shareForm.result.storageNote')}</p>
           {/if}
         </div>
         <ShareLinkFacts {dict} {locale} expires={resultExpires} burn={resultBurn} unlock={resultUnlock} />
         {#if deadMan && resultUnlock}
-          <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.options.deadManResult').replace('{time}', new Date(resultUnlock).toLocaleString(locale))}</p>
+          <p class="status status--warn">{t(dict, 'tools.shareForm.options.deadManResult').replace('{time}', new Date(resultUnlock).toLocaleString(locale))}</p>
         {/if}
       {/if}
 
       {#if resultRecipients.length}
         <dl class="review">
           <div class="review__row">
-            <dt>{t(dict, 'tools.ultimateEncrypt.review.opens')}</dt>
+            <dt>{t(dict, 'tools.shareForm.review.opens')}</dt>
             <dd>{resultRecipients.join(', ')}</dd>
           </div>
         </dl>
-        <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.recipientsNote')}</p>
+        <p class="hint">{t(dict, 'tools.shareForm.result.recipientsNote')}</p>
       {:else if resultKeyInLink}
-        <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.result.keyInLinkNote')}</p>
+        <p class="status status--warn">{t(dict, 'tools.shareForm.result.keyInLinkNote')}</p>
       {:else}
       <div class="field">
         <div class="output-head">
-          <label class="label" for="ue-result-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}</label>
+          <label class="label" for="share-result-pass">{t(dict, 'tools.shareForm.passwordLabel')}</label>
           <CopyButton text={resultPass} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
         </div>
         <div class="passphrase">
-          <input id="ue-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPass} aria-describedby="ue-result-pass-note" />
+          <input id="share-result-pass" class="input" type={resultPasswordVisible ? 'text' : 'password'} readonly value={resultPass} aria-describedby="share-result-pass-note" />
           <button
             type="button"
             class="btn-ghost btn-sm btn-icon"
             on:click={() => { resultPasswordVisible = !resultPasswordVisible; }}
             aria-label={t(dict, 'common.showPassword')}
             aria-pressed={resultPasswordVisible}
-            aria-controls="ue-result-pass"
+            aria-controls="share-result-pass"
             title={t(dict, resultPasswordVisible ? 'common.hidePassword' : 'common.showPassword')}
           >
             <Icon name={resultPasswordVisible ? 'eye-off' : 'eye'} />
           </button>
         </div>
-        <p id="ue-result-pass-note" class="status status--warn">{t(dict, 'tools.ultimateEncrypt.passwordWarning')}</p>
+        <p id="share-result-pass-note" class="status status--warn">{t(dict, 'tools.shareForm.passwordWarning')}</p>
       </div>
       {/if}
 
       <div class="actions max-sm:flex-col max-sm:items-stretch">
         <CopyButton
           text={resultBlurb}
-          label={t(dict, 'tools.ultimateEncrypt.result.copyAll')}
+          label={t(dict, 'tools.shareForm.result.copyAll')}
           copiedLabel={t(dict, 'common.copied')}
           errorLabel={t(dict, 'common.uploadChallenge.retry')}
           variant="primary"
         />
         <ShareLinkButton url={shareUrl} label={t(dict, 'common.shareLink')} doneLabel={t(dict, 'common.shared')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
         {#if qrSvg && shareUrl}
-          <button type="button" class="btn-secondary" aria-expanded={qrOpen} aria-controls="ue-qr" on:click={() => (qrOpen = !qrOpen)}>
+          <button type="button" class="btn-secondary" aria-expanded={qrOpen} aria-controls="share-qr" on:click={() => (qrOpen = !qrOpen)}>
             <Icon name="qr-code" />
-            {qrOpen ? t(dict, 'tools.ultimateEncrypt.hideQr') : t(dict, 'tools.ultimateEncrypt.showQr')}
+            {qrOpen ? t(dict, 'tools.shareForm.hideQr') : t(dict, 'tools.shareForm.showQr')}
           </button>
         {/if}
-        <button type="button" class="btn-ghost sm:ml-auto" on:click={reset}>{t(dict, 'tools.ultimateEncrypt.encryptAnother')}</button>
+        <button type="button" class="btn-ghost sm:ml-auto" on:click={reset}>{t(dict, 'tools.shareForm.encryptAnother')}</button>
       </div>
       {#if qrOpen && qrSvg}
-        <div class="ue-qr" id="ue-qr" role="img" aria-label={t(dict, 'tools.ultimateEncrypt.qrAlt')}>{@html qrSvg}</div>
+        <div class="share-qr" id="share-qr" role="img" aria-label={t(dict, 'tools.shareForm.qrAlt')}>{@html qrSvg}</div>
       {/if}
 
       <details class="more">
-        <summary>{t(dict, 'tools.ultimateEncrypt.result.moreTitle')}</summary>
+        <summary>{t(dict, 'tools.shareForm.result.moreTitle')}</summary>
         <div class="more__body">
           <div class="grid gap-2 text-sm leading-snug">
-            <p class="font-semibold text-text">{t(dict, 'tools.ultimateEncrypt.result.tellTitle')}</p>
+            <p class="font-semibold text-text">{t(dict, 'tools.shareForm.result.tellTitle')}</p>
             <ol class="list-decimal space-y-1 pl-5 text-muted">
-              <li>{t(dict, 'tools.ultimateEncrypt.result.tell.1')}</li>
-              <li>{t(dict, 'tools.ultimateEncrypt.result.tell.2')}</li>
-              <li>{t(dict, 'tools.ultimateEncrypt.result.tell.3')}</li>
+              <li>{t(dict, 'tools.shareForm.result.tell.1')}</li>
+              <li>{t(dict, 'tools.shareForm.result.tell.2')}</li>
+              <li>{t(dict, 'tools.shareForm.result.tell.3')}</li>
             </ol>
           </div>
           {#if shortUrl}
             <div class="field">
               <div class="output-head">
-                <label class="label" for="ue-result-full">{t(dict, 'tools.ultimateEncrypt.fullLink')}</label>
+                <label class="label" for="share-result-full">{t(dict, 'tools.shareForm.fullLink')}</label>
                 <CopyButton text={resultUrl} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} errorLabel={t(dict, 'common.uploadChallenge.retry')} />
               </div>
-              <input id="ue-result-full" class="input input--mono" type="text" readonly value={resultUrl} />
+              <input id="share-result-full" class="input input--mono" type="text" readonly value={resultUrl} />
             </div>
           {/if}
           {#if dropUrl}
             <div class="field">
-              <a href={dropUrl} download={dropName} class="btn-secondary justify-self-start" aria-describedby="ue-drop-hint"><Icon name="download" />{t(dict, 'tools.ultimateEncrypt.offlineDropDownload')}</a>
-              <p id="ue-drop-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.offlineDropHint')}</p>
+              <a href={dropUrl} download={dropName} class="btn-secondary justify-self-start" aria-describedby="share-drop-hint"><Icon name="download" />{t(dict, 'tools.shareForm.offlineDropDownload')}</a>
+              <p id="share-drop-hint" class="hint">{t(dict, 'tools.shareForm.offlineDropHint')}</p>
             </div>
           {/if}
           {#if shortenFailed && shortenableUrl && !shortUrl}
             <div class="field">
-              <button type="button" class="btn-secondary justify-self-start" aria-busy={shortening} aria-describedby="ue-shorten-status" on:click={shortenLink}>{t(dict, 'tools.ultimateEncrypt.shortenLink')}</button>
-              <p id="ue-shorten-status" class="hint" role="status">{shortening ? '' : t(dict, 'tools.ultimateEncrypt.shortenFailed')}</p>
+              <button type="button" class="btn-secondary justify-self-start" aria-busy={shortening} aria-describedby="share-shorten-status" on:click={shortenLink}>{t(dict, 'tools.shareForm.shortenLink')}</button>
+              <p id="share-shorten-status" class="hint" role="status">{shortening ? '' : t(dict, 'tools.shareForm.shortenFailed')}</p>
             </div>
           {/if}
         </div>

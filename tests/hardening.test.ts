@@ -4,8 +4,8 @@ import { clientPrefix, routingPath } from '../src/lib/httpLimits';
 import { sameOriginTarget } from '../src/lib/locale';
 import { ReplayWindow } from '../src/lib/roomAccess';
 import { DocPartAssembler, splitDocUpdate } from '../src/lib/whiteboardSync';
-import { ghostFetch, isBareSendUrl, isSendUrl, SEND_AUTH_KEY_HEADER, validSendAuthKey } from '../src/lib/nologSend';
-import { GET as fetchFile } from '../src/pages/api/ghost/fetch';
+import { fetchViaProxy, isBareSendUrl, isSendUrl, SEND_AUTH_KEY_HEADER, validSendAuthKey } from '../src/lib/sendClient';
+import { GET as fetchFile } from '../src/pages/api/send/fetch';
 
 test('rate limit keys group an IPv6 /64 and leave IPv4 alone', () => {
   assert.equal(clientPrefix('203.0.113.7'), '203.0.113.7');
@@ -16,7 +16,7 @@ test('rate limit keys group an IPv6 /64 and leave IPv4 alone', () => {
 });
 
 test('worker guards see the same decoded path Astro routes on', () => {
-  assert.equal(routingPath('/%61pi/ghost/fetch'), '/api/ghost/fetch');
+  assert.equal(routingPath('/%61pi/send/fetch'), '/api/send/fetch');
   assert.equal(routingPath('/%2561pi/shorten'), '/api/shorten');
   assert.equal(routingPath('//api//turn'), '/api/turn');
   assert.equal(routingPath('/chat/abc'), '/chat/abc');
@@ -25,7 +25,7 @@ test('worker guards see the same decoded path Astro routes on', () => {
 
 test('language choice only continues to same-origin paths', () => {
   const origin = 'https://encrypt.click';
-  assert.equal(sameOriginTarget('/cs/tools/aes-words?x=1', origin), 'https://encrypt.click/cs/tools/aes-words?x=1');
+  assert.equal(sameOriginTarget('/cs/tools/chat-cipher?x=1', origin), 'https://encrypt.click/cs/tools/chat-cipher?x=1');
   for (const evil of ['/\t/evil.tld', '/\n/evil.tld', '//evil.tld', '/\\evil.tld', 'https://evil.tld', 'javascript:alert(1)', null]) {
     assert.equal(sameOriginTarget(evil, origin), 'https://encrypt.click/', String(evil));
   }
@@ -61,7 +61,7 @@ test('Send content keys stay in the browser on download', async () => {
     return new Response('x');
   }) as typeof fetch;
   try {
-    await ghostFetch(url);
+    await fetchViaProxy(url);
   } finally { globalThis.fetch = original; }
   assert.equal(seen.length, 1);
   assert.ok(!decodeURIComponent(seen[0].url).includes('#'));
@@ -81,7 +81,7 @@ test('download proxy signs Send requests with the forwarded auth key only', asyn
     return new Response(new Uint8Array([1, 2, 3]));
   }) as typeof fetch;
   try {
-    const url = new URL(`https://encrypt.click/api/ghost/fetch?url=${encodeURIComponent(bare)}`);
+    const url = new URL(`https://encrypt.click/api/send/fetch?url=${encodeURIComponent(bare)}`);
     const response = await fetchFile({ url, request: new Request(url, { headers: { [SEND_AUTH_KEY_HEADER]: authKey } }) } as any);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('X-Send-Encrypted'), 'true');
@@ -102,8 +102,8 @@ test('a forwarded auth key signs Send challenges exactly like the full secret', 
     return new Response(new Uint8Array([1]));
   }) as typeof fetch;
   try {
-    await ghostFetch(url);
-    const proxyUrl = new URL(`https://encrypt.click/api/ghost/fetch?url=${encodeURIComponent(url.slice(0, url.indexOf('#')))}`);
+    await fetchViaProxy(url);
+    const proxyUrl = new URL(`https://encrypt.click/api/send/fetch?url=${encodeURIComponent(url.slice(0, url.indexOf('#')))}`);
     await fetchFile({ url: proxyUrl, request: new Request(proxyUrl, { headers: { [SEND_AUTH_KEY_HEADER]: authKey } }) } as any);
   } finally { globalThis.fetch = original; }
 
@@ -121,7 +121,7 @@ test('the download proxy takes only a bare Send URL with an auth key, never a UR
   const original = globalThis.fetch;
   globalThis.fetch = (async () => { throw new Error('Unexpected outbound request'); }) as typeof fetch;
   const call = (target: string, headers: Record<string, string> = {}) => {
-    const url = new URL(`https://encrypt.click/api/ghost/fetch?url=${encodeURIComponent(target)}`);
+    const url = new URL(`https://encrypt.click/api/send/fetch?url=${encodeURIComponent(target)}`);
     return fetchFile({ url, request: new Request(url, { headers }) } as any);
   };
   try {
@@ -132,7 +132,7 @@ test('the download proxy takes only a bare Send URL with an auth key, never a UR
     assert.equal((await call('https://dl.encrypt.click/x', { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) })).status, 400);
     assert.equal((await call('https://upload.nolog.cz/file', { [SEND_AUTH_KEY_HEADER]: 'A'.repeat(86) })).status, 400);
   } finally { globalThis.fetch = original; }
-  await assert.rejects(ghostFetch('https://dl.encrypt.click/x'));
+  await assert.rejects(fetchViaProxy('https://dl.encrypt.click/x'));
 });
 
 test('link shortening is off unless configured and only wraps receive links on this site', async () => {

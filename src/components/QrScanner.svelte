@@ -8,7 +8,7 @@
 
   type Status = 'idle' | 'starting' | 'scanning' | 'reading' | 'opening';
 
-  const key = (name: string) => `tools.ultimateDecrypt.scan.${name}`;
+  const key = (name: string) => `tools.decryptForm.scan.${name}`;
 
   let status: Status = 'idle';
   let error = '';

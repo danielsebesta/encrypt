@@ -161,7 +161,7 @@ export const ICONS = {
   'bring-to-front': 'stack-front',
   dices: 'dice',
   'fingerprint-pattern': 'fingerprint',
-  'flask-conical': 'flask',
+  'apps': 'apps',
   highlighter: 'highlight',
   laser: 'target',
   'pin-off': 'pinned-off',

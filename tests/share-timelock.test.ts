@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decrypt, encrypt } from '../src/lib/aesGcm';
-import { decryptData, encryptData } from '../src/lib/ghost/crypto';
+import { decryptData, encryptData } from '../src/lib/fileCrypto';
 import { openPassword, sealPassword } from '../src/lib/passwordEnvelope';
 import { formatShareFragment, isCapsuleFragment, parseShareFragment } from '../src/lib/shareLink';
 import { DRAND_CHAIN, TIME_SECRET_BYTES, roundAt, roundTime } from '../src/lib/timelock';

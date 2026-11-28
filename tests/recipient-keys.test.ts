@@ -7,7 +7,7 @@ import {
 import {
   NotForThisKey, RECIPIENT_HEADER_BYTES, RECIPIENT_SLOTS, isRecipientEnvelope, openRecipientEnvelope, recipientOverhead, sealForRecipients,
 } from '../src/lib/recipientEnvelope';
-import { decryptData, decryptForRecipient, encryptForRecipients } from '../src/lib/ghost/crypto';
+import { decryptData, decryptForRecipient, encryptForRecipients } from '../src/lib/fileCrypto';
 import { padme } from '../src/lib/padding';
 import { formatShareFragment, parseShareFragment } from '../src/lib/shareLink';
 
@@ -156,7 +156,7 @@ test('a signature is bound to its own header', async () => {
   await assert.rejects(openRecipientEnvelope(spliced, reader.kemSecret));
 });
 
-test('the ghost payload carries the file name and refuses the password path', async () => {
+test('the upload payload carries the file name and refuses the password path', async () => {
   const sender = await deriveIdentity(seed(), 'S');
   const reader = await deriveIdentity(seed(), 'R');
   const data = text('file body');

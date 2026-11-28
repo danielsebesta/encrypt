@@ -1,5 +1,5 @@
 import { readLimited, MAX_TRANSFER_BYTES, SLOW_TRANSFER_TIMEOUT_MS, fetchNoRedirect } from './httpLimits';
-import { parseAllowedFetchUrl } from './ghost/allowedFetch';
+import { parseAllowedFetchUrl } from './sendAllowlist';
 import { trimTrailing } from './trailing';
 const DEFAULT_NONCE = 'yRCdyQ1EMSA3mo4rqSkuNQ==';
 const KEY_LENGTH = 16;
@@ -360,7 +360,7 @@ async function encryptSendBytes(data: Uint8Array, key: Uint8Array) {
   return streamToUint8Array(encryptedStream);
 }
 
-class NologSendKeychain {
+class SendKeychain {
   rawSecret: Uint8Array;
   private nonceValue = DEFAULT_NONCE;
   private rawAuthKey?: Uint8Array;
@@ -470,7 +470,7 @@ export interface PreparedSendUpload {
 }
 
 export async function prepareSendUpload(data: Uint8Array, filename: string, fileType = 'application/octet-stream'): Promise<PreparedSendUpload> {
-  const keychain = new NologSendKeychain();
+  const keychain = new SendKeychain();
   const metadata = await keychain.encryptMetadata({ name: filename, size: data.byteLength, type: fileType });
   const verifierB64 = await keychain.authKeyB64();
   const encryptedBytes = await encryptSendBytes(data, keychain.rawSecret);
@@ -511,7 +511,7 @@ export async function proxySendUpload(baseUrl: string, encryptedBytes: Uint8Arra
   return String(uploadInfo.url);
 }
 
-async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKeychain, onDebug?: DebugFn) {
+async function fetchSendBlob(baseUrl: string, id: string, keychain: SendKeychain, onDebug?: DebugFn) {
   const normalizedBaseUrl = normalizeSendBaseUrl(baseUrl);
   const doFetch = async () => {
     const res = await fetchNoRedirect(`${normalizedBaseUrl}/api/download/blob/${id}`, {
@@ -542,7 +542,7 @@ async function fetchSendBlob(baseUrl: string, id: string, keychain: NologSendKey
 
 export async function fetchSendEncryptedBlob(urlString: string, onDebug?: DebugFn, authKeyB64?: string): Promise<Uint8Array> {
   const { baseUrl, id, secret } = parseSendDownloadUrl(urlString, !authKeyB64);
-  const keychain = new NologSendKeychain(secret || undefined, authKeyB64);
+  const keychain = new SendKeychain(secret || undefined, authKeyB64);
   onDebug?.(`Send ${baseUrl}: fetching encrypted blob ${id}`);
   return fetchSendBlob(baseUrl, id, keychain, onDebug);
 }
@@ -670,12 +670,12 @@ function sameOriginDownload(urlString: string): boolean {
 }
 
 /** The proxy gets only the HMAC key Send checks on download; the content key in the fragment stays in the browser. */
-export async function ghostFetch(urlString: string): Promise<Response> {
+export async function fetchViaProxy(urlString: string): Promise<Response> {
   if (sameOriginDownload(urlString)) return fetch(urlString, { cache: 'no-store' });
   const { secret } = parseSendDownloadUrl(urlString);
   const bare = urlString.slice(0, urlString.indexOf('#'));
-  const authKey = await new NologSendKeychain(secret).authKeyB64();
-  return fetch(`/api/ghost/fetch?url=${encodeURIComponent(bare)}`, { headers: { [SEND_AUTH_KEY_HEADER]: authKey } });
+  const authKey = await new SendKeychain(secret).authKeyB64();
+  return fetch(`/api/send/fetch?url=${encodeURIComponent(bare)}`, { headers: { [SEND_AUTH_KEY_HEADER]: authKey } });
 }
 
 export function isSendUrl(urlString: string) {

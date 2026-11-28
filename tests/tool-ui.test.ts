@@ -7,12 +7,12 @@ const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '
 const read = (name: string) => readFileSync(join(root, 'src/components/tools', name), 'utf8');
 
 const SHARE_AND_TOOLS = [
-  'UltimateEncrypt.svelte', 'UltimateDecrypt.svelte', 'ChatCipher.svelte', 'CoverStream.svelte', 'PhotoCipher.svelte',
-  'SpectralCipher.svelte', 'Steganography.svelte', 'TimeCapsule.svelte', 'PasskeyExplain.svelte',
+  'ShareForm.svelte', 'DecryptForm.svelte', 'ChatCipher.svelte', 'CoverStream.svelte', 'PhotoCipher.svelte',
+  'ImageInSound.svelte', 'Steganography.svelte', 'TimeCapsule.svelte', 'PasskeyExplain.svelte',
 ];
 
 test('every file dropzone of the image and audio tools accepts dropped files', () => {
-  for (const name of ['PhotoCipher.svelte', 'Steganography.svelte', 'SpectralCipher.svelte']) {
+  for (const name of ['PhotoCipher.svelte', 'Steganography.svelte', 'ImageInSound.svelte']) {
     const text = read(name);
     const zones = text.match(/<div class="dropzone[^"]*"/g) ?? [];
     assert.ok(zones.length > 0, `${name} has no dropzone`);
@@ -21,7 +21,7 @@ test('every file dropzone of the image and audio tools accepts dropped files', (
 });
 
 test('a decrypted file is shown once, not also as a decrypted message', () => {
-  assert.match(read('UltimateDecrypt.svelte'), /\{#if openedText && !openedFileName\}\s*<div class="field">\s*<div class="output-head">\s*<span class="label">\{t\(dict, 'tools\.ultimateDecrypt\.decryptedMessage'\)\}/);
+  assert.match(read('DecryptForm.svelte'), /\{#if openedText && !openedFileName\}\s*<div class="field">\s*<div class="output-head">\s*<span class="label">\{t\(dict, 'tools\.decryptForm\.decryptedMessage'\)\}/);
 });
 
 test('the time capsule countdown is a timer, not a live region that speaks every second', () => {

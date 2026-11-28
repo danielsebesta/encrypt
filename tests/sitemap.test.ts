@@ -14,6 +14,5 @@ test('sitemap lists each public page once, without language prefixes', () => {
   assert.doesNotMatch(xml, /\/(cs|de|es|fr|sk|pl)\//);
   assert.doesNotMatch(xml, /\/privacy/);
   assert.doesNotMatch(xml, /\/preview/);
-  assert.doesNotMatch(xml, /\/aes-words/);
   assert.equal((xml.match(/<url>/g) ?? []).length, SITEMAP_PATHS.length);
 });

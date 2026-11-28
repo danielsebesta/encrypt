@@ -5,7 +5,7 @@ import { ARGON2_V3, argon2ParamsOk, argon2id, equalBytes, hkdfAesKey, hkdfBytes,
 import { padme, padPayload, validPad, PAD_MAX_CHARS, PAD_MIN_BYTES, SIGNATURE_BYTES } from '../src/lib/padding';
 import { PASSWORD_ENVELOPE_OVERHEAD, openPassword, sealPassword, sealedLength } from '../src/lib/passwordEnvelope';
 import { encrypt, decrypt, to14BitChunks } from '../src/lib/aesGcm';
-import { encryptData, decryptData } from '../src/lib/ghost/crypto';
+import { encryptData, decryptData } from '../src/lib/fileCrypto';
 import { SEND_ENVELOPE_LIMIT, FIRST_PARTY_ENVELOPE_LIMIT } from '../src/lib/httpLimits';
 import { accessChannel, roomSecret } from '../src/lib/roomAccess';
 import {

@@ -3,15 +3,15 @@
   import Icon from '../Icon.svelte';
   import { onMount, onDestroy, tick } from 'svelte';
   import { openPassword } from '../../lib/passwordEnvelope';
-  import { decryptData } from '../../lib/ghost/crypto';
-  import { decryptForRecipient, isRecipientEnvelope } from '../../lib/ghost/crypto';
+  import { decryptData } from '../../lib/fileCrypto';
+  import { decryptForRecipient, isRecipientEnvelope } from '../../lib/fileCrypto';
   import { NotForThisKey } from '../../lib/recipientEnvelope';
   import { identityState, unlockIdentity, warmIdentity, type IdentityState } from '../../lib/identityVault';
   import { findContact, type Contact } from '../../lib/contacts';
   import { cardToText, fingerprint, sameKeys, type Card } from '../../lib/identity';
   import { keyErrorText } from '../keys/keysUi';
-  import { extractStego } from '../../lib/ghost/steganography';
-  import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
+  import { extractStego } from '../../lib/pngSteganography';
+  import { decryptSendBlob, fetchViaProxy, isSendUrl } from '../../lib/sendClient';
   import { readResponseProgress } from '../../lib/httpProgress';
   import {
     TransferMeter,
@@ -270,12 +270,12 @@
       const index = match.index ?? 0;
       out += escapeHtml(text.slice(lastIndex, index));
 
-      let cls = 'ud-code-token';
-      if (token.startsWith('//') || token.startsWith('#') || token.startsWith('/*') || token.startsWith('--') || token.startsWith('<!--')) cls = 'ud-code-comment';
-      else if (token.startsWith('"') || token.startsWith("'") || token.startsWith('`')) cls = 'ud-code-string';
-      else if (family === 'markup' && (token.startsWith('<') || token.startsWith('</'))) cls = 'ud-code-tag';
-      else if ((family === 'json' && /^(true|false|null)$/i.test(token)) || /^[A-Za-z_$]/.test(token)) cls = 'ud-code-keyword';
-      else if (/^-?\d/.test(token) || /^#[0-9a-fA-F]{3,8}\b/.test(token)) cls = 'ud-code-number';
+      let cls = 'decrypt-code-token';
+      if (token.startsWith('//') || token.startsWith('#') || token.startsWith('/*') || token.startsWith('--') || token.startsWith('<!--')) cls = 'decrypt-code-comment';
+      else if (token.startsWith('"') || token.startsWith("'") || token.startsWith('`')) cls = 'decrypt-code-string';
+      else if (family === 'markup' && (token.startsWith('<') || token.startsWith('</'))) cls = 'decrypt-code-tag';
+      else if ((family === 'json' && /^(true|false|null)$/i.test(token)) || /^[A-Za-z_$]/.test(token)) cls = 'decrypt-code-keyword';
+      else if (/^-?\d/.test(token) || /^#[0-9a-fA-F]{3,8}\b/.test(token)) cls = 'decrypt-code-number';
 
       out += `<span class="${cls}">${escapeHtml(token)}</span>`;
       lastIndex = index + token.length;
@@ -524,24 +524,24 @@
 
   async function openEncrypted(encrypted: Uint8Array, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
     if (!isRecipientEnvelope(encrypted)) return decryptData(encrypted, password, timeSecret);
-    if (!activeKemSecret) throw new Notice(t(dict, 'tools.ultimateDecrypt.key.needsKey'));
+    if (!activeKemSecret) throw new Notice(t(dict, 'tools.decryptForm.key.needsKey'));
     try {
       const opened = await decryptForRecipient(encrypted, activeKemSecret);
       await showSender(opened.sender);
       return opened;
     } catch (e) {
-      if (e instanceof NotForThisKey) throw new Notice(t(dict, 'tools.ultimateDecrypt.key.notForYou'));
+      if (e instanceof NotForThisKey) throw new Notice(t(dict, 'tools.decryptForm.key.notForYou'));
       throw e;
     }
   }
   $: passwordError = [
-    t(dict, 'tools.ultimateDecrypt.errorPasswordRequired'),
-    t(dict, 'tools.ultimateDecrypt.errorDecryptFailed'),
-    t(dict, 'tools.ultimateDecrypt.passkeyMiss'),
+    t(dict, 'tools.decryptForm.errorPasswordRequired'),
+    t(dict, 'tools.decryptForm.errorDecryptFailed'),
+    t(dict, 'tools.decryptForm.passkeyMiss'),
   ].includes(error) ? error : '';
   $: resultAnnouncement = [
-    openedText && !openedFileName ? t(dict, 'tools.ultimateDecrypt.progressReadyText') : '',
-    openedFileName ? t(dict, 'tools.ultimateDecrypt.progressReadyFile') : '',
+    openedText && !openedFileName ? t(dict, 'tools.decryptForm.progressReadyText') : '',
+    openedFileName ? t(dict, 'tools.decryptForm.progressReadyFile') : '',
     burnedNotice,
   ].filter(Boolean).join(' ');
 
@@ -585,7 +585,7 @@
     if (typeof window === 'undefined') return;
     const hash = window.location.hash || '';
     if (isCapsuleFragment(hash.slice(1))) {
-      window.location.replace(`/experiments/time-capsule${hash}`);
+      window.location.replace(`/tools/time-capsule${hash}`);
       return;
     }
     pushDebug(`Page opened: path=${window.location.pathname}, hashLength=${hash.length}, search=${window.location.search || '(empty)'}`);
@@ -612,7 +612,7 @@
   function openLinkFromHash() {
     const hash = window.location.hash;
     if (isCapsuleFragment(hash.slice(1))) {
-      window.location.replace(`/experiments/time-capsule${hash}`);
+      window.location.replace(`/tools/time-capsule${hash}`);
       return;
     }
     if (hash.length <= 1 || loading) return;
@@ -732,7 +732,7 @@
     linkError = '';
     const raw = linkDraft.trim();
     if (!raw) {
-      linkError = t(dict, 'tools.ultimateDecrypt.empty.linkInvalid');
+      linkError = t(dict, 'tools.decryptForm.empty.linkInvalid');
       return;
     }
     const stripped = raw.replace(/^#/, '');
@@ -751,11 +751,11 @@
       } catch {}
     }
     if (acceptFragment(stripped)) return;
-    linkError = t(dict, 'tools.ultimateDecrypt.empty.linkInvalid');
+    linkError = t(dict, 'tools.decryptForm.empty.linkInvalid');
   }
 
   function focusEntryView(mode: EntryMode) {
-    if (mode === 'link') document.getElementById('ud-link')?.focus();
+    if (mode === 'link') document.getElementById('decrypt-link')?.focus();
     else if (mode === 'pick') pickLinkEntry?.focus();
     else viewBackButton?.focus();
   }
@@ -783,9 +783,9 @@
     try {
       const value = await loadSharePassword(hashPayload);
       if (value) password = value;
-      else error = t(dict, 'tools.ultimateDecrypt.passkeyMiss');
+      else error = t(dict, 'tools.decryptForm.passkeyMiss');
     } catch {
-      error = t(dict, 'tools.ultimateDecrypt.passkeyMiss');
+      error = t(dict, 'tools.decryptForm.passkeyMiss');
     } finally {
       passkeyLoading = false;
     }
@@ -814,7 +814,7 @@
     openedSender = null;
     if (needsKey) {
       if (!keyReady) {
-        error = t(dict, 'tools.ultimateDecrypt.key.noKey');
+        error = t(dict, 'tools.decryptForm.key.noKey');
         return;
       }
       const unlocked = await unlockIdentity(keyReady.kind === 'password' ? keyPassword : undefined);
@@ -824,7 +824,7 @@
       }
       activeKemSecret = unlocked.identity.kemSecret;
     } else if (!password) {
-      error = t(dict, 'tools.ultimateDecrypt.errorPasswordRequired');
+      error = t(dict, 'tools.decryptForm.errorPasswordRequired');
       pushDebug('Validation failed: missing password');
       return;
     }
@@ -845,12 +845,12 @@
         pushDebug('Using URL payload as source');
         await decryptFromHash();
       } else {
-        error = t(dict, 'tools.ultimateDecrypt.errorNoData');
+        error = t(dict, 'tools.decryptForm.errorNoData');
         pushDebug('Validation failed: no payload source available');
       }
     } catch (e: any) {
       console.error('Decrypt error', e);
-      error = e instanceof Notice ? e.message : t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
+      error = e instanceof Notice ? e.message : t(dict, 'tools.decryptForm.errorDecryptFailed');
       pushDebug(`Decrypt failed: ${e?.message || 'unknown error'}`);
     } finally {
       activeKemSecret?.fill(0);
@@ -861,20 +861,20 @@
   }
 
   async function decryptFromStego() {
-    setProgress(t(dict, 'tools.ultimateDecrypt.progressReadingTitle'), t(dict, 'tools.ultimateDecrypt.progressReadingDetail'));
+    setProgress(t(dict, 'tools.decryptForm.progressReadingTitle'), t(dict, 'tools.decryptForm.progressReadingDetail'));
     const buffer = new Uint8Array(await stegoFile!.arrayBuffer());
     pushDebug(`Stego image loaded (${buffer.byteLength} bytes)`);
     const extracted = await extractStego(buffer);
     if (!extracted) {
       pushDebug('Stego extraction returned no hidden data');
-      throw new Error(t(dict, 'tools.ultimateDecrypt.errorNoHiddenData'));
+      throw new Error(t(dict, 'tools.decryptForm.errorNoHiddenData'));
     }
     pushDebug(`Stego extraction succeeded (${extracted.byteLength} bytes)`);
 
     const text = new TextDecoder().decode(extracted);
 
     if (text.startsWith('http')) {
-      setProgress(t(dict, 'tools.ultimateDecrypt.progressFollowingTitle'), t(dict, 'tools.ultimateDecrypt.progressFollowingDetail'));
+      setProgress(t(dict, 'tools.decryptForm.progressFollowingTitle'), t(dict, 'tools.decryptForm.progressFollowingDetail'));
       const url = new URL(text);
       const innerHash = url.hash.slice(1);
       pushDebug(`Stego payload contained URL ${url.origin}${url.pathname}, hashLength=${innerHash.length}`);
@@ -884,16 +884,16 @@
         await decryptFromHash();
       } else {
         pushDebug('Stego URL had no encrypted hash payload');
-        throw new Error(t(dict, 'tools.ultimateDecrypt.errorNoEncryptedPayload'));
+        throw new Error(t(dict, 'tools.decryptForm.errorNoEncryptedPayload'));
       }
     } else {
       pushDebug('Stego payload was not a supported URL');
-      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnexpectedStego'));
+      throw new Error(t(dict, 'tools.decryptForm.errorUnexpectedStego'));
     }
   }
 
   async function decryptFromEncryptedFile() {
-    setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
+    setProgress(t(dict, 'tools.decryptForm.progressDecryptingTitle'), t(dict, 'tools.decryptForm.progressDecryptingDetail'));
     const buffer = new Uint8Array(await encryptedFile!.arrayBuffer());
     pushDebug(`Encrypted file loaded (${buffer.byteLength} bytes, name=${encryptedFile!.name})`);
 
@@ -921,29 +921,29 @@
       pushDebug(`Stego+decrypt failed: ${e?.message || 'unknown'}`);
     }
 
-    throw new Error(t(dict, 'tools.ultimateDecrypt.errorDecryptFailed'));
+    throw new Error(t(dict, 'tools.decryptForm.errorDecryptFailed'));
   }
 
   async function decryptFromHash() {
-    setProgress(t(dict, 'tools.ultimateDecrypt.progressDecryptingTitle'), t(dict, 'tools.ultimateDecrypt.progressDecryptingDetail'));
+    setProgress(t(dict, 'tools.decryptForm.progressDecryptingTitle'), t(dict, 'tools.decryptForm.progressDecryptingDetail'));
     pushDebug(`Decoding hash payload (${hashPayload.length} chars)`);
     if (alreadyBurned(hashPayload)) {
-      throw new Notice(t(dict, 'tools.ultimateDecrypt.viewOnceGone'));
+      throw new Notice(t(dict, 'tools.decryptForm.viewOnceGone'));
     }
     const link: ShareLink | null = parseShareFragment(hashPayload);
-    if (!link) throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
+    if (!link) throw new Error(t(dict, 'tools.decryptForm.errorUnsupportedVersion'));
     const bytes = base64UrlDecode(link.payload);
     if (link.recipients) {
       const listed = JSON.parse(new TextDecoder().decode(await gunzipBytes(bytes))) as any;
-      if (listed?.v !== 3 || listed.mode !== 'recipients') throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
-      await handleGhostPayload(listed);
+      if (listed?.v !== 3 || listed.mode !== 'recipients') throw new Error(t(dict, 'tools.decryptForm.errorUnsupportedVersion'));
+      await openUploadedShare(listed);
       return;
     }
     let timeSecret: Uint8Array | undefined;
     if (link.lock) {
       const unlock = roundTime(link.lock.round);
       if (unlock > Date.now()) throw new Notice(lockedMessage(unlock));
-      setProgress(t(dict, 'tools.ultimateDecrypt.progressBeaconTitle'), t(dict, 'tools.ultimateDecrypt.progressBeaconDetail'));
+      setProgress(t(dict, 'tools.decryptForm.progressBeaconTitle'), t(dict, 'tools.decryptForm.progressBeaconDetail'));
       try {
         timeSecret = await unlockTimeSecret(link.lock);
       } catch (e: any) {
@@ -974,23 +974,23 @@
     pushDebug(`Outer payload parsed: mode=${data.mode || 'unknown'}, version=${data.v ?? 'unknown'}`);
 
     if (data.v !== 1 && data.v !== 2) {
-      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
+      throw new Error(t(dict, 'tools.decryptForm.errorUnsupportedVersion'));
     }
 
     if (data.mode === 'inline') {
       await handleInlinePayload(data);
       if (data.once === true || link.burn) {
         markViewOnceConsumed(hashPayload);
-        burnedNotice = t(dict, 'tools.ultimateDecrypt.viewOnceBurned');
+        burnedNotice = t(dict, 'tools.decryptForm.viewOnceBurned');
       }
-    } else if (data.mode === 'ghost') {
-      await handleGhostPayload(data, timeSecret, link.burn === true);
+    } else if (data.mode === 'upload') {
+      await openUploadedShare(data, timeSecret, link.burn === true);
       if (link.burn) {
         markViewOnceConsumed(hashPayload);
-        burnedNotice = t(dict, 'tools.ultimateDecrypt.burnOpened');
+        burnedNotice = t(dict, 'tools.decryptForm.burnOpened');
       }
     } else {
-      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnknownMode'));
+      throw new Error(t(dict, 'tools.decryptForm.errorUnknownMode'));
     }
   }
 
@@ -1012,13 +1012,13 @@
     }
 
     pushDebug(`Prepared output file ${name} (${bytes.byteLength} bytes, mime=${mime}, preview=${previewType})`);
-    setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyFile'));
+    setProgress(t(dict, 'tools.decryptForm.progressReadyTitle'), t(dict, 'tools.decryptForm.progressReadyFile'));
   }
 
   async function handleInlinePayload(data: any) {
     if (data.kind === 'text') {
       pushDebug(`Inline text payload opened (${(data.text || '').length} chars)`);
-      setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyText'));
+      setProgress(t(dict, 'tools.decryptForm.progressReadyTitle'), t(dict, 'tools.decryptForm.progressReadyText'));
       openedText = data.text || '';
     } else if (data.kind === 'file' && data.data) {
       const binary = atob(data.data);
@@ -1027,16 +1027,16 @@
       pushDebug(`Inline file payload opened (${buf.byteLength} bytes, name=${data.name || 'download'})`);
       presentFile(buf, data.name || 'download');
     } else {
-      throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedInline'));
+      throw new Error(t(dict, 'tools.decryptForm.errorUnsupportedInline'));
     }
   }
 
-  async function handleGhostPayload(data: any, timeSecret?: Uint8Array, burn = false) {
+  async function openUploadedShare(data: any, timeSecret?: Uint8Array, burn = false) {
     const urls: string[] = Array.isArray(data.urls) ? data.urls.filter((url: unknown): url is string => typeof url === 'string') : [];
     const isStego: boolean = data.stego ?? false;
-    pushDebug(`Ghost payload opened: urls=${urls.length}, stego=${isStego}`);
+    pushDebug(`Upload payload opened: urls=${urls.length}, stego=${isStego}`);
 
-    if (urls.length === 0) throw new Error(t(dict, 'tools.ultimateDecrypt.errorNoDownloadUrls'));
+    if (urls.length === 0) throw new Error(t(dict, 'tools.decryptForm.errorNoDownloadUrls'));
 
     let lastErr = '';
 
@@ -1044,15 +1044,15 @@
       try {
         transferMeter.reset();
         transferSnap = null;
-        setProgress(t(dict, 'tools.ultimateDecrypt.progressFetchingTitle'), t(dict, 'tools.ultimateDecrypt.progressFetchingDetail'));
+        setProgress(t(dict, 'tools.decryptForm.progressFetchingTitle'), t(dict, 'tools.decryptForm.progressFetchingDetail'));
         pushDebug(`Trying download source ${url}`);
         let fileBytes: Uint8Array;
 
-        const res = await ghostFetch(url);
+        const res = await fetchViaProxy(url);
         pushDebug(`Proxy fetch response HTTP ${res.status} for ${url}`);
-        if (burn && res.status === 404) throw new Notice(t(dict, 'tools.ultimateDecrypt.burnGone'));
+        if (burn && res.status === 404) throw new Notice(t(dict, 'tools.decryptForm.burnGone'));
         if (!res.ok) {
-          lastErr = t(dict, 'tools.ultimateDecrypt.errorFetchFailed');
+          lastErr = t(dict, 'tools.decryptForm.errorFetchFailed');
           pushDebug(`Source failed before body read: ${lastErr}`);
           continue;
         }
@@ -1066,14 +1066,14 @@
           fileBytes = rawBytes;
         }
 
-        setProgress(t(dict, 'tools.ultimateDecrypt.progressDownloadedTitle'), t(dict, 'tools.ultimateDecrypt.progressDownloadedDetail'));
+        setProgress(t(dict, 'tools.decryptForm.progressDownloadedTitle'), t(dict, 'tools.decryptForm.progressDownloadedDetail'));
 
         let encrypted: Uint8Array;
         if (isStego) {
-          setProgress(t(dict, 'tools.ultimateDecrypt.progressExtractingTitle'), t(dict, 'tools.ultimateDecrypt.progressExtractingDetail'));
+          setProgress(t(dict, 'tools.decryptForm.progressExtractingTitle'), t(dict, 'tools.decryptForm.progressExtractingDetail'));
           const extracted = await extractStego(fileBytes);
           if (!extracted) {
-            lastErr = t(dict, 'tools.ultimateDecrypt.errorNoHiddenData');
+            lastErr = t(dict, 'tools.decryptForm.errorNoHiddenData');
             pushDebug('Downloaded image had no hidden payload');
             continue;
           }
@@ -1093,7 +1093,7 @@
           if (isPrintable) {
             openedText = text;
             pushDebug(`Printable text result detected (${text.length} chars)`);
-            setProgress(t(dict, 'tools.ultimateDecrypt.progressReadyTitle'), t(dict, 'tools.ultimateDecrypt.progressReadyText'));
+            setProgress(t(dict, 'tools.decryptForm.progressReadyTitle'), t(dict, 'tools.decryptForm.progressReadyText'));
             return;
           }
         }
@@ -1102,12 +1102,12 @@
         return;
       } catch (e: any) {
         if (e instanceof Notice) throw e;
-        lastErr = e?.message || t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
+        lastErr = e?.message || t(dict, 'tools.decryptForm.errorDecryptFailed');
         pushDebug(`Source ${url} failed: ${lastErr}`);
       }
     }
 
-    throw new Error(lastErr || t(dict, 'tools.ultimateDecrypt.errorAllSourcesFailed'));
+    throw new Error(lastErr || t(dict, 'tools.decryptForm.errorAllSourcesFailed'));
   }
 
   function downloadFile() {
@@ -1122,22 +1122,22 @@
 </script>
 <div class="stack text-left">
   {#if hasHash}
-    <p class="status status--ok">{t(dict, shareLink?.recipients ? 'tools.ultimateDecrypt.key.payloadFound' : shareLink?.key ? 'tools.ultimateDecrypt.payloadFoundKey' : 'tools.ultimateDecrypt.payloadFound')}</p>
+    <p class="status status--ok">{t(dict, shareLink?.recipients ? 'tools.decryptForm.key.payloadFound' : shareLink?.key ? 'tools.decryptForm.payloadFoundKey' : 'tools.decryptForm.payloadFound')}</p>
     {#if shareLink}
       <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} unlock={unlockTime} />
     {/if}
   {:else if entryMode === 'pick'}
-    <p class="label" id="ud-entry-label">{t(dict, 'tools.ultimateDecrypt.empty.title')}</p>
-    <div class="ud-entry" role="group" aria-labelledby="ud-entry-label">
+    <p class="label" id="decrypt-entry-label">{t(dict, 'tools.decryptForm.empty.title')}</p>
+    <div class="decrypt-entry" role="group" aria-labelledby="decrypt-entry-label">
       <button type="button" class="dropzone" bind:this={pickLinkEntry} on:click={() => chooseEntry('link')}>
         <Icon name="link" size={20} />
-        <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.linkTitle')}</span>
-        <span>{t(dict, 'tools.ultimateDecrypt.empty.linkHint')}</span>
+        <span class="dropzone__title">{t(dict, 'tools.decryptForm.empty.linkTitle')}</span>
+        <span>{t(dict, 'tools.decryptForm.empty.linkHint')}</span>
       </button>
       <button type="button" class="dropzone" on:click={() => chooseEntry('scan')}>
         <Icon name="scan" size={20} />
-        <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.scanTitle')}</span>
-        <span>{t(dict, 'tools.ultimateDecrypt.empty.scanHint')}</span>
+        <span class="dropzone__title">{t(dict, 'tools.decryptForm.empty.scanTitle')}</span>
+        <span>{t(dict, 'tools.decryptForm.empty.scanHint')}</span>
       </button>
       <button
         type="button"
@@ -1149,34 +1149,34 @@
         on:drop={handlePickFileDrop}
       >
         <Icon name="file" size={20} />
-        <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.empty.fileTitle')}</span>
-        <span>{t(dict, 'tools.ultimateDecrypt.empty.fileHint')}</span>
+        <span class="dropzone__title">{t(dict, 'tools.decryptForm.empty.fileTitle')}</span>
+        <span>{t(dict, 'tools.decryptForm.empty.fileHint')}</span>
       </button>
     </div>
   {:else if entryMode === 'link'}
     <button type="button" class="btn-ghost btn-sm justify-self-start" on:click={backToPick}><Icon name="chevron-left" />{t(dict, 'common.back')}</button>
     <form class="stack" on:submit|preventDefault={applyLinkDraft}>
       <div class="field">
-        <label class="label" for="ud-link">{t(dict, 'tools.ultimateDecrypt.empty.linkLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+        <label class="label" for="decrypt-link">{t(dict, 'tools.decryptForm.empty.linkLabel')}<span class="label__required" aria-hidden="true">*</span></label>
         <input
-          id="ud-link"
+          id="decrypt-link"
           class="input input--mono"
           type="text"
           bind:value={linkDraft}
-          placeholder={t(dict, 'tools.ultimateDecrypt.empty.linkPlaceholder')}
+          placeholder={t(dict, 'tools.decryptForm.empty.linkPlaceholder')}
           autocomplete="off"
           spellcheck="false"
           aria-required="true"
           aria-invalid={linkError ? 'true' : undefined}
-          aria-describedby={linkError ? 'ud-link-error' : undefined}
-          aria-errormessage={linkError ? 'ud-link-error' : undefined}
+          aria-describedby={linkError ? 'decrypt-link-error' : undefined}
+          aria-errormessage={linkError ? 'decrypt-link-error' : undefined}
           on:input={() => { linkError = ''; }}
         />
         {#if linkError}
-          <p id="ud-link-error" class="field-error" role="alert">{linkError}</p>
+          <p id="decrypt-link-error" class="field-error" role="alert">{linkError}</p>
         {/if}
       </div>
-      <button type="submit" class="btn btn-block">{t(dict, 'tools.ultimateDecrypt.empty.linkApply')}</button>
+      <button type="submit" class="btn btn-block">{t(dict, 'tools.decryptForm.empty.linkApply')}</button>
     </form>
   {:else if entryMode === 'scan'}
     <button type="button" class="btn-ghost btn-sm justify-self-start" bind:this={viewBackButton} on:click={backToPick}><Icon name="chevron-left" />{t(dict, 'common.back')}</button>
@@ -1189,28 +1189,28 @@
           <Icon name="circle-check-big" size={20} class="text-accent" />
           <span class="dropzone__title max-w-full truncate">{encryptedFile.name}</span>
           <span class="font-mono tabular-nums">{encryptedFile.size < 1024 * 1024 ? `${(encryptedFile.size / 1024).toFixed(1)} KB` : `${(encryptedFile.size / (1024 * 1024)).toFixed(1)} MB`}</span>
-          <button type="button" class="btn-ghost btn-sm" on:click={() => encryptedFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
+          <button type="button" class="btn-ghost btn-sm" on:click={() => encryptedFile = null}>{t(dict, 'tools.decryptForm.upload.remove')}</button>
         </div>
       {:else}
-        <label class="dropzone" for="ud-enc">
+        <label class="dropzone" for="decrypt-enc">
           <Icon name="lock" size={20} />
-          <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.upload.encryptedFile')}</span>
-          <span>{t(dict, 'tools.ultimateDecrypt.upload.encFileHint')}</span>
-          <input id="ud-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
+          <span class="dropzone__title">{t(dict, 'tools.decryptForm.upload.encryptedFile')}</span>
+          <span>{t(dict, 'tools.decryptForm.upload.encFileHint')}</span>
+          <input id="decrypt-enc" type="file" class="sr-only" on:change={handleEncryptedFile} />
         </label>
       {/if}
       {#if stegoFile}
         <div class="dropzone dropzone--active">
           <Icon name="circle-check-big" size={20} class="text-accent" />
           <span class="dropzone__title max-w-full truncate">{stegoFile.name}</span>
-          <button type="button" class="btn-ghost btn-sm" on:click={() => stegoFile = null}>{t(dict, 'tools.ultimateDecrypt.upload.remove')}</button>
+          <button type="button" class="btn-ghost btn-sm" on:click={() => stegoFile = null}>{t(dict, 'tools.decryptForm.upload.remove')}</button>
         </div>
       {:else}
-        <label class="dropzone" for="ud-stego">
+        <label class="dropzone" for="decrypt-stego">
           <Icon name="image" size={20} />
-          <span class="dropzone__title">{t(dict, 'tools.ultimateDecrypt.upload.stegoImage')}</span>
-          <span>{t(dict, 'tools.ultimateDecrypt.upload.stegoHint')}</span>
-          <input id="ud-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
+          <span class="dropzone__title">{t(dict, 'tools.decryptForm.upload.stegoImage')}</span>
+          <span>{t(dict, 'tools.decryptForm.upload.stegoHint')}</span>
+          <input id="decrypt-stego" type="file" accept="image/*" class="sr-only" on:change={handleStegoFile} />
         </label>
       {/if}
     </div>
@@ -1225,23 +1225,23 @@
     <form class="stack" on:submit|preventDefault={handleDecrypt}>
       {#if needsKey}
         {#if !hasHash}
-          <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.key.fileFound')}</p>
+          <p class="status status--ok">{t(dict, 'tools.decryptForm.key.fileFound')}</p>
         {/if}
         {#if keyState && !keyReady}
-          <p class="status status--warn">{t(dict, 'tools.ultimateDecrypt.key.noKey')}</p>
-          <a href="/keys" class="btn-link justify-self-start"><Icon name="user-key" />{t(dict, 'tools.ultimateDecrypt.key.manage')}</a>
+          <p class="status status--warn">{t(dict, 'tools.decryptForm.key.noKey')}</p>
+          <a href="/keys" class="btn-link justify-self-start"><Icon name="user-key" />{t(dict, 'tools.decryptForm.key.manage')}</a>
         {:else if keyReady?.kind === 'password'}
           <div class="field">
-            <label class="label" for="ud-key-pass">{t(dict, 'keys.me.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
-            <input id="ud-key-pass" type="password" class="input" bind:value={keyPassword} autocomplete="off" aria-required="true" />
+            <label class="label" for="decrypt-key-pass">{t(dict, 'keys.me.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+            <input id="decrypt-key-pass" type="password" class="input" bind:value={keyPassword} autocomplete="off" aria-required="true" />
           </div>
         {/if}
-        <button class="btn btn-block" type="submit" aria-busy={loading} disabled={!keyReady}><Icon name="key" />{t(dict, 'tools.ultimateDecrypt.key.unlock')}</button>
+        <button class="btn btn-block" type="submit" aria-busy={loading} disabled={!keyReady}><Icon name="key" />{t(dict, 'tools.decryptForm.key.unlock')}</button>
       {:else}
       <div class="field">
-        <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+        <label class="label" for="decrypt-pass">{t(dict, 'tools.decryptForm.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
         <input
-          id="ud-pass"
+          id="decrypt-pass"
           type="password"
           class="input"
           bind:value={password}
@@ -1249,30 +1249,30 @@
           data-lpignore="true"
           data-1p-ignore
           data-bwignore="true"
-          placeholder={t(dict, 'tools.ultimateDecrypt.passwordPlaceholder')}
+          placeholder={t(dict, 'tools.decryptForm.passwordPlaceholder')}
           aria-required="true"
           aria-invalid={passwordError ? 'true' : undefined}
-          aria-describedby={passwordError ? 'ud-pass-error' : undefined}
-          aria-errormessage={passwordError ? 'ud-pass-error' : undefined}
+          aria-describedby={passwordError ? 'decrypt-pass-error' : undefined}
+          aria-errormessage={passwordError ? 'decrypt-pass-error' : undefined}
           on:input={() => { if (passwordError) error = ''; }}
         />
         {#if passwordError}
-          <p id="ud-pass-error" class="field-error" role="alert">{passwordError}</p>
+          <p id="decrypt-pass-error" class="field-error" role="alert">{passwordError}</p>
         {/if}
         {#if hasHash}
-          <button type="button" class="btn-ghost btn-sm justify-self-start" aria-busy={passkeyLoading} disabled={loading} on:click={fillPasswordFromPasskey}><Icon name="key" />{t(dict, 'tools.ultimateDecrypt.passkeyUnlock')}</button>
+          <button type="button" class="btn-ghost btn-sm justify-self-start" aria-busy={passkeyLoading} disabled={loading} on:click={fillPasswordFromPasskey}><Icon name="key" />{t(dict, 'tools.decryptForm.passkeyUnlock')}</button>
         {/if}
       </div>
 
-      <button class="btn btn-block" type="submit" aria-busy={loading}>{t(dict, 'tools.ultimateDecrypt.decrypt')}</button>
+      <button class="btn btn-block" type="submit" aria-busy={loading}>{t(dict, 'tools.decryptForm.decrypt')}</button>
       {/if}
     </form>
   {/if}
 
   {#if loading}
     <ProgressPulse
-      title={progressTitle || t(dict, 'tools.ultimateDecrypt.progressDefaultTitle')}
-      detail={progressDetail || t(dict, 'tools.ultimateDecrypt.progressDefaultDetail')}
+      title={progressTitle || t(dict, 'tools.decryptForm.progressDefaultTitle')}
+      detail={progressDetail || t(dict, 'tools.decryptForm.progressDefaultDetail')}
       compact={true}
       ratio={transferBar}
       transferLine={transferLine}
@@ -1284,38 +1284,38 @@
 
   {#if senderChecked && (openedText || openedFileName)}
     {#if !openedSender}
-      <p class="status">{t(dict, 'tools.ultimateDecrypt.key.unsigned')}</p>
+      <p class="status">{t(dict, 'tools.decryptForm.key.unsigned')}</p>
     {:else if openedSender.own}
-      <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.key.fromYou')}</p>
+      <p class="status status--ok">{t(dict, 'tools.decryptForm.key.fromYou')}</p>
     {:else if openedSender.contact}
-      <p class="status {openedSender.contact.verified ? 'status--ok' : 'status--warn'}">{t(dict, openedSender.contact.verified ? 'tools.ultimateDecrypt.key.fromContact' : 'tools.ultimateDecrypt.key.fromUnverified').replace('{name}', openedSender.contact.name)}</p>
+      <p class="status {openedSender.contact.verified ? 'status--ok' : 'status--warn'}">{t(dict, openedSender.contact.verified ? 'tools.decryptForm.key.fromContact' : 'tools.decryptForm.key.fromUnverified').replace('{name}', openedSender.contact.name)}</p>
     {:else}
       <div class="status status--warn">
         <div>
-          <p class="status__title">{t(dict, 'tools.ultimateDecrypt.key.fromUnknown').replace('{name}', openedSender.card.name || '–')}</p>
+          <p class="status__title">{t(dict, 'tools.decryptForm.key.fromUnknown').replace('{name}', openedSender.card.name || '–')}</p>
           <p>{t(dict, 'keys.fingerprint')}: <span class="font-mono tabular-nums">{openedSender.print}</span></p>
         </div>
       </div>
-      <a href="/keys#{cardToText(openedSender.card)}" class="btn-link justify-self-start" target="_blank" rel="noopener"><Icon name="user-key" />{t(dict, 'tools.ultimateDecrypt.key.addSender')}</a>
+      <a href="/keys#{cardToText(openedSender.card)}" class="btn-link justify-self-start" target="_blank" rel="noopener"><Icon name="user-key" />{t(dict, 'tools.decryptForm.key.addSender')}</a>
     {/if}
   {/if}
 
   {#if openedText && !openedFileName}
     <div class="field">
       <div class="output-head">
-        <span class="label">{t(dict, 'tools.ultimateDecrypt.decryptedMessage')}</span>
+        <span class="label">{t(dict, 'tools.decryptForm.decryptedMessage')}</span>
         <CopyButton text={openedText} label={t(dict, 'common.copy')} copiedLabel={t(dict, 'common.copied')} />
       </div>
-      <div class="output output--ok ud-reveal">{openedText}{#if revealOn}<span class="ud-reveal-veil" aria-hidden="true">{revealText}</span>{/if}</div>
+      <div class="output output--ok decrypt-reveal">{openedText}{#if revealOn}<span class="decrypt-reveal-veil" aria-hidden="true">{revealText}</span>{/if}</div>
       {#if previewTruncated}
-        <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+        <p class="hint">{t(dict, 'tools.decryptForm.previewTruncated')}</p>
       {/if}
     </div>
   {/if}
 
   {#if openedFileName}
     <div class="stack">
-      <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.fileDecrypted')} {openedFileName}</p>
+      <p class="status status--ok">{t(dict, 'tools.decryptForm.fileDecrypted')} {openedFileName}</p>
       {#if previewType === 'image'}
         <img src={openedFileUrl} alt={openedFileName} class="max-w-full rounded-lg border border-line-soft" />
       {:else if previewType === 'video' && openedFileUrl}
@@ -1329,12 +1329,12 @@
       {:else if previewType === 'pdf'}
         <iframe sandbox="" src={openedFileUrl} title={openedFileName} class="h-[70vh] w-full rounded-lg border border-line-soft"></iframe>
       {:else if previewType === 'zip' && zipTree.length > 0}
-        <div class="ud-preview">
-          <div class="ud-preview__head">
+        <div class="decrypt-preview">
+          <div class="decrypt-preview__head">
             <Icon name="folder" />
-            <span>{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.ultimateDecrypt.upload.files')}</span>
+            <span>{openedZipEntries.filter(e => !e.isDir).length} {t(dict, 'tools.decryptForm.upload.files')}</span>
           </div>
-          <ul class="ud-preview__body m-0 list-none p-0 font-mono text-sm">
+          <ul class="decrypt-preview__body m-0 list-none p-0 font-mono text-sm">
             {#each zipTree as node}
               <li class="flex items-center gap-1.5 py-1 pr-3" style="padding-left: {12 + node.depth * 16}px">
                 {#if node.isDir}
@@ -1350,12 +1350,12 @@
           </ul>
         </div>
       {:else if previewType === 'env' && openedEnvEntries.length > 0}
-        <div class="ud-preview">
-          <div class="ud-preview__head">
+        <div class="decrypt-preview">
+          <div class="decrypt-preview__head">
             <Icon name="lock" class="text-warn" />
-            <span>{t(dict, 'tools.ultimateDecrypt.upload.envHeader')}</span>
+            <span>{t(dict, 'tools.decryptForm.upload.envHeader')}</span>
           </div>
-          <div class="ud-preview__body font-mono text-sm">
+          <div class="decrypt-preview__body font-mono text-sm">
             {#each openedEnvEntries as entry, i}
               {#if entry.isComment}
                 <div class="px-4 py-1 text-muted">{entry.key}</div>
@@ -1372,9 +1372,9 @@
                     type="button"
                     class="btn-ghost btn-sm btn-icon shrink-0"
                     on:click={() => { openedEnvEntries[i].visible = !openedEnvEntries[i].visible; openedEnvEntries = openedEnvEntries; }}
-                    aria-label={`${t(dict, 'tools.ultimateDecrypt.showSecret')}: ${entry.key}`}
+                    aria-label={`${t(dict, 'tools.decryptForm.showSecret')}: ${entry.key}`}
                     aria-pressed={entry.visible}
-                    title={t(dict, entry.visible ? 'tools.ultimateDecrypt.hideSecret' : 'tools.ultimateDecrypt.showSecret')}
+                    title={t(dict, entry.visible ? 'tools.decryptForm.hideSecret' : 'tools.decryptForm.showSecret')}
                   >
                     <Icon name={entry.visible ? 'eye-off' : 'eye'} />
                   </button>
@@ -1384,8 +1384,8 @@
           </div>
         </div>
       {:else if previewType === 'csv'}
-        <div class="ud-preview">
-          <div class="ud-preview__body">
+        <div class="decrypt-preview">
+          <div class="decrypt-preview__body">
             <table class="min-w-full text-sm">
               {#if openedCsvRows.length}
                 <thead>
@@ -1409,39 +1409,39 @@
           </div>
         </div>
         {#if previewTruncated}
-          <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+          <p class="hint">{t(dict, 'tools.decryptForm.previewTruncated')}</p>
         {/if}
       {:else if previewType === 'code'}
-        <div class="ud-preview">
-          <div class="ud-preview__head justify-between">
-            <span>{t(dict, 'tools.ultimateDecrypt.previewCode')}</span>
+        <div class="decrypt-preview">
+          <div class="decrypt-preview__head justify-between">
+            <span>{t(dict, 'tools.decryptForm.previewCode')}</span>
             <span class="font-mono">{openedCodeLanguage}</span>
           </div>
-          <pre class="ud-preview__body m-0 whitespace-pre-wrap break-words p-4 font-mono text-sm leading-6 text-text"><code class="ud-code" data-language={openedCodeLanguage}>{@html openedCodeHtml}</code></pre>
+          <pre class="decrypt-preview__body m-0 whitespace-pre-wrap break-words p-4 font-mono text-sm leading-6 text-text"><code class="decrypt-code" data-language={openedCodeLanguage}>{@html openedCodeHtml}</code></pre>
         </div>
         {#if previewTruncated}
-          <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+          <p class="hint">{t(dict, 'tools.decryptForm.previewTruncated')}</p>
         {/if}
       {:else if previewType === 'text'}
         <div class="output output--scroll max-h-[70vh]">{openedText}</div>
         {#if previewTruncated}
-          <p class="hint">{t(dict, 'tools.ultimateDecrypt.previewTruncated')}</p>
+          <p class="hint">{t(dict, 'tools.decryptForm.previewTruncated')}</p>
         {/if}
       {/if}
       {#if openedFileUrl}
         <div class="actions max-sm:flex-col max-sm:items-stretch">
-          <button type="button" class="btn max-w-full min-w-0" on:click={downloadFile}><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.ultimateDecrypt.download')} {openedFileName}</span></button>
+          <button type="button" class="btn max-w-full min-w-0" on:click={downloadFile}><Icon name="download" /><span class="min-w-0 truncate">{t(dict, 'tools.decryptForm.download')} {openedFileName}</span></button>
         </div>
       {/if}
     </div>
   {/if}
 </div>
 <style>
-  .ud-reveal {
+  .decrypt-reveal {
     position: relative;
   }
 
-  .ud-reveal-veil {
+  .decrypt-reveal-veil {
     position: absolute;
     inset: 0;
     background: inherit;

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { FileBlobStore } from '../src/adapters/node/blobs';
 import { openChunkedFile, sealChunkedFile } from '../src/lib/chunkedFile';
-import { decryptData, encryptData, prependEclkMagic } from '../src/lib/ghost/crypto';
+import { decryptData, encryptData, prependEclkMagic } from '../src/lib/fileCrypto';
 import { createApp } from '../src/server/app';
 import { runBudgetCommand } from '../src/server/budget';
 import type { SqlLike } from '../src/lib/uploadPass';
