@@ -15,6 +15,7 @@
   export let unlockAt = '';
   export let effectiveRetention: Retention | null = retention;
   export let unlockError = '';
+  export let recipients = false;
 
   $: if (!unlockAt) deadMan = false;
 
@@ -50,6 +51,9 @@
       </Field>
     {/if}
 
+    {#if recipients}
+      <p class="hint">{t(dict, 'tools.ultimateEncrypt.options.recipientsHint')}</p>
+    {:else}
     <div class="grid">
       <label class="check">
         <input type="checkbox" bind:checked={keyInLink} aria-describedby="ue-key-hint" />
@@ -94,5 +98,6 @@
       </label>
       <p id="ue-dead-man-hint" class="hint -mt-1.5">{t(dict, 'tools.ultimateEncrypt.options.deadManHint')}</p>
     </div>
+    {/if}
   </div>
 {/if}

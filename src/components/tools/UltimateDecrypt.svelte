@@ -4,6 +4,12 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { openPassword } from '../../lib/passwordEnvelope';
   import { decryptData } from '../../lib/ghost/crypto';
+  import { decryptForRecipient, isRecipientEnvelope } from '../../lib/ghost/crypto';
+  import { NotForThisKey } from '../../lib/recipientEnvelope';
+  import { identityState, unlockIdentity, warmIdentity, type IdentityState } from '../../lib/identityVault';
+  import { findContact, type Contact } from '../../lib/contacts';
+  import { cardToText, fingerprint, sameKeys, type Card } from '../../lib/identity';
+  import { keyErrorText } from '../keys/keysUi';
   import { extractStego } from '../../lib/ghost/steganography';
   import { decryptSendBlob, ghostFetch, isSendUrl } from '../../lib/nologSend';
   import { readResponseProgress } from '../../lib/httpProgress';
@@ -474,6 +480,60 @@
   let viewBackButton: HTMLButtonElement | undefined;
 
   $: hasPayloadSource = hasHash || !!encryptedFile || !!stegoFile;
+
+  let keyFile = false;
+  let keyState: IdentityState | null = null;
+  let keyPassword = '';
+  let activeKemSecret: Uint8Array | null = null;
+  let senderChecked = false;
+  let openedSender: { card: Card; print: string; contact: Contact | null; own: boolean } | null = null;
+  $: needsKey = hasHash ? shareLink?.recipients === true : keyFile;
+  $: keyReady = keyState?.state === 'ready' ? keyState : null;
+  $: void sniffKeyFile(encryptedFile ?? stegoFile);
+
+  onMount(async () => {
+    await warmIdentity();
+    keyState = await identityState();
+  });
+
+  async function sniffKeyFile(file: File | null) {
+    keyFile = false;
+    if (!file) return;
+    try {
+      const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+      if (isRecipientEnvelope(head)) {
+        if (file === (encryptedFile ?? stegoFile)) keyFile = true;
+        return;
+      }
+      const png = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+      if (!png || file.size > 64 * 1024 * 1024) return;
+      const extracted = await extractStego(new Uint8Array(await file.arrayBuffer()));
+      if (extracted && isRecipientEnvelope(extracted) && file === (encryptedFile ?? stegoFile)) keyFile = true;
+    } catch {}
+  }
+
+  async function showSender(sender: Card | null) {
+    senderChecked = true;
+    if (!sender) {
+      openedSender = null;
+      return;
+    }
+    const own = keyReady ? sameKeys(sender, keyReady.card) : false;
+    openedSender = { card: sender, print: await fingerprint(sender), contact: own ? null : await findContact(sender), own };
+  }
+
+  async function openEncrypted(encrypted: Uint8Array, timeSecret?: Uint8Array): Promise<{ data: Uint8Array; name: string }> {
+    if (!isRecipientEnvelope(encrypted)) return decryptData(encrypted, password, timeSecret);
+    if (!activeKemSecret) throw new Notice(t(dict, 'tools.ultimateDecrypt.key.needsKey'));
+    try {
+      const opened = await decryptForRecipient(encrypted, activeKemSecret);
+      await showSender(opened.sender);
+      return opened;
+    } catch (e) {
+      if (e instanceof NotForThisKey) throw new Notice(t(dict, 'tools.ultimateDecrypt.key.notForYou'));
+      throw e;
+    }
+  }
   $: passwordError = [
     t(dict, 'tools.ultimateDecrypt.errorPasswordRequired'),
     t(dict, 'tools.ultimateDecrypt.errorDecryptFailed'),
@@ -569,6 +629,8 @@
     entryMode = 'pick';
     hashPayload = next;
     hasHash = true;
+    senderChecked = false;
+    openedSender = null;
     pushDebug(`Hash payload replaced (${next.length} chars)`);
   }
 
@@ -748,7 +810,20 @@
     debugLog = [];
 
     pushDebug(`Decrypt requested: hasHash=${hasHash}, hashLength=${hashPayload.length}, stegoFile=${stegoFile ? `${stegoFile.name} (${stegoFile.size} bytes)` : 'none'}`);
-    if (!password) {
+    senderChecked = false;
+    openedSender = null;
+    if (needsKey) {
+      if (!keyReady) {
+        error = t(dict, 'tools.ultimateDecrypt.key.noKey');
+        return;
+      }
+      const unlocked = await unlockIdentity(keyReady.kind === 'password' ? keyPassword : undefined);
+      if ('error' in unlocked) {
+        error = keyErrorText(dict, unlocked.error);
+        return;
+      }
+      activeKemSecret = unlocked.identity.kemSecret;
+    } else if (!password) {
       error = t(dict, 'tools.ultimateDecrypt.errorPasswordRequired');
       pushDebug('Validation failed: missing password');
       return;
@@ -778,6 +853,9 @@
       error = e instanceof Notice ? e.message : t(dict, 'tools.ultimateDecrypt.errorDecryptFailed');
       pushDebug(`Decrypt failed: ${e?.message || 'unknown error'}`);
     } finally {
+      activeKemSecret?.fill(0);
+      activeKemSecret = null;
+      if (keyPassword) keyPassword = '';
       loading = false;
     }
   }
@@ -820,11 +898,12 @@
     pushDebug(`Encrypted file loaded (${buffer.byteLength} bytes, name=${encryptedFile!.name})`);
 
     try {
-      const { data: decryptedData, name } = await decryptData(buffer, password);
+      const { data: decryptedData, name } = await openEncrypted(buffer);
       pushDebug(`Decrypted successfully (${decryptedData.byteLength} bytes, original name=${name})`);
       presentFile(decryptedData, name);
       return;
     } catch (e: any) {
+      if (e instanceof Notice) throw e;
       pushDebug(`decryptData failed: ${e?.message || 'unknown'}, trying stego extraction...`);
     }
 
@@ -832,12 +911,13 @@
       const extracted = await extractStego(buffer);
       if (extracted) {
         pushDebug(`Stego extraction succeeded (${extracted.byteLength} bytes), decrypting inner payload...`);
-        const { data: decryptedData, name } = await decryptData(extracted, password);
+        const { data: decryptedData, name } = await openEncrypted(extracted);
         pushDebug(`Inner payload decrypted (${decryptedData.byteLength} bytes, name=${name})`);
         presentFile(decryptedData, name);
         return;
       }
     } catch (e: any) {
+      if (e instanceof Notice) throw e;
       pushDebug(`Stego+decrypt failed: ${e?.message || 'unknown'}`);
     }
 
@@ -853,6 +933,12 @@
     const link: ShareLink | null = parseShareFragment(hashPayload);
     if (!link) throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
     const bytes = base64UrlDecode(link.payload);
+    if (link.recipients) {
+      const listed = JSON.parse(new TextDecoder().decode(await gunzipBytes(bytes))) as any;
+      if (listed?.v !== 3 || listed.mode !== 'recipients') throw new Error(t(dict, 'tools.ultimateDecrypt.errorUnsupportedVersion'));
+      await handleGhostPayload(listed);
+      return;
+    }
     let timeSecret: Uint8Array | undefined;
     if (link.lock) {
       const unlock = roundTime(link.lock.round);
@@ -998,7 +1084,7 @@
           pushDebug(`Using raw encrypted payload (${encrypted.byteLength} bytes)`);
         }
 
-        const { data: decryptedData, name } = await decryptData(encrypted, password, timeSecret);
+        const { data: decryptedData, name } = await openEncrypted(encrypted, timeSecret);
         pushDebug(`Inner payload decrypted successfully (${decryptedData.byteLength} bytes, name=${name})`);
 
         if (name.endsWith('.txt') && decryptedData.length < 100_000) {
@@ -1036,7 +1122,7 @@
 </script>
 <div class="stack text-left">
   {#if hasHash}
-    <p class="status status--ok">{t(dict, shareLink?.key ? 'tools.ultimateDecrypt.payloadFoundKey' : 'tools.ultimateDecrypt.payloadFound')}</p>
+    <p class="status status--ok">{t(dict, shareLink?.recipients ? 'tools.ultimateDecrypt.key.payloadFound' : shareLink?.key ? 'tools.ultimateDecrypt.payloadFoundKey' : 'tools.ultimateDecrypt.payloadFound')}</p>
     {#if shareLink}
       <ShareLinkFacts {dict} {locale} expires={shareLink.expires} burn={shareLink.burn} unlock={unlockTime} />
     {/if}
@@ -1137,6 +1223,21 @@
 
   {#if hasPayloadSource}
     <form class="stack" on:submit|preventDefault={handleDecrypt}>
+      {#if needsKey}
+        {#if !hasHash}
+          <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.key.fileFound')}</p>
+        {/if}
+        {#if keyState && !keyReady}
+          <p class="status status--warn">{t(dict, 'tools.ultimateDecrypt.key.noKey')}</p>
+          <a href="/keys" class="btn-link justify-self-start"><Icon name="user-key" />{t(dict, 'tools.ultimateDecrypt.key.manage')}</a>
+        {:else if keyReady?.kind === 'password'}
+          <div class="field">
+            <label class="label" for="ud-key-pass">{t(dict, 'keys.me.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
+            <input id="ud-key-pass" type="password" class="input" bind:value={keyPassword} autocomplete="off" aria-required="true" />
+          </div>
+        {/if}
+        <button class="btn btn-block" type="submit" aria-busy={loading} disabled={!keyReady}><Icon name="key" />{t(dict, 'tools.ultimateDecrypt.key.unlock')}</button>
+      {:else}
       <div class="field">
         <label class="label" for="ud-pass">{t(dict, 'tools.ultimateDecrypt.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
         <input
@@ -1164,6 +1265,7 @@
       </div>
 
       <button class="btn btn-block" type="submit" aria-busy={loading}>{t(dict, 'tools.ultimateDecrypt.decrypt')}</button>
+      {/if}
     </form>
   {/if}
 
@@ -1178,6 +1280,24 @@
   {/if}
   {#if error && !passwordError}
     <p class="status status--error" role="alert">{error}</p>
+  {/if}
+
+  {#if senderChecked && (openedText || openedFileName)}
+    {#if !openedSender}
+      <p class="status">{t(dict, 'tools.ultimateDecrypt.key.unsigned')}</p>
+    {:else if openedSender.own}
+      <p class="status status--ok">{t(dict, 'tools.ultimateDecrypt.key.fromYou')}</p>
+    {:else if openedSender.contact}
+      <p class="status {openedSender.contact.verified ? 'status--ok' : 'status--warn'}">{t(dict, openedSender.contact.verified ? 'tools.ultimateDecrypt.key.fromContact' : 'tools.ultimateDecrypt.key.fromUnverified').replace('{name}', openedSender.contact.name)}</p>
+    {:else}
+      <div class="status status--warn">
+        <div>
+          <p class="status__title">{t(dict, 'tools.ultimateDecrypt.key.fromUnknown').replace('{name}', openedSender.card.name || '–')}</p>
+          <p>{t(dict, 'keys.fingerprint')}: <span class="font-mono tabular-nums">{openedSender.print}</span></p>
+        </div>
+      </div>
+      <a href="/keys#{cardToText(openedSender.card)}" class="btn-link justify-self-start" target="_blank" rel="noopener"><Icon name="user-key" />{t(dict, 'tools.ultimateDecrypt.key.addSender')}</a>
+    {/if}
   {/if}
 
   {#if openedText && !openedFileName}

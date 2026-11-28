@@ -11,6 +11,7 @@ export type ShareLink = {
   burn?: boolean;
   lock?: TimeLock;
   key?: string;
+  recipients?: boolean;
 };
 
 const unixOk = (value: number) => Number.isSafeInteger(value) && value > 0 && value < MAX_UNIX;
@@ -43,6 +44,15 @@ export function decodeShareKey(key: string): string | null {
 
 export function formatShareFragment(link: ShareLink): string {
   if (!B64URL_RE.test(link.payload)) throw new Error('Invalid payload');
+  if (link.recipients) {
+    if (link.burn || link.key !== undefined || link.lock) throw new Error('Unsupported recipient link options');
+    const fields = ['v=3', 'm=r'];
+    if (link.expires !== undefined) {
+      if (!unixOk(link.expires)) throw new Error('Invalid expiry');
+      fields.push(`x=${link.expires}`);
+    }
+    return [...fields, `p=${link.payload}`].join('&');
+  }
   const fields: string[] = [];
   if (link.expires !== undefined) {
     if (!unixOk(link.expires)) throw new Error('Invalid expiry');
@@ -61,9 +71,7 @@ export function formatShareFragment(link: ShareLink): string {
   return ['v=2', ...fields, `p=${link.payload}`].join('&');
 }
 
-export function parseShareFragment(fragment: string): ShareLink | null {
-  if (B64URL_RE.test(fragment)) return { payload: fragment };
-  if (!fragment.startsWith('v=2&')) return null;
+function splitFields(fragment: string): Map<string, string> | null {
   const fields = new Map<string, string>();
   for (const part of fragment.split('&')) {
     const at = part.indexOf('=');
@@ -72,6 +80,29 @@ export function parseShareFragment(fragment: string): ShareLink | null {
     if (fields.has(name)) return null;
     fields.set(name, part.slice(at + 1));
   }
+  return fields;
+}
+
+function parseRecipientFragment(fragment: string): ShareLink | null {
+  const fields = splitFields(fragment);
+  if (!fields || fields.get('m') !== 'r') return null;
+  const payload = fields.get('p') ?? '';
+  if (!B64URL_RE.test(payload)) return null;
+  const link: ShareLink = { payload, recipients: true };
+  for (const [name, value] of fields) {
+    if (name === 'v' || name === 'm' || name === 'p') continue;
+    if (name !== 'x' || !/^\d{1,11}$/.test(value) || !unixOk(Number(value))) return null;
+    link.expires = Number(value);
+  }
+  return link;
+}
+
+export function parseShareFragment(fragment: string): ShareLink | null {
+  if (B64URL_RE.test(fragment)) return { payload: fragment };
+  if (fragment.startsWith('v=3&')) return parseRecipientFragment(fragment);
+  if (!fragment.startsWith('v=2&')) return null;
+  const fields = splitFields(fragment);
+  if (!fields) return null;
   const payload = fields.get('p') ?? '';
   if (!B64URL_RE.test(payload)) return null;
   const link: ShareLink = { payload };

@@ -1914,6 +1914,11 @@ html[data-app-platform] ::selection {
 .app-sheet-body > * {
     flex-shrink: 0;
 }
+.app-keys {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
 .app-sheet-body--list {
     gap: 0.5rem;
     padding-bottom: 1.25rem;

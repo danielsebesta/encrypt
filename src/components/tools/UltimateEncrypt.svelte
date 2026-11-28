@@ -4,7 +4,13 @@
   import { generatePassphrase } from "../../lib/passphrase";
   import { onMount, onDestroy } from 'svelte';
   import { sealPassword } from '../../lib/passwordEnvelope';
-  import { encryptData } from '../../lib/ghost/crypto';
+  import { encryptData, encryptForRecipients } from '../../lib/ghost/crypto';
+  import RecipientPicker from '../share/RecipientPicker.svelte';
+  import Tabs from '../ui/Tabs.svelte';
+  import { unlockIdentity, type IdentityKind } from '../../lib/identityVault';
+  import { forgetIdentityKeys, type Card, type Identity } from '../../lib/identity';
+  import type { Contact } from '../../lib/contacts';
+  import { keyErrorText } from '../keys/keysUi';
   import { sendWithUploadPass, uploadFirstParty } from '../../lib/firstPartyUpload';
   import { MAX_SINGLE_UPLOAD_BYTES, FIRST_PARTY_ENVELOPE_LIMIT, SEND_ENVELOPE_LIMIT } from '../../lib/httpLimits';
   import {
@@ -34,6 +40,7 @@
   export let appMode = false;
 
   type Step = 'input' | 'confirm' | 'fallback' | 'processing' | 'result';
+  type Protection = 'password' | 'contacts';
   type DeliveryMode = 'auto' | 'link' | 'ghost';
 
   let step: Step = 'input';
@@ -83,6 +90,25 @@
   let dropUrl = '';
   let dropName = '';
   let resultFragment = '';
+  let protection: Protection = 'password';
+  let recipientIds: string[] = [];
+  let includeSelf = true;
+  let signFile = true;
+  let keyPassword = '';
+  let pickerContacts: Contact[] = [];
+  let pickerOwn: { kind: IdentityKind; card: Card } | null = null;
+  let pendingSigner: Identity | null = null;
+  let pendingRecipients: Uint8Array[] = [];
+  let pendingForRecipients = false;
+  let resultRecipients: string[] = [];
+  $: forContacts = protection === 'contacts';
+  $: if (forContacts) {
+    burn = false;
+    keyInLink = false;
+    unlockAt = '';
+    deadMan = false;
+  }
+  $: recipientCount = recipientIds.length + (pickerOwn && includeSelf ? 1 : 0);
   $: unlockMs = unlockAt && Number.isFinite(new Date(unlockAt).getTime()) ? new Date(unlockAt).getTime() : null;
   $: effectiveRetention = retentionForUnlock(retention, unlockMs);
   // Send instances keep files on their own terms, so only shares with the default settings may fall back to them.
@@ -106,10 +132,12 @@
   $: payloadSize = files.length > 0 ? totalFileSize : new TextEncoder().encode(textInput.trim()).byteLength;
   $: isLarge = payloadSize > INLINE_LIMIT;
   $: isHuge = payloadSize > MAX_FILE;
-  $: deliveryMode = (isHuge ? 'local' : isLarge || burn ? 'ghost' : 'link') as 'local' | 'ghost' | 'link';
+  $: deliveryMode = (isHuge ? 'local' : isLarge || burn || forContacts ? 'ghost' : 'link') as 'local' | 'ghost' | 'link';
   $: shareUrl = shortUrl || resultUrl;
   $: resultPass = resultPassword || password;
-  $: resultBlurb = shareUrl && resultPass
+  $: resultBlurb = shareUrl && resultRecipients.length
+    ? t(dict, 'tools.ultimateEncrypt.result.blurbRecipients').replace('{link}', shareUrl)
+    : shareUrl && resultPass
     ? t(dict, resultKeyInLink ? 'tools.ultimateEncrypt.result.blurbKey' : 'tools.ultimateEncrypt.result.blurb').replace('{link}', shareUrl)
     : '';
   $: if (step === 'result' && shareUrl) {
@@ -364,10 +392,21 @@
     return '';
   }
 
+  function recipientProblem(mode: Protection, count: number): string {
+    return mode === 'contacts' && count === 0 ? t(dict, 'tools.ultimateEncrypt.recipients.required') : '';
+  }
+
   $: passwordError = attempted ? passwordProblem(password, passwordChecks) : '';
+  $: recipientError = attempted ? recipientProblem(protection, recipientCount) : '';
   $: unlockError = attempted ? unlockProblem(unlockAt, unlockMs, deliveryMode, retention) : '';
 
   async function focusEncryptError() {
+    if (forContacts) {
+      await tick();
+      const target = recipientProblem(protection, recipientCount) ? document.querySelector<HTMLInputElement>('.rp-list input') : document.getElementById('rp-key-password');
+      (target ?? document.getElementById('ue-text'))?.focus();
+      return;
+    }
     const unlock = !passwordProblem(password, passwordChecks) && !!unlockProblem(unlockAt, unlockMs, deliveryMode, retention);
     if (unlock) optionsOpen = true;
     await tick();
@@ -411,12 +450,24 @@
 
     pushDebug(`Start encrypt: mode=${deliveryMode}, file=${file ? file.name : 'none'}, payloadSize=${payloadSize} bytes`);
     attempted = true;
-    if (passwordProblem(password, passwordChecks) || unlockProblem(unlockAt, unlockMs, deliveryMode, retention)) {
+    resultRecipients = [];
+    pendingForRecipients = forContacts;
+    if (forContacts) {
+      if (recipientProblem(protection, recipientCount)) {
+        pushDebug('Validation failed: no recipients');
+        await focusEncryptError();
+        return;
+      }
+      if (!(await prepareRecipients())) {
+        await focusEncryptError();
+        return;
+      }
+    } else if (passwordProblem(password, passwordChecks) || unlockProblem(unlockAt, unlockMs, deliveryMode, retention)) {
       pushDebug('Validation failed');
       await focusEncryptError();
       return;
     }
-    const locking = deliveryMode !== 'local' && unlockAt !== '';
+    const locking = !forContacts && deliveryMode !== 'local' && unlockAt !== '';
 
     step = 'processing';
 
@@ -444,6 +495,35 @@
       await holdError();
       step = 'input';
       await focusEncryptError();
+    }
+  }
+
+  // The passkey prompt has to be the first await after the click, so the key is opened before anything else runs.
+  async function prepareRecipients(): Promise<boolean> {
+    forgetIdentityKeys(pendingSigner);
+    pendingSigner = null;
+    const own = pickerOwn;
+    if (own && signFile) {
+      const unlocked = await unlockIdentity(own.kind === 'password' ? keyPassword : undefined);
+      if ('error' in unlocked) {
+        error = keyErrorText(dict, unlocked.error);
+        return false;
+      }
+      unlocked.identity.kemSecret.fill(0);
+      pendingSigner = unlocked.identity;
+    }
+    const chosen = pickerContacts.filter((c) => recipientIds.includes(c.id));
+    pendingRecipients = [...chosen.map((c) => c.card.kemPub), ...(own && includeSelf ? [own.card.kemPub] : [])];
+    resultRecipients = [...chosen.map((c) => c.name), ...(own && includeSelf ? [t(dict, 'tools.ultimateEncrypt.recipients.you')] : [])];
+    return true;
+  }
+
+  async function sealContent(buffer: Uint8Array, filename: string, timeSecret?: Uint8Array): Promise<Uint8Array> {
+    if (!pendingForRecipients) return encryptData(buffer, password, filename, timeSecret);
+    try {
+      return await encryptForRecipients(buffer, pendingRecipients, pendingSigner, filename);
+    } finally {
+      pendingSigner = null;
     }
   }
 
@@ -540,12 +620,12 @@
 
   async function encryptLocal() {
     if (files.length === 0) throw new Error(t(dict, 'tools.ultimateEncrypt.errorNoFileSelected'));
-    const encryptionPassword = password;
+    const encryptionPassword = pendingForRecipients ? '' : password;
     const { buffer, filename } = await resolvePayload();
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingDetail'));
     pushDebug(`Local encrypt: ${filename} (${buffer.byteLength} bytes)`);
 
-    const encrypted = await encryptData(buffer, encryptionPassword, filename);
+    const encrypted = await sealContent(buffer, filename);
     pushDebug(`Encrypted to ${encrypted.byteLength} bytes`);
 
     const blob = new Blob([encrypted], { type: 'application/octet-stream' });
@@ -600,7 +680,7 @@
   }
 
   async function encryptGhostPrepare() {
-    const encryptionPassword = password;
+    const encryptionPassword = pendingForRecipients ? '' : password;
     pendingUploadBytes = null;
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressReadingTitle'), t(dict, 'tools.ultimateEncrypt.progressReadingDetail'));
@@ -610,7 +690,7 @@
     pushDebug(`Read payload ${filename} (${buffer.byteLength} bytes)`);
 
     setProgress(t(dict, 'tools.ultimateEncrypt.progressEncryptingTitle'), t(dict, 'tools.ultimateEncrypt.progressEncryptingUploadDetail'));
-    const encrypted = await encryptData(buffer, encryptionPassword, filename, pendingLock?.secret);
+    const encrypted = await sealContent(buffer, filename, pendingLock?.secret);
     pushDebug(`Encrypted (${encrypted.byteLength} bytes)`);
 
     let usedStego = false;
@@ -702,9 +782,24 @@
     }
     pendingUploadBytes = null;
 
-    const ghostPayload = { v: 2, mode: 'ghost', urls: uploadUrls, stego: usedStego };
-
     setProgress(t(dict, 'tools.ultimateEncrypt.progressLinkTitle'), t(dict, 'tools.ultimateEncrypt.progressFinalLinkDetail'));
+    if (pendingForRecipients) {
+      const listed = await gzipBytes(new TextEncoder().encode(JSON.stringify({ v: 3, mode: 'recipients', urls: uploadUrls, stego: usedStego })));
+      const fragment = formatShareFragment({ payload: base64UrlEncode(listed), expires, recipients: true });
+      const urls = buildReceiveUrls(fragment);
+      resultKeyInLink = false;
+      resultUrl = urls.direct;
+      resultPassword = '';
+      shortenableUrl = urls.shortenable;
+      resultHasTemporaryUpload = true;
+      resultExpires = expires;
+      resultBurn = false;
+      resultUnlock = undefined;
+      setDropFromFragment(fragment);
+      return;
+    }
+
+    const ghostPayload = { v: 2, mode: 'ghost', urls: uploadUrls, stego: usedStego };
     const payloadJson = JSON.stringify(ghostPayload);
     const payloadBytes = new TextEncoder().encode(payloadJson);
     const compressed = await gzipBytes(payloadBytes);
@@ -801,6 +896,11 @@
     pendingLock = null;
     resultUnlock = undefined;
     resultFragment = '';
+    resultRecipients = [];
+    pendingRecipients = [];
+    forgetIdentityKeys(pendingSigner);
+    pendingSigner = null;
+    keyPassword = '';
     if (dropUrl) URL.revokeObjectURL(dropUrl);
     dropUrl = '';
     dropName = '';
@@ -899,6 +999,18 @@
             </div>
           </div>
         {/if}
+        <Tabs
+          items={[{ id: 'password', label: t(dict, 'tools.ultimateEncrypt.protection.password'), icon: 'key' }, { id: 'contacts', label: t(dict, 'tools.ultimateEncrypt.protection.contacts'), icon: 'users' }]}
+          bind:value={protection}
+          label={t(dict, 'tools.ultimateEncrypt.protection.label')}
+          idBase="ue-protection"
+          variant="segmented"
+        >
+        {#if forContacts}
+          <div class="rp-list">
+            <RecipientPicker {dict} bind:selected={recipientIds} bind:includeSelf bind:sign={signFile} bind:keyPassword bind:contacts={pickerContacts} bind:own={pickerOwn} error={recipientError} />
+          </div>
+        {:else}
         <div class="field">
           <label class="label" for="ue-pass">{t(dict, 'tools.ultimateEncrypt.passwordLabel')}<span class="label__required" aria-hidden="true">*</span></label>
           <PassphraseField
@@ -918,11 +1030,13 @@
           <PasswordChecklist id="ue-pass-rules" label={t(dict, 'common.passwordRules')} rules={passwordRules} {dict} invalid={!!passwordError} />
           <p id="ue-pass-hint" class="hint">{t(dict, 'tools.ultimateEncrypt.passwordHint')}</p>
         </div>
+        {/if}
+        </Tabs>
 
         <details class="more" bind:open={optionsOpen}>
           <summary>{t(dict, 'tools.ultimateEncrypt.options.title')}</summary>
           <div class="more__body">
-            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} {burnUnavailable} {unlockError} bind:retention bind:burn bind:keyInLink bind:deadMan bind:unlockAt {effectiveRetention} />
+            <ShareOptions {dict} mode={deliveryMode} short={!isLarge} {burnUnavailable} {unlockError} recipients={forContacts} bind:retention bind:burn bind:keyInLink bind:deadMan bind:unlockAt {effectiveRetention} />
           </div>
         </details>
 
@@ -935,6 +1049,12 @@
             <dt>{t(dict, 'tools.ultimateEncrypt.review.where')}</dt>
             <dd>{reviewWhere}</dd>
           </div>
+          {#if forContacts}
+            <div class="review__row">
+              <dt>{t(dict, 'tools.ultimateEncrypt.review.opens')}</dt>
+              <dd>{[...pickerContacts.filter((c) => recipientIds.includes(c.id)).map((c) => c.name), ...(pickerOwn && includeSelf ? [t(dict, 'tools.ultimateEncrypt.recipients.you')] : [])].join(', ') || '–'}</dd>
+            </div>
+          {/if}
           {#if deliveryMode === 'ghost'}
             <div class="review__row">
               <dt>{t(dict, 'tools.ultimateEncrypt.review.expires')}</dt>
@@ -1043,7 +1163,15 @@
         {/if}
       {/if}
 
-      {#if resultKeyInLink}
+      {#if resultRecipients.length}
+        <dl class="review">
+          <div class="review__row">
+            <dt>{t(dict, 'tools.ultimateEncrypt.review.opens')}</dt>
+            <dd>{resultRecipients.join(', ')}</dd>
+          </div>
+        </dl>
+        <p class="hint">{t(dict, 'tools.ultimateEncrypt.result.recipientsNote')}</p>
+      {:else if resultKeyInLink}
         <p class="status status--warn">{t(dict, 'tools.ultimateEncrypt.result.keyInLinkNote')}</p>
       {:else}
       <div class="field">

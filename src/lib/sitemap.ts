@@ -4,6 +4,7 @@ import { tools } from './tools';
 export const SITEMAP_PATHS = [
   '/',
   '/share',
+  '/keys',
   '/u',
   '/install',
   '/security',

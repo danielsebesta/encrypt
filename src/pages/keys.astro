@@ -1,0 +1,28 @@
+---
+import Layout from '../layouts/Layout.astro';
+import KeysPanel from '../components/keys/KeysPanel.svelte';
+import ToolAbout from '../components/tools/ToolAbout.astro';
+import { getTranslations, t, pickDict, type Locale } from '../lib/i18n';
+
+const locale = (Astro.currentLocale ?? 'en') as Locale;
+const dict = getTranslations(locale);
+const clientDict = pickDict(dict, ['keys.me', 'keys.error', 'keys.contacts', 'keys.card', 'keys.contact', 'keys.fingerprint', 'keys.passkeyAccount', 'keys.qr', 'keys.qrAlt', 'keys.saved', 'keys.storageNote', 'common']);
+
+export const prerender = true;
+---
+
+<Layout
+  title={t(dict, 'keys.meta.title')}
+  description={t(dict, 'keys.meta.description')}
+>
+  <div class="page">
+    <header class="page-head">
+      <h1 class="page-title">{t(dict, 'keys.h1')}</h1>
+      <p class="page-lead">{t(dict, 'keys.lead')}</p>
+    </header>
+    <div class="panel">
+      <KeysPanel client:load dict={clientDict} />
+    </div>
+    <ToolAbout dict={dict} prefix="keys" />
+  </div>
+</Layout>

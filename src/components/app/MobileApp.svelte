@@ -64,6 +64,9 @@
   import { forgetPushRooms } from '../../lib/pushClient';
   import { forgetLocalBoards, suppressLocalBoards, allowLocalBoards } from '../../lib/whiteboardLocalStore';
   import { forgetSharePasswords } from '../../lib/sharePasswordVault';
+  import { forgetIdentity } from '../../lib/identityVault';
+  import { forgetContacts } from '../../lib/contacts';
+  import KeysPanel from '../keys/KeysPanel.svelte';
   import { PANIC_FLAG, wipeRoomStorage } from '../../lib/appWipe';
   import { takeRoomKeyFromHash } from '../../lib/roomLinkKey';
   import { asButton, asFieldError, asMenu, asSlider, asSwitch } from '../../lib/konstaA11y';
@@ -168,6 +171,7 @@
   let prefSheetOpen = $derived(prefSheet !== null);
   let panicDialogOpen = $state(false);
   let vaultExportOpen = $state(false);
+  let keysSheetOpen = $state(false);
   let vaultExportPw = $state('');
   let vaultExportBusy = $state(false);
   let vaultImportOpen = $state(false);
@@ -311,6 +315,7 @@
       clearBoard: clearBoardDialogOpen,
       vaultExport: vaultExportOpen,
       vaultImport: vaultImportOpen,
+      keys: keysSheetOpen,
       remember: rememberOfferOpen,
       actions: actionsRoom !== null,
       rename: renameDialogOpen,
@@ -332,6 +337,7 @@
     if (keep !== 'clearBoard') clearBoardDialogOpen = false;
     if (keep !== 'vaultExport') vaultExportOpen = false;
     if (keep !== 'vaultImport') vaultImportOpen = false;
+    if (keep !== 'keys') keysSheetOpen = false;
     if (keep !== 'remember') rememberOfferOpen = false;
     if (keep !== 'actions') actionsRoom = null;
     if (keep !== 'rename') renameDialogOpen = false;
@@ -349,6 +355,7 @@
       : panicDialogOpen ? 'panic'
       : vaultExportOpen ? 'vaultExport'
       : vaultImportOpen ? 'vaultImport'
+      : keysSheetOpen ? 'keys'
       : rememberOfferOpen ? 'remember'
       : clearBoardDialogOpen ? 'clearBoard'
       : renameDialogOpen ? 'rename'
@@ -851,6 +858,7 @@
     if (panicDialogOpen) { panicDialogOpen = false; consumeOverlayGuard(); return; }
     if (vaultExportOpen) { vaultExportOpen = false; vaultExportPw = ''; consumeOverlayGuard(); return; }
     if (vaultImportOpen) { vaultImportOpen = false; vaultImportPw = ''; vaultImportError = ''; consumeOverlayGuard(); return; }
+    if (keysSheetOpen) { keysSheetOpen = false; consumeOverlayGuard(); return; }
     if (clearBoardDialogOpen) { clearBoardDialogOpen = false; pendingClearBoard = null; consumeOverlayGuard(); return; }
     if (rememberOfferOpen) { dismissRemember(); return; }
     if (actionsRoom) { closeRowActions(); return; }
@@ -1549,7 +1557,8 @@
       // Broadcast first so sibling tabs and in-flight board saves see the flag
       // before IndexedDB deletes finish.
       try { localStorage.setItem(PANIC_FLAG, String(Date.now())); } catch {}
-      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards(), forgetPushRooms(), clearUserContentCaches()]);
+      keysSheetOpen = false;
+      await Promise.all([forgetEverything(), forgetChatIdentity(), forgetSharePasswords(), forgetLocalBoards(), forgetPushRooms(), forgetIdentity(), forgetContacts(), clearUserContentCaches()]);
       wipeLocalSecrets();
       // Drop the flag so later board saves are not permanently suppressed in this tab.
       try { localStorage.removeItem(PANIC_FLAG); } catch {}
@@ -1764,6 +1773,7 @@
       vaultImportOpen = false;
       vaultImportPw = '';
       vaultImportError = '';
+      keysSheetOpen = false;
       actionsRoom = null;
       endRowInteraction();
       renameDialogOpen = false;
@@ -2543,6 +2553,16 @@
             >
               {#snippet media()}{@render settingIcon('key')}{/snippet}
             </ListItem>
+            <ListItem
+              link
+              linkComponent="button"
+              linkProps={{ type: 'button' }}
+              title={t(dict, 'app.settings.keys')}
+              subtitle={t(dict, 'app.settings.keysHint')}
+              onClick={() => { keysSheetOpen = true; }}
+            >
+              {#snippet media()}{@render settingIcon('share')}{/snippet}
+            </ListItem>
           </List>
 
           <List strong inset class="app-group">
@@ -2864,6 +2884,26 @@
           <Button large rounded class="w-full" onClick={handleCreateRoom}>
             {t(dict, 'app.new.open')}
           </Button>
+        {/if}
+      </div>
+    </Sheet>
+
+    <Sheet
+      opened={keysSheetOpen}
+      inert={!keysSheetOpen}
+      onBackdropClick={() => { keysSheetOpen = false; consumeOverlayGuard(); }}
+      class="app-sheet app-sheet--tall pb-[env(safe-area-inset-bottom)]"
+      data-app-overlay="keys"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-keys-title"
+      tabindex="-1"
+    >
+      <div class="app-sheet__handle"></div>
+      <div class="app-sheet-body app-keys">
+        {@render sheetHeader(t(dict, 'app.settings.keys'), () => { keysSheetOpen = false; consumeOverlayGuard(); }, undefined, 'app-keys-title')}
+        {#if keysSheetOpen}
+          <KeysPanel {dict} />
         {/if}
       </div>
     </Sheet>
